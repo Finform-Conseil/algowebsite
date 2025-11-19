@@ -1,0 +1,149 @@
+// ============================================
+// QUANTUM LEDGER - Card Component
+// ============================================
+
+.card {
+  background-color: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  box-shadow: 0 2px 8px var(--shadow);
+  transition: all $transition-medium;
+
+  &:hover {
+    box-shadow: 0 4px 16px var(--shadow);
+    transform: translateY(-2px);
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+  }
+
+  &__subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: $spacing-xs;
+  }
+
+  &__body {
+    padding: $spacing-sm 0;
+  }
+
+  &__footer {
+    margin-top: $spacing-md;
+    padding-top: $spacing-sm;
+    border-top: 1px solid var(--border-color);
+  }
+
+  // Variante de carte pour les statistiques
+  &--stat {
+    text-align: center;
+    padding: $spacing-xl;
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--primary-color);
+      margin: $spacing-sm 0;
+      
+      &--positive {
+        color: var(--positive-color);
+      }
+      
+      &--negative {
+        color: var(--negative-color);
+      }
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-change {
+      font-size: 1rem;
+      margin-top: $spacing-xs;
+      
+      &--positive {
+        color: var(--positive-color);
+      }
+      
+      &--negative {
+        color: var(--negative-color);
+      }
+    }
+  }
+
+  // Variante de carte pour les actualités
+  &--news {
+    cursor: pointer;
+    
+    &:hover {
+      border-color: var(--primary-color);
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: $border-radius-sm;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: $spacing-sm;
+      
+      &--market {
+        background-color: rgba(0, 191, 255, 0.15);
+        color: var(--primary-color);
+      }
+      
+      &--tech {
+        background-color: rgba(138, 43, 226, 0.15);
+        color: #8A2BE2;
+      }
+      
+      &--economy {
+        background-color: rgba(255, 193, 7, 0.15);
+        color: #FFA000;
+      }
+      
+      &--company {
+        background-color: rgba(40, 167, 69, 0.15);
+        color: var(--positive-color);
+      }
+    }
+    
+    .news-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: $spacing-sm;
+      color: var(--text-color);
+    }
+    
+    .news-summary {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    
+    .news-date {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: $spacing-sm;
+    }
+  }
+}

@@ -1,0 +1,75 @@
+// ============================================
+// QUANTUM LEDGER - Variables de Thématisation
+// ============================================
+
+:root {
+  // --- Thème Clair (par défaut) ---
+  --background-color: #F8F9FA;
+  --text-color: #212529;
+  --text-secondary: #6C757D;
+  --primary-color: #00BFFF; // Cyan électrique
+  --accent-gold: #FF9F04; // Doré lumineux
+  --card-background: #FFFFFF;
+  --border-color: #DEE2E6;
+  --hover-background: #E9ECEF;
+  --positive-color: #28A745;
+  --negative-color: #DC3545;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --overlay: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='dark'] {
+  // --- Thème Sombre ---
+  --background-color: #102A43; // Bleu nuit profond
+  --text-color: #E0E0E0;
+  --text-secondary: #ADB5BD;
+  --primary-color: #00BFFF; // Cyan électrique
+  --accent-gold: #FF9F04; // Doré lumineux
+  --card-background: #102A43;
+  --border-color: #345A7D;
+  --hover-background: #234663;
+  --positive-color: #20C997;
+  --negative-color: #F86C6B;
+  --shadow: rgba(0, 0, 0, 0.3);
+  --overlay: rgba(0, 0, 0, 0.7);
+}
+
+// ============================================
+// Transitions & Animations
+// ============================================
+
+$transition-fast: 0.2s ease-in-out;
+$transition-medium: 0.3s ease-in-out;
+$transition-slow: 0.5s ease-in-out;
+
+// ============================================
+// Breakpoints
+// ============================================
+
+$breakpoint-xs: 480px;
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+$breakpoint-xxl: 1400px;
+
+// ============================================
+// Spacing
+// ============================================
+
+$spacing-xs: 0.5rem;
+$spacing-sm: 1rem;
+$spacing-md: 1.5rem;
+$spacing-lg: 2rem;
+$spacing-xl: 3rem;
+$spacing-xxl: 4rem;
+
+// ============================================
+// Border Radius
+// ============================================
+
+$border-radius-sm: 0.375rem;
+$border-radius-md: 0.5rem;
+$border-radius-lg: 0.75rem;
+$border-radius-xl: 1rem;
+$border-radius-full: 9999px; // Complètement arrondi (pills/badges)

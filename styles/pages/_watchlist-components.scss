@@ -1,0 +1,1110 @@
+// Watchlist & Portfolio Components Styles
+
+// Watchlist View
+.watchlist-view {
+  .watchlist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border-color);
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+
+        svg {
+          color: var(--primary-color);
+        }
+      }
+
+      .stock-count {
+        padding: 0.375rem 0.75rem;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--primary-color);
+      }
+    }
+  }
+
+  .watchlist-filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+
+    .filter-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      background: var(--background-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: var(--primary-color);
+        color: var(--text-primary);
+      }
+
+      &.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+      }
+    }
+  }
+
+  .watchlist-table {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+
+      thead {
+        background: var(--background-secondary);
+        border-bottom: 2px solid var(--border-color);
+
+        th {
+          padding: 0.875rem 1rem;
+          text-align: left;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-secondary);
+        }
+
+        .text-right {
+          text-align: right;
+        }
+
+        .text-center {
+          text-align: center;
+        }
+      }
+
+      tbody {
+        .stock-row {
+          border-bottom: 1px solid var(--border-color);
+          transition: background 0.2s ease;
+
+          &:hover {
+            background: var(--background-secondary);
+          }
+
+          td {
+            padding: 1rem;
+
+            &.stock-info {
+              min-width: 250px;
+            }
+
+            .price-cell, .volume-cell, .marketcap-cell {
+              display: flex;
+              flex-direction: column;
+              gap: 0.25rem;
+
+              strong {
+                font-size: 0.9375rem;
+                color: var(--text-primary);
+              }
+
+              span {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+              }
+
+              .volume-indicator {
+                font-weight: 500;
+
+                &.high {
+                  color: #10b981;
+                }
+
+                &.normal {
+                  color: var(--text-tertiary);
+                }
+              }
+
+              .pe-ratio {
+                color: var(--text-tertiary);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .watchlist-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--background-secondary);
+    border-radius: 0.75rem;
+
+    .summary-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: var(--card-background);
+      border-radius: 0.5rem;
+
+      .summary-label {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+      }
+
+      .summary-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+
+        &.positive {
+          color: #10b981;
+        }
+
+        &.negative {
+          color: #ef4444;
+        }
+      }
+    }
+  }
+}
+
+// Alerts Manager
+.alerts-manager {
+  .alerts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border-color);
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+
+        svg {
+          color: var(--primary-color);
+        }
+      }
+
+      .alert-badges {
+        display: flex;
+        gap: 0.5rem;
+
+        .badge {
+          padding: 0.375rem 0.75rem;
+          border-radius: 0.5rem;
+          font-size: 0.8125rem;
+          font-weight: 600;
+
+          &.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+          }
+
+          &.triggered {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+          }
+        }
+      }
+    }
+  }
+
+  .alerts-filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+
+    .filter-btn {
+      padding: 0.625rem 1rem;
+      background: var(--background-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: var(--primary-color);
+        color: var(--text-primary);
+      }
+
+      &.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+      }
+    }
+  }
+
+  .alerts-content {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .alerts-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    .alert-card {
+      display: flex;
+      gap: 1rem;
+      padding: 1.25rem;
+      background: var(--background-secondary);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid;
+      border-radius: 0.75rem;
+      transition: all 0.2s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      &.active {
+        background: var(--card-background);
+      }
+
+      &.triggered {
+        background: rgba(245, 158, 11, 0.05);
+      }
+
+      &.selected {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      .alert-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.75rem;
+        flex-shrink: 0;
+
+        .icon-emoji {
+          font-size: 1.5rem;
+        }
+      }
+
+      .alert-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+
+        .alert-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+
+          .alert-stock {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+
+            strong {
+              font-size: 1rem;
+              color: var(--text-primary);
+            }
+
+            .ticker {
+              font-family: monospace;
+              font-size: 0.875rem;
+              font-weight: 600;
+              color: var(--primary-color);
+            }
+          }
+
+          .alert-status-badge {
+            .status-active, .status-triggered {
+              display: flex;
+              align-items: center;
+              gap: 0.375rem;
+              padding: 0.375rem 0.75rem;
+              border-radius: 0.5rem;
+              font-size: 0.75rem;
+              font-weight: 600;
+            }
+
+            .status-active {
+              background: rgba(16, 185, 129, 0.1);
+              color: #10b981;
+            }
+
+            .status-triggered {
+              background: rgba(245, 158, 11, 0.1);
+              color: #f59e0b;
+            }
+          }
+        }
+
+        .alert-type {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+        }
+
+        .alert-condition {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+
+          code {
+            padding: 0.375rem 0.75rem;
+            background: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            font-family: monospace;
+            font-size: 0.8125rem;
+            color: var(--primary-color);
+          }
+
+          .target-value {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+        }
+
+        .alert-message {
+          font-size: 0.9375rem;
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        .alert-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 0.75rem;
+          border-top: 1px solid var(--border-color);
+
+          .alert-notifications {
+            display: flex;
+            gap: 0.5rem;
+
+            .notif-badge {
+              display: flex;
+              align-items: center;
+              gap: 0.375rem;
+              padding: 0.25rem 0.625rem;
+              background: var(--card-background);
+              border-radius: 0.375rem;
+              font-size: 0.75rem;
+              color: var(--text-secondary);
+            }
+          }
+
+          .alert-dates {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.125rem;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+
+            .triggered-date {
+              color: #f59e0b;
+              font-weight: 500;
+            }
+          }
+        }
+      }
+
+      .alert-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        flex-shrink: 0;
+      }
+    }
+  }
+
+  .alert-types-info {
+    padding: 1.5rem;
+    background: var(--background-secondary);
+    border-radius: 0.75rem;
+
+    h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+    }
+
+    .types-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+
+      .type-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: var(--card-background);
+        border-radius: 0.5rem;
+
+        .type-icon {
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 0.5rem;
+          font-size: 1.25rem;
+        }
+
+        .type-label {
+          font-size: 0.875rem;
+          color: var(--text-primary);
+        }
+      }
+    }
+  }
+}
+
+// Portfolio View
+.portfolio-view {
+  .portfolio-summary {
+    margin-bottom: 2rem;
+
+    .summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+
+      .portfolio-name {
+        h2 {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 0.5rem;
+
+          svg {
+            color: var(--primary-color);
+          }
+        }
+
+        .portfolio-description {
+          font-size: 0.9375rem;
+          color: var(--text-secondary);
+        }
+      }
+    }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+
+      .summary-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.25rem;
+        background: var(--background-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 0.75rem;
+        transition: all 0.2s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-icon {
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .card-content {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+
+          .card-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          .card-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+          }
+
+          .card-sublabel {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+          }
+        }
+
+        &.primary .card-icon {
+          background: rgba(59, 130, 246, 0.1);
+          color: var(--primary-color);
+        }
+
+        &.success .card-icon {
+          background: rgba(16, 185, 129, 0.1);
+          color: #10b981;
+        }
+
+        &.danger .card-icon {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+        }
+
+        &.info .card-icon {
+          background: rgba(99, 102, 241, 0.1);
+          color: #6366f1;
+        }
+
+        &.warning .card-icon {
+          background: rgba(245, 158, 11, 0.1);
+          color: #f59e0b;
+        }
+      }
+    }
+
+    .allocation-bar {
+      .bar-container {
+        display: flex;
+        height: 12px;
+        background: var(--background-secondary);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        margin-bottom: 0.75rem;
+
+        .bar-segment {
+          transition: width 0.3s ease;
+
+          &.invested {
+            background: linear-gradient(90deg, var(--primary-color) 0%, #2563eb 100%);
+          }
+
+          &.cash {
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+          }
+        }
+      }
+
+      .bar-legend {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: center;
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+
+          .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 0.25rem;
+
+            &.invested {
+              background: var(--primary-color);
+            }
+
+            &.cash {
+              background: #10b981;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .portfolio-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--background-secondary);
+    padding: 0.375rem;
+    border-radius: 0.5rem;
+
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: transparent;
+      border: none;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: var(--text-primary);
+        background: var(--card-background);
+      }
+
+      &.active {
+        background: var(--primary-color);
+        color: white;
+      }
+    }
+  }
+
+  .positions-table, .transactions-table {
+    overflow-x: auto;
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+
+      thead {
+        background: var(--background-secondary);
+        border-bottom: 2px solid var(--border-color);
+
+        th {
+          padding: 0.875rem 1rem;
+          text-align: left;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-secondary);
+        }
+
+        .text-right {
+          text-align: right;
+        }
+
+        .text-center {
+          text-align: center;
+        }
+      }
+
+      tbody {
+        .position-row, .transaction-row {
+          border-bottom: 1px solid var(--border-color);
+          transition: background 0.2s ease;
+
+          &:hover {
+            background: var(--background-secondary);
+          }
+
+          td {
+            padding: 1rem;
+
+            &.stock-info {
+              min-width: 250px;
+            }
+
+            .weight-cell {
+              display: flex;
+              flex-direction: column;
+              gap: 0.5rem;
+
+              .weight-bar {
+                width: 100%;
+                height: 6px;
+                background: var(--background-secondary);
+                border-radius: 3px;
+                overflow: hidden;
+
+                .weight-fill {
+                  height: 100%;
+                  background: linear-gradient(90deg, var(--primary-color) 0%, #2563eb 100%);
+                  border-radius: 3px;
+                  transition: width 0.3s ease;
+                }
+              }
+
+              .weight-value {
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: var(--text-secondary);
+              }
+            }
+
+            .tx-type {
+              padding: 0.375rem 0.75rem;
+              border-radius: 0.375rem;
+              font-size: 0.75rem;
+              font-weight: 600;
+
+              &.buy {
+                background: rgba(16, 185, 129, 0.1);
+                color: #10b981;
+              }
+
+              &.sell {
+                background: rgba(239, 68, 68, 0.1);
+                color: #ef4444;
+              }
+            }
+
+            .tx-stock {
+              display: flex;
+              flex-direction: column;
+              gap: 0.25rem;
+
+              strong {
+                font-size: 0.9375rem;
+                color: var(--text-primary);
+              }
+
+              .ticker {
+                font-family: monospace;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: var(--primary-color);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Alerts Calendar (similar to IPO Calendar)
+.alerts-calendar {
+  position: relative;
+  width: 350px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+
+  &.collapsed {
+    width: 40px;
+
+    .calendar-content {
+      display: none;
+    }
+  }
+
+  .calendar-toggle {
+    position: absolute;
+    left: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+
+    &:hover {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: white;
+    }
+
+    svg {
+      transition: transform 0.3s ease;
+    }
+  }
+
+  &.collapsed .calendar-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  .calendar-content {
+    padding: 1.5rem;
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+  }
+
+  .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+
+    .nav-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--card-background);
+      border: 1px solid var(--border-color);
+      border-radius: 0.375rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+      }
+    }
+
+    .calendar-title {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+
+      h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .today-btn {
+        padding: 0.25rem 0.5rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: var(--primary-color);
+          border-color: var(--primary-color);
+          color: white;
+        }
+      }
+    }
+  }
+
+  .calendar-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+
+    .day-name {
+      padding: 0.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+
+    .calendar-day {
+      aspect-ratio: 1;
+      padding: 0.375rem;
+      background: var(--card-background);
+      border: 1px solid var(--border-color);
+      border-radius: 0.375rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &.empty {
+        background: transparent;
+        border-color: transparent;
+        cursor: default;
+      }
+
+      &.today {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: var(--primary-color);
+
+        .day-number {
+          color: var(--primary-color);
+          font-weight: 700;
+        }
+      }
+
+      &.has-alerts:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .day-number {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      .day-alerts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        justify-content: center;
+
+        .alert-dot {
+          position: relative;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover {
+            transform: scale(1.5);
+          }
+
+          &.selected {
+            width: 8px;
+            height: 8px;
+            box-shadow: 0 0 0 2px var(--card-background);
+          }
+
+          &.triggered {
+            opacity: 0.6;
+          }
+
+          .alert-name {
+            display: none;
+          }
+        }
+
+        .more-alerts {
+          font-size: 0.625rem;
+          color: var(--text-tertiary);
+        }
+      }
+    }
+  }
+
+  .calendar-legend {
+    padding: 0.75rem;
+    background: var(--card-background);
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+
+    .legend-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .legend-items {
+      display: flex;
+      gap: 1rem;
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.75rem;
+        color: var(--text-primary);
+
+        .legend-color {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+
+          &.active {
+            background: #10b981;
+          }
+
+          &.triggered {
+            background: #f59e0b;
+            opacity: 0.6;
+          }
+        }
+      }
+    }
+  }
+
+  .calendar-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.5rem;
+      background: var(--card-background);
+      border-radius: 0.375rem;
+
+      strong {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--primary-color);
+      }
+
+      span {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+      }
+    }
+  }
+}

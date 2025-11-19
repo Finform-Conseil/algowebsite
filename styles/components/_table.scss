@@ -1,0 +1,132 @@
+// ============================================
+// QUANTUM LEDGER - Table Component
+// ============================================
+
+.table-container {
+  overflow-x: auto;
+  border-radius: $border-radius-md;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  
+  thead {
+    background-color: var(--hover-background);
+    
+    th {
+      padding: $spacing-md $spacing-sm;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-color);
+      
+      &:first-child {
+        padding-left: $spacing-lg;
+      }
+      
+      &:last-child {
+        padding-right: $spacing-lg;
+      }
+    }
+  }
+  
+  tbody {
+    tr {
+      transition: background-color $transition-fast;
+      border-bottom: 1px solid var(--border-color);
+      
+      &:hover {
+        background-color: var(--hover-background);
+      }
+      
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+    
+    td {
+      padding: $spacing-md $spacing-sm;
+      font-size: 0.95rem;
+      color: var(--text-color);
+      
+      &:first-child {
+        padding-left: $spacing-lg;
+        font-weight: 500;
+      }
+      
+      &:last-child {
+        padding-right: $spacing-lg;
+      }
+      
+      // Valeurs positives/négatives
+      &.positive {
+        color: var(--positive-color);
+        font-weight: 600;
+      }
+      
+      &.negative {
+        color: var(--negative-color);
+        font-weight: 600;
+      }
+    }
+  }
+  
+  // Cellule de ticker/symbole
+  .ticker {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-weight: 600;
+    color: var(--primary-color);
+  }
+  
+  // Badges pour les types d'actifs
+  .badge {
+    display: inline-block;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-sm;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    
+    &--equity {
+      background-color: rgba(0, 191, 255, 0.15);
+      color: var(--primary-color);
+    }
+    
+    &--fixed-income {
+      background-color: rgba(40, 167, 69, 0.15);
+      color: var(--positive-color);
+    }
+    
+    &--opcvm {
+      background-color: rgba(255, 193, 7, 0.15);
+      color: #FFA000;
+    }
+  }
+}
+
+// Table responsive
+@media (max-width: $breakpoint-md) {
+  .table {
+    font-size: 0.875rem;
+    
+    thead th,
+    tbody td {
+      padding: $spacing-sm;
+      
+      &:first-child {
+        padding-left: $spacing-sm;
+      }
+      
+      &:last-child {
+        padding-right: $spacing-sm;
+      }
+    }
+  }
+}

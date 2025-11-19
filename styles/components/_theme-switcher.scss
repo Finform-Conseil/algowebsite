@@ -1,0 +1,37 @@
+// ============================================
+// QUANTUM LEDGER - Theme Switcher
+// ============================================
+
+.theme-switcher {
+  position: fixed;
+  top: $spacing-lg;
+  right: $spacing-lg;
+  z-index: 1000;
+  
+  &__button {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--card-background);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all $transition-medium;
+    box-shadow: 0 2px 8px var(--shadow);
+    
+    &:hover {
+      transform: rotate(180deg);
+      border-color: var(--primary-color);
+      box-shadow: 0 4px 16px var(--shadow);
+    }
+    
+    svg {
+      width: 24px;
+      height: 24px;
+      color: var(--primary-color);
+      transition: transform $transition-medium;
+    }
+  }
+}

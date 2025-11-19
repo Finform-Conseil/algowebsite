@@ -1,0 +1,56 @@
+// ============================================
+// QUANTUM LEDGER - Layout Container
+// ============================================
+
+.container-custom {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 $spacing-lg;
+  
+  @media (max-width: $breakpoint-md) {
+    padding: 0 $spacing-sm;
+  }
+}
+
+.page-header {
+  padding: $spacing-xl 0 $spacing-lg;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: $spacing-xl;
+  
+  &__title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: $spacing-xs;
+    
+    @media (max-width: $breakpoint-md) {
+      font-size: 2rem;
+    }
+  }
+  
+  &__subtitle {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+  }
+}
+
+.section {
+  margin-bottom: $spacing-xxl;
+  
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: $spacing-lg;
+    
+    &::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary-color), transparent);
+      margin-top: $spacing-sm;
+    }
+  }
+}

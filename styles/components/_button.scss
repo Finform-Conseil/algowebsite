@@ -1,0 +1,102 @@
+// ============================================
+// QUANTUM LEDGER - Button Component
+// ============================================
+
+.btn {
+  padding: $spacing-sm $spacing-lg;
+  border-radius: $border-radius-md;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all $transition-fast;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  // Bouton primaire (avec la couleur d'accentuation)
+  &--primary {
+    background-color: var(--primary-color);
+    color: #FFFFFF;
+    
+    &:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
+    }
+    
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+  }
+
+  // Bouton secondaire
+  &--secondary {
+    background-color: transparent;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    
+    &:hover:not(:disabled) {
+      background-color: var(--hover-background);
+      border-color: var(--primary-color);
+    }
+  }
+
+  // Bouton outline
+  &--outline {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    
+    &:hover:not(:disabled) {
+      background-color: var(--primary-color);
+      color: #FFFFFF;
+    }
+  }
+
+  // Bouton danger
+  &--danger {
+    background-color: var(--negative-color);
+    color: #FFFFFF;
+    
+    &:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+  }
+
+  // Bouton succès
+  &--success {
+    background-color: var(--positive-color);
+    color: #FFFFFF;
+    
+    &:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+  }
+
+  // Tailles
+  &--sm {
+    padding: $spacing-xs $spacing-sm;
+    font-size: 0.875rem;
+  }
+
+  &--lg {
+    padding: $spacing-md $spacing-xl;
+    font-size: 1.125rem;
+  }
+
+  // Icône seulement
+  &--icon {
+    padding: $spacing-sm;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+  }
+}

@@ -1,0 +1,144 @@
+// ============================================
+// QUANTUM LEDGER - Main Stylesheet
+// ============================================
+
+// Abstracts
+@import 'abstracts/variables';
+
+// Base
+@import 'base/reset';
+
+// Layout
+@import 'layout/container';
+
+// Grid
+@import 'components/grid';
+
+// Components
+@import 'components/card';
+@import 'components/button';
+@import 'components/table';
+@import 'components/theme-switcher';
+
+// Pages
+@import 'pages/stock-screener';
+@import 'pages/stock-comparison';
+@import 'pages/technical-analysis';
+@import 'pages/technical-analysis-v2';
+@import 'pages/technical-modals';
+@import 'pages/news-articles';
+@import 'pages/bourses';
+@import 'pages/sectors';
+@import 'pages/corporate-events';
+@import 'pages/corporate-events-components';
+@import 'pages/market-movers';
+@import 'pages/market-movers-components';
+@import 'pages/market-movers-comparison';
+@import 'pages/ipo';
+@import 'pages/ipo-components';
+@import 'pages/ipo-upcoming-screener';
+@import 'pages/financial-analysis';
+@import 'pages/financial-components';
+@import 'pages/watchlist-portfolio';
+@import 'pages/watchlist-components';
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn $transition-medium ease-in;
+}
+
+.slide-up {
+  animation: slideUp $transition-medium ease-out;
+}
+
+.slide-down {
+  animation: slideDown $transition-medium ease-out;
+}
+
+// Utility classes
+.text-positive {
+  color: var(--positive-color);
+}
+
+.text-negative {
+  color: var(--negative-color);
+}
+
+.text-primary {
+  color: var(--primary-color);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.mt-1 { margin-top: $spacing-xs; }
+.mt-2 { margin-top: $spacing-sm; }
+.mt-3 { margin-top: $spacing-md; }
+.mt-4 { margin-top: $spacing-lg; }
+.mt-5 { margin-top: $spacing-xl; }
+
+.mb-1 { margin-bottom: $spacing-xs; }
+.mb-2 { margin-bottom: $spacing-sm; }
+.mb-3 { margin-bottom: $spacing-md; }
+.mb-4 { margin-bottom: $spacing-lg; }
+.mb-5 { margin-bottom: $spacing-xl; }
+
+.p-1 { padding: $spacing-xs; }
+.p-2 { padding: $spacing-sm; }
+.p-3 { padding: $spacing-md; }
+.p-4 { padding: $spacing-lg; }
+.p-5 { padding: $spacing-xl; }
