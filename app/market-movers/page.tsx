@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import MarketHeader from '@/components/market-movers/MarketHeader';
 import TopMovers from '@/components/market-movers/TopMovers';
 import MostActive from '@/components/market-movers/MostActive';
@@ -61,7 +62,7 @@ export default function MarketMoversPage() {
     <div className="market-movers-page">
       {/* Breadcrumb */}
       <div className="movers-breadcrumb">
-        <a href="/">Accueil</a>
+        <Link href="/">Accueil</Link>
         <span>/</span>
         <span>Market Movers</span>
       </div>

@@ -300,8 +300,7 @@ $transition-slow: 0.5s ease-in-out;
 
 **Usage :**
 ```typescript
-import { Asset } from '@/core/data/Asset';
-import StatCard from '@/components/StatCard';
+
 ```
 
 ## 🚀 Optimisations Next.js

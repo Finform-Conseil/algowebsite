@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import WatchlistView from '@/components/watchlist-portfolio/WatchlistView';
 import AlertsManager from '@/components/watchlist-portfolio/AlertsManager';
 import PortfolioView from '@/components/watchlist-portfolio/PortfolioView';
@@ -21,7 +22,7 @@ export default function WatchlistPortfolioPage() {
     <div className="watchlist-portfolio-page">
       {/* Breadcrumb */}
       <div className="portfolio-breadcrumb">
-        <a href="/">Accueil</a>
+        <Link href="/">Accueil</Link>
         <span>/</span>
         <span>Watchlist & Portfolio</span>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import EventsHeader from '@/components/corporate-events/EventsHeader';
 import EventsStats from '@/components/corporate-events/EventsStats';
 import EventsTimeline from '@/components/corporate-events/EventsTimeline';
@@ -91,7 +92,7 @@ export default function CorporateEventsPage() {
     <div className="corporate-events-page">
       {/* Breadcrumb */}
       <div className="events-breadcrumb">
-        <a href="/">Accueil</a>
+        <Link href="/">Accueil</Link>
         <span>/</span>
         <span>Opérations & Événements</span>
       </div>

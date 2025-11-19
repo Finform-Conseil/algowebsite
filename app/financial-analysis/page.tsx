@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import CompanyOverview from '@/components/financial-analysis/CompanyOverview';
 import FinancialStatements from '@/components/financial-analysis/FinancialStatements';
 import FinancialRatios from '@/components/financial-analysis/FinancialRatios';
@@ -17,7 +18,7 @@ export default function FinancialAnalysisPage() {
     <div className="financial-analysis-page">
       {/* Breadcrumb */}
       <div className="financial-breadcrumb">
-        <a href="/">Accueil</a>
+        <Link href="/">Accueil</Link>
         <span>/</span>
         <span>Analyse Financière</span>
         <span>/</span>

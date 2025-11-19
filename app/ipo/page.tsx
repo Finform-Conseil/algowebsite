@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import IPOHeader from '@/components/ipo/IPOHeader';
 import RecentIPOs from '@/components/ipo/RecentIPOs';
 import IPOStatistics from '@/components/ipo/IPOStatistics';
@@ -32,7 +33,7 @@ export default function IPOPage() {
     <div className="ipo-page">
       {/* Breadcrumb */}
       <div className="ipo-breadcrumb">
-        <a href="/">Accueil</a>
+        <Link href="/">Accueil</Link>
         <span>/</span>
         <span>IPO - Introductions en Bourse</span>
       </div>
