@@ -89,7 +89,7 @@ export default function StockDirectory({
     });
 
     return stocks;
-  }, [SAMPLE_STOCKS, selectedExchange, searchQuery, selectedSector, sortBy, sortDirection]);
+  }, [selectedExchange, searchQuery, selectedSector, sortBy, sortDirection]);
 
   const paginatedStocks = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;

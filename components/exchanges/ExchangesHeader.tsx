@@ -46,7 +46,7 @@ export default function ExchangesHeader({
       setCurrentSubtitle((prev) => (prev + 1) % subtitles.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [subtitles.length]);
 
   const getSelectedExchangesData = () => {
     return AFRICAN_EXCHANGES.filter(exchange => selectedExchanges.includes(exchange.id));

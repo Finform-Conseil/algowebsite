@@ -1,0 +1,889 @@
+@import '../abstracts/variables';
+
+.opcvm-simulator-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--background-color);
+  overflow: hidden;
+
+  // Breadcrumb
+  .simulator-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.5rem;
+    background: var(--card-background);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+
+    a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color $transition-fast;
+
+      &:hover {
+        color: var(--primary-color);
+      }
+    }
+
+    span:not(:has(a)) {
+      color: var(--text-secondary);
+
+      &:last-child {
+        color: var(--text-color);
+        font-weight: 500;
+      }
+    }
+  }
+
+  // Header with Filters and Funds
+  .simulator-header {
+    background: var(--card-background);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+
+    .header-content {
+      padding: 1rem 1.5rem;
+
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+        margin-bottom: 1rem;
+
+        .header-title {
+          flex: 1;
+
+          h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 0.5rem 0;
+          }
+
+          p {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            margin: 0;
+          }
+        }
+
+        .header-filters {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+
+          .filter-select {
+            padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+            background: var(--hover-background);
+            border: 1px solid var(--border-color);
+            border-radius: $border-radius-md;
+            font-size: 0.875rem;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all $transition-fast;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            min-width: 140px;
+
+            &:hover {
+              border-color: var(--primary-color);
+            }
+
+            &:focus {
+              outline: none;
+              border-color: var(--primary-color);
+            }
+          }
+
+          .search-box {
+            position: relative;
+
+            svg {
+              position: absolute;
+              left: 0.875rem;
+              top: 50%;
+              transform: translateY(-50%);
+              color: var(--text-secondary);
+              pointer-events: none;
+            }
+
+            input {
+              padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+              background: var(--hover-background);
+              border: 1px solid var(--border-color);
+              border-radius: $border-radius-md;
+              font-size: 0.875rem;
+              color: var(--text-color);
+              transition: all $transition-fast;
+              width: 200px;
+
+              &::placeholder {
+                color: var(--text-secondary);
+              }
+
+              &:hover {
+                border-color: var(--primary-color);
+              }
+
+              &:focus {
+                outline: none;
+                border-color: var(--primary-color);
+                background: var(--card-background);
+              }
+            }
+          }
+        }
+      }
+
+      // Compact Funds Carousel
+      .funds-carousel {
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding: 0.5rem 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-color) transparent;
+
+        &::-webkit-scrollbar {
+          height: 6px;
+        }
+
+        &::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          background: var(--border-color);
+          border-radius: 3px;
+
+          &:hover {
+            background: var(--text-secondary);
+          }
+        }
+
+        .no-funds {
+          padding: 1rem 1.5rem;
+          color: var(--text-secondary);
+          font-size: 0.875rem;
+        }
+
+        .fund-chip {
+          flex-shrink: 0;
+          min-width: 280px;
+          padding: 0.875rem 1rem;
+          background: var(--hover-background);
+          border: 2px solid transparent;
+          border-radius: $border-radius-md;
+          cursor: pointer;
+          transition: all $transition-fast;
+
+          &:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
+
+          &.selected {
+            background: rgba(0, 191, 255, 0.1);
+            border-color: var(--primary-color);
+          }
+
+          .chip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+
+            .chip-name {
+              flex: 1;
+              font-size: 0.875rem;
+              font-weight: 600;
+              color: var(--text-color);
+              line-height: 1.3;
+              margin-right: 0.5rem;
+            }
+
+            .chip-nav {
+              font-size: 0.875rem;
+              font-weight: 700;
+              color: var(--primary-color);
+              white-space: nowrap;
+            }
+          }
+
+          .chip-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+
+            .chip-company {
+              color: var(--text-secondary);
+            }
+
+            .chip-perf {
+              font-weight: 700;
+
+              &.positive {
+                color: var(--positive-color);
+              }
+
+              &.negative {
+                color: var(--negative-color);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Main Content - Split View
+  .simulator-main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    gap: 0;
+
+    // Left Panel - Chart and Fund Info
+    .chart-panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--card-background);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+
+      .no-selection {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        padding: 3rem;
+
+        svg {
+          color: var(--text-secondary);
+          margin-bottom: 1.5rem;
+          opacity: 0.5;
+        }
+
+        h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--text-color);
+          margin: 0 0 0.5rem 0;
+        }
+
+        p {
+          font-size: 1rem;
+          color: var(--text-secondary);
+          margin: 0;
+        }
+      }
+
+      .chart-container {
+        flex: 1;
+        min-height: 400px;
+        background: var(--card-background);
+        border: none;
+      }
+
+      .fund-info-card {
+        flex-shrink: 0;
+        padding: 1rem;
+        background: var(--card-background);
+
+        .info-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--border-color);
+
+          h3 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 0.25rem 0;
+          }
+
+          p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin: 0;
+          }
+
+          .nav-display {
+            text-align: right;
+
+            .nav-label {
+              font-size: 0.75rem;
+              color: var(--text-secondary);
+              margin-bottom: 0.25rem;
+            }
+
+            .nav-value {
+              font-size: 1.25rem;
+              font-weight: 700;
+              color: var(--primary-color);
+            }
+          }
+        }
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+
+          .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+
+            .info-label {
+              font-size: 0.75rem;
+              font-weight: 500;
+              text-transform: uppercase;
+              color: var(--text-secondary);
+            }
+
+            .info-value {
+              font-size: 0.9375rem;
+              font-weight: 600;
+              color: var(--text-color);
+            }
+          }
+        }
+      }
+    }
+
+    // Right Panel - Simulator
+    .simulator-panel {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 1.5rem;
+      gap: 1.5rem;
+      background: var(--background-color);
+
+      .no-selection {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        padding: 3rem;
+
+        svg {
+          color: var(--text-secondary);
+          margin-bottom: 1.5rem;
+          opacity: 0.5;
+        }
+
+        h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--text-color);
+          margin: 0 0 0.5rem 0;
+        }
+
+        p {
+          font-size: 1rem;
+          color: var(--text-secondary);
+          margin: 0;
+        }
+      }
+
+      // Operation Tabs
+      .operation-tabs {
+        display: flex;
+        gap: 0.5rem;
+        background: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: $border-radius-lg;
+        padding: 0.5rem;
+
+        .tab-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: $border-radius-md;
+          font-size: 0.9375rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all $transition-fast;
+
+          svg {
+            flex-shrink: 0;
+          }
+
+          &:hover {
+            background: var(--hover-background);
+            color: var(--text-color);
+          }
+
+          &.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+
+            svg {
+              color: white;
+            }
+          }
+        }
+      }
+
+      // Operation Form
+      .operation-form {
+        background: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: $border-radius-lg;
+        padding: 1.5rem;
+
+        h3 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: var(--text-color);
+          margin: 0 0 1.5rem 0;
+        }
+
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+
+          .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+
+            &.full-width {
+              grid-column: 1 / -1;
+            }
+
+            label {
+              font-size: 0.875rem;
+              font-weight: 500;
+              color: var(--text-color);
+
+              &.checkbox-label,
+              &.radio-label {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                cursor: pointer;
+
+                input[type="checkbox"],
+                input[type="radio"] {
+                  cursor: pointer;
+                }
+
+                span {
+                  font-weight: 400;
+                }
+              }
+            }
+
+            input[type="text"],
+            input[type="number"],
+            input[type="date"] {
+              padding: 0.75rem 1rem;
+              background: var(--hover-background);
+              border: 1px solid var(--border-color);
+              border-radius: $border-radius-md;
+              font-size: 0.9375rem;
+              color: var(--text-color);
+              transition: all $transition-fast;
+
+              &::placeholder {
+                color: var(--text-secondary);
+              }
+
+              &:hover {
+                border-color: var(--primary-color);
+              }
+
+              &:focus {
+                outline: none;
+                border-color: var(--primary-color);
+                background: var(--card-background);
+              }
+
+              &.disabled-input {
+                opacity: 0.6;
+                cursor: not-allowed;
+              }
+            }
+
+            .input-with-currency {
+              position: relative;
+
+              input {
+                padding-right: 4rem;
+              }
+
+              .currency {
+                position: absolute;
+                right: 1rem;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 0.875rem;
+                font-weight: 600;
+                color: var(--text-secondary);
+                pointer-events: none;
+              }
+            }
+
+            .error-message {
+              font-size: 0.75rem;
+              color: var(--negative-color);
+            }
+
+            .radio-group {
+              display: flex;
+              gap: 1.5rem;
+            }
+          }
+        }
+
+        // Results Section
+        .results-section {
+          margin-top: 2rem;
+          padding-top: 2rem;
+          border-top: 2px solid var(--border-color);
+
+          h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 0 0 1rem 0;
+          }
+
+          h5 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 1.5rem 0 0.75rem 0;
+          }
+
+          .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+
+            .result-card {
+              padding: 1rem;
+              background: var(--hover-background);
+              border: 1px solid var(--border-color);
+              border-radius: $border-radius-md;
+
+              &.primary {
+                background: linear-gradient(135deg, var(--primary-color) 0%, rgba(0, 191, 255, 0.8) 100%);
+                border-color: var(--primary-color);
+
+                .result-label,
+                .result-value {
+                  color: white;
+                }
+              }
+
+              .result-label {
+                font-size: 0.75rem;
+                font-weight: 500;
+                text-transform: uppercase;
+                color: var(--text-secondary);
+                margin-bottom: 0.5rem;
+              }
+
+              .result-value {
+                font-size: 1.125rem;
+                font-weight: 700;
+                color: var(--text-color);
+
+                &.positive {
+                  color: var(--positive-color);
+                }
+
+                &.negative {
+                  color: var(--negative-color);
+                }
+              }
+            }
+          }
+
+          .projections {
+            background: rgba(0, 191, 255, 0.05);
+            border: 1px solid rgba(0, 191, 255, 0.2);
+            border-radius: $border-radius-md;
+            padding: 1rem;
+
+            .projection-list {
+              display: flex;
+              flex-direction: column;
+              gap: 0.75rem;
+
+              .projection-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.75rem;
+                background: var(--card-background);
+                border-radius: $border-radius-sm;
+
+                .projection-period {
+                  font-size: 0.875rem;
+                  font-weight: 500;
+                  color: var(--text-color);
+                }
+
+                .projection-value {
+                  font-size: 1rem;
+                  font-weight: 700;
+                  color: var(--text-color);
+                }
+
+                .projection-return {
+                  font-size: 0.875rem;
+                  font-weight: 700;
+
+                  &.positive {
+                    color: var(--positive-color);
+                  }
+                }
+              }
+            }
+          }
+
+          .performance-summary {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: $border-radius-md;
+            padding: 1rem;
+
+            .performance-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+              gap: 1rem;
+
+              .performance-item {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 0.75rem;
+                background: var(--card-background);
+                border-radius: $border-radius-sm;
+
+                .performance-label {
+                  font-size: 0.75rem;
+                  font-weight: 500;
+                  text-transform: uppercase;
+                  color: var(--text-secondary);
+                }
+
+                .performance-value {
+                  font-size: 1.125rem;
+                  font-weight: 700;
+                  color: var(--text-color);
+
+                  &.positive {
+                    color: var(--positive-color);
+                  }
+
+                  &.negative {
+                    color: var(--negative-color);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Disclaimer
+      .simulator-disclaimer {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        background: rgba(245, 158, 11, 0.05);
+        border: 1px solid #f59e0b;
+        border-radius: $border-radius-lg;
+
+        svg {
+          flex-shrink: 0;
+          color: #f59e0b;
+          margin-top: 0.125rem;
+        }
+
+        p {
+          margin: 0;
+          font-size: 0.875rem;
+          line-height: 1.6;
+          color: var(--text-color);
+
+          strong {
+            color: #f59e0b;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsive
+@media (max-width: $breakpoint-lg) {
+  .opcvm-simulator-page {
+    .simulator-header {
+      .header-content {
+        .header-top {
+          flex-direction: column;
+          gap: 1rem;
+
+          .header-filters {
+            flex-wrap: wrap;
+          }
+        }
+      }
+    }
+
+    .simulator-main {
+      grid-template-columns: 1fr;
+
+      .chart-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        max-height: 50vh;
+      }
+    }
+  }
+}
+
+@media (max-width: $breakpoint-md) {
+  .opcvm-simulator-page {
+    .simulator-header {
+      .header-content {
+        padding: 1rem;
+
+        .header-top {
+          .header-title {
+            h1 {
+              font-size: 1.5rem;
+            }
+          }
+
+          .header-filters {
+            .filter-select {
+              min-width: 120px;
+            }
+
+            .search-box input {
+              width: 150px;
+            }
+          }
+        }
+
+        .funds-carousel {
+          .fund-chip {
+            min-width: 240px;
+          }
+        }
+      }
+    }
+
+    .simulator-main {
+      .chart-panel {
+        .chart-container {
+          min-height: 300px;
+        }
+
+        .fund-info-card {
+          padding: 1rem;
+
+          .info-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      }
+
+      .simulator-panel {
+        padding: 1rem;
+
+        .operation-form {
+          padding: 1rem;
+
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .results-section {
+            .results-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .performance-summary {
+              .performance-grid {
+                grid-template-columns: 1fr;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: $breakpoint-sm) {
+  .opcvm-simulator-page {
+    .simulator-header {
+      .header-content {
+        .header-top {
+          .header-filters {
+            width: 100%;
+
+            .filter-select,
+            .search-box input {
+              width: 100%;
+              min-width: unset;
+            }
+          }
+        }
+
+        .funds-carousel {
+          .fund-chip {
+            min-width: 220px;
+          }
+        }
+      }
+    }
+
+    .simulator-main {
+      .simulator-panel {
+        .operation-tabs {
+          .tab-btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+          }
+        }
+      }
+    }
+  }
+}
