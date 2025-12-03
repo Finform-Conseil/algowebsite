@@ -4,17 +4,6 @@ import React from 'react';
 const BrvmRegion = ({ color, ...props }: { color: string }) => {
   return (
     <svg
-      // xmlns="http://www.w3.org/2000/svg"
-      // enableBackground="new 0 0 1000 1001"
-      // height="1001px"
-      // width="1000px"
-      // style={{
-      //   width: '100%',
-      //   height: 'auto',
-      //   filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
-      // }}
-      // viewBox="0 0 1000 1001"
-      // {...props}
       xmlns="http://www.w3.org/2000/svg"
       enableBackground="new 0 0 1000 1001"
       // On retire width/height fixes pour laisser le CSS gérer la taille

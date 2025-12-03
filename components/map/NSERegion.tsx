@@ -4,14 +4,28 @@ import React from 'react';
 const NSERegion = ({ color, ...props }: { color: string }) => {
   return (
     <svg
+    // xmlns="http://www.w3.org/2000/svg"
+    //   enableBackground="new 0 0 1000 1001"
+    //   style={{
+    //     width: '100%',
+    //     height: 'auto',
+    //     filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
+    //   }}
+    //   viewBox="0 0 1000 1001"
+    //   {...props}
+
     xmlns="http://www.w3.org/2000/svg"
       enableBackground="new 0 0 1000 1001"
+      // ViewBox calculé pour le Kenya (Afrique de l'Est)
+      // x=640, y=400 (On commence à gauche du Lac Victoria et au-dessus de la frontière nord)
+      // width=320, height=280 (Cadre large pour ne pas étouffer la forme du pays)
+      viewBox="640 400 320 280"
       style={{
         width: '100%',
-        height: 'auto',
+        height: '100%',
+        display: 'block',
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
       }}
-      viewBox="0 0 1000 1001"
       {...props}
     >
       <defs>

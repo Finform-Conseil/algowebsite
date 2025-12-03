@@ -4,17 +4,31 @@ import React from 'react';
 const JSERegion = ({ color, ...props }: { color: string }) => {
   return (
     <svg
-    xmlns="http://www.w3.org/2000/svg"
+    // xmlns="http://www.w3.org/2000/svg"
+    //   enableBackground="new 0 0 1000 1001"
+    //   height="1001px"
+    //   width="1000px"
+    //   style={{
+    //     width: '100%',
+    //     height: 'auto',
+    //     filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
+    //   }}
+    //   viewBox="0 0 1000 1001"
+    //   {...props}
+      xmlns="http://www.w3.org/2000/svg"
       enableBackground="new 0 0 1000 1001"
-      height="1001px"
-      width="1000px"
+      // ViewBox pour l'Afrique du Sud
+      // x=430, y=750 (On commence au-dessus de la frontière nord pour avoir de l'espace)
+      // width=350, height=280 (Cadre large pour englober le Cap et Durban sans être trop serré)
+      viewBox="430 750 350 280"
       style={{
         width: '100%',
-        height: 'auto',
+        height: '100%',
+        display: 'block',
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
       }}
-      viewBox="0 0 1000 1001"
       {...props}
+
     >
       <defs>
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">

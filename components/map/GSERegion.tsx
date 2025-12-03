@@ -4,16 +4,29 @@ import React from 'react';
 const GSERegion = ({ color, ...props }: { color: string }) => {
   return (
     <svg
-    xmlns="http://www.w3.org/2000/svg"
+    // xmlns="http://www.w3.org/2000/svg"
+    //   enableBackground="new 0 0 1000 1001"
+    //   height="1001px"
+    //   width="1000px"
+    //   style={{
+    //     width: '100%',
+    //     height: 'auto',
+    //     filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
+    //   }}
+    //   viewBox="0 0 1000 1001"
+    //   {...props}
+      xmlns="http://www.w3.org/2000/svg"
       enableBackground="new 0 0 1000 1001"
-      height="1001px"
-      width="1000px"
+      // ViewBox calculé pour le Ghana
+      // x=180, y=300 (Point de départ pour centrer le pays avec une marge autour)
+      // width=250, height=250 (Taille du cadre : suffisamment grand pour ne pas avoir un zoom trop agressif)
+      viewBox="180 300 250 250"
       style={{
         width: '100%',
-        height: 'auto',
+        height: '100%',
+        display: 'block',
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
       }}
-      viewBox="0 0 1000 1001"
       {...props}
     >
       <defs>

@@ -6,14 +6,16 @@ const CSERegion = ({ color, ...props }: { color: string }) => {
     <svg
     xmlns="http://www.w3.org/2000/svg"
       enableBackground="new 0 0 1000 1001"
-      height="1001px"
-      width="1000px"
+      // ViewBox calculé pour le Maroc (Nord-Ouest Afrique)
+      // x=40, y=0 (On part du coin haut gauche avec une marge pour l'océan)
+      // width=380, height=320 (Cadre suffisamment large pour ne pas trop zoomer)
+      viewBox="40 0 380 320"
       style={{
         width: '100%',
-        height: 'auto',
+        height: '100%',
+        display: 'block',
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
       }}
-      viewBox="0 0 1000 1001"
       {...props}
     >
       <defs>
