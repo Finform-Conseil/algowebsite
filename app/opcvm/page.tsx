@@ -345,7 +345,7 @@ export default function OPCVMHomePage() {
               
               <div className="funds-list">
                 {topRatedFunds.slice(0, 6).map((fund) => (
-                  <div key={fund.id} className="fund-card">
+                  <Link key={fund.id} href={`/opcvm/${fund.id}`} className="fund-card">
                     <div className="fund-header">
                       <div className="fund-name">{fund.name}</div>
                       <div className="fund-exchange">{fund.exchange}</div>
@@ -367,7 +367,7 @@ export default function OPCVMHomePage() {
                         <span className="metric-value">{(fund.performance / fund.volatility).toFixed(2)}</span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>

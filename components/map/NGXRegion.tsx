@@ -17,15 +17,6 @@ const NGXRegion = ({ color, ...props }: { color: string }) => {
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
       }}
       {...props}
-    // xmlns="http://www.w3.org/2000/svg"
-    //   enableBackground="new 0 0 1000 1001"
-    //   style={{
-    //     width: '100%',
-    //     height: 'auto',
-    //     filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
-    //   }}
-    //   viewBox="0 0 1000 1001"
-    //   {...props}
     >
       <defs>
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">

@@ -12,7 +12,7 @@ const BrvmRegion = ({ color, ...props }: { color: string }) => {
       // w=420 (largeur jusqu'au Niger), h=290 (hauteur jusqu'à la côte + marge pour l'ombre)
       viewBox="80 160 420 290"
       style={{
-        width: '90%',
+        width: '100%',
         height: '100%', // S'assure qu'il remplit le conteneur parent
         display: 'block',
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
