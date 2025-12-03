@@ -4,16 +4,30 @@ import React from 'react';
 const BrvmRegion = ({ color, ...props }: { color: string }) => {
   return (
     <svg
+      // xmlns="http://www.w3.org/2000/svg"
+      // enableBackground="new 0 0 1000 1001"
+      // height="1001px"
+      // width="1000px"
+      // style={{
+      //   width: '100%',
+      //   height: 'auto',
+      //   filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
+      // }}
+      // viewBox="0 0 1000 1001"
+      // {...props}
       xmlns="http://www.w3.org/2000/svg"
       enableBackground="new 0 0 1000 1001"
-      height="1001px"
-      width="1000px"
+      // On retire width/height fixes pour laisser le CSS gérer la taille
+      // Le viewBox est la clé : "min-x min-y width height"
+      // x=80 (gauche du Sénégal), y=160 (nord du Mali)
+      // w=420 (largeur jusqu'au Niger), h=290 (hauteur jusqu'à la côte + marge pour l'ombre)
+      viewBox="80 160 420 290"
       style={{
-        width: '100%',
-        height: 'auto',
+        width: '90%',
+        height: '100%', // S'assure qu'il remplit le conteneur parent
+        display: 'block',
         filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
       }}
-      viewBox="0 0 1000 1001"
       {...props}
     >
       <defs>
