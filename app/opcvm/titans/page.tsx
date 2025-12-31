@@ -26,7 +26,7 @@ type ViewMode = 'overview' | 'table' | 'cards';
 export default function OPCVMTitansPage() {
   const [selectedMarket, setSelectedMarket] = useState<string>('BRVM');
   const [classificationMode, setClassificationMode] = useState<ClassificationMode>('market');
-  const [viewMode, setViewMode] = useState<ViewMode>('overview');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   // Mock data - Top 5 Management Companies
   const mockCompanies: ManagementCompany[] = [

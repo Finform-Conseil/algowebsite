@@ -31,7 +31,7 @@ export default function OPCVMComparisonReportPage() {
   const [selectedExchange, setSelectedExchange] = useState<Exchange>('BRVM');
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2024-11-30');
-  const [viewMode, setViewMode] = useState<ViewMode>('detailed');
+  const [viewMode, setViewMode] = useState<ViewMode>('charts');
 
   // Générer des données historiques mock pour les graphiques
   const generateHistoricalData = (basePrice: number, trend: 'up' | 'down'): Candle[] => {
