@@ -10,6 +10,7 @@
 
 // Layout
 @import 'layout/container';
+@import 'layouts/fixed-income-layout';
 
 // Grid
 @import 'components/grid';
@@ -21,16 +22,21 @@
 @import 'components/theme-switcher';
 
 // Pages
+@import 'pages/news-articles';
+@import 'pages/opcvm-screener';
 @import 'pages/stock-screener';
 @import 'pages/stock-comparison';
 @import 'pages/technical-analysis';
 @import 'pages/technical-analysis-v2';
 @import 'pages/technical-modals';
-@import 'pages/news-articles';
 @import 'pages/bourses';
 @import 'pages/sectors';
 @import 'pages/corporate-events';
 @import 'pages/corporate-events-components';
+@import 'pages/bond-detail';
+@import 'pages/simulator';
+@import 'pages/bond-swap';
+@import 'pages/fixed-income';
 @import 'pages/market-movers';
 @import 'pages/market-movers-components';
 @import 'pages/market-movers-comparison';
@@ -44,10 +50,10 @@
 @import 'pages/opcvm-home';
 @import 'pages/opcvm-detail';
 @import 'pages/opcvm-learn';
-@import 'pages/opcvm-screener';
 @import 'pages/opcvm-comparison-report';
 @import 'pages/opcvm-titans';
 @import 'pages/opcvm-simulator';
+@import 'pages/mtp-screener';
 
 // Animations
 @keyframes fadeIn {

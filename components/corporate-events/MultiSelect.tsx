@@ -134,7 +134,7 @@ export default function MultiSelect({ label, options, selected, onChange, placeh
             </svg>
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onClick={(e) => e.stopPropagation()}
@@ -144,7 +144,7 @@ export default function MultiSelect({ label, options, selected, onChange, placeh
           {/* Options list */}
           <div className="multiselect__options">
             {filteredOptions.length === 0 ? (
-              <div className="multiselect__no-results">Aucun résultat</div>
+              <div className="multiselect__no-results">No results</div>
             ) : (
               filteredOptions.map(option => {
                 const value = getOptionValue(option);
