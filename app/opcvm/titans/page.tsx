@@ -184,6 +184,18 @@ export default function OPCVMTitansPage() {
       {/* View Mode Tabs */}
       <div className="view-mode-tabs">
         <button
+          className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
+          onClick={() => setViewMode('table')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <line x1="3" y1="9" x2="21" y2="9" />
+            <line x1="3" y1="15" x2="21" y2="15" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+          </svg>
+          Vue Tableau
+        </button>
+        <button
           className={`tab-btn ${viewMode === 'overview' ? 'active' : ''}`}
           onClick={() => setViewMode('overview')}
         >
@@ -196,18 +208,7 @@ export default function OPCVMTitansPage() {
           </svg>
           Vue d'Ensemble
         </button>
-        <button
-          className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
-          onClick={() => setViewMode('table')}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="3" y1="15" x2="21" y2="15" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-          </svg>
-          Vue Tableau
-        </button>
+        
         <button
           className={`tab-btn ${viewMode === 'cards' ? 'active' : ''}`}
           onClick={() => setViewMode('cards')}
