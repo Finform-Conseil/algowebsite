@@ -297,7 +297,7 @@ export default function OPCVMScreenerPage() {
               </button>
             )}
           </div>
-
+{/* 
           <div className="presets">
             <button className="preset-btn" onClick={() => handleApplyPreset('low-risk')}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -326,7 +326,7 @@ export default function OPCVMScreenerPage() {
               </svg>
               Short Term
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* Filtres principaux */}
