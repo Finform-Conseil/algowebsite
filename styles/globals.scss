@@ -11,6 +11,7 @@
 // Layout
 @import 'layout/container';
 @import 'layouts/fixed-income-layout';
+@import 'layouts/equity-layout';
 
 // Grid
 @import 'components/grid';
@@ -54,6 +55,7 @@
 @import 'pages/opcvm-titans';
 @import 'pages/opcvm-simulator';
 @import 'pages/mtp-screener';
+@import 'pages/equity-home';
 
 // Animations
 @keyframes fadeIn {

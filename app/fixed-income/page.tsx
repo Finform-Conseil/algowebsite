@@ -201,7 +201,7 @@ export default function FixedIncomePage() {
       id: 'NEWS-001',
       title: 'BCEAO Announces New Monetary Policy Framework',
       category: 'news',
-      country: 'WAEMU',
+      country: 'BRVM',
       date: '2024-12-28',
       excerpt: 'The Central Bank of West African States introduces new guidelines for bond market operations...',
       featured: true,
@@ -219,7 +219,7 @@ export default function FixedIncomePage() {
       id: 'NEWS-003',
       title: 'New Circular on Bond Settlement Procedures',
       category: 'circulars',
-      country: 'WAEMU',
+      country: 'BRVM',
       date: '2024-12-26',
       excerpt: 'Updated settlement and clearing procedures for regional bond market participants...',
       featured: false,
@@ -237,7 +237,7 @@ export default function FixedIncomePage() {
       id: 'NEWS-005',
       title: 'Public Consultation: Green Bond Framework',
       category: 'consultations',
-      country: 'WAEMU',
+      country: 'BRVM',
       date: '2024-12-24',
       excerpt: 'Regional authorities seek stakeholder input on proposed green bond issuance framework...',
       featured: false,
@@ -417,7 +417,7 @@ export default function FixedIncomePage() {
                   onChange={(e) => setFilters({ ...filters, country: e.target.value })}
                 >
                   <option value="">All Countries</option>
-                  <option value="WAEMU">WAEMU</option>
+                  <option value="BRVM">BRVM</option>
                   <option value="Benin">Benin</option>
                   <option value="Senegal">Senegal</option>
                   <option value="Cote d'Ivoire">Côte d'Ivoire</option>

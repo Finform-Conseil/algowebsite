@@ -378,7 +378,7 @@ export default function MTPScreenerPage() {
 
               <MultiSelect
                 label="Market"
-                options={['BRVM', 'WAEMU', 'CEMAC'].map(m => ({ value: m, label: m }))}
+                options={['BRVM', 'NGX', 'NSE', 'GSX', 'JSX', 'CSE', 'CEMAC'].map(m => ({ value: m, label: m }))}
                 selected={filters.markets}
                 onChange={(markets) => setFilters(prev => ({ ...prev, markets }))}
                 placeholder="All markets"
