@@ -169,6 +169,48 @@ export default function OPCVMHomePage() {
             </div>
           </div>
 
+          {/* Map Controls */}
+          <div className="opcvm-controls">
+            <div className="control-group">
+              <label>Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="date-input"
+              />
+            </div>
+            
+            <div className="control-group">
+              <label>Vue</label>
+              <div className="mode-toggle">
+                <button
+                  className={mapMode === 'performance' ? 'active' : ''}
+                  onClick={() => setMapMode('performance')}
+                  title="Performance VL"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                  </svg>
+                  Performance
+                </button>
+                <button
+                  className={mapMode === 'count' ? 'active' : ''}
+                  onClick={() => setMapMode('count')}
+                  title="Nombre d'OPCVM"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                  </svg>
+                  Nombre
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Quick Stats */}
           <div className="opcvm-indicators">
             <div className="indicator">
@@ -211,48 +253,6 @@ export default function OPCVMHomePage() {
                 <span className="indicator-value positive">
                   +{(ratedFunds.reduce((sum, f) => sum + f.performance, 0) / ratedFunds.length).toFixed(1)}%
                 </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Map Controls */}
-          <div className="opcvm-controls">
-            <div className="control-group">
-              <label>Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="date-input"
-              />
-            </div>
-            
-            <div className="control-group">
-              <label>Vue</label>
-              <div className="mode-toggle">
-                <button
-                  className={mapMode === 'performance' ? 'active' : ''}
-                  onClick={() => setMapMode('performance')}
-                  title="Performance VL"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                  </svg>
-                  Performance
-                </button>
-                <button
-                  className={mapMode === 'count' ? 'active' : ''}
-                  onClick={() => setMapMode('count')}
-                  title="Nombre d'OPCVM"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                  </svg>
-                  Nombre
-                </button>
               </div>
             </div>
           </div>
