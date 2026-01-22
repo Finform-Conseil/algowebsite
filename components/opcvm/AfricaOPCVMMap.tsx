@@ -17,6 +17,7 @@ type ExchangeData = {
 type AfricaOPCVMMapProps = {
   exchangeData: Record<string, ExchangeData>;
   mode: "performance" | "count";
+  regionRefs?: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 };
 
 const stockExchanges = [
@@ -76,6 +77,7 @@ const exchangeComponents = {
 const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
   exchangeData,
   mode,
+  regionRefs,
 }) => {
   const [activeExchange, setActiveExchange] = useState<string | null>(null);
   const [selectedExchange, setSelectedExchange] = useState<string | null>(null);
@@ -604,6 +606,11 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
                   onMouseEnter={() => setActiveExchange(exchange.id)}
                   onMouseLeave={() => setActiveExchange(null)}
                   onClick={() => handleExchangeClick(exchange.id)}
+                  ref={(el) => {
+                    if (regionRefs && regionRefs.current) {
+                      regionRefs.current[`opcvm-map-${exchange.shortName}`] = el;
+                    }
+                  }}
                   style={{
                     position: "absolute",
                     left: `${(exchange.pinCoordinates.x / 1000) * 100}%`,

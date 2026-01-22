@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import IndependentChartView from '@/components/technical/IndependentChartView';
+import OPCVMChartView from '@/components/opcvm/OPCVMChartView';
 
 // Types
 type OPCVMFund = {
@@ -363,7 +363,10 @@ export default function OPCVMSimulatorPage() {
             <>
               {/* Chart */}
               <div className="chart-container">
-                <IndependentChartView chartId={1} />
+                <OPCVMChartView 
+                  fundName={selectedFund.name}
+                  fundTicker={selectedFund.isin}
+                />
               </div>
 
               {/* Fund Info Card */}
@@ -400,7 +403,7 @@ export default function OPCVMSimulatorPage() {
                     <span className="info-value">{selectedFund.managementFees}%</span>
                   </div>
                   <div className="info-item">
-                    <span className="info-label">Min. souscription</span>
+                    <span className="info-label">Durée de placement recommandée</span>
                     <span className="info-value">{formatCurrency(selectedFund.minSubscription)}</span>
                   </div>
                 </div>
@@ -472,7 +475,7 @@ export default function OPCVMSimulatorPage() {
                     </div>
 
                     <div className="form-group">
-                      <label>Date d'investissement</label>
+                      <label>Date de souscription</label>
                       <input
                         type="date"
                         value={investmentDate}
