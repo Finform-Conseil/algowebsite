@@ -17,6 +17,7 @@ type ExchangeData = {
 type AfricaOPCVMMapProps = {
   exchangeData: Record<string, ExchangeData>;
   mode: "performance" | "count";
+  color?: string;
   regionRefs?: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 };
 
@@ -74,11 +75,14 @@ const exchangeComponents = {
   CSE: CSERegion,
 };
 
+// if color is defined then use it, otherwise set #10B981
 const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
   exchangeData,
   mode,
   regionRefs,
+  
 }) => {
+
   const [activeExchange, setActiveExchange] = useState<string | null>(null);
   const [selectedExchange, setSelectedExchange] = useState<string | null>(null);
 
