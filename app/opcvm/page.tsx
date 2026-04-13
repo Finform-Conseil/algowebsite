@@ -152,13 +152,6 @@ export default function OPCVMHomePage() {
 
   return (
     <div className="opcvm-home-page">
-      {/* Breadcrumb */}
-      <div className="opcvm-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>OPCVM</span>
-      </div>
-
       {/* Header */}
       <div className="opcvm-header">
         <div className="opcvm-header__content">

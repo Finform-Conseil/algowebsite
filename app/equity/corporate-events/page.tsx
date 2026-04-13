@@ -90,13 +90,6 @@ export default function CorporateEventsPage() {
 
   return (
     <div className="corporate-events-page">
-      {/* Breadcrumb */}
-      <div className="events-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>Opérations & Événements</span>
-      </div>
-
       {/* Header avec filtres */}
       <EventsHeader onFilterChange={setFilters} />
 

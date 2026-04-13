@@ -10,14 +10,8 @@ export default function TechnicalAnalysisPage() {
 
   return (
     <div className="technical-analysis-page">
-      {/* Breadcrumb + Layout Controls */}
+      {/* Layout Controls */}
       <div className="technical-analysis-breadcrumb">
-        <div className="breadcrumb-left">
-          <Link href="/">Accueil</Link>
-          <span>/</span>
-          <span>Analyse Technique</span>
-        </div>
-        
         {/* Layout Selector */}
         <div className="layout-selector">
           <button className="icon-btn" onClick={() => setShowLayoutMenu(!showLayoutMenu)} title="Disposition">

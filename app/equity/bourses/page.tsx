@@ -76,13 +76,6 @@ export default function BoursesPage() {
 
   return (
     <div className="bourses-page">
-      {/* Breadcrumb */}
-      <div className="bourses-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>Bourses Africaines</span>
-      </div>
-
       {/* Header */}
       <ExchangesHeader 
         selectedExchanges={selectedExchanges}

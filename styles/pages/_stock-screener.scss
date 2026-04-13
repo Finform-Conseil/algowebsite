@@ -1,10 +1,10 @@
 // ============================================
 // STOCK SCREENER V2 - TradingView Style
-// Layout 100vh avec barre de filtres horizontale
+// Layout adjusted for navbar + tickerbar
 // ============================================
 
 .screener-container {
-  height: 100vh;
+  height: $content-height;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -51,7 +51,7 @@
   
   &__add-btn {
     padding: 0.5rem 1rem;
-    background: linear-gradient(135deg, var(--primary-color), var(--accent-gold));
+    background: var(--accent-gold);
     color: #FFFFFF;
     border: none;
     border-radius: $border-radius-md;
@@ -72,6 +72,7 @@
     &:hover {
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(255, 159, 4, 0.3);
+      filter: brightness(1.1);
     }
   }
   
@@ -189,33 +190,39 @@
 }
 
 // ============================================
-// Side-Panel pour sélection des filtres
+// Modal Popup pour sélection des filtres
 // ============================================
 
-.filter-sidepanel-overlay {
+.filter-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--overlay);
+  background-color: rgba(0, 0, 0, 0.6);
   z-index: 1000;
   animation: fadeIn $transition-medium;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.filter-sidepanel {
+.filter-modal {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 500px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 900px;
   max-width: 90vw;
+  max-height: 85vh;
   background-color: var(--card-background);
-  border-left: 1px solid var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   z-index: 1001;
   display: flex;
   flex-direction: column;
-  animation: slideInRight $transition-medium;
+  animation: slideUp $transition-medium;
   
   &__header {
     padding: 1rem 1.5rem;
@@ -256,20 +263,47 @@
     flex: 1;
     overflow-y: auto;
     display: flex;
-    gap: 1rem;
-  }
-  
-  &__families {
-    flex: 1;
-    padding: 1rem;
-    border-right: 1px solid var(--border-color);
+    gap: 1.5rem;
+    padding: 1.5rem;
+    
+    // When config is visible, use grid layout
+    &.has-config {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+      
+      .families-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+    }
   }
   
   &__config {
-    width: 280px;
-    padding: 1rem;
-    flex-shrink: 0;
+    padding: 1.5rem;
     background-color: var(--background-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    height: fit-content;
+    position: sticky;
+    top: 0;
+  }
+}
+
+// Families list - 2 columns when no config, 1 column when config is shown
+.families-list {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  align-content: start;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -278,8 +312,6 @@
 // ============================================
 
 .family-accordion {
-  margin-bottom: 0.5rem;
-  
   &__header {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -865,10 +897,11 @@
   align-items: center;
   background-color: var(--background-color);
   
-  &__left, &__right {
+  &__left {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex: 1;
   }
   
   &__label {
@@ -877,37 +910,10 @@
     font-weight: 600;
   }
   
-  &__density-buttons {
-    display: flex;
-    gap: 0.25rem;
-  }
-  
   &__selected {
     font-size: 0.8rem;
     color: var(--primary-color);
     font-weight: 600;
-  }
-}
-
-.density-btn {
-  padding: 0.375rem 0.75rem;
-  background-color: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: $border-radius-sm;
-  color: var(--text-color);
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all $transition-fast;
-  
-  &:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-  }
-  
-  &.active {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    color: #FFFFFF;
   }
 }
 
@@ -1030,77 +1036,6 @@
     tbody td {
       padding: 1rem 0.75rem;
       font-size: 0.85rem;
-    }
-  }
-}
-
-// Zone des graphiques/stats (haut)
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  flex-shrink: 0;
-  
-  @media (max-width: $breakpoint-lg) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  @media (max-width: $breakpoint-md) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.stat-box {
-  background-color: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: $border-radius-md;
-  padding: 0.75rem;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 3px;
-    height: 100%;
-    background: linear-gradient(180deg, var(--accent-gold), transparent);
-  }
-  
-  &__label {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-  }
-  
-  &__value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    line-height: 1;
-    
-    &--gold {
-      color: var(--accent-gold);
-    }
-    
-    &--positive {
-      color: var(--positive-color);
-    }
-  }
-  
-  &__change {
-    font-size: 0.7rem;
-    margin-top: 0.25rem;
-    
-    &--positive {
-      color: var(--positive-color);
-    }
-    
-    &--negative {
-      color: var(--negative-color);
     }
   }
 }
@@ -1670,121 +1605,6 @@
   }
 }
 
-// ============================================
-// Split View (tableau + graphiques)
-// ============================================
-
-.split-view-container {
-  flex: 1;
-  display: flex;
-  gap: 0.75rem;
-  overflow: hidden;
-}
-
-.split-view-table {
-  flex: 1;
-  min-width: 0;
-}
-
-.split-view-charts {
-  width: 400px;
-  flex-shrink: 0;
-  background-color: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: $border-radius-md;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  
-  @media (max-width: $breakpoint-lg) {
-    width: 300px;
-  }
-  
-  &__header {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-    background-color: var(--background-color);
-    
-    h4 {
-      margin: 0 0 0.75rem 0;
-      font-size: 0.9rem;
-      color: var(--accent-gold);
-    }
-  }
-  
-  &__body {
-    flex: 1;
-    padding: 0.5rem;
-    overflow: hidden;
-  }
-}
-
-.chart-selector {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
-
-.chart-selector-btn {
-  padding: 0.375rem 0.75rem;
-  background-color: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: $border-radius-sm;
-  color: var(--text-color);
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: all $transition-fast;
-  
-  &:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-  }
-  
-  &.active {
-    background: linear-gradient(135deg, var(--primary-color), var(--accent-gold));
-    border-color: transparent;
-    color: #FFFFFF;
-  }
-}
-
-// ============================================
-// Toggle Split View
-// ============================================
-
-.split-view-toggle {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.75rem 0;
-  flex-shrink: 0;
-}
-
-.toggle-btn {
-  padding: 0.5rem 1rem;
-  background-color: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: $border-radius-md;
-  color: var(--text-color);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all $transition-fast;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  
-  &:hover {
-    border-color: var(--primary-color);
-    transform: translateY(-1px);
-  }
-  
-  &.active {
-    background: linear-gradient(135deg, var(--primary-color), var(--accent-gold));
-    border-color: transparent;
-    color: #FFFFFF;
-  }
-}
-
 .compare-btn {
   padding: 0.5rem 1rem;
   background: linear-gradient(135deg, #4ade80, #22c55e);
@@ -1985,17 +1805,12 @@
 
 .table-toolbar {
   &__search {
-    margin-right: 1rem;
-  }
-  
-  &__view-mode {
-    display: flex;
-    gap: 0.25rem;
-    margin-right: 1rem;
+    flex: 1;
   }
   
   &__column-selector {
     position: relative;
+    margin-left: auto;
   }
 }
 
@@ -2117,10 +1932,10 @@
 }
 
 // ============================================
-// FilterSidePanel Search
+// FilterModal Search
 // ============================================
 
-.filter-sidepanel__search {
+.filter-modal__search {
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);
   position: relative;

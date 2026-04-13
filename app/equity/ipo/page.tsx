@@ -31,13 +31,6 @@ export default function IPOPage() {
 
   return (
     <div className="ipo-page">
-      {/* Breadcrumb */}
-      <div className="ipo-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>IPO - Introductions en Bourse</span>
-      </div>
-
       {/* Header with key statistics */}
       <IPOHeader statistics={statistics} />
 

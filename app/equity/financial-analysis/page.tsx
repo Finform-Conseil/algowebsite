@@ -16,15 +16,6 @@ export default function FinancialAnalysisPage() {
 
   return (
     <div className="financial-analysis-page">
-      {/* Breadcrumb */}
-      <div className="financial-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>Analyse Financière</span>
-        <span>/</span>
-        <span>{profile.name}</span>
-      </div>
-
       {/* Tabs Navigation */}
       <div className="financial-tabs">
         <div className="tabs-nav">

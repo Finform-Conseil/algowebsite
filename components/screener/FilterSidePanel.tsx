@@ -51,19 +51,19 @@ export default function FilterSidePanel({ isOpen, onClose, onSelectCriterion }: 
 
   return (
     <>
-      <div className="filter-sidepanel-overlay" onClick={onClose} />
-      <div className="filter-sidepanel">
-        <div className="filter-sidepanel__header">
-          <h3>Sélectionner un Critère</h3>
-          <button className="filter-sidepanel__close" onClick={onClose}>
+      <div className="filter-modal-overlay" onClick={onClose} />
+      <div className="filter-modal">
+        <div className="filter-modal__header">
+          <h3>Select a Filter Criterion</h3>
+          <button className="filter-modal__close" onClick={onClose}>
             ✕
           </button>
         </div>
 
-        <div className="filter-sidepanel__search">
+        <div className="filter-modal__search">
           <input
             type="text"
-            placeholder="Rechercher un critère..."
+            placeholder="Search for a criterion..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -75,7 +75,7 @@ export default function FilterSidePanel({ isOpen, onClose, onSelectCriterion }: 
           )}
         </div>
 
-        <div className="filter-sidepanel__body">
+        <div className={`filter-modal__body ${selectedCriterion ? 'has-config' : ''}`}>
           {/* Liste des familles */}
           <div className="families-list">
             {filteredFamilies.map((family) => {
@@ -114,9 +114,9 @@ export default function FilterSidePanel({ isOpen, onClose, onSelectCriterion }: 
             })}
           </div>
 
-          {/* Configuration du filtre sélectionné */}
+          {/* Selected filter configuration */}
           {selectedCriterion && (
-            <div className="filter-sidepanel__config">
+            <div className="filter-modal__config">
               <h4 className="config-title">{selectedCriterion.name}</h4>
               {selectedCriterion.description && (
                 <p className="config-description">{selectedCriterion.description}</p>
@@ -129,7 +129,7 @@ export default function FilterSidePanel({ isOpen, onClose, onSelectCriterion }: 
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                   >
-                    <option value="">Sélectionner...</option>
+                    <option value="">Select...</option>
                     {selectedCriterion.options?.map((opt) => (
                       <option key={opt} value={opt}>
                         {opt}
@@ -143,11 +143,11 @@ export default function FilterSidePanel({ isOpen, onClose, onSelectCriterion }: 
                       value={operator}
                       onChange={(e) => setOperator(e.target.value)}
                     >
-                      <option value=">=">≥ Supérieur ou égal</option>
-                      <option value="<=">≤ Inférieur ou égal</option>
-                      <option value=">">{'>'} Supérieur</option>
-                      <option value="<">{'<'} Inférieur</option>
-                      <option value="=">=  Égal</option>
+                      <option value=">=">≥ Greater than or equal</option>
+                      <option value="<=">≤ Less than or equal</option>
+                      <option value=">">{'>'} Greater than</option>
+                      <option value="<">{'<'} Less than</option>
+                      <option value="=">=  Equal</option>
                     </select>
 
                     <div className="config-form__value-group">
@@ -181,7 +181,7 @@ export default function FilterSidePanel({ isOpen, onClose, onSelectCriterion }: 
                 )}
 
                 <button className="config-form__apply" onClick={handleApply} disabled={!value}>
-                  Appliquer le filtre
+                  Apply Filter
                 </button>
               </div>
             </div>

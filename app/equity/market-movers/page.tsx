@@ -60,13 +60,6 @@ export default function MarketMoversPage() {
 
   return (
     <div className="market-movers-page">
-      {/* Breadcrumb */}
-      <div className="movers-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>Market Movers</span>
-      </div>
-
       {/* Header avec filtres et indicateurs */}
       <MarketHeader
         indicators={marketIndicators}

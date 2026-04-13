@@ -142,15 +142,6 @@ export default function OPCVMDetailPage() {
 
   return (
     <div className="opcvm-detail-page">
-      {/* Breadcrumb */}
-      <div className="opcvm-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <Link href="/opcvm">OPCVM</Link>
-        <span>/</span>
-        <span>{opcvmData.name}</span>
-      </div>
-
       {/* Header */}
       <div className="opcvm-detail-header">
         <div className="header-content">

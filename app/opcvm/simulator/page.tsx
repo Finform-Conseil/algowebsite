@@ -247,15 +247,6 @@ export default function OPCVMSimulatorPage() {
 
   return (
     <div className="opcvm-simulator-page">
-      {/* Breadcrumb */}
-      <div className="simulator-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <Link href="/opcvm">OPCVM</Link>
-        <span>/</span>
-        <span>Simulateur de Souscription/Rachat</span>
-      </div>
-
       {/* Header with Filters and Funds */}
       <div className="simulator-header">
         <div className="header-content">

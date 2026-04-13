@@ -19,15 +19,12 @@ interface AdvancedTableProps {
   data: StockScreenerItem[];
   onSelectRows: (rows: StockScreenerItem[]) => void;
   selectedRows: StockScreenerItem[];
-  splitViewEnabled: boolean;
-  onToggleSplitView: (enabled: boolean) => void;
   onCompare: () => void;
 }
 
-export default function AdvancedTable({ data, onSelectRows, selectedRows, splitViewEnabled, onToggleSplitView, onCompare }: AdvancedTableProps) {
+export default function AdvancedTable({ data, onSelectRows, selectedRows, onCompare }: AdvancedTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
-  const [density, setDensity] = useState<'compact' | 'normal' | 'comfortable'>('normal');
   const [rowSelection, setRowSelection] = useState({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
@@ -212,12 +209,6 @@ export default function AdvancedTable({ data, onSelectRows, selectedRows, splitV
     onSelectRows(selected);
   }, [rowSelection, table, onSelectRows]);
 
-  const densityClasses = {
-    compact: 'table-compact',
-    normal: 'table-normal',
-    comfortable: 'table-comfortable',
-  };
-
   return (
     <div className="advanced-table-container">
       {/* Toolbar */}
@@ -227,59 +218,11 @@ export default function AdvancedTable({ data, onSelectRows, selectedRows, splitV
           <div className="table-toolbar__search">
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input-small"
             />
-          </div>
-
-          {/* View Mode */}
-          <div className="table-toolbar__view-mode">
-            <button
-              className={`toolbar-btn ${!splitViewEnabled ? 'active' : ''}`}
-              onClick={() => onToggleSplitView(false)}
-              title="Tableau seul"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-              </svg>
-            </button>
-            <button
-              className={`toolbar-btn ${splitViewEnabled ? 'active' : ''}`}
-              onClick={() => onToggleSplitView(true)}
-              title="Split View"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="18" rx="1" />
-                <rect x="14" y="3" width="7" height="18" rx="1" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Density */}
-          <div className="table-toolbar__density-buttons">
-            <button
-              className={`toolbar-btn ${density === 'compact' ? 'active' : ''}`}
-              onClick={() => setDensity('compact')}
-              title="Compact"
-            >
-              ━
-            </button>
-            <button
-              className={`toolbar-btn ${density === 'normal' ? 'active' : ''}`}
-              onClick={() => setDensity('normal')}
-              title="Normal"
-            >
-              ≡
-            </button>
-            <button
-              className={`toolbar-btn ${density === 'comfortable' ? 'active' : ''}`}
-              onClick={() => setDensity('comfortable')}
-              title="Confortable"
-            >
-              ☰
-            </button>
           </div>
 
           {/* Column Selector */}
@@ -287,7 +230,7 @@ export default function AdvancedTable({ data, onSelectRows, selectedRows, splitV
             <button
               className="toolbar-btn"
               onClick={() => setShowColumnSelector(!showColumnSelector)}
-              title="Colonnes"
+              title="Columns"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="4" y1="6" x2="4" y2="18" />
@@ -333,7 +276,7 @@ export default function AdvancedTable({ data, onSelectRows, selectedRows, splitV
       </div>
 
       {/* Table */}
-      <div className={`table-wrapper ${densityClasses[density]}`}>
+      <div className="table-wrapper table-normal">
         <table className="advanced-table">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (

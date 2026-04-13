@@ -281,14 +281,6 @@ export default function MTPSecondaryScreenerPage() {
 
   return (
     <div className="mtp-screener-page">
-      <div className="screener-breadcrumb">
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/fixed-income">Fixed Income</Link>
-        <span>/</span>
-        <span>MTP Secondary Screener</span>
-      </div>
-
       <div className="screener-header">
         <div className="header-top">
           <div className="header-title">

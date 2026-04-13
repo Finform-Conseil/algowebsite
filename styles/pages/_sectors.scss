@@ -1,36 +1,10 @@
 // Sectors Page Styles - Optimized for 100vh
 .sectors-page {
-  height: 100vh;
+  height: $content-height;
   display: flex;
   flex-direction: column;
   background: var(--background-primary);
   overflow: hidden;
-
-  // Breadcrumb - Compact
-  .sectors-breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-
-    a {
-      color: var(--primary-color);
-      text-decoration: none;
-      transition: color 0.2s ease;
-
-      &:hover {
-        color: var(--primary-hover);
-      }
-    }
-
-    span {
-      color: var(--text-tertiary);
-    }
-  }
 }
 
 // Sector Icon Styles

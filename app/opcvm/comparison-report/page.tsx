@@ -204,15 +204,6 @@ export default function OPCVMComparisonReportPage() {
 
   return (
     <div className="comparison-report-page">
-      {/* Breadcrumb */}
-      <div className="report-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <Link href="/opcvm">OPCVM</Link>
-        <span>/</span>
-        <span>Rapport de Comparaison</span>
-      </div>
-
       {/* Header */}
       <div className="report-header">
         <div className="header-content">

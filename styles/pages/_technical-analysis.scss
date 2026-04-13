@@ -10,32 +10,6 @@
   overflow: hidden;
 }
 
-// Breadcrumb
-.technical-analysis-breadcrumb {
-  padding: 1rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  background: var(--card-background);
-  border-bottom: 1px solid var(--border-color);
-  
-  a {
-    color: var(--primary-color);
-    text-decoration: none;
-    transition: color $transition-fast;
-    
-    &:hover {
-      color: var(--accent-gold);
-    }
-  }
-  
-  .breadcrumb-separator {
-    color: var(--text-secondary);
-  }
-}
-
 // ============================================
 // Stock Header
 // ============================================

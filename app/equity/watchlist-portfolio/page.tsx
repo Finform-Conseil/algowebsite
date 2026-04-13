@@ -20,13 +20,6 @@ export default function WatchlistPortfolioPage() {
 
   return (
     <div className="watchlist-portfolio-page">
-      {/* Breadcrumb */}
-      <div className="portfolio-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>Watchlist & Portfolio</span>
-      </div>
-
       {/* Quick Stats Bar */}
       <div className="quick-stats-bar">
         <div className="stat-item">

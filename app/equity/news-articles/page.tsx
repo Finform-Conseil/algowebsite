@@ -114,13 +114,6 @@ export default function NewsArticlesPage() {
 
   return (
     <div className="news-articles-page">
-      {/* Breadcrumb */}
-      <div className="news-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <span>News & Articles</span>
-      </div>
-
       {/* Header */}
       <NewsHeader 
         onSearch={handleSearch}

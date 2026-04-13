@@ -3,36 +3,11 @@
 // ============================================
 
 .bond-detail-page {
-  height: 100vh;
+  height: $content-height;
   display: flex;
   flex-direction: column;
   background: var(--background-color);
   overflow: hidden;
-
-  .bond-detail-breadcrumb {
-    padding: 1rem 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    background: var(--card-background);
-    border-bottom: 1px solid var(--border-color);
-
-    a {
-      color: var(--primary-color);
-      text-decoration: none;
-      transition: color $transition-fast;
-
-      &:hover {
-        color: var(--accent-gold);
-      }
-    }
-
-    span:not(.country-flag) {
-      color: var(--text-secondary);
-    }
-  }
 
   .bond-detail-header {
     background: var(--card-background);

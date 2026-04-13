@@ -20,13 +20,13 @@ export default function FilterBar({
     <div className="filter-bar">
       <button className="filter-bar__add-btn" onClick={onAddFilter}>
         <span className="icon">+</span>
-        Ajouter un filtre
+        Add Filter
       </button>
 
       <div className="filter-bar__chips">
         {activeFilters.length === 0 && (
           <span className="filter-bar__empty">
-            Aucun filtre actif. Cliquez sur "Ajouter un filtre" pour commencer.
+            No active filters. Click "Add Filter" to get started.
           </span>
         )}
         {activeFilters.map((filter) => (

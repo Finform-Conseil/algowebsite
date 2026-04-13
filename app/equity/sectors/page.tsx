@@ -46,13 +46,6 @@ export default function SectorsPage() {
 
   return (
     <div className="sectors-page">
-      {/* Breadcrumb */}
-      <div className="sectors-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>›</span>
-        <span>Secteurs & Industries</span>
-      </div>
-
       {/* Header with filters */}
       <SectorsHeader
         selectedExchanges={selectedExchanges}

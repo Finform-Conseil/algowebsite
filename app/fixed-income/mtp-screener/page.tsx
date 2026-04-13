@@ -304,14 +304,6 @@ export default function MTPScreenerPage() {
 
   return (
     <div className="mtp-screener-page">
-      <div className="screener-breadcrumb">
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/fixed-income">Fixed Income</Link>
-        <span>/</span>
-        <span>MTP Primary Screener</span>
-      </div>
-
       <div className="screener-header">
         <div className="header-top">
           <div className="header-title">

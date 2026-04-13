@@ -11,36 +11,6 @@
   overflow: hidden;
 }
 
-
-// Breadcrumb compact + Layout Selector
-.technical-analysis-breadcrumb {
-  padding: 0.5rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  background: var(--card-background);
-  border-bottom: 1px solid var(--border-color);
-  
-  .breadcrumb-left {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  a {
-    color: var(--text-secondary);
-    text-decoration: none;
-    transition: color $transition-fast;
-    
-    &:hover {
-      color: var(--primary-color);
-    }
-  }
-}
-
 // Layout Selector dans le breadcrumb
 .layout-selector {
   position: relative;

@@ -3,37 +3,11 @@
 // ============================================
 
 .bond-swap-page {
-  height: 100vh;
+  height: $content-height;
   display: flex;
   flex-direction: column;
   background: var(--background-color);
   overflow: hidden;
-
-  .swap-breadcrumb {
-    padding: 1rem 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    background: var(--card-background);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-
-    a {
-      color: var(--primary-color);
-      text-decoration: none;
-      transition: color $transition-fast;
-
-      &:hover {
-        color: var(--accent-gold);
-      }
-    }
-
-    span {
-      color: var(--text-secondary);
-    }
-  }
 
   .swap-header {
     background: var(--card-background);

@@ -336,14 +336,6 @@ export default function FinancialSecondaryScreenerPage() {
 
   return (
     <div className="mtp-screener-page">
-      <div className="screener-breadcrumb">
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/fixed-income">Fixed Income</Link>
-        <span>/</span>
-        <span>Financial Secondary Market Screener</span>
-      </div>
-
       <div className="screener-header">
         <div className="header-top">
           <div className="header-title">

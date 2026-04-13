@@ -281,14 +281,6 @@ export default function BondSwapPage() {
 
   return (
     <div className="bond-swap-page">
-      <div className="swap-breadcrumb">
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/fixed-income">Fixed Income</Link>
-        <span>/</span>
-        <span>Bond Swap</span>
-      </div>
-
       <div className="swap-header">
         <div className="header-content">
           <h1>Bond Swap Operations</h1>

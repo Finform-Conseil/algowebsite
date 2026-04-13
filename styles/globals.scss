@@ -10,21 +10,22 @@
 
 // Layout
 @import 'layout/container';
-@import 'layouts/fixed-income-layout';
-@import 'layouts/equity-layout';
 
 // Grid
 @import 'components/grid';
 
 // Components
+@import 'components/navigation';
 @import 'components/card';
 @import 'components/button';
 @import 'components/table';
 @import 'components/theme-switcher';
 @import 'components/opcvm-chart-view';
 @import 'components/drawing-tools-v2';
+@import 'components/screener-header';
 
 // Pages
+@import 'afrimarket-homepage';
 @import 'pages/news-articles';
 @import 'pages/opcvm-screener';
 @import 'pages/stock-screener';

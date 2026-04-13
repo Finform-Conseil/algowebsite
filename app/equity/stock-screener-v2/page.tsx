@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
+import ScreenerHeader from '@/components/screener/ScreenerHeader';
 import FilterBar from '@/components/screener/FilterBar';
 import FilterSidePanel from '@/components/screener/FilterSidePanel';
 import ScenarioButtons from '@/components/screener/ScenarioButtons';
@@ -10,7 +10,6 @@ import FloatingInsights from '@/components/screener/FloatingInsights';
 import AdvancedTable from '@/components/screener/AdvancedTable';
 import ComparisonPanel from '@/components/screener/ComparisonPanel';
 import SavedScreensPanel from '@/components/screener/SavedScreensPanel';
-import SplitView from '@/components/screener/SplitView';
 import BarChart from '@/components/charts/BarChart';
 import LineChart from '@/components/charts/LineChart';
 import PieChart from '@/components/charts/PieChart';
@@ -33,7 +32,6 @@ export default function StockScreenerV2Page() {
   const [selectedStocks, setSelectedStocks] = useState<StockScreenerItem[]>([]);
   const [showComparison, setShowComparison] = useState(false);
   const [showSavedScreens, setShowSavedScreens] = useState(false);
-  const [splitViewEnabled, setSplitViewEnabled] = useState(false);
   const [sortField, setSortField] = useState<keyof StockScreenerItem>('marketCap');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -102,14 +100,14 @@ export default function StockScreenerV2Page() {
         color: '#00BFFF',
       },
       {
-        name: 'Sélection',
+        name: 'Selection',
         values: [15.2, 18.1, 21.5, 24.7],
         color: '#FF9F04',
       },
     ],
   };
 
-  // Gestion des filtres
+  // Filter management
   const handleAddFilter = () => {
     setIsSidePanelOpen(true);
   };
@@ -119,7 +117,7 @@ export default function StockScreenerV2Page() {
   };
 
   const handleEditFilter = (filterId: string) => {
-    // Pour l'instant, juste ouvrir le panel (l'édition peut être implémentée plus tard)
+    // For now, just open the panel (editing can be implemented later)
     setIsSidePanelOpen(true);
   };
 
@@ -138,7 +136,7 @@ export default function StockScreenerV2Page() {
     const scenario = PREDEFINED_SCENARIOS.find((s) => s.id === scenarioId);
     if (!scenario) return;
 
-    // Convertir les filtres du scénario en ActiveFilters
+    // Convert scenario filters to ActiveFilters
     const newFilters: ActiveFilter[] = scenario.filters.map((f) => {
       const criterion = ALL_CRITERIA.find((c) => c.id === f.criterionId);
       if (!criterion) return null;
@@ -166,28 +164,27 @@ export default function StockScreenerV2Page() {
     const filterIds = activeFilters.map((f) => f.id).join(',');
     const url = `${window.location.origin}${window.location.pathname}?filters=${filterIds}`;
     navigator.clipboard.writeText(url);
-    alert('Lien copié dans le presse-papiers !');
+    alert('Link copied to clipboard!');
   };
 
   const handleCompare = () => {
     if (selectedStocks.length >= 2) {
       setShowComparison(true);
     } else {
-      alert('Sélectionnez au moins 2 actions pour comparer');
+      alert('Select at least 2 stocks to compare');
     }
   };
 
   return (
     <div className="screener-container">
       {/* Header */}
-      <div className="screener-header">
-        <h1>
-          Stock Screener V2
-        </h1>
-        <Link href="/">
-          <button className="btn btn--secondary btn--sm">← Dashboard</button>
-        </Link>
-      </div>
+      <ScreenerHeader
+        filteredCount={filteredStocks.length}
+        totalCount={DUMMY_STOCKS.length}
+        avgPE={stats.avgPE}
+        avgROE={stats.avgROE}
+        totalMarketCap={stats.totalMarketCap}
+      />
 
       {/* Barre de filtres horizontale */}
       <FilterBar
@@ -212,52 +209,12 @@ export default function StockScreenerV2Page() {
 
       {/* Zone centrale */}
       <div className="screener-body">
-        {/* Stats rapides */}
-        <div className="stats-grid">
-          <div className="stat-box">
-            <div className="stat-box__label">Actions Filtrées</div>
-            <div className="stat-box__value stat-box__value--gold">{filteredStocks.length}</div>
-            <div className="stat-box__change">/ {DUMMY_STOCKS.length} total</div>
-          </div>
-          <div className="stat-box">
-            <div className="stat-box__label">P/E Moyen</div>
-            <div className="stat-box__value">{stats.avgPE.toFixed(1)}x</div>
-          </div>
-          <div className="stat-box">
-            <div className="stat-box__label">ROE Moyen</div>
-            <div className="stat-box__value stat-box__value--positive">{stats.avgROE.toFixed(1)}%</div>
-          </div>
-          <div className="stat-box">
-            <div className="stat-box__label">Cap. Totale</div>
-            <div className="stat-box__value">{(stats.totalMarketCap / 1000).toFixed(1)}T€</div>
-          </div>
-        </div>
-
-        {/* Tableau avec split view */}
-        {splitViewEnabled ? (
-          <div className="split-view-container">
-            <div className="split-view-table">
-              <AdvancedTable
-                data={filteredStocks}
-                onSelectRows={setSelectedStocks}
-                selectedRows={selectedStocks}
-                splitViewEnabled={splitViewEnabled}
-                onToggleSplitView={setSplitViewEnabled}
-                onCompare={handleCompare}
-              />
-            </div>
-            <SplitView stocks={filteredStocks} />
-          </div>
-        ) : (
-          <AdvancedTable
-            data={filteredStocks}
-            onSelectRows={setSelectedStocks}
-            selectedRows={selectedStocks}
-            splitViewEnabled={splitViewEnabled}
-            onToggleSplitView={setSplitViewEnabled}
-            onCompare={handleCompare}
-          />
-        )}
+        <AdvancedTable
+          data={filteredStocks}
+          onSelectRows={setSelectedStocks}
+          selectedRows={selectedStocks}
+          onCompare={handleCompare}
+        />
       </div>
 
       {/* Side-Panel pour ajouter des filtres */}

@@ -170,14 +170,6 @@ export default function SimulatorPage() {
 
   return (
     <div className="simulator-page">
-      <div className="simulator-breadcrumb">
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/fixed-income">Fixed Income</Link>
-        <span>/</span>
-        <span>Simulator</span>
-      </div>
-
       <div className="simulator-header">
         <div className="header-content">
           <h1>Bond Simulator</h1>

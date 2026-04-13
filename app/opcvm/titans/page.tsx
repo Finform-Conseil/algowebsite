@@ -128,15 +128,6 @@ export default function OPCVMTitansPage() {
 
   return (
     <div className="opcvm-titans-page">
-      {/* Breadcrumb */}
-      <div className="titans-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <Link href="/opcvm">OPCVM</Link>
-        <span>/</span>
-        <span>Les Titans de l'OPCVM</span>
-      </div>
-
       {/* Header */}
       <div className="titans-header">
         <div className="header-content">

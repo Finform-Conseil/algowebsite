@@ -3,23 +3,7 @@
 // ============================================
 
 :root {
-  // --- Thème Clair (par défaut) ---
-  --background-color: #F8F9FA;
-  --text-color: #212529;
-  --text-secondary: #6C757D;
-  --primary-color: #00BFFF; // Cyan électrique
-  --accent-gold: #FF9F04; // Doré lumineux
-  --card-background: #FFFFFF;
-  --border-color: #DEE2E6;
-  --hover-background: #E9ECEF;
-  --positive-color: #28A745;
-  --negative-color: #DC3545;
-  --shadow: rgba(0, 0, 0, 0.1);
-  --overlay: rgba(0, 0, 0, 0.5);
-}
-
-[data-theme='dark'] {
-  // --- Thème Sombre ---
+  // --- Thème Sombre (par défaut) ---
   --background-color: #102A43; // Bleu nuit profond
   --text-color: #E0E0E0;
   --text-secondary: #ADB5BD;
@@ -32,6 +16,22 @@
   --negative-color: #F86C6B;
   --shadow: rgba(0, 0, 0, 0.3);
   --overlay: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme='light'] {
+  // --- Thème Clair ---
+  --background-color: #F8F9FA;
+  --text-color: #212529;
+  --text-secondary: #6C757D;
+  --primary-color: #00BFFF; // Cyan électrique
+  --accent-gold: #FF9F04; // Doré lumineux
+  --card-background: #FFFFFF;
+  --border-color: #DEE2E6;
+  --hover-background: #E9ECEF;
+  --positive-color: #28A745;
+  --negative-color: #DC3545;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --overlay: rgba(0, 0, 0, 0.5);
 }
 
 // ============================================
@@ -73,3 +73,12 @@ $border-radius-md: 0.5rem;
 $border-radius-lg: 0.75rem;
 $border-radius-xl: 1rem;
 $border-radius-full: 9999px; // Complètement arrondi (pills/badges)
+
+// ============================================
+// Layout Heights (for 100vh pages)
+// ============================================
+
+$navbar-height: 64px;
+$tickerbar-height: 36px;
+$header-total-height: 100px; // navbar + tickerbar
+$content-height: calc(100vh - #{$header-total-height});

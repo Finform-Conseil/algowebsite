@@ -34,15 +34,7 @@ export default function OPCVMLearnPage() {
 
   return (
     <div className="opcvm-learn-page">
-      {/* Breadcrumb */}
-      <div className="opcvm-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <Link href="/opcvm">OPCVM</Link>
-        <span>/</span>
-        <span>S'instruire - Guide Complet</span>
-      </div>
-
+      <h1>Learn OPCVM</h1>
       {/* Header */}
       <div className="opcvm-header">
         <div className="opcvm-header__content">

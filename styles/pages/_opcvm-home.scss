@@ -1,34 +1,9 @@
 .opcvm-home-page {
-  height: 100vh;
+  height: $content-height;
   display: flex;
   flex-direction: column;
   background: var(--background);
   overflow: hidden;
-
-  // Breadcrumb
-  .opcvm-breadcrumb {
-    padding: 1rem 1.5rem 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-
-    a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      transition: color 0.2s;
-
-      &:hover {
-        color: var(--primary-color);
-      }
-    }
-
-    span:last-child {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-  }
 
   // Header
   .opcvm-header {

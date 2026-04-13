@@ -212,17 +212,6 @@ export default function BondDetailPage() {
 
   return (
     <div className="bond-detail-page">
-      <div className="bond-detail-breadcrumb">
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/fixed-income">Fixed Income</Link>
-        <span>/</span>
-        <Link href={`/fixed-income/${bondType === 'financial-primary' ? 'financial-primary-screener' : bondType === 'financial-secondary' ? 'financial-secondary-screener' : bondType === 'mtp-secondary' ? 'mtp-secondary-screener' : 'mtp-screener'}`}>
-          {bondType === 'financial-primary' ? 'Financial Primary' : bondType === 'financial-secondary' ? 'Financial Secondary' : bondType === 'mtp-secondary' ? 'MTP Secondary' : 'MTP Primary'}
-        </Link>
-        <span>/</span>
-        <span>{bondData.isin}</span>
-      </div>
 
       <div className="bond-detail-header">
         <div className="bond-title-section">

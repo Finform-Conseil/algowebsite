@@ -169,9 +169,6 @@ export default function StockComparisonPage() {
             Indicateurs ({selectedIndicators.length})
           </button>
           <ExportMenu onExport={handleExport} onShare={handleShare} />
-          <Link href="/">
-            <button className="btn btn--secondary btn--sm">Dashboard</button>
-          </Link>
         </div>
       </div>
 

@@ -39,12 +39,12 @@ export default function FilterChip({ filter, onRemove, onEdit }: FilterChipProps
         className="filter-chip__value"
         value={filter.value}
         onChange={(e) => {
-          // Pour l'instant read-only, on pourra ajouter l'édition plus tard
+          // Read-only for now, editing can be added later
         }}
         onClick={onEdit}
         readOnly
       />
-      <button className="filter-chip__remove" onClick={onRemove} title="Supprimer ce filtre">
+      <button className="filter-chip__remove" onClick={onRemove} title="Remove this filter">
         ✕
       </button>
     </div>

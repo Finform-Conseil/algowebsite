@@ -230,15 +230,6 @@ export default function OPCVMScreenerPage() {
 
   return (
     <div className="screener-page">
-      {/* Breadcrumb */}
-      <div className="screener-breadcrumb">
-        <Link href="/">Accueil</Link>
-        <span>/</span>
-        <Link href="/opcvm">OPCVM</Link>
-        <span>/</span>
-        <span>Screener</span>
-      </div>
-
       {/* Header / Search Bar */}
       <div className="screener-header">
         <div className="header-top">
