@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 
 type SwapType = 'duration' | 'credit' | 'currency' | 'yield';
@@ -50,6 +50,22 @@ interface SwapOperation {
 }
 
 export default function BondSwapPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
+
   const [swapInputs, setSwapInputs] = useState<SwapInputs>({
     investor: '',
     swapType: 'duration',
@@ -282,7 +298,13 @@ export default function BondSwapPage() {
   return (
     <div className="bond-swap-page">
       <div className="swap-header">
-        <div className="header-content">
+        <div 
+          className="swap-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-content">
           <h1>Bond Swap Operations</h1>
           <p>Search and manage your bond swap operations</p>
         </div>
@@ -299,6 +321,7 @@ export default function BondSwapPage() {
             <span className="stat-label">Matched</span>
             <strong className="stat-value">{allSwapOperations.filter(op => op.status === 'matched').length}</strong>
           </div>
+        </div>
         </div>
       </div>
 

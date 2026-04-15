@@ -1,12 +1,12 @@
 import { IPO, IPOStatistics, IPOFilters, UpcomingIPO, Sector, Exchange } from '@/types/ipo';
 
-// Mock IPO Data - Introductions récentes (5 dernières années)
+// Mock IPO Data - Recent listings (last 5 years)
 export const RECENT_IPOS: IPO[] = [
   {
     id: 'ipo-1',
     companyName: 'MTN Côte d\'Ivoire',
     ticker: 'MTNCI',
-    sector: 'Télécom',
+    sector: 'Telecom',
     exchange: 'BRVM',
     country: 'Côte d\'Ivoire',
     status: 'completed',
@@ -23,19 +23,19 @@ export const RECENT_IPOS: IPO[] = [
     currentReturn: 12.7,
     highSinceIPO: 6500,
     lowSinceIPO: 5300,
-    description: 'Leader des télécommunications en Côte d\'Ivoire avec plus de 12 millions d\'abonnés.',
-    industry: 'Télécommunications mobiles',
+    description: 'Telecom leader in Ivory Coast with over 12 million subscribers.',
+    industry: 'Mobile Telecommunications',
     employees: 850,
     founded: 2005,
-    headquarters: 'Abidjan, Côte d\'Ivoire',
+    headquarters: 'Abidjan, Ivory Coast',
     ceo: 'Djibril Ouattara',
     revenue: 245000000000,
     netIncome: 45000000000,
     peRatio: 15.2,
     underwriters: ['NSIA Banque', 'Société Générale CI'],
     lockupPeriod: 180,
-    useOfProceeds: ['Expansion réseau 5G', 'Infrastructure', 'Remboursement dette'],
-    highlights: ['Leader du marché', 'Croissance à 2 chiffres', 'Dividendes attractifs']
+    useOfProceeds: ['5G network expansion', 'Infrastructure', 'Debt repayment'],
+    highlights: ['Market leader', 'Double-digit growth', 'Attractive dividends']
   },
   {
     id: 'ipo-2',
@@ -43,7 +43,7 @@ export const RECENT_IPOS: IPO[] = [
     ticker: 'CPI',
     sector: 'Finance',
     exchange: 'JSE',
-    country: 'Afrique du Sud',
+    country: 'South Africa',
     status: 'completed',
     ipoPrice: 1850,
     currentPrice: 2100,
@@ -58,25 +58,25 @@ export const RECENT_IPOS: IPO[] = [
     currentReturn: 13.5,
     highSinceIPO: 2200,
     lowSinceIPO: 1800,
-    description: 'Banque de détail innovante spécialisée dans les services bancaires digitaux.',
-    industry: 'Services bancaires',
+    description: 'Innovative retail bank specialized in digital banking services.',
+    industry: 'Banking Services',
     employees: 2500,
     founded: 2001,
-    headquarters: 'Johannesburg, Afrique du Sud',
+    headquarters: 'Johannesburg, South Africa',
     revenue: 18500000000,
     netIncome: 3200000000,
     peRatio: 12.8,
     underwriters: ['Standard Bank', 'Rand Merchant Bank'],
     lockupPeriod: 90,
-    useOfProceeds: ['Expansion digitale', 'Acquisitions', 'Capital de croissance']
+    useOfProceeds: ['Digital expansion', 'Acquisitions', 'Growth capital']
   },
   {
     id: 'ipo-3',
     companyName: 'Dangote Cement Egypt',
     ticker: 'DCEM',
-    sector: 'Matériaux',
+    sector: 'Materials',
     exchange: 'EGX',
-    country: 'Égypte',
+    country: 'Egypt',
     status: 'completed',
     ipoPrice: 125,
     currentPrice: 145,
@@ -91,11 +91,11 @@ export const RECENT_IPOS: IPO[] = [
     currentReturn: 16.0,
     highSinceIPO: 150,
     lowSinceIPO: 120,
-    description: 'Producteur de ciment leader en Égypte, filiale du groupe Dangote.',
-    industry: 'Matériaux de construction',
+    description: 'Leading cement producer in Egypt, subsidiary of Dangote Group.',
+    industry: 'Construction Materials',
     employees: 1200,
     founded: 2018,
-    headquarters: 'Le Caire, Égypte',
+    headquarters: 'Cairo, Egypt',
     revenue: 8500000000,
     netIncome: 1800000000,
     peRatio: 10.5,
@@ -106,7 +106,7 @@ export const RECENT_IPOS: IPO[] = [
     id: 'ipo-4',
     companyName: 'Safaricom Ethiopia',
     ticker: 'SAFE',
-    sector: 'Télécom',
+    sector: 'Telecom',
     exchange: 'NSE',
     country: 'Kenya',
     status: 'completed',
@@ -123,11 +123,11 @@ export const RECENT_IPOS: IPO[] = [
     currentReturn: 15.6,
     highSinceIPO: 55,
     lowSinceIPO: 43,
-    description: 'Extension éthiopienne de Safaricom, opérateur télécoms innovant.',
-    industry: 'Télécommunications',
+    description: 'Ethiopian extension of Safaricom, innovative telecom operator.',
+    industry: 'Telecommunications',
     employees: 450,
     founded: 2022,
-    headquarters: 'Addis-Abeba, Éthiopie',
+    headquarters: 'Addis Ababa, Ethiopia',
     revenue: 2800000000,
     netIncome: 450000000,
     peRatio: 18.5
@@ -153,8 +153,8 @@ export const RECENT_IPOS: IPO[] = [
     currentReturn: 8.2,
     highSinceIPO: 950,
     lowSinceIPO: 830,
-    description: 'Filiale nigériane d\'Ecobank, banque panafricaine de premier plan.',
-    industry: 'Banque commerciale',
+    description: 'Nigerian subsidiary of Ecobank, leading pan-African bank.',
+    industry: 'Commercial Banking',
     employees: 3200,
     founded: 1985,
     headquarters: 'Lagos, Nigeria',
@@ -170,9 +170,9 @@ export const UPCOMING_IPOS: UpcomingIPO[] = [
     id: 'ipo-up-1',
     companyName: 'Orange Sénégal',
     ticker: 'ORSN',
-    sector: 'Télécom',
+    sector: 'Telecom',
     exchange: 'BRVM',
-    country: 'Sénégal',
+    country: 'Senegal',
     status: 'upcoming',
     ipoPrice: 4500,
     priceRange: { min: 4200, max: 4800 },
@@ -188,15 +188,15 @@ export const UPCOMING_IPOS: UpcomingIPO[] = [
     listingDate: '2025-01-15',
     daysUntilIPO: 58,
     subscriptionStatus: 'not_started',
-    description: 'Opérateur télécoms majeur au Sénégal, filiale d\'Orange.',
-    industry: 'Télécommunications',
+    description: 'Major telecom operator in Senegal, Orange subsidiary.',
+    industry: 'Telecommunications',
     employees: 650,
     founded: 2007,
-    headquarters: 'Dakar, Sénégal',
+    headquarters: 'Dakar, Senegal',
     revenue: 180000000000,
     netIncome: 32000000000,
     underwriters: ['BOA Sénégal', 'Banque Atlantique'],
-    useOfProceeds: ['Fibre optique', 'Data centers', 'Innovation digitale']
+    useOfProceeds: ['Fiber optic', 'Data centers', 'Digital innovation']
   },
   {
     id: 'ipo-up-2',
@@ -219,8 +219,8 @@ export const UPCOMING_IPOS: UpcomingIPO[] = [
     daysUntilIPO: 22,
     subscriptionStatus: 'open',
     subscriptionMultiple: 2.3,
-    description: 'Banque commerciale en forte croissance au Ghana.',
-    industry: 'Services bancaires',
+    description: 'Fast-growing commercial bank in Ghana.',
+    industry: 'Banking Services',
     employees: 1100,
     headquarters: 'Accra, Ghana',
     revenue: 850000000,
@@ -230,9 +230,9 @@ export const UPCOMING_IPOS: UpcomingIPO[] = [
     id: 'ipo-up-3',
     companyName: 'Tunisie Telecom',
     ticker: 'TUNT',
-    sector: 'Télécom',
+    sector: 'Telecom',
     exchange: 'TUNSE',
-    country: 'Tunisie',
+    country: 'Tunisia',
     status: 'upcoming',
     ipoPrice: 18,
     priceRange: { min: 16, max: 20 },
@@ -244,10 +244,10 @@ export const UPCOMING_IPOS: UpcomingIPO[] = [
     expectedDate: '2025-02-20',
     daysUntilIPO: 94,
     subscriptionStatus: 'not_started',
-    description: 'Opérateur historique des télécommunications en Tunisie.',
-    industry: 'Télécommunications',
+    description: 'Historic telecommunications operator in Tunisia.',
+    industry: 'Telecommunications',
     employees: 4500,
-    headquarters: 'Tunis, Tunisie'
+    headquarters: 'Tunis, Tunisia'
   }
 ];
 
@@ -411,6 +411,6 @@ export function sortIPOs(ipos: IPO[], sortBy: 'date' | 'size' | 'return' | 'name
 }
 
 export const ALL_IPOS = [...RECENT_IPOS];
-export const ALL_SECTORS: Sector[] = ['Finance', 'Énergie', 'Télécom', 'Industrie', 'Consommation', 'Immobilier', 'Santé', 'Technologie', 'Matériaux', 'Services'];
+export const ALL_SECTORS: Sector[] = ['Finance', 'Energy', 'Telecom', 'Industry', 'Consumer', 'Real Estate', 'Healthcare', 'Technology', 'Materials', 'Services'];
 export const ALL_EXCHANGES: Exchange[] = ['BRVM', 'JSE', 'CSE', 'NGX', 'GSE', 'NSE', 'EGX', 'TUNSE'];
-export const ALL_COUNTRIES = ['Côte d\'Ivoire', 'Afrique du Sud', 'Égypte', 'Nigeria', 'Kenya', 'Ghana', 'Sénégal', 'Tunisie'];
+export const ALL_COUNTRIES = ['Ivory Coast', 'South Africa', 'Egypt', 'Nigeria', 'Kenya', 'Ghana', 'Senegal', 'Tunisia'];

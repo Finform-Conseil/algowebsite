@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import OPCVMChartView from '@/components/opcvm/OPCVMChartView';
 
@@ -53,6 +53,22 @@ export default function OPCVMSimulatorPage() {
   const [numberOfShares, setNumberOfShares] = useState<string>('');
   const [redemptionAmount, setRedemptionAmount] = useState<string>('');
   const [redemptionDate, setRedemptionDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  // Background rotation
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   // Mock Data
   const mockFunds: OPCVMFund[] = [
@@ -249,7 +265,13 @@ export default function OPCVMSimulatorPage() {
     <div className="opcvm-simulator-page">
       {/* Header with Filters and Funds */}
       <div className="simulator-header">
-        <div className="header-content">
+        <div 
+          className="simulator-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-content">
           <div className="header-top">
             <div className="header-title">
               <h1>Simulateur de Souscription / Rachat</h1>
@@ -333,6 +355,7 @@ export default function OPCVMSimulatorPage() {
               ))
             )}
           </div>
+        </div>
         </div>
       </div>
 

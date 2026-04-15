@@ -11,11 +11,24 @@
 
   .bond-detail-header {
     background: var(--card-background);
-    border-bottom: 1px solid var(--border-color);
-    padding: 1rem 2rem;
+    // border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+
+    // Hero section with dynamic background
+    &__hero {
+      position: relative;
+      padding: 1rem 2rem;
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      transition: background-image 1s ease-in-out;
+    }
 
     .bond-title-section {
+      position: relative;
+      z-index: 1;
       .title-row {
         display: flex;
         justify-content: space-between;
@@ -25,11 +38,12 @@
         h1 {
           font-size: 1.5rem;
           font-weight: 700;
-          color: var(--text-color);
+          color: white;
           margin: 0;
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 
           .country-flag {
             font-size: 1.5rem;
@@ -72,12 +86,13 @@
           font-size: 0.875rem;
 
           span {
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.8);
           }
 
           strong {
-            color: var(--text-color);
+            color: white;
             font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
           }
         }
       }

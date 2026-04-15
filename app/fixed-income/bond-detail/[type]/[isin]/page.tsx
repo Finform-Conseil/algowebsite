@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import LineChart from '@/components/charts/LineChart';
@@ -34,6 +34,21 @@ export default function BondDetailPage() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [showAmortizationModal, setShowAmortizationModal] = useState(false);
   const [showHistoricalModal, setShowHistoricalModal] = useState(false);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('1Y');
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   // Mock bond data based on type
   const bondData = useMemo(() => {
@@ -212,9 +227,14 @@ export default function BondDetailPage() {
 
   return (
     <div className="bond-detail-page">
-
       <div className="bond-detail-header">
-        <div className="bond-title-section">
+        <div 
+          className="bond-detail-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="bond-title-section">
           <div className="title-row">
             <h1>
               <span className="country-flag">{getCountryFlag(bondData.country)}</span>
@@ -232,6 +252,7 @@ export default function BondDetailPage() {
             {bondData.spread && <div className="metric"><span>Spread:</span> <strong>{bondData.spread.toFixed(2)}%</strong></div>}
             <div className="metric"><span>Maturity:</span> <strong>{new Date(bondData.maturityDate).toLocaleDateString('en-US')}</strong></div>
           </div>
+        </div>
         </div>
       </div>
 

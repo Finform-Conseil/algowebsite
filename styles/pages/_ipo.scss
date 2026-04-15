@@ -178,20 +178,22 @@
 
   &__content {
     margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
   }
 
   &__title {
     margin-bottom: 1rem;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 2rem;
 
     .title-content {
       flex: 1;
 
       h1 {
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 0.5rem;
         background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
@@ -228,10 +230,12 @@
 
   // Statistics Cards
   .ipo-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    // display: grid;
+    // grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 0.75rem;
     margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
 
     .stat-card {
       display: flex;

@@ -38,7 +38,7 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Acheter une action
+            Buy Stock
           </button>
         </div>
 
@@ -51,10 +51,10 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
               </svg>
             </div>
             <div className="card-content">
-              <span className="card-label">Valeur totale</span>
+              <span className="card-label">Total Value</span>
               <span className="card-value">{formatCurrency(totalValue)}</span>
               <span className="card-sublabel">
-                Capital initial: {formatCurrency(portfolio.initialCapital)}
+                Initial Capital: {formatCurrency(portfolio.initialCapital)}
               </span>
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
               </svg>
             </div>
             <div className="card-content">
-              <span className="card-label">Gain total</span>
+              <span className="card-label">Total Gain</span>
               <span className="card-value">
                 {portfolio.totalGain >= 0 ? '+' : ''}{formatCurrency(portfolio.totalGain)}
               </span>
@@ -88,7 +88,7 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
               <span className="card-label">Positions</span>
               <span className="card-value">{portfolio.numberOfStocks}</span>
               <span className="card-sublabel">
-                Investi: {formatCurrency(portfolio.currentValue)}
+                Invested: {formatCurrency(portfolio.currentValue)}
               </span>
             </div>
           </div>
@@ -101,10 +101,10 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
               </svg>
             </div>
             <div className="card-content">
-              <span className="card-label">Liquidités</span>
+              <span className="card-label">Cash</span>
               <span className="card-value">{formatCurrency(portfolio.currentCash)}</span>
               <span className="card-sublabel">
-                {cashPercent.toFixed(1)}% du total
+                {cashPercent.toFixed(1)}% of total
               </span>
             </div>
           </div>
@@ -116,22 +116,22 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
             <div
               className="bar-segment invested"
               style={{ width: `${investedPercent}%` }}
-              title={`Investi: ${investedPercent.toFixed(1)}%`}
+              title={`Invested: ${investedPercent.toFixed(1)}%`}
             />
             <div
               className="bar-segment cash"
               style={{ width: `${cashPercent}%` }}
-              title={`Liquidités: ${cashPercent.toFixed(1)}%`}
+              title={`Cash: ${cashPercent.toFixed(1)}%`}
             />
           </div>
           <div className="bar-legend">
             <span className="legend-item">
               <span className="legend-color invested"></span>
-              Investi ({investedPercent.toFixed(1)}%)
+              Invested ({investedPercent.toFixed(1)}%)
             </span>
             <span className="legend-item">
               <span className="legend-color cash"></span>
-              Liquidités ({cashPercent.toFixed(1)}%)
+              Cash ({cashPercent.toFixed(1)}%)
             </span>
           </div>
         </div>
@@ -166,13 +166,13 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
           <table>
             <thead>
               <tr>
-                <th>Action</th>
-                <th className="text-right">Quantité</th>
-                <th className="text-right">Prix moyen</th>
-                <th className="text-right">Prix actuel</th>
-                <th className="text-right">Valeur</th>
-                <th className="text-right">Gain/Perte</th>
-                <th className="text-right">Poids</th>
+                <th>Stock</th>
+                <th className="text-right">Quantity</th>
+                <th className="text-right">Avg Price</th>
+                <th className="text-right">Current Price</th>
+                <th className="text-right">Value</th>
+                <th className="text-right">Gain/Loss</th>
+                <th className="text-right">Weight</th>
                 <th className="text-center">Actions</th>
               </tr>
             </thead>
@@ -229,7 +229,7 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
                   </td>
                   <td className="text-center">
                     <div className="action-buttons">
-                      <button className="btn-icon" title="Acheter plus">
+                      <button className="btn-icon" title="Buy More">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="12" y1="5" x2="12" y2="19" />
                           <line x1="5" y1="12" x2="19" y2="12" />
@@ -237,7 +237,7 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
                       </button>
                       <button
                         className="btn-icon danger"
-                        title="Vendre"
+                        title="Sell"
                         onClick={() => onSellStock?.(position.stockId)}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -258,20 +258,20 @@ export default function PortfolioView({ portfolio, onBuyStock, onSellStock }: Po
               <tr>
                 <th>Date</th>
                 <th>Type</th>
-                <th>Action</th>
-                <th className="text-right">Quantité</th>
-                <th className="text-right">Prix</th>
-                <th className="text-right">Montant</th>
-                <th className="text-right">Frais</th>
+                <th>Stock</th>
+                <th className="text-right">Quantity</th>
+                <th className="text-right">Price</th>
+                <th className="text-right">Amount</th>
+                <th className="text-right">Fees</th>
               </tr>
             </thead>
             <tbody>
               {portfolio.transactions.map((tx) => (
                 <tr key={tx.id} className="transaction-row">
-                  <td>{new Date(tx.date).toLocaleDateString('fr-FR')}</td>
+                  <td>{new Date(tx.date).toLocaleDateString('en-US')}</td>
                   <td>
                     <span className={`tx-type ${tx.type}`}>
-                      {tx.type === 'buy' ? 'Achat' : 'Vente'}
+                      {tx.type === 'buy' ? 'Buy' : 'Sell'}
                     </span>
                   </td>
                   <td>

@@ -72,24 +72,17 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
 
   return (
     <div className="market-header">
-      <div className="market-header__content">
-        {/* Titre et sous-titre */}
-        <div className="market-header__title">
-          <div className="title-content">
-            <h1>Market Movers</h1>
-            <p>Vue temps réel des principales variations du marché</p>
-          </div>
-          <div className="last-update">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span>Mis à jour : {lastUpdate.toLocaleTimeString('fr-FR')}</span>
-          </div>
-        </div>
-
-        {/* Indicateurs clés */}
-        <div className="market-indicators">
+      <div className="market-header__hero">
+        <div className="market-header__content">
+          {/* Title and indicators */}
+          <div className="market-header__title">
+            <div className="title-content">
+              <h1>Market Movers</h1>
+              <p>Real-time view of major market movements</p>
+            </div>
+            
+            {/* Key indicators card */}
+            <div className="market-indicators">
           <div className="indicator">
             <div className="indicator-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -97,7 +90,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               </svg>
             </div>
             <div className="indicator-content">
-              <span className="indicator-label">Marché</span>
+              <span className="indicator-label">Market</span>
               <span className="indicator-value">{indicators.selectedMarket}</span>
             </div>
           </div>
@@ -115,7 +108,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               )}
             </div>
             <div className="indicator-content">
-              <span className="indicator-label">Variation moyenne</span>
+              <span className="indicator-label">Avg Change</span>
               <span 
                 className="indicator-value"
                 style={{ color: indicators.avgChange >= 0 ? '#10b981' : '#ef4444' }}
@@ -132,7 +125,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               </svg>
             </div>
             <div className="indicator-content">
-              <span className="indicator-label">Volume total</span>
+              <span className="indicator-label">Total Volume</span>
               <span className="indicator-value">
                 {(indicators.totalVolume / 1000000).toFixed(1)}M
               </span>
@@ -146,8 +139,8 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
             <div className="indicator-content">
               <span className="indicator-label">Sentiment</span>
               <span className="indicator-value" style={{ color: getSentimentColor() }}>
-                {indicators.sentiment === 'bullish' ? 'Haussier' : 
-                 indicators.sentiment === 'bearish' ? 'Baissier' : 'Neutre'}
+                {indicators.sentiment === 'bullish' ? 'Bullish' : 
+                 indicators.sentiment === 'bearish' ? 'Bearish' : 'Neutral'}
               </span>
             </div>
           </div>
@@ -164,7 +157,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               </svg>
             </div>
             <div className="indicator-content">
-              <span className="indicator-label">Titres actifs</span>
+              <span className="indicator-label">Active Stocks</span>
               <span className="indicator-value">{indicators.activeStocks}</span>
             </div>
           </div>
@@ -176,7 +169,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               </svg>
             </div>
             <div className="indicator-content">
-              <span className="indicator-label">Hausses</span>
+              <span className="indicator-label">Gainers</span>
               <span className="indicator-value">{indicators.gainers}</span>
             </div>
           </div>
@@ -188,63 +181,65 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               </svg>
             </div>
             <div className="indicator-content">
-              <span className="indicator-label">Baisses</span>
+              <span className="indicator-label">Declines</span>
               <span className="indicator-value">{indicators.losers}</span>
+            </div>
+          </div>
             </div>
           </div>
         </div>
 
-        {/* Filtres */}
+        {/* Filters */}
         <div className="market-filters">
-          {/* Période */}
+          {/* Period */}
           <div className="filter-group period-filter">
-            <label>Période</label>
+            <label>Period</label>
             <div className="period-buttons">
               <button
                 className={period === 'day' ? 'active' : ''}
                 onClick={() => setPeriod('day')}
               >
-                Journée
+                Day
               </button>
               <button
                 className={period === 'week' ? 'active' : ''}
                 onClick={() => setPeriod('week')}
               >
-                Semaine
+                Week
               </button>
               <button
                 className={period === 'month' ? 'active' : ''}
                 onClick={() => setPeriod('month')}
               >
-                Mois
+                Month
               </button>
             </div>
           </div>
 
-          {/* Bourses */}
+          {/* Exchanges */}
           <MultiSelect
-            label="Bourses"
+            label="Exchanges"
             options={exchanges.map(ex => ({ value: ex, label: ex }))}
             selected={selectedExchanges}
             onChange={setSelectedExchanges}
-            placeholder="Toutes les bourses"
+            placeholder="All exchanges"
           />
 
-          {/* Secteurs */}
+          {/* Sectors */}
           <MultiSelect
-            label="Secteurs"
+            label="Sectors"
             options={sectors.map(sec => ({ value: sec, label: sec }))}
             selected={selectedSectors}
             onChange={setSelectedSectors}
-            placeholder="Tous les secteurs"
+            placeholder="All sectors"
           />
 
-          {/* Volume minimum */}
+          {/* Minimum volume */}
           <div className="filter-group">
-            <label>Volume minimum</label>
+            <label>Min Volume</label>
             <input
               type="number"
-              placeholder="Ex: 100000"
+              placeholder="e.g. 100000"
               value={minVolume}
               onChange={(e) => setMinVolume(e.target.value)}
               className="volume-input"

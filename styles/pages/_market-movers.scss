@@ -229,85 +229,63 @@
 
 // Market Header
 .market-header {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  color: white;
-  padding: 1rem 2rem;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 
+  &__hero {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(/images/screener-header-4.jpg);
+    background-size: cover;
+    background-position: center center;
+    transition: background-image 1s ease-in-out;
+    padding: 1.5rem 2rem;
+  }
+
   &__content {
-    // max-width: 1400px;
     margin: 0 auto;
   }
 
   &__title {
-    margin-bottom: 1rem;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 2rem;
 
     .title-content {
       flex: 1;
 
       h1 {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: 700;
-        margin-bottom: 0.5rem;
-        background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        margin: 0 0 0.5rem;
+        color: white;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       }
 
       p {
-        font-size: 1rem;
-        color: #94a3b8;
-        margin-bottom: 0;
-      }
-    }
-
-    .last-update {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      color: #64748b;
-      padding: 0.5rem 1rem;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 0.5rem;
-      flex-shrink: 0;
-      white-space: nowrap;
-
-      svg {
-        color: #10b981;
-        flex-shrink: 0;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.9);
+        margin: 0;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
       }
     }
   }
 
-  // Indicators
+  // Indicators card on the right
   .market-indicators {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 
     .indicator {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 0.5rem;
-      transition: all 0.2s ease;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.2);
-        transform: translateY(-2px);
-      }
+      gap: 0.5rem;
 
       &.gainers {
         .indicator-icon {
@@ -347,13 +325,14 @@
         display: flex;
         flex-direction: column;
         gap: 0.125rem;
-        min-width: 0;
+        align-items: center;
 
         .indicator-label {
-          font-size: 0.7rem;
-          color: #94a3b8;
+          font-size: 0.65rem;
+          color: rgba(255, 255, 255, 0.8);
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          font-weight: 600;
         }
 
         .indicator-value {
@@ -361,8 +340,6 @@
           font-weight: 700;
           color: white;
           white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
         }
       }
     }
@@ -373,6 +350,7 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0.75rem;
+    margin-top: 10px;
 
     .filter-group {
       display: flex;

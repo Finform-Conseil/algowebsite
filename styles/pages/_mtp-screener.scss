@@ -7,11 +7,22 @@
   background: var(--background-color);
   overflow: hidden;
 
-  .screener-header {
+  .fixed-income-screener-header {
     background: var(--card-background);
-    border-bottom: 1px solid var(--border-color);
-    padding: 1rem 1.5rem;
+    // border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+
+    // Hero section with dynamic background
+    &__hero {
+      position: relative;
+      padding: 1rem 1.5rem;
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      transition: background-image 1s ease-in-out;
+    }
 
     .header-top {
       width: 100%;
@@ -19,6 +30,8 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
+      position: relative;
+      z-index: 1;
 
       .header-title {
         flex: 1;
@@ -26,14 +39,16 @@
         h1 {
           font-size: 1.75rem;
           font-weight: 700;
-          color: var(--text-color);
+          color: white;
           margin: 0 0 0.5rem 0;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         p {
           font-size: 0.9375rem;
-          color: var(--text-secondary);
+          color: rgba(255, 255, 255, 0.9);
           margin: 0;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
       }
 
@@ -57,6 +72,9 @@
 
       .search-section {
         margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
 
         .search-bar {
           display: flex;
@@ -91,57 +109,60 @@
             }
           }
         }
-      }
 
-      .main-filters {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-        
-        .multi-selects{
+        .main-filters {
           display: flex;
+          justify-content: space-between;
           gap: 1rem;
+          flex-wrap: wrap;
+          
+          .multi-selects{
+            display: flex;
+            gap: 1rem;
 
-          .multiselect {
-            width: auto;
-            min-width: 150px;
+            .multiselect {
+              width: auto;
+              min-width: 150px;
+            }
+              
           }
-            
+          
         }
-        
+
+        .btn-advanced-filters {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.625rem 1rem;
+          background: var(--hover-background);
+          border: 1px solid var(--border-color);
+          border-radius: $border-radius-md;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--text-color);
+          cursor: pointer;
+          transition: all $transition-fast;
+
+          svg {
+            transition: transform $transition-fast;
+          }
+
+          &:hover {
+            background: var(--card-background);
+            border-color: var(--primary-color);
+          }
+        }
+
       }
 
-      .btn-advanced-filters {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.625rem 1rem;
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: $border-radius-md;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--text-color);
-        cursor: pointer;
-        transition: all $transition-fast;
 
-        svg {
-          transition: transform $transition-fast;
-        }
 
-        &:hover {
-          background: var(--card-background);
-          border-color: var(--primary-color);
-        }
-      }
     }
 
     .advanced-filters {
       padding: 1rem 1.5rem;
       background: var(--hover-background);
-      border-bottom: 1px solid var(--border-color);
+      // border-bottom: 1px solid var(--border-color);
       display: flex;
       gap: 1rem;
       flex-wrap: wrap;
@@ -1100,7 +1121,7 @@
 
 @media (max-width: $breakpoint-md) {
   .mtp-screener-page {
-    .screener-header {
+    .fixed-income-screener-header {
       .header-top {
         flex-direction: column;
         gap: 1rem;

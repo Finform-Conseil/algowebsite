@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import MultiLineChart from '@/components/opcvm/MultiLineChart';
 import { Candle } from '@/core/data/TechnicalAnalysis';
@@ -32,6 +32,20 @@ export default function OPCVMComparisonReportPage() {
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2024-11-30');
   const [viewMode, setViewMode] = useState<ViewMode>('charts');
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   // Générer des données historiques mock pour les graphiques
   const generateHistoricalData = (basePrice: number, trend: 'up' | 'down'): Candle[] => {
@@ -206,55 +220,62 @@ export default function OPCVMComparisonReportPage() {
     <div className="comparison-report-page">
       {/* Header */}
       <div className="report-header">
-        <div className="header-content">
-          <div className="header-title">
-            <h1>Rapport de Comparaison d'OPCVM</h1>
-            <p>Analyse comparative des Top-3 et Flop-3 OPCVM par bourse</p>
-          </div>
-
-          <div className="header-filters">
-            <div className="filter-group">
-              <label>Bourse</label>
-              <select
-                value={selectedExchange}
-                onChange={(e) => setSelectedExchange(e.target.value as Exchange)}
-                className="exchange-select"
-              >
-                <option value="BRVM">BRVM</option>
-                <option value="JSE">JSE</option>
-                <option value="NGX">NGX</option>
-                <option value="NSE">NSE</option>
-                <option value="CSE">CSE</option>
-                <option value="GSE">GSE</option>
-              </select>
+        <div 
+          className="report-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-content">
+            <div className="header-title">
+              <h1>Rapport de Comparaison d'OPCVM</h1>
+              <p>Analyse comparative des Top-3 et Flop-3 OPCVM par bourse</p>
             </div>
 
-            <div className="filter-group">
-              <label>Période</label>
-              <div className="date-range">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <span>-</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+            <div className="header-filters">
+              <div className="filter-group">
+                <label>Bourse</label>
+                <select
+                  value={selectedExchange}
+                  onChange={(e) => setSelectedExchange(e.target.value as Exchange)}
+                  className="exchange-select"
+                >
+                  <option value="BRVM">BRVM</option>
+                  <option value="JSE">JSE</option>
+                  <option value="NGX">NGX</option>
+                  <option value="NSE">NSE</option>
+                  <option value="CSE">CSE</option>
+                  <option value="GSE">GSE</option>
+                </select>
               </div>
-            </div>
 
-            <button className="btn-generate">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Générer le rapport
-            </button>
-          </div>
+              <div className="filter-group">
+                <label>Période</label>
+                <div className="date-range">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                  <span>-</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button className="btn-generate">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Générer le rapport
+              </button>
+            </div>
+        </div>
         </div>
       </div>
 

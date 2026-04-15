@@ -47,16 +47,16 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
-            Ma Watchlist
+            My Watchlist
           </h2>
-          <span className="stock-count">{stocks.length} actions</span>
+          <span className="stock-count">{stocks.length} stocks</span>
         </div>
         <button className="btn-add" onClick={onAddStock}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Ajouter une action
+          Add Stock
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
             <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
             <polyline points="17 6 23 6 23 12" />
           </svg>
-          Par variation
+          By Change
         </button>
         <button
           className={`filter-btn ${sortBy === 'volume' ? 'active' : ''}`}
@@ -81,7 +81,7 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
             <line x1="12" y1="20" x2="12" y2="4" />
             <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
-          Par volume
+          By Volume
         </button>
         <button
           className={`filter-btn ${sortBy === 'name' ? 'active' : ''}`}
@@ -93,7 +93,7 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
             <line x1="21" y1="14" x2="3" y2="14" />
             <line x1="21" y1="18" x2="3" y2="18" />
           </svg>
-          Par nom
+          By Name
         </button>
       </div>
 
@@ -102,11 +102,11 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
         <table>
           <thead>
             <tr>
-              <th>Action</th>
-              <th className="text-right">Prix</th>
-              <th className="text-right">Variation</th>
+              <th>Stock</th>
+              <th className="text-right">Price</th>
+              <th className="text-right">Change</th>
               <th className="text-right">Volume</th>
-              <th className="text-right">Cap. boursière</th>
+              <th className="text-right">Market Cap</th>
               <th className="text-center">Actions</th>
             </tr>
           </thead>
@@ -134,7 +134,7 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
                   <div className="price-cell">
                     <strong>{stock.currentPrice.toLocaleString()} XOF</strong>
                     <span className="previous-close">
-                      Clôture: {stock.previousClose.toLocaleString()}
+                      Close: {stock.previousClose.toLocaleString()}
                     </span>
                   </div>
                 </td>
@@ -152,7 +152,7 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
                   <div className="volume-cell">
                     <strong>{stock.volume.toLocaleString()}</strong>
                     <span className={`volume-indicator ${stock.volume > stock.avgVolume ? 'high' : 'normal'}`}>
-                      {stock.volume > stock.avgVolume ? '↑ Au-dessus moy.' : '→ Normal'}
+                      {stock.volume > stock.avgVolume ? '↑ Above avg' : '→ Normal'}
                     </span>
                   </div>
                 </td>
@@ -166,13 +166,13 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
                 </td>
                 <td className="text-center">
                   <div className="action-buttons">
-                    <button className="btn-icon" title="Créer une alerte">
+                    <button className="btn-icon" title="Create Alert">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                       </svg>
                     </button>
-                    <button className="btn-icon" title="Ajouter au portfolio">
+                    <button className="btn-icon" title="Add to Portfolio">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
@@ -181,7 +181,7 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
                     </button>
                     <button
                       className="btn-icon danger"
-                      title="Retirer"
+                      title="Remove"
                       onClick={() => onRemoveStock?.(stock.id)}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -200,25 +200,25 @@ export default function WatchlistView({ stocks, onAddStock, onRemoveStock }: Wat
       {/* Summary Stats */}
       <div className="watchlist-summary">
         <div className="summary-card">
-          <span className="summary-label">Gainants</span>
+          <span className="summary-label">Gainers</span>
           <span className="summary-value positive">
             {stocks.filter(s => s.change > 0).length}
           </span>
         </div>
         <div className="summary-card">
-          <span className="summary-label">Perdants</span>
+          <span className="summary-label">Losers</span>
           <span className="summary-value negative">
             {stocks.filter(s => s.change < 0).length}
           </span>
         </div>
         <div className="summary-card">
-          <span className="summary-label">Variation moyenne</span>
+          <span className="summary-label">Avg Change</span>
           <span className={`summary-value ${stocks.reduce((sum, s) => sum + s.changePercent, 0) / stocks.length >= 0 ? 'positive' : 'negative'}`}>
             {formatPercent(stocks.reduce((sum, s) => sum + s.changePercent, 0) / stocks.length)}
           </span>
         </div>
         <div className="summary-card">
-          <span className="summary-label">Volume total</span>
+          <span className="summary-label">Total Volume</span>
           <span className="summary-value">
             {(stocks.reduce((sum, s) => sum + s.volume, 0) / 1000).toFixed(1)}K
           </span>

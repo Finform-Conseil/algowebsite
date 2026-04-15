@@ -46,7 +46,7 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   const getReturnColor = (returnValue?: number) => {
@@ -61,17 +61,17 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
-          Introductions Récentes
+          Recent Listings
         </h2>
         <div className="header-actions">
-          <span className="count-badge">{ipos.length} IPO</span>
+          <span className="count-badge">{ipos.length} IPOs</span>
           <button className="btn-export">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            Exporter
+            Export
           </button>
         </div>
       </div>
@@ -80,14 +80,14 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
         <table>
           <thead>
             <tr>
-              <th className="company">Entreprise</th>
-              <th className="sector">Secteur</th>
-              <th className="exchange">Bourse</th>
+              <th className="company">Company</th>
+              <th className="sector">Sector</th>
+              <th className="exchange">Exchange</th>
               <th 
                 className={`date sortable ${sortBy === 'date' ? 'active' : ''}`}
                 onClick={() => handleSort('date')}
               >
-                Date IPO
+                IPO Date
                 {sortBy === 'date' && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     {sortOrder === 'asc' ? (
@@ -98,13 +98,13 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
                   </svg>
                 )}
               </th>
-              <th className="price">Prix IPO</th>
-              <th className="current-price">Prix actuel</th>
+              <th className="price">IPO Price</th>
+              <th className="current-price">Current Price</th>
               <th 
                 className={`size sortable ${sortBy === 'size' ? 'active' : ''}`}
                 onClick={() => handleSort('size')}
               >
-                Montant levé
+                Amount Raised
                 {sortBy === 'size' && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     {sortOrder === 'asc' ? (
@@ -119,7 +119,7 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
                 className={`return sortable ${sortBy === 'return' ? 'active' : ''}`}
                 onClick={() => handleSort('return')}
               >
-                Performance
+                Return
                 {sortBy === 'return' && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     {sortOrder === 'asc' ? (
@@ -165,7 +165,7 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
                 <td className="size">
                   <div className="size-info">
                     <strong>${(ipo.totalRaisedUSD / 1000000).toFixed(1)}M</strong>
-                    <span className="shares">{(ipo.sharesOffered / 1000000).toFixed(1)}M actions</span>
+                    <span className="shares">{(ipo.sharesOffered / 1000000).toFixed(1)}M shares</span>
                   </div>
                 </td>
                 <td className={`return ${getReturnColor(ipo.currentReturn)}`}>
@@ -175,19 +175,19 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
                         {ipo.currentReturn >= 0 ? '+' : ''}{ipo.currentReturn.toFixed(1)}%
                       </span>
                       {ipo.firstDayReturn !== undefined && (
-                        <span className="first-day">J1: {ipo.firstDayReturn >= 0 ? '+' : ''}{ipo.firstDayReturn.toFixed(1)}%</span>
+                        <span className="first-day">D1: {ipo.firstDayReturn >= 0 ? '+' : ''}{ipo.firstDayReturn.toFixed(1)}%</span>
                       )}
                     </div>
                   ) : '-'}
                 </td>
                 <td className="actions">
-                  <button className="btn-icon" title="Voir détails">
+                  <button className="btn-icon" title="View details">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
                   </button>
-                  <button className="btn-icon" title="Ajouter à la watchlist">
+                  <button className="btn-icon" title="Add to watchlist">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                     </svg>

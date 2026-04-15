@@ -17,7 +17,7 @@ export const WATCHLIST_STOCKS: WatchlistStock[] = [
     ticker: 'SNTS',
     companyName: 'Sonatel',
     exchange: 'BRVM',
-    sector: 'Télécommunications',
+    sector: 'Telecommunications',
     currentPrice: 12500,
     previousClose: 12200,
     change: 300,
@@ -28,7 +28,7 @@ export const WATCHLIST_STOCKS: WatchlistStock[] = [
     pe: 4.9,
     dividendYield: 6.8,
     addedDate: '2024-01-15',
-    tags: ['blue-chip', 'dividende']
+    tags: ['blue-chip', 'dividend']
   },
   {
     id: 'sgbc-1',
@@ -46,14 +46,14 @@ export const WATCHLIST_STOCKS: WatchlistStock[] = [
     pe: 8.2,
     dividendYield: 5.2,
     addedDate: '2024-02-10',
-    tags: ['banque']
+    tags: ['banking']
   },
   {
     id: 'ttlc-1',
     ticker: 'TTLC',
     companyName: 'Total Côte d\'Ivoire',
     exchange: 'BRVM',
-    sector: 'Énergie',
+    sector: 'Energy',
     currentPrice: 2150,
     previousClose: 2100,
     change: 50,
@@ -64,7 +64,7 @@ export const WATCHLIST_STOCKS: WatchlistStock[] = [
     pe: 12.5,
     dividendYield: 4.5,
     addedDate: '2024-01-20',
-    tags: ['énergie']
+    tags: ['energy']
   },
   {
     id: 'palm-1',
@@ -89,7 +89,7 @@ export const WATCHLIST_STOCKS: WatchlistStock[] = [
     ticker: 'SMBC',
     companyName: 'SMB Côte d\'Ivoire',
     exchange: 'BRVM',
-    sector: 'Industrie',
+    sector: 'Industry',
     currentPrice: 9200,
     previousClose: 8950,
     change: 250,
@@ -99,15 +99,15 @@ export const WATCHLIST_STOCKS: WatchlistStock[] = [
     marketCap: 460000000000,
     pe: 10.8,
     addedDate: '2024-02-28',
-    tags: ['industrie', 'croissance']
+    tags: ['industry', 'growth']
   }
 ];
 
 // Mock Watchlist
 export const DEFAULT_WATCHLIST: Watchlist = {
   id: 'wl-1',
-  name: 'Ma Watchlist Principale',
-  description: 'Actions suivies quotidiennement',
+  name: 'My Main Watchlist',
+  description: 'Daily tracked stocks',
   stocks: WATCHLIST_STOCKS,
   createdAt: '2024-01-15',
   updatedAt: '2024-03-05',
@@ -126,7 +126,7 @@ export const MOCK_ALERTS: Alert[] = [
     status: 'active',
     condition: 'price > 13000',
     targetValue: 13000,
-    message: 'Sonatel a dépassé 13,000 XOF',
+    message: 'Sonatel exceeded 13,000 XOF',
     createdAt: '2024-03-01',
     notifyEmail: true,
     notifyPush: true
@@ -140,7 +140,7 @@ export const MOCK_ALERTS: Alert[] = [
     status: 'triggered',
     condition: 'price < 9000',
     targetValue: 9000,
-    message: 'SGBC est passé sous 9,000 XOF',
+    message: 'SGBC dropped below 9,000 XOF',
     createdAt: '2024-02-15',
     triggeredAt: '2024-03-10',
     notifyEmail: true
@@ -154,7 +154,7 @@ export const MOCK_ALERTS: Alert[] = [
     status: 'active',
     condition: 'volume > 15000',
     targetValue: 15000,
-    message: 'Volume anormal détecté sur TTLC',
+    message: 'Abnormal volume detected on TTLC',
     createdAt: '2024-03-05',
     notifyPush: true
   },
@@ -166,7 +166,7 @@ export const MOCK_ALERTS: Alert[] = [
     type: 'dividend',
     status: 'active',
     condition: 'dividend_announcement',
-    message: 'Annonce de dividende pour Sonatel',
+    message: 'Dividend announcement for Sonatel',
     createdAt: '2024-01-20',
     notifyEmail: true,
     notifyPush: true
@@ -254,7 +254,7 @@ export const MOCK_POSITIONS: Position[] = [
     ticker: 'SNTS',
     companyName: 'Sonatel',
     exchange: 'BRVM',
-    sector: 'Télécommunications',
+    sector: 'Telecommunications',
     quantity: 80,
     avgBuyPrice: 11875,
     totalInvested: 950000,
@@ -290,7 +290,7 @@ export const MOCK_POSITIONS: Position[] = [
     ticker: 'TTLC',
     companyName: 'Total CI',
     exchange: 'BRVM',
-    sector: 'Énergie',
+    sector: 'Energy',
     quantity: 200,
     avgBuyPrice: 2050,
     totalInvested: 410000,
@@ -326,8 +326,8 @@ export const MOCK_POSITIONS: Position[] = [
 // Mock Portfolio
 export const MOCK_PORTFOLIO: Portfolio = {
   id: 'pf-1',
-  name: 'Mon Portfolio Principal',
-  description: 'Stratégie diversifiée BRVM',
+  name: 'My Main Portfolio',
+  description: 'Diversified BRVM strategy',
   initialCapital: 5000000,
   currentCash: 2206850,
   totalInvested: 2730000,
@@ -354,10 +354,10 @@ export const MOCK_PORTFOLIO_STATS: PortfolioStats = {
   sharpeRatio: 0.51,
   maxDrawdown: -3.2,
   sectorAllocation: [
-    { sector: 'Télécommunications', value: 1000000, percent: 35.1 },
+    { sector: 'Telecommunications', value: 1000000, percent: 35.1 },
     { sector: 'Finance', value: 875000, percent: 30.7 },
     { sector: 'Agriculture', value: 544000, percent: 19.1 },
-    { sector: 'Énergie', value: 430000, percent: 15.1 }
+    { sector: 'Energy', value: 430000, percent: 15.1 }
   ],
   exchangeAllocation: [
     { exchange: 'BRVM', value: 2849000, percent: 100 }

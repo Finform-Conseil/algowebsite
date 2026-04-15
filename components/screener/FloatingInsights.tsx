@@ -64,7 +64,7 @@ export default function FloatingInsights({ stocks, allStocks }: FloatingInsights
   }
 
   return (
-    <>
+    <div className="floating-insights-container">
       {/* Floating Button */}
       <button
         className={`floating-insights-btn ${isOpen ? 'open' : ''}`}
@@ -122,6 +122,6 @@ export default function FloatingInsights({ stocks, allStocks }: FloatingInsights
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

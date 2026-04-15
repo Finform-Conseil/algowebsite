@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import MultiSelect from '@/components/corporate-events/MultiSelect';
 import BarChart from '@/components/charts/BarChart';
@@ -83,6 +83,20 @@ export default function FinancialSecondaryScreenerPage() {
   const [showInsights, setShowInsights] = useState(false);
   const [selectedBonds, setSelectedBonds] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -335,9 +349,15 @@ export default function FinancialSecondaryScreenerPage() {
 
 
   return (
-    <div className="mtp-screener-page">
+    <div className="financial-secondary-screener-page">
       <div className="screener-header">
-        <div className="header-top">
+        <div 
+          className="screener-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-top">
           <div className="header-title">
             <h1>Financial Secondary Market Screener</h1>
             <p>Explore and analyze financial bonds on the secondary market</p>
@@ -370,6 +390,7 @@ export default function FinancialSecondaryScreenerPage() {
               Share
             </button>
           </div>
+        </div>
         </div>
       </div>
 

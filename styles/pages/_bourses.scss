@@ -10,8 +10,8 @@
   border-bottom: 1px solid var(--border-color);
 
   &__main {
-    padding: 3rem 2rem;
-    min-height: 250px;
+    padding: 1.5rem 2rem;
+    min-height: auto;
     display: flex;
     align-items: center;
     position: relative;
@@ -19,58 +19,72 @@
     .exchanges-header__content {
       position: relative;
       z-index: 2;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
     }
 
     .exchanges-header__title-section {
-      margin-bottom: 1rem;
+      flex: 1;
 
       .exchanges-header__title {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: 700;
         color: white;
-        margin-bottom: 1rem;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        margin: 0 0 0.5rem;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       }
 
       .exchanges-header__subtitle-container {
-        height: 2rem;
+        height: 1.5rem;
         overflow: hidden;
       }
 
       .exchanges-header__subtitle {
-        font-size: 1.25rem;
+        font-size: 0.9rem;
         color: rgba(255, 255, 255, 0.9);
         animation: fade-subtitle 0.5s ease-in-out;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
       }
     }
 
-    .exchanges-header__stats {
+    .exchanges-header__stats-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
       display: flex;
-      gap: 3rem;
-      flex-wrap: wrap;
+      gap: 2rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 
       .stat-item {
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
+        align-items: center;
 
         .stat-label {
-          font-size: 0.875rem;
+          font-size: 0.7rem;
           color: rgba(255, 255, 255, 0.8);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-weight: 600;
         }
 
         .stat-value {
-          font-size: 1.5rem;
+          font-size: 1.25rem;
           font-weight: 700;
           color: white;
 
           &.positive {
-            color: #10b981;
+            color: #4ade80;
           }
 
           &.negative {
-            color: #ef4444;
+            color: #f87171;
           }
         }
       }
@@ -108,6 +122,7 @@
             border-radius: 2rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            color: white;
 
             &:hover {
               border-color: var(--primary-color);
@@ -117,7 +132,6 @@
             &.selected {
               background: var(--primary-color);
               border-color: var(--primary-color);
-              color: white;
             }
 
             .exchange-logo {
@@ -206,6 +220,7 @@
             border-radius: 0.5rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            color: white;
 
             &:hover {
               background: var(--card-background-hover);
@@ -214,7 +229,7 @@
             &.selected {
               background: var(--primary-color);
               border-color: var(--primary-color);
-              color: white;
+              
             }
 
             .mode-icon {
@@ -856,6 +871,8 @@
           border-radius: 0.5rem;
           cursor: pointer;
           transition: all 0.2s ease;
+          color: white;
+
 
           &:hover {
             background: var(--card-background-hover);
@@ -864,7 +881,6 @@
           &.active {
             background: var(--primary-color);
             border-color: var(--primary-color);
-            color: white;
           }
         }
       }
@@ -892,6 +908,8 @@
             font-size: 0.875rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            color: white;
+
 
             &:hover {
               background: var(--card-background-hover);
@@ -900,7 +918,6 @@
             &.active {
               background: var(--primary-color);
               border-color: var(--primary-color);
-              color: white;
             }
           }
         }
@@ -2674,14 +2691,20 @@
 // Responsive Design
 @media (max-width: 1024px) {
   .exchanges-header__main {
-    padding: 2rem 1rem;
-
-    .exchanges-header__title {
-      font-size: 2rem;
+    .exchanges-header__content {
+      flex-direction: column;
+      align-items: flex-start;
     }
 
-    .exchanges-header__stats {
-      gap: 2rem;
+    .exchanges-header__title-section {
+      .exchanges-header__title {
+        font-size: 1.5rem;
+      }
+    }
+
+    .exchanges-header__stats-card {
+      width: 100%;
+      gap: 1.5rem;
     }
   }
 
@@ -2703,15 +2726,32 @@
 
 @media (max-width: 768px) {
   .exchanges-header__main {
-    padding: 1.5rem 1rem;
+    padding: 1rem;
 
-    .exchanges-header__title {
-      font-size: 1.75rem;
+    .exchanges-header__title-section {
+      .exchanges-header__title {
+        font-size: 1.35rem;
+      }
+
+      .exchanges-header__subtitle {
+        font-size: 0.8rem;
+      }
     }
 
-    .exchanges-header__stats {
-      flex-direction: column;
+    .exchanges-header__stats-card {
+      flex-wrap: wrap;
       gap: 1rem;
+      padding: 0.75rem 1rem;
+
+      .stat-item {
+        .stat-label {
+          font-size: 0.65rem;
+        }
+
+        .stat-value {
+          font-size: 1rem;
+        }
+      }
     }
   }
 

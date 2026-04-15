@@ -37,6 +37,7 @@ type SubMenuItem = {
 };
 
 type NavItem = {
+  href: string;
   label: string;
   icon: React.ReactNode;
   items?: SubMenuItem[];
@@ -97,6 +98,7 @@ export default function Navbar() {
 
   const navItems: NavItem[] = [
     {
+      href: '/equity',
       label: 'Equity',
       icon: <ChartLine size={18} weight="duotone" />,
       items: [
@@ -136,6 +138,7 @@ export default function Navbar() {
       ]
     },
     {
+      href: '/fixed-income',
       label: 'Fixed Income',
       icon: <Vault size={18} weight="duotone" />,
       items: [
@@ -165,21 +168,23 @@ export default function Navbar() {
           ]
         },
         { href: '/fixed-income/bond-swap', label: 'Bond Swap', icon: <Scales size={16} weight="duotone" /> },
-        { href: '/fixed-income/bond-simulator', label: 'Bond Simulator', icon: <ChartLine size={16} weight="duotone" /> },
+        { href: '/fixed-income/simulator', label: 'Bond Simulator', icon: <ChartLine size={16} weight="duotone" /> },
       ]
     },
     {
-      label: 'UCITS',
+      href: '/opcvm',
+      label: 'Funds',
       icon: <ChartPieSlice size={18} weight="duotone" />,
       items: [
-        { href: '/opcvm/screener', label: 'UCITS Screener', icon: <Funnel size={16} weight="duotone" /> },
-        { href: '/opcvm/comparison', label: 'UCITS Comparison', icon: <Scales size={16} weight="duotone" /> },
-        { href: '/opcvm/titans', label: 'UCITS Titans', icon: <Trophy size={16} weight="duotone" /> },
-        { href: '/opcvm/simulator', label: 'UCITS Simulator', icon: <ChartLine size={16} weight="duotone" /> },
-        { href: '/opcvm/learn', label: 'Learn UCITS', icon: <GraduationCap size={16} weight="duotone" /> },
+        { href: '/opcvm/screener', label: 'Funds Screener', icon: <Funnel size={16} weight="duotone" /> },
+        { href: '/opcvm/comparison', label: 'Funds Comparison', icon: <Scales size={16} weight="duotone" /> },
+        { href: '/opcvm/titans', label: 'Titans Asset Management', icon: <Trophy size={16} weight="duotone" /> },
+        { href: '/opcvm/simulator', label: 'Subscription Simulator', icon: <ChartLine size={16} weight="duotone" /> },
+        { href: '/opcvm/learn', label: 'Learn Funds', icon: <GraduationCap size={16} weight="duotone" /> },
       ]
     },
     {
+      href: '/macro',
       label: 'Macro',
       icon: <Globe size={18} weight="duotone" />,
       items: [
@@ -232,11 +237,12 @@ export default function Navbar() {
             onMouseEnter={() => handleMenuEnter(item.label)}
             onMouseLeave={handleMenuLeave}
           >
-            <button className="nav-link">
-              {item.icon}
-              <span>{item.label}</span>
-              {item.items && item.items.length > 0 && <CaretDown size={14} weight="bold" />}
-            </button>
+            <Link href={item.href} className="nav-link dropdown-item">
+                {item.icon}
+                <span>{item.label}</span>
+                {item.items && item.items.length > 0 && <CaretDown size={14} weight="bold" />}
+            </Link>
+
             
             {item.items && item.items.length > 0 && activeMenu === item.label && (
               <div className="dropdown-menu">

@@ -9,13 +9,32 @@ interface IPOHeaderProps {
 
 export default function IPOHeader({ statistics }: IPOHeaderProps) {
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [currentSubtitle, setCurrentSubtitle] = useState(0);
+  const [backgroundImages] = useState([
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ]);
+
+  const subtitles = [
+    "Discover new investment opportunities on African markets",
+    "Track upcoming and recent IPOs across the continent",
+    "Analyze performance and trends of new listings"
+  ];
 
   useEffect(() => {
     const interval = setInterval(() => {
       setLastUpdate(new Date());
-    }, 60000); // Update every minute
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSubtitle((prev) => (prev + 1) % subtitles.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [subtitles.length]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000000) {
@@ -27,42 +46,22 @@ export default function IPOHeader({ statistics }: IPOHeaderProps) {
   };
 
   return (
-    <div className="ipo-header">
+    <div 
+      className="ipo-header"
+      style={{
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentSubtitle]})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat',
+        transition: 'background-image 1s ease-in-out'
+      }}
+    >
       <div className="ipo-header__content">
         {/* Title Section */}
         <div className="ipo-header__title">
           <div className="title-content">
-            <h1>IPO - Introductions en Bourse</h1>
-            <p>Découvrez les nouvelles opportunités d'investissement sur les marchés africains</p>
-          </div>
-          {/* Quick Insights */}
-          <div className="ipo-insights">
-            <div className="insight-badge hot">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
-              <span>Secteur le plus actif : <strong>{statistics.bySector[0]?.sector || 'N/A'}</strong></span>
-            </div>
-            <div className="insight-badge trending">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-              <span>Meilleure bourse : <strong>{statistics.byExchange[0]?.exchange || 'N/A'}</strong></span>
-            </div>
-            <div className="insight-badge upcoming">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <span>3 IPO à venir ce mois</span>
-            </div>
-            <div className="last-update">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <span>Mis à jour : {lastUpdate.toLocaleTimeString('fr-FR')}</span>
-            </div>
+            <h1>IPO - Initial Public Offerings</h1>
+            <p>{subtitles[currentSubtitle]}</p>
           </div>
         </div>
 
@@ -76,9 +75,9 @@ export default function IPOHeader({ statistics }: IPOHeaderProps) {
               </svg>
             </div>
             <div className="stat-content">
-              <span className="stat-label">Total IPO (5 ans)</span>
+              <span className="stat-label">Total IPOs (5Y)</span>
               <span className="stat-value">{statistics.totalIPOs}</span>
-              <span className="stat-sublabel">Introductions réussies</span>
+              <span className="stat-sublabel">Successful listings</span>
             </div>
           </div>
 
@@ -90,9 +89,9 @@ export default function IPOHeader({ statistics }: IPOHeaderProps) {
               </svg>
             </div>
             <div className="stat-content">
-              <span className="stat-label">Capital levé</span>
+              <span className="stat-label">Capital Raised</span>
               <span className="stat-value">{formatCurrency(statistics.totalRaised)}</span>
-              <span className="stat-sublabel">Montant total USD</span>
+              <span className="stat-sublabel">Total USD amount</span>
             </div>
           </div>
 
@@ -106,9 +105,9 @@ export default function IPOHeader({ statistics }: IPOHeaderProps) {
               </svg>
             </div>
             <div className="stat-content">
-              <span className="stat-label">Taille moyenne</span>
+              <span className="stat-label">Average Size</span>
               <span className="stat-value">{formatCurrency(statistics.averageSize)}</span>
-              <span className="stat-sublabel">Par introduction</span>
+              <span className="stat-sublabel">Per listing</span>
             </div>
           </div>
 
@@ -119,11 +118,11 @@ export default function IPOHeader({ statistics }: IPOHeaderProps) {
               </svg>
             </div>
             <div className="stat-content">
-              <span className="stat-label">Performance moyenne</span>
+              <span className="stat-label">Average Return</span>
               <span className={`stat-value ${statistics.averageReturn >= 0 ? 'positive' : 'negative'}`}>
                 {statistics.averageReturn >= 0 ? '+' : ''}{statistics.averageReturn.toFixed(1)}%
               </span>
-              <span className="stat-sublabel">Depuis introduction</span>
+              <span className="stat-sublabel">Since listing</span>
             </div>
           </div>
 
@@ -135,13 +134,12 @@ export default function IPOHeader({ statistics }: IPOHeaderProps) {
               </svg>
             </div>
             <div className="stat-content">
-              <span className="stat-label">Taux de succès</span>
+              <span className="stat-label">Success Rate</span>
               <span className="stat-value">{statistics.successRate.toFixed(0)}%</span>
-              <span className="stat-sublabel">IPO positives</span>
+              <span className="stat-sublabel">Positive IPOs</span>
             </div>
           </div>
         </div>
-        
       </div>
     </div>
   );

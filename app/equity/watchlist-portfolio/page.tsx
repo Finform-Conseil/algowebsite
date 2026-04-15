@@ -28,7 +28,7 @@ export default function WatchlistPortfolioPage() {
           </svg>
           <div className="stat-content">
             <span className="stat-label">Watchlist</span>
-            <span className="stat-value">{quickStats.totalWatchlistStocks} actions</span>
+            <span className="stat-value">{quickStats.totalWatchlistStocks} stocks</span>
           </div>
         </div>
 
@@ -38,7 +38,7 @@ export default function WatchlistPortfolioPage() {
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
           <div className="stat-content">
-            <span className="stat-label">Alertes actives</span>
+            <span className="stat-label">Active Alerts</span>
             <span className="stat-value">{quickStats.activeAlerts}</span>
           </div>
         </div>
@@ -48,7 +48,7 @@ export default function WatchlistPortfolioPage() {
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
           </svg>
           <div className="stat-content">
-            <span className="stat-label">Valeur portfolio</span>
+            <span className="stat-label">Portfolio Value</span>
             <span className="stat-value">
               {(quickStats.portfolioValue / 1000000).toFixed(2)}M XOF
             </span>
@@ -61,7 +61,7 @@ export default function WatchlistPortfolioPage() {
             <polyline points="17 6 23 6 23 12" />
           </svg>
           <div className="stat-content">
-            <span className="stat-label">Gain aujourd'hui</span>
+            <span className="stat-label">Today's Gain</span>
             <span className={`stat-value ${quickStats.todayGain >= 0 ? 'positive' : 'negative'}`}>
               {quickStats.todayGain >= 0 ? '+' : ''}{(quickStats.todayGain / 1000).toFixed(1)}K XOF
               ({quickStats.todayGainPercent >= 0 ? '+' : ''}{quickStats.todayGainPercent.toFixed(2)}%)
@@ -75,7 +75,7 @@ export default function WatchlistPortfolioPage() {
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Exporter
+          Export
         </button>
       </div>
 
@@ -99,7 +99,7 @@ export default function WatchlistPortfolioPage() {
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-            Alertes
+            Alerts
             {quickStats.activeAlerts > 0 && (
               <span className="tab-badge">{quickStats.activeAlerts}</span>
             )}

@@ -9,7 +9,7 @@ interface ScenarioButtonsProps {
 export default function ScenarioButtons({ onSelectScenario }: ScenarioButtonsProps) {
   return (
     <div className="scenario-buttons">
-      <div className="scenario-buttons__label">Scénarios prédéfinis :</div>
+      <div className="scenario-buttons__label">Predefined Scenarios :</div>
       <div className="scenario-buttons__list">
         {PREDEFINED_SCENARIOS.map((scenario) => (
           <button

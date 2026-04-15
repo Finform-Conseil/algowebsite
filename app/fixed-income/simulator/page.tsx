@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 
 type SimulatorType = 'rates' | 'financial-market' | 'mtp';
@@ -43,7 +43,21 @@ interface AmortizationRow {
 
 export default function SimulatorPage() {
   const [activeSimulator, setActiveSimulator] = useState<SimulatorType>('rates');
-  
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
+
   // Rates Simulator State
   const [ratesInputs, setRatesInputs] = useState<RatesInputs>({
     operationType: 'emission',
@@ -171,7 +185,13 @@ export default function SimulatorPage() {
   return (
     <div className="simulator-page">
       <div className="simulator-header">
-        <div className="header-content">
+        <div 
+          className="simulator-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-content">
           <h1>Bond Simulator</h1>
           <p>Simulate and analyze different bond scenarios</p>
         </div>
@@ -188,6 +208,7 @@ export default function SimulatorPage() {
             <span className="stat-label">Status</span>
             <strong className="stat-value">{showResults ? 'Complete' : 'Ready'}</strong>
           </div>
+        </div>
         </div>
       </div>
 

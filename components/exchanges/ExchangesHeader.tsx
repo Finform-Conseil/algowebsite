@@ -28,17 +28,17 @@ export default function ExchangesHeader({
   ]);
 
   const subtitles = [
-    "Panorama des marchés actions du continent — tailles, dynamiques et performances",
-    "Comparez les principales bourses africaines et analysez leurs performances",
-    "Découvrez les opportunités d'investissement sur les marchés émergents africains",
-    "Analysez la structure et la réglementation de chaque place boursière"
+    "Overview of the continent's stock markets — sizes, dynamics and performances",
+    "Compare major African stock exchanges and analyze their performances",
+    "Discover investment opportunities in African emerging markets",
+    "Analyze the structure and regulation of each stock exchange"
   ];
 
   const viewModes = [
-    { id: 'overview', label: 'Vue d\'ensemble', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> },
-    { id: 'performance', label: 'Performances', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg> },
+    { id: 'overview', label: 'Overview', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> },
+    { id: 'performance', label: 'Performance', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg> },
     { id: 'structure', label: 'Structure', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h18v18H3zM12 8v8m-4-4h8"/></svg> },
-    { id: 'ranking', label: 'Classement', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> }
+    { id: 'ranking', label: 'Ranking', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> }
   ];
 
   useEffect(() => {
@@ -81,28 +81,28 @@ export default function ExchangesHeader({
       >
         <div className="exchanges-header__content">
           <div className="exchanges-header__title-section">
-            <h1 className="exchanges-header__title">Bourses Africaines</h1>
+            <h1 className="exchanges-header__title">African Stock Exchanges</h1>
             <div className="exchanges-header__subtitle-container">
               <p className="exchanges-header__subtitle">{subtitles[currentSubtitle]}</p>
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="exchanges-header__stats">
+          {/* Quick Stats Card */}
+          <div className="exchanges-header__stats-card">
             <div className="stat-item">
-              <span className="stat-label">Marchés Sélectionnés</span>
+              <span className="stat-label">Markets</span>
               <span className="stat-value">{selectedExchanges.length}</span>
             </div>
             <div className="stat-item">
-              <span className="stat-label">Capitalisation Totale</span>
+              <span className="stat-label">Total Cap</span>
               <span className="stat-value">${getTotalMarketCap().toFixed(1)}B</span>
             </div>
             <div className="stat-item">
-              <span className="stat-label">Volume Quotidien</span>
+              <span className="stat-label">Daily Volume</span>
               <span className="stat-value">${getTotalVolume().toFixed(1)}M</span>
             </div>
             <div className="stat-item">
-              <span className="stat-label">Performance Moyenne YTD</span>
+              <span className="stat-label">YTD Perf</span>
               <span className={`stat-value ${getAverageYTDReturn() >= 0 ? 'positive' : 'negative'}`}>
                 {getAverageYTDReturn() >= 0 ? '+' : ''}{getAverageYTDReturn().toFixed(1)}%
               </span>
@@ -125,7 +125,7 @@ export default function ExchangesHeader({
                   onClick={() => onExchangeToggle(exchange.id)}
                 >
                   <img 
-                    src={`/images/exchanges/${exchange.id}.png`} 
+                    src={`${exchange.logo}`} 
                     alt={exchange.name}
                     className="exchange-logo"
                   />
@@ -146,7 +146,7 @@ export default function ExchangesHeader({
                 <path d="M3 3v18h18" />
                 <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
               </svg>
-              <span>Comparer les bourses</span>
+              <span>Compare Exchanges</span>
               {selectedExchanges.length > 0 && (
                 <span className="btn-badge">{selectedExchanges.length}</span>
               )}
@@ -157,7 +157,7 @@ export default function ExchangesHeader({
                 <polyline points="7,10 12,15 17,10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Exporter</span>
+              <span>Export</span>
             </button>
           </div>
         </div>
@@ -183,44 +183,44 @@ export default function ExchangesHeader({
           {/* Filters */}
           <div className="header-filters">
             <div className="filter-group">
-              <label>Région:</label>
+              <label>Region:</label>
               <select className="filter-select">
-                <option value="">Toutes les régions</option>
-                <option value="west">Afrique de l'Ouest</option>
-                <option value="east">Afrique de l'Est</option>
-                <option value="north">Afrique du Nord</option>
-                <option value="south">Afrique Australe</option>
-                <option value="central">Afrique Centrale</option>
+                <option value="">All regions</option>
+                <option value="west">West Africa</option>
+                <option value="east">East Africa</option>
+                <option value="north">North Africa</option>
+                <option value="south">Southern Africa</option>
+                <option value="central">Central Africa</option>
               </select>
             </div>
 
             <div className="filter-group">
-              <label>Taille:</label>
+              <label>Size:</label>
               <select className="filter-select">
-                <option value="">Toutes tailles</option>
-                <option value="large">Grande (&gt; $50B)</option>
-                <option value="medium">Moyenne ($10-50B)</option>
-                <option value="small">Petite (&lt; $10B)</option>
+                <option value="">All sizes</option>
+                <option value="large">Large (&gt; $50B)</option>
+                <option value="medium">Medium ($10-50B)</option>
+                <option value="small">Small (&lt; $10B)</option>
               </select>
             </div>
 
             <div className="filter-group">
-              <label>Liquidité:</label>
+              <label>Liquidity:</label>
               <select className="filter-select">
-                <option value="">Toutes liquidités</option>
-                <option value="high">Élevée</option>
-                <option value="medium">Moyenne</option>
-                <option value="low">Faible</option>
+                <option value="">All liquidities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
 
             <div className="filter-group">
-              <label>Croissance:</label>
+              <label>Growth:</label>
               <select className="filter-select">
-                <option value="">Toutes croissances</option>
-                <option value="high">Élevée (&gt;20%)</option>
-                <option value="medium">Moyenne (10-20%)</option>
-                <option value="low">Faible (&lt;10%)</option>
+                <option value="">All growth rates</option>
+                <option value="high">High (&gt;20%)</option>
+                <option value="medium">Medium (10-20%)</option>
+                <option value="low">Low (&lt;10%)</option>
               </select>
             </div>
           </div>

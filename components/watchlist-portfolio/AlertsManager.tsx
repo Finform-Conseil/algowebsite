@@ -40,12 +40,12 @@ export default function AlertsManager({
 
   const getAlertTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
-      price_up: 'Hausse de prix',
-      price_down: 'Baisse de prix',
-      volume: 'Volume anormal',
-      earnings: 'Publication résultats',
-      dividend: 'Dividende',
-      news: 'Actualité'
+      price_up: 'Price Increase',
+      price_down: 'Price Decrease',
+      volume: 'Abnormal Volume',
+      earnings: 'Earnings Release',
+      dividend: 'Dividend',
+      news: 'News'
     };
     return labels[type] || type;
   };
@@ -59,11 +59,11 @@ export default function AlertsManager({
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-            Alertes Intelligentes
+            Smart Alerts
           </h2>
           <div className="alert-badges">
-            <span className="badge active">{activeCount} actives</span>
-            <span className="badge triggered">{triggeredCount} déclenchées</span>
+            <span className="badge active">{activeCount} active</span>
+            <span className="badge triggered">{triggeredCount} triggered</span>
           </div>
         </div>
         <button className="btn-add" onClick={onCreateAlert}>
@@ -71,7 +71,7 @@ export default function AlertsManager({
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Créer une alerte
+          Create Alert
         </button>
       </div>
 
@@ -81,19 +81,19 @@ export default function AlertsManager({
           className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
           onClick={() => setFilterStatus('all')}
         >
-          Toutes ({alerts.length})
+          All ({alerts.length})
         </button>
         <button
           className={`filter-btn ${filterStatus === 'active' ? 'active' : ''}`}
           onClick={() => setFilterStatus('active')}
         >
-          Actives ({activeCount})
+          Active ({activeCount})
         </button>
         <button
           className={`filter-btn ${filterStatus === 'triggered' ? 'active' : ''}`}
           onClick={() => setFilterStatus('triggered')}
         >
-          Déclenchées ({triggeredCount})
+          Triggered ({triggeredCount})
         </button>
       </div>
 
@@ -107,10 +107,10 @@ export default function AlertsManager({
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-            <h3>Aucune alerte</h3>
-            <p>Créez votre première alerte pour être notifié des mouvements importants</p>
+            <h3>No Alerts</h3>
+            <p>Create your first alert to be notified of important movements</p>
             <button className="btn-primary" onClick={onCreateAlert}>
-              Créer une alerte
+              Create Alert
             </button>
           </div>
         ) : (
@@ -145,7 +145,7 @@ export default function AlertsManager({
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Déclenchée
+                        Triggered
                       </span>
                     )}
                   </div>
@@ -193,11 +193,11 @@ export default function AlertsManager({
                   </div>
                   <div className="alert-dates">
                     <span className="created-date">
-                      Créée le {new Date(alert.createdAt).toLocaleDateString('fr-FR')}
+                      Created on {new Date(alert.createdAt).toLocaleDateString('en-US')}
                     </span>
                     {alert.triggeredAt && (
                       <span className="triggered-date">
-                        Déclenchée le {new Date(alert.triggeredAt).toLocaleDateString('fr-FR')}
+                        Triggered on {new Date(alert.triggeredAt).toLocaleDateString('en-US')}
                       </span>
                     )}
                   </div>
@@ -207,7 +207,7 @@ export default function AlertsManager({
               <div className="alert-actions">
                 <button
                   className="btn-icon"
-                  title={alert.status === 'active' ? 'Désactiver' : 'Activer'}
+                  title={alert.status === 'active' ? 'Deactivate' : 'Activate'}
                   onClick={() => onToggleAlert?.(alert.id)}
                 >
                   {alert.status === 'active' ? (
@@ -224,7 +224,7 @@ export default function AlertsManager({
                 </button>
                 <button
                   className="btn-icon danger"
-                  title="Supprimer"
+                  title="Delete"
                   onClick={() => onDeleteAlert?.(alert.id)}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -249,31 +249,31 @@ export default function AlertsManager({
       {/* Alert Types Info */}
       {filteredAlerts.length > 0 && (
         <div className="alert-types-info">
-          <h4>Types d'alertes disponibles</h4>
+          <h4>Available Alert Types</h4>
           <div className="types-grid">
             <div className="type-item">
               <span className="type-icon" style={{ backgroundColor: '#10b98120', color: '#10b981' }}>📈</span>
-              <span className="type-label">Hausse de prix</span>
+              <span className="type-label">Price Increase</span>
             </div>
             <div className="type-item">
               <span className="type-icon" style={{ backgroundColor: '#ef444420', color: '#ef4444' }}>📉</span>
-              <span className="type-label">Baisse de prix</span>
+              <span className="type-label">Price Decrease</span>
             </div>
             <div className="type-item">
               <span className="type-icon" style={{ backgroundColor: '#3b82f620', color: '#3b82f6' }}>📊</span>
-              <span className="type-label">Volume anormal</span>
+              <span className="type-label">Abnormal Volume</span>
             </div>
             <div className="type-item">
               <span className="type-icon" style={{ backgroundColor: '#f59e0b20', color: '#f59e0b' }}>💰</span>
-              <span className="type-label">Résultats</span>
+              <span className="type-label">Earnings</span>
             </div>
             <div className="type-item">
               <span className="type-icon" style={{ backgroundColor: '#8b5cf620', color: '#8b5cf6' }}>💵</span>
-              <span className="type-label">Dividende</span>
+              <span className="type-label">Dividend</span>
             </div>
             <div className="type-item">
               <span className="type-icon" style={{ backgroundColor: '#6366f120', color: '#6366f1' }}>📰</span>
-              <span className="type-label">Actualité</span>
+              <span className="type-label">News</span>
             </div>
           </div>
         </div>

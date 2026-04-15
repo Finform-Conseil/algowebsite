@@ -30,14 +30,15 @@ export default function StockComparisonPage() {
     country: '',
     market: '',
     currency: '',
-    capitalization: 'Tous',
+    capitalization: 'All',
   });
   const [showAverage, setShowAverage] = useState(true);
   const [highlightBest, setHighlightBest] = useState(true);
   const [showIndicatorSidebar, setShowIndicatorSidebar] = useState(false);
+  const [showStockSelector, setShowStockSelector] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('charts');
 
-  // Filtrer les stocks disponibles selon les filtres rapides
+  // Filter available stocks based on quick filters
   const filteredStocks = useMemo(() => {
     let stocks = [...COMPARISON_STOCKS];
 
@@ -57,7 +58,7 @@ export default function StockComparisonPage() {
       stocks = stocks.filter((s) => s.currency === quickFilters.currency);
     }
 
-    if (quickFilters.capitalization && quickFilters.capitalization !== 'Tous') {
+    if (quickFilters.capitalization && quickFilters.capitalization !== 'All') {
       if (quickFilters.capitalization.includes('Small')) {
         stocks = stocks.filter((s) => s.marketCap < 1000);
       } else if (quickFilters.capitalization.includes('Mid')) {
@@ -70,7 +71,7 @@ export default function StockComparisonPage() {
     return stocks;
   }, [quickFilters]);
 
-  // Obtenir les indicateurs sélectionnés
+  // Get selected indicators
   const indicators = useMemo(() => {
     return selectedIndicators
       .map((id) => getIndicatorById(id))
@@ -150,45 +151,31 @@ export default function StockComparisonPage() {
     <div className="comparison-page">
       {/* Header */}
       <div className="comparison-header">
-        <div className="comparison-header__title">
-          <h1>Comparateur d'Actions</h1>
-          <p className="comparison-header__subtitle">
-            Analyse comparative multi-marchés • 2 à 10 titres
-          </p>
-        </div>
-        <div className="comparison-header__actions">
-          {/* Indicator Selector in Header */}
-          <button 
-            className="btn btn--outline"
-            onClick={() => setShowIndicatorSidebar(true)}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Indicateurs ({selectedIndicators.length})
-          </button>
-          <ExportMenu onExport={handleExport} onShare={handleShare} />
-        </div>
-      </div>
-
-      {/* Stock Selector + Quick Filters */}
-      <div className="comparison-selector-row">
-        <div className="selector-col">
-          <StockSelector
-            allStocks={filteredStocks}
-            selectedStocks={selectedStocks}
-            onAddStock={handleAddStock}
-            onRemoveStock={handleRemoveStock}
-            maxStocks={10}
-          />
-        </div>
-        <div className="filters-col">
-          <QuickFilters
-            allStocks={COMPARISON_STOCKS}
-            filters={quickFilters}
-            onFilterChange={handleFilterChange}
-          />
+        <div className="comparison-header__hero">
+          <div className="comparison-header__content">
+            <h1 className="comparison-header__title">Stock Comparison</h1>
+            <p className="comparison-header__subtitle">
+              Multi-market comparative analysis • 2 to 10 stocks
+            </p>
+          </div>
+          <div className="comparison-header__controls">
+            <QuickFilters
+              allStocks={COMPARISON_STOCKS}
+              filters={quickFilters}
+              onFilterChange={handleFilterChange}
+            />
+            <button 
+              className="btn btn--outline"
+              onClick={() => setShowIndicatorSidebar(true)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Indicators ({selectedIndicators.length})
+            </button>
+            <ExportMenu onExport={handleExport} onShare={handleShare} />
+          </div>
         </div>
       </div>
 
@@ -199,21 +186,21 @@ export default function StockComparisonPage() {
           onClick={() => setActiveTab('charts')}
         >
           {renderTabIcon('charts')}
-          <span>Graphiques Techniques</span>
+          <span>Technical Charts</span>
         </button>
         <button
           className={`tab-btn ${activeTab === 'histograms' ? 'active' : ''}`}
           onClick={() => setActiveTab('histograms')}
         >
           {renderTabIcon('histograms')}
-          <span>Histogrammes Multi-Années</span>
+          <span>Multi-Year Histograms</span>
         </button>
         <button
           className={`tab-btn ${activeTab === 'table' ? 'active' : ''}`}
           onClick={() => setActiveTab('table')}
         >
           {renderTabIcon('table')}
-          <span>Tableau Comparatif</span>
+          <span>Comparison Table</span>
         </button>
       </div>
 
@@ -283,6 +270,42 @@ export default function StockComparisonPage() {
         onToggleIndicator={handleToggleIndicator}
         onApplyTemplate={handleApplyTemplate}
       />
+
+      {/* Stock Selector Modal */}
+      {showStockSelector && (
+        <>
+          <div className="stock-selector-modal-overlay" onClick={() => setShowStockSelector(false)} />
+          <div className="stock-selector-modal">
+            <div className="stock-selector-modal__header">
+              <h3>Add Stocks to Compare</h3>
+              <button className="stock-selector-modal__close" onClick={() => setShowStockSelector(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="stock-selector-modal__body">
+              <StockSelector
+                allStocks={filteredStocks}
+                selectedStocks={selectedStocks}
+                onAddStock={handleAddStock}
+                onRemoveStock={handleRemoveStock}
+                maxStocks={10}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Floating Add Stock Button */}
+      <button 
+        className="floating-add-stock-btn"
+        onClick={() => setShowStockSelector(true)}
+        title="Add stocks to compare"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
     </div>
   );
 }

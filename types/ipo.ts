@@ -2,7 +2,7 @@
 
 export type IPOStatus = 'completed' | 'upcoming' | 'postponed' | 'cancelled';
 export type Exchange = 'BRVM' | 'JSE' | 'CSE' | 'NGX' | 'GSE' | 'NSE' | 'EGX' | 'TUNSE';
-export type Sector = 'Finance' | 'Énergie' | 'Télécom' | 'Industrie' | 'Consommation' | 'Immobilier' | 'Santé' | 'Technologie' | 'Matériaux' | 'Services';
+export type Sector = 'Finance' | 'Energy' | 'Telecom' | 'Industry' | 'Consumer' | 'Real Estate' | 'Healthcare' | 'Technology' | 'Materials' | 'Services';
 export type Currency = 'XOF' | 'ZAR' | 'EGP' | 'NGN' | 'GHS' | 'KES' | 'TND';
 
 export interface IPO {

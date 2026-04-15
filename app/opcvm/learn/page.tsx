@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 type TabType = 'introduction' | 'opc' | 'opcvm' | 'fia' | 'quiz';
@@ -11,13 +11,27 @@ export default function OPCVMLearnPage() {
   const [selectedOpcvmTab, setSelectedOpcvmTab] = useState<string>('types');
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [showQuizResults, setShowQuizResults] = useState(false);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   const handleQuizAnswer = (questionId: number, answerId: number) => {
     setQuizAnswers(prev => ({ ...prev, [questionId]: answerId }));
   };
 
   const calculateQuizScore = () => {
-    const correctAnswers = [0, 1, 0, 2, 1, 0]; // Indices des bonnes réponses
+    const correctAnswers = [0, 1, 0, 2, 1, 0]; // Correct answer indices
     let score = 0;
     correctAnswers.forEach((correct, index) => {
       if (quizAnswers[index] === correct) score++;
@@ -34,80 +48,79 @@ export default function OPCVMLearnPage() {
 
   return (
     <div className="opcvm-learn-page">
-      <h1>Learn OPCVM</h1>
-      {/* Header */}
       <div className="opcvm-header">
-        <div className="opcvm-header__content">
-          <div className="opcvm-header__title">
-            <div className="title-content">
-              <h1>Comprendre les Fonds d'Investissement</h1>
-              <p>Guide essentiel pour maîtriser les OPCVM et FIA</p>
-            </div>
-            <div className="learning-badge">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-              </svg>
-              <span>15-20 min</span>
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="opcvm-stats">
-            <div className="stat-card primary">
-              <div className="stat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
+        <div 
+          className="opcvm-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="opcvm-header__content">
+            <div className="opcvm-header__title">
+              <div className="title-content">
+                <h1>Understanding Investment Funds</h1>
+                <p>Essential guide to mastering UCITS and AIFs</p>
               </div>
-              <div className="stat-content">
-                <div className="stat-label">Types de Fonds</div>
-                <div className="stat-value">2</div>
-                <div className="stat-sublabel">OPCVM & FIA</div>
-              </div>
+              
             </div>
 
-            <div className="stat-card success">
-              <div className="stat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                </svg>
+            {/* Quick Stats */}
+            <div className="opcvm-stats">
+              <div className="stat-card primary">
+                <div className="stat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-label">Fund Types</div>
+                  <div className="stat-value">2</div>
+                  <div className="stat-sublabel">UCITS & AIFs</div>
+                </div>
               </div>
-              <div className="stat-content">
-                <div className="stat-label">Types d'OPCVM</div>
-                <div className="stat-value">5</div>
-                <div className="stat-sublabel">Monétaires, Actions...</div>
-              </div>
-            </div>
 
-            <div className="stat-card info">
-              <div className="stat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
+              <div className="stat-card success">
+                <div className="stat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-label">UCITS Types</div>
+                  <div className="stat-value">5</div>
+                  <div className="stat-sublabel">Money Market, Equity...</div>
+                </div>
               </div>
-              <div className="stat-content">
-                <div className="stat-label">Quiz</div>
-                <div className="stat-value">{quizScore !== null ? `${quizScore}/6` : '6'}</div>
-                <div className="stat-sublabel">Questions</div>
-              </div>
-            </div>
 
-            <div className="stat-card warning">
-              <div className="stat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
+              <div className="stat-card info">
+                <div className="stat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-label">Quiz</div>
+                  <div className="stat-value">{quizScore !== null ? `${quizScore}/6` : '6'}</div>
+                  <div className="stat-sublabel">Questions</div>
+                </div>
               </div>
-              <div className="stat-content">
-                <div className="stat-label">Risques</div>
-                <div className="stat-value">9</div>
-                <div className="stat-sublabel">À connaître</div>
+
+              <div className="stat-card warning">
+                <div className="stat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-label">Risks</div>
+                  <div className="stat-value">9</div>
+                  <div className="stat-sublabel">To Know</div>
+                </div>
               </div>
             </div>
           </div>
@@ -178,7 +191,7 @@ export default function OPCVMLearnPage() {
               <path d="M12 16v-4" />
               <path d="M12 8h.01" />
             </svg>
-            <span>Contenu pédagogique complet</span>
+            <span>Complete educational content</span>
           </div>
         </div>
       </div>
@@ -188,11 +201,11 @@ export default function OPCVMLearnPage() {
         {activeTab === 'introduction' && (
           <div className="opcvm-section introduction-section">
             <div className="section-intro">
-              <h2>Qu'est-ce qu'un Fonds d'Investissement ?</h2>
+              <h2>What is an Investment Fund?</h2>
               <p className="lead-text">
-                Un <strong>fonds d'investissement</strong> est un véhicule financier qui collecte l'épargne de plusieurs investisseurs 
-                pour la placer collectivement dans divers actifs financiers (actions, obligations, immobilier, etc.). 
-                Cette mutualisation permet d'accéder à des opportunités d'investissement diversifiées, même avec un capital modeste.
+                An <strong>investment fund</strong> is a financial vehicle that pools savings from multiple investors 
+                to collectively invest in various financial assets (stocks, bonds, real estate, etc.). 
+                This pooling allows access to diversified investment opportunities, even with modest capital.
               </p>
             </div>
 
@@ -204,12 +217,12 @@ export default function OPCVMLearnPage() {
                     <polyline points="17 6 23 6 23 12" />
                   </svg>
                 </div>
-                <h3>Marché Coté</h3>
+                <h3>Listed Market</h3>
                 <p>
-                  Les fonds cotés en bourse (comme les ETF) peuvent être achetés et vendus en temps réel pendant les heures 
-                  de marché. Leur prix fluctue en continu selon l'offre et la demande.
+                  Exchange-traded funds (such as ETFs) can be bought and sold in real-time during market hours. 
+                  Their price fluctuates continuously based on supply and demand.
                 </p>
-                <div className="card-badge">Liquidité élevée</div>
+                <div className="card-badge">High liquidity</div>
               </div>
 
               <div className="info-card">
@@ -219,17 +232,17 @@ export default function OPCVMLearnPage() {
                     <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                   </svg>
                 </div>
-                <h3>Marché Non Coté</h3>
+                <h3>Unlisted Market</h3>
                 <p>
-                  Les fonds non cotés (OPCVM classiques) sont valorisés une fois par jour. Les souscriptions et rachats 
-                  s'effectuent à la valeur liquidative calculée en fin de journée.
+                  Unlisted funds (traditional UCITS) are valued once per day. Subscriptions and redemptions 
+                  are executed at the net asset value calculated at the end of the day.
                 </p>
-                <div className="card-badge">Valorisation quotidienne</div>
+                <div className="card-badge">Daily valuation</div>
               </div>
             </div>
 
             <div className="benefits-section">
-              <h3>Pourquoi Investir dans un Fonds ?</h3>
+              <h3>Why Invest in a Fund?</h3>
               <div className="benefits-grid">
                 <div className="benefit-item">
                   <div className="benefit-icon">
@@ -240,7 +253,7 @@ export default function OPCVMLearnPage() {
                   </div>
                   <div>
                     <h4>Diversification</h4>
-                    <p>Répartition automatique du risque sur plusieurs actifs et secteurs</p>
+                    <p>Automatic risk distribution across multiple assets and sectors</p>
                   </div>
                 </div>
 
@@ -254,8 +267,8 @@ export default function OPCVMLearnPage() {
                     </svg>
                   </div>
                   <div>
-                    <h4>Gestion Professionnelle</h4>
-                    <p>Expertise de gérants qualifiés qui analysent et sélectionnent les investissements</p>
+                    <h4>Professional Management</h4>
+                    <p>Expertise of qualified managers who analyze and select investments</p>
                   </div>
                 </div>
 
@@ -267,8 +280,8 @@ export default function OPCVMLearnPage() {
                     </svg>
                   </div>
                   <div>
-                    <h4>Accessibilité</h4>
-                    <p>Investissement possible avec des montants modestes (parfois dès 100€)</p>
+                    <h4>Accessibility</h4>
+                    <p>Investment possible with modest amounts (sometimes from €100)</p>
                   </div>
                 </div>
 
@@ -281,8 +294,8 @@ export default function OPCVMLearnPage() {
                     </svg>
                   </div>
                   <div>
-                    <h4>Liquidité</h4>
-                    <p>Possibilité de récupérer son capital rapidement (selon le type de fonds)</p>
+                    <h4>Liquidity</h4>
+                    <p>Ability to recover capital quickly (depending on fund type)</p>
                   </div>
                 </div>
               </div>
@@ -293,30 +306,30 @@ export default function OPCVMLearnPage() {
         {activeTab === 'opc' && (
           <div className="opcvm-section opc-section">
             <div className="section-intro">
-              <h2>Organisme de Placement Collectif (OPC)</h2>
+              <h2>Collective Investment Undertaking (CIU)</h2>
               <p className="lead-text">
-                Un <strong>OPC (Organisme de Placement Collectif)</strong> est une structure juridique qui permet de regrouper 
-                l'épargne de plusieurs investisseurs pour la gérer collectivement. En France, l'AMF (Autorité des Marchés Financiers) 
-                classe les OPC en deux grandes catégories : les OPCVM et les FIA.
+                A <strong>CIU (Collective Investment Undertaking)</strong> is a legal structure that allows pooling 
+                the savings of multiple investors to manage them collectively. In France, the AMF (Financial Markets Authority) 
+                classifies CIUs into two main categories: UCITS and AIFs.
               </p>
             </div>
 
             <div className="workflow-section">
-              <h3>Comment fonctionne un OPC ?</h3>
+              <h3>How Does a CIU Work?</h3>
               <div className="workflow-steps">
                 <div className="workflow-step">
                   <div className="step-number">1</div>
                   <div className="step-content">
-                    <h4>Collecte de l'épargne</h4>
-                    <p>Les investisseurs souscrivent des parts ou actions du fonds</p>
+                    <h4>Savings Collection</h4>
+                    <p>Investors subscribe to shares or units of the fund</p>
                   </div>
                 </div>
                 <div className="workflow-arrow">→</div>
                 <div className="workflow-step">
                   <div className="step-number">2</div>
                   <div className="step-content">
-                    <h4>Gestion collective</h4>
-                    <p>Un gérant professionnel investit dans divers actifs financiers</p>
+                    <h4>Collective Management</h4>
+                    <p>A professional manager invests in various financial assets</p>
                   </div>
                 </div>
                 <div className="workflow-arrow">→</div>
@@ -324,14 +337,14 @@ export default function OPCVMLearnPage() {
                   <div className="step-number">3</div>
                   <div className="step-content">
                     <h4>Redistribution</h4>
-                    <p>Les gains/pertes sont répartis entre les porteurs de parts</p>
+                    <p>Gains/losses are distributed among unit holders</p>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="classification-section">
-              <h3>Classification AMF des OPC</h3>
+              <h3>AMF Classification of CIUs</h3>
               <div className="classification-grid">
                 <div className="classification-card opcvm">
                   <div className="card-header">
@@ -341,15 +354,15 @@ export default function OPCVMLearnPage() {
                     </svg>
                     <h4>OPCVM</h4>
                   </div>
-                  <p className="card-subtitle">Organismes de Placement Collectif en Valeurs Mobilières</p>
+                  <p className="card-subtitle">Undertakings for Collective Investment in Transferable Securities</p>
                   <ul className="feature-list">
-                    <li>Réglementation stricte (directive UCITS)</li>
-                    <li>Liquidité quotidienne</li>
-                    <li>Diversification obligatoire</li>
-                    <li>Transparence élevée</li>
-                    <li>Accessible au grand public</li>
+                    <li>Strict regulation (UCITS directive)</li>
+                    <li>Daily liquidity</li>
+                    <li>Mandatory diversification</li>
+                    <li>High transparency</li>
+                    <li>Accessible to the general public</li>
                   </ul>
-                  <div className="card-badge primary">Régulé</div>
+                  <div className="card-badge primary">Regulated</div>
                 </div>
 
                 <div className="classification-card fia">
@@ -361,15 +374,15 @@ export default function OPCVMLearnPage() {
                     </svg>
                     <h4>FIA</h4>
                   </div>
-                  <p className="card-subtitle">Fonds d'Investissement Alternatifs</p>
+                  <p className="card-subtitle">Alternative Investment Funds</p>
                   <ul className="feature-list">
-                    <li>Réglementation plus souple</li>
-                    <li>Stratégies plus complexes</li>
-                    <li>Moins de contraintes de liquidité</li>
-                    <li>Investisseurs qualifiés</li>
-                    <li>Risque potentiellement plus élevé</li>
+                    <li>More flexible regulation</li>
+                    <li>More complex strategies</li>
+                    <li>Fewer liquidity constraints</li>
+                    <li>Qualified investors</li>
+                    <li>Potentially higher risk</li>
                   </ul>
-                  <div className="card-badge accent">Alternatif</div>
+                  <div className="card-badge accent">Alternative</div>
                 </div>
               </div>
             </div>
@@ -380,8 +393,8 @@ export default function OPCVMLearnPage() {
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
               <p>
-                <strong>Point clé :</strong> Tous les OPCVM sont des OPC, mais tous les OPC ne sont pas des OPCVM. 
-                Les FIA représentent une catégorie plus large et plus flexible d'OPC.
+                <strong>Key point:</strong> All UCITS are CIUs, but not all CIUs are UCITS. 
+                AIFs represent a broader and more flexible category of CIUs.
               </p>
             </div>
           </div>
@@ -390,51 +403,51 @@ export default function OPCVMLearnPage() {
         {activeTab === 'opcvm' && (
           <div className="opcvm-section opcvm-detail-section">
             <div className="section-intro">
-              <h2>OPCVM en Détail</h2>
+              <h2>UCITS in Detail</h2>
               <p className="lead-text">
-                Les <strong>OPCVM (Organismes de Placement Collectif en Valeurs Mobilières)</strong> sont des fonds d'investissement 
-                réglementés qui offrent une grande diversité de stratégies et de profils de risque pour répondre aux besoins de tous les investisseurs.
+                <strong>UCITS (Undertakings for Collective Investment in Transferable Securities)</strong> are regulated investment funds 
+                that offer a wide variety of strategies and risk profiles to meet the needs of all investors.
               </p>
             </div>
 
-            {/* Sub-tabs for OPCVM */}
+            {/* Sub-tabs for UCITS */}
             <div className="sub-tabs">
               <button 
                 className={`sub-tab-btn ${selectedOpcvmTab === 'types' ? 'active' : ''}`}
                 onClick={() => setSelectedOpcvmTab('types')}
               >
-                Types d'OPCVM
+                UCITS Types
               </button>
               <button 
                 className={`sub-tab-btn ${selectedOpcvmTab === 'gestion' ? 'active' : ''}`}
                 onClick={() => setSelectedOpcvmTab('gestion')}
               >
-                Styles de Gestion
+                Management Styles
               </button>
               <button 
                 className={`sub-tab-btn ${selectedOpcvmTab === 'strategies' ? 'active' : ''}`}
                 onClick={() => setSelectedOpcvmTab('strategies')}
               >
-                Stratégies
+                Strategies
               </button>
               <button 
                 className={`sub-tab-btn ${selectedOpcvmTab === 'risques' ? 'active' : ''}`}
                 onClick={() => setSelectedOpcvmTab('risques')}
               >
-                Risques
+                Risks
               </button>
               <button 
                 className={`sub-tab-btn ${selectedOpcvmTab === 'choisir' ? 'active' : ''}`}
                 onClick={() => setSelectedOpcvmTab('choisir')}
               >
-                Comment Choisir
+                How to Choose
               </button>
             </div>
 
-            {/* Types d'OPCVM */}
+            {/* UCITS Types */}
             {selectedOpcvmTab === 'types' && (
               <div className="sub-content">
-                <h3>Les 5 Principaux Types d'OPCVM</h3>
+                <h3>The 5 Main Types of UCITS</h3>
                 <div className="types-grid">
                   <div className="type-card">
                     <div className="type-icon monetary">
@@ -443,17 +456,17 @@ export default function OPCVMLearnPage() {
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                       </svg>
                     </div>
-                    <h4>Fonds Monétaires</h4>
-                    <p className="type-desc">Investissent dans des titres de créance à court terme (moins d'un an)</p>
+                    <h4>Money Market Funds</h4>
+                    <p className="type-desc">Invest in short-term debt securities (less than one year)</p>
                     <div className="type-details">
                       <div className="detail-item">
-                        <strong>Risque:</strong> Très faible
+                        <strong>Risk:</strong> Very low
                       </div>
                       <div className="detail-item">
-                        <strong>Rendement:</strong> Faible mais stable
+                        <strong>Return:</strong> Low but stable
                       </div>
                       <div className="detail-item">
-                        <strong>Horizon:</strong> Court terme
+                        <strong>Horizon:</strong> Short term
                       </div>
                     </div>
                   </div>
@@ -466,17 +479,17 @@ export default function OPCVMLearnPage() {
                         <line x1="12" y1="17" x2="12" y2="21" />
                       </svg>
                     </div>
-                    <h4>Fonds Obligataires</h4>
-                    <p className="type-desc">Investissent principalement dans des obligations d'États ou d'entreprises</p>
+                    <h4>Bond Funds</h4>
+                    <p className="type-desc">Invest primarily in government or corporate bonds</p>
                     <div className="type-details">
                       <div className="detail-item">
-                        <strong>Risque:</strong> Faible à modéré
+                        <strong>Risk:</strong> Low to moderate
                       </div>
                       <div className="detail-item">
-                        <strong>Rendement:</strong> Modéré
+                        <strong>Return:</strong> Moderate
                       </div>
                       <div className="detail-item">
-                        <strong>Horizon:</strong> Moyen terme
+                        <strong>Horizon:</strong> Medium term
                       </div>
                     </div>
                   </div>
@@ -488,17 +501,17 @@ export default function OPCVMLearnPage() {
                         <polyline points="17 6 23 6 23 12" />
                       </svg>
                     </div>
-                    <h4>Fonds Actions</h4>
-                    <p className="type-desc">Investissent majoritairement dans des actions de sociétés cotées</p>
+                    <h4>Equity Funds</h4>
+                    <p className="type-desc">Invest primarily in shares of listed companies</p>
                     <div className="type-details">
                       <div className="detail-item">
-                        <strong>Risque:</strong> Élevé
+                        <strong>Risk:</strong> High
                       </div>
                       <div className="detail-item">
-                        <strong>Rendement:</strong> Potentiellement élevé
+                        <strong>Return:</strong> Potentially high
                       </div>
                       <div className="detail-item">
-                        <strong>Horizon:</strong> Long terme
+                        <strong>Horizon:</strong> Long term
                       </div>
                     </div>
                   </div>
@@ -511,17 +524,17 @@ export default function OPCVMLearnPage() {
                         <line x1="6" y1="20" x2="6" y2="16" />
                       </svg>
                     </div>
-                    <h4>Fonds Mixtes</h4>
-                    <p className="type-desc">Combinent actions et obligations pour équilibrer risque et rendement</p>
+                    <h4>Mixed Funds</h4>
+                    <p className="type-desc">Combine stocks and bonds to balance risk and return</p>
                     <div className="type-details">
                       <div className="detail-item">
-                        <strong>Risque:</strong> Modéré
+                        <strong>Risk:</strong> Moderate
                       </div>
                       <div className="detail-item">
-                        <strong>Rendement:</strong> Équilibré
+                        <strong>Return:</strong> Balanced
                       </div>
                       <div className="detail-item">
-                        <strong>Horizon:</strong> Moyen/Long terme
+                        <strong>Horizon:</strong> Medium/Long term
                       </div>
                     </div>
                   </div>
@@ -533,17 +546,17 @@ export default function OPCVMLearnPage() {
                         <polyline points="9 22 9 12 15 12 15 22" />
                       </svg>
                     </div>
-                    <h4>Fonds Immobiliers (SCPI)</h4>
-                    <p className="type-desc">Investissent dans l'immobilier professionnel ou résidentiel</p>
+                    <h4>Real Estate Funds (REITs)</h4>
+                    <p className="type-desc">Invest in commercial or residential real estate</p>
                     <div className="type-details">
                       <div className="detail-item">
-                        <strong>Risque:</strong> Modéré
+                        <strong>Risk:</strong> Moderate
                       </div>
                       <div className="detail-item">
-                        <strong>Rendement:</strong> Revenus réguliers
+                        <strong>Return:</strong> Regular income
                       </div>
                       <div className="detail-item">
-                        <strong>Horizon:</strong> Long terme
+                        <strong>Horizon:</strong> Long term
                       </div>
                     </div>
                   </div>
@@ -551,54 +564,54 @@ export default function OPCVMLearnPage() {
               </div>
             )}
 
-            {/* Styles de Gestion */}
+            {/* Management Styles */}
             {selectedOpcvmTab === 'gestion' && (
               <div className="sub-content">
-                <h3>Styles de Gestion</h3>
+                <h3>Management Styles</h3>
                 <div className="management-comparison">
                   <div className="management-card passive">
-                    <h4>Gestion Passive (Indicielle)</h4>
-                    <p className="card-desc">Réplique la performance d'un indice de référence (CAC 40, S&P 500...)</p>
+                    <h4>Passive Management (Index)</h4>
+                    <p className="card-desc">Replicates the performance of a benchmark index (CAC 40, S&P 500...)</p>
                     <div className="pros-cons">
                       <div className="pros">
-                        <h5>✓ Avantages</h5>
+                        <h5>✓ Advantages</h5>
                         <ul>
-                          <li>Frais de gestion très faibles</li>
-                          <li>Performance prévisible (suit l'indice)</li>
-                          <li>Transparence totale</li>
-                          <li>Diversification automatique</li>
+                          <li>Very low management fees</li>
+                          <li>Predictable performance (tracks the index)</li>
+                          <li>Total transparency</li>
+                          <li>Automatic diversification</li>
                         </ul>
                       </div>
                       <div className="cons">
-                        <h5>✗ Inconvénients</h5>
+                        <h5>✗ Disadvantages</h5>
                         <ul>
-                          <li>Pas de surperformance possible</li>
-                          <li>Subit les baisses du marché</li>
-                          <li>Pas d'adaptation tactique</li>
+                          <li>No outperformance possible</li>
+                          <li>Suffers market downturns</li>
+                          <li>No tactical adaptation</li>
                         </ul>
                       </div>
                     </div>
                   </div>
 
                   <div className="management-card active">
-                    <h4>Gestion Active</h4>
-                    <p className="card-desc">Le gérant sélectionne activement les titres pour battre l'indice de référence</p>
+                    <h4>Active Management</h4>
+                    <p className="card-desc">The manager actively selects securities to beat the benchmark index</p>
                     <div className="pros-cons">
                       <div className="pros">
-                        <h5>✓ Avantages</h5>
+                        <h5>✓ Advantages</h5>
                         <ul>
-                          <li>Potentiel de surperformance</li>
-                          <li>Adaptation aux conditions de marché</li>
-                          <li>Expertise du gérant</li>
-                          <li>Gestion des risques active</li>
+                          <li>Outperformance potential</li>
+                          <li>Adaptation to market conditions</li>
+                          <li>Manager expertise</li>
+                          <li>Active risk management</li>
                         </ul>
                       </div>
                       <div className="cons">
-                        <h5>✗ Inconvénients</h5>
+                        <h5>✗ Disadvantages</h5>
                         <ul>
-                          <li>Frais de gestion plus élevés</li>
-                          <li>Risque de sous-performance</li>
-                          <li>Dépendance au gérant</li>
+                          <li>Higher management fees</li>
+                          <li>Risk of underperformance</li>
+                          <li>Manager dependency</li>
                         </ul>
                       </div>
                     </div>
@@ -607,10 +620,10 @@ export default function OPCVMLearnPage() {
               </div>
             )}
 
-            {/* Stratégies */}
+            {/* Strategies */}
             {selectedOpcvmTab === 'strategies' && (
               <div className="sub-content">
-                <h3>Principales Stratégies d'Investissement</h3>
+                <h3>Main Investment Strategies</h3>
                 <div className="strategies-list">
                   <div className="strategy-item">
                     <div className="strategy-icon">
@@ -621,8 +634,8 @@ export default function OPCVMLearnPage() {
                       </svg>
                     </div>
                     <div className="strategy-content">
-                      <h4>Allocation d'Actifs Stratégique</h4>
-                      <p>Répartition fixe entre différentes classes d'actifs (ex: 60% actions, 40% obligations) maintenue sur le long terme.</p>
+                      <h4>Strategic Asset Allocation</h4>
+                      <p>Fixed distribution between different asset classes (e.g., 60% stocks, 40% bonds) maintained over the long term.</p>
                     </div>
                   </div>
 
@@ -634,7 +647,7 @@ export default function OPCVMLearnPage() {
                     </div>
                     <div className="strategy-content">
                       <h4>Dollar Cost Averaging (DCA)</h4>
-                      <p>Investissements réguliers de montants fixes pour lisser le prix d'achat moyen et réduire l'impact de la volatilité.</p>
+                      <p>Regular investments of fixed amounts to smooth the average purchase price and reduce the impact of volatility.</p>
                     </div>
                   </div>
 
@@ -647,89 +660,89 @@ export default function OPCVMLearnPage() {
                       </svg>
                     </div>
                     <div className="strategy-content">
-                      <h4>Investissement Thématique</h4>
-                      <p>Focus sur des secteurs ou tendances spécifiques (technologie, santé, énergies renouvelables, etc.).</p>
+                      <h4>Thematic Investment</h4>
+                      <p>Focus on specific sectors or trends (technology, healthcare, renewable energy, etc.).</p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Risques */}
+            {/* Risks */}
             {selectedOpcvmTab === 'risques' && (
               <div className="sub-content">
-                <h3>Les 9 Principaux Risques à Connaître</h3>
+                <h3>The 9 Main Risks to Know</h3>
                 <div className="risks-grid">
                   <div className="risk-card">
-                    <div className="risk-level high">Élevé</div>
-                    <h4>Risque de Marché</h4>
-                    <p>Fluctuations de la valeur des actifs en fonction des conditions économiques</p>
+                    <div className="risk-level high">High</div>
+                    <h4>Market Risk</h4>
+                    <p>Fluctuations in asset value based on economic conditions</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level medium">Modéré</div>
-                    <h4>Risque de Liquidité</h4>
-                    <p>Difficulté à vendre rapidement un actif sans impact sur son prix</p>
+                    <div className="risk-level medium">Moderate</div>
+                    <h4>Liquidity Risk</h4>
+                    <p>Difficulty selling an asset quickly without impacting its price</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level medium">Modéré</div>
-                    <h4>Risque de Crédit</h4>
-                    <p>Défaut de paiement d'un émetteur d'obligations</p>
+                    <div className="risk-level medium">Moderate</div>
+                    <h4>Credit Risk</h4>
+                    <p>Default by a bond issuer</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level medium">Modéré</div>
-                    <h4>Risque de Taux</h4>
-                    <p>Impact des variations de taux d'intérêt sur la valeur des obligations</p>
+                    <div className="risk-level medium">Moderate</div>
+                    <h4>Interest Rate Risk</h4>
+                    <p>Impact of interest rate changes on bond values</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level low">Faible</div>
-                    <h4>Risque de Change</h4>
-                    <p>Fluctuations des devises pour les investissements internationaux</p>
+                    <div className="risk-level low">Low</div>
+                    <h4>Currency Risk</h4>
+                    <p>Currency fluctuations for international investments</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level high">Élevé</div>
-                    <h4>Risque de Concentration</h4>
-                    <p>Exposition excessive à un secteur, pays ou titre spécifique</p>
+                    <div className="risk-level high">High</div>
+                    <h4>Concentration Risk</h4>
+                    <p>Excessive exposure to a specific sector, country, or security</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level low">Faible</div>
-                    <h4>Risque Opérationnel</h4>
-                    <p>Erreurs humaines, défaillances techniques ou fraudes</p>
+                    <div className="risk-level low">Low</div>
+                    <h4>Operational Risk</h4>
+                    <p>Human errors, technical failures, or fraud</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level medium">Modéré</div>
-                    <h4>Risque Réglementaire</h4>
-                    <p>Changements de législation affectant les investissements</p>
+                    <div className="risk-level medium">Moderate</div>
+                    <h4>Regulatory Risk</h4>
+                    <p>Legislative changes affecting investments</p>
                   </div>
 
                   <div className="risk-card">
-                    <div className="risk-level low">Faible</div>
-                    <h4>Risque de Contrepartie</h4>
-                    <p>Défaillance d'une partie dans une transaction financière</p>
+                    <div className="risk-level low">Low</div>
+                    <h4>Counterparty Risk</h4>
+                    <p>Failure of a party in a financial transaction</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Comment Choisir */}
+            {/* How to Choose */}
             {selectedOpcvmTab === 'choisir' && (
               <div className="sub-content">
-                <h3>Comment Choisir son OPCVM ?</h3>
+                <h3>How to Choose Your UCITS?</h3>
                 <div className="selection-guide">
                   <div className="guide-step">
                     <div className="step-num">1</div>
                     <div className="step-content">
-                      <h4>Définir vos Objectifs</h4>
+                      <h4>Define Your Objectives</h4>
                       <ul>
-                        <li>Horizon d'investissement (court, moyen, long terme)</li>
-                        <li>Objectif de rendement souhaité</li>
-                        <li>Besoin de revenus réguliers ou de croissance</li>
+                        <li>Investment horizon (short, medium, long term)</li>
+                        <li>Desired return objective</li>
+                        <li>Need for regular income or growth</li>
                       </ul>
                     </div>
                   </div>
@@ -737,11 +750,11 @@ export default function OPCVMLearnPage() {
                   <div className="guide-step">
                     <div className="step-num">2</div>
                     <div className="step-content">
-                      <h4>Évaluer votre Profil de Risque</h4>
+                      <h4>Assess Your Risk Profile</h4>
                       <ul>
-                        <li>Tolérance aux fluctuations de valeur</li>
-                        <li>Capacité financière à supporter des pertes</li>
-                        <li>Expérience en investissement</li>
+                        <li>Tolerance for value fluctuations</li>
+                        <li>Financial capacity to withstand losses</li>
+                        <li>Investment experience</li>
                       </ul>
                     </div>
                   </div>
@@ -749,11 +762,11 @@ export default function OPCVMLearnPage() {
                   <div className="guide-step">
                     <div className="step-num">3</div>
                     <div className="step-content">
-                      <h4>Analyser les Performances Passées</h4>
+                      <h4>Analyze Past Performance</h4>
                       <ul>
-                        <li>Comparer sur plusieurs périodes (1, 3, 5 ans)</li>
-                        <li>Vérifier la régularité des performances</li>
-                        <li>Comparer avec l'indice de référence</li>
+                        <li>Compare over multiple periods (1, 3, 5 years)</li>
+                        <li>Check performance consistency</li>
+                        <li>Compare with the benchmark index</li>
                       </ul>
                     </div>
                   </div>
@@ -761,11 +774,11 @@ export default function OPCVMLearnPage() {
                   <div className="guide-step">
                     <div className="step-num">4</div>
                     <div className="step-content">
-                      <h4>Examiner les Frais</h4>
+                      <h4>Examine Fees</h4>
                       <ul>
-                        <li>Frais de gestion annuels</li>
-                        <li>Frais d'entrée/sortie</li>
-                        <li>Frais de performance</li>
+                        <li>Annual management fees</li>
+                        <li>Entry/exit fees</li>
+                        <li>Performance fees</li>
                       </ul>
                     </div>
                   </div>
@@ -773,11 +786,11 @@ export default function OPCVMLearnPage() {
                   <div className="guide-step">
                     <div className="step-num">5</div>
                     <div className="step-content">
-                      <h4>Vérifier la Composition</h4>
+                      <h4>Check Composition</h4>
                       <ul>
-                        <li>Répartition géographique et sectorielle</li>
-                        <li>Principales positions du fonds</li>
-                        <li>Niveau de diversification</li>
+                        <li>Geographic and sector allocation</li>
+                        <li>Fund's main positions</li>
+                        <li>Level of diversification</li>
                       </ul>
                     </div>
                   </div>
@@ -790,8 +803,8 @@ export default function OPCVMLearnPage() {
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <p>
-                    <strong>Important :</strong> Les performances passées ne préjugent pas des performances futures. 
-                    Diversifiez toujours vos investissements et consultez un conseiller si nécessaire.
+                    <strong>Important:</strong> Past performance does not guarantee future results. 
+                    Always diversify your investments and consult an advisor if necessary.
                   </p>
                 </div>
               </div>
@@ -802,49 +815,49 @@ export default function OPCVMLearnPage() {
         {activeTab === 'fia' && (
           <div className="opcvm-section fia-section">
             <div className="section-intro">
-              <h2>Fonds d'Investissement Alternatifs (FIA)</h2>
+              <h2>Alternative Investment Funds (AIFs)</h2>
               <p className="lead-text">
-                Les <strong>FIA (Fonds d'Investissement Alternatifs)</strong> regroupent tous les fonds qui ne sont pas des OPCVM. 
-                Ils offrent des stratégies d'investissement plus diversifiées et souvent plus complexes.
+                <strong>AIFs (Alternative Investment Funds)</strong> include all funds that are not UCITS. 
+                They offer more diversified and often more complex investment strategies.
               </p>
             </div>
 
             <div className="comparison-table">
-              <h3>OPCVM vs FIA : Principales Différences</h3>
+              <h3>UCITS vs AIFs: Main Differences</h3>
               <div className="table-responsive">
                 <table>
                   <thead>
                     <tr>
-                      <th>Critère</th>
-                      <th>OPCVM</th>
-                      <th>FIA</th>
+                      <th>Criteria</th>
+                      <th>UCITS</th>
+                      <th>AIFs</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td><strong>Réglementation</strong></td>
-                      <td>Directive UCITS (très stricte)</td>
-                      <td>Directive AIFM (plus souple)</td>
+                      <td><strong>Regulation</strong></td>
+                      <td>UCITS Directive (very strict)</td>
+                      <td>AIFM Directive (more flexible)</td>
                     </tr>
                     <tr>
-                      <td><strong>Liquidité</strong></td>
-                      <td>Quotidienne obligatoire</td>
-                      <td>Variable selon le fonds</td>
+                      <td><strong>Liquidity</strong></td>
+                      <td>Daily mandatory</td>
+                      <td>Variable by fund</td>
                     </tr>
                     <tr>
                       <td><strong>Diversification</strong></td>
-                      <td>Règles strictes (max 10% par titre)</td>
-                      <td>Plus de flexibilité</td>
+                      <td>Strict rules (max 10% per security)</td>
+                      <td>More flexibility</td>
                     </tr>
                     <tr>
-                      <td><strong>Effet de levier</strong></td>
-                      <td>Limité</td>
-                      <td>Autorisé</td>
+                      <td><strong>Leverage</strong></td>
+                      <td>Limited</td>
+                      <td>Allowed</td>
                     </tr>
                     <tr>
-                      <td><strong>Public cible</strong></td>
-                      <td>Grand public</td>
-                      <td>Souvent investisseurs qualifiés</td>
+                      <td><strong>Target audience</strong></td>
+                      <td>General public</td>
+                      <td>Often qualified investors</td>
                     </tr>
                   </tbody>
                 </table>
@@ -852,7 +865,7 @@ export default function OPCVMLearnPage() {
             </div>
 
             <div className="characteristics-section">
-              <h3>Caractéristiques Distinctives des FIA</h3>
+              <h3>Distinctive Characteristics of AIFs</h3>
               <div className="characteristics-grid">
                 <div className="characteristic-card">
                   <div className="char-icon">
@@ -861,8 +874,8 @@ export default function OPCVMLearnPage() {
                       <path d="M7 11V7a5 5 0 0 1 9.9-1" />
                     </svg>
                   </div>
-                  <h4>Flexibilité Stratégique</h4>
-                  <p>Possibilité d'utiliser des stratégies complexes : vente à découvert, arbitrage, produits dérivés...</p>
+                  <h4>Strategic Flexibility</h4>
+                  <p>Ability to use complex strategies: short selling, arbitrage, derivatives...</p>
                 </div>
 
                 <div className="characteristic-card">
@@ -872,8 +885,8 @@ export default function OPCVMLearnPage() {
                       <polyline points="12 6 12 12 16 14" />
                     </svg>
                   </div>
-                  <h4>Liquidité Variable</h4>
-                  <p>Périodes de souscription/rachat adaptées à la stratégie (mensuelle, trimestrielle, voire annuelle)</p>
+                  <h4>Variable Liquidity</h4>
+                  <p>Subscription/redemption periods adapted to the strategy (monthly, quarterly, or even annual)</p>
                 </div>
 
                 <div className="characteristic-card">
@@ -883,14 +896,14 @@ export default function OPCVMLearnPage() {
                       <path d="M6 12v5c3 3 9 3 12 0v-5" />
                     </svg>
                   </div>
-                  <h4>Investisseurs Avertis</h4>
-                  <p>Souvent réservés aux investisseurs professionnels ou disposant d'une expertise financière</p>
+                  <h4>Sophisticated Investors</h4>
+                  <p>Often reserved for professional investors or those with financial expertise</p>
                 </div>
               </div>
             </div>
 
             <div className="fia-types">
-              <h3>Principaux Types de FIA</h3>
+              <h3>Main Types of AIFs</h3>
               <div className="fia-types-grid">
                 <div className="fia-type-card">
                   <div className="fia-type-header">
@@ -900,13 +913,13 @@ export default function OPCVMLearnPage() {
                         <polyline points="9 22 9 12 15 12 15 22" />
                       </svg>
                     </div>
-                    <h4>FIA Immobiliers</h4>
+                    <h4>Real Estate AIFs</h4>
                   </div>
-                  <p>Investissent dans l'immobilier professionnel, résidentiel ou commercial</p>
+                  <p>Invest in commercial, residential, or professional real estate</p>
                   <ul>
-                    <li>SCPI (Sociétés Civiles de Placement Immobilier)</li>
-                    <li>OPCI (Organismes de Placement Collectif Immobilier)</li>
-                    <li>SCI (Sociétés Civiles Immobilières)</li>
+                    <li>REITs (Real Estate Investment Trusts)</li>
+                    <li>Real Estate Collective Investment Schemes</li>
+                    <li>Real Estate Companies</li>
                   </ul>
                 </div>
 
@@ -921,7 +934,7 @@ export default function OPCVMLearnPage() {
                     </div>
                     <h4>Hedge Funds</h4>
                   </div>
-                  <p>Fonds spéculatifs utilisant des stratégies sophistiquées</p>
+                  <p>Speculative funds using sophisticated strategies</p>
                   <ul>
                     <li>Long/Short equity</li>
                     <li>Market neutral</li>
@@ -939,11 +952,11 @@ export default function OPCVMLearnPage() {
                     </div>
                     <h4>Private Equity</h4>
                   </div>
-                  <p>Investissent dans des entreprises non cotées</p>
+                  <p>Invest in unlisted companies</p>
                   <ul>
-                    <li>Capital-risque (start-ups)</li>
-                    <li>Capital-développement</li>
-                    <li>LBO (rachat d'entreprises)</li>
+                    <li>Venture capital (start-ups)</li>
+                    <li>Growth capital</li>
+                    <li>LBO (leveraged buyouts)</li>
                   </ul>
                 </div>
               </div>
@@ -956,8 +969,8 @@ export default function OPCVMLearnPage() {
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
               <p>
-                <strong>Attention :</strong> Les FIA présentent généralement un niveau de risque et de complexité plus élevé que les OPCVM. 
-                Ils nécessitent une bonne compréhension des marchés financiers et sont souvent soumis à des conditions d'accès spécifiques.
+                <strong>Warning:</strong> AIFs generally present a higher level of risk and complexity than UCITS. 
+                They require a good understanding of financial markets and are often subject to specific access conditions.
               </p>
             </div>
           </div>
@@ -966,9 +979,9 @@ export default function OPCVMLearnPage() {
         {activeTab === 'quiz' && (
           <div className="opcvm-section quiz-section">
             <div className="section-intro">
-              <h2>Testez vos Connaissances</h2>
+              <h2>Test Your Knowledge</h2>
               <p className="lead-text">
-                Évaluez votre compréhension des fonds d'investissement avec ce quiz de 6 questions.
+                Assess your understanding of investment funds with this 6-question quiz.
               </p>
             </div>
 
@@ -976,150 +989,150 @@ export default function OPCVMLearnPage() {
               <div className="quiz-container">
                 {/* Question 1 */}
                 <div className="quiz-question">
-                  <h4>1. Qu'est-ce qu'un fonds d'investissement ?</h4>
+                  <h4>1. What is an investment fund?</h4>
                   <div className="quiz-options">
                     <button 
                       className={`quiz-option ${quizAnswers[0] === 0 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(0, 0)}
                     >
-                      Un véhicule financier qui collecte l'épargne de plusieurs investisseurs
+                      A financial vehicle that pools savings from multiple investors
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[0] === 1 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(0, 1)}
                     >
-                      Un compte bancaire rémunéré
+                      An interest-bearing bank account
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[0] === 2 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(0, 2)}
                     >
-                      Une action cotée en bourse
+                      A stock listed on the exchange
                     </button>
                   </div>
                 </div>
 
                 {/* Question 2 */}
                 <div className="quiz-question">
-                  <h4>2. Quelle est la principale différence entre marché coté et non coté ?</h4>
+                  <h4>2. What is the main difference between listed and unlisted markets?</h4>
                   <div className="quiz-options">
                     <button 
                       className={`quiz-option ${quizAnswers[1] === 0 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(1, 0)}
                     >
-                      Le niveau de risque
+                      The level of risk
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[1] === 1 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(1, 1)}
                     >
-                      La fréquence de valorisation et de négociation
+                      The frequency of valuation and trading
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[1] === 2 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(1, 2)}
                     >
-                      Le montant minimum d'investissement
+                      The minimum investment amount
                     </button>
                   </div>
                 </div>
 
                 {/* Question 3 */}
                 <div className="quiz-question">
-                  <h4>3. Que signifie OPCVM ?</h4>
+                  <h4>3. What does UCITS stand for?</h4>
                   <div className="quiz-options">
                     <button 
                       className={`quiz-option ${quizAnswers[2] === 0 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(2, 0)}
                     >
-                      Organisme de Placement Collectif en Valeurs Mobilières
+                      Undertakings for Collective Investment in Transferable Securities
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[2] === 1 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(2, 1)}
                     >
-                      Organisation Publique de Contrôle des Valeurs Monétaires
+                      United Committee for Investment and Trading Standards
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[2] === 2 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(2, 2)}
                     >
-                      Office de Protection des Capitaux et Valeurs Mobilières
+                      Universal Capital Investment and Trading System
                     </button>
                   </div>
                 </div>
 
                 {/* Question 4 */}
                 <div className="quiz-question">
-                  <h4>4. Quel type de fonds présente généralement le risque le plus élevé ?</h4>
+                  <h4>4. Which type of fund generally presents the highest risk?</h4>
                   <div className="quiz-options">
                     <button 
                       className={`quiz-option ${quizAnswers[3] === 0 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(3, 0)}
                     >
-                      Fonds monétaires
+                      Money market funds
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[3] === 1 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(3, 1)}
                     >
-                      Fonds obligataires
+                      Bond funds
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[3] === 2 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(3, 2)}
                     >
-                      Fonds actions
+                      Equity funds
                     </button>
                   </div>
                 </div>
 
                 {/* Question 5 */}
                 <div className="quiz-question">
-                  <h4>5. Qu'est-ce que la gestion passive ?</h4>
+                  <h4>5. What is passive management?</h4>
                   <div className="quiz-options">
                     <button 
                       className={`quiz-option ${quizAnswers[4] === 0 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(4, 0)}
                     >
-                      Le gérant sélectionne activement les titres
+                      The manager actively selects securities
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[4] === 1 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(4, 1)}
                     >
-                      Le fonds réplique un indice de référence
+                      The fund replicates a benchmark index
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[4] === 2 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(4, 2)}
                     >
-                      Le fonds n'est pas géré activement
+                      The fund is not actively managed
                     </button>
                   </div>
                 </div>
 
                 {/* Question 6 */}
                 <div className="quiz-question">
-                  <h4>6. Quelle est la principale différence entre OPCVM et FIA ?</h4>
+                  <h4>6. What is the main difference between UCITS and AIFs?</h4>
                   <div className="quiz-options">
                     <button 
                       className={`quiz-option ${quizAnswers[5] === 0 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(5, 0)}
                     >
-                      Le niveau de réglementation et de flexibilité
+                      The level of regulation and flexibility
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[5] === 1 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(5, 1)}
                     >
-                      Le type d'actifs dans lesquels ils investissent
+                      The type of assets they invest in
                     </button>
                     <button 
                       className={`quiz-option ${quizAnswers[5] === 2 ? 'selected' : ''}`}
                       onClick={() => handleQuizAnswer(5, 2)}
                     >
-                      Les frais de gestion
+                      The management fees
                     </button>
                   </div>
                 </div>
@@ -1130,7 +1143,7 @@ export default function OPCVMLearnPage() {
                     onClick={calculateQuizScore}
                     disabled={Object.keys(quizAnswers).length < 6}
                   >
-                    Soumettre mes réponses
+                    Submit my answers
                   </button>
                 </div>
               </div>
@@ -1142,26 +1155,26 @@ export default function OPCVMLearnPage() {
                     <div className="score-label">Score</div>
                   </div>
                   <h3>
-                    {quizScore === 6 && 'Parfait ! 🎉'}
-                    {quizScore === 5 && 'Excellent ! 👏'}
-                    {quizScore === 4 && 'Très bien ! 👍'}
-                    {quizScore === 3 && 'Bien ! 📚'}
-                    {quizScore !== null && quizScore < 3 && 'À revoir 📖'}
+                    {quizScore === 6 && 'Perfect! 🎉'}
+                    {quizScore === 5 && 'Excellent! 👏'}
+                    {quizScore === 4 && 'Very good! 👍'}
+                    {quizScore === 3 && 'Good! 📚'}
+                    {quizScore !== null && quizScore < 3 && 'Needs review 📖'}
                   </h3>
                   <p>
-                    {quizScore !== null && quizScore >= 5 && 'Vous maîtrisez parfaitement les concepts des fonds d\'investissement !'}
-                    {quizScore === 4 && 'Vous avez une bonne compréhension des fonds d\'investissement.'}
-                    {quizScore === 3 && 'Vous avez des bases solides, mais quelques révisions seraient bénéfiques.'}
-                    {quizScore !== null && quizScore < 3 && 'Nous vous recommandons de relire les sections précédentes pour mieux comprendre.'}
+                    {quizScore !== null && quizScore >= 5 && 'You have a perfect mastery of investment fund concepts!'}
+                    {quizScore === 4 && 'You have a good understanding of investment funds.'}
+                    {quizScore === 3 && 'You have solid foundations, but some review would be beneficial.'}
+                    {quizScore !== null && quizScore < 3 && 'We recommend re-reading the previous sections for better understanding.'}
                   </p>
                 </div>
 
                 <div className="results-actions">
                   <button className="btn-retry" onClick={resetQuiz}>
-                    Recommencer le quiz
+                    Restart quiz
                   </button>
                   <button className="btn-review" onClick={() => setActiveTab('introduction')}>
-                    Revoir les leçons
+                    Review lessons
                   </button>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -58,6 +58,20 @@ type OPCVMDetail = {
 export default function OPCVMDetailPage() {
   const params = useParams();
   const id = params?.id as string;
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   // Mock data - À remplacer par un fetch API
   const opcvmData: OPCVMDetail = {
@@ -144,7 +158,13 @@ export default function OPCVMDetailPage() {
     <div className="opcvm-detail-page">
       {/* Header */}
       <div className="opcvm-detail-header">
-        <div className="header-content">
+        <div 
+          className="opcvm-detail-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-content">
           <div className="header-left">
             <div className="fund-badges">
               <span className="badge exchange">{opcvmData.exchange}</span>
@@ -173,6 +193,7 @@ export default function OPCVMDetailPage() {
               {renderStars(opcvmData.rating)}
             </div>
           </div>
+        </div>
         </div>
       </div>
 

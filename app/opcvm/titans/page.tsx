@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 // Types
@@ -27,6 +27,20 @@ export default function OPCVMTitansPage() {
   const [selectedMarket, setSelectedMarket] = useState<string>('BRVM');
   const [classificationMode, setClassificationMode] = useState<ClassificationMode>('market');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   // Mock data - Top 5 Management Companies
   const mockCompanies: ManagementCompany[] = [
@@ -130,46 +144,57 @@ export default function OPCVMTitansPage() {
     <div className="opcvm-titans-page">
       {/* Header */}
       <div className="titans-header">
-        <div className="header-content">
-          <div className="header-title">
-            <h1>Les Titans de l'OPCVM</h1>
-            <p>Un Panorama des Leaders de la Gestion d'Actifs</p>
-          </div>
-
-          <div className="header-filters">
-            <div className="filter-group">
-              <label>Classification</label>
-              <select
-                className="classification-select"
-                value={classificationMode}
-                onChange={(e) => setClassificationMode(e.target.value as ClassificationMode)}
-              >
-                <option value="market">Par Marché Boursier</option>
-                <option value="asset-nature">Par Nature d'Actifs</option>
-                <option value="opcvm-category">Par Catégorie OPCVM</option>
-                <option value="continental">Influence Continentale</option>
-              </select>
+        <div 
+          className="header-hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-content">
+            <div className="header-title">
+              <h1>Les Titans de l'OPCVM</h1>
+              <p>Un Panorama des Leaders de la Gestion d'Actifs</p>
             </div>
-
-            {classificationMode === 'market' && (
+            <div className="header-filters-section">
+            <div className="header-filters">
               <div className="filter-group">
-                <label>Marché</label>
+                <label>Classification</label>
                 <select
-                  className="market-select"
-                  value={selectedMarket}
-                  onChange={(e) => setSelectedMarket(e.target.value)}
+                  className="classification-select"
+                  value={classificationMode}
+                  onChange={(e) => setClassificationMode(e.target.value as ClassificationMode)}
                 >
-                  <option value="BRVM">BRVM</option>
-                  <option value="JSE">JSE</option>
-                  <option value="NGX">NGX</option>
-                  <option value="NSE">NSE</option>
-                  <option value="CSE">CSE</option>
-                  <option value="GSE">GSE</option>
+                  <option value="market">Par Marché Boursier</option>
+                  <option value="asset-nature">Par Nature d'Actifs</option>
+                  <option value="opcvm-category">Par Catégorie OPCVM</option>
+                  <option value="continental">Influence Continentale</option>
                 </select>
               </div>
-            )}
+
+              {classificationMode === 'market' && (
+                <div className="filter-group">
+                  <label>Marché</label>
+                  <select
+                    className="market-select"
+                    value={selectedMarket}
+                    onChange={(e) => setSelectedMarket(e.target.value)}
+                  >
+                    <option value="BRVM">BRVM</option>
+                    <option value="JSE">JSE</option>
+                    <option value="NGX">NGX</option>
+                    <option value="NSE">NSE</option>
+                    <option value="CSE">CSE</option>
+                    <option value="GSE">GSE</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
+          </div>
+          
         </div>
+
+        
       </div>
 
       {/* View Mode Tabs */}

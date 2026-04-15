@@ -33,24 +33,24 @@ export default function MarketMoversPage() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeTab, setActiveTab] = useState<TabType>('movers');
 
-  // Simuler le rafraîchissement temps réel
+  // Simulate real-time refresh
   useEffect(() => {
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
       setLastRefresh(new Date());
-      // Ici, dans un vrai cas, on ferait un fetch des nouvelles données
-    }, 10000); // Rafraîchir toutes les 10 secondes
+      // In a real case, we would fetch new data here
+    }, 10000); // Refresh every 10 seconds
 
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  // Filtrer les stocks
+  // Filter stocks
   const filteredStocks = useMemo(() => {
     return filterStocks(MARKET_STOCKS, filters);
   }, [filters]);
 
-  // Calculer les données pour chaque section
+  // Calculate data for each section
   const topGainers = useMemo(() => getTopGainers(filteredStocks, 10), [filteredStocks]);
   const topLosers = useMemo(() => getTopLosers(filteredStocks, 10), [filteredStocks]);
   const mostActive = useMemo(() => getMostActive(filteredStocks, 100), [filteredStocks]);
@@ -60,7 +60,7 @@ export default function MarketMoversPage() {
 
   return (
     <div className="market-movers-page">
-      {/* Header avec filtres et indicateurs */}
+      {/* Header with filters and indicators */}
       <MarketHeader
         indicators={marketIndicators}
         onFilterChange={setFilters}
@@ -77,7 +77,7 @@ export default function MarketMoversPage() {
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
               <polyline points="17 6 23 6 23 12" />
             </svg>
-            Tops & Flops
+            Top Movers
           </button>
           <button
             className={`tab-btn ${activeTab === 'active' ? 'active' : ''}`}
@@ -86,7 +86,7 @@ export default function MarketMoversPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
-            Plus Actives
+            Most Active
           </button>
           <button
             className={`tab-btn ${activeTab === 'heatmap' ? 'active' : ''}`}
@@ -109,17 +109,17 @@ export default function MarketMoversPage() {
               <path d="M12 16v-4" />
               <path d="M12 8h.01" />
             </svg>
-            Insights & Alertes
+            Insights & Alerts
           </button>
         </div>
 
         <div className="tabs-controls">
           <div className={`refresh-indicator ${autoRefresh ? 'active' : ''}`}>
             <span className="pulse-dot"></span>
-            <span>{autoRefresh ? 'Temps réel' : 'Pause'}</span>
+            <span>{autoRefresh ? 'Live' : 'Paused'}</span>
           </div>
           <span className="last-update">
-            {lastRefresh.toLocaleTimeString('fr-FR')}
+            {lastRefresh.toLocaleTimeString('en-US')}
           </span>
           <button
             className={`btn-refresh ${autoRefresh ? 'active' : ''}`}
@@ -134,7 +134,7 @@ export default function MarketMoversPage() {
         </div>
       </div>
 
-      {/* Contenu principal avec tabs */}
+      {/* Main content with tabs */}
       <div className="movers-content">
         {activeTab === 'movers' && (
           <div className="movers-section tops-flops-section">
@@ -164,7 +164,7 @@ export default function MarketMoversPage() {
         )}
       </div>
 
-      {/* Comparaison rapide (Slider) */}
+      {/* Quick Comparison (Slider) */}
       <QuickComparison availableStocks={filteredStocks} />
 
       {/* Floating Stats */}
@@ -174,14 +174,14 @@ export default function MarketMoversPage() {
             <polyline points="18 15 12 9 6 15" />
           </svg>
           <span className="stat-value positive">{marketIndicators.gainers}</span>
-          <span className="stat-label">Hausses</span>
+          <span className="stat-label">Gainers</span>
         </div>
         <div className="stat-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="6 9 12 15 18 9" />
           </svg>
           <span className="stat-value negative">{marketIndicators.losers}</span>
-          <span className="stat-label">Baisses</span>
+          <span className="stat-label">Declines</span>
         </div>
         <div className="stat-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

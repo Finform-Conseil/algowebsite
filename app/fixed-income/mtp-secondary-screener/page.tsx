@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import MultiSelect from '@/components/corporate-events/MultiSelect';
 
@@ -72,6 +72,20 @@ const getCountryFlag = (country: string): string => {
 export default function MTPSecondaryScreenerPage() {
   const [activeView, setActiveView] = useState<ViewType>('overview');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
   const [showInsights, setShowInsights] = useState(false);
   const [selectedBonds, setSelectedBonds] = useState<string[]>([]);
 
@@ -282,7 +296,13 @@ export default function MTPSecondaryScreenerPage() {
   return (
     <div className="mtp-screener-page">
       <div className="screener-header">
-        <div className="header-top">
+        <div 
+          className="screener-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-top">
           <div className="header-title">
             <h1>MTP Secondary Market Screener</h1>
             <p>Explore and analyze bonds on the secondary market</p>
@@ -315,6 +335,7 @@ export default function MTPSecondaryScreenerPage() {
               Share
             </button>
           </div>
+        </div>
         </div>
       </div>
 

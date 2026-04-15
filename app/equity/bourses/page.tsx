@@ -89,8 +89,8 @@ export default function BoursesPage() {
       {viewMode === 'overview' && (
         <section className="overview-section">
           <div className="section-header">
-            <h2>Profils des Bourses Africaines</h2>
-            <p>Explorez les caractéristiques principales de chaque place boursière</p>
+            <h2>African Stock Exchange Profiles</h2>
+            <p>Explore the key characteristics of each stock exchange</p>
           </div>
           
           <div className="exchanges-grid">
@@ -111,8 +111,8 @@ export default function BoursesPage() {
       {viewMode === 'performance' && (
         <section ref={performanceRef} className="performance-section">
           <div className="section-header">
-            <h2>Performances Comparatives</h2>
-            <p>Analysez les performances des indices et volumes par période</p>
+            <h2>Comparative Performance</h2>
+            <p>Analyze index performance and trading volumes by period</p>
           </div>
           
           <PerformanceCharts 
@@ -127,8 +127,8 @@ export default function BoursesPage() {
       {viewMode === 'structure' && (
         <section ref={structureRef} className="structure-section">
           <div className="section-header">
-            <h2>Spécificités Structurelles</h2>
-            <p>Découvrez la réglementation, secteurs et conditions de trading</p>
+            <h2>Structural Specifics</h2>
+            <p>Discover regulations, sectors, and trading conditions</p>
           </div>
           
           <StructureAnalysis 
@@ -143,8 +143,8 @@ export default function BoursesPage() {
       {viewMode === 'ranking' && (
         <section ref={rankingRef} className="ranking-section">
           <div className="section-header">
-            <h2>Classement Comparatif</h2>
-            <p>Classez les bourses selon différents critères de performance</p>
+            <h2>Comparative Ranking</h2>
+            <p>Rank exchanges by different performance criteria</p>
           </div>
           
           <RankingDashboard 
@@ -158,8 +158,8 @@ export default function BoursesPage() {
       {(viewMode === 'ranking' || viewMode === 'overview') && (
         <section className="stock-directory-section">
           <div className="section-header">
-            <h2>Annuaire des Actions Cotées</h2>
-            <p>Parcourez toutes les actions disponibles sur les marchés africains</p>
+            <h2>Listed Companies Directory</h2>
+            <p>Browse all available stocks on African markets</p>
           </div>
           
           <StockDirectory 
@@ -174,50 +174,50 @@ export default function BoursesPage() {
       {/* Regional Focus Map */}
       <section className="regional-focus-section">
         <div className="section-header">
-          <h2>Focus Régional</h2>
-          <p>Visualisation géographique des marchés africains</p>
+          <h2>Regional Focus</h2>
+          <p>Geographic visualization of African markets</p>
         </div>
         
         <div className="africa-map-container">
           <div className="map-placeholder">
             <div className="map-content">
-              <h3>Carte Interactive des Bourses Africaines</h3>
-              <p>Cliquez sur une région pour filtrer les bourses correspondantes</p>
+              <h3>Interactive Map of African Stock Exchanges</h3>
+              <p>Click on a region to filter corresponding exchanges</p>
               
               <div className="region-highlights">
                 <div className="region-card west" onClick={() => setSelectedExchanges(['brvm', 'ngx', 'gse'])}>
-                  <h4>Afrique de l'Ouest</h4>
+                  <h4>West Africa</h4>
                   <div className="region-exchanges">BRVM • NGX • GSE</div>
                   <div className="region-stats">
-                    <span>3 bourses</span>
-                    <span>$116.3B cap totale</span>
+                    <span>3 exchanges</span>
+                    <span>$116.3B total cap</span>
                   </div>
                 </div>
                 
                 <div className="region-card east" onClick={() => setSelectedExchanges(['nse'])}>
-                  <h4>Afrique de l'Est</h4>
+                  <h4>East Africa</h4>
                   <div className="region-exchanges">NSE</div>
                   <div className="region-stats">
-                    <span>1 bourse</span>
-                    <span>$28.7B cap totale</span>
+                    <span>1 exchange</span>
+                    <span>$28.7B total cap</span>
                   </div>
                 </div>
                 
                 <div className="region-card north" onClick={() => setSelectedExchanges(['cse'])}>
-                  <h4>Afrique du Nord</h4>
+                  <h4>North Africa</h4>
                   <div className="region-exchanges">CSE</div>
                   <div className="region-stats">
-                    <span>1 bourse</span>
-                    <span>$72.5B cap totale</span>
+                    <span>1 exchange</span>
+                    <span>$72.5B total cap</span>
                   </div>
                 </div>
                 
                 <div className="region-card south" onClick={() => setSelectedExchanges(['jse'])}>
-                  <h4>Afrique Australe</h4>
+                  <h4>Southern Africa</h4>
                   <div className="region-exchanges">JSE</div>
                   <div className="region-stats">
-                    <span>1 bourse</span>
-                    <span>$1,250.8B cap totale</span>
+                    <span>1 exchange</span>
+                    <span>$1,250.8B total cap</span>
                   </div>
                 </div>
               </div>
@@ -254,36 +254,36 @@ export default function BoursesPage() {
                 
                 <div className="stock-details">
                   <div className="detail-item">
-                    <label>Bourse</label>
+                    <label>Exchange</label>
                     <span>{selectedStock.exchangeId.toUpperCase()}</span>
                   </div>
                   <div className="detail-item">
-                    <label>Secteur</label>
+                    <label>Sector</label>
                     <span>{selectedStock.sector}</span>
                   </div>
                   <div className="detail-item">
-                    <label>Capitalisation</label>
+                    <label>Market Cap</label>
                     <span>${selectedStock.marketCap.toFixed(0)}M</span>
                   </div>
                   <div className="detail-item">
                     <label>Volume</label>
-                    <span>{new Intl.NumberFormat('fr-FR').format(selectedStock.volume)}</span>
+                    <span>{new Intl.NumberFormat('en-US').format(selectedStock.volume)}</span>
                   </div>
                 </div>
               </div>
               
               <div className="modal-actions">
                 <button className="action-btn primary">
-                  Voir la fiche complète
+                  View Full Profile
                 </button>
                 <button 
                   className="action-btn secondary"
                   onClick={() => handleAnalyzeInScreener(selectedStock)}
                 >
-                  Analyser dans Screener
+                  Analyze in Screener
                 </button>
                 <button className="action-btn secondary">
-                  Ajouter à la watchlist
+                  Add to Watchlist
                 </button>
               </div>
             </div>

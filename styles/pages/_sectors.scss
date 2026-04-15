@@ -30,6 +30,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 0 1rem;
   }
 
   &__content {
@@ -40,7 +41,7 @@
   }
 
   &__title {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: white;
     margin-bottom: 0.5rem;
@@ -113,6 +114,7 @@
       cursor: pointer;
       transition: all 0.2s ease;
       white-space: nowrap;
+      color: white;
 
       &:hover {
         background: var(--card-background-hover);
@@ -121,7 +123,7 @@
       &.selected {
         background: var(--primary-color);
         border-color: var(--primary-color);
-        color: white;
+        
       }
     }
 
@@ -789,6 +791,7 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
+      color: white;
 
       &:hover {
         background: var(--card-background-hover);
@@ -797,7 +800,7 @@
       &.active {
         background: var(--primary-color);
         border-color: var(--primary-color);
-        color: white;
+        
       }
 
       .tab-icon {

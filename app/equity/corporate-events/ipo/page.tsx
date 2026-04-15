@@ -44,7 +44,7 @@ export default function IPOPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
-            Introductions Récentes
+            Recent Listings
           </button>
           <button
             className={`tab-btn ${activeTab === 'statistics' ? 'active' : ''}`}
@@ -55,7 +55,7 @@ export default function IPOPage() {
               <line x1="12" y1="20" x2="12" y2="4" />
               <line x1="6" y1="20" x2="6" y2="14" />
             </svg>
-            Statistiques
+            Statistics
           </button>
           <button
             className={`tab-btn ${activeTab === 'upcoming' ? 'active' : ''}`}
@@ -67,7 +67,7 @@ export default function IPOPage() {
               <line x1="8" y1="2" x2="8" y2="6" />
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            Prochaines IPO
+            Upcoming IPOs
           </button>
           <button
             className={`tab-btn ${activeTab === 'screener' ? 'active' : ''}`}
@@ -88,7 +88,7 @@ export default function IPOPage() {
               <path d="M12 16v-4" />
               <path d="M12 8h.01" />
             </svg>
-            <span>Données mises à jour quotidiennement</span>
+            <span>Data updated daily</span>
           </div>
         </div>
       </div>
@@ -132,7 +132,7 @@ export default function IPOPage() {
           </svg>
           <div className="stat-info">
             <span className="stat-value">{statistics.totalIPOs}</span>
-            <span className="stat-label">IPO (5 ans)</span>
+            <span className="stat-label">IPOs (5Y)</span>
           </div>
         </div>
         <div className="quick-stat">
@@ -144,7 +144,7 @@ export default function IPOPage() {
           </svg>
           <div className="stat-info">
             <span className="stat-value">{UPCOMING_IPOS.length}</span>
-            <span className="stat-label">À venir</span>
+            <span className="stat-label">Upcoming</span>
           </div>
         </div>
         <div className="quick-stat">
@@ -155,7 +155,7 @@ export default function IPOPage() {
             <span className={`stat-value ${statistics.averageReturn >= 0 ? 'positive' : 'negative'}`}>
               {statistics.averageReturn >= 0 ? '+' : ''}{statistics.averageReturn.toFixed(1)}%
             </span>
-            <span className="stat-label">Performance moy.</span>
+            <span className="stat-label">Avg Return</span>
           </div>
         </div>
       </div>
