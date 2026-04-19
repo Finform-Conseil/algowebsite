@@ -6,6 +6,8 @@ import NSERegion from "../map/NSERegion";
 import JSERegion from "../map/JSERegion";
 import GSERegion from "../map/GSERegion";
 import CSERegion from "../map/CSERegion";
+import InteractiveSGOMap from "./InteractiveSGOMap";
+import { exchangeSGOData } from "@/core/data/SGOData";
 
 type ExchangeData = {
   count: number;
@@ -788,117 +790,22 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
             justifyContent: "center",
             position: "relative",
           }}
-          onClick={handleBackToAfrica}
         >
-          {/* Bouton de retour */}
-          <motion.button
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleBackToAfrica();
-            }}
-            style={{
-              position: "absolute",
-              top: "1rem",
-              left: "1rem",
-              padding: "0.75rem 1.5rem",
-              background:
+          {/* Carte interactive avec les SGO */}
+          {selectedExchange && exchangeSGOData[selectedExchange] && (
+            <InteractiveSGOMap
+              sgos={exchangeSGOData[selectedExchange].sgos}
+              center={exchangeSGOData[selectedExchange].center}
+              zoom={exchangeSGOData[selectedExchange].zoom}
+              exchangeColor={
                 getColorForExchange(selectedExchangeData?.shortName || "") ||
-                "var(--primary-color)",
-              color: "white",
-              border: "none",
-              borderRadius: "0.5rem",
-              fontSize: "0.875rem",
-              fontWeight: "600",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              zIndex: 10,
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
-            }}
-          >
-            <span style={{ fontSize: "1.2rem" }}>←</span>
-            <span>Retour à l'Afrique</span>
-          </motion.button>
-
-          {/* Titre de la région */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            style={{
-              position: "absolute",
-              top: "1rem",
-              right: "1rem",
-              padding: "0.75rem 1.5rem",
-              background: "rgba(255,255,255,0.95)",
-              borderRadius: "0.75rem",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              border: `2px solid ${getColorForExchange(
-                selectedExchangeData?.shortName || ""
-              )}`,
-              zIndex: 10,
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: "600",
-                color: getColorForExchange(
-                  selectedExchangeData?.shortName || ""
-                ),
-                marginBottom: "0.25rem",
-              }}
-            >
-              {selectedExchangeData?.shortName}
-            </div>
-            <div
-              style={{
-                fontSize: "1rem",
-                fontWeight: "700",
-                color: "var(--text-color)",
-              }}
-            >
-              {selectedExchangeData?.name}
-            </div>
-          </motion.div>
-
-          {/* Carte régionale */}
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "800px",
-              cursor: "pointer",
-            }}
-            onClick={(e) => {
-              // Vérifier si le clic est sur un path (pays)
-              const target = e.target as HTMLElement;
-              if (target.tagName !== "path") {
-                handleBackToAfrica();
+                "#10B981"
               }
-            }}
-          >
-            {RegionalComponent && (
-              <RegionalComponent
-                color={
-                  getColorForExchange(selectedExchangeData?.shortName || "") ||
-                  "#10B981"
-                }
-              />
-            )}
-          </div>
+              onBack={handleBackToAfrica}
+              exchangeName={selectedExchangeData?.name || ""}
+              exchangeShortName={selectedExchangeData?.shortName || ""}
+            />
+          )}
         </motion.div>
       )}
     </AnimatePresence>

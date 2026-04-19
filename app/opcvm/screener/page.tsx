@@ -85,19 +85,19 @@ export default function OPCVMScreenerPage() {
     riskRatings: [],
   });
 
-  // Mock data - À remplacer par des vraies données API
+  // Mock data - To be replaced with real API data
   const mockFunds: Fund[] = useMemo(
     () => [
       {
         id: "1",
-        name: "NSIA Actions Côte d'Ivoire",
+        name: "NSIA Ivory Coast Equity",
         isin: "CI0001234567",
         ticker: "NSIA-CI",
         manager: "NSIA Banque",
         nature: "SICAV",
-        type: "Actions",
+        type: "Equity",
         currency: "XOF",
-        domicile: "Côte d'Ivoire",
+        domicile: "Ivory Coast",
         aum: 15000000000,
         nav: 12500,
         navDate: "2024-11-30",
@@ -121,14 +121,14 @@ export default function OPCVMScreenerPage() {
       },
       {
         id: "2",
-        name: "BOA Obligations UEMOA",
+        name: "BOA WAEMU Bonds",
         isin: "SN0009876543",
         ticker: "BOA-OBL",
         manager: "BOA Capital",
         nature: "FCP",
-        type: "Obligations",
+        type: "Bonds",
         currency: "XOF",
-        domicile: "Sénégal",
+        domicile: "Senegal",
         aum: 8500000000,
         nav: 10850,
         navDate: "2024-11-30",
@@ -150,15 +150,15 @@ export default function OPCVMScreenerPage() {
         inceptionDate: "2018-06-20",
         market: "BRVM",
       },
-      // Ajouter plus de fonds mock...
+      // Add more mock funds...
     ],
     [],
   );
 
-  // Filtrage des fonds
+  // Fund filtering
   const filteredFunds = useMemo(() => {
     return mockFunds.filter((fund) => {
-      // Recherche textuelle
+      // Text search
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         if (
@@ -171,7 +171,7 @@ export default function OPCVMScreenerPage() {
         }
       }
 
-      // Filtres de marché
+      // Market filters
       if (
         filters.markets.length > 0 &&
         !filters.markets.includes(fund.market)
@@ -179,7 +179,7 @@ export default function OPCVMScreenerPage() {
         return false;
       }
 
-      // Filtres de nature
+      // Nature filters
       if (
         filters.natures.length > 0 &&
         !filters.natures.includes(fund.nature)
@@ -187,7 +187,7 @@ export default function OPCVMScreenerPage() {
         return false;
       }
 
-      // Filtres AUM
+      // AUM filters
       if (
         fund.aum < filters.aumRange[0] * 1000000 ||
         fund.aum > filters.aumRange[1] * 1000000
@@ -195,13 +195,13 @@ export default function OPCVMScreenerPage() {
         return false;
       }
 
-      // Filtres performance
+      // Performance filters
       const perf = fund.perf1Y;
       if (perf < filters.perfRange[0] || perf > filters.perfRange[1]) {
         return false;
       }
 
-      // Filtres frais
+      // Fee filters
       if (
         fund.managementFee < filters.feeRange[0] ||
         fund.managementFee > filters.feeRange[1]
@@ -209,7 +209,7 @@ export default function OPCVMScreenerPage() {
         return false;
       }
 
-      // Filtres risk rating
+      // Risk rating filters
       if (
         filters.riskRatings.length > 0 &&
         !filters.riskRatings.includes(fund.riskRating)
@@ -255,21 +255,21 @@ export default function OPCVMScreenerPage() {
       case "income":
         setFilters((prev) => ({
           ...prev,
-          types: ["Obligations"],
+          types: ["Bonds"],
           feeRange: [0, 2],
         }));
         break;
       case "equity-growth":
         setFilters((prev) => ({
           ...prev,
-          types: ["Actions"],
+          types: ["Equity"],
           perfRange: [10, 100],
         }));
         break;
       case "short-term":
         setFilters((prev) => ({
           ...prev,
-          types: ["Monétaire"],
+          types: ["Money Market"],
           riskRatings: [1],
         }));
         break;
@@ -288,8 +288,8 @@ export default function OPCVMScreenerPage() {
         >
           <div className="header-top">
             <div className="header-title">
-              <h1>OPCVM Screener</h1>
-              <p>Recherchez, filtrez et comparez les fonds d'investissement</p>
+              <h1>Funds Screener</h1>
+              <p>Search, filter and compare investment funds</p>
             </div>
 
             <div className="header-actions">
@@ -308,7 +308,7 @@ export default function OPCVMScreenerPage() {
                   </svg>
                   <input
                     type="text"
-                    placeholder="Rechercher par nom, ISIN, ticker ou gestionnaire..."
+                    placeholder="Search by name, ISIN, ticker or manager..."
                     value={filters.search}
                     onChange={(e) =>
                       setFilters((prev) => ({
@@ -354,7 +354,7 @@ export default function OPCVMScreenerPage() {
                   <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
                   <path d="M3 21v-5h5" />
                 </svg>
-                Réinitialiser
+                Reset
               </button>
               <button className="btn-secondary">
                 <svg
@@ -367,7 +367,7 @@ export default function OPCVMScreenerPage() {
                 >
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                 </svg>
-                Enregistrer
+                Save
               </button>
               <button className="btn-secondary">
                 <svg
@@ -384,34 +384,34 @@ export default function OPCVMScreenerPage() {
                   <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
                   <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                 </svg>
-                Partager
+                Share
               </button>
             </div>
           </div>
         </div>
 
         <div className="header-filters-section">
-          {/* Filtres principaux */}
+          {/* Main filters */}
           <div className="main-filters">
             <div className="filter-group">
-              <label>Période</label>
+              <label>Period</label>
               <select
                 className="period-select"
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value as Period)}
               >
-                <option value="1M">1 Mois</option>
-                <option value="3M">3 Mois</option>
-                <option value="6M">6 Mois</option>
-                <option value="1Y">1 An</option>
-                <option value="3Y">3 Ans</option>
-                <option value="5Y">5 Ans</option>
-                <option value="ALL">Depuis création</option>
+                <option value="1M">1 Month</option>
+                <option value="3M">3 Months</option>
+                <option value="6M">6 Months</option>
+                <option value="1Y">1 Year</option>
+                <option value="3Y">3 Years</option>
+                <option value="5Y">5 Years</option>
+                <option value="ALL">Since inception</option>
               </select>
             </div>
 
             <MultiSelect
-              label="Bourses"
+              label="Exchanges"
               options={["BRVM", "JSE", "NGX", "NSE", "CSE", "GSE"].map((m) => ({
                 value: m,
                 label: m,
@@ -420,7 +420,7 @@ export default function OPCVMScreenerPage() {
               onChange={(markets) =>
                 setFilters((prev) => ({ ...prev, markets }))
               }
-              placeholder="Toutes les bourses"
+              placeholder="All exchanges"
             />
 
             <MultiSelect
@@ -433,25 +433,25 @@ export default function OPCVMScreenerPage() {
               onChange={(natures) =>
                 setFilters((prev) => ({ ...prev, natures }))
               }
-              placeholder="Toutes les natures"
+              placeholder="All natures"
             />
 
             <MultiSelect
               label="Type"
               options={[
-                "Actions",
-                "Obligations",
-                "Monétaire",
-                "Mixte",
-                "Immobilier",
+                "Equity",
+                "Bonds",
+                "Money Market",
+                "Mixed",
+                "Real Estate",
               ].map((t) => ({ value: t, label: t }))}
               selected={filters.types}
               onChange={(types) => setFilters((prev) => ({ ...prev, types }))}
-              placeholder="Tous les types"
+              placeholder="All types"
             />
 
             <div className="filter-group">
-              <label>Risque</label>
+              <label>Risk</label>
               <div className="risk-selector">
                 {[1, 2, 3, 4, 5, 6, 7].map((rating) => (
                   <button
@@ -493,7 +493,7 @@ export default function OPCVMScreenerPage() {
               >
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
               </svg>
-              Filtres avancés
+              Advanced filters
               <svg
                 width="14"
                 height="14"
@@ -513,11 +513,11 @@ export default function OPCVMScreenerPage() {
             </button>
           </div>
 
-          {/* Filtres avancés (collapsible) */}
+          {/* Advanced filters (collapsible) */}
           {showAdvancedFilters && (
             <div className="advanced-filters">
               <div className="filter-group range-filter">
-                <label>Taille AUM (en millions)</label>
+                <label>AUM Size (in millions)</label>
                 <div className="range-inputs">
                   <input
                     type="number"
@@ -546,7 +546,7 @@ export default function OPCVMScreenerPage() {
               </div>
 
               <div className="filter-group range-filter">
-                <label>Performance 1Y (%)</label>
+                <label>1Y Performance (%)</label>
                 <div className="range-inputs">
                   <input
                     type="number"
@@ -575,7 +575,7 @@ export default function OPCVMScreenerPage() {
               </div>
 
               <div className="filter-group range-filter">
-                <label>Frais de gestion (%)</label>
+                <label>Management Fees (%)</label>
                 <div className="range-inputs">
                   <input
                     type="number"
@@ -616,11 +616,11 @@ export default function OPCVMScreenerPage() {
           <div className="table-header">
             <div className="table-info">
               <span className="results-count">
-                {filteredFunds.length} fonds trouvés
+                {filteredFunds.length} funds found
               </span>
               {selectedFunds.length > 0 && (
                 <span className="selected-count">
-                  {selectedFunds.length} sélectionné(s)
+                  {selectedFunds.length} selected
                 </span>
               )}
             </div>
@@ -638,7 +638,7 @@ export default function OPCVMScreenerPage() {
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Exporter
+                Export
               </button>
               {selectedFunds.length >= 2 && (
                 <button
@@ -657,7 +657,7 @@ export default function OPCVMScreenerPage() {
                     <line x1="18" y1="20" x2="18" y2="4" />
                     <line x1="6" y1="20" x2="6" y2="16" />
                   </svg>
-                  Comparer ({selectedFunds.length})
+                  Compare ({selectedFunds.length})
                 </button>
               )}
             </div>
@@ -670,20 +670,20 @@ export default function OPCVMScreenerPage() {
                   <th className="checkbox-col">
                     <input type="checkbox" />
                   </th>
-                  <th>Nom du fonds</th>
+                  <th>Fund Name</th>
                   <th>ISIN</th>
-                  <th>Gestionnaire</th>
+                  <th>Manager</th>
                   <th>Nature</th>
                   <th>Type</th>
-                  <th>Devise</th>
+                  <th>Currency</th>
                   <th className="number-col">AUM (M)</th>
-                  <th className="number-col">VL</th>
-                  <th className="number-col">Perf 1M</th>
-                  <th className="number-col">Perf 1Y</th>
-                  <th className="number-col">Volatilité</th>
+                  <th className="number-col">NAV</th>
+                  <th className="number-col">1M Perf</th>
+                  <th className="number-col">1Y Perf</th>
+                  <th className="number-col">Volatility</th>
                   <th className="number-col">Sharpe</th>
-                  <th className="number-col">Frais</th>
-                  <th className="number-col">Risque</th>
+                  <th className="number-col">Fees</th>
+                  <th className="number-col">Risk</th>
                   <th className="actions-col">Actions</th>
                 </tr>
               </thead>
@@ -753,7 +753,7 @@ export default function OPCVMScreenerPage() {
                     <td className="actions-col">
                       <button
                         className="btn-icon"
-                        title="Voir détails"
+                        title="View details"
                         onClick={() => setDetailFundId(fund.id)}
                       >
                         <svg
@@ -780,7 +780,7 @@ export default function OPCVMScreenerPage() {
         {detailFundId && (
           <div className="detail-panel">
             <div className="detail-header">
-              <h3>Détails du fonds</h3>
+              <h3>Fund Details</h3>
               <button
                 className="btn-icon"
                 onClick={() => setDetailFundId(null)}
@@ -814,13 +814,13 @@ export default function OPCVMScreenerPage() {
                     </div>
                     <div className="detail-metrics">
                       <div className="metric-item">
-                        <span className="metric-label">VL actuelle</span>
+                        <span className="metric-label">Current NAV</span>
                         <span className="metric-value">
                           {fund.nav.toLocaleString()} {fund.currency}
                         </span>
                       </div>
                       <div className="metric-item">
-                        <span className="metric-label">Performance 1Y</span>
+                        <span className="metric-label">1Y Performance</span>
                         <span
                           className={`metric-value ${fund.perf1Y >= 0 ? "positive" : "negative"}`}
                         >
@@ -829,7 +829,7 @@ export default function OPCVMScreenerPage() {
                         </span>
                       </div>
                       <div className="metric-item">
-                        <span className="metric-label">Volatilité</span>
+                        <span className="metric-label">Volatility</span>
                         <span className="metric-value">
                           {fund.volatility.toFixed(2)}%
                         </span>
@@ -843,10 +843,10 @@ export default function OPCVMScreenerPage() {
                     </div>
                     <div className="detail-actions">
                       <button className="btn-primary btn-block">
-                        Ajouter à la comparaison
+                        Add to comparison
                       </button>
                       <button className="btn-secondary btn-block">
-                        Voir la fiche complète
+                        View full profile
                       </button>
                     </div>
                   </>
@@ -874,7 +874,7 @@ export default function OPCVMScreenerPage() {
                 <line x1="18" y1="20" x2="18" y2="4" />
                 <line x1="6" y1="20" x2="6" y2="16" />
               </svg>
-              Comparaison rapide ({selectedFunds.length})
+              Quick comparison ({selectedFunds.length})
             </span>
             <button className="btn-icon" onClick={() => setSelectedFunds([])}>
               <svg
@@ -912,7 +912,7 @@ export default function OPCVMScreenerPage() {
               className="btn-primary btn-block"
               onClick={() => setShowCompareModal(true)}
             >
-              Comparer les fonds sélectionnés
+              Compare selected funds
             </button>
           )}
         </div>
@@ -929,7 +929,7 @@ export default function OPCVMScreenerPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Comparaison de fonds</h2>
+              <h2>Fund Comparison</h2>
               <button
                 className="btn-icon"
                 onClick={() => setShowCompareModal(false)}
@@ -948,12 +948,12 @@ export default function OPCVMScreenerPage() {
               </button>
             </div>
             <div className="modal-body">
-              <p>Fonctionnalité de comparaison détaillée à venir...</p>
+              <p>Detailed comparison feature coming soon...</p>
               <div className="compare-table">
                 <table>
                   <thead>
                     <tr>
-                      <th>Métrique</th>
+                      <th>Metric</th>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
                         return <th key={fundId}>{fund?.name}</th>;
@@ -962,7 +962,7 @@ export default function OPCVMScreenerPage() {
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Performance 1Y</td>
+                      <td>1Y Performance</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
                         return (
@@ -979,7 +979,7 @@ export default function OPCVMScreenerPage() {
                       })}
                     </tr>
                     <tr>
-                      <td>Volatilité</td>
+                      <td>Volatility</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
                         return (
@@ -999,7 +999,7 @@ export default function OPCVMScreenerPage() {
                       })}
                     </tr>
                     <tr>
-                      <td>Frais de gestion</td>
+                      <td>Management Fees</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
                         return (
@@ -1014,13 +1014,13 @@ export default function OPCVMScreenerPage() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary">Exporter PDF</button>
-              <button className="btn-secondary">Exporter Excel</button>
+              <button className="btn-secondary">Export PDF</button>
+              <button className="btn-secondary">Export Excel</button>
               <button
                 className="btn-primary"
                 onClick={() => setShowCompareModal(false)}
               >
-                Fermer
+                Close
               </button>
             </div>
           </div>

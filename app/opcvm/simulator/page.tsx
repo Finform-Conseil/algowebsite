@@ -56,6 +56,9 @@ export default function OPCVMSimulatorPage() {
 
   // Background rotation
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
+  
+  // Popup state
+  const [showFundsPopup, setShowFundsPopup] = useState(false);
 
   const backgroundImages = [
     '/images/screener-header-3.jpg',
@@ -263,7 +266,7 @@ export default function OPCVMSimulatorPage() {
 
   return (
     <div className="opcvm-simulator-page">
-      {/* Header with Filters and Funds */}
+      {/* Simplified Header */}
       <div className="simulator-header">
         <div 
           className="simulator-header__hero"
@@ -272,20 +275,66 @@ export default function OPCVMSimulatorPage() {
           }}
         >
           <div className="header-content">
-          <div className="header-top">
-            <div className="header-title">
-              <h1>Simulateur de Souscription / Rachat</h1>
-              <p>Estimez vos investissements et retraits en tenant compte des VL et frais</p>
+            <div className="header-top">
+              <div className="header-title">
+                <h1>Subscription / Redemption Simulator</h1>
+                <p>Estimate your investments and withdrawals taking into account NAV and fees</p>
+              </div>
+              
+              {selectedFund && (
+                <div className="selected-fund-badge">
+                  <div className="badge-content">
+                    <span className="badge-label">Selected Fund:</span>
+                    <span className="badge-name">{selectedFund.name}</span>
+                  </div>
+                  <button 
+                    className="badge-change-btn"
+                    onClick={() => setShowFundsPopup(true)}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Action Button */}
+      <button 
+        className="floating-add-fund-btn"
+        onClick={() => setShowFundsPopup(true)}
+        title="Select a fund"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>Select Fund</span>
+      </button>
+
+      {/* Funds Selection Popup */}
+      {showFundsPopup && (
+        <div className="funds-popup-overlay" onClick={() => setShowFundsPopup(false)}>
+          <div className="funds-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="popup-header">
+              <h2>Select a Fund</h2>
+              <button className="popup-close" onClick={() => setShowFundsPopup(false)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
 
-            {/* Inline Filters */}
-            <div className="header-filters">
+            {/* Filters */}
+            <div className="popup-filters">
               <select
                 value={selectedExchange}
                 onChange={(e) => setSelectedExchange(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">Toutes Bourses</option>
+                <option value="all">All Exchanges</option>
                 <option value="BRVM">BRVM</option>
                 <option value="JSE">JSE</option>
                 <option value="NGX">NGX</option>
@@ -296,11 +345,11 @@ export default function OPCVMSimulatorPage() {
                 onChange={(e) => setSelectedNature(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">Toutes Natures</option>
-                <option value="Actions">Actions</option>
-                <option value="Obligations">Obligations</option>
-                <option value="Monétaire">Monétaire</option>
-                <option value="Mixte">Mixte</option>
+                <option value="all">All Natures</option>
+                <option value="Actions">Equity</option>
+                <option value="Obligations">Bonds</option>
+                <option value="Monétaire">Money Market</option>
+                <option value="Mixte">Mixed</option>
               </select>
 
               <select
@@ -308,11 +357,11 @@ export default function OPCVMSimulatorPage() {
                 onChange={(e) => setSelectedType(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">Tous Types</option>
-                <option value="OPCVM Actions">OPCVM Actions</option>
-                <option value="OPCVM Obligataire">OPCVM Obligataire</option>
-                <option value="OPCVM Monétaire">OPCVM Monétaire</option>
-                <option value="OPCVM Mixte">OPCVM Mixte</option>
+                <option value="all">All Types</option>
+                <option value="OPCVM Actions">Equity Funds</option>
+                <option value="OPCVM Obligataire">Bond Funds</option>
+                <option value="OPCVM Monétaire">Money Market Funds</option>
+                <option value="OPCVM Mixte">Mixed Funds</option>
               </select>
 
               <div className="search-box">
@@ -322,42 +371,53 @@ export default function OPCVMSimulatorPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Rechercher..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
             </div>
-          </div>
 
-          {/* Compact Funds List */}
-          <div className="funds-carousel">
-            {filteredFunds.length === 0 ? (
-              <div className="no-funds">Aucun fonds trouvé</div>
-            ) : (
-              filteredFunds.map((fund) => (
-                <div
-                  key={fund.id}
-                  className={`fund-chip ${selectedFund?.id === fund.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedFund(fund)}
-                >
-                  <div className="chip-header">
-                    <span className="chip-name">{fund.name}</span>
-                    <span className="chip-nav">{formatCurrency(fund.nav)}</span>
+            {/* Funds List */}
+            <div className="popup-funds-list">
+              {filteredFunds.length === 0 ? (
+                <div className="no-funds">No funds found</div>
+              ) : (
+                filteredFunds.map((fund) => (
+                  <div
+                    key={fund.id}
+                    className={`fund-card ${selectedFund?.id === fund.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedFund(fund);
+                      setShowFundsPopup(false);
+                    }}
+                  >
+                    <div className="fund-card-header">
+                      <div className="fund-main-info">
+                        <h4>{fund.name}</h4>
+                        <p className="fund-company">{fund.managementCompany}</p>
+                      </div>
+                      <div className="fund-nav-info">
+                        <div className="nav-label">NAV</div>
+                        <div className="nav-value">{formatCurrency(fund.nav)}</div>
+                      </div>
+                    </div>
+                    <div className="fund-card-footer">
+                      <div className="fund-badges">
+                        <span className="badge badge-exchange">{fund.exchange}</span>
+                        <span className="badge badge-nature">{fund.nature}</span>
+                      </div>
+                      <div className={`fund-perf ${fund.var1Year >= 0 ? 'positive' : 'negative'}`}>
+                        {fund.var1Year >= 0 ? '+' : ''}{fund.var1Year}% (1Y)
+                      </div>
+                    </div>
                   </div>
-                  <div className="chip-footer">
-                    <span className="chip-company">{fund.managementCompany}</span>
-                    <span className={`chip-perf ${fund.var1Year >= 0 ? 'positive' : 'negative'}`}>
-                      {fund.var1Year >= 0 ? '+' : ''}{fund.var1Year}% (1A)
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
-        </div>
-      </div>
+      )}
 
       {/* Main Content - Split View */}
       <div className="simulator-main">
@@ -370,8 +430,8 @@ export default function OPCVMSimulatorPage() {
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
-              <h3>Sélectionnez un fonds</h3>
-              <p>Choisissez un fonds dans la liste ci-dessus pour visualiser son graphique</p>
+              <h3>Select a Fund</h3>
+              <p>Click the button below to choose a fund and view its chart</p>
             </div>
           ) : (
             <>

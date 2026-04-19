@@ -55,6 +55,52 @@
           }
         }
 
+        .selected-fund-badge {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 0.75rem 1rem;
+          background: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: $border-radius-md;
+
+          .badge-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+
+            .badge-label {
+              font-size: 0.75rem;
+              color: rgba(255, 255, 255, 0.8);
+              font-weight: 500;
+            }
+
+            .badge-name {
+              font-size: 0.9375rem;
+              color: white;
+              font-weight: 600;
+            }
+          }
+
+          .badge-change-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: $border-radius-sm;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all $transition-fast;
+
+            &:hover {
+              background: rgba(255, 255, 255, 0.3);
+              transform: translateY(-1px);
+            }
+          }
+        }
+
         .header-filters {
           display: flex;
           gap: 0.75rem;
@@ -741,6 +787,332 @@
       }
     }
   }
+
+  // Floating Add Fund Button with Animation
+  .floating-add-fund-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, rgba(0, 191, 255, 0.9) 100%);
+    border: none;
+    border-radius: 50px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 191, 255, 0.4);
+    transition: all $transition-fast;
+    z-index: 999;
+    animation: pulseZoom 2s ease-in-out infinite;
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    span {
+      white-space: nowrap;
+    }
+
+    &:hover {
+      transform: translateY(-4px) scale(1.05);
+      box-shadow: 0 12px 32px rgba(0, 191, 255, 0.5);
+      animation: none;
+    }
+
+    &:active {
+      transform: translateY(-2px) scale(1.02);
+    }
+  }
+
+  // Pulse Zoom Animation
+  @keyframes pulseZoom {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 8px 24px rgba(0, 191, 255, 0.4);
+    }
+    50% {
+      transform: scale(1.08);
+      box-shadow: 0 12px 32px rgba(0, 191, 255, 0.6);
+    }
+  }
+
+  // Funds Selection Popup
+  .funds-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+    animation: fadeIn 0.2s ease-out;
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .funds-popup {
+      background: var(--card-background);
+      border-radius: $border-radius-lg;
+      width: 100%;
+      max-width: 900px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.3s ease-out;
+
+      @keyframes slideUp {
+        from {
+          transform: translateY(30px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .popup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid var(--border-color);
+
+        h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text-color);
+          margin: 0;
+        }
+
+        .popup-close {
+          width: 2.5rem;
+          height: 2.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--hover-background);
+          border: 1px solid var(--border-color);
+          border-radius: 50%;
+          color: var(--text-color);
+          cursor: pointer;
+          transition: all $transition-fast;
+
+          &:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+            transform: rotate(90deg);
+          }
+        }
+      }
+
+      .popup-filters {
+        display: flex;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+
+        .filter-select {
+          flex: 1;
+          min-width: 150px;
+          padding: 0.75rem 1rem;
+          background: var(--hover-background);
+          border: 1px solid var(--border-color);
+          border-radius: $border-radius-md;
+          font-size: 0.875rem;
+          color: var(--text-color);
+          cursor: pointer;
+          transition: all $transition-fast;
+
+          &:hover {
+            border-color: var(--primary-color);
+          }
+
+          &:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+          }
+        }
+
+        .search-box {
+          flex: 1;
+          min-width: 200px;
+          position: relative;
+
+          svg {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+          }
+
+          input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.75rem;
+            background: var(--hover-background);
+            border: 1px solid var(--border-color);
+            border-radius: $border-radius-md;
+            font-size: 0.875rem;
+            color: var(--text-color);
+            transition: all $transition-fast;
+
+            &::placeholder {
+              color: var(--text-secondary);
+            }
+
+            &:hover {
+              border-color: var(--primary-color);
+            }
+
+            &:focus {
+              outline: none;
+              border-color: var(--primary-color);
+              box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+            }
+          }
+        }
+      }
+
+      .popup-funds-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem 2rem;
+
+        .no-funds {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem;
+          color: var(--text-secondary);
+          font-size: 1rem;
+        }
+
+        .fund-card {
+          padding: 1.25rem;
+          background: var(--hover-background);
+          border: 2px solid transparent;
+          border-radius: $border-radius-md;
+          margin-bottom: 1rem;
+          cursor: pointer;
+          transition: all $transition-fast;
+
+          &:hover {
+            border-color: var(--primary-color);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
+
+          &.selected {
+            background: rgba(0, 191, 255, 0.1);
+            border-color: var(--primary-color);
+          }
+
+          .fund-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+
+            .fund-main-info {
+              flex: 1;
+
+              h4 {
+                font-size: 1rem;
+                font-weight: 600;
+                color: var(--text-color);
+                margin: 0 0 0.25rem 0;
+              }
+
+              .fund-company {
+                font-size: 0.875rem;
+                color: var(--text-secondary);
+                margin: 0;
+              }
+            }
+
+            .fund-nav-info {
+              text-align: right;
+
+              .nav-label {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.25rem;
+              }
+
+              .nav-value {
+                font-size: 1.125rem;
+                font-weight: 700;
+                color: var(--primary-color);
+              }
+            }
+          }
+
+          .fund-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            .fund-badges {
+              display: flex;
+              gap: 0.5rem;
+
+              .badge {
+                padding: 0.25rem 0.75rem;
+                border-radius: 12px;
+                font-size: 0.75rem;
+                font-weight: 600;
+
+                &.badge-exchange {
+                  background: rgba(0, 191, 255, 0.1);
+                  color: var(--primary-color);
+                }
+
+                &.badge-nature {
+                  background: var(--hover-background);
+                  color: var(--text-secondary);
+                }
+              }
+            }
+
+            .fund-perf {
+              font-size: 0.875rem;
+              font-weight: 700;
+
+              &.positive {
+                color: var(--positive-color);
+              }
+
+              &.negative {
+                color: var(--negative-color);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 // Responsive
@@ -773,6 +1145,47 @@
 
 @media (max-width: $breakpoint-md) {
   .opcvm-simulator-page {
+    .floating-add-fund-btn {
+      bottom: 1.5rem;
+      right: 1.5rem;
+      padding: 0.875rem 1.25rem;
+      font-size: 0.9375rem;
+
+      span {
+        display: none;
+      }
+    }
+
+    .funds-popup-overlay {
+      padding: 1rem;
+
+      .funds-popup {
+        max-height: 90vh;
+
+        .popup-header {
+          padding: 1rem 1.5rem;
+
+          h2 {
+            font-size: 1.25rem;
+          }
+        }
+
+        .popup-filters {
+          padding: 1rem 1.5rem;
+          gap: 0.75rem;
+
+          .filter-select,
+          .search-box {
+            min-width: 100%;
+          }
+        }
+
+        .popup-funds-list {
+          padding: 1rem 1.5rem;
+        }
+      }
+    }
+
     .simulator-header {
       .header-content {
         padding: 1rem;
@@ -847,6 +1260,59 @@
 
 @media (max-width: $breakpoint-sm) {
   .opcvm-simulator-page {
+    .floating-add-fund-btn {
+      bottom: 1rem;
+      right: 1rem;
+      padding: 0.75rem 1rem;
+
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .funds-popup-overlay {
+      padding: 0.5rem;
+
+      .funds-popup {
+        border-radius: $border-radius-md;
+
+        .popup-header {
+          padding: 1rem;
+
+          h2 {
+            font-size: 1.125rem;
+          }
+
+          .popup-close {
+            width: 2rem;
+            height: 2rem;
+          }
+        }
+
+        .popup-filters {
+          padding: 1rem;
+        }
+
+        .popup-funds-list {
+          padding: 1rem;
+
+          .fund-card {
+            padding: 1rem;
+
+            .fund-card-header {
+              flex-direction: column;
+              gap: 0.75rem;
+
+              .fund-nav-info {
+                text-align: left;
+              }
+            }
+          }
+        }
+      }
+    }
+
     .simulator-header {
       .header-content {
         .header-top {

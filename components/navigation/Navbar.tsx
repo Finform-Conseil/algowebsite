@@ -39,7 +39,7 @@ type SubMenuItem = {
 type NavItem = {
   href: string;
   label: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   items?: SubMenuItem[];
 };
 
@@ -100,7 +100,7 @@ export default function Navbar() {
     {
       href: '/equity',
       label: 'Equity',
-      icon: <ChartLine size={18} weight="duotone" />,
+      // icon: <ChartLine size={18} weight="duotone" />,
       items: [
         { href: '/equity/stock-screener-v2', label: 'Stock Screener', icon: <Funnel size={16} weight="duotone" /> },
         { href: '/equity/stock-comparison', label: 'Stock Comparison', icon: <Scales size={16} weight="duotone" /> },
@@ -140,7 +140,7 @@ export default function Navbar() {
     {
       href: '/fixed-income',
       label: 'Fixed Income',
-      icon: <Vault size={18} weight="duotone" />,
+      // icon: <Vault size={18} weight="duotone" />,
       items: [
         { 
           href: '/fixed-income/screener', 
@@ -167,18 +167,37 @@ export default function Navbar() {
             }
           ]
         },
+        { href: '/fixed-income/amortization', label: 'Amortization Table', icon: <ChartLine size={16} weight="duotone" /> },
         { href: '/fixed-income/bond-swap', label: 'Bond Swap', icon: <Scales size={16} weight="duotone" /> },
         { href: '/fixed-income/simulator', label: 'Bond Simulator', icon: <ChartLine size={16} weight="duotone" /> },
+        { 
+          href: '/fixed-income/data', 
+          label: 'Bond Data', 
+          icon: <Funnel size={16} weight="duotone" />,
+          subItems: [
+            {
+              href: '/fixed-income/data/',
+              label: 'Investment Summary',
+              icon: <Bank size={16} weight="duotone" />
+            },
+            {
+              href: '/fixed-income/data',
+              label: 'Debt securities',
+              icon: <TrendUp size={16} weight="duotone" />
+            }
+          ]
+        },
       ]
     },
     {
       href: '/opcvm',
       label: 'Funds',
-      icon: <ChartPieSlice size={18} weight="duotone" />,
+      // icon: <ChartPieSlice size={18} weight="duotone" />,
       items: [
         { href: '/opcvm/screener', label: 'Funds Screener', icon: <Funnel size={16} weight="duotone" /> },
         { href: '/opcvm/comparison', label: 'Funds Comparison', icon: <Scales size={16} weight="duotone" /> },
         { href: '/opcvm/titans', label: 'Titans Asset Management', icon: <Trophy size={16} weight="duotone" /> },
+        { href: '/opcvm/topflop', label: 'Top/Flop Funds', icon: <Trophy size={16} weight="duotone" /> },
         { href: '/opcvm/simulator', label: 'Subscription Simulator', icon: <ChartLine size={16} weight="duotone" /> },
         { href: '/opcvm/learn', label: 'Learn Funds', icon: <GraduationCap size={16} weight="duotone" /> },
       ]
@@ -186,7 +205,7 @@ export default function Navbar() {
     {
       href: '/macro',
       label: 'Macro',
-      icon: <Globe size={18} weight="duotone" />,
+      // icon: <Globe size={18} weight="duotone" />,
       items: [
         { href: '/macro/key-indicators', label: 'Key Indicators', icon: <ChartLineUp size={16} weight="duotone" /> },
         { href: '/macro/currencies-central-banks', label: 'Currencies & Central Banks', icon: <CurrencyCircleDollar size={16} weight="duotone" /> },

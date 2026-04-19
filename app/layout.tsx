@@ -3,6 +3,7 @@ import '../styles/globals.scss';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import Navbar from '@/components/navigation/Navbar';
 import Script from 'next/script';
+import SessionProviderWrapper from '@/core/infra/auth/sessionProvider';
 
 export const metadata: Metadata = {
   title: 'AfriMarket - African Financial Intelligence Platform',
@@ -22,9 +23,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <Navbar />
-        {/* <ThemeSwitcher /> */}
-        {children}
+        <SessionProviderWrapper>
+          <Navbar />
+          {/* <ThemeSwitcher /> */}
+          {children}
+        </SessionProviderWrapper>
       </body>
     </html>
   );

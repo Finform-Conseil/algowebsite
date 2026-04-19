@@ -12,12 +12,12 @@ interface MultiSelectProps {
   placeholder?: string;
 }
 
-export default function MultiSelect({ label, options, selected, onChange, placeholder = 'Sélectionner...' }: MultiSelectProps) {
+export default function MultiSelect({ label, options, selected, onChange, placeholder = 'Select...' }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fermer le dropdown au clic extérieur
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -30,7 +30,7 @@ export default function MultiSelect({ label, options, selected, onChange, placeh
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Helpers pour gérer les deux types d'options
+  // Helpers to handle both types of options
   const getOptionValue = (option: OptionType): string => {
     return typeof option === 'string' ? option : option.value;
   };
@@ -39,7 +39,7 @@ export default function MultiSelect({ label, options, selected, onChange, placeh
     return typeof option === 'string' ? option : option.label;
   };
 
-  // Filtrer les options selon la recherche
+  // Filter options based on search
   const filteredOptions = options.filter(option => {
     const label = getOptionLabel(option);
     return label.toLowerCase().includes(searchTerm.toLowerCase());
@@ -59,7 +59,7 @@ export default function MultiSelect({ label, options, selected, onChange, placeh
     onChange(selected.filter(item => item !== value));
   };
 
-  // Trouver le label pour une valeur sélectionnée
+  // Find label for a selected value
   const getSelectedLabel = (value: string): string => {
     const option = options.find(opt => getOptionValue(opt) === value);
     return option ? getOptionLabel(option) : value;

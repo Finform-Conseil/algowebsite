@@ -288,7 +288,7 @@
         // OPCVM Cards
         .opcvm-cards {
           display: flex;
-          flex-direction: column;
+          // flex-direction: column;
           gap: 1rem;
 
           .opcvm-card {
@@ -387,7 +387,7 @@
               }
 
               p {
-                font-size: 0.875rem;
+                font-size: 0.75rem;
                 line-height: 1.6;
                 color: var(--text-color);
                 margin: 0;
@@ -464,7 +464,7 @@
                 padding-left: 1.25rem;
 
                 li {
-                  font-size: 0.8125rem;
+                  font-size: 0.75rem;
                   line-height: 1.6;
                   color: var(--text-color);
                   margin-bottom: 0.375rem;
@@ -523,7 +523,7 @@
         overflow: auto;
         margin-bottom: 1rem;
 
-        .comparison-table {
+        .topflop-comparison-table {
           width: 100%;
           border-collapse: collapse;
           font-size: 0.875rem;
@@ -536,7 +536,7 @@
                   padding: 1rem;
                   font-weight: 600;
                   text-align: center;
-                  border-bottom: 2px solid var(--border-color);
+                  border-bottom: 1px solid var(--border-color);
 
                   &.metric-header {
                     background: var(--hover-background);
@@ -615,7 +615,7 @@
 
               td {
                 padding: 0.875rem 1rem;
-                border-bottom: 1px solid var(--border-color);
+                // border-bottom: 1px solid var(--border-color);
                 text-align: center;
 
                 &.metric-label {
@@ -625,6 +625,8 @@
                   position: sticky;
                   left: 0;
                   z-index: 1;
+                border-bottom: 1px solid var(--border-color);
+
                 }
 
                 &.top-cell {
@@ -914,7 +916,7 @@
 
       .table-view {
         .comparison-table-container {
-          .comparison-table {
+          .topflop-comparison-table {
             font-size: 0.75rem;
 
             thead th {

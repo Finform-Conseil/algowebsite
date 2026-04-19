@@ -1,0 +1,46 @@
+import { ActionEntity } from "./action.entity";
+
+export interface SheetEntity {
+    id?: string;
+    number?: string;
+    action: ActionEntity;
+    year: number;
+    revenue: number;
+    cogs: number;
+    gross_profit: number;
+    operating_expenses: number;
+    operating_income: number;
+    depreciation_amortization: number;
+    pretax_income: number;
+    income_tax: number;
+    net_income: number;
+    earnings_per_share: number;
+    research_development: number;
+    stock_based_compensation: number;
+    interest_expense: number;
+    gains_losses_assets_sales: number;
+    total_assets: number;
+    current_assets: number;
+    cash_and_cash_equivalents: number;
+    inventories: number;
+    intangible_assets: number;
+    goodwill: number;
+    total_liabilities: number;
+    current_liabilities: number;
+    short_term_debt: number;
+    long_term_debt: number;
+    shareholders_equity: number;
+    retained_earnings: number;
+    shares_outstanding: number;
+    total_debt: number;
+    working_capital: number;
+    market_value: number;
+    cfo: number;
+    cfi: number;
+    cff: number;
+    capital_expenditures: number;
+    free_cash_flow: number;
+    free_cash_flow_sbc: number;
+    net_cash_flow: number;
+    f_score: number;
+}

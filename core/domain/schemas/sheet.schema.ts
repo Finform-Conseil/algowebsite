@@ -1,0 +1,51 @@
+import { number, z } from 'zod';
+
+export const sheetSchema = z.object({
+    id: z.uuid(),
+    action: z.uuid(),
+    year: z.number(),
+    revenue: z.number().optional(),
+    cogs: z.number().optional(),
+    gross_profit: z.number().optional(),
+    operating_expenses: z.number().optional(),
+    operating_income: z.number().optional(),
+    depreciation_amortization: z.number().optional(),
+    pretax_income: z.number().optional(),
+    income_tax: z.number().optional(),
+    net_income: z.number().optional(),
+    earnings_per_share: z.number().optional(),
+    research_development: z.number().optional(),
+    stock_based_compensation: z.number().optional(),
+    interest_expense: z.number().optional(),
+    gains_losses_assets_sales: z.number().optional(),
+    total_assets: z.number().optional(),
+    current_assets: z.number().optional(),
+    cash_and_cash_equivalents: z.number().optional(),
+    inventories: z.number().optional(),
+    intangible_assets: z.number().optional(),
+    goodwill: z.number().optional(),
+    total_liabilities: z.number().optional(),
+    current_liabilities: z.number().optional(),
+    short_term_debt: z.number().optional(),
+    long_term_debt: z.number().optional(),
+    shareholders_equity: z.number().optional(),
+    retained_earnings: z.number().optional(),
+    shares_outstanding: z.number().optional(),
+    total_debt: z.number().optional(),
+    working_capital: z.number().optional(),
+    market_value: z.number().optional(),
+    cfo: z.number().optional(),
+    cfi: z.number().optional(),
+    cff: z.number().optional(),
+    capital_expenditures: z.number().optional(),
+    free_cash_flow: z.number().optional(),
+    free_cash_flow_sbc: z.number().optional(),
+    net_cash_flow: z.number().optional(),
+    f_score: z.number().optional(),
+});
+
+export const createSheetSchema = sheetSchema.omit({
+    id: true,
+});
+
+export const updateSheetSchema = sheetSchema.partial();

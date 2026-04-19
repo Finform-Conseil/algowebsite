@@ -2,7 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import AfricaFIMap from '@/components/fixed-income/AfricaFIMap';
+import YieldCurveSection from '@/components/fixed-income/YieldCurveSection';
+
+const backgroundImages = [
+  '/images/screener-header-3.jpg',
+  '/images/exchanges-header-2.jpg',
+  '/images/exchanges-header-1.jpg',
+];
 
 type NewsCategory = 'news' | 'circulars' | 'press-releases' | 'consultations';
 type ViewMode = 'cards' | 'list';
@@ -39,15 +45,23 @@ interface BondNews {
 
 export default function FixedIncomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['BJ', 'SN', 'CI']);
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
     category: '' as NewsCategory | '',
-    country: '',
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  // Background image carousel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Mapping between country names and ISO codes
   const countryIsoMap: Record<string, string> = {
@@ -253,15 +267,145 @@ export default function FixedIncomePage() {
     },
   ];
 
+  // Map country names to ISO codes for filtering
+  const countryNameMap: Record<string, string> = {
+    'BJ': 'Benin',
+    'SN': 'Senegal',
+    'CI': 'Cote d\'Ivoire',
+    'TG': 'Togo',
+    'ML': 'Mali',
+    'BF': 'Burkina Faso',
+    'NG': 'Nigeria',
+    'GH': 'Ghana',
+    'NE': 'Niger',
+  };
+
   const filteredNews = allBondNews.filter(news => {
     if (filters.startDate && news.date < filters.startDate) return false;
     if (filters.endDate && news.date > filters.endDate) return false;
     if (filters.category && news.category !== filters.category) return false;
-    if (filters.country && news.country !== filters.country) return false;
+    if (selectedCountries.length > 0) {
+      const selectedCountryNames = selectedCountries.map(code => countryNameMap[code]);
+      if (!selectedCountryNames.includes(news.country)) return false;
+    }
     return true;
   });
 
-  const featuredNews = allBondNews.filter(news => news.featured);
+  const featuredNews = filteredNews.filter(news => news.featured);
+
+  // Fixed Income Tools
+  const fixedIncomeTools = [
+    {
+      title: 'Bond Screener',
+      description: 'Advanced filtering for bonds and treasury bills',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+      ),
+      link: '/fixed-income/screener',
+      color: '#4A90E2',
+    },
+    {
+      title: 'Yield Calculator',
+      description: 'Calculate yields and returns on fixed income securities',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M9 21V9"/>
+        </svg>
+      ),
+      link: '/fixed-income/yield-calculator',
+      color: '#10B981',
+    },
+    {
+      title: 'Auction Calendar',
+      description: 'Upcoming treasury auctions and issuances',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      ),
+      link: '/fixed-income/auction-calendar',
+      color: '#F59E0B',
+    },
+    {
+      title: 'Credit Ratings',
+      description: 'Sovereign and corporate credit ratings',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      ),
+      link: '/fixed-income/credit-ratings',
+      color: '#8B5CF6',
+    },
+    {
+      title: 'Market Data',
+      description: 'Real-time bond prices and market indicators',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="20" x2="12" y2="10"/>
+          <line x1="18" y1="20" x2="18" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="16"/>
+        </svg>
+      ),
+      link: '/fixed-income/market-data',
+      color: '#EC4899',
+    },
+    {
+      title: 'Portfolio Analytics',
+      description: 'Analyze and optimize your bond portfolio',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+          <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+        </svg>
+      ),
+      link: '/fixed-income/portfolio-analytics',
+      color: '#06B6D4',
+    },
+  ];
+
+  // News rotation for featured article with countdown
+  const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
+  const [countdown, setCountdown] = useState(15);
+
+  useEffect(() => {
+    // Countdown timer (updates every second)
+    const countdownInterval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          return 15;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // News rotation (every 15 seconds)
+    const newsInterval = setInterval(() => {
+      setCurrentNewsIndex((prev) => (prev + 1) % featuredNews.length);
+      setCountdown(15);
+    }, 15000);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(newsInterval);
+    };
+  }, [featuredNews.length]);
+
+  const handleNewsNavigation = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      setCurrentNewsIndex((prev) => (prev - 1 + featuredNews.length) % featuredNews.length);
+    } else {
+      setCurrentNewsIndex((prev) => (prev + 1) % featuredNews.length);
+    }
+    setCountdown(15);
+  };
 
   const getCategoryLabel = (category: NewsCategory) => {
     const labels = {
@@ -285,102 +429,23 @@ export default function FixedIncomePage() {
   return (
     <div className="fixed-income-page">
       <div className="header-opportunities-wrapper">
-        <div className="fi-header">
-          <h1>African Fixed Income Market</h1>
-          <p>Comprehensive overview of bond markets across West Africa</p>
-        </div>
-
-        {/* Market Opportunities Carousel */}
-        <div className="market-opportunities-section">
-          <div className="opportunities-carousel" ref={scrollRef}>
-          {[...marketOpportunities, ...marketOpportunities].map((opp, index) => (
-            <div key={`${opp.id}-${index}`} className="opportunity-card">
-              <div className="opp-header">
-                <span className={`opp-type ${getOpportunityTypeColor(opp.type)}`}>
-                  {opp.type}
-                </span>
-                <span className="opp-country">{opp.country}</span>
-              </div>
-              <h3>{opp.title}</h3>
-              <div className="opp-details">
-                <div className="opp-detail">
-                  <span className="label">Amount</span>
-                  <strong>{opp.amount}</strong>
-                </div>
-                <div className="opp-detail">
-                  <span className="label">Yield</span>
-                  <strong>{opp.yield}%</strong>
-                </div>
-                <div className="opp-detail">
-                  <span className="label">Maturity</span>
-                  <strong>{opp.maturity}</strong>
-                </div>
-              </div>
-              <div className="opp-deadline">
-                Deadline: {new Date(opp.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </div>
+        <div 
+          className="fi-header"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center center',
+            transition: 'background-image 1s ease-in-out',
+          }}
+        >
+          <div className="header-main">
+            <div className="header-content">
+              <h1>African Fixed Income Market</h1>
+              <p>Comprehensive overview of bond markets across West Africa</p>
             </div>
-          ))}
-          </div>
-        </div>
-      </div>
 
-      {/* Market Overview Section */}
-      <div className="market-overview-section">
-        <div className="country-stats-container">
-          <div className="stats-table-wrapper">
-            <table className="country-stats-table">
-              <thead>
-                <tr>
-                  <th>Country</th>
-                  <th className="number-col">Yield Change</th>
-                  <th className="number-col">Avg Yield</th>
-                  <th className="number-col">Volume</th>
-                  <th className="number-col">Active Issues</th>
-                </tr>
-              </thead>
-              <tbody>
-                {countryStats.map((stat) => (
-                  <tr key={stat.country}>
-                    <td className="country-cell">
-                      <span className="country-flag">{stat.flag}</span>
-                      {stat.country}
-                    </td>
-                    <td className={`number-col ${stat.yieldChange >= 0 ? 'positive' : 'negative'}`}>
-                      {stat.yieldChange >= 0 ? '+' : ''}{stat.yieldChange.toFixed(2)}%
-                    </td>
-                    <td className="number-col">{stat.avgYield.toFixed(2)}%</td>
-                    <td className="number-col">{stat.volume} XOF</td>
-                    <td className="number-col">{stat.activeIssues}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="africa-map-container">
-          <div className="map-placeholder">
-            <AfricaFIMap 
-              data={countryData} 
-              mode="performance" 
-              onCountryClick={(id, info) => {
-                const countryName = isoCountryMap[id];
-                if (countryName) {
-                  setSelectedCountry(countryName);
-                  setFilters({ ...filters, country: countryName });
-                }
-              }} 
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Bond Market News Section */}
-      <div className="bond-news-section">
-        <div className="news-main-content">
-          <div className="news-header">
-            <div className="news-filters">
+            {/* News Filters */}
+            <div className="news-filters-header">
               <div className="filter-group">
                 <label>Start Date</label>
                 <input
@@ -410,99 +475,175 @@ export default function FixedIncomePage() {
                   <option value="consultations">Consultations</option>
                 </select>
               </div>
-              <div className="filter-group">
-                <label>Country/Zone</label>
-                <select
-                  value={filters.country}
-                  onChange={(e) => setFilters({ ...filters, country: e.target.value })}
-                >
-                  <option value="">All Countries</option>
-                  <option value="BRVM">BRVM</option>
-                  <option value="Benin">Benin</option>
-                  <option value="Senegal">Senegal</option>
-                  <option value="Cote d'Ivoire">Côte d'Ivoire</option>
-                  <option value="Togo">Togo</option>
-                  <option value="Mali">Mali</option>
-                  <option value="Burkina Faso">Burkina Faso</option>
-                  <option value="Niger">Niger</option>
-                </select>
-              </div>
-              
-            </div>
-            <div className="view-mode-toggle">
-                <button
-                  className={viewMode === 'cards' ? 'active' : ''}
-                  onClick={() => setViewMode('cards')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                  </svg>
-                </button>
-                <button
-                  className={viewMode === 'list' ? 'active' : ''}
-                  onClick={() => setViewMode('list')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                  </svg>
-                </button>
-              </div>
-          </div>
-
-          <div className={`news-content ${viewMode}`}>
-            {filteredNews.length === 0 ? (
-              <div className="empty-state">
-                <p>No news found matching your filters</p>
-              </div>
-            ) : (
-              filteredNews.map((news) => (
-                <div key={news.id} className="news-item">
-                  <div className="news-meta">
-                    <span className={`news-category category-${news.category}`}>
-                      {getCategoryLabel(news.category)}
-                    </span>
-                    <span className="news-country">{news.country}</span>
-                    <span className="news-date">
-                      {new Date(news.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <h3>{news.title}</h3>
-                  <p>{news.excerpt}</p>
-                  <Link href={`/news-articles`} className="read-more">
-                    Read more →
-                  </Link>
+              <div className="filter-group country-multiselect">
+                <label>Countries</label>
+                <div className="multiselect-display">
+                  {selectedCountries.length === 0 ? 'All Countries' : `${selectedCountries.length} selected`}
                 </div>
-              ))
-            )}
+                <div className="multiselect-dropdown">
+                  {[
+                    { code: 'BJ', name: 'Benin' },
+                    { code: 'SN', name: 'Senegal' },
+                    { code: 'CI', name: 'Côte d\'Ivoire' },
+                    { code: 'TG', name: 'Togo' },
+                    { code: 'ML', name: 'Mali' },
+                    { code: 'BF', name: 'Burkina Faso' },
+                    { code: 'NG', name: 'Nigeria' },
+                    { code: 'GH', name: 'Ghana' },
+                    { code: 'NE', name: 'Niger' },
+                  ].map((country) => (
+                    <label key={country.code} className="multiselect-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedCountries.includes(country.code)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCountries([...selectedCountries, country.code]);
+                          } else {
+                            setSelectedCountries(selectedCountries.filter(c => c !== country.code));
+                          }
+                        }}
+                      />
+                      <span>{country.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content: 60-40 Layout */}
+      <div className="fi-main-content">
+        {/* Left Column: 65% - Yield Curve & Tools */}
+        <div className="left-column">
+          {/* Yield Curve Section */}
+          <YieldCurveSection selectedCountries={selectedCountries} />
+
+          {/* Fixed Income Tools Grid */}
+          <div className="fi-tools-section">
+            <h2 className="section-title">Fixed Income Analysis Tools</h2>
+            <div className="tools-grid">
+              {fixedIncomeTools.map((tool, idx) => (
+                <Link key={idx} href={tool.link} className="tool-card">
+                  <div className="tool-icon" style={{ backgroundColor: `${tool.color}15`, color: tool.color }}>
+                    {tool.icon}
+                  </div>
+                  <div className="tool-content">
+                    <h3 style={{ color: tool.color }}>{tool.title}</h3>
+                    <p>{tool.description}</p>
+                  </div>
+                  <div className="tool-arrow">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="featured-news-sidebar">
-          <h3>Featured News</h3>
-          <div className="featured-news-list">
-            {featuredNews.map((news) => (
-              <div key={news.id} className="featured-news-item">
-                <span className={`news-category category-${news.category}`}>
-                  {getCategoryLabel(news.category)}
-                </span>
-                <h4>{news.title}</h4>
-                <p>{news.excerpt}</p>
-                <div className="featured-meta">
-                  <span className="news-country">{news.country}</span>
-                  <span className="news-date">
-                    {new Date(news.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        {/* Right Column: 40% - Featured News */}
+        <div className="right-column">
+          {/* Featured News Carousel */}
+          <div className="featured-news-section">
+            <div className="featured-news-nav">
+              <button
+                onClick={() => handleNewsNavigation('prev')}
+                className="nav-arrow"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => handleNewsNavigation('next')}
+                className="nav-arrow"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Circular Countdown Timer */}
+            <div className="countdown-timer">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="16"
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.2)"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="16"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeDasharray={`${2 * Math.PI * 16}`}
+                  strokeDashoffset={`${2 * Math.PI * 16 * (1 - countdown / 15)}`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 20 20)"
+                  style={{ transition: 'stroke-dashoffset 1s linear' }}
+                />
+              </svg>
+              <span className="countdown-number">{countdown}</span>
+            </div>
+
+            {featuredNews.length > 0 && (
+              <div className="featured-news-card">
+                <div className="featured-news-image">
+                  <div className="image-placeholder" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }} />
+                  <span className={`featured-category category-${featuredNews[currentNewsIndex].category}`}>
+                    {getCategoryLabel(featuredNews[currentNewsIndex].category)}
                   </span>
                 </div>
+                <div className="featured-news-content">
+                  <h3>{featuredNews[currentNewsIndex].title}</h3>
+                  <p>{featuredNews[currentNewsIndex].excerpt}</p>
+                  <div className="featured-news-meta">
+                    <span className="meta-country">{featuredNews[currentNewsIndex].country}</span>
+                    <span className="meta-date">
+                      {new Date(featuredNews[currentNewsIndex].date).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric' 
+                      })}
+                    </span>
+                    <span className="meta-read">5 min read</span>
+                  </div>
+                  <Link href="/news-articles" className="read-more-btn">
+                    Read Full Article →
+                  </Link>
+                </div>
               </div>
-            ))}
+            )}
+          </div>
+
+          {/* Recommended Articles */}
+          <div className="recommended-news-section">
+            <h3 className="recommended-title">Recommended Articles</h3>
+            <div className="recommended-news-grid">
+              {filteredNews.slice(0, 2).map((news) => (
+                <Link key={news.id} href="/news-articles" className="recommended-news-card">
+                  <span className={`news-category category-${news.category}`}>
+                    {getCategoryLabel(news.category)}
+                  </span>
+                  <h4>{news.title}</h4>
+                  <p>{news.excerpt}</p>
+                  <div className="recommended-meta">
+                    <span>{news.country}</span>
+                    <span>{new Date(news.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>

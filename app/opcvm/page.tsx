@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import AfricaOPCVMMap from '@/components/opcvm/AfricaOPCVMMap';
 
@@ -14,7 +14,7 @@ type OPCVMData = {
   navChange: number;
   performance: number;
   volatility: number;
-  rating: number; // 1-5 étoiles
+  rating: number; // 1-5 stars
 };
 
 export default function OPCVMHomePage() {
@@ -23,6 +23,20 @@ export default function OPCVMHomePage() {
   const [viewMode, setViewMode] = useState<'map' | 'methodology'>('map');
   const [filterExchange, setFilterExchange] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'rating' | 'performance' | 'score'>('rating');
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const backgroundImages = [
+    '/images/screener-header-3.jpg',
+    '/images/exchanges-header-2.jpg',
+    '/images/exchanges-header-1.jpg',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
 
   // Mock OPCVM data
   const mockOPCVMData: OPCVMData[] = [
@@ -154,98 +168,85 @@ export default function OPCVMHomePage() {
     <div className="opcvm-home-page">
       {/* Header */}
       <div className="opcvm-header">
-        <div className="opcvm-header__content">
-          <div className="opcvm-header__title">
-            <div className="title-content">
-              <h1>Univers OPCVM Afrique</h1>
-              <p>Explorez l'écosystème des fonds d'investissement africains</p>
-            </div>
-          </div>
-
-          {/* Map Controls */}
-          <div className="opcvm-controls">
-            <div className="control-group">
-              <label>Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="date-input"
-              />
+        <div 
+          className="opcvm-header__hero"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+          }}
+        >
+          <div className="header-top">
+            <div className="header-title">
+              <h1>African Funds Universe</h1>
+              <p>Explore the African investment funds ecosystem</p>
             </div>
             
-            <div className="control-group">
-              <label>Vue</label>
-              <div className="mode-toggle">
-                <button
-                  className={mapMode === 'performance' ? 'active' : ''}
-                  onClick={() => setMapMode('performance')}
-                  title="Performance VL"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                  </svg>
-                  Performance
-                </button>
-                <button
-                  className={mapMode === 'count' ? 'active' : ''}
-                  onClick={() => setMapMode('count')}
-                  title="Nombre d'OPCVM"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="opcvm-controls">
+              <div className="control-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="date-input"
+                />
+              </div>
+              
+              <div className="control-group">
+                <label>View</label>
+                <div className="mode-toggle">
+                  <button
+                    className={mapMode === 'performance' ? 'active' : ''}
+                    onClick={() => setMapMode('performance')}
+                    title="NAV Performance"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                    </svg>
+                    Performance
+                  </button>
+                  <button
+                    className={mapMode === 'count' ? 'active' : ''}
+                    onClick={() => setMapMode('count')}
+                    title="Number of Funds"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="7" />
+                      <rect x="14" y="3" width="7" height="7" />
+                      <rect x="14" y="14" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                    Count
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="opcvm-stats">
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="7" height="7" />
                     <rect x="14" y="3" width="7" height="7" />
                     <rect x="14" y="14" width="7" height="7" />
                     <rect x="3" y="14" width="7" height="7" />
                   </svg>
-                  Nombre
-                </button>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-label">Tracked Funds</div>
+                  <div className="stat-value">{ratedFunds.length}</div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Quick Stats */}
-          <div className="opcvm-indicators">
-            <div className="indicator">
-              <div className="indicator-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7" />
-                  <rect x="14" y="3" width="7" height="7" />
-                  <rect x="14" y="14" width="7" height="7" />
-                  <rect x="3" y="14" width="7" height="7" />
-                </svg>
-              </div>
-              <div className="indicator-content">
-                <span className="indicator-label">OPCVM Suivis</span>
-                <span className="indicator-value">{ratedFunds.length}</span>
-              </div>
-            </div>
-
-            <div className="indicator">
-              <div className="indicator-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 6v6l4 2" />
-                </svg>
-              </div>
-              <div className="indicator-content">
-                <span className="indicator-label">Bourses</span>
-                <span className="indicator-value">{Object.keys(exchangeData).length}</span>
-              </div>
-            </div>
-            
-            <div className="indicator">
-              <div className="indicator-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                  <polyline points="17 6 23 6 23 12" />
-                </svg>
-              </div>
-              <div className="indicator-content">
-                <span className="indicator-label">Perf. Moyenne</span>
-                <span className="indicator-value positive">
-                  +{(ratedFunds.reduce((sum, f) => sum + f.performance, 0) / ratedFunds.length).toFixed(1)}%
-                </span>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-label">Exchanges</div>
+                  <div className="stat-value">{Object.keys(exchangeData).length}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -297,20 +298,20 @@ export default function OPCVMHomePage() {
               className={viewMode === 'map' ? 'active' : ''}
               onClick={() => setViewMode('map')}
             >
-              Top Fonds
+              Top Funds
             </button>
             <button
               className={viewMode === 'methodology' ? 'active' : ''}
               onClick={() => setViewMode('methodology')}
             >
-              Méthodologie
+              Methodology
             </button>
           </div>
 
           {viewMode === 'map' ? (
             <div className="top-funds-section">
               <div className="funds-header">
-                <h3>Fonds les Mieux Notés</h3>
+                <h3>Top Rated Funds</h3>
                 
                 <div className="funds-filters">
                   <select 
@@ -318,7 +319,7 @@ export default function OPCVMHomePage() {
                     onChange={(e) => setFilterExchange(e.target.value)}
                     className="filter-select"
                   >
-                    <option value="all">Toutes les bourses</option>
+                    <option value="all">All exchanges</option>
                     {exchanges.filter(e => e !== 'all').map(ex => (
                       <option key={ex} value={ex}>{ex}</option>
                     ))}
@@ -329,9 +330,9 @@ export default function OPCVMHomePage() {
                     onChange={(e) => setSortBy(e.target.value as 'rating' | 'performance' | 'score')}
                     className="filter-select"
                   >
-                    <option value="rating">Par notation</option>
-                    <option value="performance">Par performance</option>
-                    <option value="score">Par score</option>
+                    <option value="rating">By rating</option>
+                    <option value="performance">By performance</option>
+                    <option value="score">By score</option>
                   </select>
                 </div>
               </div>
@@ -366,9 +367,9 @@ export default function OPCVMHomePage() {
             </div>
           ) : (
             <div className="rating-section">
-              <h3>Méthodologie de Notation</h3>
+              <h3>Rating Methodology</h3>
               <p className="rating-description">
-                Notation 5★ basée sur la performance ajustée au risque.
+                5★ rating based on risk-adjusted performance.
               </p>
               
               <div className="rating-methodology">
@@ -376,28 +377,28 @@ export default function OPCVMHomePage() {
                   <div className="step-number">1</div>
                   <div className="step-content">
                     <h4>Ratio</h4>
-                    <p>Performance / Volatilité</p>
+                    <p>Performance / Volatility</p>
                   </div>
                 </div>
                 <div className="method-step">
                   <div className="step-number">2</div>
                   <div className="step-content">
-                    <h4>Classement</h4>
-                    <p>Tri décroissant</p>
+                    <h4>Ranking</h4>
+                    <p>Descending sort</p>
                   </div>
                 </div>
                 <div className="method-step">
                   <div className="step-number">3</div>
                   <div className="step-content">
-                    <h4>Groupes</h4>
-                    <p>5 groupes équilibrés</p>
+                    <h4>Groups</h4>
+                    <p>5 balanced groups</p>
                   </div>
                 </div>
                 <div className="method-step">
                   <div className="step-number">4</div>
                   <div className="step-content">
-                    <h4>Attribution</h4>
-                    <p>5★ à 1★</p>
+                    <h4>Assignment</h4>
+                    <p>5★ to 1★</p>
                   </div>
                 </div>
               </div>
@@ -408,7 +409,7 @@ export default function OPCVMHomePage() {
 
       {/* Quick Access Section */}
       <div className="quick-access-section">
-        <h3>Outils & Ressources OPCVM</h3>
+        <h3>UCITS Tools & Resources</h3>
         <div className="tools-grid">
           <Link href="/opcvm/screener" className="tool-card">
             <div className="tool-icon">
@@ -420,8 +421,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Screener OPCVM</h4>
-              <p>Filtrez et comparez les fonds selon vos critères d'investissement</p>
+              <h4>UCITS Screener</h4>
+              <p>Filter and compare funds according to your investment criteria</p>
             </div>
           </Link>
 
@@ -433,8 +434,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Comparaison</h4>
-              <p>Analysez côte à côte les performances de plusieurs fonds</p>
+              <h4>Comparison</h4>
+              <p>Analyze side-by-side performance of multiple funds</p>
             </div>
           </Link>
 
@@ -448,8 +449,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Titans OPCVM</h4>
-              <p>Découvrez les gérants et sociétés leaders du marché</p>
+              <h4>Funds Titans</h4>
+              <p>Discover leading managers and companies in the market</p>
             </div>
           </Link>
 
@@ -462,8 +463,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Simulateur</h4>
-              <p>Simulez vos investissements et projections de rendement</p>
+              <h4>Simulator</h4>
+              <p>Simulate your investments and return projections</p>
             </div>
           </Link>
 
@@ -475,8 +476,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Apprendre</h4>
-              <p>Guides et ressources pour maîtriser l'investissement OPCVM</p>
+              <h4>Learn</h4>
+              <p>Guides and resources to master UCITS investment</p>
             </div>
           </Link>
         </div>

@@ -23,6 +23,8 @@
 @import 'components/opcvm-chart-view';
 @import 'components/drawing-tools-v2';
 @import 'components/screener-header';
+@import 'components/yield-curve';
+@import 'components/interactive-map';
 
 // Pages
 @import 'afrimarket-homepage';
@@ -59,6 +61,7 @@
 @import 'pages/opcvm-simulator';
 @import 'pages/mtp-screener';
 @import 'pages/equity-home';
+@import 'pages/macro-home';
 @import 'pages/new-home';
 
 // Animations

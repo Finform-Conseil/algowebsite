@@ -87,7 +87,7 @@ export default function OPCVMLearnPage() {
                   </svg>
                 </div>
                 <div className="stat-content">
-                  <div className="stat-label">UCITS Types</div>
+                  <div className="stat-label">Funds Types</div>
                   <div className="stat-value">5</div>
                   <div className="stat-sublabel">Money Market, Equity...</div>
                 </div>
@@ -158,7 +158,7 @@ export default function OPCVMLearnPage() {
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
               <polyline points="17 6 23 6 23 12" />
             </svg>
-            OPCVM
+            Mutual Funds
           </button>
           <button
             className={`tab-btn ${activeTab === 'fia' ? 'active' : ''}`}
@@ -403,9 +403,9 @@ export default function OPCVMLearnPage() {
         {activeTab === 'opcvm' && (
           <div className="opcvm-section opcvm-detail-section">
             <div className="section-intro">
-              <h2>UCITS in Detail</h2>
+              <h2>Funds in Detail</h2>
               <p className="lead-text">
-                <strong>UCITS (Undertakings for Collective Investment in Transferable Securities)</strong> are regulated investment funds 
+                <strong>Funds (Undertakings for Collective Investment in Transferable Securities)</strong> are regulated investment funds 
                 that offer a wide variety of strategies and risk profiles to meet the needs of all investors.
               </p>
             </div>
@@ -416,7 +416,7 @@ export default function OPCVMLearnPage() {
                 className={`sub-tab-btn ${selectedOpcvmTab === 'types' ? 'active' : ''}`}
                 onClick={() => setSelectedOpcvmTab('types')}
               >
-                UCITS Types
+                Funds Types
               </button>
               <button 
                 className={`sub-tab-btn ${selectedOpcvmTab === 'gestion' ? 'active' : ''}`}
@@ -447,7 +447,7 @@ export default function OPCVMLearnPage() {
             {/* UCITS Types */}
             {selectedOpcvmTab === 'types' && (
               <div className="sub-content">
-                <h3>The 5 Main Types of UCITS</h3>
+                <h3>The 5 Main Types of Funds</h3>
                 <div className="types-grid">
                   <div className="type-card">
                     <div className="type-icon monetary">
@@ -733,7 +733,7 @@ export default function OPCVMLearnPage() {
             {/* How to Choose */}
             {selectedOpcvmTab === 'choisir' && (
               <div className="sub-content">
-                <h3>How to Choose Your UCITS?</h3>
+                <h3>How to Choose Your FUND?</h3>
                 <div className="selection-guide">
                   <div className="guide-step">
                     <div className="step-num">1</div>

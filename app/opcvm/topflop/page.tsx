@@ -16,9 +16,9 @@ type OPCVM = {
   benchmark: string;
   benchmarkPerformance: number;
   volatility: number;
-  riskLevel: 'Faible' | 'Modéré' | 'Élevé';
+  riskLevel: 'Low' | 'Moderate' | 'High';
   managementFees: number;
-  feesLevel: 'Faible' | 'Moyen' | 'Élevé';
+  feesLevel: 'Low' | 'Medium' | 'High';
   successFactors?: string[];
   underperformanceFactors?: string[];
   historicalData?: Candle[];
@@ -47,7 +47,7 @@ export default function OPCVMComparisonReportPage() {
     return () => clearInterval(interval);
   }, [backgroundImages.length]);
 
-  // Générer des données historiques mock pour les graphiques
+  // Generate mock historical data for charts
   const generateHistoricalData = (basePrice: number, trend: 'up' | 'down'): Candle[] => {
     const data: Candle[] = [];
     const days = 90;
@@ -83,69 +83,69 @@ export default function OPCVMComparisonReportPage() {
     return data;
   };
 
-  // Mock data - À remplacer par des vraies données API
+  // Mock data - To be replaced with real API data
   const mockTopOPCVM: OPCVM[] = [
     {
       id: '1',
-      name: 'NSIA Actions Côte d\'Ivoire',
+      name: 'NSIA Ivory Coast Equity',
       manager: 'NSIA Banque',
       approvalYear: 2015,
-      strategy: 'Fonds actions investissant principalement dans les grandes capitalisations de la BRVM, avec une approche de gestion active visant à surperformer l\'indice BRVM Composite. Le fonds privilégie les secteurs bancaire, télécommunications et distribution.',
+      strategy: 'Equity fund investing primarily in large-cap stocks on the BRVM, with an active management approach aimed at outperforming the BRVM Composite index. The fund favors the banking, telecommunications, and distribution sectors.',
       performance: 18.3,
       benchmark: 'BRVM Composite',
       benchmarkPerformance: 12.5,
       volatility: 12.5,
-      riskLevel: 'Élevé',
+      riskLevel: 'High',
       managementFees: 1.5,
-      feesLevel: 'Moyen',
+      feesLevel: 'Medium',
       historicalData: generateHistoricalData(1000, 'up'),
       successFactors: [
-        'Excellente sélection de titres dans le secteur bancaire qui a connu une forte croissance',
-        'Surpondération opportune du secteur des télécommunications',
-        'Gestion active efficace avec des arbitrages bien timés',
-        'Bonne diversification géographique au sein de la zone UEMOA'
+        'Excellent stock selection in the banking sector which experienced strong growth',
+        'Opportune overweighting of the telecommunications sector',
+        'Effective active management with well-timed arbitrage',
+        'Good geographic diversification within the WAEMU zone'
       ]
     },
     {
       id: '2',
-      name: 'Coris Actions Dynamique',
+      name: 'Coris Dynamic Equity',
       manager: 'Coris Asset Management',
       approvalYear: 2018,
-      strategy: 'Fonds actions à gestion dynamique investissant dans les valeurs de croissance de la BRVM. Approche momentum avec rotation sectorielle active.',
+      strategy: 'Dynamic equity fund investing in growth stocks on the BRVM. Momentum approach with active sector rotation.',
       performance: 16.8,
       benchmark: 'BRVM Composite',
       benchmarkPerformance: 12.5,
       volatility: 14.2,
-      riskLevel: 'Élevé',
+      riskLevel: 'High',
       managementFees: 1.8,
-      feesLevel: 'Élevé',
+      feesLevel: 'High',
       historicalData: generateHistoricalData(950, 'up'),
       successFactors: [
-        'Stratégie momentum bien adaptée au contexte haussier du marché',
-        'Rotation sectorielle efficace vers les secteurs performants',
-        'Exposition importante aux valeurs de croissance',
-        'Timing d\'entrée et de sortie optimisé'
+        'Momentum strategy well-suited to the bullish market context',
+        'Effective sector rotation towards performing sectors',
+        'Significant exposure to growth stocks',
+        'Optimized entry and exit timing'
       ]
     },
     {
       id: '3',
-      name: 'BOA Croissance Plus',
+      name: 'BOA Growth Plus',
       manager: 'BOA Capital',
       approvalYear: 2016,
-      strategy: 'Fonds mixte flexible avec allocation dynamique entre actions (60-80%) et obligations (20-40%). Gestion value avec focus sur les titres sous-évalués.',
+      strategy: 'Flexible mixed fund with dynamic allocation between equities (60-80%) and bonds (20-40%). Value management with focus on undervalued securities.',
       performance: 14.5,
-      benchmark: 'BRVM Composite 70% + BRVM Obligations 30%',
+      benchmark: 'BRVM Composite 70% + BRVM Bonds 30%',
       benchmarkPerformance: 10.8,
       volatility: 9.8,
-      riskLevel: 'Modéré',
+      riskLevel: 'Moderate',
       managementFees: 1.2,
-      feesLevel: 'Faible',
+      feesLevel: 'Low',
       historicalData: generateHistoricalData(900, 'up'),
       successFactors: [
-        'Allocation d\'actifs optimale avec surpondération actions au bon moment',
-        'Sélection de titres value qui ont connu une revalorisation',
-        'Frais de gestion compétitifs maximisant la performance nette',
-        'Bonne gestion du risque avec diversification efficace'
+        'Optimal asset allocation with equity overweighting at the right time',
+        'Selection of value stocks that experienced revaluation',
+        'Competitive management fees maximizing net performance',
+        'Good risk management with effective diversification'
       ]
     }
   ];
@@ -153,65 +153,65 @@ export default function OPCVMComparisonReportPage() {
   const mockFlopOPCVM: OPCVM[] = [
     {
       id: '4',
-      name: 'Atlantique Actions Émergentes',
+      name: 'Atlantique Emerging Equity',
       manager: 'Atlantique Asset Management',
       approvalYear: 2017,
-      strategy: 'Fonds actions investissant dans les petites et moyennes capitalisations de la BRVM, avec une approche de croissance à long terme.',
+      strategy: 'Equity fund investing in small and mid-cap stocks on the BRVM, with a long-term growth approach.',
       performance: -3.2,
       benchmark: 'BRVM Composite',
       benchmarkPerformance: 12.5,
       volatility: 18.5,
-      riskLevel: 'Élevé',
+      riskLevel: 'High',
       managementFees: 2.0,
-      feesLevel: 'Élevé',
+      feesLevel: 'High',
       historicalData: generateHistoricalData(1000, 'down'),
       underperformanceFactors: [
-        'Surexposition aux petites capitalisations qui ont sous-performé',
-        'Concentration excessive sur des secteurs en difficulté',
-        'Frais de gestion élevés impactant la performance nette',
-        'Manque de liquidité sur certaines positions'
+        'Overexposure to small caps that underperformed',
+        'Excessive concentration on struggling sectors',
+        'High management fees impacting net performance',
+        'Lack of liquidity on certain positions'
       ]
     },
     {
       id: '5',
-      name: 'Sahel Obligations Court Terme',
+      name: 'Sahel Short-Term Bonds',
       manager: 'Sahel Finance',
       approvalYear: 2019,
-      strategy: 'Fonds obligataire investissant dans des titres de créance à court terme (maturité < 3 ans) émis par des États et entreprises de la zone UEMOA.',
+      strategy: 'Bond fund investing in short-term debt securities (maturity < 3 years) issued by States and companies in the WAEMU zone.',
       performance: 2.1,
-      benchmark: 'BRVM Obligations',
+      benchmark: 'BRVM Bonds',
       benchmarkPerformance: 5.8,
       volatility: 3.2,
-      riskLevel: 'Faible',
+      riskLevel: 'Low',
       managementFees: 0.8,
-      feesLevel: 'Faible',
+      feesLevel: 'Low',
       historicalData: generateHistoricalData(980, 'down'),
       underperformanceFactors: [
-        'Sous-pondération des obligations d\'État qui ont bien performé',
-        'Exposition à des émetteurs corporate ayant connu des difficultés',
-        'Duration trop courte dans un contexte de baisse des taux',
-        'Manque de réactivité dans l\'ajustement du portefeuille'
+        'Underweighting of government bonds that performed well',
+        'Exposure to corporate issuers that experienced difficulties',
+        'Duration too short in a declining rate environment',
+        'Lack of reactivity in portfolio adjustment'
       ]
     },
     {
       id: '6',
-      name: 'Ecobank Équilibre',
+      name: 'Ecobank Balanced',
       manager: 'Ecobank Asset Management',
       approvalYear: 2014,
-      strategy: 'Fonds mixte équilibré avec allocation fixe 50% actions / 50% obligations. Gestion passive répliquant les indices de référence.',
+      strategy: 'Balanced mixed fund with fixed 50% equity / 50% bonds allocation. Passive management replicating benchmark indices.',
       performance: 4.8,
-      benchmark: 'BRVM Composite 50% + BRVM Obligations 50%',
+      benchmark: 'BRVM Composite 50% + BRVM Bonds 50%',
       benchmarkPerformance: 9.2,
       volatility: 7.5,
-      riskLevel: 'Modéré',
+      riskLevel: 'Moderate',
       managementFees: 1.0,
-      feesLevel: 'Moyen',
+      feesLevel: 'Medium',
       historicalData: generateHistoricalData(950, 'down'),
       underperformanceFactors: [
-        'Gestion passive inadaptée dans un marché nécessitant de l\'arbitrage',
-        'Allocation fixe empêchant de profiter des opportunités',
-        'Réplication imparfaite des indices de référence',
-        'Coûts de transaction élevés impactant le tracking error'
+        'Passive management unsuited to a market requiring arbitrage',
+        'Fixed allocation preventing from taking advantage of opportunities',
+        'Imperfect replication of benchmark indices',
+        'High transaction costs impacting tracking error'
       ]
     }
   ];
@@ -228,13 +228,13 @@ export default function OPCVMComparisonReportPage() {
         >
           <div className="header-content">
             <div className="header-title">
-              <h1>Rapport de Comparaison d'OPCVM</h1>
-              <p>Analyse comparative des Top-3 et Flop-3 OPCVM par bourse</p>
+              <h1>Funds Comparison Report</h1>
+              <p>Comparative analysis of Top-3 and Flop-3 UCITS by exchange</p>
             </div>
 
             <div className="header-filters">
               <div className="filter-group">
-                <label>Bourse</label>
+                <label>Exchange</label>
                 <select
                   value={selectedExchange}
                   onChange={(e) => setSelectedExchange(e.target.value as Exchange)}
@@ -250,7 +250,7 @@ export default function OPCVMComparisonReportPage() {
               </div>
 
               <div className="filter-group">
-                <label>Période</label>
+                <label>Period</label>
                 <div className="date-range">
                   <input
                     type="date"
@@ -272,7 +272,7 @@ export default function OPCVMComparisonReportPage() {
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Générer le rapport
+                Generate report
               </button>
             </div>
         </div>
@@ -288,7 +288,7 @@ export default function OPCVMComparisonReportPage() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
-          Vue Graphiques
+          Charts View
         </button>
         <button
           className={`tab-btn ${viewMode === 'detailed' ? 'active' : ''}`}
@@ -301,7 +301,7 @@ export default function OPCVMComparisonReportPage() {
             <line x1="16" y1="17" x2="8" y2="17" />
             <polyline points="10 9 9 9 8 9" />
           </svg>
-          Vue Détaillée
+          Detailed View
         </button>
         <button
           className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
@@ -313,7 +313,7 @@ export default function OPCVMComparisonReportPage() {
             <line x1="3" y1="15" x2="21" y2="15" />
             <line x1="9" y1="3" x2="9" y2="21" />
           </svg>
-          Vue Tableau
+          Table View
         </button>
         
       </div>
@@ -327,18 +327,18 @@ export default function OPCVMComparisonReportPage() {
             <section className="report-section introduction">
               <h2>Introduction</h2>
               <p>
-                Ce rapport a pour objectif de fournir aux investisseurs une analyse comparative périodique de six Organismes de Placement Collectif en Valeurs Mobilières (OPCVM) cotés sur la <strong>{selectedExchange}</strong>. Nous avons sélectionné les trois OPCVM ayant affiché les meilleures performances ("Top-3") et les trois ayant enregistré les performances les plus faibles ("Flop-3") sur la période allant du <strong>{new Date(startDate).toLocaleDateString('fr-FR')}</strong> au <strong>{new Date(endDate).toLocaleDateString('fr-FR')}</strong>.
+                This report aims to provide investors with a periodic comparative analysis of six Undertakings for Collective Investment in Transferable Securities (UCITS) listed on the <strong>{selectedExchange}</strong>. We have selected the three UCITS with the best performance ("Top-3") and the three with the lowest performance ("Flop-3") over the period from <strong>{new Date(startDate).toLocaleDateString('en-US')}</strong> to <strong>{new Date(endDate).toLocaleDateString('en-US')}</strong>.
               </p>
               <p>
-                L'analyse portera sur leur performance, leurs frais de gestion et leurs stratégies d'investissement principales, afin d'aider les investisseurs à mieux comprendre les facteurs de succès et de sous-performance, et à éclairer leurs décisions d'investissement.
+                The analysis will focus on their performance, management fees, and main investment strategies, to help investors better understand the factors of success and underperformance, and to inform their investment decisions.
               </p>
             </section>
 
         {/* Méthodologie */}
         <section className="report-section methodology">
-          <h2>Méthodologie</h2>
+          <h2>Methodology</h2>
           <p>
-            La sélection des OPCVM a été réalisée sur la base du <strong>rendement net total</strong> sur la période analysée. Les informations concernant les frais de gestion et les stratégies d'investissement ont été extraites des Documents d'Information Clé pour l'Investisseur (DICI), des prospectus et des rapports périodiques disponibles publiquement.
+            The selection of UCITS was based on the <strong>total net return</strong> over the analyzed period. Information regarding management fees and investment strategies was extracted from Key Investor Information Documents (KIID), prospectuses, and publicly available periodic reports.
           </p>
         </section>
 
@@ -351,7 +351,7 @@ export default function OPCVMComparisonReportPage() {
                 <polyline points="17 6 23 6 23 12" />
               </svg>
             </div>
-            <h2>Analyse Détaillée des Top-3 OPCVM</h2>
+            <h2>Detailed Analysis of Top-3 UCITS</h2>
           </div>
 
           <div className="opcvm-cards">
@@ -364,17 +364,17 @@ export default function OPCVMComparisonReportPage() {
 
                 <div className="card-info">
                   <div className="info-row">
-                    <span className="info-label">Société de Gestion:</span>
+                    <span className="info-label">Management Company:</span>
                     <span className="info-value">{opcvm.manager}</span>
                   </div>
                   <div className="info-row">
-                    <span className="info-label">Année d'agrément:</span>
+                    <span className="info-label">Approval Year:</span>
                     <span className="info-value">{opcvm.approvalYear}</span>
                   </div>
                 </div>
 
                 <div className="card-section">
-                  <h4>Stratégie d'Investissement Principale</h4>
+                  <h4>Main Investment Strategy</h4>
                   <p>{opcvm.strategy}</p>
                 </div>
 
@@ -382,41 +382,41 @@ export default function OPCVMComparisonReportPage() {
                   <h4>Performance</h4>
                   <div className="performance-metrics">
                     <div className="metric-item">
-                      <span className="metric-label">Rendement</span>
+                      <span className="metric-label">Return</span>
                       <span className="metric-value positive">+{opcvm.performance}%</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Indice de référence</span>
+                      <span className="metric-label">Benchmark</span>
                       <span className="metric-value">{opcvm.benchmark}</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Performance indice</span>
+                      <span className="metric-label">Benchmark Performance</span>
                       <span className="metric-value">+{opcvm.benchmarkPerformance}%</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Volatilité</span>
+                      <span className="metric-label">Volatility</span>
                       <span className="metric-value">{opcvm.volatility}%</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Niveau de risque</span>
+                      <span className="metric-label">Risk Level</span>
                       <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
                     </div>
                   </div>
                   <p className="performance-text">
-                    Avec un rendement de <strong>+{opcvm.performance}%</strong> sur la période, ce fonds a significativement surperformé son indice de référence (<strong>{opcvm.benchmark}</strong> à <strong>+{opcvm.benchmarkPerformance}%</strong>). Sa volatilité de <strong>{opcvm.volatility}%</strong> suggère un niveau de risque <strong>{opcvm.riskLevel.toLowerCase()}</strong> par rapport à sa catégorie.
+                    With a return of <strong>+{opcvm.performance}%</strong> over the period, this fund significantly outperformed its benchmark (<strong>{opcvm.benchmark}</strong> at <strong>+{opcvm.benchmarkPerformance}%</strong>). Its volatility of <strong>{opcvm.volatility}%</strong> suggests a <strong>{opcvm.riskLevel.toLowerCase()}</strong> risk level compared to its category.
                   </p>
                 </div>
 
                 <div className="card-section">
-                  <h4>Frais de Gestion</h4>
+                  <h4>Management Fees</h4>
                   <p>
-                    Les frais de gestion annuels s'élèvent à <strong>{opcvm.managementFees}%</strong>, ce qui se situe dans une fourchette <strong>{opcvm.feesLevel.toLowerCase()}</strong> par rapport à sa catégorie.
+                    Annual management fees amount to <strong>{opcvm.managementFees}%</strong>, which is in a <strong>{opcvm.feesLevel.toLowerCase()}</strong> range compared to its category.
                   </p>
                 </div>
 
                 {opcvm.successFactors && (
                   <div className="card-section">
-                    <h4>Facteurs de Succès Potentiels</h4>
+                    <h4>Potential Success Factors</h4>
                     <ul className="factors-list">
                       {opcvm.successFactors.map((factor, idx) => (
                         <li key={idx}>{factor}</li>
@@ -438,7 +438,7 @@ export default function OPCVMComparisonReportPage() {
                 <polyline points="17 18 23 18 23 12" />
               </svg>
             </div>
-            <h2>Analyse Détaillée des Flop-3 OPCVM</h2>
+            <h2>Detailed Analysis of Flop-3 UCITS</h2>
           </div>
 
           <div className="opcvm-cards">
@@ -451,17 +451,17 @@ export default function OPCVMComparisonReportPage() {
 
                 <div className="card-info">
                   <div className="info-row">
-                    <span className="info-label">Société de Gestion:</span>
+                    <span className="info-label">Management Company:</span>
                     <span className="info-value">{opcvm.manager}</span>
                   </div>
                   <div className="info-row">
-                    <span className="info-label">Année d'agrément:</span>
+                    <span className="info-label">Approval Year:</span>
                     <span className="info-value">{opcvm.approvalYear}</span>
                   </div>
                 </div>
 
                 <div className="card-section">
-                  <h4>Stratégie d'Investissement Principale</h4>
+                  <h4>Main Investment Strategy</h4>
                   <p>{opcvm.strategy}</p>
                 </div>
 
@@ -469,43 +469,43 @@ export default function OPCVMComparisonReportPage() {
                   <h4>Performance</h4>
                   <div className="performance-metrics">
                     <div className="metric-item">
-                      <span className="metric-label">Rendement</span>
+                      <span className="metric-label">Return</span>
                       <span className={`metric-value ${opcvm.performance >= 0 ? 'positive' : 'negative'}`}>
                         {opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%
                       </span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Indice de référence</span>
+                      <span className="metric-label">Benchmark</span>
                       <span className="metric-value">{opcvm.benchmark}</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Performance indice</span>
+                      <span className="metric-label">Benchmark Performance</span>
                       <span className="metric-value">+{opcvm.benchmarkPerformance}%</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Volatilité</span>
+                      <span className="metric-label">Volatility</span>
                       <span className="metric-value">{opcvm.volatility}%</span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">Niveau de risque</span>
+                      <span className="metric-label">Risk Level</span>
                       <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
                     </div>
                   </div>
                   <p className="performance-text">
-                    Avec un rendement de <strong>{opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%</strong> sur la période, ce fonds a significativement sous-performé son indice de référence (<strong>{opcvm.benchmark}</strong> à <strong>+{opcvm.benchmarkPerformance}%</strong>). Sa volatilité de <strong>{opcvm.volatility}%</strong> suggère un niveau de risque <strong>{opcvm.riskLevel.toLowerCase()}</strong>.
+                    With a return of <strong>{opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%</strong> over the period, this fund significantly underperformed its benchmark (<strong>{opcvm.benchmark}</strong> at <strong>+{opcvm.benchmarkPerformance}%</strong>). Its volatility of <strong>{opcvm.volatility}%</strong> suggests a <strong>{opcvm.riskLevel.toLowerCase()}</strong> risk level.
                   </p>
                 </div>
 
                 <div className="card-section">
-                  <h4>Frais de Gestion</h4>
+                  <h4>Management Fees</h4>
                   <p>
-                    Les frais de gestion annuels s'élèvent à <strong>{opcvm.managementFees}%</strong>, ce qui se situe dans une fourchette <strong>{opcvm.feesLevel.toLowerCase()}</strong> par rapport à sa catégorie.
+                    Annual management fees amount to <strong>{opcvm.managementFees}%</strong>, which is in a <strong>{opcvm.feesLevel.toLowerCase()}</strong> range compared to its category.
                   </p>
                 </div>
 
                 {opcvm.underperformanceFactors && (
                   <div className="card-section">
-                    <h4>Facteurs de Sous-Performance Potentiels</h4>
+                    <h4>Potential Underperformance Factors</h4>
                     <ul className="factors-list">
                       {opcvm.underperformanceFactors.map((factor, idx) => (
                         <li key={idx}>{factor}</li>
@@ -527,12 +527,12 @@ export default function OPCVMComparisonReportPage() {
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <h2>Avertissement Important</h2>
+              <h2>Important Disclaimer</h2>
               <p>
-                <strong>Les performances passées ne préjugent en aucun cas des performances futures.</strong> Ce rapport est basé sur des données historiques et ne constitue en aucun cas un conseil en investissement. Les investisseurs doivent réaliser leur propre analyse approfondie et consulter un conseiller financier avant de prendre toute décision d'investissement.
+                <strong>Past performance does not guarantee future results.</strong> This report is based on historical data and does not constitute investment advice. Investors should conduct their own thorough analysis and consult a financial advisor before making any investment decision.
               </p>
               <p>
-                Les frais de gestion sont un facteur important à considérer, car ils impactent directement la performance nette de l'investisseur.
+                Management fees are an important factor to consider, as they directly impact the investor's net performance.
               </p>
             </section>
           </div>
@@ -542,10 +542,10 @@ export default function OPCVMComparisonReportPage() {
         {viewMode === 'table' && (
           <div className="table-view">
             <div className="comparison-table-container">
-              <table className="comparison-table">
+              <table className="topflop-comparison-table">
                 <thead>
                   <tr>
-                    <th className="metric-header">Critères</th>
+                    <th className="metric-header">Criteria</th>
                     <th className="top-header" colSpan={3}>
                       <div className="header-label">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -577,7 +577,7 @@ export default function OPCVMComparisonReportPage() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="metric-label">Nom du Fonds</td>
+                    <td className="metric-label">Fund Name</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell font-weight-600">{opcvm.name}</td>
                     ))}
@@ -586,7 +586,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Société de Gestion</td>
+                    <td className="metric-label">Management Company</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">{opcvm.manager}</td>
                     ))}
@@ -595,7 +595,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Année d'agrément</td>
+                    <td className="metric-label">Approval Year</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">{opcvm.approvalYear}</td>
                     ))}
@@ -619,7 +619,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Indice de référence</td>
+                    <td className="metric-label">Benchmark</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell small-text">{opcvm.benchmark}</td>
                     ))}
@@ -628,7 +628,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Performance Indice</td>
+                    <td className="metric-label">Benchmark Performance</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">+{opcvm.benchmarkPerformance}%</td>
                     ))}
@@ -637,7 +637,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Volatilité</td>
+                    <td className="metric-label">Volatility</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">{opcvm.volatility}%</td>
                     ))}
@@ -646,7 +646,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Niveau de Risque</td>
+                    <td className="metric-label">Risk Level</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">
                         <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
@@ -659,7 +659,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Frais de Gestion</td>
+                    <td className="metric-label">Management Fees</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">{opcvm.managementFees}%</td>
                     ))}
@@ -668,7 +668,7 @@ export default function OPCVMComparisonReportPage() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Niveau des Frais</td>
+                    <td className="metric-label">Fees Level</td>
                     {mockTopOPCVM.map(opcvm => (
                       <td key={opcvm.id} className="top-cell">{opcvm.feesLevel}</td>
                     ))}
@@ -688,7 +688,7 @@ export default function OPCVMComparisonReportPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               <p>
-                <strong>Avertissement:</strong> Les performances passées ne préjugent en aucun cas des performances futures. Ce rapport ne constitue pas un conseil en investissement.
+                <strong>Disclaimer:</strong> Past performance does not guarantee future results. This report does not constitute investment advice.
               </p>
             </div>
           </div>
@@ -706,7 +706,7 @@ export default function OPCVMComparisonReportPage() {
                       <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                       <polyline points="17 6 23 6 23 12" />
                     </svg>
-                    <h3>Performance Top-3 OPCVM</h3>
+                    <h3>Top-3 UCITS Performance</h3>
                   </div>
                   <div className="chart-legend">
                     {mockTopOPCVM.map((opcvm, idx) => (
@@ -738,7 +738,7 @@ export default function OPCVMComparisonReportPage() {
                       <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
                       <polyline points="17 18 23 18 23 12" />
                     </svg>
-                    <h3>Performance Flop-3 OPCVM</h3>
+                    <h3>Flop-3 UCITS Performance</h3>
                   </div>
                   <div className="chart-legend">
                     {mockFlopOPCVM.map((opcvm, idx) => (
@@ -773,7 +773,7 @@ export default function OPCVMComparisonReportPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               <p>
-                <strong>Avertissement:</strong> Les performances passées ne préjugent en aucun cas des performances futures. Ce rapport ne constitue pas un conseil en investissement.
+                <strong>Disclaimer:</strong> Past performance does not guarantee future results. This report does not constitute investment advice.
               </p>
             </div>
           </div>

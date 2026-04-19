@@ -158,14 +158,15 @@
       }
 
       &.nav-cta {
-        background: #f0a500;
-        color: #000;
+        background: #081624f2;
+        color: #f0a500;
         font-weight: 700;
         border-radius: 8px;
         padding: 8px 20px;
 
         &:hover {
-          background: #ffbe30;
+          background: #f0a500;
+          color: #081624f2;
           transform: translateY(-1px);
           box-shadow: 0 8px 24px rgba(240, 165, 0, 0.3);
         }
@@ -338,8 +339,8 @@
   align-items: center;
 
   .ticker-label {
-    background: #f0a500;
-    color: #000;
+    background: #081624f2;
+    color: #fff;
     font-size: 0.65rem;
     font-weight: 800;
     padding: 4px 14px;

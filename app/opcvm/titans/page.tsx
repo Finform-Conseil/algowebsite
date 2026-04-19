@@ -48,13 +48,13 @@ export default function OPCVMTitansPage() {
       id: 'mc1',
       rank: 1,
       name: 'NSIA Gestion',
-      headquarters: 'Abidjan, Côte d\'Ivoire',
+      headquarters: 'Abidjan, Ivory Coast',
       foundedYear: 2010,
-      mission: 'Offrir des solutions d\'investissement innovantes et performantes',
-      philosophy: 'Approche value avec focus sur les fondamentaux',
+      mission: 'Provide innovative and high-performing investment solutions',
+      philosophy: 'Value approach with focus on fundamentals',
       aum: 45000,
       avgPerformance: 12.5,
-      specialization: 'Expertise sectorielle bancaire et télécoms, gestion active',
+      specialization: 'Banking and telecom sector expertise, active management',
       website: 'https://nsia-gestion.com',
       markets: ['BRVM', 'NSE']
     },
@@ -64,11 +64,11 @@ export default function OPCVMTitansPage() {
       name: 'Coris Asset Management',
       headquarters: 'Ouagadougou, Burkina Faso',
       foundedYear: 2012,
-      mission: 'Maximiser la valeur pour nos clients à travers une gestion rigoureuse',
-      philosophy: 'Gestion diversifiée avec approche quantitative',
+      mission: 'Maximize value for our clients through rigorous management',
+      philosophy: 'Diversified management with quantitative approach',
       aum: 38500,
       avgPerformance: 11.8,
-      specialization: 'Stratégies thématiques ESG, gestion obligataire',
+      specialization: 'ESG thematic strategies, bond management',
       website: 'https://coris-am.com',
       markets: ['BRVM', 'GSE']
     },
@@ -76,13 +76,13 @@ export default function OPCVMTitansPage() {
       id: 'mc3',
       rank: 3,
       name: 'BOA Capital',
-      headquarters: 'Dakar, Sénégal',
+      headquarters: 'Dakar, Senegal',
       foundedYear: 2008,
-      mission: 'Accompagner la croissance économique africaine',
-      philosophy: 'Investissement de croissance avec vision long terme',
+      mission: 'Support African economic growth',
+      philosophy: 'Growth investment with long-term vision',
       aum: 32000,
       avgPerformance: 10.2,
-      specialization: 'Focus infrastructures et énergie, gestion mixte',
+      specialization: 'Infrastructure and energy focus, mixed management',
       website: 'https://boa-capital.com',
       markets: ['BRVM', 'CSE']
     },
@@ -92,11 +92,11 @@ export default function OPCVMTitansPage() {
       name: 'Ecobank Asset Management',
       headquarters: 'Lomé, Togo',
       foundedYear: 2015,
-      mission: 'Créer de la valeur durable pour nos investisseurs',
-      philosophy: 'Approche équilibrée risque-rendement',
+      mission: 'Create sustainable value for our investors',
+      philosophy: 'Balanced risk-return approach',
       aum: 28000,
       avgPerformance: 9.7,
-      specialization: 'Gestion monétaire et obligataire, expertise régionale',
+      specialization: 'Money market and bond management, regional expertise',
       website: 'https://ecobank-am.com',
       markets: ['BRVM', 'NGX', 'GSE']
     },
@@ -104,13 +104,13 @@ export default function OPCVMTitansPage() {
       id: 'mc5',
       rank: 5,
       name: 'Société Générale Asset Management Africa',
-      headquarters: 'Abidjan, Côte d\'Ivoire',
+      headquarters: 'Abidjan, Ivory Coast',
       foundedYear: 2006,
-      mission: 'Excellence en gestion d\'actifs avec standards internationaux',
-      philosophy: 'Gestion ISR et investissement responsable',
+      mission: 'Excellence in asset management with international standards',
+      philosophy: 'SRI management and responsible investment',
       aum: 25500,
       avgPerformance: 9.3,
-      specialization: 'ISR et finance durable, gestion actions',
+      specialization: 'SRI and sustainable finance, equity management',
       website: 'https://sgam-africa.com',
       markets: ['BRVM', 'JSE', 'NSE']
     }
@@ -128,13 +128,13 @@ export default function OPCVMTitansPage() {
   const getClassificationTitle = () => {
     switch (classificationMode) {
       case 'market':
-        return `Domination par Marché Boursier (${selectedMarket})`;
+        return `Market Dominance (${selectedMarket})`;
       case 'asset-nature':
-        return 'Maîtrise par Nature des Actifs';
+        return 'Mastery by Asset Nature';
       case 'opcvm-category':
-        return 'Leadership par Catégorie d\'OPCVM';
+        return 'Leadership by UCITS Category';
       case 'continental':
-        return 'Influence Continentale';
+        return 'Continental Influence';
       default:
         return 'Classification';
     }
@@ -152,8 +152,8 @@ export default function OPCVMTitansPage() {
         >
           <div className="header-content">
             <div className="header-title">
-              <h1>Les Titans de l'OPCVM</h1>
-              <p>Un Panorama des Leaders de la Gestion d'Actifs</p>
+              <h1>The Funds Titans</h1>
+              <p>An Overview of Asset Management Leaders</p>
             </div>
             <div className="header-filters-section">
             <div className="header-filters">
@@ -164,16 +164,16 @@ export default function OPCVMTitansPage() {
                   value={classificationMode}
                   onChange={(e) => setClassificationMode(e.target.value as ClassificationMode)}
                 >
-                  <option value="market">Par Marché Boursier</option>
-                  <option value="asset-nature">Par Nature d'Actifs</option>
-                  <option value="opcvm-category">Par Catégorie OPCVM</option>
-                  <option value="continental">Influence Continentale</option>
+                  <option value="market">By Stock Market</option>
+                  <option value="asset-nature">By Asset Nature</option>
+                  <option value="opcvm-category">By UCITS Category</option>
+                  <option value="continental">Continental Influence</option>
                 </select>
               </div>
 
               {classificationMode === 'market' && (
                 <div className="filter-group">
-                  <label>Marché</label>
+                  <label>Market</label>
                   <select
                     className="market-select"
                     value={selectedMarket}
@@ -209,7 +209,7 @@ export default function OPCVMTitansPage() {
             <line x1="3" y1="15" x2="21" y2="15" />
             <line x1="9" y1="3" x2="9" y2="21" />
           </svg>
-          Vue Tableau
+          Table View
         </button>
         <button
           className={`tab-btn ${viewMode === 'overview' ? 'active' : ''}`}
@@ -222,7 +222,7 @@ export default function OPCVMTitansPage() {
             <line x1="16" y1="17" x2="8" y2="17" />
             <polyline points="10 9 9 9 8 9" />
           </svg>
-          Vue d'Ensemble
+          Overview
         </button>
         
         <button
@@ -235,7 +235,7 @@ export default function OPCVMTitansPage() {
             <rect x="14" y="14" width="7" height="7" />
             <rect x="3" y="14" width="7" height="7" />
           </svg>
-          Vue Cartes
+          Cards View
         </button>
       </div>
 
@@ -246,12 +246,12 @@ export default function OPCVMTitansPage() {
           <div className="overview-view">
             {/* Introduction */}
             <section className="titans-section intro-section">
-              <h2>Naviguer dans l'Univers des OPCVM</h2>
+              <h2>Navigating the Funds Universe</h2>
               <p>
-                Dans l'univers dynamique et complexe des Organismes de Placement Collectif en Valeurs Mobilières (OPCVM), 
-                la sélection d'une société de gestion compétente et alignée sur ses objectifs d'investissement est une étape cruciale. 
-                Ce guide exclusif propose un éclairage sur les acteurs majeurs du secteur, en présentant et en classifiant les cinq 
-                premières sociétés de gestion selon une variété de critères essentiels.
+                In the dynamic and complex universe of Undertakings for Collective Investment in Transferable Securities (UCITS), 
+                selecting a competent management company aligned with your investment objectives is a crucial step. 
+                This exclusive guide provides insights into the sector's major players, presenting and classifying the top five 
+                management companies according to a variety of essential criteria.
               </p>
               <div className="key-criteria">
                 <div className="criterion-item">
@@ -262,8 +262,8 @@ export default function OPCVMTitansPage() {
                     </svg>
                   </div>
                   <div className="criterion-text">
-                    <h4>Actifs Sous Gestion</h4>
-                    <p>Volume et croissance des AUM</p>
+                    <h4>Assets Under Management</h4>
+                    <p>AUM volume and growth</p>
                   </div>
                 </div>
                 <div className="criterion-item">
@@ -274,7 +274,7 @@ export default function OPCVMTitansPage() {
                   </div>
                   <div className="criterion-text">
                     <h4>Performance</h4>
-                    <p>Rendements historiques des fonds</p>
+                    <p>Historical fund returns</p>
                   </div>
                 </div>
                 <div className="criterion-item">
@@ -284,8 +284,8 @@ export default function OPCVMTitansPage() {
                     </svg>
                   </div>
                   <div className="criterion-text">
-                    <h4>Conformité</h4>
-                    <p>Respect des réglementations</p>
+                    <h4>Compliance</h4>
+                    <p>Regulatory compliance</p>
                   </div>
                 </div>
                 <div className="criterion-item">
@@ -298,7 +298,7 @@ export default function OPCVMTitansPage() {
                   </div>
                   <div className="criterion-text">
                     <h4>Expertise</h4>
-                    <p>Spécificités et savoir-faire</p>
+                    <p>Specializations and know-how</p>
                   </div>
                 </div>
               </div>
@@ -306,7 +306,7 @@ export default function OPCVMTitansPage() {
 
             {/* Classification Modes */}
             <section className="titans-section classification-section">
-              <h2>Identifier les Leaders Selon Différents Angles</h2>
+              <h2>Identifying Leaders from Different Perspectives</h2>
               <div className="classification-grid">
                 <div className={`classification-card ${classificationMode === 'market' ? 'active' : ''}`}>
                   <div className="card-icon market">
@@ -316,8 +316,8 @@ export default function OPCVMTitansPage() {
                       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                     </svg>
                   </div>
-                  <h3>Domination par Marchés Boursiers</h3>
-                  <p>Acteurs influents sur des marchés spécifiques, mesurés par le volume des actifs sous gestion et la performance des fonds.</p>
+                  <h3>Stock Market Dominance</h3>
+                  <p>Influential players in specific markets, measured by assets under management volume and fund performance.</p>
                 </div>
 
                 <div className={`classification-card ${classificationMode === 'asset-nature' ? 'active' : ''}`}>
@@ -327,8 +327,8 @@ export default function OPCVMTitansPage() {
                       <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                     </svg>
                   </div>
-                  <h3>Maîtrise par Nature des Actifs</h3>
-                  <p>Expertise dans des classes d'actifs spécifiques : actions, obligations, monétaire, mixtes, alternatifs, immobilier.</p>
+                  <h3>Mastery by Asset Nature</h3>
+                  <p>Expertise in specific asset classes: equities, bonds, money market, mixed, alternatives, real estate.</p>
                 </div>
 
                 <div className={`classification-card ${classificationMode === 'opcvm-category' ? 'active' : ''}`}>
@@ -342,8 +342,8 @@ export default function OPCVMTitansPage() {
                       <line x1="3" y1="18" x2="3.01" y2="18" />
                     </svg>
                   </div>
-                  <h3>Leadership par Catégorie d'OPCVM</h3>
-                  <p>Domination de catégories d'OPCVM spécifiques en termes d'actifs gérés et de performance au sein de leur segment.</p>
+                  <h3>Leadership by UCITS Category</h3>
+                  <p>Dominance in specific UCITS categories in terms of managed assets and performance within their segment.</p>
                 </div>
 
                 <div className={`classification-card ${classificationMode === 'continental' ? 'active' : ''}`}>
@@ -354,8 +354,8 @@ export default function OPCVMTitansPage() {
                       <polyline points="2 12 12 17 22 12" />
                     </svg>
                   </div>
-                  <h3>Influence Continentale</h3>
-                  <p>Perspective géographique identifiant les leaders sur chaque bourse en fonction de leurs actifs sous gestion globaux.</p>
+                  <h3>Continental Influence</h3>
+                  <p>Geographic perspective identifying leaders on each exchange based on their global assets under management.</p>
                 </div>
               </div>
             </section>
@@ -364,20 +364,20 @@ export default function OPCVMTitansPage() {
             <section className="titans-section preview-section">
               <div className="section-header">
                 <h2>{getClassificationTitle()}</h2>
-                <p>Top 5 des sociétés de gestion leaders</p>
+                <p>Top 5 leading management companies</p>
               </div>
               <div className="preview-stats">
                 <div className="stat-card">
                   <div className="stat-value">{mockCompanies.length}</div>
-                  <div className="stat-label">Sociétés Leaders</div>
+                  <div className="stat-label">Leading Companies</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-value">{formatCurrency(mockCompanies.reduce((sum, c) => sum + c.aum, 0))}</div>
-                  <div className="stat-label">Actifs Totaux Gérés</div>
+                  <div className="stat-label">Total Assets Managed</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-value">{(mockCompanies.reduce((sum, c) => sum + c.avgPerformance, 0) / mockCompanies.length).toFixed(1)}%</div>
-                  <div className="stat-label">Performance Moyenne</div>
+                  <div className="stat-label">Average Performance</div>
                 </div>
               </div>
             </section>
@@ -391,11 +391,11 @@ export default function OPCVMTitansPage() {
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <h2>Avertissement Important</h2>
+              <h2>Important Disclaimer</h2>
               <p>
-                <strong>La performance passée ne préjuge pas des performances futures.</strong> Ce panorama offre un point de départ 
-                précieux pour votre analyse, mais chaque investisseur doit mener ses propres recherches approfondies, en tenant compte 
-                de ses objectifs spécifiques, de son profil de risque et de l'adéquation des stratégies proposées.
+                <strong>Past performance does not guarantee future results.</strong> This overview provides a valuable starting point 
+                for your analysis, but each investor must conduct their own thorough research, taking into account 
+                their specific objectives, risk profile, and the suitability of the proposed strategies.
               </p>
             </section>
           </div>
@@ -404,21 +404,21 @@ export default function OPCVMTitansPage() {
         {/* Vue Tableau */}
         {viewMode === 'table' && (
           <div className="table-view">
-            <div className="table-header">
+            {/* <div className="table-header">
               <h2>{getClassificationTitle()}</h2>
-              <p>Classement des 5 premières sociétés de gestion</p>
-            </div>
+              <p>Ranking of the top 5 management companies</p>
+            </div> */}
 
             <div className="titans-table-container">
               <table className="titans-table">
                 <thead>
                   <tr>
-                    <th className="rank-col">Rang</th>
-                    <th className="company-col">Société de Gestion</th>
-                    <th className="aum-col">Actifs Sous Gestion</th>
-                    <th className="performance-col">Performance Moyenne</th>
-                    <th className="specialization-col">Spécificité de Gestion</th>
-                    <th className="website-col">Site Web</th>
+                    <th className="rank-col">Rank</th>
+                    <th className="company-col">Management Company</th>
+                    <th className="aum-col">Assets Under Management</th>
+                    <th className="performance-col">Average Performance</th>
+                    <th className="specialization-col">Management Specialization</th>
+                    <th className="website-col">Website</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -448,7 +448,7 @@ export default function OPCVMTitansPage() {
                         <div className={`performance-value ${company.avgPerformance >= 10 ? 'high' : 'medium'}`}>
                           +{company.avgPerformance}%
                         </div>
-                        <div className="performance-label">Sur 12 mois</div>
+                        <div className="performance-label">Over 12 months</div>
                       </td>
                       <td className="specialization-cell">
                         <div className="specialization-text">{company.specialization}</div>
@@ -460,7 +460,7 @@ export default function OPCVMTitansPage() {
                             <polyline points="15 3 21 3 21 9" />
                             <line x1="10" y1="14" x2="21" y2="3" />
                           </svg>
-                          Visiter
+                          Visit
                         </a>
                       </td>
                     </tr>
@@ -476,7 +476,7 @@ export default function OPCVMTitansPage() {
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
                 </svg>
-                Les données présentées sont basées sur les informations disponibles et peuvent évoluer.
+                The data presented is based on available information and may change.
               </p>
             </div>
           </div>
@@ -485,16 +485,17 @@ export default function OPCVMTitansPage() {
         {/* Vue Cartes */}
         {viewMode === 'cards' && (
           <div className="cards-view">
-            <div className="cards-header">
+            {/* <div className="cards-header">
               <h2>{getClassificationTitle()}</h2>
-              <p>Profils détaillés des sociétés de gestion leaders</p>
-            </div>
+              <p>Detailed profiles of leading management companies</p>
+            </div> */}
 
             <div className="companies-grid">
               {mockCompanies.map((company) => (
                 <div key={company.id} className={`company-card rank-${company.rank}`}>
                   <div className="card-header">
-                    <div className="card-rank">
+                    <div>
+                      <div className="card-rank">
                       {company.rank === 1 && (
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -502,11 +503,6 @@ export default function OPCVMTitansPage() {
                       )}
                       <span>#{company.rank}</span>
                     </div>
-                    <h3>{company.name}</h3>
-                    <p className="headquarters">{company.headquarters}</p>
-                  </div>
-
-                  <div className="card-body">
                     <div className="info-section">
                       <div className="info-label">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -515,9 +511,20 @@ export default function OPCVMTitansPage() {
                           <line x1="8" y1="2" x2="8" y2="6" />
                           <line x1="3" y1="10" x2="21" y2="10" />
                         </svg>
-                        Fondée en {company.foundedYear}
+                        Founded in {company.foundedYear}
                       </div>
                     </div>
+
+                    </div>
+                    <div>
+                      <h3>{company.name}</h3>
+                      <p className="headquarters">{company.headquarters}</p>
+                    </div>
+                    
+                  </div>
+
+                  <div className="card-body">
+                    
 
                     <div className="info-section">
                       <h4>Mission</h4>
@@ -525,17 +532,17 @@ export default function OPCVMTitansPage() {
                     </div>
 
                     <div className="info-section">
-                      <h4>Philosophie d'Investissement</h4>
+                      <h4>Investment Philosophy</h4>
                       <p>{company.philosophy}</p>
                     </div>
 
                     <div className="metrics-grid">
                       <div className="metric-item">
-                        <div className="metric-label">Actifs Sous Gestion</div>
+                        <div className="metric-label">Assets Under Management</div>
                         <div className="metric-value">{formatCurrency(company.aum)}</div>
                       </div>
                       <div className="metric-item">
-                        <div className="metric-label">Performance Moyenne</div>
+                        <div className="metric-label">Average Performance</div>
                         <div className={`metric-value ${company.avgPerformance >= 10 ? 'positive' : 'neutral'}`}>
                           +{company.avgPerformance}%
                         </div>
@@ -543,15 +550,15 @@ export default function OPCVMTitansPage() {
                     </div>
 
                     <div className="info-section">
-                      <h4>Spécificité de Gestion</h4>
+                      <h4>Management Specialization</h4>
                       <p className="specialization">{company.specialization}</p>
                     </div>
 
                     <div className="info-section">
-                      <h4>Marchés d'Intervention</h4>
-                      <div className="markets-tags">
+                      <h4>Markets of Operation</h4>
+                      <div className="opcvm-markets-tags">
                         {company.markets.map((market) => (
-                          <span key={market} className="market-tag">{market}</span>
+                          <span key={market} className="opcvm-market-tag">{market}</span>
                         ))}
                       </div>
                     </div>
@@ -564,7 +571,7 @@ export default function OPCVMTitansPage() {
                         <line x1="2" y1="12" x2="22" y2="12" />
                         <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                       </svg>
-                      Visiter le site web
+                      Visit website
                     </a>
                   </div>
                 </div>
