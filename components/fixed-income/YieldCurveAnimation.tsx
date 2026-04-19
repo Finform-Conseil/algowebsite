@@ -165,9 +165,10 @@ export default function YieldCurveAnimation({ height = '100%' }: YieldCurveAnima
       },
       axisLabel: {
         color: 'var(--text-secondary)',
-        formatter: (value: number) => {
-          if (value < 1) return `${value * 12}M`;
-          return `${value}Y`;
+        formatter: (value: string) => {
+          const numValue = parseFloat(value);
+          if (numValue < 1) return `${numValue * 12}M`;
+          return `${numValue}Y`;
         },
       },
       splitLine: {
@@ -226,9 +227,7 @@ export default function YieldCurveAnimation({ height = '100%' }: YieldCurveAnima
         lineStyle: {
           width: 4,
         },
-        itemStyle: {
-          symbolSize: 12,
-        },
+        symbolSize: 12,
       },
       data: curve.data.map(d => d.yield),
       animationDuration: speed * 0.8,

@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import AfricaOPCVMMap from '@/components/opcvm/AfricaOPCVMMap';
+import dynamic from 'next/dynamic';
+
+const AfricaOPCVMMap = dynamic(
+  () => import('@/components/opcvm/AfricaOPCVMMap'),
+  { ssr: false }
+);
 
 // Types
 type OPCVMData = {
