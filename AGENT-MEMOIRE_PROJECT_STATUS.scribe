@@ -1,0 +1,103 @@
+[AXIAL_NEXUS_CORE]
+;; META_PROJECT
+; KEY ; VALUE
+; Project_Name ; Quantum Ledger
+; Stack ; Next.js + React + TypeScript + SCSS
+; Architecture ; Frontend Monolith (App Router)
+; Scribe_Version ; 3.0 (Axial-Hybrid)
+; Session_Count ; 1
+; Last_Update ; 2026-04-20T12:30:00+01:00
+  status: "IN_PROGRESS"
+  mode: "STANDARD"
+  confidence: "100%"
+  metrics:
+    files_migrated: 12
+    bugs_fixed: 6
+    regressions_prevented: 2
+  journal:
+    - date: "2026-04-20"
+      task: "Mise en conformité du Store Redux"
+      details: "2026-04-20 12:40: Fix(Proxy): Suppression dépendance authOptions pour mode Anonymous. 2026-04-20 12:41: Fix(Chart): Restauration des imports corrompus dans TechnicalAnalysis.tsx. 2026-04-20 12:42: Arch(Providers): Création AppProviders. 2026-04-20 12:43: Fix(StoreProvider): Passage au pattern factory (makeStore) pour conformité Next.js App Router. 2026-04-20 18:24: Fix(Toolbar): Relocalisation structurelle dans gp-chart-main-section pour résoudre l'occlusion par la sidebar."
+; Format ; Hybride (Memelang + YAML + Markdown)
+
+;; DEPENDANCIES
+; LIB_NAME ; VERSION ; CRITICALITY ; LINKED_SCARS
+; next ; 16.1.1 ; HIGH ; []
+; react ; 19.2.3 ; HIGH ; []
+; typescript ; 5.x ; MEDIUM ; []
+
+;; INVARIANTS
+; ID ; CATEGORY ; PROPERTY ; ON_VIOLATION
+; INV_P001 ; MEMORY ; Mise à jour incrémentale du SCRIBE uniquement ; REJECT
+; INV_P002 ; QUALITY ; Zéro régression fonctionnelle ; REJECT
+; INV_P003 ; SECURITY ; Aucun secret hardcodé ; REJECT
+
+;; TIERS_INDEX
+; TIER ; ENTITIES
+; HOT ; []
+; WARM ; []
+; COLD ; []
+
+[CAUSAL_CHAINING_YAML]
+scars:
+  - id: "SCAR-125"
+    description: "Next.js/Turbopack failure to resolve export BRVM_NAME_TO_TICKER from brvm-mapping.ts (claimed no exports)."
+    resolution: "Explicit named export at the end of file instead of inline typed export. Touched importing route to bust cache."
+    test_binding: "Verify API /api/market-data/brvm-fundamentals?ticker=BOAB"
+  - id: "SCAR-HEIGHT-001"
+    severity: "CRITICAL"
+    description: "Layout corrompu (3806px) par rupture de la chaîne de hauteur et conflits SCSS legacy. ECharts s'étirait sans limite."
+    resolution: "Isolation totale via CSS Modules + Désactivation @imports legacy dans globals.scss + Verrouillage strict html,body { height: 100%; overflow: hidden; } + Flex constraints (flex: 1 1 0%, min-height: 0) sur toute la chaîne structurelle."
+    test_binding: "Vérifier que window.innerHeight === document.body.clientHeight sur /equity/technical-analysis."
+  - id: "SCAR-HEIGHT-002"
+    severity: "HIGH"
+    description: "Régression visuelle ChartToolbar : débordement horizontal ET disparition des icônes de droite par occlusion de la sidebar."
+    resolution: "Relocalisation structurelle : Transfert de la <ChartToolbar> du niveau racine vers l'intérieur de gp-chart-main-section. Ajustement de la section en flex-direction: column. La toolbar hérite désormais de la largeur disponible calculée par le layout principal, évitant tout recouvrement physique."
+    test_binding: "Ouvrir la sidebar d'objets et vérifier que le bouton Publier reste collé au bord de la sidebar sans être caché."
+vaccins:
+  - id: "VAC-045"
+    description: "Anti-Hydration Mismatch for live clocks. Always use useEffect/useState for dynamic time rendering."
+    pattern: "const [val, setVal] = useState(''); useEffect(() => setVal(new Date()...), [])"
+patterns: []
+ghosts: []
+meta_patterns: []
+hypotheses: []
+adrs: []
+dettes: []
+lecons: []
+journal:
+    - date: "2026-04-20"
+      titre: "FIX BUILD ERROR & LINT"
+      llm: "Antigravity 3.0"
+      session_numero: 2
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction de la signature du composant footer (erreur de syntaxe) et typage explicite de isOpen dans TechnicalAnalysis.tsx."
+      scribe_delta: "VAC-045 (REINFORCED)"
+    - date: "2026-04-20"
+      titre: "FIX EXPORT RESOLUTION"
+      llm: "Antigravity 3.0"
+      session_numero: 2
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Résolution de l'erreur de compilation sur BRVM_NAME_TO_TICKER. Passage à un export nommé en fin de fichier pour garantir la visibilité du module."
+      scribe_delta: "SCAR-125"
+    - date: "2026-04-14"
+    titre: "SESSION INITIALISATION"
+    llm: "Codex GPT-5"
+      titre: "SESSION INITIALISATION"
+      llm: "Codex GPT-5"
+      session_numero: 1
+      taches_effectuees:
+        - statut: "DONE"
+          type: "INIT"
+          description: "Création du SCRIBE initial à partir du template Axial-SCRIBE."
+      scribe_delta: "PAT-INIT-001"
+      resultat_final: "Architecture 2026 verrouillée. Intégrité visuelle restaurée et stabilisée."
+
+[EPISODIC_SCAFFOLDING]
+> PERSONA & DIRECTIVE IMMÉDIATE
+> Mission: maintenir une mémoire causale fiable (SCAR/VAC/PAT/GHOST) sans écrasement historique.
+> Contexte récent: SCRIBE fraîchement initialisé le 2026-04-14.

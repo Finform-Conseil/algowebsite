@@ -1,0 +1,86 @@
+/* 
+  [TENOR 2026] TimeAxisControls - TradingView Parity Styles
+  Exact replication of the floating time axis control panel.
+*/
+
+.time-axis-hover-zone {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 40px; /* Catch area at the bottom of the chart */
+  z-index: 90;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 8px;
+  /* 
+    CRITICAL: pointer-events must be none so we don't block dragging the time axis itself.
+    However, we still want to catch hover events. In React, onPointerEnter still fires 
+    on the parent if children have pointer-events: auto, but to catch the empty space, 
+    we need a specific setup.
+    Actually, to allow ECharts to receive drags, we let the events pass through.
+    The hover is detected by React's synthetic events which don't strictly require pointer-events: auto 
+    if we just want to know the mouse is there, BUT standard CSS requires it.
+    TradingView solves this by making the hover zone very thin or relying on global mousemove.
+    Since we use onPointerEnter on this div, it MUST have pointer-events: auto to trigger.
+    To prevent blocking the axis drag, we only make the actual visible panel block events.
+  */
+  pointer-events: none; 
+}
+
+/* We re-enable pointer events ONLY on the visible controls */
+.time-axis-controls {
+  display: flex;
+  align-items: center;
+  background-color: #1e222d; /* Premium Dark Theme enforced */
+  border: 1px solid #2b2b36;
+  border-radius: 6px;
+  padding: 2px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: auto; /* Block clicks from reaching the chart below */
+  z-index: 100;
+}
+
+.time-axis-controls.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #d1d4dc; /* Premium Dark Theme Text/Icon */
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  padding: 0;
+  margin: 0 1px;
+  outline: none;
+}
+
+/* Hover States */
+.control-btn:hover {
+  background-color: #2a2e39; /* Premium Dark Theme Hover */
+}
+
+/* Active/Click States */
+.control-btn:active {
+  background-color: #363a45; /* Premium Dark Theme Active */
+}
+
+/* Icon Sizing */
+.control-btn svg {
+  width: 18px;
+  height: 18px;
+  /* Ensure SVGs don't capture clicks themselves */
+  pointer-events: none; 
+}

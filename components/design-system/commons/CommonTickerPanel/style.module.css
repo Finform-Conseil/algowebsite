@@ -1,0 +1,423 @@
+.ctp-root {
+  width: 100%;
+}
+
+.ctp-info-panel {
+  flex-shrink: 0;
+  display: grid;
+  /* UX STABILITY FIX: Grid locks dimensions */
+  grid-template-columns: 450px 1fr auto;
+  /* Fixed Ticker (Balanced) | Fluid News | Auto Actions */
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 3.3px;
+  border: 3px solid var(--events-calendar-border-color-light, #2d455c);
+}
+
+.ctp-ticker-compound {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+  width: 450px;
+  /* Rigorous width */
+  max-width: 450px;
+  /* Safety guard */
+  overflow: hidden;
+  /* Steel cage: content cannot leak out */
+  min-width: 0;
+}
+
+.ctp-brand-logo-container {
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  /* Circle standardization */
+  width: 2rem;
+  height: 2rem;
+  background-color: #f0f0f0;
+  /* Light gray fallback */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  /* Context for absolute bg */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-left: -0.4px !important;
+}
+
+/* Magic Background Layer */
+.ctp-brand-logo-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Fills the circle */
+  filter: blur(4px) brightness(0.95);
+  /* Blur to mix colors */
+  transform: scale(1.5);
+  /* Zoom to remove blur edges */
+  z-index: 0;
+  opacity: 0.8;
+}
+
+/* Sharp Foreground Layer */
+.ctp-brand-logo {
+  position: relative;
+  z-index: 1;
+  max-width: 85%;
+  /* Slightly larger for impact */
+  max-height: 85%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.ctp-ticker-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.3rem;
+}
+
+.ctp-ticker-text-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ctp-ticker-main-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ctp-ticker-symbol {
+  font-family: var(--events-calendar-font-family-ticker,
+      "Lilita One",
+      sans-serif);
+  font-size: 2.5rem;
+  color: var(--events-calendar-text-primary, #f8f9fa);
+  font-weight: 500;
+  line-height: 1;
+  display: block;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ctp-ticker-price-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.ctp-price-value {
+  font-family: var(--events-calendar-font-family-ticker,
+      "Lilita One",
+      sans-serif);
+  font-size: 2.5rem;
+  font-weight: 500;
+  line-height: 1;
+  /* STABILITY: Tabular nums prevent individual digit jitter */
+  font-variant-numeric: tabular-nums;
+}
+
+.ctp-currency-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  line-height: 1;
+  margin: 0 0.25rem;
+  padding-bottom: 0.2rem;
+}
+
+.ctp-sup-text {
+  font-size: 1rem;
+  color: var(--events-calendar-text-primary, #f8f9fa);
+}
+
+.ctp-currency-text {
+  font-size: 1rem;
+  color: var(--events-calendar-text-primary, #f8f9fa);
+}
+
+.ctp-performance-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  /* STABILITY: Tabular nums */
+  font-variant-numeric: tabular-nums;
+}
+
+.ctp-dot-separator {
+  font-size: 0.44rem;
+  vertical-align: middle;
+  color: var(--events-calendar-text-primary, #f8f9fa);
+}
+
+.ctp-details-line {
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0.2rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  margin-left: 3px !important;
+  /* Visual optical alignment fix */
+}
+
+.figi-label {
+  margin-left: 1.5rem !important;
+}
+
+.ctp-label-text {
+  color: var(--events-calendar-accent-gold, #ff9f04);
+  font-weight: 500;
+  margin-right: 0.15rem !important;
+  /* Slightly reduced for tighter alignment */
+  padding: 0 !important;
+}
+
+.ctp-data-text {
+  color: var(--events-calendar-text-primary, #f8f9fa);
+  font-weight: 400;
+}
+
+.ctp-news-container {
+  flex-grow: 1;
+  display: flex;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.ctp-news-column {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-basis: 0;
+  min-height: 0;
+  position: relative;
+  max-height: 3.5rem;
+  overflow: hidden;
+  border-radius: 0.25rem;
+}
+
+/* Status colors */
+.is-positive {
+  color: #10b981 !important;
+  /* text-success */
+}
+
+.is-negative {
+  color: var(--events-calendar-accent-red, #ce4243) !important;
+}
+
+/* ========================================================================== */
+/* == RESPONSIVE MEDIA QUERIES == */
+/* ========================================================================== */
+
+@media (max-width: 1399.98px) {
+  .ctp-info-panel {
+    gap: 0.75rem;
+    /* Reduce first column slightly if needed, but keeping fixed is safer */
+    grid-template-columns: 450px 1fr auto;
+  }
+}
+
+@media (max-width: 1024px) {
+  .ctp-info-panel {
+    display: flex;
+    /* Revert to Flex for wrapping */
+    flex-wrap: wrap;
+    padding: 0.5rem;
+  }
+
+  .ctp-news-container {
+    flex-basis: 100%;
+    order: 3;
+    padding-top: 0.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+
+  .ctp-ticker-symbol,
+  .ctp-price-value {
+    font-size: 2rem;
+    /* Increased from 1.75rem */
+  }
+
+  .ctp-brand-logo-container {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .ctp-details-line {
+    font-size: 0.85rem;
+    /* Increased from 0.65rem */
+    gap: 0.5rem;
+    /* Reduced gap */
+  }
+
+  .ctp-performance-text {
+    font-size: 1rem;
+    /* Increased from 0.85rem */
+  }
+
+  .ctp-sup-text,
+  .ctp-currency-text {
+    font-size: 0.75rem;
+    /* Increased from 0.65rem */
+  }
+
+  .figi-label {
+    margin-left: 1rem !important;
+    /* Reduced from 1.5rem */
+  }
+}
+
+@media (max-width: 623px) {
+  .ctp-info-panel {
+    gap: 0.5rem;
+    padding: 0.35rem;
+  }
+
+  .ctp-ticker-compound {
+    align-items: flex-start;
+    /* Better for small screens */
+    min-width: 0;
+  }
+
+  .ctp-ticker-main-row {
+    gap: 0.4rem;
+  }
+
+  .ctp-ticker-symbol,
+  .ctp-price-value {
+    font-size: 1.75rem;
+    /* Increased from 1.4rem */
+  }
+
+  .ctp-brand-logo-container {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .ctp-currency-stack {
+    margin: 0 0.15rem;
+  }
+
+  .ctp-sup-text,
+  .ctp-currency-text {
+    font-size: 0.65rem;
+    /* Increased from 0.45rem */
+  }
+
+  .ctp-performance-text {
+    font-size: 0.85rem;
+    /* Increased from 0.75rem */
+  }
+
+  .ctp-ticker-grid {
+    gap: 0.2rem;
+  }
+
+  .ctp-brand-logo-container {
+    margin: 0 !important;
+  }
+
+  .ctp-details-line {
+    gap: 0.5rem;
+    margin-top: 0;
+    font-size: 0.75rem;
+    /* Explicit size for small screens */
+  }
+
+  .figi-label {
+    margin-left: 0.75rem !important;
+    /* Tighter for very small screens */
+  }
+
+  .ctp-news-container {
+    gap: 0.5rem;
+  }
+
+  .ctp-news-column {
+    max-height: 3rem;
+  }
+}
+
+@media (max-width: 380px) {
+
+  .ctp-ticker-symbol,
+  .ctp-price-value {
+    font-size: 1.2rem;
+  }
+
+  .ctp-performance-text {
+    font-size: 0.65rem;
+  }
+}
+
+/* [TENOR 2026] SKELETON LOADING SYSTEM */
+.is-loading-skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border-radius: 4px;
+  height: 1.2em;
+  width: 100%;
+}
+
+.is-loading-skeleton::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0.02) 20%,
+      rgba(255, 255, 255, 0.05) 60%,
+      rgba(255, 255, 255, 0));
+  animation: shimmer 3s infinite;
+  /* Slower, more elegant shimmer */
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.ctp-details-skeleton-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.ctp-skeleton-group {
+  margin-bottom: 0.85rem;
+  /* Space between top elements and details line */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

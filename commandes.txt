@@ -1,0 +1,6 @@
+la commande chirurgicale pour détruire tous les caches qui peuvent poser problème, sans désinstaller toutes vos dépendances:
+
+
+    Linux: -  rm -rf .next/cache && npm cache clean --force && npm cache verify
+
+    Windows: -  rd /s /q .next & npm cache clean --force & npm cache verify

@@ -1,0 +1,939 @@
+{
+  "version": "1.0",
+  "description": "Tool-specific toolbar configurations. Each tool has its own set of buttons.",
+  "drawings": {
+    "line": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "horizontal_line": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "vertical_line": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "arrow": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "trend_angle": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "ray": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "x_line": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "horizontal_ray": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "arrow_marker": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "orientation",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "projection": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "date_range": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "price_range": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "date_price_range": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "polyline": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "path": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "curve": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "crosshair": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "fib_retracement": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Fibonacci Retracement toolbar (SNIPER V5.0: 8 functional buttons excluding move/more)"
+    },
+    "parallel_channel": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "fill",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "long_position": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "tp_fill",
+        "sl_fill",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "short_position": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "tp_fill",
+        "sl_fill",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "regression_trend": {
+      "description": "TradingView has exactly 7 buttons for this tool (plus move)",
+      "toolbar": [
+        "move",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "flat_top_bottom": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "fill",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "disjoint_channel": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "line_style",
+        "fill",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "pitchfork": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons (Matches TV standard + move)"
+    },
+    "schiff_pitchfork": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons (Exactly as audited on TV + move)"
+    },
+    "modified_schiff_pitchfork": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons (Includes Line Style, excludes visibility toggle)"
+    },
+    "inside_pitchfork": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Standard Pitchfork toolbar with 8 icons (Matches TV)"
+    },
+    "trend_based_fib_extension": {
+      "toolbar": [
+        "move",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons (excluding move/more) for Trend-Based Fib Extension"
+    },
+    "fib_channel": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons (Standard Fib Toolbar with Templates)"
+    },
+    "fib_time_zone": {
+      "toolbar": [
+        "move",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons (Matches TV standard: Includes Thickness/Style/Visibility)"
+    },
+    "fib_speed_resistance_fan": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Fib Speed Resistance Fan toolbar (SNIPER V5.0: 8 functional icons, removed redundant thickness)"
+    },
+    "trend_based_fib_time": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Trend-Based Fib Time toolbar (SNIPER V5.0: 8 functional icons, matching Fib tools standard)"
+    },
+    "fib_speed_resistance_arcs": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Fib Speed Resistance Arcs toolbar (SNIPER V5.0: 8 functional icons)"
+    },
+    "fib_circles": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Fib Circles toolbar (SNIPER V5.0: 8 functional icons, matching TV discovery)"
+    },
+    "fib_spiral": {
+      "toolbar": [
+        "move",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "visibility",
+        "trash",
+        "more"
+      ],
+      "description": "Fib Spiral toolbar (SNIPER V5.0: 8 functional icons, matching TV standard)"
+    },
+    "fib_wedge": {
+      "toolbar": [
+        "move",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "visibility",
+        "trash",
+        "more"
+      ],
+      "description": "Fib Wedge toolbar (SNIPER V5.0: 6 functional icons + move/more)"
+    },
+    "pitchfan": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons — Pitchfan: angular fan from P1. Matches TV standard toolbar (SNIPER V5.0 2026-02-19)"
+    },
+    "gann_square": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "quick_options",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "10 icons — Gann Square: dynamic grid+fans+arcs+quick_options. Matches TV standard toolbar (SNIPER V5.0 2026-02-23)"
+    },
+    "gann_box": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "quick_options",
+        "settings",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Gann Box: axis-aligned grid. Matches TV standard toolbar (SNIPER V5.0 2026-02-19)"
+    },
+    "gann_square_fixed": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "quick_options",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "10 icons — Gann Square Fixed: grid+fans+arcs from anchor. Matches TV standard toolbar (SNIPER V5.0 2026-02-19)"
+    },
+    "gann_fan": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Gann Fan: 9 angular lines from anchor (8/1, 4/1, 3/1, 2/1, 1/1, 1/2, 1/3, 1/4, 1/8). Color fills between zones. Matches TV standard toolbar (SNIPER V5.0 2026-02-24)"
+    },
+    "xabcd_pattern": {
+      "toolbar": [
+        "move",
+        "color",
+        "fill",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "10 icons — XABCD Pattern: 5-point chart pattern with ratio triangles. Matches TV standard toolbar (HDR 2026)"
+    },
+    "cypher_pattern": {
+      "toolbar": [
+        "move",
+        "color",
+        "fill",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "10 icons — Cypher Pattern: 5-point chart pattern with ratio triangles. Matches TV standard toolbar (HDR 2026)"
+    },
+    "head_and_shoulders": {
+      "toolbar": [
+        "move",
+        "color",
+        "fill",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "10 icons — Head and Shoulders: 7-point chart pattern. Matches TV standard toolbar (HDR 2026)"
+    },
+    "abcd_pattern": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — ABCD Pattern: 4-point zigzag harmonic pattern. Color + Text + Style + Settings + Alert + Lock + Trash + More. No fill (unlike XABCD). SNIPER V5.0 2026-03-18."
+    },
+    "triangle_pattern": {
+      "toolbar": [
+        "move",
+        "color",
+        "fill",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "10 icons — Triangle Pattern: 4-point expanding/converging pattern. Color + Fill + Text + Style. SNIPER V5.0 2026-03-18."
+    },
+    "three_drives_pattern": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Three Drives Pattern: 7-point harmonic pattern. Color + Text + Style. No fill button separately. SNIPER V5.0 2026-03-18."
+    },
+    "elliott_impulse_wave": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Elliott Impulse Wave (0-1-2-3-4-5). HDR 2026."
+    },
+    "elliott_correction_wave": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Elliott Correction Wave (0-A-B-C). HDR 2026."
+    },
+    "elliott_triangle_wave": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Elliott Triangle Wave (0-A-B-C-D-E). HDR 2026."
+    },
+    "elliott_double_combo_wave": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Elliott Double Combo Wave (0-W-X-Y). HDR 2026."
+    },
+    "elliott_triple_combo_wave": {
+      "toolbar": [
+        "move",
+        "color",
+        "text",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Elliott Triple Combo Wave (0-W-X-Y-X-Z). HDR 2026."
+    },
+    "cyclic_lines": {
+      "toolbar": [
+        "move",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons — Cyclic Lines: Vertical lines at fixed intervals. HDR 2026."
+    },
+    "time_cycles": {
+      "toolbar": [
+        "move",
+        "color",
+        "fill",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "9 icons — Time Cycles: Arches on the baseline. HDR 2026."
+    },
+    "sine_line": {
+      "toolbar": [
+        "move",
+        "color",
+        "line_style",
+        "settings",
+        "alert",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "8 icons (Standard Sine Line Toolbar)"
+    },
+    "position_forecast": {
+      "toolbar": [
+        "move",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "7 functional icons (Standard Forecasting Tool with Success Toggle) + move/more"
+    },
+    "bar_pattern": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "7 functional icons (Standard Bar Pattern Toolbar) + move/more"
+    },
+    "ghost_feed": {
+      "toolbar": [
+        "move",
+        "template",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "7 functional icons (Standard Ghost Feed Toolbar) + move/more. Supports multi-point path projection."
+    },
+    "sector": {
+      "toolbar": [
+        "move",
+        "template",
+        "fill",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "7 functional icons (Standard Sector Toolbar) + move/more. 3-point circular arc interaction."
+    },
+    "anchored_vwap": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "line_style",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Anchored VWAP toolbar (Matches TV standard + move)"
+    },
+    "anchored_volume_profile": {
+      "toolbar": [
+        "move",
+        "quick_options",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Fixed Range Volume Profile toolbar (HDR 2026)"
+    }
+  },
+  "button_definitions": {
+    "template": {
+      "icon": "bi-window-sidebar",
+      "title": "Mod\u00e8les",
+      "action": "openTemplatePopup"
+    },
+    "color": {
+      "icon": "bi-paint-bucket",
+      "title": "Couleur de ligne",
+      "action": "openColorPopup"
+    },
+    "line_style": {
+      "icon": "bi-dash-lg",
+      "title": "Propri\u00e9t\u00e9",
+      "action": "openLineStylePopup"
+    },
+    "fill": {
+      "icon": "bi-paint-bucket",
+      "title": "Remplissage",
+      "action": "openFillPopup"
+    },
+    "tp_fill": {
+      "icon": "bi-paint-bucket",
+      "title": "Zone de profit",
+      "action": "openTPFillPopup"
+    },
+    "sl_fill": {
+      "icon": "bi-paint-bucket",
+      "title": "Zone de perte",
+      "action": "openSLFillPopup"
+    },
+    "settings": {
+      "icon": "bi-nut",
+      "title": "Param\u00e8tres",
+      "action": "openSettingsModal"
+    },
+    "lock": {
+      "icon": "bi-unlock",
+      "iconLocked": "bi-lock-fill",
+      "title": "Verrouiller",
+      "action": "toggleLock"
+    },
+    "trash": {
+      "icon": "bi-trash3",
+      "title": "Supprimer",
+      "action": "deleteDrawing"
+    },
+    "more": {
+      "icon": "bi-three-dots",
+      "title": "Plus",
+      "action": "openMorePopup"
+    },
+    "quick_options": {
+      "icon": "bi-grid-fill",
+      "title": "Mod\u00e8les",
+      "action": "openQuickOptions"
+    },
+    "move": {
+      "icon": "bi-grid-3x2-gap-fill",
+      "title": "D\u00e9placer",
+      "action": "drag"
+    },
+    "icon_tool": {
+      "icon": "bi-bezier",
+      "title": "Schiff Pitchfork",
+      "action": "info"
+    },
+    "thickness": {
+      "icon": "bi-distribute-horizontal",
+      "title": "\u00c9paisseur",
+      "action": "openThicknessPopup"
+    },
+    "layers": {
+      "icon": "bi-layers",
+      "title": "Arborescence des objets",
+      "action": "openObjectTree"
+    },
+    "text": {
+      "icon": "bi-type",
+      "title": "Texte",
+      "action": "openTextColorPopup"
+    },
+    "alert": {
+      "icon": "bi-bell",
+      "title": "Cr\u00e9er une alerte sur ce dessin",
+      "action": "openAlertModal"
+    },
+    "orientation": {
+      "icon": "bi-arrow-repeat",
+      "title": "Changer l'orientation",
+      "action": "toggleOrientation"
+    },
+    "visibility": {
+      "icon": "bi-eye",
+      "title": "Visibilit\u00e9",
+      "action": "toggleVisibility"
+    }
+  }
+}

@@ -1,0 +1,5291 @@
+{
+  "tools": [
+    {
+      "tool": "regression_trend",
+      "status": "IMPLEMENTATION_CORRECTED",
+      "discovery_date": "2026-01-28",
+      "last_correction": "2026-01-28",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true
+      },
+      "visual_elements": {
+        "midline": {
+          "name": "Base",
+          "color": "#FF9800",
+          "width": 1,
+          "style": "dashed",
+          "opacity": 1.0
+        },
+        "upper_line": {
+          "name": "Up",
+          "color": "#2196F3",
+          "width": 1,
+          "style": "solid",
+          "opacity": 1.0
+        },
+        "lower_line": {
+          "name": "Down",
+          "color": "#2196F3",
+          "width": 1,
+          "style": "solid",
+          "opacity": 1.0
+        },
+        "handles": {
+          "count": 2,
+          "positions": [
+            "midline_start",
+            "midline_end"
+          ],
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#2196F3"
+        },
+        "colored_zones": [
+          {
+            "name": "Up Zone",
+            "description": "Area between Base line and Upper deviation line",
+            "trigger": "always",
+            "fill": "#2196F3",
+            "opacity": 0.15,
+            "boundary": {
+              "top": "upper_line",
+              "bottom": "midline"
+            }
+          },
+          {
+            "name": "Down Zone",
+            "description": "Area between Base line and Lower deviation line",
+            "trigger": "always",
+            "fill": "#FFE0B2",
+            "opacity": 0.15,
+            "boundary": {
+              "top": "midline",
+              "bottom": "lower_line"
+            }
+          }
+        ],
+        "labels": [
+          {
+            "name": "Pearson's R",
+            "position": "below_start_handle",
+            "font": "Inter, 11px",
+            "color": "#94a3b8"
+          }
+        ]
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 7,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Add Note",
+            "icon": "plus_grid",
+            "action": "add_note_to_drawing"
+          },
+          {
+            "id": 2,
+            "name": "Line Settings",
+            "icon": "line_style",
+            "action": "open_line_settings_dropdown"
+          },
+          {
+            "id": 3,
+            "name": "Settings",
+            "icon": "gear",
+            "action": "open_settings_modal"
+          },
+          {
+            "id": 4,
+            "name": "Lock",
+            "icon": "lock_open",
+            "action": "toggle_lock"
+          },
+          {
+            "id": 5,
+            "name": "Order",
+            "icon": "layers",
+            "action": "open_order_dropdown"
+          },
+          {
+            "id": 6,
+            "name": "Remove",
+            "icon": "trash",
+            "action": "delete_drawing"
+          },
+          {
+            "id": 7,
+            "name": "More",
+            "icon": "three_dots",
+            "action": "open_more_menu"
+          }
+        ]
+      },
+      "settings": {
+        "tabs": [
+          {
+            "name": "Inputs",
+            "properties": [
+              {
+                "name": "Upper Deviation",
+                "type": "number",
+                "default": 2
+              },
+              {
+                "name": "Lower Deviation",
+                "type": "number",
+                "default": -2
+              },
+              {
+                "name": "Use Upper Deviation",
+                "type": "boolean",
+                "default": true
+              },
+              {
+                "name": "Use Lower Deviation",
+                "type": "boolean",
+                "default": true
+              },
+              {
+                "name": "Source",
+                "type": "select",
+                "default": "close",
+                "options": [
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "hl2",
+                  "hlc3",
+                  "ohlc4"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Base",
+                "type": "toggle_color_line",
+                "default": {
+                  "enabled": true,
+                  "color": "#FF9800",
+                  "lineStyle": "dashed"
+                }
+              },
+              {
+                "name": "Up",
+                "type": "toggle_color_line",
+                "default": {
+                  "enabled": true,
+                  "color": "#2196F3",
+                  "lineStyle": "solid",
+                  "fillColor": "#2196F3"
+                }
+              },
+              {
+                "name": "Down",
+                "type": "toggle_color_line",
+                "default": {
+                  "enabled": true,
+                  "color": "#2196F3",
+                  "lineStyle": "solid",
+                  "fillColor": "#FFE0B2"
+                }
+              },
+              {
+                "name": "Extend Lines",
+                "type": "boolean",
+                "default": false
+              },
+              {
+                "name": "Pearson's R",
+                "type": "boolean",
+                "default": true
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "properties": [
+              {
+                "name": "Point 1 Price",
+                "type": "number"
+              },
+              {
+                "name": "Point 1 Bar#",
+                "type": "number"
+              },
+              {
+                "name": "Point 2 Price",
+                "type": "number"
+              },
+              {
+                "name": "Point 2 Bar#",
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "properties": [
+              {
+                "name": "Show on Timeframes",
+                "type": "multi_select",
+                "default": "all"
+              }
+            ]
+          }
+        ]
+      },
+      "mathematics": {
+        "algorithm": "Ordinary Least Squares (OLS)",
+        "outputs": [
+          "Slope",
+          "Intercept",
+          "Standard Deviation",
+          "Pearson's Correlation Coefficient"
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: Two distinct colored zones (Up zone above Base, Down zone below Base)",
+        "Up zone: Blue/Purple (#2196F3) with 15% opacity",
+        "Down zone: Beige/Yellow (#FFE0B2) with 15% opacity",
+        "Tooltip has exactly 7 buttons (not 8)",
+        "Base line is dashed (#FF9800), Up/Down lines are solid (#2196F3)"
+      ]
+    },
+    {
+      "tool": "fib_retracement",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-02-09",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": "Alt+F",
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "trend_line": {
+          "name": "Trend Line",
+          "description": "Dashed line connecting P1 and P2",
+          "color": "#787b86",
+          "width": 1,
+          "style": "dashed"
+        },
+        "levels": [
+          {
+            "value": 0,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.236,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 0.382,
+            "color": "#ff9800",
+            "enabled": true
+          },
+          {
+            "value": 0.5,
+            "color": "#4caf50",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "color": "#009688",
+            "enabled": true
+          },
+          {
+            "value": 0.786,
+            "color": "#2196f3",
+            "enabled": true
+          },
+          {
+            "value": 1,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 1.618,
+            "color": "#2196f3",
+            "enabled": true
+          },
+          {
+            "value": 2.618,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 3.618,
+            "color": "#9c27b0",
+            "enabled": true
+          },
+          {
+            "value": 4.236,
+            "color": "#e91e63",
+            "enabled": true
+          }
+        ],
+        "extended_levels": [
+          {
+            "value": 1.272,
+            "enabled": false
+          },
+          {
+            "value": 1.414,
+            "enabled": false
+          },
+          {
+            "value": 2,
+            "enabled": false
+          },
+          {
+            "value": 2.272,
+            "enabled": false
+          },
+          {
+            "value": 2.414,
+            "enabled": false
+          },
+          {
+            "value": 3,
+            "enabled": false
+          },
+          {
+            "value": 3.272,
+            "enabled": false
+          },
+          {
+            "value": 3.414,
+            "enabled": false
+          },
+          {
+            "value": 4,
+            "enabled": false
+          },
+          {
+            "value": 4.272,
+            "enabled": false
+          },
+          {
+            "value": 4.414,
+            "enabled": false
+          },
+          {
+            "value": 4.618,
+            "enabled": false
+          },
+          {
+            "value": 4.764,
+            "enabled": false
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "P1",
+            "P2"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 7,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 9,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Fibonacci Retracement",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "color_width_style_check"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_24_cols"
+              },
+              {
+                "name": "Extend Lines",
+                "type": "select",
+                "options": [
+                  "Left",
+                  "Right",
+                  "Both",
+                  "None"
+                ]
+              },
+              {
+                "name": "Use one color",
+                "type": "checkbox_color"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity"
+              },
+              {
+                "name": "Reverse",
+                "type": "checkbox"
+              },
+              {
+                "name": "Prices",
+                "type": "checkbox"
+              },
+              {
+                "name": "Levels",
+                "type": "checkbox"
+              },
+              {
+                "name": "Labels Position",
+                "type": "select_pair",
+                "options": [
+                  [
+                    "Left",
+                    "Right"
+                  ],
+                  [
+                    "Top",
+                    "Middle",
+                    "Bottom"
+                  ]
+                ]
+              },
+              {
+                "name": "Font Size",
+                "type": "number_select"
+              },
+              {
+                "name": "Log Scale",
+                "type": "checkbox"
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: Background fills must be distinct per level interval.",
+        "CRITICAL: 8 buttons in Toolbar.",
+        "Labels have 2 boolean toggles: Prices AND Levels.",
+        "Log Scale support required."
+      ]
+    },
+    {
+      "tool": "fib_channel",
+      "status": "IMPLEMENTATION_PENDING",
+      "discovery_date": "2026-02-10",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "base_line": {
+          "name": "Base Line",
+          "description": "Line connecting P1 and P2",
+          "color": "#787b86",
+          "width": 1,
+          "style": "dashed"
+        },
+        "levels": [
+          {
+            "value": 0,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.236,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 0.382,
+            "color": "#ff9800",
+            "enabled": true
+          },
+          {
+            "value": 0.5,
+            "color": "#4caf50",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "color": "#009688",
+            "enabled": true
+          },
+          {
+            "value": 0.786,
+            "color": "#2196f3",
+            "enabled": true
+          },
+          {
+            "value": 1,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 1.618,
+            "color": "#2196f3",
+            "enabled": true
+          },
+          {
+            "value": 2.618,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 3.618,
+            "color": "#9c27b0",
+            "enabled": true
+          },
+          {
+            "value": 4.236,
+            "color": "#e91e63",
+            "enabled": true
+          }
+        ],
+        "extended_levels": [
+          {
+            "value": -0.236,
+            "enabled": false
+          },
+          {
+            "value": -0.382,
+            "enabled": false
+          },
+          {
+            "value": -0.618,
+            "enabled": false
+          },
+          {
+            "value": 1.272,
+            "enabled": false
+          },
+          {
+            "value": 1.414,
+            "enabled": false
+          },
+          {
+            "value": 2,
+            "enabled": false
+          },
+          {
+            "value": 2.272,
+            "enabled": false
+          },
+          {
+            "value": 2.414,
+            "enabled": false
+          },
+          {
+            "value": 3,
+            "enabled": false
+          },
+          {
+            "value": 4,
+            "enabled": false
+          }
+        ],
+        "handles": {
+          "count": 3,
+          "positions": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 5,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 6,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 7,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 8,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Fib Channel",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Base Line",
+                "type": "color_width_style_check"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_24_cols"
+              },
+              {
+                "name": "Extend Lines",
+                "type": "select",
+                "options": [
+                  "Left",
+                  "Right",
+                  "Both",
+                  "None"
+                ]
+              },
+              {
+                "name": "Use one color",
+                "type": "checkbox_color"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity"
+              },
+              {
+                "name": "Reverse",
+                "type": "checkbox"
+              },
+              {
+                "name": "Prices",
+                "type": "checkbox"
+              },
+              {
+                "name": "Levels",
+                "type": "checkbox"
+              },
+              {
+                "name": "Labels Position",
+                "type": "select_pair",
+                "options": [
+                  [
+                    "Left",
+                    "Right"
+                  ],
+                  [
+                    "Top",
+                    "Middle",
+                    "Bottom"
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 3",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Mathematical Model: Parallel lines projected from Base Line (P1-P2) based on height unit (P3).",
+        "Strict parallelism required (no rotation of individual levels).",
+        "Inversion support (negative height) must be seamless."
+      ]
+    },
+    {
+      "tool": "flat_top_bottom",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-01-28",
+      "version": "4.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#FF9800",
+          "style": "solid",
+          "opacity": 1.0
+        }
+      },
+      "visual_elements": {
+        "total_lines": 3,
+        "lines": [
+          {
+            "id": 1,
+            "name": "Slanted Line",
+            "color": "#FF9800",
+            "width": 1,
+            "style": "solid",
+            "opacity": 1.0
+          },
+          {
+            "id": 2,
+            "name": "Horizontal Line Top/Bottom",
+            "color": "#FF9800",
+            "width": 1,
+            "style": "solid",
+            "opacity": 1.0
+          },
+          {
+            "id": 3,
+            "name": "Connection Line (Optional)",
+            "description": "Usually forms a channel or wedge",
+            "color": "#FF9800",
+            "width": 1,
+            "style": "solid",
+            "opacity": 1.0
+          }
+        ],
+        "total_zones": 1,
+        "colored_zones": [
+          {
+            "id": 1,
+            "name": "Channel Fill",
+            "boundary_top": "Slanted/Horizontal",
+            "boundary_bottom": "Horizontal/Slanted",
+            "fill": "#FF9800",
+            "opacity": 0.2
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "start",
+            "end"
+          ],
+          "shape": "circle",
+          "size": 5,
+          "fill": "#FFFFFF",
+          "stroke": "#FF9800"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 10,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "icon": "drag_handle",
+            "action": "drag_drawing"
+          },
+          {
+            "id": 2,
+            "name": "Border Color",
+            "icon": "color_droplet",
+            "action": "open_stroke_color_picker",
+            "opens_dropdown": true
+          },
+          {
+            "id": 3,
+            "name": "Fill Color",
+            "icon": "fill_bucket",
+            "action": "open_fill_color_picker",
+            "opens_dropdown": true
+          },
+          {
+            "id": 4,
+            "name": "Line Style",
+            "icon": "line_style",
+            "action": "open_line_style_dropdown",
+            "opens_dropdown": true
+          },
+          {
+            "id": 5,
+            "name": "Thickness",
+            "icon": "thickness",
+            "action": "open_thickness_dropdown",
+            "opens_dropdown": true
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "icon": "gear",
+            "action": "open_settings_modal",
+            "opens_modal": true
+          },
+          {
+            "id": 7,
+            "name": "Alert",
+            "icon": "bell",
+            "action": "open_alert_modal"
+          },
+          {
+            "id": 8,
+            "name": "Lock",
+            "icon": "lock_open",
+            "action": "toggle_lock"
+          },
+          {
+            "id": 9,
+            "name": "Remove",
+            "icon": "trash",
+            "action": "delete_drawing"
+          },
+          {
+            "id": 10,
+            "name": "More",
+            "icon": "three_dots",
+            "action": "open_more_menu",
+            "opens_dropdown": true
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Flat Top/Bottom",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Border",
+                "type": "toggle_color_line",
+                "default": true
+              },
+              {
+                "name": "Background",
+                "type": "toggle_color_fill",
+                "default": true
+              }
+            ]
+          },
+          {
+            "name": "Text",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Show Text",
+                "type": "checkbox",
+                "default": false
+              },
+              {
+                "name": "Text Color",
+                "type": "color",
+                "default": "#FFFFFF"
+              },
+              {
+                "name": "Font Size",
+                "type": "number",
+                "default": 14
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3,
+            "properties": [
+              {
+                "name": "Timeframes",
+                "type": "multi_select",
+                "default": "all"
+              }
+            ]
+          }
+        ],
+        "has_template_dropdown": true
+      },
+      "implementation_notes": [
+        "Distinct buttons for Border Color and Fill Color in tooltip",
+        "No explicit Inputs/Coordinates tabs observed in this version",
+        "Includes a 'Text' tab in settings for labels",
+        "Alert button present in tooltip"
+      ]
+    },
+    {
+      "tool": "disjoint_channel",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-01-28",
+      "version": "4.1",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "system",
+          "style": "solid",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "total_lines": 2,
+        "lines": [
+          {
+            "id": 1,
+            "name": "Base Line",
+            "description": "Defined by first 2 clicks",
+            "color": "selectable",
+            "width": "selectable",
+            "style": "selectable"
+          },
+          {
+            "id": 2,
+            "name": "Offset Line",
+            "description": "Defined by 3rd click and independent handles",
+            "color": "selectable",
+            "width": "selectable",
+            "style": "selectable"
+          }
+        ],
+        "total_zones": 1,
+        "colored_zones": [
+          {
+            "id": 1,
+            "name": "Channel Fill",
+            "description": "Area between the two lines. Supports Bowtie crossing.",
+            "fill": "selectable",
+            "opacity": "selectable"
+          }
+        ],
+        "handles": {
+          "count": 4,
+          "positions": [
+            "P1",
+            "P2",
+            "P3",
+            "P4"
+          ],
+          "behavior": "independent",
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "selectable"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 11,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "icon": "drag_handle",
+            "action": "drag_drawing"
+          },
+          {
+            "id": 2,
+            "name": "Line Color",
+            "icon": "brush",
+            "action": "open_line_color_picker",
+            "opens_dropdown": true
+          },
+          {
+            "id": 3,
+            "name": "Background Color",
+            "icon": "fill_bucket",
+            "action": "open_fill_color_picker",
+            "opens_dropdown": true
+          },
+          {
+            "id": 4,
+            "name": "Text Color",
+            "icon": "text_color",
+            "action": "open_text_color_picker",
+            "opens_dropdown": true
+          },
+          {
+            "id": 5,
+            "name": "Thickness",
+            "icon": "thickness_dropdown",
+            "action": "open_thickness_menu",
+            "opens_dropdown": true
+          },
+          {
+            "id": 6,
+            "name": "Line Style",
+            "icon": "line_style_dropdown",
+            "action": "open_style_menu",
+            "opens_dropdown": true
+          },
+          {
+            "id": 7,
+            "name": "Settings",
+            "icon": "gear",
+            "action": "open_settings_modal",
+            "opens_modal": true
+          },
+          {
+            "id": 8,
+            "name": "Alert",
+            "icon": "bell",
+            "action": "open_alert_modal"
+          },
+          {
+            "id": 9,
+            "name": "Lock",
+            "icon": "lock_open",
+            "action": "toggle_lock"
+          },
+          {
+            "id": 10,
+            "name": "Remove",
+            "icon": "trash",
+            "action": "delete_drawing"
+          },
+          {
+            "id": 11,
+            "name": "More",
+            "icon": "three_dots",
+            "action": "open_more_menu",
+            "opens_dropdown": true
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Disjoint Channel",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Line",
+                "type": "color_width_style_arrows",
+                "default": {
+                  "color": "#2196f3",
+                  "width": 2,
+                  "style": "solid",
+                  "leftArrow": false,
+                  "rightArrow": false
+                }
+              },
+              {
+                "name": "Extend",
+                "type": "select",
+                "options": [
+                  "Don't extend",
+                  "Extend Left",
+                  "Extend Right",
+                  "Extend Both"
+                ],
+                "default": "Don't extend"
+              },
+              {
+                "name": "Prices",
+                "type": "checkbox",
+                "default": false
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_with_color_opacity",
+                "default": {
+                  "enabled": true,
+                  "color": "#2196f3",
+                  "opacity": 0.2
+                }
+              }
+            ]
+          },
+          {
+            "name": "Text",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Text Area",
+                "type": "textarea",
+                "default": ""
+              },
+              {
+                "name": "Font",
+                "type": "size_bold_italic",
+                "default": {
+                  "size": 14,
+                  "bold": false,
+                  "italic": false
+                }
+              },
+              {
+                "name": "Alignment",
+                "type": "hv_alignment",
+                "default": {
+                  "vertical": "bottom",
+                  "horizontal": "center"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3,
+            "properties": [
+              {
+                "name": "Timeframes",
+                "type": "multi_select",
+                "default": "all"
+              }
+            ]
+          }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: 3-click creation (Line 1 -> Height).",
+        "CRITICAL: 4 handles are independent after creation, allowing non-parallel and Bowtie shapes.",
+        "Tooltip has exactly 11 buttons.",
+        "No Inputs or Coordinates tabs present in this tool."
+      ]
+    },
+    {
+      "tool": "pitchfork",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-01-28",
+      "version": "4.1",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#ff9800",
+          "style": "solid",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "median_line": {
+          "name": "Median",
+          "description": "Origin P1 to midpoint of P2-P3",
+          "style": "selectable"
+        },
+        "levels": [
+          {
+            "value": 0,
+            "name": "Base"
+          },
+          {
+            "value": 0.25,
+            "name": "Internal 1"
+          },
+          {
+            "value": 0.382,
+            "name": "Fib 1"
+          },
+          {
+            "value": 0.5,
+            "name": "Mid"
+          },
+          {
+            "value": 0.618,
+            "name": "Fib 2"
+          },
+          {
+            "value": 0.75,
+            "name": "Internal 2"
+          },
+          {
+            "value": 1,
+            "name": "Outer"
+          }
+        ],
+        "handles": {
+          "count": 3,
+          "positions": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "behavior": "parametric_dynamic",
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "selectable"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "icon": "drag_handle",
+            "action": "drag_drawing"
+          },
+          {
+            "id": 2,
+            "name": "Line Color",
+            "icon": "brush",
+            "action": "open_line_color_picker",
+            "opens_dropdown": true
+          },
+          {
+            "id": 3,
+            "name": "Line Style",
+            "icon": "line_style_dropdown",
+            "action": "open_style_menu",
+            "opens_dropdown": true
+          },
+          {
+            "id": 4,
+            "name": "Thickness",
+            "icon": "thickness_dropdown",
+            "action": "open_thickness_menu",
+            "opens_dropdown": true
+          },
+          {
+            "id": 5,
+            "name": "Settings",
+            "icon": "gear",
+            "action": "open_settings_modal",
+            "opens_modal": true
+          },
+          {
+            "id": 6,
+            "name": "Lock",
+            "icon": "lock_open",
+            "action": "toggle_lock"
+          },
+          {
+            "id": 7,
+            "name": "Remove",
+            "icon": "trash",
+            "action": "delete_drawing"
+          },
+          {
+            "id": 8,
+            "name": "More",
+            "icon": "three_dots",
+            "action": "open_more_menu",
+            "opens_dropdown": true
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Pitchfork",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Extend Lines",
+                "type": "checkbox",
+                "default": false
+              },
+              {
+                "name": "Median",
+                "type": "color_width_style",
+                "default": {
+                  "color": "#f44336",
+                  "width": 1,
+                  "style": "solid"
+                }
+              },
+              {
+                "name": "Levels",
+                "type": "fib_levels_with_style",
+                "default": [
+                  0,
+                  0.5,
+                  1
+                ]
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_with_opacity",
+                "default": {
+                  "enabled": true,
+                  "opacity": 0.2
+                }
+              },
+              {
+                "name": "Style",
+                "type": "select",
+                "options": [
+                  "Original",
+                  "Schiff",
+                  "Modified Schiff",
+                  "Inside"
+                ],
+                "default": "Original"
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "P1 Price/Bar",
+                "type": "coordinate_pair"
+              },
+              {
+                "name": "P2 Price/Bar",
+                "type": "coordinate_pair"
+              },
+              {
+                "name": "P3 Price/Bar",
+                "type": "coordinate_pair"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3,
+            "properties": [
+              {
+                "name": "Timeframes",
+                "type": "multi_select",
+                "default": "all"
+              }
+            ]
+          }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: Median must pass through geometric midpoint of P2 and P3.",
+        "Modified Schiff geometry: Origin = midpoint(P1, P2).",
+        "Levels are managed as individual parallel offsets from the median slope."
+      ]
+    },
+    {
+      "tool": "schiff_pitchfork",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-03",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#f23645",
+          "style": "solid",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "median_line": {
+          "name": "Median",
+          "description": "Origin = Midpoint(P1, P2). Passing through Midpoint(P2, P3).",
+          "color": "#f23645",
+          "width": 2
+        },
+        "trend_line": {
+          "name": "Trend Line",
+          "description": "Solid line connecting P1 to P2.",
+          "color": "#f23645",
+          "width": 1
+        },
+        "levels": [
+          {
+            "value": 0,
+            "name": "Base",
+            "enabled": true
+          },
+          {
+            "value": 0.25,
+            "name": "0.25",
+            "enabled": false
+          },
+          {
+            "value": 0.382,
+            "name": "0.382",
+            "enabled": false
+          },
+          {
+            "value": 0.5,
+            "name": "0.5",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "name": "0.618",
+            "enabled": false
+          },
+          {
+            "value": 0.75,
+            "name": "0.75",
+            "enabled": false
+          },
+          {
+            "value": 1.0,
+            "name": "1",
+            "enabled": true
+          },
+          {
+            "value": 1.5,
+            "name": "1.5",
+            "enabled": false
+          },
+          {
+            "value": 1.75,
+            "name": "1.75",
+            "enabled": false
+          },
+          {
+            "value": 2.0,
+            "name": "2",
+            "enabled": false
+          }
+        ],
+        "handles": {
+          "count": 3,
+          "positions": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "behavior": "shiff_parallel_offset",
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#f23645"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 10,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal"
+          },
+          {
+            "id": 7,
+            "name": "Lock",
+            "action": "toggleLock"
+          },
+          {
+            "id": 8,
+            "name": "Visibility",
+            "action": "toggleVisibility"
+          },
+          {
+            "id": 9,
+            "name": "Remove",
+            "action": "deleteDrawing"
+          },
+          {
+            "id": 10,
+            "name": "More",
+            "action": "openMorePopup"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Schiff Pitchfork",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Median",
+                "type": "color_width_style"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_9"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_with_opacity"
+              },
+              {
+                "name": "Style (Variant)",
+                "type": "select",
+                "options": [
+                  "Original",
+                  "Schiff",
+                  "Modified Schiff",
+                  "Inside"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 3",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Origin of the fork is strictly the midpoint of P1 and P2.",
+        "A solid trend line must remain visible between P1 and P2.",
+        "Tooltip must show exactly 10 buttons (including Move handle).",
+        "Geometric calculations must support Bowtie (crossing P3 beyond P2)."
+      ]
+    },
+    {
+      "tool": "modified_schiff_pitchfork",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-03",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#f23645",
+          "style": "solid",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "median_line": {
+          "name": "Median",
+          "description": "Origin = Midpoint(P1, P2) - both axis shifted. Passing through Midpoint(P2, P3).",
+          "color": "#f23645",
+          "width": 2
+        },
+        "trend_line": {
+          "name": "Anchor Line",
+          "description": "Solid line connecting P1 to P2. Visible when selected.",
+          "color": "#f23645",
+          "width": 1
+        },
+        "levels": [
+          {
+            "value": 0,
+            "name": "Base",
+            "enabled": true,
+            "color": "#f23645"
+          },
+          {
+            "value": 0.5,
+            "name": "0.5",
+            "enabled": true,
+            "color": "#4caf50"
+          },
+          {
+            "value": 1.0,
+            "name": "1",
+            "enabled": true,
+            "color": "#2196f3"
+          }
+        ],
+        "handles": {
+          "count": 3,
+          "positions": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "behavior": "modified_schiff_midpoint",
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#f23645"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 9,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 7,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 9,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Modified Schiff Pitchfork",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Extend lines",
+                "type": "checkbox"
+              },
+              {
+                "name": "Median",
+                "type": "color_width_style"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_dynamic"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_with_opacity"
+              },
+              {
+                "name": "Style (Variant)",
+                "type": "select",
+                "options": [
+                  "Original",
+                  "Schiff",
+                  "Modified Schiff",
+                  "Inside"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 3",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Origin of the fork is precisely the midpoint (geometric center) of P1 and P2.",
+        "Geometric logic must support Bowtie (crossing P3 beyond P2).",
+        "Tooltip must show exactly 9 buttons (Visibility icon is hidden for this tool).",
+        "Force 'modified_schiff' style by default when selected from this specific menu item."
+      ]
+    },
+    {
+      "tool": "inside_pitchfork",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-02-03",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#f23645",
+          "style": "solid",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "median_line": {
+          "name": "Median",
+          "description": "Origin P1 to midpoint of P2-P3. P1 is geometrically located at the midpoint of actual user clicks A and B.",
+          "style": "selectable"
+        },
+        "levels": [
+          {
+            "value": -1,
+            "name": "1",
+            "enabled": true,
+            "color": "#4caf50"
+          },
+          {
+            "value": -0.5,
+            "name": "0.5",
+            "enabled": true,
+            "color": "#2196f3"
+          },
+          {
+            "value": 0,
+            "name": "Base",
+            "enabled": true,
+            "color": "#f23645"
+          },
+          {
+            "value": 0.5,
+            "name": "0.5",
+            "enabled": true,
+            "color": "#2196f3"
+          },
+          {
+            "value": 1.0,
+            "name": "1",
+            "enabled": true,
+            "color": "#4caf50"
+          }
+        ],
+        "handles": {
+          "count": 3,
+          "positions": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "behavior": "inside_pitchfork_midpoint",
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#f23645"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 7,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 9,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Inside Pitchfork",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Extend lines",
+                "type": "checkbox"
+              },
+              {
+                "name": "Median",
+                "type": "color_width_style"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_dynamic"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_with_opacity"
+              },
+              {
+                "name": "Style (Variant)",
+                "type": "select",
+                "options": [
+                  "Original",
+                  "Schiff",
+                  "Modified Schiff",
+                  "Inside"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 3",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Origin of the fork is the midpoint of P1 and P2.",
+        "Similar to Modified Schiff in geometry, but often treated as a distinct tool.",
+        "Tooltip: 8 buttons (Matches standard Pitchfork, note: earlier audit said 8 for Inside/Standard).",
+        "Force 'inside' style by default."
+      ]
+    },
+    {
+      "tool": "trend_based_fib_extension",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-10",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "trend_lines": [
+          {
+            "id": 1,
+            "name": "Trend Line A-B",
+            "color": "#787b86",
+            "width": 1,
+            "style": "dashed"
+          },
+          {
+            "id": 2,
+            "name": "Trend Line B-C",
+            "color": "#787b86",
+            "width": 1,
+            "style": "dashed"
+          }
+        ],
+        "levels": "24+ configurable levels (0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.618, etc.)",
+        "handles": {
+          "count": 3,
+          "positions": [
+            "A",
+            "B",
+            "C"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "position": 1,
+            "icon": "grip",
+            "hover_text": "Move",
+            "action": "drag"
+          },
+          {
+            "position": 2,
+            "icon": "pen",
+            "hover_text": "Line Color",
+            "action": "openColorPopup"
+          },
+          {
+            "position": 3,
+            "icon": "style_dashed",
+            "hover_text": "Line Style",
+            "action": "openLineStylePopup"
+          },
+          {
+            "position": 4,
+            "icon": "text_value",
+            "hover_text": "Line Width",
+            "action": "openThicknessPopup"
+          },
+          {
+            "position": 5,
+            "icon": "gear",
+            "hover_text": "Settings",
+            "action": "openSettingsModal"
+          },
+          {
+            "position": 6,
+            "icon": "lock",
+            "hover_text": "Lock",
+            "action": "toggleLock"
+          },
+          {
+            "position": 7,
+            "icon": "trash",
+            "hover_text": "Remove",
+            "action": "deleteDrawing"
+          },
+          {
+            "position": 8,
+            "icon": "dots",
+            "hover_text": "More",
+            "action": "openMorePopup"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Trend-Based Fib Extension",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "color_width_style_check"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_24_cols"
+              },
+              {
+                "name": "Extend lines",
+                "type": "select",
+                "options": [
+                  "Left",
+                  "Right",
+                  "Both",
+                  "None"
+                ]
+              },
+              {
+                "name": "Reverse",
+                "type": "checkbox"
+              },
+              {
+                "name": "Labels",
+                "type": "select_pair",
+                "options": [
+                  [
+                    "Left",
+                    "Center",
+                    "Right"
+                  ],
+                  [
+                    "Top",
+                    "Middle",
+                    "Bottom"
+                  ]
+                ]
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_with_opacity"
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 3",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Calculation: Extension = PriceC + (Ratio * (PriceB - PriceA)).",
+        "Geometric Torture: Tool becomes Bowtie when C > B, remains mathematically valid.",
+        "Tooltip buttons: 8 total (excluding separators)."
+      ]
+    },
+    {
+      "tool": "fib_time_zone",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-11",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "total_lines": 12,
+        "lines": [
+          {
+            "id": 0,
+            "value": 0,
+            "name": "0",
+            "color": "#787b86",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 1,
+            "value": 1,
+            "name": "1",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 2,
+            "value": 2,
+            "name": "2",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 3,
+            "value": 3,
+            "name": "3",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 4,
+            "value": 5,
+            "name": "5",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 5,
+            "value": 8,
+            "name": "8",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 6,
+            "value": 13,
+            "name": "13",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 7,
+            "value": 21,
+            "name": "21",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 8,
+            "value": 34,
+            "name": "34",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 9,
+            "value": 55,
+            "name": "55",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 10,
+            "value": 89,
+            "name": "89",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          },
+          {
+            "id": 11,
+            "value": 144,
+            "name": "144",
+            "color": "#673ab7",
+            "width": 1,
+            "style": "solid"
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "P1",
+            "P2"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        },
+        "guide_line": {
+          "name": "Trend Line",
+          "color": "#787b86",
+          "style": "dashed",
+          "width": 1
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 9,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 3,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 4,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 5,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 6,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 7,
+            "name": "Visibility",
+            "action": "toggleVisibility",
+            "icon": "eye"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 9,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Fib Time Zone",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "color_width_style_check"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_24_cols"
+              },
+              {
+                "name": "Use one color",
+                "type": "checkbox_color"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity"
+              },
+              {
+                "name": "Labels",
+                "type": "select_pair",
+                "options": [
+                  [
+                    "Left",
+                    "Center",
+                    "Right"
+                  ],
+                  [
+                    "Top",
+                    "Middle",
+                    "Bottom"
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "properties": [
+              {
+                "name": "Point 1",
+                "type": "price_bar"
+              },
+              {
+                "name": "Point 2",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility"
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Geometry is strictly vertical.",
+        "Trend Line is the guide between P1 and P2.",
+        "Labels have 9 position combinations."
+      ]
+    },
+    {
+      "tool": "fib_speed_resistance_fan",
+      "status": "IMPLEMENTATION_IN_PROGRESS",
+      "discovery_date": "2026-02-16",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "grid": {
+          "name": "Base Rectangle",
+          "color": "#787b86",
+          "width": 1,
+          "style": "dashed"
+        },
+        "price_ratios": [
+          0,
+          0.25,
+          0.382,
+          0.5,
+          0.618,
+          0.75,
+          1
+        ],
+        "time_ratios": [
+          0,
+          0.25,
+          0.382,
+          0.5,
+          0.618,
+          0.75,
+          1
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "P1",
+            "P2"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 9,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 7,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 9,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: 2 clicks required (P1 origin, P2 bounding box pilot).",
+        "Radial lines must converge at P1 and end at the edges of the P1-P2 rectangle based on ratios.",
+        "Torture: Handles must allow full inversion (flipped\u6247\u5b50)."
+      ]
+    },
+    {
+      "tool": "trend_based_fib_time",
+      "status": "IMPLEMENTATION_IN_PROGRESS",
+      "discovery_date": "2026-02-16",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dotted",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "trend_lines": [
+          {
+            "name": "Trend Line (A-B)",
+            "color": "#787b86",
+            "style": "dotted",
+            "width": 1
+          },
+          {
+            "name": "Extension Line (B-C)",
+            "color": "#787b86",
+            "style": "dotted",
+            "width": 1
+          }
+        ],
+        "levels": [
+          {
+            "value": 0,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.382,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 0.5,
+            "color": "#4caf50",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "color": "#009688",
+            "enabled": true
+          },
+          {
+            "value": 1,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 1.618,
+            "color": "#2962ff",
+            "enabled": true
+          }
+        ],
+        "handles": {
+          "count": 3,
+          "positions": [
+            "A",
+            "B",
+            "C"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 7,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Trend-Based Fib Time",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "color_style_check"
+              },
+              {
+                "name": "Extension Line",
+                "type": "color_style_check"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity"
+              },
+              {
+                "name": "Labels",
+                "type": "checkbox_position"
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "properties": [
+              {
+                "name": "Points A, B, C",
+                "type": "price_time"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Projection: T = T_C + R * (T_B - T_A)",
+        "Trend lines A-B and B-C are vital for visual context.",
+        "Labels anchor to the bottom/top of the grid regardless of price.",
+        "Crucial: 3 clicks required for activation loop."
+      ]
+    },
+    {
+      "tool": "fib_circles",
+      "status": "PRODUCTION",
+      "discovery_date": "2026-02-17",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "trend_line": {
+          "name": "Trend Line",
+          "color": "#787b86",
+          "width": 1,
+          "style": "dashed"
+        },
+        "levels": [
+          {
+            "value": 0,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.236,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 0.382,
+            "color": "#ff9800",
+            "enabled": true
+          },
+          {
+            "value": 0.5,
+            "color": "#4caf50",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "color": "#009688",
+            "enabled": true
+          },
+          {
+            "value": 0.786,
+            "color": "#2196f3",
+            "enabled": true
+          },
+          {
+            "value": 1,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 1.618,
+            "color": "#2196f3",
+            "enabled": true
+          },
+          {
+            "value": 2.618,
+            "color": "#f44336",
+            "enabled": true
+          },
+          {
+            "value": 3.618,
+            "color": "#9c27b0",
+            "enabled": true
+          },
+          {
+            "value": 4.236,
+            "color": "#e91e63",
+            "enabled": true
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "Center (P1)",
+            "Radius (P2)"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 8,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 2,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 3,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 4,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 5,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 6,
+            "name": "Lock",
+            "action": "toggleLock",
+            "icon": "lock"
+          },
+          {
+            "id": 7,
+            "name": "Visibility",
+            "action": "toggleVisibility",
+            "icon": "eye"
+          },
+          {
+            "id": 8,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Fib Circles",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "color_style_check"
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_11"
+              },
+              {
+                "name": "Use one color",
+                "type": "checkbox_color"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity"
+              },
+              {
+                "name": "Labels",
+                "type": "checkbox"
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "properties": [
+              {
+                "name": "Center (P1)",
+                "type": "price_bar"
+              },
+              {
+                "name": "Radius (P2)",
+                "type": "price_bar"
+              }
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "Concentric circles radiate from P1.",
+        "Radius of Level 1.0 is the distance P1-P2.",
+        "Trend Line (P1-P2) acts as the label axis."
+      ]
+    },
+    {
+      "tool": "fib_spiral",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-17",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true
+      },
+      "visual_elements": {
+        "lines": [
+          {
+            "name": "Spiral",
+            "color": "#00BCD4",
+            "width": 2,
+            "style": "solid",
+            "opacity": 1.0
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "center",
+            "radius"
+          ],
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#00BCD4"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 7,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Line Color",
+            "icon": "color_box",
+            "action": "open_color_popup"
+          },
+          {
+            "id": 2,
+            "name": "Line Thickness",
+            "icon": "thickness",
+            "action": "open_thickness_popup"
+          },
+          {
+            "id": 3,
+            "name": "Settings",
+            "icon": "gear",
+            "action": "open_settings_modal"
+          },
+          {
+            "id": 4,
+            "name": "Lock",
+            "icon": "lock_open",
+            "action": "toggle_lock"
+          },
+          {
+            "id": 5,
+            "name": "Visibility",
+            "icon": "eye",
+            "action": "toggle_visibility"
+          },
+          {
+            "id": 6,
+            "name": "Remove",
+            "icon": "trash",
+            "action": "delete_drawing"
+          },
+          {
+            "id": 7,
+            "name": "More",
+            "icon": "three_dots",
+            "action": "open_more_menu"
+          }
+        ]
+      },
+      "settings": {
+        "tabs": [
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Line",
+                "type": "color_and_thickness",
+                "default": {
+                  "color": "#00BCD4",
+                  "width": 2
+                }
+              },
+              {
+                "name": "Counterclockwise",
+                "type": "checkbox",
+                "default": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "tool": "fib_speed_resistance_arcs",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-17",
+      "version": "4.1",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": "3",
+        "real_time_preview": "true",
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": "1.0"
+        }
+      },
+      "visual_elements": {
+        "total_lines": "2",
+        "lines": [
+          {
+            "id": 1,
+            "name": "Trend Line (P1-P2)",
+            "color": "#787b86",
+            "width": "1px",
+            "style": "dashed",
+            "opacity": "1.0"
+          },
+          {
+            "id": 2,
+            "name": "Height Line (P2-P3)",
+            "color": "#787b86",
+            "width": "1px",
+            "style": "dashed",
+            "opacity": "1.0"
+          }
+        ],
+        "total_zones": "N (Variable based on levels)",
+        "colored_zones": [
+          {
+            "id": 1,
+            "name": "Background Fills",
+            "boundary_top": "Arc N",
+            "boundary_bottom": "Arc N-1",
+            "fill": "Variable",
+            "opacity": "0.2"
+          }
+        ],
+        "handles": {
+          "count": "3",
+          "positions": [
+            "Start",
+            "Trend End",
+            "Height"
+          ],
+          "shape": "circle",
+          "size": "5px",
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        },
+        "labels": [
+          {
+            "name": "Ratio Labels",
+            "position": "Along Arcs",
+            "font": "Inter, 11px",
+            "color": "Variable",
+            "toggle_button": "settings"
+          }
+        ]
+      },
+      "tooltip": {
+        "visible": "true",
+        "position": "above",
+        "total_buttons": "8",
+        "buttons": [
+          {
+            "position": "1",
+            "icon": "move",
+            "hover_text": "Move",
+            "action": "Drag",
+            "opens_dropdown": "false",
+            "opens_modal": "false"
+          },
+          {
+            "position": "2",
+            "icon": "template",
+            "hover_text": "Template",
+            "action": "Open Template Menu",
+            "opens_dropdown": "true",
+            "opens_modal": "false"
+          },
+          {
+            "position": "3",
+            "icon": "color",
+            "hover_text": "Line Color",
+            "action": "Change Color",
+            "opens_dropdown": "true",
+            "opens_modal": "false"
+          },
+          {
+            "position": "4",
+            "icon": "line_style",
+            "hover_text": "Line Style",
+            "action": "Change Style/Thickness",
+            "opens_dropdown": "true",
+            "opens_modal": "false"
+          },
+          {
+            "position": "5",
+            "icon": "settings",
+            "hover_text": "Settings",
+            "action": "Open Modal",
+            "opens_dropdown": "false",
+            "opens_modal": "true"
+          },
+          {
+            "position": "6",
+            "icon": "lock",
+            "hover_text": "Lock",
+            "action": "Toggle Lock",
+            "opens_dropdown": "false",
+            "opens_modal": "false"
+          },
+          {
+            "position": "7",
+            "icon": "trash",
+            "hover_text": "Remove",
+            "action": "Delete Drawing",
+            "opens_dropdown": "false",
+            "opens_modal": "false"
+          },
+          {
+            "position": "8",
+            "icon": "more",
+            "hover_text": "More",
+            "action": "Open More Menu",
+            "opens_dropdown": "true",
+            "opens_modal": "false"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Fib Speed Resistance Arcs",
+        "structure": "flat",
+        "total_tabs": "4",
+        "tabs": [
+          {
+            "name": "Style",
+            "order": "1",
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "checkbox + color + width + style"
+              },
+              {
+                "name": "Levels",
+                "type": "list of checkboxes + inputs + colors"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox + slider (opacity)"
+              },
+              {
+                "name": "Full Circles",
+                "type": "checkbox"
+              },
+              {
+                "name": "Labels",
+                "type": "checkbox"
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": "2"
+          },
+          {
+            "name": "Visibility",
+            "order": "3"
+          }
+        ],
+        "has_template_dropdown": "true"
+      },
+      "implementation_notes": [
+        "Critique: Geometry is 3-point. Arcs are ellipses. Construction lines (P1-P2, P2-P3) are dashed.",
+        "Critique: Labels should be placed along the arcs.",
+        "Critique: 'Full Circles' option changes arcs to complete ellipses."
+      ]
+    },
+    {
+      "tool": "fib_wedge",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-02-18",
+      "version": "5.1",
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true
+      },
+      "visual_elements": {
+        "total_lines": 9,
+        "lines": [
+          {
+            "id": 1,
+            "name": "Side Ray 1 (Vertex-P2)",
+            "style": "solid"
+          },
+          {
+            "id": 2,
+            "name": "Side Ray 2 (Vertex-P3)",
+            "style": "solid"
+          },
+          {
+            "id": 3,
+            "name": "Level 0"
+          },
+          {
+            "id": 4,
+            "name": "Level 0.236"
+          },
+          {
+            "id": 5,
+            "name": "Level 0.382"
+          },
+          {
+            "id": 6,
+            "name": "Level 0.5"
+          },
+          {
+            "id": 7,
+            "name": "Level 0.618"
+          },
+          {
+            "id": 8,
+            "name": "Level 0.786"
+          },
+          {
+            "id": 9,
+            "name": "Level 1 (Target Termination)"
+          }
+        ],
+        "total_zones": 6,
+        "colored_zones": [
+          {
+            "id": 1,
+            "name": "Zone 0-0.236",
+            "fill": "#f44336",
+            "opacity": 0.5
+          },
+          {
+            "id": 2,
+            "name": "Zone 0.236-0.382",
+            "fill": "#ff9800",
+            "opacity": 0.1
+          },
+          {
+            "id": 3,
+            "name": "Zone 0.382-0.5",
+            "fill": "#ffeb3b",
+            "opacity": 0.1
+          },
+          {
+            "id": 4,
+            "name": "Zone 0.5-0.618",
+            "fill": "#009688",
+            "opacity": 0.1
+          },
+          {
+            "id": 5,
+            "name": "Zone 0.618-0.786",
+            "fill": "#2196f3",
+            "opacity": 0.1
+          },
+          {
+            "id": 6,
+            "name": "Zone 0.786-1",
+            "fill": "#787b86",
+            "opacity": 0.1
+          }
+        ]
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 6,
+        "buttons": [
+          {
+            "position": 1,
+            "icon": "pen",
+            "hover_text": "Line Color",
+            "action": "openColorPopup",
+            "opens_dropdown": true,
+            "opens_modal": false
+          },
+          {
+            "position": 2,
+            "icon": "style_dashed",
+            "hover_text": "Line Style",
+            "action": "openLineStylePopup",
+            "opens_dropdown": true,
+            "opens_modal": false
+          },
+          {
+            "position": 3,
+            "icon": "gear",
+            "hover_text": "Settings",
+            "action": "openSettingsModal",
+            "opens_dropdown": false,
+            "opens_modal": true
+          },
+          {
+            "position": 4,
+            "icon": "lock",
+            "hover_text": "Lock",
+            "action": "toggleLock",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 5,
+            "icon": "eye",
+            "hover_text": "Visibility",
+            "action": "toggleVisibility",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 6,
+            "icon": "trash",
+            "hover_text": "Remove",
+            "action": "deleteDrawing",
+            "opens_dropdown": false,
+            "opens_modal": false
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Fib Wedge",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Trend Line",
+                "type": "color_width_style_check",
+                "default": {
+                  "enabled": true,
+                  "color": "#787b86",
+                  "style": "solid"
+                }
+              },
+              {
+                "name": "Levels",
+                "type": "fib_grid_24_cols",
+                "default": [
+                  0,
+                  0.236,
+                  0.382,
+                  0.5,
+                  0.618,
+                  0.786,
+                  1.0
+                ]
+              },
+              {
+                "name": "Use one color",
+                "type": "checkbox_color",
+                "default": false
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity",
+                "default": {
+                  "enabled": true,
+                  "opacity": 0.5
+                }
+              },
+              {
+                "name": "Labels",
+                "type": "checkbox",
+                "default": true
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ],
+        "has_template_dropdown": true
+      },
+      "implementation_notes": [
+        "STRICTLY BOUNDED: Side rays strictly terminate at the maximum enabled Fibonacci level (default 1.0).",
+        "RADIUS INTERPOLATION: Arcs morph between Ray1 and Ray2 lengths to connect handles perfectly.",
+        "HIT-TEST: Sector-based hit detection enables professional selection and whole-shape dragging.",
+        "FIDELITY: Labels positioned inside arcs near Side Ray 1 for maximum clarity (matches Image 4)."
+      ]
+    },
+    {
+      "tool": "pitchfan",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "category": "fibonacci",
+      "discovery_date": "2026-02-19",
+      "version": "5.0",
+      "description": "Pitchfan — Angular fan radiating from P1 pivot through angularly-interpolated lines between P2 and P3 direction handles.",
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "points": [
+          "P1 (pivot/origin)",
+          "P2 (upper boundary direction)",
+          "P3 (lower boundary direction)"
+        ],
+        "real_time_preview": true
+      },
+      "geometry": {
+        "type": "angular_fan",
+        "origin": "P1",
+        "fan_angle_min": "angle(P1→P3)",
+        "fan_angle_max": "angle(P1→P2)",
+        "interpolation": "linear angular: t=0→P3, t=0.5→median, t=1→P2",
+        "lines_extend": "to infinity (RAY_LENGTH=20000px)"
+      },
+      "visual_elements": {
+        "total_lines": 5,
+        "lines": [
+          {
+            "id": 1,
+            "t": 0.0,
+            "name": "Outer Line P3",
+            "color": "#2196F3",
+            "lineWidth": 1.5,
+            "style": "solid"
+          },
+          {
+            "id": 2,
+            "t": 0.25,
+            "name": "Inner Line 1",
+            "color": "#00BCD4",
+            "lineWidth": 1.0,
+            "style": "solid"
+          },
+          {
+            "id": 3,
+            "t": 0.5,
+            "name": "Median",
+            "color": "#f44336",
+            "lineWidth": 1.5,
+            "style": "solid"
+          },
+          {
+            "id": 4,
+            "t": 0.75,
+            "name": "Inner Line 2",
+            "color": "#00BCD4",
+            "lineWidth": 1.0,
+            "style": "solid"
+          },
+          {
+            "id": 5,
+            "t": 1.0,
+            "name": "Outer Line P2",
+            "color": "#2196F3",
+            "lineWidth": 1.5,
+            "style": "solid"
+          }
+        ],
+        "fills": "Triangular fill zones between adjacent enabled lines (optional, fillEnabled toggle)"
+      },
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "settings_modal": {
+        "title": "Pitchfan",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              {
+                "name": "Line Color",
+                "type": "color_picker",
+                "default": "#f44336"
+              },
+              {
+                "name": "Line Width",
+                "type": "number",
+                "default": 1
+              },
+              {
+                "name": "Line Style",
+                "type": "dropdown",
+                "options": [
+                  "solid",
+                  "dashed",
+                  "dotted"
+                ]
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity",
+                "default": {
+                  "enabled": true,
+                  "opacity": 0.08
+                }
+              }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ],
+        "has_template_dropdown": true
+      },
+      "implementation_notes": [
+        "TYPE: FibonacciToolType (not DrawingToolType) — confirmed 2026-02-19.",
+        "CATEGORY: TOOL_CATEGORIES.FIBONACCI — shows in Fibonacci dropdown in sidebar.",
+        "HIT-TEST: Inherited from FIB_PURE_TOOLS block in hitTest, check lines radiating from P1.",
+        "FILL: Triangular sector fills between each pair of adjacent fan lines using ctx.moveTo(P1)+lineTo(eA)+lineTo(eB)+closePath.",
+        "CONSTRUCTION: During creation (pts.length<3), shows dashed purple lines from P1 to P2 and P3 handles.",
+        "MEDIAN COLOR: drawing.style.color overrides the default red (#f44336) for the median (t=0.5) line only."
+      ]
+    },
+    {
+      "tool": "gann_box",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-19",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "total_lines": 14,
+        "price_levels": [
+          {
+            "value": 0,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.25,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.382,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.5,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.75,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 1,
+            "color": "#787b86",
+            "enabled": true
+          }
+        ],
+        "time_levels": [
+          {
+            "value": 0,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.25,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.382,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.5,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.618,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 0.75,
+            "color": "#787b86",
+            "enabled": true
+          },
+          {
+            "value": 1,
+            "color": "#787b86",
+            "enabled": true
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "P1",
+            "P2"
+          ],
+          "shape": "circle",
+          "size": 6,
+          "fill": "#ffffff",
+          "stroke": "#2962ff"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 7,
+        "buttons": [
+          {
+            "id": 1,
+            "name": "Move",
+            "action": "drag",
+            "icon": "grip"
+          },
+          {
+            "id": 2,
+            "name": "Templates",
+            "action": "openTemplatePopup",
+            "icon": "grid"
+          },
+          {
+            "id": 3,
+            "name": "Line Color",
+            "action": "openColorPopup",
+            "icon": "pen"
+          },
+          {
+            "id": 4,
+            "name": "Line Width",
+            "action": "openThicknessPopup",
+            "icon": "text_value"
+          },
+          {
+            "id": 5,
+            "name": "Line Style",
+            "action": "openLineStylePopup",
+            "icon": "style_dashed"
+          },
+          {
+            "id": 6,
+            "name": "Settings",
+            "action": "openSettingsModal",
+            "icon": "gear"
+          },
+          {
+            "id": 7,
+            "name": "Remove",
+            "action": "deleteDrawing",
+            "icon": "trash"
+          },
+          {
+            "id": 8,
+            "name": "More",
+            "action": "openMorePopup",
+            "icon": "dots"
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Gann Box",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1
+          },
+          {
+            "name": "Coordinates",
+            "order": 2
+          },
+          {
+            "name": "Visibility",
+            "order": 3
+          }
+        ]
+      },
+      "implementation_notes": [
+        "2-click interaction.",
+        "Internal grid of 7 Price and 7 Time levels.",
+        "Support for Angles (diagonal Bowtie effect) and Reverse logic."
+      ]
+    },
+    {
+      "tool": "gann_square_fixed",
+      "status": "DISCOVERY_COMPLETE",
+      "discovery_date": "2026-02-19",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "two_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#787b86",
+          "style": "solid",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "description": "Rectangular grid with 6 symmetric levels (0-5), fan lines from P1 origin, elliptical arcs from P1, and uniform background fill.",
+        "geometry": "Flexible rectangle (any aspect ratio). P1=bottom-left anchor, P2=top-right corner. Internal elements scale to bounding box. NOT forced square despite name.",
+        "total_levels": 6,
+        "levels": [
+          {
+            "id": 0,
+            "label": "0",
+            "color": "#787b86",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "id": 1,
+            "label": "1",
+            "color": "#f7a35c",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "id": 2,
+            "label": "2",
+            "color": "#00bcd4",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "id": 3,
+            "label": "3",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "id": 4,
+            "label": "4",
+            "color": "#00897b",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "id": 5,
+            "label": "5",
+            "color": "#9e9e9e",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          }
+        ],
+        "fans": [
+          {
+            "ratio": "8x1",
+            "label": "8x1",
+            "color": "#9c27b0",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "5x1",
+            "label": "5x1",
+            "color": "#e91e63",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "4x1",
+            "label": "4x1",
+            "color": "#ff9800",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "3x1",
+            "label": "3x1",
+            "color": "#ff9800",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "2x1",
+            "label": "2x1",
+            "color": "#00bcd4",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "1x1",
+            "label": "1x1",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "1x2",
+            "label": "1x2",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "1x3",
+            "label": "1x3",
+            "color": "#8bc34a",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "1x4",
+            "label": "1x4",
+            "color": "#9c27b0",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "1x5",
+            "label": "1x5",
+            "color": "#9c27b0",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          },
+          {
+            "ratio": "1x8",
+            "label": "1x8",
+            "color": "#9c27b0",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": false
+          }
+        ],
+        "arcs": [
+          {
+            "ratio": "1x0",
+            "label": "1x0",
+            "color": "#f7a35c",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "1x1",
+            "label": "1x1",
+            "color": "#f7a35c",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "1.5x0",
+            "label": "1.5x0",
+            "color": "#f7a35c",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "2x0",
+            "label": "2x0",
+            "color": "#00bcd4",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "2x1",
+            "label": "2x1",
+            "color": "#00bcd4",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "3x0",
+            "label": "3x0",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "3x1",
+            "label": "3x1",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "4x0",
+            "label": "4x0",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "4x1",
+            "label": "4x1",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "5x0",
+            "label": "5x0",
+            "color": "#3f51b5",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          },
+          {
+            "ratio": "5x1",
+            "label": "5x1",
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "lineOpacity": 1.0,
+            "default_on": true
+          }
+        ],
+        "background": {
+          "enabled": true,
+          "color": "#ff9800",
+          "opacity": 0.1
+        },
+        "handles": {
+          "count": 2,
+          "positions": [
+            "p1_origin_bottom_left",
+            "p2_corner_top_right"
+          ],
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#2196F3"
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "below",
+        "total_buttons": 7,
+        "buttons": [
+          {
+            "position": 1,
+            "id": "move",
+            "icon": "grid 2x3 dots",
+            "hover_text": "Drag to move",
+            "action": "drag",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 2,
+            "id": "template",
+            "icon": "sidebar template",
+            "hover_text": "Templates",
+            "action": "openTemplatePopup",
+            "opens_dropdown": true,
+            "opens_modal": false
+          },
+          {
+            "position": 3,
+            "id": "color",
+            "icon": "pencil/color swatch",
+            "hover_text": "Line color",
+            "action": "openColorPopup",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 4,
+            "id": "line_style",
+            "icon": "horizontal line (2px)",
+            "hover_text": "Line",
+            "action": "openLineStylePopup",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 5,
+            "id": "settings",
+            "icon": "gear",
+            "hover_text": "Settings",
+            "action": "openSettingsModal",
+            "opens_dropdown": false,
+            "opens_modal": true
+          },
+          {
+            "position": 6,
+            "id": "lock",
+            "icon": "padlock",
+            "hover_text": "Lock",
+            "action": "toggleLock",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 7,
+            "id": "trash",
+            "icon": "trash",
+            "hover_text": "Remove",
+            "action": "deleteDrawing",
+            "opens_dropdown": false,
+            "opens_modal": false
+          },
+          {
+            "position": 8,
+            "id": "more",
+            "icon": "three dots",
+            "hover_text": "More options",
+            "action": "openMorePopup",
+            "opens_dropdown": true,
+            "opens_modal": false
+          }
+        ]
+      },
+      "settings_modal": {
+        "title": "Gann Square Fixed",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "sections": [
+              "LEVELS (6: 0-5 each with color+lineStyle)",
+              "FANS (11 ratio options)",
+              "ARCS (11 ratio options)",
+              "Background (color+opacity, ON)",
+              "Reverse (checkbox, OFF)"
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              "#1 price+bar",
+              "#2 price+bar"
+            ]
+          },
+          {
+            "name": "Visibility",
+            "order": 3,
+            "timeframes": [
+              "Ticks",
+              "Seconds(1-59)",
+              "Minutes(1-59)",
+              "Hours(1-24)",
+              "Days(1-366)",
+              "Weeks(1-52)",
+              "Months(1-12)",
+              "Ranges"
+            ]
+          }
+        ],
+        "has_template_dropdown": true
+      },
+      "torture_test": {
+        "vertical_inversion": "Stable rectangle, fans/arcs adapt, no bowtie",
+        "horizontal_inversion": "Stable rectangle, fans/arcs adapt, no bowtie",
+        "collapse": "Handled gracefully (near-zero size)"
+      },
+      "implementation_notes": [
+        "2-click interaction: P1=anchor (origin of fans/arcs), P2=opposite corner.",
+        "Grid: 6 equally-spaced horizontal+vertical lines at ratios 0/5, 1/5, 2/5, 3/5, 4/5, 5/5 of bounding box.",
+        "Fans: Lines from P1, target point on far edge computed by Gann ratio. Fan R:T means slope (R*H)/(T*W) in canvas coords.",
+        "Arcs: Elliptical, centered at P1. For ratio Rx:Ry, radii = (Rx/5)*W, (Ry/5)*H. Clipped to bounding box.",
+        "\"Fixed\" means the Gann fan angles are fixed relative to the bounding box (not to price/time scale).",
+        "Background: single uniform fill covering entire bounding box.",
+        "Reverse: swaps P1/P2 anchor roles (fans/arcs radiate from P2 instead of P1)."
+      ]
+    },
+    {
+      "tool": "gann_square",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-02-23",
+      "version": "5.0",
+      "icon_svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\" fill=\"none\"><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M4 4h20v20H4V4zm1 1v18h18V5H5z\" clip-rule=\"evenodd\"/><path fill=\"currentColor\" d=\"M20.316 10.5H23v1h-3.684l.5-1zM20.316 17.5H23v1h-3.684l.5-1zM7.5 10.5H5v1h3.184l-.5-1zM7.5 17.5H5v1h3.184l-.5-1zM10.5 7.5V5h1v3.184l-1-.5zM17.5 7.5V5h1v3.184l-1-.5zM10.5 20.316V23h1v-3.684l-1 .5zM17.5 20.316V23h1v-3.684l-1 .5z\"/><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M14 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm0 1a9 9 0 1 0 0-18 9 9 0 0 0 0 18z\" clip-rule=\"evenodd\"/><path fill=\"currentColor\" d=\"M10.854 10.146l-4-4 .707-.707 4 4-.707.707zM17.854 10.146l4-4 .707-.707-4 4-.707.707zM10.854 17.146l-4 4 .707.707 4-4-.707-.707zM17.854 17.146l4 4 .707.707-4-4-.707-.707zM14 13.5l7 7-.707.707-7-7 .707-.707zM14 14.5l-7 7-.707-.707 7-7 .707.707zM14 13.5l7-7 .707.707-7 7-.707-.707zM14 14.5l-7-7 .707.707 7 7-.707-.707z\"/></svg>",
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true
+      },
+      "settings_modal": {
+        "title": "Gann Square",
+        "tabs": [
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Fans",
+                "type": "toggle_group"
+              },
+              {
+                "name": "Arcs",
+                "type": "toggle_group"
+              },
+              {
+                "name": "Price/Bar Ratio",
+                "type": "number"
+              },
+              {
+                "name": "Background",
+                "type": "checkbox_opacity"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "tool": "gann_fan",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-02-24",
+      "version": "5.0",
+      "icon_svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\"> <g fill=\"currentColor\" fill-rule=\"nonzero\"> <path d=\"M7.354 21.354l7.097-7.097-.707-.707-7.097 7.097z\"></path> <path d=\"M17.249 11.458l7.105-7.105-.707-.707-7.105 7.105z\"></path> <path d=\"M7.542 22.683l17.296-2.739-.156-.988-17.296 2.739z\" id=\"Line\"></path> <path d=\"M7.538 22.062l15.708-7.661-.438-.899-15.708 7.661z\"></path> <path d=\"M6.802 20.97l7.695-15.777-.899-.438-7.695 15.777z\"></path> <path d=\"M6.285 20.741l2.76-17.423-.988-.156-2.76 17.423z\"></path> <path d=\"M5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM15.5 14c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z\"> </path> </g> </svg>",
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "notes": "Click A = Anchor/Origin. Click B = Direction of 1/1 line slope. All 9 fan lines radiate from Anchor A."
+      },
+      "visual_elements": {
+        "total_lines": 9,
+        "lines": [
+          {
+            "id": 1,
+            "ratio": "8/1",
+            "numerator": 8,
+            "denominator": 1,
+            "color": "#f23645",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#f23645",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 2,
+            "ratio": "4/1",
+            "numerator": 4,
+            "denominator": 1,
+            "color": "#ff9800",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#ff9800",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 3,
+            "ratio": "3/1",
+            "numerator": 3,
+            "denominator": 1,
+            "color": "#e040fb",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#e040fb",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 4,
+            "ratio": "2/1",
+            "numerator": 2,
+            "denominator": 1,
+            "color": "#9c27b0",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#9c27b0",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 5,
+            "ratio": "1/1",
+            "numerator": 1,
+            "denominator": 1,
+            "color": "#2962ff",
+            "lineWidth": 2,
+            "lineStyle": "solid",
+            "fillColor": "#00bcd4",
+            "fillOpacity": 0.1,
+            "is_base": true
+          },
+          {
+            "id": 6,
+            "ratio": "1/2",
+            "numerator": 1,
+            "denominator": 2,
+            "color": "#00bcd4",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#4caf50",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 7,
+            "ratio": "1/3",
+            "numerator": 1,
+            "denominator": 3,
+            "color": "#4caf50",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#8bc34a",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 8,
+            "ratio": "1/4",
+            "numerator": 1,
+            "denominator": 4,
+            "color": "#8bc34a",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#ff9800",
+            "fillOpacity": 0.07
+          },
+          {
+            "id": 9,
+            "ratio": "1/8",
+            "numerator": 1,
+            "denominator": 8,
+            "color": "#ff9800",
+            "lineWidth": 1,
+            "lineStyle": "solid",
+            "fillColor": "#ff9800",
+            "fillOpacity": 0.05
+          }
+        ],
+        "handles": {
+          "count": 2,
+          "positions": [
+            "anchor_origin",
+            "1/1_direction"
+          ],
+          "shape": "circle",
+          "size": 8,
+          "fill": "#2962ff",
+          "stroke": "#ffffff"
+        },
+        "labels": [
+          {
+            "name": "ratio_label",
+            "position": "end_of_each_line",
+            "font": "Inter 10px",
+            "color": "matches_line_color",
+            "visible_default": true
+          }
+        ]
+      },
+      "geometry": {
+        "anchor": "Point A = Origin of all fan lines",
+        "direction": "Point B = defines slope of the 1/1 line (price_delta / bar_delta)",
+        "extension": "All lines extend infinitely past Point B (clipped to visible chart area)",
+        "slope_formula_linear": "price(t) = p1 + (slope_1/1 * ratio_num/ratio_den) * (t - t1)",
+        "slope_formula_log": "log_price(t) = log(p1) + (log_slope * ratio_num/ratio_den) * (t - t1); then exp(log_price)",
+        "time_axis": "bar_index (not timestamp) to avoid weekend gaps",
+        "reverse_behavior": "When reversed, slope direction inverts (bearish fan from top-left anchor)"
+      },
+      "settings_modal": {
+        "title": "Gann Fan",
+        "tabs": [
+          {
+            "name": "Style",
+            "properties": [
+              {
+                "name": "Reverse",
+                "type": "checkbox",
+                "default": false
+              },
+              {
+                "name": "Show Labels",
+                "type": "checkbox",
+                "default": true
+              },
+              {
+                "name": "Fill Background",
+                "type": "checkbox",
+                "default": true
+              },
+              {
+                "name": "Lines (per line)",
+                "type": "per_line_config",
+                "fields": [
+                  "enabled",
+                  "color",
+                  "lineWidth",
+                  "lineStyle",
+                  "fillColor",
+                  "fillOpacity"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: Use bar_index for time axis, NOT timestamp — avoids weekend gap distortion",
+        "CRITICAL: For Log scale — calculate slope in log(price) space, then exp() back for display",
+        "Line 1/1 is the 45-degree reference (balanced price-time). It is the anchor for all other ratios.",
+        "Lines ABOVE 1/1 (2/1, 3/1, 4/1, 8/1) = steep bullish angles (1 bar for N price units)",
+        "Lines BELOW 1/1 (1/2, 1/3, 1/4, 1/8) = shallow bullish angles (N bars for 1 price unit)",
+        "Fill zones: color spans between two adjacent lines as a solid trapezoid fill",
+        "Clipping: All lines extend infinitely, clipped only by the canvas/chart visible bounds",
+        "Reverse: Inverts the slope sign, turning a bullish fan into a bearish fan from the same anchor",
+        "Handle 2 (on 1/1 line) can be dragged to re-slope the base reference line"
+      ]
+    },
+
+    {
+      "tool": "time_cycles",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-03-19",
+      "version": "5.0",
+      "sniper_protocol": "V5.0",
+      "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\"> <g fill=\"currentColor\"> <path fill-rule=\"nonzero\" d=\"M27.186 9.411c-.691-.27-1.429-.411-2.186-.411-3.314 0-6 2.686-6 6h1c0-2.761 2.239-5 5-5 .632 0 1.246.117 1.821.342l.364-.931z\"> </path> <path fill-rule=\"nonzero\" d=\"M9 15c0-3.314-2.686-6-6-6-.754 0-1.489.139-2.177.407l.363.932c.573-.223 1.185-.339 1.814-.339 2.761 0 5 2.239 5 5h1z\"> </path> <path d=\"M8 15h1v1h-1v-1zm11 0h1v1h-1v-1zm1 0h-1c0-2.761-2.239-5-5-5s-5 2.239-5 5h-1c0-3.314 2.686-6 6-6s6 2.686 6 6z\"> </path> <path fill-rule=\"nonzero\" d=\"M8.5 19c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM19.5 19c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z\"> </path> </g> </svg>",
+      "activation": {
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#00BCD4",
+          "style": "solid",
+          "opacity": 1.0
+        }
+      },
+      "visual_elements": {
+        "total_lines": 0,
+        "lines": [],
+        "total_zones": 0,
+        "colored_zones": [],
+        "handles": {
+          "count": 2,
+          "shape": "circle_hollow",
+          "size": 6,
+          "fill": "#FFFFFF",
+          "stroke": "#00BCD4"
+        },
+        "labels": []
+      },
+      "tooltip": {
+        "total_buttons": 9,
+        "buttons": [
+          "move",
+          "color",
+          "fill",
+          "line_style",
+          "settings",
+          "alert",
+          "lock",
+          "trash",
+          "more"
+        ]
+      }
+    },
+    {
+  "tool": "cypher_pattern",
+  "status": "DISCOVERY_COMPLETE",
+  "discovery_date": "2026-03-17",
+  "version": "5.1",
+  "activation": {
+    "cursor_type": "crosshair",
+    "cursor_color": "system"
+  },
+  "interaction": {
+    "creation_method": "multi_click",
+    "clicks_required": 5,
+    "real_time_preview": true,
+    "preview_style": {
+      "color": "#2962FF",
+      "style": "solid",
+      "opacity": 0.2
+    }
+  },
+  "visual_elements": {
+    "total_lines": 8,
+    "lines": [
+      { "id": 1, "name": "X-A", "color": "#2962FF", "width": 2, "style": "solid" },
+      { "id": 2, "name": "A-B", "color": "#2962FF", "width": 2, "style": "solid" },
+      { "id": 3, "name": "B-C", "color": "#2962FF", "width": 2, "style": "solid" },
+      { "id": 4, "name": "C-D", "color": "#2962FF", "width": 2, "style": "solid" },
+      { "id": 5, "name": "X-C", "color": "#2962FF", "width": 1, "style": "dashed", "ratio_label": "B/XA" },
+      { "id": 6, "name": "A-C", "color": "#2962FF", "width": 1, "style": "dashed", "ratio_label": "C/XA" },
+      { "id": 7, "name": "B-D", "color": "#2962FF", "width": 1, "style": "dashed", "ratio_label": "D/BC" },
+      { "id": 8, "name": "X-D", "color": "#2962FF", "width": 1, "style": "dashed", "ratio_label": "D/XC" }
+    ],
+    "total_zones": 2,
+    "colored_zones": [
+      { "id": 1, "name": "Triangle XAB", "points": ["X", "A", "B"], "fill": "#2962FF", "opacity": 0.2 },
+      { "id": 2, "name": "Triangle BCD", "points": ["B", "C", "D"], "fill": "#2962FF", "opacity": 0.2 }
+    ],
+    "handles": {
+      "count": 5,
+      "shape": "circle",
+      "size": 6,
+      "fill": "#FFFFFF",
+      "stroke": "#2962FF"
+    },
+    "labels": [
+      { "name": "X,A,B,C,D", "style": "boxed", "background": "#2962FF", "text_color": "#FFFFFF" }
+    ]
+  },
+  "tooltip": {
+    "total_buttons": 10,
+    "buttons": ["move", "color", "fill", "text", "line_style", "settings", "alert", "lock", "trash", "more"]
+  }
+},
+    {
+      "tool": "abcd_pattern",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-03-18",
+      "version": "5.0",
+      "sniper_protocol": "V5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 4,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#089981",
+          "style": "dashed",
+          "opacity": 0.7
+        },
+        "sequence": [
+          "Click A (start point - typically a swing high or low)",
+          "Click B (opposite swing - AB segment fixed, BC preview begins)",
+          "Click C (retracement of AB - BC segment fixed, CD preview begins, AC diagonal with ratio shown)",
+          "Click D (extension of BC - pattern complete, BD diagonal with ratio shown)"
+        ]
+      },
+      "visual_elements": {
+        "total_lines": 5,
+        "lines": [
+          { "id": 1, "name": "AB", "color": "#089981", "width": 2, "style": "solid", "opacity": 1.0 },
+          { "id": 2, "name": "BC", "color": "#089981", "width": 2, "style": "solid", "opacity": 1.0 },
+          { "id": 3, "name": "CD", "color": "#089981", "width": 2, "style": "solid", "opacity": 1.0 },
+          { "id": 4, "name": "AC (diagonal)", "color": "#089981", "width": 1, "style": "dashed", "dasharray": "4,4", "opacity": 0.7, "ratio_label": "BC/AB", "ratio_confirmed": "0.783 observed on TradingView" },
+          { "id": 5, "name": "BD (diagonal)", "color": "#089981", "width": 1, "style": "dashed", "dasharray": "4,4", "opacity": 0.7, "ratio_label": "CD/BC" }
+        ],
+        "total_zones": 0,
+        "colored_zones": [],
+        "note_no_fill": "Unlike XABCD/Cypher, ABCD pattern has NO fill zones between points",
+        "handles": {
+          "count": 4,
+          "positions": ["A", "B", "C", "D"],
+          "shape": "circle_hollow",
+          "size": 9,
+          "fill": "#FFFFFF",
+          "stroke": "#089981"
+        },
+        "labels": [
+          {
+            "name": "A, B, C, D",
+            "style": "filled_circle",
+            "background": "#089981",
+            "text_color": "#FFFFFF",
+            "radius": 9,
+            "font": "bold 10px Inter, sans-serif",
+            "placement": "smart_alternating",
+            "note": "Labels alternate above/below based on zigzag direction (bullish W vs bearish M)"
+          }
+        ]
+      },
+      "torture_geometry": {
+        "inversion": "Fully dynamic - if A is below B creates bullish W-shape, if A is above B creates bearish M-shape",
+        "stretch": "AC and BD diagonals recalculate ratios in real-time during handle drag",
+        "overcross": "Reconfigures segments without breaking - no rigid bowtie behavior",
+        "collapse": "Pattern disappears when points overlap",
+        "note": "NOT a rigid trapeze - fully flexible zigzag geometry"
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 9,
+        "buttons": [
+          { "id": 1, "name": "Move", "action": "drag", "icon": "grip" },
+          { "id": 2, "name": "Color", "action": "openColorPopup", "icon": "color_box" },
+          { "id": 3, "name": "Text", "action": "openTextSettings", "icon": "T" },
+          { "id": 4, "name": "Line Style", "action": "openLineStylePopup", "icon": "style_dashed" },
+          { "id": 5, "name": "Settings", "action": "openSettingsModal", "icon": "gear" },
+          { "id": 6, "name": "Alert", "action": "openAlertModal", "icon": "bell" },
+          { "id": 7, "name": "Lock", "action": "toggleLock", "icon": "lock" },
+          { "id": 8, "name": "Remove", "action": "deleteDrawing", "icon": "trash" },
+          { "id": 9, "name": "More", "action": "openMorePopup", "icon": "dots" }
+        ]
+      },
+      "settings_modal": {
+        "title": "ABCD Pattern",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              { "name": "Label", "type": "checkbox", "default": true },
+              { "name": "Label size", "type": "number", "default": 12 },
+              { "name": "Bold", "type": "boolean", "default": false },
+              { "name": "Italic", "type": "boolean", "default": false },
+              { "name": "Line color", "type": "color", "default": "#089981" },
+              { "name": "Line opacity", "type": "percentage", "default": 100 },
+              { "name": "Line width", "type": "number", "default": 2, "min": 1, "max": 4 }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              { "name": "Point 1 (A)", "type": "price_bar" },
+              { "name": "Point 2 (B)", "type": "price_bar" },
+              { "name": "Point 3 (C)", "type": "price_bar" },
+              { "name": "Point 4 (D)", "type": "price_bar" }
+            ]
+          },
+          { "name": "Visibility", "order": 3 }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: 4 clicks only (A, B, C, D) — NOT 5 like XABCD/Cypher",
+        "CRITICAL: NO fill zones (fillEnabled: false) — key difference from XABCD",
+        "Default color is #089981 (TradingView teal) — NOT #2962FF blue",
+        "AC diagonal shows BC/AB ratio (harmonic retracement label)",
+        "BD diagonal shows CD/BC ratio (harmonic extension label)",
+        "Labels are CIRCLES (not rectangles) — key visual difference from XABCD",
+        "Smart label placement: alternates above/below based on zigzag direction",
+        "Pattern is purely a connected path A→B→C→D with 2 internal diagonals"
+      ]
+    },
+    {
+      "tool": "triangle_pattern",
+      "status": "IMPLEMENTED_TENOR_2026",
+      "discovery_date": "2026-03-18",
+      "version": "5.0",
+      "sniper_protocol": "V5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 4,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#7E57C2",
+          "style": "solid",
+          "opacity": 0.5
+        },
+        "sequence": [
+          "Click A (first point)",
+          "Click B (second point, fill preview begins)",
+          "Click C (third point, triangular fill visible A-B-C)",
+          "Click D (finalizes the path A-B-C-D)"
+        ]
+      },
+      "visual_elements": {
+        "total_lines": 6,
+        "lines": [
+          { "id": 1, "name": "AB", "color": "#7E57C2", "width": 1, "style": "solid", "opacity": 1.0 },
+          { "id": 2, "name": "BC", "color": "#7E57C2", "width": 1, "style": "solid", "opacity": 1.0 },
+          { "id": 3, "name": "CD", "color": "#7E57C2", "width": 1, "style": "solid", "opacity": 1.0 },
+          { "id": 4, "name": "AD (closing)", "color": "#7E57C2", "width": 1, "style": "dashed", "dasharray": "4,4", "opacity": 0.5 },
+          { "id": 5, "name": "AC (diagonal)", "color": "#7E57C2", "width": 1, "style": "dashed", "dasharray": "4,4", "opacity": 0.5 },
+          { "id": 6, "name": "BD (diagonal)", "color": "#7E57C2", "width": 1, "style": "dashed", "dasharray": "4,4", "opacity": 0.5 }
+        ],
+        "total_zones": 1,
+        "colored_zones": [
+          {
+            "id": 1,
+            "vertices": ["A", "B", "C", "D"],
+            "color": "#7E57C2",
+            "opacity": 0.1
+          }
+        ],
+        "handles": {
+          "count": 4,
+          "positions": ["A", "B", "C", "D"],
+          "shape": "circle_hollow",
+          "size": 9,
+          "fill": "#FFFFFF",
+          "stroke": "#7E57C2"
+        },
+        "labels": [
+          {
+            "name": "A, B, C, D",
+            "style": "rounded_rect",
+            "background": "#7E57C2",
+            "text_color": "#FFFFFF",
+            "radius": 4,
+            "font": "12px Inter, sans-serif"
+          }
+        ]
+      },
+      "torture_geometry": {
+        "inversion": "Fully dynamic. Allows points to be freely placed.",
+        "stretch": "Pattern handles stretch the polygon arbitrarily.",
+        "overcross": "Bowtie effect. When AB crosses CD, the single fill polygon creates two adjoining triangles meeting at intersection, confirming true fill path A-B-C-D-A canvas behavior.",
+        "collapse": "Pattern collapses when points overlap",
+        "note": "A highly dynamic pattern, not locked to a strict convex shape."
+      },
+      "tooltip": {
+        "visible": true,
+        "position": "above",
+        "total_buttons": 10,
+        "buttons": [
+          { "id": 1, "name": "Move", "action": "drag", "icon": "grip" },
+          { "id": 2, "name": "Color", "action": "openColorPopup", "icon": "color_box" },
+          { "id": 3, "name": "Fill Color", "action": "openFillPopup", "icon": "bucket" },
+          { "id": 4, "name": "Text", "action": "openTextSettings", "icon": "T" },
+          { "id": 5, "name": "Line Style", "action": "openLineStylePopup", "icon": "style_dashed" },
+          { "id": 6, "name": "Settings", "action": "openSettingsModal", "icon": "gear" },
+          { "id": 7, "name": "Alert", "action": "openAlertModal", "icon": "bell" },
+          { "id": 8, "name": "Lock", "action": "toggleLock", "icon": "lock" },
+          { "id": 9, "name": "Remove", "action": "deleteDrawing", "icon": "trash" },
+          { "id": 10, "name": "More", "action": "openMorePopup", "icon": "dots" }
+        ]
+      },
+      "settings_modal": {
+        "title": "Triangle Pattern",
+        "structure": "flat",
+        "total_tabs": 3,
+        "tabs": [
+          {
+            "name": "Style",
+            "order": 1,
+            "properties": [
+              { "name": "Label", "type": "checkbox", "default": true },
+              { "name": "Label size", "type": "number", "default": 12 },
+              { "name": "Bold", "type": "boolean", "default": false },
+              { "name": "Italic", "type": "boolean", "default": false },
+              { "name": "Border", "type": "color_width_style", "default": { "color": "#7E57C2", "width": 1, "style": "solid" } },
+              { "name": "Background", "type": "checkbox_color_opacity", "default": { "enabled": true, "color": "#7E57C2", "opacity": 10 } }
+            ]
+          },
+          {
+            "name": "Coordinates",
+            "order": 2,
+            "properties": [
+              { "name": "Point 1 (A)", "type": "price_bar" },
+              { "name": "Point 2 (B)", "type": "price_bar" },
+              { "name": "Point 3 (C)", "type": "price_bar" },
+              { "name": "Point 4 (D)", "type": "price_bar" }
+            ]
+          },
+          { "name": "Visibility", "order": 3 }
+        ]
+      },
+      "implementation_notes": [
+        "CRITICAL: Bowtie geometric fill verified via subagent.",
+        "4 structural points (A, B, C, D).",
+        "Solid path AB-BC-CD, dashed diagonals/closures AD, AC, BD.",
+        "Fill works by tracing a simple path through all 4 points, canvas natural intersecting fill applies."
+      ]
+    },
+    {
+      "tool": "three_drives_pattern",
+      "status": "IMPLEMENTATION_IN_PROGRESS",
+      "discovery_date": "2026-03-18",
+      "version": "5.0",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 7,
+        "real_time_preview": true,
+        "preview_style": {
+          "color": "#7E57C2",
+          "style": "dashed",
+          "opacity": 0.5
+        }
+      },
+      "visual_elements": {
+        "total_points": 7,
+        "nodes": [
+          { "id": 1, "label": null },
+          { "id": 2, "label": null },
+          { "id": 3, "label": "1" },
+          { "id": 4, "label": "A" },
+          { "id": 5, "label": "2" },
+          { "id": 6, "label": "B" },
+          { "id": 7, "label": "3" }
+        ],
+        "lines": {
+          "solid": ["P1-P2-P3-P4-P5-P6-P7"],
+          "dashed": ["P1-P3", "P3-P5", "P5-P7", "P2-P4", "P4-P6"]
+        },
+        "fill": {
+          "triangles": [
+            [1, 2, 3],
+            [3, 4, 5],
+            [5, 6, 7]
+          ],
+          "default_opacity": 0.1
+        }
+      },
+      "tooltip": {
+        "visible": true,
+        "total_buttons": 9,
+        "buttons": [
+          { "id": 1, "name": "Move", "icon": "grip" },
+          { "id": 2, "name": "Line Color", "icon": "pen" },
+          { "id": 3, "name": "Text Color", "icon": "text_color" },
+          { "id": 4, "name": "Line Style", "icon": "style_dashed" },
+          { "id": 5, "name": "Line Thickness", "icon": "text_value" },
+          { "id": 6, "name": "Settings", "icon": "gear" },
+          { "id": 7, "name": "Lock", "icon": "lock" },
+          { "id": 8, "name": "Remove", "icon": "trash" },
+          { "id": 9, "name": "More", "icon": "dots" }
+        ]
+      },
+      "implementation_notes": [
+        "7 structural points.",
+        "Labels start from P3 (1) to P7 (3).",
+        "3 distinct filled triangles: [P1,P2,P3], [P3,P4,P5], [P5,P6,P7].",
+        "Geometric measurements (ratios) appear on dashed lines."
+      ]
+    },
+    {
+      "tool": "cyclic_lines",
+      "status": "IMPLEMENTATION_HIGH_FIDELITY",
+      "discovery_date": "2026-03-19",
+      "last_correction": "2026-03-19",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "steps": [
+          "Point d'origine (P0)",
+          "Intervalle (P1)"
+        ]
+      },
+      "visual_elements": {
+        "main_lines": {
+          "name": "Lignes Verticales",
+          "color": "#00BCD4",
+          "width": 1,
+          "style": "solid",
+          "opacity": 1.0
+        },
+        "background_fill": {
+          "name": "Zones de Cycle",
+          "alternating": true,
+          "colors": ["#00BCD4", "transparent"],
+          "opacity": 0.1
+        },
+        "handles": {
+          "count": 2,
+          "positions": ["origine", "intervalle"],
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#00BCD4"
+        }
+      },
+      "geometry": {
+        "type": "vertical_repeating_lines",
+        "repeat": "infinite_horizontal",
+        "vertical_extension": "full_height"
+      },
+      "settings_modal": {
+        "tabs": ["Style", "Coordinates", "Visibility"],
+        "fields": {
+          "showLabels": "checkbox",
+          "fillBackground": "checkbox",
+          "fillOpacity": "slider"
+        }
+      }
+    },
+    {
+      "tool": "sine_line",
+      "status": "IMPLEMENTATION_HIGH_FIDELITY",
+      "discovery_date": "2026-03-19",
+      "last_correction": "2026-03-19",
+      "activation": {
+        "keyboard_shortcut": null,
+        "cursor_type": "crosshair",
+        "cursor_color": "system"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true,
+        "steps": [
+          "Origin (P0)",
+          "Peak (P1)"
+        ]
+      },
+      "visual_elements": {
+        "sine_wave": {
+          "name": "Sine Wave",
+          "color": "#00BCD4",
+          "width": 1,
+          "style": "solid",
+          "opacity": 1.0
+        },
+        "handles": {
+          "count": 2,
+          "positions": ["origin", "peak"],
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#00BCD4"
+        },
+        "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\"> <g fill=\"currentColor\" fill-rule=\"nonzero\"> <path d=\"M5.205 14.111l-.013-.172c-.054-.906.022-1.966.327-2.961.395-1.289 1.111-2.215 2.221-2.666l-.377-.926c-1.42.578-2.324 1.746-2.8 3.3-.346 1.128-.429 2.299-.369 3.313l.017.219.994-.106z\"> </path> <path d=\"M11.051 8.554c1.12.893 1.766 2.343 2.973 6.099 1.274 3.963 1.947 5.48 3.28 6.557l.629-.778c-1.112-.899-1.754-2.345-2.956-6.085-1.28-3.982-1.957-5.503-3.302-6.575l-.623.782z\"> </path> <path d=\"M21.722 21.558c1.439-.634 2.428-1.886 3.046-3.551.311-.836.509-1.726.618-2.616.066-.539.088-.967.088-1.227l-1 .002-.01.304c-.012.241-.035.51-.071.798-.101.818-.282 1.634-.563 2.39-.533 1.434-1.354 2.474-2.512 2.985l.403.915z\"> </path> <path d=\"M9.5 9c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM18.5 9c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z\"></g></svg>"
+      },
+      "geometry": {
+        "type": "infinite_sine_wave",
+        "description": "Infinite sine wave based on crossing point (anchor) and first peak (amplitude/period)."
+      },
+      "settings_modal": {
+        "tabs": ["Style", "Coordinates", "Visibility"]
+      }
+    },
+    {
+      "tool": "bar_pattern",
+      "status": "IMPLEMENTED_HDR_2026",
+      "discovery_date": "2026-03-26",
+      "activation": {
+        "cursor_type": "crosshair"
+      },
+      "interaction": {
+        "creation_method": "two_click",
+        "clicks_required": 2,
+        "cloning": {
+          "source": "OHLC data from chart",
+          "capture_on": "second_click"
+        }
+      },
+      "visual_elements": {
+        "modes": ["HL Bars", "OC Bars", "Open", "High", "Low", "Close", "HL/2"],
+        "transformations": ["mirrored", "flipped"],
+        "handles": {
+          "count": 2,
+          "shape": "circle"
+        }
+      },
+      "settings_modal": {
+        "tabs": ["Style", "Coordinates", "Visibility"]
+      }
+    },
+    {
+      "tool": "ghost_feed",
+      "status": "IMPLEMENTED_HDR_2026",
+      "discovery_date": "2026-03-30",
+      "activation": {
+        "cursor_type": "crosshair"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": "variable",
+        "termination": "double_click",
+        "cloning": {
+          "source": "OHLC data from chart sector",
+          "capture_on": "second_click"
+        }
+      },
+      "visual_elements": {
+        "modes": ["Ghost Bars", "Trapeze", "Bowtie"],
+        "transformations": ["mirrored", "flipped", "skewed"],
+        "handles": {
+          "count": "N",
+          "shape": "circle"
+        }
+      },
+      "settings_modal": {
+        "tabs": ["Style", "Coordinates", "Visibility"]
+      }
+    },
+    {
+      "tool": "sector",
+      "status": "IMPLEMENTED_HDR_2026",
+      "discovery_date": "2026-04-11",
+      "activation": {
+        "cursor_type": "crosshair"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 3,
+        "real_time_preview": true
+      },
+      "visual_elements": {
+        "shape": "Circular Sector",
+        "handles": {
+          "count": 3,
+          "positions": ["Center (P0)", "Radius/Start (P1)", "End Angle (P2)"],
+          "shape": "circle",
+          "size": 7,
+          "fill": "#FFFFFF",
+          "stroke": "#2962FF"
+        },
+        "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\"> <g fill=\"currentColor\" fill-rule=\"nonzero\"> <path d=\"M23.886 21.431c-.953-8.558-7.742-15.354-16.299-16.315l-.112.994c8.093.909 14.516 7.338 15.417 15.432l.994-.111z\"> </path> <path d=\"M5 7.5v14h1v-14zM21.5 23h-14v1h14z\"></path> <path d=\"M5.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zzM23.5 25c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 25c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z\"></path> </g> </svg>"
+      },
+      "settings_modal": {
+        "tabs": ["Style", "Coordinates", "Visibility"]
+      }
+    },
+    {
+      "tool": "anchored_vwap",
+      "status": "IMPLEMENTED_HDR_2026",
+      "discovery_date": "2026-04-02",
+      "activation": {
+        "cursor_type": "crosshair"
+      },
+      "interaction": {
+        "creation_method": "single_click",
+        "clicks_required": 1,
+        "real_time_preview": false
+      },
+      "visual_elements": {
+        "main_line": "VWAP Curve",
+        "bands": ["Upper 1,2,3", "Lower 1,2,3"],
+        "handles": {
+          "count": 1,
+          "positions": ["Anchor (P0)"],
+          "shape": "circle"
+        },
+        "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\" fill=\"none\"> <path fill=\"currentColor\" d=\"M17 17h1v6h-1v-6zM17 2h1v5h-1V2z\"></path> <path fill=\"currentColor\" d=\"M16 17h3V8h-3v9zM15 7h5v11h-5V7zM10 5h1v5h-1V5zM10 22h1v3h-1v-3z\"></path> <path fill=\"currentColor\" d=\"M9 21h3V10H9v11zM8 9h5v13H8V9z\"></path> <path fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M25.27 9.42L14.1 16.53l-6.98-1.5L5.3 16.4l-.6-.8 2.18-1.64 7.02 1.5 10.83-6.88.54.84z\"> </path> <path fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M4 18a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 1a2 2 0 1 0 0-4 2 2 0 0 0 0 4z\"> </path> </svg>"
+      },
+      "settings_modal": {
+        "tabs": ["Inputs", "Style", "Visibility"]
+      }
+    },
+    {
+      "tool": "anchored_volume_profile",
+      "status": "IMPLEMENTED_HDR_2026",
+      "discovery_date": "2026-04-03",
+      "activation": {
+        "cursor_type": "crosshair"
+      },
+      "interaction": {
+        "creation_method": "multi_click",
+        "clicks_required": 2,
+        "real_time_preview": true
+      },
+      "visual_elements": {
+        "main_element": "Volume Histogram",
+        "lines": ["POC", "VAH", "VAL"],
+        "handles": {
+          "count": 2,
+          "positions": ["Start (P0)", "End (P1)"],
+          "shape": "circle"
+        },
+        "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\" fill=\"none\"> <path fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M5 21.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM3.5 24a2.5 2.5 0 0 0 .5-4.95V3H3v16.05A2.5 2.5 0 0 0 3.5 24zM25 5.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0zM23.5 3a2.5 2.5 0 0 1 .5 4.95V24h-1V7.95A2.5 2.5 0 0 1 23.5 3z\"> </path> <path fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M9 7H4v2h5V7zM3 6v4h7V6H3z\"></path> <path fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M12 10H4v2h8v-2zM3 9v4h10V9H3z\"></path> <path fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M7 13H4v2h3v-2zm-4-1v4h5v-4H3z\"></path> </svg>"
+      },
+      "settings_modal": {
+        "tabs": ["Inputs", "Style", "Visibility"]
+      }
+    }
+  ]
+}
