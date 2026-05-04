@@ -105,6 +105,15 @@ dettes: []
 lecons: []
 journal:
     - date: "2026-05-04"
+      titre: "UI RESPONSIVE ANCHORING - SIDEBAR TOGGLE"
+      llm: "Antigravity (Gemini 3 Flash)"
+      session_numero: 9
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Stabilisation du bouton de basculement de la sidebar. Remplacement du positionnement par pourcentage (instable) par une ancre calculée `calc(var(--gp-sidebar-width) + 10px)` garantissant que le bouton reste aligné sur la bordure quel que soit le breakpoint."
+      scribe_delta: "PAT-UI-002"
+    - date: "2026-05-04"
       titre: "SCSS IDIOMATIC RESTRUCTURING & WORKFLOW ANCHORING"
       llm: "TENOR 2026 (Gemini 3 Flash)"
       session_numero: 8

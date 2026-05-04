@@ -1253,7 +1253,7 @@
 
 // [TENOR 2026] DYNAMIC GLIDE — Button follows the boundary between chart and sidebar
 .technical-analysis-root:not(.sidebar-closed) .gp-sidebar-toggle-btn {
-  right: 17%; // User's preferred position when OPEN
+  right: calc(var(--gp-sidebar-width) + 10px); // Pushed back further into the chart area
   background: rgba(15, 23, 42, 0.95);
   border-color: var(--gp-accent-blue);
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
