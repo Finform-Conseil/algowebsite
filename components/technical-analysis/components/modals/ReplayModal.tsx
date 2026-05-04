@@ -1,6 +1,5 @@
 import React from "react";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 import { BaseModal } from "../common/BaseModal";
 
 interface ReplayModalProps {
@@ -32,7 +31,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({
                     <button className="btn btn-secondary btn-sm" onClick={onClose}>
                         Annuler
                     </button>
-                    <button className={clsx("btn btn-sm", s["btn-california"])} onClick={onStart}>
+                    <button className={clsx("btn btn-sm", "btn-california")} onClick={onStart}>
                         <i className="bi bi-play-fill me-1"></i> Démarrer
                     </button>
                 </div>

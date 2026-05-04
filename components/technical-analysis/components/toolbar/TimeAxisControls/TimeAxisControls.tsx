@@ -89,41 +89,41 @@ export const TimeAxisControls: React.FC<TimeAxisControlsProps> = ({
   };
 
   return (
-    <div className={s["time-axis-hover-zone"]} style={{ pointerEvents: 'none' }}>
+    <div className={"time-axis-hover-zone"} style={{ pointerEvents: 'none' }}>
       <div
         className={clsx(
-          s["time-axis-controls"],
-          isVisible && s["is-visible"],
+          "time-axis-controls",
+          isVisible && "is-visible",
           className
         )}
         style={{ pointerEvents: 'auto' }}
         onMouseEnter={() => setIsVisible(true)}
       >
-        <button className={s["control-btn"]} onClick={() => handleZoom("out")} title="Zoom Out">
+        <button className={"control-btn"} onClick={() => handleZoom("out")} title="Zoom Out">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M4 8.5h10v1H4z" />
           </svg>
         </button>
         
-        <button className={s["control-btn"]} onClick={() => handleZoom("in")} title="Zoom In">
+        <button className={"control-btn"} onClick={() => handleZoom("in")} title="Zoom In">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M8.5 4v4.5H4v1h4.5V14h1V9.5H14v-1H9.5V4z" />
           </svg>
         </button>
         
-        <button className={s["control-btn"]} onClick={() => handlePan("left")} title="Pan Left">
+        <button className={"control-btn"} onClick={() => handlePan("left")} title="Pan Left">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M11.5 13.5l-4-4.5 4-4.5-.7-.7-4.7 5.2 4.7 5.2z" />
           </svg>
         </button>
         
-        <button className={s["control-btn"]} onClick={() => handlePan("right")} title="Pan Right">
+        <button className={"control-btn"} onClick={() => handlePan("right")} title="Pan Right">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M6.5 4.5l4 4.5-4 4.5.7.7 4.7-5.2-4.7-5.2z" />
           </svg>
         </button>
         
-        <button className={s["control-btn"]} onClick={handleReset} title="Reset Chart">
+        <button className={"control-btn"} onClick={handleReset} title="Reset Chart">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M9 4c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5h-1c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4c1.3 0 2.4.6 3.1 1.5L9.5 8h4V3.5l-1.3 1.3C11.3 3.7 10.2 3 9 3v1z" />
           </svg>

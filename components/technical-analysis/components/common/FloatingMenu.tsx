@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 
 interface FloatingMenuProps {
     isOpen: boolean;
@@ -53,7 +52,7 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({
     return ReactDOM.createPortal(
         <div
             id="gp-floating-menu"
-            className={clsx(s["gp-floating-menu-portal"], className)}
+            className={clsx("gp-floating-menu-portal", className)}
             style={{
                 position: "fixed",
                 top: anchorRect.bottom + 5,

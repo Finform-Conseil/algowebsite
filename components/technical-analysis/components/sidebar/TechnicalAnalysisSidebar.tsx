@@ -37,7 +37,7 @@ interface TechnicalAnalysisSidebarProps {
   avgVolume: number;
   benefitsChartRef: React.RefObject<HTMLDivElement | null>;
   dividendsChartRef: React.RefObject<HTMLDivElement | null>;
-  s: Record<string, string>;
+
   dataMode: "mock" | "real";
   /** [TENOR 2026 FEAT] Object Tree overlay — remplace le contenu par le panneau Object Tree */
   overlayContent?: React.ReactNode;
@@ -85,7 +85,6 @@ export const TechnicalAnalysisSidebar: React.FC<
   avgVolume,
   benefitsChartRef,
   dividendsChartRef,
-  s,
   isLoading,
   dataMode,
   chartData,
@@ -1189,10 +1188,10 @@ export const TechnicalAnalysisSidebar: React.FC<
   return (
     <aside
       ref={sidebarRef as React.RefObject<HTMLDivElement>}
-      className={clsx(s["gp-sidebar"], "gp-sidebar", "gsap-target-sidebar", "animated-element")}
+      className={clsx("gp-sidebar", "gp-sidebar", "gsap-target-sidebar", "animated-element")}
       style={{ position: "relative" }}
     >
-      <div className={s["gp-sidebar-main-content"]} style={{ position: "relative" }}>
+      <div className={"gp-sidebar-main-content"} style={{ position: "relative" }}>
         {/* [TENOR 2026 FEAT] Object Tree panel overlay — covers financial content when active */}
         {overlayContent && (
           <div
@@ -1210,34 +1209,34 @@ export const TechnicalAnalysisSidebar: React.FC<
             {overlayContent}
           </div>
         )}
-        <div className={clsx(s["gp-sidebar-content"], "gp-sidebar-content")}>
-          <div className={s["gp-sidebar-section"]}>
-            <div className={clsx(s["gp-sidebar-header"], s["head"], "pt-1 py-1")}>
-              <span className={s["gp-sidebar-title"]}>
+        <div className={clsx("gp-sidebar-content", "gp-sidebar-content")}>
+          <div className={"gp-sidebar-section"}>
+            <div className={clsx("gp-sidebar-header", "head", "pt-1 py-1")}>
+              <span className={"gp-sidebar-title"}>
                 {" "}Liste de surveillance{" "}<i className="bi bi-chevron-down" style={{ fontSize: "0.6em", verticalAlign: "middle" }}></i>
               </span>
-              <div className={s["gp-sidebar-actions"]}>
-                <button className={clsx(s["btn"], s["hover-lift"], "hover-lift")} title="Ajouter à la liste"><i className="bi bi-plus"></i></button>
-                <button className={clsx(s["btn"], s["hover-lift"], "hover-lift")} title="Créer une liste"><i className="bi bi-pie-chart"></i></button>
-                <button className={clsx(s["btn"], s["hover-lift"], "hover-lift")} title="Plus d'options"><i className="bi bi-three-dots"></i></button>
+              <div className={"gp-sidebar-actions"}>
+                <button className={clsx("btn", "hover-lift", "hover-lift")} title="Ajouter à la liste"><i className="bi bi-plus"></i></button>
+                <button className={clsx("btn", "hover-lift", "hover-lift")} title="Créer une liste"><i className="bi bi-pie-chart"></i></button>
+                <button className={clsx("btn", "hover-lift", "hover-lift")} title="Plus d'options"><i className="bi bi-three-dots"></i></button>
               </div>
             </div>
 
-            <div className={s["gp-watchlist-item-v3"]}>
+            <div className={"gp-watchlist-item-v3"}>
               {isLoading ? (
                 <div className="d-flex flex-column gap-3">
                   <div className="d-flex align-items-center gap-2">
-                    <div className={s["is-loading-skeleton"]} style={{ width: "32px", height: "32px", borderRadius: "50%" }} />
+                    <div className={"is-loading-skeleton"} style={{ width: "32px", height: "32px", borderRadius: "50%" }} />
                     <div className="flex-1">
-                      <div className={s["is-loading-skeleton"]} style={{ width: "60px", height: "1rem", marginBottom: "4px" }} />
-                      <div className={s["is-loading-skeleton"]} style={{ width: "120px", height: "0.7rem" }} />
+                      <div className={"is-loading-skeleton"} style={{ width: "60px", height: "1rem", marginBottom: "4px" }} />
+                      <div className={"is-loading-skeleton"} style={{ width: "120px", height: "0.7rem" }} />
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className={s["gp-brand-header-v3"]}>
-                    <div className={s["gp-logo-v3"]}>
+                  <div className={"gp-brand-header-v3"}>
+                    <div className={"gp-logo-v3"}>
                       {security.logoUrl ? (
                         <Image src={security.logoUrl} alt={security.ticker} width={32} height={32} style={{ objectFit: 'contain' }} />
                       ) : (
@@ -1246,51 +1245,51 @@ export const TechnicalAnalysisSidebar: React.FC<
                         </div>
                       )}
                     </div>
-                    <div className={s["gp-ticker-meta-v3"]}>
-                      <div className={s["gp-ticker-row-v3"]}>
-                        <span className={s["gp-ticker-symbol-v3"]}>{security.ticker}</span>
+                    <div className={"gp-ticker-meta-v3"}>
+                      <div className={"gp-ticker-row-v3"}>
+                        <span className={"gp-ticker-symbol-v3"}>{security.ticker}</span>
                       </div>
-                      <div className={s["gp-company-info-v3"]}>
-                        <div className={s["gp-company-name-v3"]}>{security.name}</div>
-                        <span className={s["gp-exchange-badge-v3"]}> • BRVM</span>
+                      <div className={"gp-company-info-v3"}>
+                        <div className={"gp-company-name-v3"}>{security.name}</div>
+                        <span className={"gp-exchange-badge-v3"}> • BRVM</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className={s["gp-price-block-v3"]}>
-                    <div className={s["gp-main-price-container"]}>
-                      <div className={s["gp-price-row-primary"]}>
-                        <span className={s["gp-main-price-v3"]}>{livePrice.toFixed(2).replace(".", ",")}</span>
-                        <span className={s["gp-currency-label-v3"]}>{security.currency || "XOF"}</span>
-                        <div className={s["gp-price-change-row-v3"]} style={{ color: isMarketPositive ? '#22ab94' : '#f23645' }}>
+                  <div className={"gp-price-block-v3"}>
+                    <div className={"gp-main-price-container"}>
+                      <div className={"gp-price-row-primary"}>
+                        <span className={"gp-main-price-v3"}>{livePrice.toFixed(2).replace(".", ",")}</span>
+                        <span className={"gp-currency-label-v3"}>{security.currency || "XOF"}</span>
+                        <div className={"gp-price-change-row-v3"} style={{ color: isMarketPositive ? '#22ab94' : '#f23645' }}>
                           <span>{isMarketPositive ? "+" : ""}{liveChange.toFixed(2).replace(".", ",")}</span>
                           <span>({isMarketPositive ? "+" : ""}{liveChangePercent.toFixed(2)}%)</span>
                         </div>
                       </div>
-                      <div className={s["price-timestamp-v3"]}>Last update at {lastUpdate ? new Date(lastUpdate).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })} GMT+1</div>
+                      <div className={"price-timestamp-v3"}>Last update at {lastUpdate ? new Date(lastUpdate).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })} GMT+1</div>
                     </div>
                   </div>
 
-                  <div className={s["gp-market-status-v3"]}>
+                  <div className={"gp-market-status-v3"}>
                     <div className="d-flex align-items-center gap-2">
-                      <div className={s["status-indicator-dot"]} />
-                      <span className={s["status-text"]}>Market open</span>
-                      <span className={s["status-separator"]}>•</span>
-                      <span className={s["status-volume"]}>Volume: {liveVolume?.toLocaleString("fr-FR") || "0"}</span>
+                      <div className={"status-indicator-dot"} />
+                      <span className={"status-text"}>Market open</span>
+                      <span className={"status-separator"}>•</span>
+                      <span className={"status-volume"}>Volume: {liveVolume?.toLocaleString("fr-FR") || "0"}</span>
                     </div>
                   </div>
 
-                  <div className={s["gp-security-details-v3"]}>
-                    <div className={s["detail-item"]}><b>Sector:</b> {security.sector}</div>
-                    <span className={s["detail-separator"]}>•</span>
-                    <div className={s["detail-item"]}><b>Country:</b> {security.country}</div>
+                  <div className={"gp-security-details-v3"}>
+                    <div className={"detail-item"}><b>Sector:</b> {security.sector}</div>
+                    <span className={"detail-separator"}>•</span>
+                    <div className={"detail-item"}><b>Country:</b> {security.country}</div>
                   </div>
                 </>
               )}
             </div>
           </div>
 
-          <div className={s["gp-sidebar-news-container"]} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ overflow: 'hidden', minHeight: '70px', height: 'auto', position: 'relative', marginTop: '12px', marginBottom: '12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+          <div className={"gp-sidebar-news-container"} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ overflow: 'hidden', minHeight: '70px', height: 'auto', position: 'relative', marginTop: '12px', marginBottom: '12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
             <AnimatePresence initial={false}>
               <motion.a
                 key={currentNewsIdx}
@@ -1315,41 +1314,41 @@ export const TechnicalAnalysisSidebar: React.FC<
             </AnimatePresence>
           </div>
 
-          <div className={s["gp-sidebar-section"]}>
-            <div className={s["gp-sidebar-header"]}><span className={s["gp-sidebar-title"]}>Statistiques clés</span></div>
-            <div className={s["gp-stats-table-v2"]}>
+          <div className={"gp-sidebar-section"}>
+            <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Statistiques clés</span></div>
+            <div className={"gp-stats-table-v2"}>
               {isLoading ? (
                 <div className="d-flex flex-column gap-2 p-1">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="d-flex justify-content-between align-items-center">
-                      <div className={s["is-loading-skeleton"]} style={{ width: "45%", height: "0.8rem" }} />
-                      <div className={s["is-loading-skeleton"]} style={{ width: "30%", height: "0.8rem" }} />
+                      <div className={"is-loading-skeleton"} style={{ width: "45%", height: "0.8rem" }} />
+                      <div className={"is-loading-skeleton"} style={{ width: "30%", height: "0.8rem" }} />
                     </div>
                   ))}
                 </div>
               ) : (
                 <>
-                  <div className={clsx(s["row"], "g-0")}><span className={clsx(s["col"], s["stat-label"])}>Rendement YTD</span><span className={clsx(s["col-auto"], s["stat-value"])}><span className={displayReturnYTD > 0 ? "text-success" : displayReturnYTD < 0 ? "text-danger" : ""}>{displayReturnYTD > 0 ? "+" : ""}{displayReturnYTD?.toFixed(2).replace(".", ",")}%</span></span></div>
-                  <div className={clsx(s["row"], "g-0")}><span className={clsx(s["col"], s["stat-label"])}>P/E Ratio</span><span className={clsx(s["col-auto"], s["stat-value"])}>{displayPeRatio?.toFixed(2).replace(".", ",")}</span></div>
-                  <div className={clsx(s["row"], "g-0")}><span className={clsx(s["col"], s["stat-label"])}>Volume</span><span className={clsx(s["col-auto"], s["stat-value"])}>{currentVolume >= 1000 ? (currentVolume / 1000).toFixed(2).replace(".", ",") + " K" : currentVolume}</span></div>
-                  <div className={clsx(s["row"], "g-0")}>
-                    <span className={clsx(s["col"], s["stat-label"])}>Revenu (T12M)</span>
-                    <span className={clsx(s["col-auto"], s["stat-value"])}>
+                  <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Rendement YTD</span><span className={clsx("col-auto", "stat-value")}><span className={displayReturnYTD > 0 ? "text-success" : displayReturnYTD < 0 ? "text-danger" : ""}>{displayReturnYTD > 0 ? "+" : ""}{displayReturnYTD?.toFixed(2).replace(".", ",")}%</span></span></div>
+                  <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>P/E Ratio</span><span className={clsx("col-auto", "stat-value")}>{displayPeRatio?.toFixed(2).replace(".", ",")}</span></div>
+                  <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Volume</span><span className={clsx("col-auto", "stat-value")}>{currentVolume >= 1000 ? (currentVolume / 1000).toFixed(2).replace(".", ",") + " K" : currentVolume}</span></div>
+                  <div className={clsx("row", "g-0")}>
+                    <span className={clsx("col", "stat-label")}>Revenu (T12M)</span>
+                    <span className={clsx("col-auto", "stat-value")}>
                       {financialMetrics.hasValidYield ? `${financialMetrics.calculatedYield.toFixed(2).replace(".", ",")}%` : `${security.revenueT12M?.toFixed(2).replace(".", ",")} %`}
                     </span>
                   </div>
-                  <div className={clsx(s["row"], "g-0")}><span className={clsx(s["col"], s["stat-label"])}>Volume moyen (30)</span><span className={clsx(s["col-auto"], s["stat-value"])}>{avgVolume >= 1000 ? (avgVolume / 1000).toFixed(2).replace(".", ",") + " K" : Math.round(avgVolume)}</span></div>
-                  <div className={clsx(s["row"], "g-0")}><span className={clsx(s["col"], s["stat-label"])}>Capitalisation boursière</span><span className={clsx(s["col-auto"], s["stat-value"])}>{(displayMarketCap !== undefined && displayMarketCap > 0) ? (displayMarketCap >= 1000 ? `${(displayMarketCap / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} B FCFA` : `${displayMarketCap.toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} M FCFA`) : "N/D"}</span></div>
+                  <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Volume moyen (30)</span><span className={clsx("col-auto", "stat-value")}>{avgVolume >= 1000 ? (avgVolume / 1000).toFixed(2).replace(".", ",") + " K" : Math.round(avgVolume)}</span></div>
+                  <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Capitalisation boursière</span><span className={clsx("col-auto", "stat-value")}>{(displayMarketCap !== undefined && displayMarketCap > 0) ? (displayMarketCap >= 1000 ? `${(displayMarketCap / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} B FCFA` : `${displayMarketCap.toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} M FCFA`) : "N/D"}</span></div>
                 </>
               )}
             </div>
           </div>
 
-          <div className={clsx(s["gp-sidebar-section"], s["gp-benefits-section-v2"])} style={{ minHeight: "150px" }}>
-            <div className={s["gp-sidebar-header"]}><span className={s["gp-sidebar-title"]}>Fondamentaux (T12M)</span></div>
+          <div className={clsx("gp-sidebar-section", "gp-benefits-section-v2")} style={{ minHeight: "150px" }}>
+            <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Fondamentaux (T12M)</span></div>
             {isLoading ? (
               <div key="loading" className="p-2">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '120px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '120px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready">
@@ -1363,7 +1362,7 @@ export const TechnicalAnalysisSidebar: React.FC<
             {!isLoading && (
               <div className="d-flex justify-content-center mt-3">
                 <button
-                  className={clsx(s["hover-lift"], "hover-lift")}
+                  className={clsx("hover-lift", "hover-lift")}
                   style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                   onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                 >
@@ -1373,11 +1372,11 @@ export const TechnicalAnalysisSidebar: React.FC<
             )}
           </div>
 
-          <div className={s["gp-sidebar-section"]} style={{ borderBottom: 'none' }}>
-            <div className={s["gp-sidebar-header"]}><span className={s["gp-sidebar-title"]}>Dividends</span></div>
+          <div className={"gp-sidebar-section"} style={{ borderBottom: 'none' }}>
+            <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Dividends</span></div>
             {isLoading ? (
               <div key="loading" className="p-2">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '150px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '150px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready">
@@ -1391,7 +1390,7 @@ export const TechnicalAnalysisSidebar: React.FC<
             {!isLoading && (
               <div className="d-flex justify-content-center mt-3">
                 <button
-                  className={clsx(s["hover-lift"], "hover-lift")}
+                  className={clsx("hover-lift", "hover-lift")}
                   style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                   onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                 >
@@ -1401,10 +1400,10 @@ export const TechnicalAnalysisSidebar: React.FC<
             )}
           </div>
 
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '8px' }}>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '8px' }}>
               <div className="d-flex justify-content-between align-items-center w-100">
-                <span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Income statement</span>
+                <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Income statement</span>
                 <div className="d-flex bg-[#1e222d] border border-[#363a45] p-[2px] rounded">
                   <button onClick={() => setIncomeViewMode('annual')} style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '3px', border: 'none', backgroundColor: incomeViewMode === 'annual' ? '#2962ff' : 'transparent', color: incomeViewMode === 'annual' ? '#fff' : '#787b86' }}>Annual</button>
                   <button onClick={() => setIncomeViewMode('quarterly')} style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '3px', border: 'none', backgroundColor: incomeViewMode === 'quarterly' ? '#2962ff' : 'transparent', color: incomeViewMode === 'quarterly' ? '#fff' : '#787b86' }}>Quarterly</button>
@@ -1413,7 +1412,7 @@ export const TechnicalAnalysisSidebar: React.FC<
             </div>
             {isLoading ? (
               <div key="loading" className="p-2">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '140px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '140px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready">
@@ -1427,7 +1426,7 @@ export const TechnicalAnalysisSidebar: React.FC<
             {!isLoading && (
               <div className="d-flex justify-content-center mt-3">
                 <button
-                  className={clsx(s["hover-lift"], "hover-lift")}
+                  className={clsx("hover-lift", "hover-lift")}
                   style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                   onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                 >
@@ -1437,8 +1436,8 @@ export const TechnicalAnalysisSidebar: React.FC<
             )}
           </div>
 
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '12px' }}><span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Performance</span></div>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '12px' }}><span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Performance</span></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               {(function () {
                 const referenceTime = lastUpdate ? new Date(lastUpdate).getTime() : (chartData.length > 0 ? new Date(chartData[chartData.length - 1].time).getTime() : 0);
@@ -1468,11 +1467,11 @@ export const TechnicalAnalysisSidebar: React.FC<
             </div>
           </div>
 
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '12px' }}><span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Seasonals</span></div>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '12px' }}><span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Seasonals</span></div>
             {isLoading ? (
               <div key="loading" className="p-2">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '160px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '160px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready">
@@ -1487,7 +1486,7 @@ export const TechnicalAnalysisSidebar: React.FC<
             {!isLoading && (
               <div className="d-flex justify-content-center mt-3">
                 <button
-                  className={clsx(s["hover-lift"], "hover-lift")}
+                  className={clsx("hover-lift", "hover-lift")}
                   style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                   onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                 >
@@ -1497,18 +1496,18 @@ export const TechnicalAnalysisSidebar: React.FC<
             )}
           </div>
 
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '0px' }}><span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Technicals</span></div>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '0px' }}><span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Technicals</span></div>
             {isLoading ? (
               <div key="loading" className="p-2">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '160px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '160px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready">
                 <div ref={technicalsChartRef} style={{ width: '100%', height: '160px' }}></div>
                 <div className="d-flex justify-content-center mt-2">
                   <button
-                    className={clsx(s["hover-lift"], "hover-lift")}
+                    className={clsx("hover-lift", "hover-lift")}
                     style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                     onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                   >
@@ -1520,9 +1519,9 @@ export const TechnicalAnalysisSidebar: React.FC<
           </div>
 
           {/* [TENOR 2026] ANALYST RATING WIDGET — derived from real fundamentals + technical data */}
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '0px' }}>
-              <span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Analyst rating</span>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '0px' }}>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Analyst rating</span>
             </div>
             {analystData ? (
               <div key="ready">
@@ -1544,7 +1543,7 @@ export const TechnicalAnalysisSidebar: React.FC<
                 {/* See forecast button */}
                 <div className="d-flex justify-content-center mt-2">
                   <button
-                    className={clsx(s["hover-lift"], "hover-lift")}
+                    className={clsx("hover-lift", "hover-lift")}
                     style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                     onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                   >
@@ -1554,22 +1553,22 @@ export const TechnicalAnalysisSidebar: React.FC<
               </div>
             ) : (
               <div key="loading" style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className={s["is-loading-skeleton"]} style={{ width: '80%', height: '120px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '80%', height: '120px', borderRadius: '8px' }} />
               </div>
             )}
           </div>
 
           {/* [TENOR 2026] HIGHEST YTM BONDS WIDGET */}
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '10px' }}>
-              <span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Highest YTM bonds</span>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '10px' }}>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Highest YTM bonds</span>
             </div>
             {bondsLoading ? (
               <div className="d-flex flex-column gap-2 px-1">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="d-flex justify-content-between align-items-center">
-                    <div className={s["is-loading-skeleton"]} style={{ width: '55%', height: '0.8rem' }} />
-                    <div className={s["is-loading-skeleton"]} style={{ width: '20%', height: '0.8rem' }} />
+                    <div className={"is-loading-skeleton"} style={{ width: '55%', height: '0.8rem' }} />
+                    <div className={"is-loading-skeleton"} style={{ width: '20%', height: '0.8rem' }} />
                   </div>
                 ))}
               </div>
@@ -1577,11 +1576,11 @@ export const TechnicalAnalysisSidebar: React.FC<
               <>
                 <div className="d-flex flex-column" style={{ gap: '0' }}>
                   {topBonds.map((bond, idx) => (
-                    <div key={idx} className={clsx(s["row"], "g-0")} style={{ padding: '7px 4px', borderBottom: idx < topBonds.length - 1 ? '1px solid rgba(42,46,57,0.4)' : 'none', }} >
-                      <span className={clsx(s["col"], s["stat-label"])} style={{ color: '#94a3b8', fontSize: '11px' }}>
+                    <div key={idx} className={clsx("row", "g-0")} style={{ padding: '7px 4px', borderBottom: idx < topBonds.length - 1 ? '1px solid rgba(42,46,57,0.4)' : 'none', }} >
+                      <span className={clsx("col", "stat-label")} style={{ color: '#94a3b8', fontSize: '11px' }}>
                         {bond.maturityDate}
                       </span>
-                      <span className={clsx(s["col-auto"], s["stat-value"])} style={{ fontWeight: 700, color: '#22ab94', fontSize: '12px' }}>
+                      <span className={clsx("col-auto", "stat-value")} style={{ fontWeight: 700, color: '#22ab94', fontSize: '12px' }}>
                         {bond.ytm.toFixed(2)}%
                       </span>
                     </div>
@@ -1589,7 +1588,7 @@ export const TechnicalAnalysisSidebar: React.FC<
                 </div>
                 <div className="d-flex justify-content-center mt-0">
                   <button
-                    className={clsx(s["hover-lift"], "hover-lift")}
+                    className={clsx("hover-lift", "hover-lift")}
                     style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                     onClick={() => window.open(`https://www.brvm.org/fr/cours-obligations/0`, '_blank')}
                   >
@@ -1605,13 +1604,13 @@ export const TechnicalAnalysisSidebar: React.FC<
           </div>
 
           {/* [TENOR 2026] VOLATILITY TERM STRUCTURE WIDGET */}
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '10px' }}>
-              <span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>ATM IV term structure</span>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '10px' }}>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>ATM IV term structure</span>
             </div>
             {isLoading ? (
               <div key="loading" className="p-0">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '180px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '180px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready" ref={volatilityChartRef} style={{ width: '100%', height: '180px' }}></div>
@@ -1619,20 +1618,20 @@ export const TechnicalAnalysisSidebar: React.FC<
           </div>
 
           {/* [TENOR 2026] VOLATILITY CURVE (SKEW) WIDGET */}
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '10px' }}>
-              <span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Volatility curve (28 days)</span>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '10px' }}>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Volatility curve (28 days)</span>
             </div>
             {isLoading ? (
               <div key="loading" className="p-1">
-                <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '180px', borderRadius: '8px' }} />
+                <div className={"is-loading-skeleton"} style={{ width: '100%', height: '180px', borderRadius: '8px' }} />
               </div>
             ) : (
               <div key="ready">
                 <div ref={volatilityCurveChartRef} style={{ width: '100%', height: '180px' }}></div>
                 <div className="d-flex justify-content-center mt-0 pt-0">
                   <button
-                    className={clsx(s["hover-lift"], "hover-lift")}
+                    className={clsx("hover-lift", "hover-lift")}
                     style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                     onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                   >
@@ -1644,25 +1643,25 @@ export const TechnicalAnalysisSidebar: React.FC<
           </div>
 
           {/* [TENOR 2026] COMPANY PROFILE WIDGET */}
-          <div className={s["gp-sidebar-section"]} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '12px', paddingTop: '16px', borderBottom: 'none' }}>
-            <div className={s["gp-sidebar-header"]} style={{ marginBottom: '12px' }}>
-              <span className={s["gp-sidebar-title"]} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Profile</span>
+          <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '12px', paddingTop: '16px', borderBottom: 'none' }}>
+            <div className={"gp-sidebar-header"} style={{ marginBottom: '12px' }}>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Profile</span>
             </div>
             {isLoading ? (
               <div className="d-flex flex-column gap-3 p-1">
                 <div className="d-flex flex-column gap-2">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="d-flex justify-content-between align-items-center">
-                      <div className={s["is-loading-skeleton"]} style={{ width: "25%", height: "0.8rem" }} />
-                      <div className={s["is-loading-skeleton"]} style={{ width: "40%", height: "0.8rem" }} />
+                      <div className={"is-loading-skeleton"} style={{ width: "25%", height: "0.8rem" }} />
+                      <div className={"is-loading-skeleton"} style={{ width: "40%", height: "0.8rem" }} />
                     </div>
                   ))}
                 </div>
                 <div style={{ position: 'relative', marginTop: '8px' }}>
-                  <div className={s["is-loading-skeleton"]} style={{ width: '100%', height: '0.8rem', marginBottom: '6px' }} />
-                  <div className={s["is-loading-skeleton"]} style={{ width: '90%', height: '0.8rem', marginBottom: '6px' }} />
-                  <div className={s["is-loading-skeleton"]} style={{ width: '95%', height: '0.8rem', marginBottom: '6px' }} />
-                  <div className={s["is-loading-skeleton"]} style={{ width: '70%', height: '0.8rem' }} />
+                  <div className={"is-loading-skeleton"} style={{ width: '100%', height: '0.8rem', marginBottom: '6px' }} />
+                  <div className={"is-loading-skeleton"} style={{ width: '90%', height: '0.8rem', marginBottom: '6px' }} />
+                  <div className={"is-loading-skeleton"} style={{ width: '95%', height: '0.8rem', marginBottom: '6px' }} />
+                  <div className={"is-loading-skeleton"} style={{ width: '70%', height: '0.8rem' }} />
                 </div>
               </div>
             ) : (
@@ -1729,15 +1728,15 @@ export const TechnicalAnalysisSidebar: React.FC<
         dividends={validFundamentals?.dividends}
       />
 
-      <div className={s["gp-sidebar-toolbar"]}>
-        <div className={clsx(s["gp-toolbar-scroll-container"], "p-1")}>
+      <div className={"gp-sidebar-toolbar"}>
+        <div className={clsx("gp-toolbar-scroll-container", "p-1")}>
           {/* Watchlist Default Tab */}
           <button
             className={clsx(
-              s["gp-toolbar-btn"],
-              s["hover-lift"],
-              !isObjectTreeOpen && s["active"],
-              !isObjectTreeOpen && s["btn-primary-outline"],
+              "gp-toolbar-btn",
+              "hover-lift",
+              !isObjectTreeOpen && "active",
+              !isObjectTreeOpen && "btn-primary-outline",
               !isObjectTreeOpen && "border"
             )}
             title="Liste de surveillance"
@@ -1746,16 +1745,16 @@ export const TechnicalAnalysisSidebar: React.FC<
             <i className="bi bi-list" style={{ color: !isObjectTreeOpen ? "#2962ff" : "inherit" }}></i>
           </button>
 
-          <button className={clsx(s["gp-toolbar-btn"], s["hover-lift"])} title="Horaires"><i className="bi bi-stopwatch"></i></button>
-          <button className={clsx(s["gp-toolbar-btn"], s["hover-lift"])} title="Détails"><i className="bi bi-info-circle"></i></button>
+          <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Horaires"><i className="bi bi-stopwatch"></i></button>
+          <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Détails"><i className="bi bi-info-circle"></i></button>
           
           {/* [TENOR 2026 FEAT] Object Tree Toggle Button */}
           <button 
             className={clsx(
-              s["gp-toolbar-btn"],
-              s["hover-lift"],
-              isObjectTreeOpen && s["active"],
-              isObjectTreeOpen && s["btn-primary-outline"],
+              "gp-toolbar-btn",
+              "hover-lift",
+              isObjectTreeOpen && "active",
+              isObjectTreeOpen && "btn-primary-outline",
               isObjectTreeOpen && "border"
             )} 
             title="Object tree and data window"

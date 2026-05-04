@@ -5,8 +5,8 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 7
-; Last_Update ; 2026-05-04T09:51:34+01:00
+; Session_Count ; 8
+; Last_Update ; 2026-05-04T16:25:00+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -89,6 +89,9 @@ vaccins:
   - id: "VAC-047"
     description: "Conflits d'exports Next.js/Turbopack : 'Module has no exported member' sur les types."
     pattern: "Ne jamais exporter de types nommés (export type X) depuis un fichier de composant React ayant un `export default`. Extraire les types dans un fichier dédié (ex: TechnicalAnalysisTypes.ts)."
+  - id: "VAC-SCSS-001"
+    description: "Restructuration SCSS de fichiers massifs (>4000 lignes) issus de migrations brutes (CSS plat -> SCSS idiomatique)."
+    pattern: "Appliquer `.agent/workflows/SCSS_RESTRUCTURING_PROTOCOL.md` : Backup -> Placeholders -> Injection par chunks -> Nesting `&`."
 patterns:
   - id: "PAT-STORE-001"
     description: "Store Performance: Bypass recursive checks for large real-time datasets (candles, snapshots)."
@@ -101,6 +104,18 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-04"
+      titre: "SCSS IDIOMATIC RESTRUCTURING & WORKFLOW ANCHORING"
+      llm: "TENOR 2026 (Gemini 3 Flash)"
+      session_numero: 8
+      taches_effectuees:
+        - statut: "DONE"
+          type: "REFACTOR"
+          description: "Restructuration complète de _technical-analysis-final.scss (4661 lignes flat -> 2328 lignes SCSS idiomatique). Utilisation d'une stratégie d'injection par chunks pour contourner les limites de tokens."
+        - statut: "DONE"
+          type: "DOC"
+          description: "Création du fichier de protocole `.agent/workflows/SCSS_RESTRUCTURING_PROTOCOL.md` pour documenter la méthode de migration saine pour les futurs agents."
+      scribe_delta: "VAC-SCSS-001"
     - date: "2026-05-04"
       titre: "FIX CSS CONFLICTS & BOOTSTRAP ISOLATION"
       llm: "TENOR 2026 (Gemini 3.1 Pro)"

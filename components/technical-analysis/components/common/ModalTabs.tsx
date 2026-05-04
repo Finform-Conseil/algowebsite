@@ -1,6 +1,5 @@
 import React from "react";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 
 interface TabItem {
     id: string;
@@ -28,7 +27,7 @@ export const ModalTabs: React.FC<ModalTabsProps> = ({
 }) => {
     return (
         <div
-            className={clsx(s["gp-tabs-nav"], className)}
+            className={clsx("gp-tabs-nav", className)}
             style={{
                 borderBottom: "1px solid rgba(255,255,255,0.1)",
                 marginBottom: "20px"
@@ -37,7 +36,7 @@ export const ModalTabs: React.FC<ModalTabsProps> = ({
             {tabs.map((tab) => (
                 <button
                     key={tab.id}
-                    className={clsx(s["gp-tab-btn"], activeTab === tab.id && s["active"])}
+                    className={clsx("gp-tab-btn", activeTab === tab.id && "active")}
                     onClick={() => onTabChange(tab.id)}
                     style={{ textTransform: "capitalize" }}
                 >

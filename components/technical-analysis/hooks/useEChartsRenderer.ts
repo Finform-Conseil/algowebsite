@@ -242,12 +242,12 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
     clearWorkerMessageTimeout();
     workerMessageTimeoutRef.current = window.setTimeout(() => {
       if (!isMountedRef.current) return;
-      console.warn("[EChartsRenderer] Worker timeout. Forcing synchronous fallback.");
+      console.warn("[EChartsRenderer] Worker timeout (15s). datasetSize=" + chartData.length + ". Forcing synchronous fallback.");
       isWorkerBusyRef.current = false;
       workerRef.current?.terminate();
       workerRef.current = null;
       setWorkerFailed(true);
-    }, 5000);
+    }, 15000);
 
     workerRef.current.postMessage(
       { messageId, buffer: buffer.buffer, length, config },
@@ -258,9 +258,10 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
   const syncIndicators = useMemo(() => {
     if (!workerFailed) return {};
 
-    // [TENOR 2026 SRE FIX] SCAR-WORKER-FALLBACK: Graceful Degradation
-    if (chartData.length > 1500) {
-      console.error("[SRE] Web Worker failed and dataset is too large (>1500) for synchronous fallback. Indicators disabled to prevent UI freeze.");
+    // [TENOR 2026 SRE FIX] SCAR-WORKER-FALLBACK: High-Performance Graceful Degradation
+    // 5000 points is a safe upper bound for 2026 mobile CPUs to handle synchronously.
+    if (chartData.length > 5000) {
+      console.error("[SRE] Web Worker failed and dataset is exceptionally large (>" + chartData.length + ") for synchronous fallback. Indicators disabled to prevent UI freeze.");
       return {};
     }
 
@@ -517,6 +518,8 @@ export const useEChartsRenderer = ({
 
   // [TENOR 2026 SRE] Strict Lifecycle Guard for RAFs and Observers
   const isMountedRef = useRef(true);
+  const [hasSize, setHasSize] = useState(false);
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -567,14 +570,42 @@ export const useEChartsRenderer = ({
   useEffect(() => {
     if (!stockChartRef.current || chartData.length === 0) return;
 
-    const container = stockChartRef.current;
-    if (container.clientWidth === 0 || container.clientHeight === 0) {
-      const timeout = setTimeout(() => {
-        if (isMountedRef.current) dispatch(setChartConfig({} as Partial<ChartState>));
-      }, 50);
-      return () => clearTimeout(timeout);
+    // [TENOR 2026 SRE FIX] Resize Resilience — Ensuring ResizeObserver is always attached.
+    let resizeRafId: number;
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const { width, height } = entry.contentRect;
+      
+      if (width > 0 && height > 0) {
+        if (!hasSize) setHasSize(true);
+      } else {
+        if (hasSize) setHasSize(false);
+      }
+
+      resizeRafId = requestAnimationFrame(() => {
+        if (isMountedRef.current && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
+          chartInstanceRef.current.resize();
+          resetManualYViewport();
+        }
+      });
+    });
+
+    if (stockChartRef.current) {
+      resizeObserver.observe(stockChartRef.current);
     }
 
+    if (!hasSize) {
+      const container = stockChartRef.current;
+      if (container.clientWidth > 0 && container.clientHeight > 0) {
+        setHasSize(true);
+      }
+      return () => {
+        cancelAnimationFrame(resizeRafId);
+        resizeObserver.disconnect();
+      };
+    }
+
+    const container = stockChartRef.current;
     if (!chartInstanceRef.current) {
       chartInstanceRef.current = echarts.init(container);
     }
@@ -1220,84 +1251,53 @@ export const useEChartsRenderer = ({
     });
 
     const option: echarts.EChartsCoreOption = {
-      baseOption: {
-        backgroundColor: "transparent",
-        animation: false,
-        title: {
-          text: displaySymbol,
-          left: 0,
-          textStyle: { color: textColor, fontSize: 14, fontWeight: "normal" },
-        },
-        legend: {
-          top: 0,
-          left: 'center',
-          selectedMode: 'multiple',
-          selected: legendSelectionRef.current,
-          z: 1000,
-          padding: [5, 10],
-          itemGap: 15,
-          data: seriesOptions
-            .filter((opt) => opt.id !== "main-series" && opt.id !== "volume-bar")
-            .map((opt) => opt.name)
-            .filter((name): name is string => !!name),
-          textStyle: { color: textColor },
-          icon: "roundRect",
-          itemWidth: 15,
-          itemHeight: 10,
-        },
-        tooltip: { show: false },
-        axisPointer: { show: false },
-        grid: gridOptions,
-        xAxis: xAxisOptions,
-        yAxis: yAxisOptions,
-        dataZoom: [
-          {
-            id: 'time-zoom',
-            type: "inside",
-            xAxisIndex: xAxisOptions.map((_, i) => i),
-            zoomOnMouseWheel: false,
-            moveOnMouseMove: false,
-            filterMode: 'filter',
-          }
-        ],
-        series: seriesOptions,
+      backgroundColor: "transparent",
+      animation: false,
+      title: {
+        text: displaySymbol,
+        left: 0,
+        textStyle: { color: textColor, fontSize: 14, fontWeight: "normal" },
       },
-      media: [
+      legend: {
+        top: 0,
+        left: 'center',
+        selectedMode: 'multiple',
+        selected: legendSelectionRef.current,
+        z: 1000,
+        padding: [5, 10],
+        itemGap: 15,
+        data: seriesOptions
+          .filter((opt) => opt.id !== "main-series" && opt.id !== "volume-bar")
+          .map((opt) => opt.name)
+          .filter((name): name is string => !!name),
+        textStyle: { color: textColor },
+        icon: "roundRect",
+        itemWidth: 15,
+        itemHeight: 10,
+      },
+      tooltip: { show: false },
+      axisPointer: { show: false },
+      grid: gridOptions,
+      xAxis: xAxisOptions,
+      yAxis: yAxisOptions,
+      dataZoom: [
         {
-          query: { maxWidth: 768 },
-          option: {
-            title: { left: 10, top: 0 },
-            legend: {
-              top: 0,
-              left: 'center',
-              itemGap: 10,
-              padding: [4, 0, 0, 0],
-              itemWidth: 10,
-              textStyle: { fontSize: 10 },
-            },
-            xAxis: [
-              {
-                axisLabel: {
-                  fontSize: 9,
-                  formatter: smartXAxisFormatter,
-                  rich: { bold: { fontWeight: 'bold', color: '#d1d4dc' } }
-                },
-              },
-            ],
-          },
-        },
+          id: 'time-zoom',
+          type: "inside",
+          xAxisIndex: xAxisOptions.map((_, i) => i),
+          zoomOnMouseWheel: false,
+          moveOnMouseMove: false,
+          filterMode: 'filter',
+        }
       ],
+      series: seriesOptions,
     };
 
     // [TENOR 2026 SRE] RAF Cleanup Enforcement
     let rafId: number;
     rafId = requestAnimationFrame(() => {
       if (isMountedRef.current && chart && !chart.isDisposed()) {
-        chart.setOption(option, {
-          notMerge: false,
-          replaceMerge: ['series'],
-          lazyUpdate: false,
-        });
+        chart.setOption(option, true);
         applyViewport();
       }
     });
@@ -1309,19 +1309,7 @@ export const useEChartsRenderer = ({
     };
 
     chart.on('legendselectchanged', handleLegendChange);
-
-    let resizeRafId: number;
-    const resizeObserver = new ResizeObserver(() => {
-      resizeRafId = requestAnimationFrame(() => {
-        if (isMountedRef.current && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
-          chartInstanceRef.current.resize();
-          resetManualYViewport();
-        }
-      });
-    });
-
-    if (stockChartRef.current) resizeObserver.observe(stockChartRef.current);
-
+    
     return () => {
       cancelAnimationFrame(rafId);
       cancelAnimationFrame(resizeRafId);
@@ -1357,6 +1345,7 @@ export const useEChartsRenderer = ({
     updateLastPriceAxisBadge,
     isMainChartVisible,
     comparisonSeries,
+    hasSize,
   ]);
 
   return { indicatorsData };

@@ -8,7 +8,6 @@ import {
 } from "../common/SettingsField";
 import { BaseModal } from "../common/BaseModal";
 import { ModalTabs } from "../common/ModalTabs";
-import s from "../../style.module.scss";
 import {
     selectIndicatorPeriods,
     selectChartAppearance,
@@ -82,7 +81,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             <div className="p-1">
                 {activeTab === "indicators" && (
                     <div className="d-flex flex-column gap-4">
-                        <h6 className={s["gp-section-title"]}>Moyennes Mobiles (SMA)</h6>
+                        <h6 className={"gp-section-title"}>Moyennes Mobiles (SMA)</h6>
                         <div className="row g-3">
                             <div className="col-4">
                                 <SettingsNumberInput
@@ -113,9 +112,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             </div>
                         </div>
 
-                        <hr className={s["gp-separator"]} />
+                        <hr className={"gp-separator"} />
 
-                        <h6 className={s["gp-section-title"]}>Oscillateurs</h6>
+                        <h6 className={"gp-section-title"}>Oscillateurs</h6>
                         <SettingsNumberInput
                             label="RSI Period"
                             value={indicatorPeriods.rsiPeriod}
@@ -149,9 +148,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             onChange={(val) => dispatch(setAnonyme(val))}
                         />
 
-                        <hr className={s["gp-separator"]} />
+                        <hr className={"gp-separator"} />
 
-                        <h6 className={s["gp-section-title"]}>Couleurs des Bougies</h6>
+                        <h6 className={"gp-section-title"}>Couleurs des Bougies</h6>
                         <div className="row g-2">
                             <div className="col-6">
                                 <SettingsColorInput

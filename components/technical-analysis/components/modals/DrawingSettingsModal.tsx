@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import s from "../../style.module.scss";
 import { Drawing, BarPatternMode } from "../../config/TechnicalAnalysisTypes";
 import {
   PITCHFORK_TOOLS,
@@ -264,7 +263,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     })
                   }
                 />
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">Bands Multipliers</div>
                 {avProps.levels.map((level: NonNullable<Drawing["anchoredVWAPProps"]>["levels"][number], idx: number) => (
                   <div key={idx} className="d-flex align-items-center gap-2 mb-1">
@@ -682,7 +681,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   }}
                 />
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
 
                 {dr.type === "fib_speed_resistance_fan" && drFibProps.fanProps ? (
                   <>
@@ -719,7 +718,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                         <input
                           type="number"
                           step="0.001"
-                          className={s["gp-input-premium"]}
+                          className={"gp-input-premium"}
                           style={{ width: "60px" }}
                           value={level.value}
                           onChange={(e) => {
@@ -780,7 +779,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                       </div>
                     ))}
 
-                    <hr className={s["gp-separator"]} />
+                    <hr className={"gp-separator"} />
                     <div className="text-secondary small fw-bold mb-2">
                       Time Ratios
                     </div>
@@ -814,7 +813,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                         <input
                           type="number"
                           step="0.001"
-                          className={s["gp-input-premium"]}
+                          className={"gp-input-premium"}
                           style={{ width: "60px" }}
                           value={level.value}
                           onChange={(e) => {
@@ -898,7 +897,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                       <input
                         type="number"
                         step="0.001"
-                        className={s["gp-input-premium"]}
+                        className={"gp-input-premium"}
                         style={{ width: "60px" }}
                         value={level.value}
                         onChange={(e) => {
@@ -980,7 +979,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   </div>
                 ))}
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>Time Levels</div>
                 {drGannBoxProps.timeLevels.map((level, idx) => (
                   <div key={`t-${idx}`} className="d-flex align-items-center gap-2 mb-1">
@@ -1018,7 +1017,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   </div>
                 ))}
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="d-flex flex-wrap gap-3">
                   <SettingsCheckbox
                     label="Fans (Angles)"
@@ -1090,7 +1089,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">Lignes</div>
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <SettingsCheckbox
@@ -1138,7 +1137,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   )}
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">Niveaux</div>
                 {drFibSpiralProps.levels.map((level, idx) => (
                   <div key={idx} className="d-flex align-items-center gap-2 mb-1">
@@ -1156,7 +1155,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      className={s["gp-input-premium"]}
+                      className={"gp-input-premium"}
                       style={{ width: "60px" }}
                       value={level.value}
                       onChange={(e) => {
@@ -1196,7 +1195,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   </div>
                 ))}
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <SettingsFillControl
                   label="Arrière-plan"
                   enabled={drFibSpiralProps.background?.enabled || false}
@@ -1269,7 +1268,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     })
                   }
                 />
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">
                   Couleurs Alternées
                 </div>
@@ -1396,7 +1395,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   }
                 />
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">Niveaux</div>
                 {drFibWedgeProps.levels.map((level, idx) => (
                   <div
@@ -1423,7 +1422,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     <input
                       type="number"
                       step="0.001"
-                      className={s["gp-input-premium"]}
+                      className={"gp-input-premium"}
                       style={{ width: "60px" }}
                       value={level.value}
                       onChange={(e) => {
@@ -1468,7 +1467,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   </div>
                 ))}
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <SettingsCheckbox
                   label="Arrière-plan"
                   checked={drFibWedgeProps.background.enabled}
@@ -1492,7 +1491,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
               <>
                 <div className="text-secondary small fw-bold mb-2">Lignes</div>
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className={s["gp-label-premium"]}>Médiane (0.5)</label>
+                  <label className={"gp-label-premium"}>Médiane (0.5)</label>
                   <SettingsColorOpacityInput
                     color={(() => {
                       const l = drPitchfanProps.levels.find(
@@ -1659,7 +1658,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <SettingsCheckbox
                   label="Arrière-plan"
                   checked={drPitchfanProps.fillBackground}
@@ -1745,7 +1744,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">
                   Niveaux de Prix
                 </div>
@@ -1774,7 +1773,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     <input
                       type="number"
                       step="0.001"
-                      className={s["gp-input-premium"]}
+                      className={"gp-input-premium"}
                       style={{ width: "60px" }}
                       value={level.value}
                       onChange={(e) => {
@@ -1845,7 +1844,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     <input
                       type="number"
                       step="0.001"
-                      className={s["gp-input-premium"]}
+                      className={"gp-input-premium"}
                       style={{ width: "80px" }}
                       value={drGannSquareFixedProps.priceBarRatio || 1}
                       onChange={(e) =>
@@ -1912,7 +1911,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   }
                 />
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">
                   Niveaux de la Grille
                 </div>
@@ -2117,7 +2116,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">
                   Lignes (Gann Angles)
                 </div>
@@ -2271,9 +2270,9 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   }
                 />
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className={s["gp-label-premium"]}>Médiane</label>
+                  <label className={"gp-label-premium"}>Médiane</label>
                   <SettingsColorOpacityInput
                     color={
                       drPfProps.levels.find((l) => l.value === 0)?.color ||
@@ -2442,7 +2441,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   )}
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">Niveaux</div>
                 {drTrendFibTimeProps.levels.map((level, idx) => (
                   <div
@@ -2469,7 +2468,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     <input
                       type="number"
                       step="0.001"
-                      className={s["gp-input-premium"]}
+                      className={"gp-input-premium"}
                       style={{ width: "60px" }}
                       value={level.value}
                       onChange={(e) => {
@@ -2547,7 +2546,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   }
                 />
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <div className="text-secondary small fw-bold mb-2">Niveaux</div>
                 {drFibCirclesProps.levels.map((level, idx) => (
                   <div
@@ -2574,7 +2573,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     <input
                       type="number"
                       step="0.001"
-                      className={s["gp-input-premium"]}
+                      className={"gp-input-premium"}
                       style={{ width: "60px" }}
                       value={level.value}
                       onChange={(e) => {
@@ -2625,7 +2624,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
             {dr.type === "position_forecast" && (
               <>
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className={s["gp-label-premium"]}>Ligne</label>
+                  <label className={"gp-label-premium"}>Ligne</label>
                   <SettingsColorOpacityInput
                     color={drStyle.color}
                     opacity={drStyle.lineOpacity || 1}
@@ -2668,7 +2667,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   }
                 />
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 {/* SOURCE */}
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <SettingsCheckbox
@@ -2692,7 +2691,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <label className={s["gp-label-premium"]}>Arrière-plan de la source</label>
+                  <label className={"gp-label-premium"}>Arrière-plan de la source</label>
                   <div className="flex-grow-1" />
                   <SettingsColorInput
                     label=""
@@ -2705,7 +2704,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <label className={s["gp-label-premium"]}>Bordure de la source</label>
+                  <label className={"gp-label-premium"}>Bordure de la source</label>
                   <div className="flex-grow-1" />
                   <SettingsColorInput
                     label=""
@@ -2718,7 +2717,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 {/* TARGET */}
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <SettingsCheckbox
@@ -2742,7 +2741,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <label className={s["gp-label-premium"]}>Arrière-plan de la cible</label>
+                  <label className={"gp-label-premium"}>Arrière-plan de la cible</label>
                   <div className="flex-grow-1" />
                   <SettingsColorInput
                     label=""
@@ -2755,7 +2754,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <label className={s["gp-label-premium"]}>Bordure de la cible</label>
+                  <label className={"gp-label-premium"}>Bordure de la cible</label>
                   <div className="flex-grow-1" />
                   <SettingsColorInput
                     label=""
@@ -2768,7 +2767,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 {/* SUCCESS */}
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <SettingsCheckbox
@@ -2792,7 +2791,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <label className={s["gp-label-premium"]}>Arrière-plan de succès</label>
+                  <label className={"gp-label-premium"}>Arrière-plan de succès</label>
                   <div className="flex-grow-1" />
                   <SettingsColorInput
                     label=""
@@ -2805,7 +2804,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
 
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 {/* FAILURE */}
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <SettingsCheckbox
@@ -2829,7 +2828,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <label className={s["gp-label-premium"]}>Arrière-plan d&apos;échec</label>
+                  <label className={"gp-label-premium"}>Arrière-plan d&apos;échec</label>
                   <div className="flex-grow-1" />
                   <SettingsColorInput
                     label=""
@@ -2848,7 +2847,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
             {dr.type === "bar_pattern" && (
               <>
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className={s["gp-label-premium"]}>Couleur</label>
+                  <label className={"gp-label-premium"}>Couleur</label>
                   <SettingsColorOpacityInput
                     color={bpColor}
                     opacity={bpOpacity}
@@ -2987,7 +2986,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
             {dr.type === "anchored_vwap" && avProps && (
               <>
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className={s["gp-label-premium"]}>VWAP Line</label>
+                  <label className={"gp-label-premium"}>VWAP Line</label>
                   <SettingsColorOpacityInput
                     color={drStyle.color}
                     opacity={drStyle.lineOpacity || 1}
@@ -2995,7 +2994,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                     onOpacityChange={(val) => updateDrawing(dr.id, { style: { ...drStyle, lineOpacity: val } })}
                   />
                 </div>
-                <hr className={s["gp-separator"]} />
+                <hr className={"gp-separator"} />
                 <SettingsCheckbox
                   label="Calculate Std Dev"
                   checked={avProps.calculateStDev}
@@ -3090,7 +3089,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
             ) && (
               <>
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className={s["gp-label-premium"]}>Couleur</label>
+                  <label className={"gp-label-premium"}>Couleur</label>
                   <SettingsColorOpacityInput
                     color={drStyle.borderColor || drStyle.color}
                     opacity={drStyle.lineOpacity || 1}

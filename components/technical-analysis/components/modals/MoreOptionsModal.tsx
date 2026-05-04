@@ -1,6 +1,5 @@
 import React from "react";
 import { BaseModal } from "../common/BaseModal";
-import s from "../../style.module.scss";
 
 interface MoreOptionsModalProps {
     isOpen: boolean;
@@ -38,7 +37,7 @@ export const MoreOptionsModal: React.FC<MoreOptionsModalProps> = ({
                 {OPTIONS.map(({ icon, label, action }) => (
                     <button
                         key={label}
-                        className={s["gp-option-tile"]}
+                        className={"gp-option-tile"}
                         onClick={() => {
                             alert(action);
                             onClose();

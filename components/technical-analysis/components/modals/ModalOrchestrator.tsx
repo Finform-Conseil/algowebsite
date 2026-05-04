@@ -17,7 +17,6 @@ import { Drawing } from "../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import { useModalOrchestrator } from "../../hooks/useModalOrchestrator";
 import { generateInitialData as GENERATE_INITIAL_DATA } from "../../lib/Indicators/TechnicalIndicators";
-import s from "../../style.module.scss";
 
 // ============================================================================
 // DYNAMIC IMPORTS (Code Splitting)
@@ -75,9 +74,6 @@ interface ModalOrchestratorProps {
   startReplay: () => void;
   setChartData: React.Dispatch<React.SetStateAction<ChartDataPoint[]>>;
   
-  // [TENOR 2026 FIX] Soft Deprecation: Made optional to avoid breaking TechnicalAnalysis.tsx
-  // The orchestrator now imports its own styles directly to eliminate prop-drilling.
-  s?: { [key: string]: string };
 }
 
 // ============================================================================
@@ -182,7 +178,7 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
       <AlertsModal
         isOpen={modals.alerts}
         onClose={() => closeModal("alerts")}
-        btnStyle={s["btn-california"]}
+        btnStyle={"btn-california"}
       />
     </>
   );

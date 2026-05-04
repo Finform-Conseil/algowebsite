@@ -6,14 +6,13 @@ interface TechnicalAnalysisFooterProps {
     selectedTimeRange: string;
     handleTimeRangeSelect: (range: string) => void;
     setIsDatePickerModalOpen: (open: boolean) => void;
-    s: Record<string, string>;
+
 }
 export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = ({
     chartFooterRef,
     selectedTimeRange,
     handleTimeRangeSelect,
     setIsDatePickerModalOpen,
-    s,
 }) => {
     // [TENOR 2026] Hydration Guard: The clock must only render on the client
     const [time, setTime] = useState<string>("");
@@ -32,9 +31,9 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
     return (
         <div
             ref={chartFooterRef}
-            className={clsx(s["gp-chart-footer"], "gp-chart-footer")}
+            className={clsx("gp-chart-footer", "gp-chart-footer")}
         >
-            <div className={s["gp-time-selector"]}>
+            <div className={"gp-time-selector"}>
                 {[
                     "1J",
                     "5J",
@@ -49,7 +48,7 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
                     <span
                         key={range}
                         className={clsx(
-                            selectedTimeRange === range && s["active"],
+                            selectedTimeRange === range && "active",
                             "cursor-pointer",
                         )}
                         onClick={() => handleTimeRangeSelect(range)}
@@ -60,9 +59,9 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
                 ))}
                 <button
                     className={clsx(
-                        s["gp-toolbar-btn"],
                         "gp-toolbar-btn",
-                        s["hover-lift"],
+                        "gp-toolbar-btn",
+                        "hover-lift",
                         "hover-lift",
                     )}
                     title="Plage de dates"
@@ -81,18 +80,18 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
                     </svg>
                 </button>
             </div>
-            <div className={s["gp-timestamp"]}>
+            <div className={"gp-timestamp"}>
                 <div
-                    className={s["gp-market-status"]}
+                    className={"gp-market-status"}
                     title="Marché simulé en temps réel"
                 >
-                    <div className={s["gp-live-dot"]}></div> Live
+                    <div className={"gp-live-dot"}></div> Live
                 </div>
                 <span className="ms-3">
                     {time || "--:--:--"} (UTC)
                 </span>
                 <div
-                    className={clsx(s["gp-toolbar-v-divider"], "mx-2")}
+                    className={clsx("gp-toolbar-v-divider", "mx-2")}
                 ></div>
                 <span className="span2">ADJ</span>
             </div>

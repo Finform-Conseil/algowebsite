@@ -1,6 +1,5 @@
 import React from "react";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 import { Drawing, DrawingStyle } from "../../config/TechnicalAnalysisTypes";
 import { ToolbarConfig } from "../../config/TechnicalAnalysisConstants";
 import { ProColorPicker } from "../common/ProColorPicker";
@@ -240,9 +239,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 key={buttonId}
                 onClick={handleClick}
                 className={clsx(
-                    s["gp-toolbar-btn"],
+                    "gp-toolbar-btn",
                     "btn btn-link d-flex align-items-center justify-content-center",
-                    isActive && s["active"],
+                    isActive && "active",
                 )}
                 style={{
                     width: "32px", // [TENOR 2026] Slightly wider for TV padding

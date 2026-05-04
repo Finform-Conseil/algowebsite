@@ -5,7 +5,6 @@ import clsx from "clsx";
 import { useSelector } from "react-redux";
 import { selectUiState } from "../../store/technicalAnalysisSlice";
 
-import s from "../../style.module.scss";
 import { NewsSection } from "@/components/design-system/commons/CommonNewsSection/NewsSection";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
 import { CommonTickerPanel } from "@/components/design-system/commons/CommonTickerPanel/CommonTickerPanel";
@@ -38,7 +37,7 @@ export const ChartHeader: React.FC<ChartHeaderProps> = ({
     <div
       className={clsx(
         "js-animated-element",
-        s["prepare-animation"],
+        "prepare-animation",
         "gsap-target-info-panel",
       )}
     >
@@ -57,21 +56,21 @@ export const ChartHeader: React.FC<ChartHeaderProps> = ({
         status={security.status}
         newsSlotLeft={<NewsSection />}
         actionSlot={
-          <div className={s["gp-action-buttons-grid-v2"]}>
-            <button className={clsx("btn btn-light", s["gp-action-btn"])}>
+          <div className={"gp-action-buttons-grid-v2"}>
+            <button className={clsx("btn btn-light", "gp-action-btn")}>
               Analyze
             </button>
             <button
-              className={clsx("btn btn-outline-light", s["gp-action-btn"])}
+              className={clsx("btn btn-outline-light", "gp-action-btn")}
             >
               Convert
             </button>
             <button
-              className={clsx("btn btn-outline-light", s["gp-action-btn"])}
+              className={clsx("btn btn-outline-light", "gp-action-btn")}
             >
               Alert
             </button>
-            <button className={clsx("btn btn-light", s["gp-action-btn"])}>
+            <button className={clsx("btn btn-light", "gp-action-btn")}>
               Trade
             </button>
           </div>

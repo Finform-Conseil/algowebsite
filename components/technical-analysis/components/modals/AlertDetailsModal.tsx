@@ -3,7 +3,6 @@ import { BaseModal } from "../common/BaseModal";
 import { ModalTabs } from "../common/ModalTabs";
 import { SettingsToggle, SettingsTextArea } from "../common/SettingsField";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 import { SecurityBadge } from "../common/SecurityBadge";
 import { FloatingMenu } from "../common/FloatingMenu";
 import { ConditionCrossingIcon } from "../common/ChartIcons";
@@ -136,7 +135,7 @@ export const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
                                     ].map((cond) => (
                                         <div
                                             key={cond}
-                                            className={clsx(s["gp-condition-item"], selectedCondition === cond && s["active"])}
+                                            className={clsx("gp-condition-item", selectedCondition === cond && "active")}
                                             onClick={() => {
                                                 setSelectedCondition(cond);
                                                 setIsConditionDropdownOpen(false);
@@ -182,7 +181,7 @@ export const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
                                     {["ticker", "price", "time", "timeframe", "exchange"].map((p) => (
                                         <div
                                             key={p}
-                                            className={s["gp-placeholder-item"]}
+                                            className={"gp-placeholder-item"}
                                             onClick={() => handleInsertPlaceholder(p)}
                                         >
                                             {`{{${p}}}`}

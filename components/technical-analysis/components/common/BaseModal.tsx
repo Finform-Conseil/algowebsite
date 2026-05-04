@@ -1,6 +1,5 @@
 import React, { ReactNode, useEffect, useId } from "react";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 
 interface BaseModalProps {
   isOpen: boolean;
@@ -91,7 +90,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         ? "btn-warning"
         : primaryVariant === "primary"
         ? "btn-primary"
-        : s["btn-california"];
+        : "btn-california";
 
     return (
       <button
@@ -118,14 +117,14 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   return (
     <div
       ref={overlayRef}
-      className={s["gp-modal-overlay"]}
+      className={"gp-modal-overlay"}
       onClick={onClose}
       // [TENOR 2026] A11y: Overlay should not be focusable, it's just a backdrop
       aria-hidden="true"
     >
       <div
         ref={contentRef}
-        className={clsx(s["gp-modal-content"], className)}
+        className={clsx("gp-modal-content", className)}
         style={{ maxWidth }}
         onClick={(e) => e.stopPropagation()}
         // [TENOR 2026 SRE] A11y: Screen Reader Trap
@@ -134,8 +133,8 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         aria-labelledby={titleId}
       >
         {/* Standardized Header */}
-        <div className={s["gp-modal-header"]}>
-          <h5 id={titleId} className={s["gp-modal-title"]}>
+        <div className={"gp-modal-header"}>
+          <h5 id={titleId} className={"gp-modal-title"}>
             {icon && (
               <span className="me-2 d-inline-flex align-items-center justify-content-center" aria-hidden="true">
                 {typeof icon === "string" ? <i className={clsx("bi", icon)}></i> : icon}
@@ -146,7 +145,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className={s["gp-modal-close-btn"]}
+              className={"gp-modal-close-btn"}
               aria-label="Fermer la modale"
             >
               <i className="bi bi-x-lg" aria-hidden="true"></i>
@@ -156,7 +155,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
 
         {/* Standardized Body */}
         <div
-          className={s["gp-modal-body"]}
+          className={"gp-modal-body"}
           style={{ minHeight: "300px", maxHeight: "70vh", overflowY: "auto" }}
         >
           {children}

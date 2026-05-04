@@ -27,7 +27,6 @@ import {
   ForecastingCategoryIcon,
   HorizontalLineIcon,
 } from "../common/ToolIcons";
-import s from "../../style.module.scss";
 
 // --- CONSTANTS ---
 const ACTIVE_BLUE = "#2962ff";
@@ -689,24 +688,24 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     <aside
       ref={verticalToolbarRef}
       className={clsx(
-        s["gp-vertical-toolbar"],
+        "gp-vertical-toolbar",
         "gp-vertical-toolbar",
         "gsap-target-vertical-toolbar",
         "animated-element",
       )}
     >
-      <div className={s["gp-toolbar-scroll-container"]}>
+      <div className={"gp-toolbar-scroll-container"}>
         {/* --- CURSOR MODE SELECTOR --- */}
         <button
           ref={cursorDropdownRef}
           className={clsx(
-            s["gp-toolbar-btn"],
             "gp-toolbar-btn",
-            s["gp-toolbar-btn-split"],
+            "gp-toolbar-btn",
             "gp-toolbar-btn-split",
-            s["hover-lift"],
+            "gp-toolbar-btn-split",
             "hover-lift",
-            isCursorActive && s["active"],
+            "hover-lift",
+            isCursorActive && "active",
           )}
           title={`Mode de curseur : ${uiState.cursorMode}`}
           onClick={toggleCursorDropdown}
@@ -825,15 +824,15 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
               ].map((mode) => (
                 <div
                   key={mode.id}
-                  className={s["gp-cursor-option"]}
+                  className={"gp-cursor-option"}
                   style={getActiveOptionStyle(uiState.cursorMode === mode.id)}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     handleSelectCursorMode(mode.id as CursorModeType);
                   }}
                 >
-                  <div className={s["icon-container"]}>{mode.icon}</div>
-                  <span className={s["gp-cursor-label"]}>{mode.label}</span>
+                  <div className={"icon-container"}>{mode.icon}</div>
+                  <span className={"gp-cursor-label"}>{mode.label}</span>
                 </div>
               ))}
             </div>,
@@ -844,13 +843,13 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         <button
           ref={trendDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
-            s["gp-toolbar-btn"],
             "gp-toolbar-btn",
-            s["gp-toolbar-btn-split"],
+            "gp-toolbar-btn",
             "gp-toolbar-btn-split",
-            s["hover-lift"],
+            "gp-toolbar-btn-split",
             "hover-lift",
-            (isTrendDropdownOpen || (!isFibDropdownOpen && isTrendToolActive)) ? s["active"] : "",
+            "hover-lift",
+            (isTrendDropdownOpen || (!isFibDropdownOpen && isTrendToolActive)) ? "active" : "",
           )}
           title="Lignes de Tendances & Outils de Mesure"
           onClick={handleTrendButtonClick}
@@ -875,7 +874,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                   return (
                     <div
                       key={`trend-${tool.id}`}
-                      className={s["gp-cursor-option"]}
+                      className={"gp-cursor-option"}
                       style={getActiveOptionStyle(isActive)}
                       onMouseDown={(e) => {
                         e.preventDefault();
@@ -884,9 +883,9 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                         setIsTrendDropdownOpen(false);
                       }}
                     >
-                      <div className={s["icon-container"]}>{cloneIconWithActiveState(tool.icon, isActive)}</div>
+                      <div className={"icon-container"}>{cloneIconWithActiveState(tool.icon, isActive)}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-                        <span className={s["gp-cursor-label"]}>{tool.label || ""}</span>
+                        <span className={"gp-cursor-label"}>{tool.label || ""}</span>
                         <span style={{ fontSize: "10px", color: "#787b86" }}>{tool.category}</span>
                       </div>
                     </div>
@@ -909,7 +908,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                   ).map((cat) => (
                     <div
                       key={cat.id}
-                      className={clsx(s["gp-cursor-option"])}
+                      className={clsx("gp-cursor-option")}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setTrendDropdownView(cat.id);
@@ -918,7 +917,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <span style={{ background: ACTIVE_BLUE, color: "white", fontSize: "11px", fontWeight: 600, padding: "2px 6px", borderRadius: "3px", minWidth: "24px", textAlign: "center" }}>{cat.count}</span>
-                        <span className={clsx(s["gp-cursor-label"])} style={{ fontWeight: 500 }}>{cat.label}</span>
+                        <span className={clsx("gp-cursor-label")} style={{ fontWeight: 500 }}>{cat.label}</span>
                       </div>
                       <i className="bi bi-chevron-right" style={{ fontSize: "0.8rem", color: "#787b86" }}></i>
                     </div>
@@ -936,7 +935,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                         setTrendDropdownView("categories");
                       }}
                       style={{ cursor: "pointer" }}
-                      className={s["back-icon-hover"]}
+                      className={"back-icon-hover"}
                     >
                       <i className="bi bi-chevron-left" style={{ fontSize: "12px" }}></i>
                     </div>
@@ -951,15 +950,15 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                       return (
                         <div
                           key={tool.id}
-                          className={s["gp-cursor-option"]}
+                          className={"gp-cursor-option"}
                           style={getActiveOptionStyle(isActive)}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             handleSelectDrawingTool(tool.id as AllToolType);
                             setIsTrendDropdownOpen(false);
                           }}>
-                          <div className={s["icon-container"]}>{cloneIconWithActiveState(tool.icon, isActive)}</div>
-                          <span className={s["gp-cursor-label"]}>{tool.label || ""}</span>
+                          <div className={"icon-container"}>{cloneIconWithActiveState(tool.icon, isActive)}</div>
+                          <span className={"gp-cursor-label"}>{tool.label || ""}</span>
                         </div>
                       );
                     })}
@@ -974,13 +973,13 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         <button
           ref={fibDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
-            s["gp-toolbar-btn"],
             "gp-toolbar-btn",
-            s["gp-toolbar-btn-split"],
+            "gp-toolbar-btn",
             "gp-toolbar-btn-split",
-            s["hover-lift"],
+            "gp-toolbar-btn-split",
             "hover-lift",
-            (isFibDropdownOpen || (!isTrendDropdownOpen && isFibToolActive)) ? s["active"] : "",
+            "hover-lift",
+            (isFibDropdownOpen || (!isTrendDropdownOpen && isFibToolActive)) ? "active" : "",
           )}
           title="Fibonacci Tools"
           onClick={handleFibButtonClick}
@@ -1008,7 +1007,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
               ).map((cat) => (
                 <div
                   key={cat.id}
-                  className={clsx(s["gp-cursor-option"])}
+                  className={clsx("gp-cursor-option")}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     setFibDropdownView(cat.id);
@@ -1017,7 +1016,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <span style={{ background: ACTIVE_BLUE, color: "white", fontSize: "11px", fontWeight: 600, padding: "2px 6px", borderRadius: "3px", minWidth: "24px", textAlign: "center" }}>{cat.count}</span>
-                    <span className={s["gp-cursor-label"]}>{cat.label}</span>
+                    <span className={"gp-cursor-label"}>{cat.label}</span>
                   </div>
                   <i className="bi bi-chevron-right" style={{ fontSize: "0.8rem", color: "#787b86" }}></i>
                 </div>
@@ -1046,15 +1045,15 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                   return (
                     <div
                       key={tool.id}
-                      className={s["gp-cursor-option"]}
+                      className={"gp-cursor-option"}
                       style={getActiveOptionStyle(isActive)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         handleSelectDrawingTool(tool.id as AllToolType);
                         setIsFibDropdownOpen(false);
                       }}>
-                      <div className={s["icon-container"]}>{tool.icon}</div>
-                      <span className={s["gp-cursor-label"]}>{tool.label}</span>
+                      <div className={"icon-container"}>{tool.icon}</div>
+                      <span className={"gp-cursor-label"}>{tool.label}</span>
                     </div>
                   );
                 })}
@@ -1066,13 +1065,13 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         <button
           ref={chartPatternsDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
-            s["gp-toolbar-btn"],
             "gp-toolbar-btn",
-            s["gp-toolbar-btn-split"],
+            "gp-toolbar-btn",
             "gp-toolbar-btn-split",
-            s["hover-lift"],
+            "gp-toolbar-btn-split",
             "hover-lift",
-            (isChartPatternsDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && isChartPatternsToolActive)) ? s["active"] : "",
+            "hover-lift",
+            (isChartPatternsDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && isChartPatternsToolActive)) ? "active" : "",
           )}
           title="CHART PATTERNS"
           onClick={handleChartPatternsButtonClick}
@@ -1105,7 +1104,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
               ).map((cat) => (
                 <div
                   key={cat.id}
-                  className={clsx(s["gp-cursor-option"])}
+                  className={clsx("gp-cursor-option")}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     setChartPatternsDropdownView(cat.id);
@@ -1114,7 +1113,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <span style={{ background: ACTIVE_BLUE, color: "white", fontSize: "11px", fontWeight: 600, padding: "2px 6px", borderRadius: "3px", minWidth: "24px", textAlign: "center" }}>{cat.count}</span>
-                    <span className={s["gp-cursor-label"]}>{cat.label}</span>
+                    <span className={"gp-cursor-label"}>{cat.label}</span>
                   </div>
                   <i className="bi bi-chevron-right" style={{ fontSize: "0.8rem", color: "#787b86" }}></i>
                 </div>
@@ -1150,15 +1149,15 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                   return (
                     <div
                       key={tool.id}
-                      className={s["gp-cursor-option"]}
+                      className={"gp-cursor-option"}
                       style={getActiveOptionStyle(isActive)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         handleSelectDrawingTool(tool.id as AllToolType);
                         setIsChartPatternsDropdownOpen(false);
                       }}>
-                      <div className={s["icon-container"]}>{tool.icon}</div>
-                      <span className={s["gp-cursor-label"]}>{tool.label}</span>
+                      <div className={"icon-container"}>{tool.icon}</div>
+                      <span className={"gp-cursor-label"}>{tool.label}</span>
                     </div>
                   );
                 })}
@@ -1170,10 +1169,10 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         <button
           ref={forecastingDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
-            s["gp-toolbar-btn"],
-            s["gp-toolbar-btn-split"],
+            "gp-toolbar-btn",
+            "gp-toolbar-btn-split",
             "hover-lift",
-            (isForecastingDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && isForecastingToolActive)) ? s["active"] : "",
+            (isForecastingDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && isForecastingToolActive)) ? "active" : "",
           )}
           title="FORECASTING"
           onClick={handleForecastingButtonClick}
@@ -1205,7 +1204,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
               ).map((cat) => (
                 <div
                   key={cat.id}
-                  className={clsx(s["gp-cursor-option"])}
+                  className={clsx("gp-cursor-option")}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     setForecastingDropdownView(cat.id);
@@ -1214,7 +1213,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <span style={{ background: ACTIVE_BLUE, color: "white", fontSize: "11px", fontWeight: 600, padding: "2px 6px", borderRadius: "3px", minWidth: "24px", textAlign: "center" }}>{cat.count}</span>
-                    <span className={s["gp-cursor-label"]}>{cat.label}</span>
+                    <span className={"gp-cursor-label"}>{cat.label}</span>
                   </div>
                   <i className="bi bi-chevron-right" style={{ fontSize: "0.8rem", color: "#787b86" }}></i>
                 </div>
@@ -1249,15 +1248,15 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
                   return (
                     <div
                       key={tool.id}
-                      className={s["gp-cursor-option"]}
+                      className={"gp-cursor-option"}
                       style={getActiveOptionStyle(isActive)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         handleSelectDrawingTool(tool.id as AllToolType);
                         setIsForecastingDropdownOpen(false);
                       }}>
-                      <div className={s["icon-container"]}>{tool.icon}</div>
-                      <span className={s["gp-cursor-label"]}>{tool.label}</span>
+                      <div className={"icon-container"}>{tool.icon}</div>
+                      <span className={"gp-cursor-label"}>{tool.label}</span>
                     </div>
                   );
                 })}
@@ -1266,21 +1265,21 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           )}
         </ToolPortal>
 
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} title="Texte"><i className="bi bi-fonts"></i></button>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} title="Icônes"><i className="bi bi-emoji-smile"></i></button>
-        <div className={s["gp-toolbar-divider"]}></div>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} title="Règle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21L21 3l-2-2L1 19l2 2zM6 12v2M9 9v2m3-3v2m3-3v2"></path></svg></button>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} title="Zoom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"></path></svg></button>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Texte"><i className="bi bi-fonts"></i></button>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Icônes"><i className="bi bi-emoji-smile"></i></button>
+        <div className={"gp-toolbar-divider"}></div>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Règle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21L21 3l-2-2L1 19l2 2zM6 12v2M9 9v2m3-3v2m3-3v2"></path></svg></button>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Zoom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"></path></svg></button>
       </div>
 
-      <div className={s["gp-toolbar-footer"]}>
-        <div className={s["gp-toolbar-divider"]}></div>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} title="Aimant"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-magnet" viewBox="0 0 16 16"><path d="M8 1a7 7 0 0 0-7 7v3h4V8a3 3 0 0 1 6 0v3h4V8a7 7 0 0 0-7-7m7 11h-4v3h4zM5 12H1v3h4zM0 8a8 8 0 1 1 16 0v8h-6V8a2 2 0 1 0-4 0v8H0z" /></svg></button>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} title="Mode dessin"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-pencil" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325" /></svg></button>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift", uiState.isLockedAll && s["active"])} onClick={handleGlobalLockToggle} title="Verrouiller les dessins"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-unlock2" style={{ color: uiState.isLockedAll ? ACTIVE_BLUE : "inherit" }} viewBox="0 0 16 16"><path fillRule="evenodd" d="M8 0c1.07 0 2.041.42 2.759 1.104l.14.14.062.08a.5.5 0 0 1-.71.675l-.076-.066-.216-.205A3 3 0 0 0 5 4v2h6.5A2.5 2.5 0 0 1 14 8.5v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7z" /></svg></button>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift", uiState.areDrawingsHidden && s["active"])} onClick={handleVisibilityToggle} title="Visibilité des dessins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{ color: uiState.areDrawingsHidden ? ACTIVE_BLUE : "inherit" }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-        <div className={s["gp-toolbar-divider"]}></div>
-        <button className={clsx(s["gp-toolbar-btn"], "hover-lift")} onClick={handleClearAllDrawings} title="Supprimer les dessins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"></path></svg></button>
+      <div className={"gp-toolbar-footer"}>
+        <div className={"gp-toolbar-divider"}></div>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Aimant"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-magnet" viewBox="0 0 16 16"><path d="M8 1a7 7 0 0 0-7 7v3h4V8a3 3 0 0 1 6 0v3h4V8a7 7 0 0 0-7-7m7 11h-4v3h4zM5 12H1v3h4zM0 8a8 8 0 1 1 16 0v8h-6V8a2 2 0 1 0-4 0v8H0z" /></svg></button>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} title="Mode dessin"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-pencil" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325" /></svg></button>
+        <button className={clsx("gp-toolbar-btn", "hover-lift", uiState.isLockedAll && "active")} onClick={handleGlobalLockToggle} title="Verrouiller les dessins"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-unlock2" style={{ color: uiState.isLockedAll ? ACTIVE_BLUE : "inherit" }} viewBox="0 0 16 16"><path fillRule="evenodd" d="M8 0c1.07 0 2.041.42 2.759 1.104l.14.14.062.08a.5.5 0 0 1-.71.675l-.076-.066-.216-.205A3 3 0 0 0 5 4v2h6.5A2.5 2.5 0 0 1 14 8.5v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7z" /></svg></button>
+        <button className={clsx("gp-toolbar-btn", "hover-lift", uiState.areDrawingsHidden && "active")} onClick={handleVisibilityToggle} title="Visibilité des dessins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{ color: uiState.areDrawingsHidden ? ACTIVE_BLUE : "inherit" }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+        <div className={"gp-toolbar-divider"}></div>
+        <button className={clsx("gp-toolbar-btn", "hover-lift")} onClick={handleClearAllDrawings} title="Supprimer les dessins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"></path></svg></button>
       </div>
     </aside >
   );

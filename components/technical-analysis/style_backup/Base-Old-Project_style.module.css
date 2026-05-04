@@ -41,179 +41,18 @@
   --bs-body-font-size-xl: 0.95rem;
   --bs-body-font-size-xxl: 1.1rem;
   --bs-body-font-size-xxxl: 1.25rem;
-  /* [TENOR 2026 HDR HARD-LOCK] 
-   * Verrouillage absolu pour correspondre au position:fixed du body. */
-  height: calc(100vh - 100px) !important;
-  min-height: calc(100vh - 100px) !important;
-  max-height: calc(100vh - 100px) !important;
-  overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
+  /* Layout Root - Respect Dashboard Flow */
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background-color: var(--bs-body-bg);
   color: var(--bs-body-color);
   font-family: var(--gp-font-family-base);
-  opacity: 1 !important;
-  visibility: visible !important;
-  margin: 0 !important;
-  padding: 0;
-  z-index: 10;
-}
-
-/* [TENOR 2026 HDR] Verrouillage dynamique de la route.
- * Appliqué via useEffect dans TechnicalAnalysis.tsx.
- * Ne surcharge le body que lorsque cet élément est monté. */
-:global(.gp-dashboard-lock) {
-  height: 100% !important;
-  min-height: 100% !important;
-  max-height: 100% !important;
-  overflow: hidden !important;
-  position: fixed !important;
-  inset: 0 !important;
-}
-
-.gp-global-wrapper {
-  width: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  position: relative !important;
-  justify-content: flex-start !important;
-}
-
-.gp-constrained-width {
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  min-height: 0 !important;
-  justify-content: flex-start !important;
-}
-
-.page-content-wrapper {
-  flex: 1 1 0% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  min-height: 0 !important;
-  max-height: 100% !important;
-  position: relative !important;
-  overflow: hidden !important;
-  padding: 0 0.5rem 0.5rem !important;
-  gap: 0.5rem !important;
-  justify-content: flex-start !important;
-}
-
-.gp-main-layout-container {
-  flex: 1 1 0% !important;
-  min-height: 0 !important;
-  max-height: 100% !important;
-  display: flex !important;
-  flex-direction: row !important;
-  gap: 0.5rem !important;
-  position: relative !important;
-  overflow: hidden !important;
-  justify-content: flex-start !important;
-}
-
-/* ============================================================================
- * [TENOR 2026 — ISOLATION BLOC]
- * Neutralise le bleed-through des sélecteurs d'ÉLÉMENTS définis dans
- * globals.scss → _reset.scss (h1-h6: Fraunces, p: margin, body: Syne, etc.)
- * Seules les CLASSE sont hachées par CSS Modules — les éléments cascadent.
- * Ce bloc force le re-scope correct à l'intérieur de .technical-analysis-root.
- * ============================================================================ */
-.technical-analysis-root :global(h1),
-.technical-analysis-root :global(h2),
-.technical-analysis-root :global(h3),
-.technical-analysis-root :global(h4),
-.technical-analysis-root :global(h5),
-.technical-analysis-root :global(h6) {
-  font-family: var(--gp-font-family-base);
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  letter-spacing: normal;
-  margin-bottom: 0;
-  color: inherit;
-}
-
-.technical-analysis-root :global(p) {
-  line-height: inherit;
-  margin-bottom: 0;
-  font-family: var(--gp-font-family-base);
-}
-
-.technical-analysis-root :global(a) {
-  color: inherit;
-  text-decoration: none;
-  transition: none;
-}
-
-.technical-analysis-root :global(a:hover) {
+  /* [CORRECTION FOUC] : On ne cache PLUS la racine. */
+  /* Le fond doit être visible immédiatement. */
   opacity: 1;
-  color: inherit;
-}
-
-.technical-analysis-root :global(ul),
-.technical-analysis-root :global(ol) {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.technical-analysis-root :global(img) {
-  display: inline;
-  max-width: none;
-}
-
-/* ============================================================================
- * [TENOR 2026 — CONTRE-MESURE RESET SCSS]
- * Le _reset.scss global du projet parent écrase button { border:none; background:none }
- * et d'autres éléments de base que Bootstrap et ce module utilisent.
- * Ce bloc restaure le comportement attendu UNIQUEMENT dans le périmètre du module.
- * ============================================================================ */
-
-/* Restauration des boutons Bootstrap dans notre périmètre */
-.technical-analysis-root :global(button) {
-  font-family: var(--gp-font-family-base, 'Roboto', sans-serif);
-}
-
-.technical-analysis-root :global(.btn) {
-  padding: inherit;
-  line-height: inherit;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Restauration des labels (le reset colle les labels aux inputs sans espacement) */
-.technical-analysis-root :global(label) {
-  display: inline-block;
-  margin-bottom: 0.25rem;
-}
-
-/* Restauration des inputs et selects */
-.technical-analysis-root :global(input),
-.technical-analysis-root :global(textarea),
-.technical-analysis-root :global(select) {
-  font-family: var(--gp-font-family-base, 'Roboto', sans-serif);
-  font-size: 0.875rem;
-}
-
-/* Restauration des images dans Bootstrap grid */
-.technical-analysis-root :global(img) {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Counter the global reset's list-style removal for Bootstrap breadcrumbs etc. */
-.technical-analysis-root :global(.list-unstyled),
-.technical-analysis-root :global(.list-inline) {
-  padding-left: 0;
-  list-style: none;
+  visibility: visible;
 }
 
 /* [STABILITÉ] Les éléments sont VISIBLES par défaut - Plus de dépendance à GSAP
@@ -352,20 +191,14 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 100%;
   min-height: 0;
   overflow: hidden;
-  position: relative;
 }
 
 .gp-constrained-width {
   width: 100%;
-  height: 100%;
   margin-left: auto;
   margin-right: auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
 
 /* ========================================================================== */
@@ -379,11 +212,10 @@
 }
 
 .page-content-wrapper {
-  flex: 1 1 0%;
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 100%;
   position: relative;
   overflow: hidden;
   padding: 0 0.5rem 0.5rem;
@@ -391,9 +223,8 @@
 }
 
 .gp-main-layout-container {
-  flex: 1 1 0%;
+  flex-grow: 1;
   min-height: 0;
-  max-height: 100%;
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
@@ -881,31 +712,6 @@
 /* ========================================================================== */
 /* == TOOLBARS == */
 /* ========================================================================== */
-
-
-
-/* [FIX] Neutralisation des marges parasites (ex: mb-2 du SettingsToggle) */
-/* Ces marges cassaient l'alignement vertical et forçaient le chevron à passer à la ligne */
-.gp-horizontal-toolbar [role="switch"],
-.gp-horizontal-toolbar .mb-2 {
-  margin-bottom: 0 !important;
-}
-.gp-horizontal-toolbar > div {
-  align-items: center !important;
-  height: 100% !important;
-}
-
-.gp-toolbar-left-cluster {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.25rem !important;
-  flex: 0 0 auto !important;
-  min-width: max-content !important;
-  height: 38px !important;
-  overflow: visible !important;
-}
-
-
 .gp-vertical-toolbar {
   flex-shrink: 0;
   width: var(--gp-toolbar-width);
@@ -948,37 +754,14 @@
 }
 
 .gp-horizontal-toolbar {
-  height: 38px !important;
-  min-height: 38px !important;
-  max-height: 38px !important;
   flex-shrink: 0;
   background-color: var(--gp-bg-toolbar);
   border-radius: var(--bs-border-radius);
-  padding: 0 0.5rem !important;
+  padding: 0.2rem 0.5rem 0.2rem 0.5rem !important;
+  /* Ajout d'un padding à gauche pour équilibrer */
   font-size: 0.8rem;
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 0.25rem !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  position: relative;
-  z-index: 1050 !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.gp-horizontal-toolbar::-webkit-scrollbar {
-  display: none;
-}
-
-.gp-horizontal-toolbar > div {
-  align-items: center !important;
-  height: 100% !important;
+  display: flex;
+  align-items: center;
 }
 
 .gp-toolbar-btn {
@@ -1037,59 +820,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0 0.5rem;
-  height: 32px;
-  line-height: 1;
+  padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
   transition: all 0.2s ease-in-out;
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: max-content;
-}
-
-.gp-toolbar-symbol-selector {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 0.5rem !important;
-  min-width: 92px !important;
-  height: 32px !important;
-  padding: 0 0.5rem !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: none !important;
-  border-radius: var(--bs-border-radius-sm) !important;
-  color: #f8f9fa !important;
-  white-space: nowrap !important;
-  flex-shrink: 0 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  box-shadow: none !important;
-  position: relative !important;
-  z-index: 2 !important;
-  cursor: pointer !important;
-  align-self: center !important;
-  overflow: visible !important;
-}
-
-.gp-toolbar-symbol-selector svg {
-  color: #f8f9fa !important;
-  font-size: 15px !important;
-  line-height: 1 !important;
-  flex-shrink: 0 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-
-.gp-toolbar-symbol-selector-label {
-  color: #f8f9fa !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  line-height: 1 !important;
-  display: inline-block !important;
-  white-space: nowrap !important;
-  opacity: 1 !important;
-  visibility: visible !important;
 }
 
 .gp-toolbar-btn:hover,
@@ -1115,24 +850,11 @@
   flex-shrink: 0;
 }
 
-.gp-toolbar-scroll-wrapper {
-  flex: 1 1 auto !important; /* [TENOR 2026 FIX] SCAR-FLEX-OVERFLOW: Bloc sacrificiel pour le shrink */
-  min-width: 30px !important;
-  height: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  position: relative;
-}
-
+.gp-toolbar-scroll-wrapper,
 .gp-toolbar-scroll-wrapper-right {
-  flex: 0 0 auto !important; /* [TENOR 2026 FIX] SCAR-FLEX-OVERFLOW: Jamais de shrink ici */
-  min-width: max-content !important;
-  display: flex !important;
-  align-items: center !important;
-  overflow-x: visible !important; /* Autorise le contenu à respirer */
+  flex-grow: 1;
+  min-width: 0;
+  overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: relative;
@@ -1143,15 +865,13 @@
   display: none;
 }
 
-.gp-toolbar-scroll-content, .gp-toolbar-scroll-content-right {
-  display: flex !important;
-  align-items: center !important;
-  flex-wrap: nowrap !important;
+.gp-toolbar-scroll-content,
+.gp-toolbar-scroll-content-right {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
-  min-width: max-content !important;
-  height: 100% !important; /* [FIX] Force l'occupation verticale pour l'alignement */
-  flex-shrink: 0;
 }
+
 /* ========================================================================== */
 /* == CHART AREA == */
 /* ========================================================================== */
@@ -1334,11 +1054,6 @@
   font-size: 1rem;
   background: none;
   border: none;
-  padding: 4px !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
 }
 
 .gp-sidebar-actions .btn.btn-primary-outline {
@@ -1462,7 +1177,7 @@
 
 /* --- PRICE BLOCK V3 (TradingView Style) --- */
 .gp-price-block-v3 {
-  margin-top: 0.15rem;
+  margin-top: 0.4rem;
 }
 
 .gp-main.gp-price-block-v3 {
@@ -1476,7 +1191,6 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  line-height: 1.1;
 }
 
 .gp-main-price-v3 {
@@ -2192,16 +1906,15 @@
   align-items: center;
   justify-content: center;
   padding: 0 !important;
-  border-radius: 50% !important; /* [FIX] Force le cercle parfait contre les conflits Bootstrap */
 }
 
 .gp-timeframe-badge-wrapper {
-  width: auto;
+  width: var(--gp-toolbar-width);
   display: flex;
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  margin: 0 !important;
+  margin-left: -0.5rem !important;
   padding: 0 !important;
   transform: none;
 }
@@ -2398,12 +2111,6 @@
     display: none !important;
   }
 
-  .gp-hide-on-small {
-    display: none !important;
-  }
-}
-
-@media (max-width: 768px) {
   .gp-hide-on-small {
     display: none !important;
   }
@@ -3420,31 +3127,7 @@
   padding: 1.5rem;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--gp-border-color, #244869) transparent;
-}
-
-/* [TENOR 2026] Tuile d'option autonome — N'utilise PAS Bootstrap pour éviter le conflit SCSS global */
-.gp-option-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.25rem 0.75rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--gp-border-color, #244869);
-  border-radius: 10px;
-  color: var(--gp-text-primary, #f8f9fa);
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
-  width: 100%;
-  font-family: var(--gp-font-family-base, 'Roboto', sans-serif);
-  gap: 0;
-}
-
-.gp-option-tile:hover {
-  background: rgba(255, 159, 4, 0.1);
-  border-color: var(--gp-accent-gold, #ff9f04);
-  transform: translateY(-2px);
+  scrollbar-color: var(--gp-border-color) transparent;
 }
 
 .gp-tabs-nav {

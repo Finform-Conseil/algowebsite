@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { BaseModal } from "../common/BaseModal";
 import clsx from "clsx";
-import s from "../../style.module.scss";
 import { setModalOpen } from "../../store/technicalAnalysisSlice";
 
 /**
@@ -79,7 +78,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 </div>
             }
         >
-            <div className={s["gp-datepicker-container"]}>
+            <div className={"gp-datepicker-container"}>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <button
                         className="btn btn-sm btn-outline-secondary border-0"
@@ -93,7 +92,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                     <div className="d-flex gap-2">
                         {/* [TENOR 2026] MONTH SELECTOR */}
                         <select
-                            className={s["gp-datepicker-select"]}
+                            className={"gp-datepicker-select"}
                             value={calendarMonth.getMonth()}
                             onChange={(e) =>
                                 setCalendarMonth(new Date(calendarMonth.getFullYear(), parseInt(e.target.value), 1))
@@ -108,7 +107,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
 
                         {/* [TENOR 2026] YEAR SELECTOR */}
                         <select
-                            className={s["gp-datepicker-select"]}
+                            className={"gp-datepicker-select"}
                             value={calendarMonth.getFullYear()}
                             onChange={(e) =>
                                 setCalendarMonth(new Date(parseInt(e.target.value), calendarMonth.getMonth(), 1))
@@ -135,9 +134,9 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                     </button>
                 </div>
 
-                <div className={s["gp-calendar-grid"]}>
+                <div className={"gp-calendar-grid"}>
                     {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map((day) => (
-                        <div key={day} className={s["gp-calendar-day-header"]}>
+                        <div key={day} className={"gp-calendar-day-header"}>
                             {day}
                         </div>
                     ))}
@@ -146,7 +145,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                         const cells = [];
 
                         for (let i = 0; i < firstDay; i++) {
-                            cells.push(<div key={`empty-${i}`} className={s["gp-calendar-day"]} />);
+                            cells.push(<div key={`empty-${i}`} className={"gp-calendar-day"} />);
                         }
 
                         for (let d = 1; d <= daysInMonth; d++) {
@@ -169,9 +168,9 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                                 <div
                                     key={d}
                                     className={clsx(
-                                        s["gp-calendar-day"],
-                                        (isStart || isEnd) && s["active"],
-                                        inRange && s["in-range"]
+                                        "gp-calendar-day",
+                                        (isStart || isEnd) && "active",
+                                        inRange && "in-range"
                                     )}
                                     onClick={() => {
                                         if (

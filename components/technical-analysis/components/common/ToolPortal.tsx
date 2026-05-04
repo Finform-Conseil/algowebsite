@@ -1,6 +1,5 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import s from "../../style.module.scss";
 
 interface ToolPortalProps {
     isOpen: boolean;
@@ -96,7 +95,7 @@ export const ToolPortal: React.FC<ToolPortalProps> = ({
 
             {/* SCROLLABLE CONTENT */}
             <div
-                className={s["gp-custom-scrollbar"]}
+                className={"gp-custom-scrollbar"}
                 style={{
                     flex: 1,
                     overflowY: "auto",

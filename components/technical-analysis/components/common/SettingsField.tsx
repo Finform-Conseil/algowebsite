@@ -1,5 +1,4 @@
 import React from "react";
-import s from "../../style.module.scss";
 
 // ============================================================================
 // SETTINGS FIELD COMPONENTS
@@ -29,10 +28,10 @@ export const SettingsNumberInput: React.FC<SettingsNumberInputProps> = ({
   max,
 }) => (
   <div className="d-flex justify-content-between align-items-center">
-    <label className={s["gp-label-premium"]} style={{ marginBottom: 0 }}>{label}</label>
+    <label className={"gp-label-premium"} style={{ marginBottom: 0 }}>{label}</label>
     <input
       type="number"
-      className={s["gp-input-premium"]}
+      className={"gp-input-premium"}
       style={{ width, padding: "4px 8px", height: "28px" }}
       value={value === undefined || value === null || (typeof value === "number" && isNaN(value)) ? "" : value}
       step={step}
@@ -58,7 +57,7 @@ export const SettingsColorInput: React.FC<SettingsColorInputProps> = ({
   height = "28px",
 }) => (
   <div className="d-flex justify-content-between align-items-center">
-    {label && <label className={s["gp-label-premium"]} style={{ marginBottom: 0 }}>{label}</label>}
+    {label && <label className={"gp-label-premium"} style={{ marginBottom: 0 }}>{label}</label>}
     <input
       type="color"
       value={value}
@@ -93,7 +92,7 @@ export const SettingsFillControl: React.FC<SettingsFillControlProps> = ({
   opacitySliderWidth = "60px",
 }) => (
   <div className="d-flex justify-content-between align-items-center">
-    <label className={s["gp-label-premium"]} style={{ marginBottom: 0 }}>{label}</label>
+    <label className={"gp-label-premium"} style={{ marginBottom: 0 }}>{label}</label>
     <div className="d-flex align-items-center gap-2">
       <div
         className="d-flex align-items-center justify-content-center flex-shrink-0"
@@ -154,9 +153,9 @@ export const SettingsSelectInput: React.FC<SettingsSelectInputProps> = ({
   width = "100px",
 }) => (
   <div className="d-flex justify-content-between align-items-center">
-    {label && <label className={s["gp-label-premium"]} style={{ marginBottom: 0 }}>{label}</label>}
+    {label && <label className={"gp-label-premium"} style={{ marginBottom: 0 }}>{label}</label>}
     <select
-      className={s["gp-input-premium"]}
+      className={"gp-input-premium"}
       value={value}
       style={{ width, padding: "4px 8px", height: "28px", cursor: "pointer" }}
       onChange={(e) => onChange(e.target.value)}
@@ -191,7 +190,7 @@ export const SettingsCheckbox: React.FC<SettingsCheckboxProps> = ({
     tabIndex={0}
     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onChange(!checked); } }}
   >
-    <label className={s["gp-label-premium"]} style={{ cursor: "pointer", marginBottom: 0, pointerEvents: "none" }}>{label}</label>
+    <label className={"gp-label-premium"} style={{ cursor: "pointer", marginBottom: 0, pointerEvents: "none" }}>{label}</label>
     <div
       className="d-flex align-items-center justify-content-center flex-shrink-0"
       style={{
@@ -231,10 +230,10 @@ export const SettingsTextArea = React.forwardRef<HTMLTextAreaElement, SettingsTe
   disabled,
 }, ref) => (
   <div className="mb-3">
-    {label && <label className={s["gp-label-premium"]}>{label}</label>}
+    {label && <label className={"gp-label-premium"}>{label}</label>}
     <textarea
       ref={ref}
-      className={s["gp-input-premium"]}
+      className={"gp-input-premium"}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

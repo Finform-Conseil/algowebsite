@@ -107,8 +107,6 @@ import { useObjectTreePanel } from "./hooks/useObjectTreePanel";
 
 // [TENOR 2026] Bootstrap CSS est maintenant importé au niveau de layout.tsx 
 // AVANT le SCSS global pour résoudre les conflits de Reboot.
-// [TENOR 2026 MIGRATION] CSS Module → SCSS Module (style.module.css.OLD conservé comme archive)
-import s from "./style.module.scss";
 
 import { TimeAxisControls } from "./components/toolbar/TimeAxisControls/TimeAxisControls";
 import { PriceAxisOverlay, type PriceAxisActionId, type PriceAxisActionMenuState } from "./components/overlays/PriceAxisOverlay";
@@ -174,12 +172,12 @@ const TickerSelectorModal = dynamic(
 );
 
 const MemoizedPremiumLoader = React.memo(() => (
-  <div className={s["gp-chart-loading-overlay"]} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10, 21, 31, 0.4)", backdropFilter: "blur(4px)", zIndex: 100 }}>
-    <div className={s["ios-loader"]}>
-      <div className={s["bar1"]}></div><div className={s["bar2"]}></div><div className={s["bar3"]}></div>
-      <div className={s["bar4"]}></div><div className={s["bar5"]}></div><div className={s["bar6"]}></div>
-      <div className={s["bar7"]}></div><div className={s["bar8"]}></div><div className={s["bar9"]}></div>
-      <div className={s["bar10"]}></div><div className={s["bar11"]}></div><div className={s["bar12"]}></div>
+  <div className={"gp-chart-loading-overlay"} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10, 21, 31, 0.4)", backdropFilter: "blur(4px)", zIndex: 100 }}>
+    <div className={"ios-loader"}>
+      <div className={"bar1"}></div><div className={"bar2"}></div><div className={"bar3"}></div>
+      <div className={"bar4"}></div><div className={"bar5"}></div><div className={"bar6"}></div>
+      <div className={"bar7"}></div><div className={"bar8"}></div><div className={"bar9"}></div>
+      <div className={"bar10"}></div><div className={"bar11"}></div><div className={"bar12"}></div>
     </div>
   </div>
 ));
@@ -587,11 +585,11 @@ const TechnicalAnalysisInner: React.FC = () => {
 
   // Route-specific Viewport Locking
   useEffect(() => {
-    document.documentElement.classList.add(s["gp-dashboard-lock"]);
-    document.body.classList.add(s["gp-dashboard-lock"]);
+    document.documentElement.classList.add("gp-dashboard-lock");
+    document.body.classList.add("gp-dashboard-lock");
     return () => {
-      document.documentElement.classList.remove(s["gp-dashboard-lock"]);
-      document.body.classList.remove(s["gp-dashboard-lock"]);
+      document.documentElement.classList.remove("gp-dashboard-lock");
+      document.body.classList.remove("gp-dashboard-lock");
     };
   }, []);
 
@@ -823,10 +821,10 @@ const TechnicalAnalysisInner: React.FC = () => {
   // Force uncollapse of right sidebar if Object Tree is toggled ON
   useLayoutEffect(() => {
     const sidebar = sidebarRef.current;
-    if (isObjectTreeOpen && sidebar && sidebar.classList.contains(s["sidebar-closed"])) {
+    if (isObjectTreeOpen && sidebar && sidebar.classList.contains("sidebar-closed")) {
       sidebar.style.visibility = "visible";
       animate(sidebar, { opacity: 1, x: "0%" }, { duration: 0.2, ease: "easeOut" });
-      sidebar.classList.remove(s["sidebar-closed"]);
+      sidebar.classList.remove("sidebar-closed");
     }
   }, [isObjectTreeOpen]);
 
@@ -838,8 +836,8 @@ const TechnicalAnalysisInner: React.FC = () => {
 
     if (!sidebarToggle || !sidebar) return;
 
-    const isClosed = sidebar.classList.contains(s["sidebar-closed"]);
-    sidebarToggle.classList.toggle(s.flipped, isClosed);
+    const isClosed = sidebar.classList.contains("sidebar-closed");
+    sidebarToggle.classList.toggle("flipped", isClosed);
 
     const isSmall = window.matchMedia("(max-width: 575.98px)").matches;
     const isMedium = window.matchMedia("(max-width: 820px)").matches;
@@ -862,7 +860,7 @@ const TechnicalAnalysisInner: React.FC = () => {
           sidebar.style.visibility = "hidden";
         }
       });
-      sidebar.classList.add(s["sidebar-closed"]);
+      sidebar.classList.add("sidebar-closed");
       updateSidebarState();
     }
   }, [updateSidebarState]);
@@ -877,11 +875,17 @@ const TechnicalAnalysisInner: React.FC = () => {
     };
 
     const handleToggleClick = () => {
-      const isCurrentlyClosed = sidebar.classList.contains(s["sidebar-closed"]);
+      const root = mainContainerRef.current;
+      const sidebar = sidebarRef.current;
+      if (!root || !sidebar) return;
+
+      const isCurrentlyClosed = root.classList.contains("sidebar-closed");
       if (isCurrentlyClosed) {
-        sidebar.classList.remove(s["sidebar-closed"]);
+        root.classList.remove("sidebar-closed");
+        sidebar.classList.remove("sidebar-closed");
       } else {
-        sidebar.classList.add(s["sidebar-closed"]);
+        root.classList.add("sidebar-closed");
+        sidebar.classList.add("sidebar-closed");
       }
       updateSidebarState();
     };
@@ -938,9 +942,9 @@ const TechnicalAnalysisInner: React.FC = () => {
   ]);
 
   return (
-    <div ref={mainContainerRef} className={clsx(s["technical-analysis-root"], uiState.isZenMode && s["is-zen-mode"])}>
-      <div className={s["gp-global-wrapper"]}>
-        <div className={clsx(s["page-content-wrapper"], "mt-1")}>
+    <div ref={mainContainerRef} className={clsx("technical-analysis-root", uiState.isZenMode && "is-zen-mode")}>
+      <div className={"gp-global-wrapper"}>
+        <div className={clsx("page-content-wrapper", "mt-1")}>
 
           <MemoizedChartToolbar
             userInitials={userInitials}
@@ -974,15 +978,15 @@ const TechnicalAnalysisInner: React.FC = () => {
             </div>
           )}
 
-          <div className={clsx(s["gp-main-layout-container"], s["gsap-target-main-container"])}>
+          <div className={clsx("gp-main-layout-container", "gsap-target-main-container")}>
 
             <div
               ref={sidebarBackdropRef}
-              className={s["gp-sidebar-backdrop"]}
+              className={"gp-sidebar-backdrop"}
               onClick={handleSidebarBackdropClick}
             />
 
-            <div className={s["gp-chart-main-section"]}>
+            <div className={"gp-chart-main-section"}>
               <VerticalDrawingToolbar
                 activeTool={activeTool}
                 setActiveTool={setActiveTool}
@@ -991,24 +995,24 @@ const TechnicalAnalysisInner: React.FC = () => {
                 handleClearAllDrawings={handleClearAllDrawings}
               />
 
-              <div ref={chartViewWrapperRef} className={s["gp-chart-view-wrapper"]}>
-                <div ref={fullscreenChartContainerRef} className={clsx(s["gp-chart-container"], uiState.isZenMode && s["zen-mode"])} style={{ position: "relative" }}>
+              <div ref={chartViewWrapperRef} className={"gp-chart-view-wrapper"}>
+                <div ref={fullscreenChartContainerRef} className={clsx("gp-chart-container", uiState.isZenMode && "zen-mode")} style={{ position: "relative" }}>
 
                   {uiState.replay.isActive && (
-                    <div className={clsx(s["replay-badge"], showReplayFullText ? s["is-full"] : s["is-collapsed"])} onClick={() => setShowReplayFullText((prev) => !prev)}>
-                      <span className={s["replay-dot"]} />
-                      {showReplayFullText && <div className={s["replay-text-wrapper"]}><span>Replay</span></div>}
+                    <div className={clsx("replay-badge", showReplayFullText ? "is-full" : "is-collapsed")} onClick={() => setShowReplayFullText((prev) => !prev)}>
+                      <span className={"replay-dot"} />
+                      {showReplayFullText && <div className={"replay-text-wrapper"}><span>Replay</span></div>}
                     </div>
                   )}
 
-                  <div className={s["gp-chart-layers-stack"]} ref={layersStackRef} style={{ position: "relative", flexGrow: 1, minHeight: 0, overflow: "hidden" }}>
-                    <div id="gp-stock-chart" className={clsx(s["technical-analysis-chart"], s[`cursor-mode-${uiState.cursorMode.split("-")[0]}`])} ref={stockChartRef} style={{ width: "100%", height: "100%", touchAction: "none" }}></div>
+                  <div className={"gp-chart-layers-stack"} ref={layersStackRef} style={{ position: "relative", flexGrow: 1, minHeight: 0, overflow: "hidden" }}>
+                    <div id="gp-stock-chart" className={clsx("technical-analysis-chart", `cursor-mode-${uiState.cursorMode.split("-")[0]}`)} ref={stockChartRef} style={{ width: "100%", height: "100%", touchAction: "none" }}></div>
 
-                    <canvas ref={cursorCanvasRef} className={s["gp-cursor-canvas"]} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 10 }} />
+                    <canvas ref={cursorCanvasRef} className={"gp-cursor-canvas"} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 10 }} />
 
                     <canvas
                       ref={drawingCanvasRef}
-                      className={s["gp-cursor-canvas"]}
+                      className={"gp-cursor-canvas"}
                       style={{
                         position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
                         pointerEvents: (activeTool || drawings.length > 0) ? "auto" : "none",
@@ -1122,7 +1126,7 @@ const TechnicalAnalysisInner: React.FC = () => {
                     selectedTimeRange={uiState.selectedTimeRange}
                     handleTimeRangeSelect={handleTimeRangeSelect}
                     setIsDatePickerModalOpen={handleOpenDatePicker}
-                    s={s}
+
                   />
                 </div>
               </div>
@@ -1145,7 +1149,6 @@ const TechnicalAnalysisInner: React.FC = () => {
                 avgVolume={avgVolume ?? 0}
                 benefitsChartRef={benefitsChartRef}
                 dividendsChartRef={dividendsChartRef}
-                s={s}
                 isLoading={globalIsLoading}
                 dataMode={dataMode}
                 isObjectTreeOpen={isObjectTreeOpen}
@@ -1157,8 +1160,8 @@ const TechnicalAnalysisInner: React.FC = () => {
           </div>
         </div>
 
-        <button ref={sidebarToggleRef} id="gp-sidebar-toggle" className={s["gp-sidebar-toggle-btn"]} title="Basculer la barre latérale">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 6 l6 6 l-6 6" /></svg>
+        <button ref={sidebarToggleRef} id="gp-sidebar-toggle" className={"gp-sidebar-toggle-btn"} title="Basculer la barre latérale">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 6 l6 6 l-6 6" /></svg>
         </button>
       </div>
 
@@ -1167,7 +1170,7 @@ const TechnicalAnalysisInner: React.FC = () => {
         updateDrawing={updateDrawing}
         startReplay={startReplay}
         setChartData={setChartData}
-        s={s}
+
       />
     </div>
   );

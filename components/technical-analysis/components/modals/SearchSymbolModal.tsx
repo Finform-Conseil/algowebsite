@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import s from "../../style.module.scss";
 import { animate } from "framer-motion";
 import clsx from "clsx";
 import { BaseModal } from "../common/BaseModal";
@@ -100,13 +99,13 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
     >
       <div className="p-2">
         <form onSubmit={handleSearchSubmit}>
-          <div className={s["gp-search-hints"]}>
-            <div className={s["gp-search-input-wrapper"]}>
+          <div className={"gp-search-hints"}>
+            <div className={"gp-search-input-wrapper"}>
               <i className="bi bi-search" aria-hidden="true"></i>
               <input
                 ref={searchInputRef}
                 type="text"
-                className={clsx(s["gp-search-input"], s["white-placeholder"])}
+                className={clsx("gp-search-input", "white-placeholder")}
                 placeholder="Ex: SAPH, BOAB, SONATEL, AAPL"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -118,7 +117,7 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
             <div className="d-flex justify-content-end">
               <button
-                className={clsx("btn", s["btn-california"])}
+                className={clsx("btn", "btn-california")}
                 type="submit"
                 disabled={searchInput.trim().length === 0}
               >
@@ -129,14 +128,14 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
         </form>
 
         <div className="mt-4">
-          <div className={s["gp-search-hints"]}>
-            <span className={s["gp-search-hints-title"]}>Suggestions rapides</span>
-            <div className={s["gp-search-tags"]}>
+          <div className={"gp-search-hints"}>
+            <span className={"gp-search-hints-title"}>Suggestions rapides</span>
+            <div className={"gp-search-tags"}>
             {["BTC/USDT", "ETH/USDT", "EUR/USD", "XAU/USD", "AAPL", "TSLA"].map(sym => (
               <button
                 key={sym}
                 type="button"
-                className={s["gp-search-tag"]}
+                className={"gp-search-tag"}
                 onClick={() => {
                   setSearchInput(sym);
                   onSearch(sym);
