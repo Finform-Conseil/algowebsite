@@ -51,6 +51,8 @@ export interface UseEChartsRendererProps {
   lastPriceLineRef?: RefObject<HTMLDivElement | null>;
   lastPriceAxisValue?: number;
   isMainChartVisible?: boolean;
+  comparisonSeries?: Array<{ symbol: string; data: ChartDataPoint[] }>;
+  /** [TENOR 2026] Indique si la dernière bougie a été enrichie par une injection live scraper (SIS). */
   hasLiveStitchedCandle?: boolean;
 }
 
@@ -507,7 +509,7 @@ export const useEChartsRenderer = ({
   lastPriceLineRef,
   lastPriceAxisValue,
   isMainChartVisible = true,
-  hasLiveStitchedCandle = false,
+  comparisonSeries = [],
 }: UseEChartsRendererProps) => {
   const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
@@ -808,26 +810,7 @@ export const useEChartsRenderer = ({
       if (volVisible) currentTopPercent += panelHeightPrecent + spacingPercent;
     }
 
-    const candlestickData = values.map((value: number[], index: number) => {
-      const isLiveCandle = hasLiveStitchedCandle && index === values.length - 1;
-      if (!isLiveCandle) {
-        return value;
-      }
-      const liveFillColor = "rgba(154, 164, 178, 0.16)";
-      const liveBorderColor = "rgba(154, 164, 178, 0.92)";
-      return {
-        value,
-        itemStyle: {
-          color: liveFillColor,
-          color0: liveFillColor,
-          borderColor: liveBorderColor,
-          borderColor0: liveBorderColor,
-          borderType: "dashed",
-          borderType0: "dashed",
-          opacity: isMainChartVisible ? 1 : 0.35,
-        },
-      };
-    });
+    const candlestickData = values;
 
     const seriesOptions: SeriesOption[] = [
       chartConfig.chartType === "candlestick"
@@ -1000,6 +983,29 @@ export const useEChartsRenderer = ({
         });
       }
     }
+
+    const comparePalette = ["#2E93fA", "#66DA26", "#E91E63", "#FF9F04", "#775DD0"];
+    comparisonSeries.forEach((entry, idx) => {
+      const closes = entry.data.map((p) => p.close).filter((v) => Number.isFinite(v));
+      const base = closes.length > 0 ? closes[0] : NaN;
+      if (!Number.isFinite(base) || base === 0) return;
+
+      const normalized = entry.data.map((p) => {
+        if (!Number.isFinite(p.close)) return null;
+        return ((p.close - base) / base) * 100;
+      });
+
+      seriesOptions.push({
+        id: `compare-${entry.symbol}`,
+        name: `${entry.symbol} (%)`,
+        type: "line",
+        data: normalized,
+        showSymbol: false,
+        smooth: true,
+        lineStyle: { width: 1.8, color: comparePalette[idx % comparePalette.length], opacity: 0.95 },
+        itemStyle: { color: comparePalette[idx % comparePalette.length] },
+      });
+    });
 
     if (advancedIndicators.bollinger && indicatorsData.bollUpper) {
       seriesOptions.push(
@@ -1350,7 +1356,7 @@ export const useEChartsRenderer = ({
     updateCursorPriceAxisBadge,
     updateLastPriceAxisBadge,
     isMainChartVisible,
-    hasLiveStitchedCandle,
+    comparisonSeries,
   ]);
 
   return { indicatorsData };

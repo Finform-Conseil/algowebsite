@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 import { animate } from "framer-motion";
 import clsx from "clsx";
 import { BaseModal } from "../common/BaseModal";
@@ -98,47 +98,58 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
       maxWidth="600px"
       hideFooter={true}
     >
-      <div className="p-1">
+      <div className="p-2">
         <form onSubmit={handleSearchSubmit}>
-          <div className="input-group mb-4">
-            <span className="input-group-text bg-dark border-secondary text-secondary">
-              <i className="bi bi-search"></i>
-            </span>
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="form-control bg-dark border-secondary text-white"
-              placeholder="Ex: BTC/USDT, AAPL, EUR/USD..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              style={{ boxShadow: "none" }}
-            />
-            <button
-              className={clsx("btn", s["btn-california"])}
-              type="submit"
-            >
-              Rechercher
-            </button>
+          <div className={s["gp-search-hints"]}>
+            <div className={s["gp-search-input-wrapper"]}>
+              <i className="bi bi-search" aria-hidden="true"></i>
+              <input
+                ref={searchInputRef}
+                type="text"
+                className={clsx(s["gp-search-input"], s["white-placeholder"])}
+                placeholder="Ex: SAPH, BOAB, SONATEL, AAPL"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+
+            <div className="d-flex justify-content-end">
+              <button
+                className={clsx("btn", s["btn-california"])}
+                type="submit"
+                disabled={searchInput.trim().length === 0}
+              >
+                Ajouter au graphique
+              </button>
+            </div>
           </div>
         </form>
 
-        <div className="mb-2">
-          <small className="text-secondary fw-bold text-uppercase mb-2 d-block">Suggestions</small>
-          <div className="d-flex flex-wrap gap-2">
+        <div className="mt-4">
+          <div className={s["gp-search-hints"]}>
+            <span className={s["gp-search-hints-title"]}>Suggestions rapides</span>
+            <div className={s["gp-search-tags"]}>
             {["BTC/USDT", "ETH/USDT", "EUR/USD", "XAU/USD", "AAPL", "TSLA"].map(sym => (
               <button
                 key={sym}
-                className="btn btn-sm btn-outline-secondary text-white border-secondary"
+                type="button"
+                className={s["gp-search-tag"]}
                 onClick={() => {
                   setSearchInput(sym);
                   onSearch(sym);
                   handleClose();
                 }}
-                style={{ backgroundColor: "rgba(255,255,255,0.03)" }}
               >
                 {sym}
               </button>
             ))}
+            </div>
+            <p style={{ margin: 0, color: "var(--gp-text-secondary)", fontSize: "0.85rem" }}>
+              Ajoute un symbole en comparaison sur le graphique, sans remplacer le symbole principal.
+            </p>
           </div>
         </div>
       </div>

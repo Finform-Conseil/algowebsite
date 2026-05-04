@@ -27,7 +27,7 @@ import {
   ForecastingCategoryIcon,
   HorizontalLineIcon,
 } from "../common/ToolIcons";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 
 // --- CONSTANTS ---
 const ACTIVE_BLUE = "#2962ff";

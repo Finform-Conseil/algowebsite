@@ -4,13 +4,14 @@ import React, { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
 import { useDispatch, useSelector } from "react-redux";
 import { SettingsToggle } from "../common/SettingsField";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 import {
   toggleChartType,
   setModalOpen,
   toggleZenMode,
   setAnonyme,
   setSelectedPseudo,
+  setSearchMode,
   selectChartConfig,
   selectUiState,
   selectDataMode,
@@ -106,7 +107,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               display: "flex !important",
               alignItems: "center !important",
               justifyContent: "center !important",
-              marginLeft: "15px",
+              marginLeft: "4px",
             }}
             onClick={() => toggleDropdown("profile")}
           >
@@ -147,7 +148,10 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         <button
           className={clsx(s["gp-toolbar-btn"], s["hover-lift"])}
           title="Comparer ou ajouter un symbole"
-          onClick={() => console.log("Compare click")}
+          onClick={() => {
+            dispatch(setSearchMode("compare"));
+            dispatch(setModalOpen({ modal: "search", isOpen: true }));
+          }}
         >
           <i className="bi bi-plus-lg"></i>
         </button>

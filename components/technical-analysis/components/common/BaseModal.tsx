@@ -1,6 +1,6 @@
 import React, { ReactNode, useEffect, useId } from "react";
 import clsx from "clsx";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 
 interface BaseModalProps {
   isOpen: boolean;

@@ -72,6 +72,8 @@ const initialState: TechnicalAnalysisState = {
     isPublishing: false,
     isCapturing: false,
     dataMode: "real", // [TENOR 2026] Default to Real (BRVM) as requested by user
+    comparisonSymbols: [],
+    searchMode: "replace",
     modals: {
       search: false,
       indicators: false,
@@ -313,6 +315,24 @@ export const technicalAnalysisSlice = createSlice({
     setDataMode: (state, action: PayloadAction<"mock" | "real">) => {
       state.ui.dataMode = action.payload;
     },
+    setSearchMode: (state, action: PayloadAction<"replace" | "compare">) => {
+      state.ui.searchMode = action.payload;
+    },
+    addComparisonSymbol: (state, action: PayloadAction<string>) => {
+      const normalized = action.payload.trim().toUpperCase();
+      if (!normalized) return;
+      if (normalized === state.chartConfig.symbol.trim().toUpperCase()) return;
+      if (state.ui.comparisonSymbols.includes(normalized)) return;
+      if (state.ui.comparisonSymbols.length >= 5) return;
+      state.ui.comparisonSymbols.push(normalized);
+    },
+    removeComparisonSymbol: (state, action: PayloadAction<string>) => {
+      const normalized = action.payload.trim().toUpperCase();
+      state.ui.comparisonSymbols = state.ui.comparisonSymbols.filter((s) => s !== normalized);
+    },
+    clearComparisonSymbols: (state) => {
+      state.ui.comparisonSymbols = [];
+    },
 
     // --- MODALS REDUCERS ---
     setModalOpen: (
@@ -406,6 +426,10 @@ export const {
   setPublishing,
   setCapturing,
   setDataMode,
+  setSearchMode,
+  addComparisonSymbol,
+  removeComparisonSymbol,
+  clearComparisonSymbols,
   setModalOpen,
   closeAllModals,
   setReplayActive,

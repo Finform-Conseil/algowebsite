@@ -340,39 +340,6 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
             }
           }
 
-          if (liveSnapshot && liveSnapshot.price > 0 && parsedDaily.length > 0) {
-            const lastIdx = parsedDaily.length - 1;
-            const lastHistoryPoint = parsedDaily[lastIdx];
-            const now = new Date();
-            const todayStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
-            const livePrice = liveSnapshot.price;
-            const priceGap = Math.abs(livePrice - lastHistoryPoint.close) / (lastHistoryPoint.close || 1);
-
-            if (todayStr > lastHistoryPoint.time || priceGap > 0.2) {
-              const stitchedPoint: ChartDataPoint = {
-                time: todayStr > lastHistoryPoint.time ? todayStr : lastHistoryPoint.time,
-                open: liveSnapshot.open || liveSnapshot.price,
-                high: Math.max(liveSnapshot.high || liveSnapshot.price, liveSnapshot.price),
-                low: Math.min(liveSnapshot.low || liveSnapshot.price, liveSnapshot.price),
-                close: liveSnapshot.price,
-                volume: liveSnapshot.volume || 0
-              };
-
-              if (todayStr > lastHistoryPoint.time) {
-                const finalData = [...parsedDaily, stitchedPoint];
-                applyWindowFirstData(upperTicker, finalData);
-              } else {
-                parsedDaily[lastIdx] = stitchedPoint;
-                applyWindowFirstData(upperTicker, [...parsedDaily]);
-              }
-            } else if (todayStr === lastHistoryPoint.time) {
-              lastHistoryPoint.close = liveSnapshot.price;
-              lastHistoryPoint.high = Math.max(lastHistoryPoint.high, liveSnapshot.high || liveSnapshot.price);
-              lastHistoryPoint.low = Math.min(lastHistoryPoint.low, liveSnapshot.low || liveSnapshot.price);
-              lastHistoryPoint.volume = Math.max(lastHistoryPoint.volume, liveSnapshot.volume || 0);
-              applyWindowFirstData(upperTicker, [...parsedDaily]);
-            }
-          }
         } catch (bgErr) {
           clearTimeout(bgTimeout);
           console.warn(`[MarketData] Phase 2 background enrichment failed for ${upperTicker}:`, bgErr);

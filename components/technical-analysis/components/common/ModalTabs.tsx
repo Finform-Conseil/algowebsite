@@ -1,6 +1,6 @@
 import React from "react";
 import clsx from "clsx";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 
 interface TabItem {
     id: string;

@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 
 interface ToolPortalProps {
     isOpen: boolean;

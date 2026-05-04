@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { BaseModal } from "../common/BaseModal";
 import clsx from "clsx";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 import { setModalOpen } from "../../store/technicalAnalysisSlice";
 
 /**

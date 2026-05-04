@@ -47,6 +47,9 @@ import {
   selectChartAppearance,
   selectUiState,
   selectDataMode,
+  selectMarketData,
+  removeComparisonSymbol,
+  clearComparisonSymbols,
   setTimeRange,
   setModalOpen,
 } from "./store/technicalAnalysisSlice";
@@ -104,7 +107,8 @@ import { useObjectTreePanel } from "./hooks/useObjectTreePanel";
 
 // [TENOR 2026] Bootstrap CSS est maintenant importé au niveau de layout.tsx 
 // AVANT le SCSS global pour résoudre les conflits de Reboot.
-import s from "./style.module.css";
+// [TENOR 2026 MIGRATION] CSS Module → SCSS Module (style.module.css.OLD conservé comme archive)
+import s from "./style.module.scss";
 
 import { TimeAxisControls } from "./components/toolbar/TimeAxisControls/TimeAxisControls";
 import { PriceAxisOverlay, type PriceAxisActionId, type PriceAxisActionMenuState } from "./components/overlays/PriceAxisOverlay";
@@ -122,6 +126,17 @@ const MemoizedChartToolbar = React.memo(ChartToolbar);
 const MemoizedSidebar = React.memo(TechnicalAnalysisSidebar);
 const MemoizedFooter = React.memo(TechnicalAnalysisFooter);
 const MemoizedModalOrchestrator = React.memo(ModalOrchestrator);
+
+const ComparisonDataWarmup = React.memo(function ComparisonDataWarmup({
+  symbol,
+  mode,
+}: {
+  symbol: string;
+  mode: "mock" | "real";
+}) {
+  useMarketData(mode, symbol);
+  return null;
+});
 
 // ============================================================================
 // CONSTANTS & STATIC DATA
@@ -236,6 +251,7 @@ const TechnicalAnalysisInner: React.FC = () => {
   const chartAppearance = useSelector(selectChartAppearance);
   const uiState = useSelector(selectUiState);
   const dataMode = useSelector(selectDataMode);
+  const marketDataCache = useSelector(selectMarketData);
 
   // --- CONTEXTS ---
   const { selectedTicker, isLoading: isTickerLoading, openModal: openTickerSelector } = useTickerSelector();
@@ -437,10 +453,17 @@ const TechnicalAnalysisInner: React.FC = () => {
   const isMarketPositive = convertedLiveChange >= 0;
   const displaySymbolName = uiState.isAnonyme ? uiState.selectedPseudo : selectedTicker?.ticker || chartConfig.symbol;
   const isLastPricePositive = convertedLiveChange >= 0;
+  const comparisonSeries = useMemo(
+    () =>
+      (uiState.comparisonSymbols || [])
+        .map((symbol) => ({ symbol, data: marketDataCache[symbol] || [] }))
+        .filter((entry) => entry.data.length > 0),
+    [uiState.comparisonSymbols, marketDataCache]
+  );
 
   const lastPriceTimeLabel = useMemo(
-    () => formatPriceAxisTimeLabel(liveSnapshot?.lastUpdate ?? lastCandle?.time),
-    [lastCandle?.time, liveSnapshot?.lastUpdate],
+    () => formatPriceAxisTimeLabel(lastCandle?.time),
+    [lastCandle?.time],
   );
 
   // --- DRAWING MANAGER HOOK ---
@@ -590,7 +613,7 @@ const TechnicalAnalysisInner: React.FC = () => {
     lastPriceLineRef,
     lastPriceAxisValue: convertedLivePrice,
     isMainChartVisible,
-    hasLiveStitchedCandle: Boolean(liveSnapshot),
+    comparisonSeries,
   });
 
   const closePriceAxisActionMenu = useCallback(() => {
@@ -925,6 +948,31 @@ const TechnicalAnalysisInner: React.FC = () => {
             openTickerSelector={openTickerSelector}
             stopReplay={stopReplay}
           />
+          {uiState.comparisonSymbols.map((symbol) => (
+            <ComparisonDataWarmup key={symbol} symbol={symbol} mode={dataMode} />
+          ))}
+          {uiState.comparisonSymbols.length > 0 && (
+            <div className="d-flex align-items-center gap-2 px-3 py-1" style={{ background: "rgba(11,24,39,0.55)" }}>
+              <span style={{ color: "#9aa4b2", fontSize: "12px" }}>Compare %</span>
+              {uiState.comparisonSymbols.map((symbol) => (
+                <button
+                  key={symbol}
+                  className="btn btn-sm btn-outline-light"
+                  onClick={() => dispatch(removeComparisonSymbol(symbol))}
+                  title={`Retirer ${symbol}`}
+                >
+                  {symbol} ×
+                </button>
+              ))}
+              <button
+                className="btn btn-sm btn-outline-warning"
+                onClick={() => dispatch(clearComparisonSymbols())}
+                title="Effacer toutes les comparaisons"
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           <div className={clsx(s["gp-main-layout-container"], s["gsap-target-main-container"])}>
 

@@ -3,7 +3,7 @@ import { BaseModal } from "../common/BaseModal";
 import { ModalTabs } from "../common/ModalTabs";
 import { SettingsToggle, SettingsTextArea } from "../common/SettingsField";
 import clsx from "clsx";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 import { SecurityBadge } from "../common/SecurityBadge";
 import { FloatingMenu } from "../common/FloatingMenu";
 import { ConditionCrossingIcon } from "../common/ChartIcons";

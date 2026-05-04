@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { useSelector } from "react-redux";
 import { selectUiState } from "../../store/technicalAnalysisSlice";
 
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 import { NewsSection } from "@/components/design-system/commons/CommonNewsSection/NewsSection";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
 import { CommonTickerPanel } from "@/components/design-system/commons/CommonTickerPanel/CommonTickerPanel";

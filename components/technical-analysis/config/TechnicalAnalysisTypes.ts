@@ -820,6 +820,8 @@ export interface UiState {
   isPublishing: boolean;
   isCapturing: boolean;
   dataMode: "mock" | "real";
+  comparisonSymbols: string[];
+  searchMode: "replace" | "compare";
   // [TENOR 2026] Officially typed modals:
   modals: {
     search: boolean;

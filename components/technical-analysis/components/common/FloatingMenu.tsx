@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import clsx from "clsx";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 
 interface FloatingMenuProps {
     isOpen: boolean;

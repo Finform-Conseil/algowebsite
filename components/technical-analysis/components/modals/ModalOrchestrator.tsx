@@ -6,6 +6,8 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   setModalOpen,
   setChartConfig,
+  addComparisonSymbol,
+  setSearchMode,
   applyTemplate,
   setReplaySpeed,
   selectModals,
@@ -15,7 +17,7 @@ import { Drawing } from "../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import { useModalOrchestrator } from "../../hooks/useModalOrchestrator";
 import { generateInitialData as GENERATE_INITIAL_DATA } from "../../lib/Indicators/TechnicalIndicators";
-import s from "../../style.module.css";
+import s from "../../style.module.scss";
 
 // ============================================================================
 // DYNAMIC IMPORTS (Code Splitting)
@@ -93,6 +95,7 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   // --- Global State ---
   const modals = useSelector(selectModals);
   const replaySpeed = useSelector(selectUiState).replay.speed;
+  const searchMode = useSelector(selectUiState).searchMode;
 
   // --- Handlers ---
   // [TENOR 2026 FIX] Centralized modal closing to DRY up the JSX
@@ -106,9 +109,14 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
         isOpen={modals.search}
         onClose={() => closeModal("search")}
         onSearch={(symbol) => {
-          dispatch(setChartConfig({ symbol }));
-          // [TENOR 2026] Mock data generation for search. In production, this triggers useMarketData.
-          setChartData(GENERATE_INITIAL_DATA(200));
+          if (searchMode === "compare") {
+            dispatch(addComparisonSymbol(symbol));
+          } else {
+            dispatch(setChartConfig({ symbol }));
+            // [TENOR 2026] Mock data generation for search. In production, this triggers useMarketData.
+            setChartData(GENERATE_INITIAL_DATA(200));
+          }
+          dispatch(setSearchMode("replace"));
         }}
       />
 
