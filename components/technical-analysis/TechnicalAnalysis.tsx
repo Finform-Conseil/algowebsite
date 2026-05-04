@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useCallback,
   useState,
+  useDeferredValue,
 } from "react";
 import dynamic from "next/dynamic";
 import { useDispatch, useSelector } from "react-redux";
@@ -72,9 +73,11 @@ echarts.use([
 // Extracted Components
 import { ChartHeader } from "./components/header/ChartHeader";
 import { ChartToolbar } from "./components/toolbar/ChartToolbar";
-import { TechnicalAnalysisSidebar } from "./components/sidebar/TechnicalAnalysisSidebar";
+import TechnicalAnalysisSidebar from "./components/sidebar/TechnicalAnalysisSidebar";
+import type { DisplaySecurity } from "./config/TechnicalAnalysisTypes";
 import { TechnicalAnalysisFooter } from "./components/footer/TechnicalAnalysisFooter";
 import { MemoizedCurrencySelector } from "./components/common/CurrencySelector";
+import type { CurrencyCode } from "./components/common/CurrencySelector";
 import {
   BROKER_CATALOG,
   type Broker,
@@ -90,8 +93,6 @@ import { VerticalDrawingToolbar } from "./components/toolbar/VerticalDrawingTool
 import { useDrawingManager } from "./hooks/useDrawingManager";
 import { useOverlayRenderer } from "./hooks/useOverlayRenderer";
 import { useMarketData } from "./hooks/MarketData/useMarketData";
-// [TENOR 2026 FIX] ERADICATION DU POLLING INTRADAY (Self-DDoS Prevention)
-// L'import de useIntradayData a été supprimé pour garantir la stabilité du backend.
 import { useEChartsRenderer } from "./hooks/useEChartsRenderer";
 import { useTechnicalAnalysisActions } from "./hooks/useTechnicalAnalysisActions";
 import { useToolbarHandlers } from "./hooks/useToolbarHandlers";
@@ -100,18 +101,31 @@ import { useAlertMonitor } from "./hooks/useAlertMonitor";
 import { useFloatingToolbar } from "./hooks/useFloatingToolbar";
 import { useCurrencyConverter } from "./hooks/MarketData/useCurrencyConverter";
 import { useObjectTreePanel } from "./hooks/useObjectTreePanel";
+
+// [TENOR 2026] Bootstrap CSS est maintenant importé au niveau de layout.tsx 
+// AVANT le SCSS global pour résoudre les conflits de Reboot.
 import s from "./style.module.css";
+
 import { TimeAxisControls } from "./components/toolbar/TimeAxisControls/TimeAxisControls";
-import { HorizontalLineIcon } from "./components/common/ToolIcons";
+import { PriceAxisOverlay, type PriceAxisActionId, type PriceAxisActionMenuState } from "./components/overlays/PriceAxisOverlay";
 import { ObjectTreePanel } from "./components/modals/ObjectTreePanel";
 import { CommonPageHeader } from "../design-system/commons/CommonPageHeader";
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 import { useGlobalNotification } from "../design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 
 // ============================================================================
+// [TENOR 2026 SRE] STRICT MEMOIZATION SHIELD
+// ============================================================================
+// Wrapping heavy UI components in React.memo to prevent cascading re-renders
+// when the God Component updates due to high-frequency market ticks.
+const MemoizedChartToolbar = React.memo(ChartToolbar);
+const MemoizedSidebar = React.memo(TechnicalAnalysisSidebar);
+const MemoizedFooter = React.memo(TechnicalAnalysisFooter);
+const MemoizedModalOrchestrator = React.memo(ModalOrchestrator);
+
+// ============================================================================
 // CONSTANTS & STATIC DATA
 // ============================================================================
-
 const FALLBACK_RATES: Record<string, number> = {
   "XOF": 655.957,
   "XAF": 655.957,
@@ -135,19 +149,14 @@ const MemoizedBrokerModal = dynamic<BrokerModalProps>(
 );
 
 const TickerSelectorModal = dynamic(
-  () =>
-    import("../design-system/commons/TickerSelectorModal").then(
-      (module) => module.TickerSelectorModal,
-    ),
+  () => import("../design-system/commons/TickerSelectorModal").then(
+    (module) => module.TickerSelectorModal,
+  ),
   {
     ssr: false,
     loading: () => null,
   },
 );
-
-// ============================================================================
-// [TENOR 2026 FIX] SCAR-154: FISSION DU GOD COMPONENT (REACT.MEMO)
-// ============================================================================
 
 const MemoizedPremiumLoader = React.memo(() => (
   <div className={s["gp-chart-loading-overlay"]} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10, 21, 31, 0.4)", backdropFilter: "blur(4px)", zIndex: 100 }}>
@@ -183,15 +192,6 @@ const MemoizedTradeHUD = React.memo(({ convertedLivePrice, setIsBrokerModalOpen 
   );
 });
 MemoizedTradeHUD.displayName = "MemoizedTradeHUD";
-
-interface PriceAxisActionMenuState {
-  isOpen: boolean;
-  priceValue: number;
-  priceLabel: string;
-  top: number;
-  left: number;
-  width: number;
-}
 
 const PRICE_AXIS_MENU_TARGET_WIDTH = 336;
 const PRICE_AXIS_MENU_MIN_WIDTH = 248;
@@ -240,7 +240,6 @@ const TechnicalAnalysisInner: React.FC = () => {
   // --- CONTEXTS ---
   const { selectedTicker, isLoading: isTickerLoading, openModal: openTickerSelector } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
-  // [TENOR 2026] Session handling disabled (Anonymous Mode)
 
   // --- DYNAMIC DATA BINDING ---
   const security = useMemo(() => {
@@ -263,9 +262,6 @@ const TechnicalAnalysisInner: React.FC = () => {
   const chartFooterRef = useRef<HTMLDivElement>(null);
   const verticalToolbarRef = useRef<HTMLDivElement>(null);
   const sidebarBackdropRef = useRef<HTMLDivElement>(null);
-
-  // [TENOR 2026 FIX] SCAR-ORPHAN-01: Purged benefitsChartInstanceRef and its useEffect.
-  // The Sidebar is fully autonomous and manages its own ECharts instances.
   const benefitsChartRef = useRef<HTMLDivElement>(null);
   const drawingToolbarRef = useRef<HTMLDivElement>(null);
   const drawingTooltipRef = useRef<HTMLDivElement>(null);
@@ -292,7 +288,7 @@ const TechnicalAnalysisInner: React.FC = () => {
 
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [currencyQuery, setCurrencyQuery] = useState("");
-  const [selectedCurrency, setSelectedCurrency] = useState<string>(security.currency || "XOF");
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(security.currency || "XOF");
   const [prevTicker, setPrevTicker] = useState<string | undefined>(security.ticker);
 
   if (security.ticker !== prevTicker) {
@@ -302,10 +298,12 @@ const TechnicalAnalysisInner: React.FC = () => {
 
   const currencyBtnRef = useRef<HTMLDivElement>(null);
   const [currencyPos, setCurrencyPos] = useState({ top: 0, left: 0 });
+
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [selectedBroker, setSelectedBroker] = useState<Broker | null>(null);
   const [brokerConnectionState, setBrokerConnectionState] = useState<BrokerConnectionState>("idle");
   const [brokerOrderIntent, setBrokerOrderIntent] = useState<BrokerOrderIntent | null>(null);
+
   const [priceAxisActionMenu, setPriceAxisActionMenu] = useState<PriceAxisActionMenuState>({
     isOpen: false,
     priceValue: 0,
@@ -327,10 +325,9 @@ const TechnicalAnalysisInner: React.FC = () => {
     return rateTarget / rateBase;
   }, [exchangeRate, security.currency, selectedCurrency]);
 
-  const displaySecurity = useMemo(() => ({
+  const displaySecurity = useMemo<DisplaySecurity>(() => ({
     ...security,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    currency: selectedCurrency as any
+    currency: selectedCurrency
   }), [security, selectedCurrency]);
 
   const globalIsLoading = isTickerLoading || (marketIsLoading && chartData.length === 0) || isConverting;
@@ -381,10 +378,6 @@ const TechnicalAnalysisInner: React.FC = () => {
     return filtered.length > 0 ? filtered : chartData.slice(-1);
   }, [chartData, uiState.selectedTimeRange]);
 
-
-  // [TENOR 2026 FIX] ERADICATION DU POLLING INTRADAY
-  // Le hook useIntradayData a été supprimé. Le flux de données est maintenant strictement linéaire.
-
   const displayChartData = useMemo(() => {
     const sourceData = filteredChartData;
     if (effectiveRate === 1) return sourceData;
@@ -401,7 +394,6 @@ const TechnicalAnalysisInner: React.FC = () => {
   const userEmail = "";
   const userInitials = (userFirstName.substring(0, 2) || userEmail.substring(0, 2) || "DA").toUpperCase();
 
-  // [TENOR 2026 FIX] Ensure lastCandle uses the active dataset
   const activeRawData = chartData;
   const lastCandle = activeRawData.length > 0 ? activeRawData[activeRawData.length - 1] : null;
   const prevCandle = activeRawData.length > 1 ? activeRawData[activeRawData.length - 2] : null;
@@ -479,7 +471,7 @@ const TechnicalAnalysisInner: React.FC = () => {
     chartData: displayChartData,
   });
 
-  // --- [TENOR 2026 FEAT] OBJECT TREE & DATA WINDOW HOOK ---
+  // --- OBJECT TREE & DATA WINDOW HOOK ---
   const {
     isOpen: isObjectTreeOpen,
     activeTab: objectTreeTab,
@@ -493,6 +485,7 @@ const TechnicalAnalysisInner: React.FC = () => {
 
   const selectedDrawing = drawings.find((d: Drawing) => d.id === selectedDrawingId);
   const dr = selectedDrawing;
+
   const [isMainChartVisible, setIsMainChartVisible] = useState(true);
 
   useAlertMonitor({ chartData: displayChartData, addNotification });
@@ -524,15 +517,27 @@ const TechnicalAnalysisInner: React.FC = () => {
     drawingToolbarRef,
   });
 
-  const { handleColorChange, handleFillChange, handleLineStyleChange, handleTextColorChange } = useToolbarHandlers({
+  const {
+    handleColorChange,
+    handleFillChange,
+    handleLineStyleChange,
+    handleTextColorChange
+  } = useToolbarHandlers({
     drawings,
     selectedDrawingId,
     updateDrawing,
     setActiveToolbarPopup,
   });
 
-  const setIsDrawingSettingsModalOpen = useCallback((val: boolean) => dispatch(setModalOpen({ modal: "drawingSettings", isOpen: val })), [dispatch]);
-  const setIsAlertModalOpen = useCallback((val: boolean) => dispatch(setModalOpen({ modal: "alerts", isOpen: val })), [dispatch]);
+  const setIsDrawingSettingsModalOpen = useCallback((val: boolean) =>
+    dispatch(setModalOpen({ modal: "drawingSettings", isOpen: val })), [dispatch]);
+
+  const setIsAlertModalOpen = useCallback((val: boolean) =>
+    dispatch(setModalOpen({ modal: "alerts", isOpen: val })), [dispatch]);
+
+  const handleOpenDatePicker = useCallback((isOpen: boolean) => {
+    dispatch(setModalOpen({ modal: "datePicker", isOpen }));
+  }, [dispatch]);
 
   useOverlayRenderer({
     selectedDrawingId,
@@ -557,8 +562,7 @@ const TechnicalAnalysisInner: React.FC = () => {
     return () => clearTimeout(timer);
   }, [uiState.isZenMode]);
 
-  // [TENOR 2026 HDR] Route-specific Viewport Locking
-  // Empêche le scroll du body uniquement sur cette route pour stabiliser le layout dashboard.
+  // Route-specific Viewport Locking
   useEffect(() => {
     document.documentElement.classList.add(s["gp-dashboard-lock"]);
     document.body.classList.add(s["gp-dashboard-lock"]);
@@ -646,7 +650,7 @@ const TechnicalAnalysisInner: React.FC = () => {
     setIsBrokerModalOpen(true);
   }, []);
 
-  const handlePriceAxisAction = useCallback((actionId: "alert" | "sell-limit" | "buy-stop" | "order" | "horizontal-line") => {
+  const handlePriceAxisAction = useCallback((actionId: PriceAxisActionId) => {
     const priceLabel = priceAxisActionMenu.priceLabel;
     const priceValue = priceAxisActionMenu.priceValue;
 
@@ -751,25 +755,20 @@ const TechnicalAnalysisInner: React.FC = () => {
 
   useEffect(() => {
     if (!priceAxisActionMenu.isOpen) return;
-
     const updateMenuPosition = () => {
       const button = cursorPriceActionRef.current;
       const container = fullscreenChartContainerRef.current;
       if (!button || !container) return;
-
       const nextPos = computePriceAxisMenuPosition(button.getBoundingClientRect(), container.getBoundingClientRect());
       setPriceAxisActionMenu((prev) => (prev.isOpen ? { ...prev, ...nextPos } : prev));
     };
-
     updateMenuPosition();
     window.addEventListener("resize", updateMenuPosition);
-
     const container = fullscreenChartContainerRef.current;
     const resizeObserver = container ? new ResizeObserver(updateMenuPosition) : null;
     if (container && resizeObserver) {
       resizeObserver.observe(container);
     }
-
     return () => {
       window.removeEventListener("resize", updateMenuPosition);
       resizeObserver?.disconnect();
@@ -798,7 +797,7 @@ const TechnicalAnalysisInner: React.FC = () => {
     animate(mainContainerRef.current, { opacity: [0.95, 1] }, { duration: 0.15, ease: "easeOut" });
   }, []);
 
-  // [TENOR 2026] Force uncollapse of right sidebar if Object Tree is toggled ON
+  // Force uncollapse of right sidebar if Object Tree is toggled ON
   useLayoutEffect(() => {
     const sidebar = sidebarRef.current;
     if (isObjectTreeOpen && sidebar && sidebar.classList.contains(s["sidebar-closed"])) {
@@ -832,15 +831,25 @@ const TechnicalAnalysisInner: React.FC = () => {
     }
   }, []);
 
-  // [TENOR 2026 FIX] SCAR-199: Sidebar Overlay Logic
+  const handleSidebarBackdropClick = useCallback(() => {
+    const sidebar = sidebarRef.current;
+    if (sidebar) {
+      animate(sidebar, { opacity: 0, x: "100%" }, {
+        duration: 0.2, ease: "easeIn", onComplete: () => {
+          sidebar.style.visibility = "hidden";
+        }
+      });
+      sidebar.classList.add(s["sidebar-closed"]);
+      updateSidebarState();
+    }
+  }, [updateSidebarState]);
+
   useLayoutEffect(() => {
     const sidebarToggle = sidebarToggleRef.current;
     const sidebar = sidebarRef.current;
     if (!sidebarToggle || !sidebar) return;
 
     const initialSetup = () => {
-      // Keep one consistent behavior across desktop/tablet:
-      // never force overlay auto-close based on viewport width.
       updateSidebarState();
     };
 
@@ -864,34 +873,65 @@ const TechnicalAnalysisInner: React.FC = () => {
     };
   }, [updateSidebarState]);
 
+  // ============================================================================
+  // [TENOR 2026 SRE] REACT 18 CONCURRENT DECOUPLING
+  // ============================================================================
+  // We defer the heavy data arrays passed to the UI components (Sidebar, etc.).
+  // This allows React to yield the main thread to the ECharts Canvas renderer,
+  // guaranteeing 60 FPS on the chart even if the Sidebar drops a frame.
+  const deferredChartData = useDeferredValue(displayChartData);
+  const deferredLivePrice = useDeferredValue(convertedLivePrice);
+  const deferredLiveChange = useDeferredValue(convertedLiveChange);
+  const deferredLiveChangePercent = useDeferredValue(liveChangePercent);
+  const deferredLiveVolume = useDeferredValue(liveVolume);
+  const deferredLiveSnapshot = useDeferredValue(liveSnapshot);
+
+  // Memoize the overlay content to prevent inline JSX from breaking the Sidebar's React.memo
+  const memoizedOverlayContent = useMemo(() => {
+    if (!isObjectTreeOpen) return undefined;
+    return (
+      <ObjectTreePanel
+        isOpen={isObjectTreeOpen}
+        activeTab={objectTreeTab}
+        setActiveTab={setObjectTreeTab}
+        drawings={drawings}
+        selectedDrawingId={selectedDrawingId}
+        setSelectedDrawingId={setSelectedDrawingId}
+        updateDrawing={updateDrawing}
+        deleteDrawing={deleteDrawing}
+        handleClone={handleClone}
+        handleVisualOrder={handleVisualOrder}
+        reorderDrawing={reorderDrawing}
+        dataWindow={dataWindow}
+        symbolDisplay={`${displaySecurity.ticker} · BRVM, 1D`}
+        isMainChartVisible={isMainChartVisible}
+        setIsMainChartVisible={setIsMainChartVisible}
+      />
+    );
+  }, [
+    isObjectTreeOpen, objectTreeTab, setObjectTreeTab, drawings, selectedDrawingId,
+    setSelectedDrawingId, updateDrawing, deleteDrawing, handleClone, handleVisualOrder,
+    reorderDrawing, dataWindow, displaySecurity.ticker, isMainChartVisible, setIsMainChartVisible
+  ]);
+
   return (
     <div ref={mainContainerRef} className={clsx(s["technical-analysis-root"], uiState.isZenMode && s["is-zen-mode"])}>
       <div className={s["gp-global-wrapper"]}>
         <div className={clsx(s["page-content-wrapper"], "mt-1")}>
-        
 
-          <ChartToolbar
+          <MemoizedChartToolbar
             userInitials={userInitials}
+            displaySymbol={displaySymbolName}
             openTickerSelector={openTickerSelector}
             stopReplay={stopReplay}
           />
 
           <div className={clsx(s["gp-main-layout-container"], s["gsap-target-main-container"])}>
+
             <div
               ref={sidebarBackdropRef}
               className={s["gp-sidebar-backdrop"]}
-              onClick={() => {
-                const sidebar = sidebarRef.current;
-                if (sidebar) {
-                  animate(sidebar, { opacity: 0, x: "100%" }, {
-                    duration: 0.2,
-                    ease: "easeIn",
-                    onComplete: () => { sidebar.style.visibility = "hidden"; }
-                  });
-                  sidebar.classList.add(s["sidebar-closed"]);
-                  updateSidebarState();
-                }
-              }}
+              onClick={handleSidebarBackdropClick}
             />
 
             <div className={s["gp-chart-main-section"]}>
@@ -905,6 +945,7 @@ const TechnicalAnalysisInner: React.FC = () => {
 
               <div ref={chartViewWrapperRef} className={s["gp-chart-view-wrapper"]}>
                 <div ref={fullscreenChartContainerRef} className={clsx(s["gp-chart-container"], uiState.isZenMode && s["zen-mode"])} style={{ position: "relative" }}>
+
                   {uiState.replay.isActive && (
                     <div className={clsx(s["replay-badge"], showReplayFullText ? s["is-full"] : s["is-collapsed"])} onClick={() => setShowReplayFullText((prev) => !prev)}>
                       <span className={s["replay-dot"]} />
@@ -914,24 +955,31 @@ const TechnicalAnalysisInner: React.FC = () => {
 
                   <div className={s["gp-chart-layers-stack"]} ref={layersStackRef} style={{ position: "relative", flexGrow: 1, minHeight: 0, overflow: "hidden" }}>
                     <div id="gp-stock-chart" className={clsx(s["technical-analysis-chart"], s[`cursor-mode-${uiState.cursorMode.split("-")[0]}`])} ref={stockChartRef} style={{ width: "100%", height: "100%", touchAction: "none" }}></div>
+
                     <canvas ref={cursorCanvasRef} className={s["gp-cursor-canvas"]} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 10 }} />
+
                     <canvas
                       ref={drawingCanvasRef}
                       className={s["gp-cursor-canvas"]}
                       style={{
                         position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
                         pointerEvents: (activeTool || drawings.length > 0) ? "auto" : "none",
-                        zIndex: 50, cursor: activeTool ? "crosshair" : "default",
+                        zIndex: 50,
+                        cursor: activeTool ? "crosshair" : "default",
                         clipPath: gridRect ? `polygon(0% ${gridRect.y}px, 100% ${gridRect.y}px, 100% ${gridRect.y + gridRect.height}px, 0% ${gridRect.y + gridRect.height}px)` : 'none',
+                        touchAction: "none",
                       }}
                       onPointerDown={handlePointerDown}
                       onPointerMove={handlePointerMove}
                       onPointerUp={handlePointerUp}
                       onPointerCancel={handlePointerUp}
+                      onLostPointerCapture={handlePointerUp}
                       onDoubleClick={handleDoubleClick}
                       onContextMenu={(e) => e.preventDefault()}
                     />
+
                     <MemoizedTradeHUD convertedLivePrice={convertedLivePrice} setIsBrokerModalOpen={setIsBrokerModalOpen} />
+
                     <MemoizedCurrencySelector
                       selectedCurrency={selectedCurrency}
                       setSelectedCurrency={setSelectedCurrency}
@@ -943,6 +991,7 @@ const TechnicalAnalysisInner: React.FC = () => {
                       currencyPos={currencyPos}
                       setCurrencyPos={setCurrencyPos}
                     />
+
                     <MemoizedBrokerModal
                       isBrokerModalOpen={isBrokerModalOpen}
                       setIsBrokerModalOpen={setIsBrokerModalOpen}
@@ -954,130 +1003,28 @@ const TechnicalAnalysisInner: React.FC = () => {
                       setOrderIntent={setBrokerOrderIntent}
                     />
 
-                    <div className="gp-price-axis-overlay" style={{ position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none" }} >
-                      <div
-                        ref={lastPriceLineRef}
-                        className="gp-price-axis-last-line"
-                        style={{
-                          position: "absolute", left: "15px", right: "84px", top: 0, transform: "translateY(-50%)",
-                          height: "0", borderTop: `1px dotted ${isLastPricePositive ? "#089981" : "#f23645"}`,
-                          opacity: 0, visibility: "hidden",
-                        }}
-                      />
-                      <div
-                        ref={lastPriceBadgeRef}
-                        className="gp-price-axis-last-badge"
-                        style={{
-                          position: "absolute", right: "8px", top: 0, transform: "translateY(-50%)",
-                          display: "flex", flexDirection: "column", alignItems: "flex-start",
-                          minWidth: "74px", padding: "4px 8px", borderRadius: "4px",
-                          background: isLastPricePositive ? "#089981" : "#f23645", color: "#ffffff",
-                          boxShadow: "0 8px 20px rgba(0, 0, 0, 0.28)", border: "1px solid rgba(255,255,255,0.16)",
-                          lineHeight: 1.05, opacity: 0, visibility: "hidden",
-                        }}
-                      >
-                        <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.02em" }}>
-                          {displaySymbolName}
-                        </span>
-                        <span style={{ fontSize: "14px", fontWeight: 800 }}>
-                          {formatPriceAxisLabel(convertedLivePrice)}
-                        </span>
-                        <span style={{ fontSize: "10px", fontWeight: 600, opacity: 0.96 }}>
-                          {lastPriceTimeLabel}
-                        </span>
-                      </div>
-
-                      <div
-                        ref={cursorPriceBadgeRef}
-                        className="gp-price-axis-cursor-badge"
-                        style={{
-                          position: "absolute", right: "8px", top: 0, transform: "translateY(-50%)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          minWidth: "72px", padding: "4px 8px", borderRadius: "4px",
-                          background: "#11151c", color: "#ffffff", border: "1px solid rgba(255,255,255,0.1)",
-                          boxShadow: "0 10px 24px rgba(0, 0, 0, 0.3)", fontSize: "12px", fontWeight: 700,
-                          opacity: 0, visibility: "hidden",
-                        }}
-                      >
-                        <span ref={cursorPriceTextRef}>0.00</span>
-                      </div>
-
-                      <button
-                        ref={cursorPriceActionRef}
-                        type="button"
-                        className="gp-price-axis-cursor-action"
-                        onClick={handleAxisPriceActionButtonClick}
-                        style={{
-                          position: "absolute", right: "88px", top: 0, transform: "translateY(-50%)",
-                          width: "20px", height: "20px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.16)",
-                          background: "linear-gradient(180deg, #141922 0%, #0e131a 100%)", color: "#ffffff",
-                          display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          boxShadow: "0 10px 24px rgba(0, 0, 0, 0.34)", pointerEvents: "auto",
-                          opacity: 0, visibility: "hidden", padding: 0,
-                        }}
-                      >
-                        <span
-                          style={{
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            width: "100%", height: "100%", fontSize: "14px", fontWeight: 500,
-                            lineHeight: 1, transform: "translateY(-1px)",
-                          }}
-                        >
-                          +
-                        </span>
-                      </button>
-
-                      {priceAxisActionMenu.isOpen && (
-                        <div
-                          className="gp-price-axis-menu-portal"
-                          style={{
-                            top: `${priceAxisActionMenu.top}px`,
-                            left: `${priceAxisActionMenu.left}px`,
-                            width: `${priceAxisActionMenu.width}px`,
-                            pointerEvents: "auto",
-                          }}
-                        >
-                          {[
-                            { id: "alert" as const, icon: "bi-alarm", label: `Add alert on ${displaySymbolName} at ${priceAxisActionMenu.priceLabel}`, shortcut: "Alt + A" },
-                            { id: "sell-limit" as const, icon: "bi-chevron-down", label: `Sell 1 ${displaySymbolName} @ ${priceAxisActionMenu.priceLabel} limit`, shortcut: "Alt + Shift + S" },
-                            { id: "buy-stop" as const, icon: "bi-chevron-up", label: `Buy 1 ${displaySymbolName} @ ${priceAxisActionMenu.priceLabel} stop`, shortcut: "" },
-                            { id: "order" as const, icon: "bi-graph-up-arrow", label: `Add order on ${displaySymbolName} at ${priceAxisActionMenu.priceLabel}...`, shortcut: "Shift + T" },
-                            { id: "horizontal-line" as const, icon: null, customIcon: <HorizontalLineIcon />, label: `Draw horizontal line at ${priceAxisActionMenu.priceLabel}`, shortcut: "Alt + H" },
-                          ].map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              className="gp-price-axis-menu-item"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePriceAxisAction(item.id);
-                              }}
-                            >
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
-                                {item.customIcon ? (
-                                  <span className="gp-price-axis-menu-icon" style={{ color: "#3b82f6" }}>
-                                    {item.customIcon}
-                                  </span>
-                                ) : (
-                                  <i className={`bi ${item.icon} gp-price-axis-menu-icon`}></i>
-                                )}
-                                <span className="gp-price-axis-menu-label">
-                                  {item.label}
-                                </span>
-                              </span>
-                              <span className="gp-price-axis-menu-shortcut">{item.shortcut}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <PriceAxisOverlay
+                      displaySymbolName={displaySymbolName}
+                      convertedLivePrice={convertedLivePrice}
+                      lastPriceTimeLabel={lastPriceTimeLabel}
+                      isLastPricePositive={isLastPricePositive}
+                      cursorPriceBadgeRef={cursorPriceBadgeRef}
+                      cursorPriceTextRef={cursorPriceTextRef}
+                      cursorPriceActionRef={cursorPriceActionRef}
+                      lastPriceBadgeRef={lastPriceBadgeRef}
+                      lastPriceLineRef={lastPriceLineRef}
+                      priceAxisActionMenu={priceAxisActionMenu}
+                      formatPriceAxisLabel={formatPriceAxisLabel}
+                      handleAxisPriceActionButtonClick={handleAxisPriceActionButtonClick}
+                      handlePriceAxisAction={handlePriceAxisAction}
+                    />
 
                     <TimeAxisControls chartInstanceRef={chartInstanceRef} />
 
                     {globalIsLoading && <MemoizedPremiumLoader />}
 
                     <div className="gp-drawing-overlay-shield" style={{ position: "absolute", top: gridRect ? gridRect.y : 30, left: gridRect ? gridRect.x : 15, width: gridRect ? gridRect.width : 800, height: gridRect ? gridRect.height : 600, pointerEvents: "none", overflow: "hidden", clipPath: "inset(0)", zIndex: 60 }}>
-                      <div ref={drawingToolbarRef} className="gp-drawing-quick-toolbar-box" onMouseDown={handleToolbarDragStart} style={{ display: "none", position: "absolute", transform: "translate(-50%, -100%)", backgroundColor: "rgba(16, 42, 67, 0.95)", backdropFilter: "blur(10px)", borderRadius: "6px", padding: "6px 8px", zIndex: 1000, flexDirection: "row", alignItems: "center", gap: "4px", border: "1px solid rgba(255, 255, 255, 0.1)", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)", pointerEvents: "auto", cursor: "default" }}>
+                      <div ref={drawingToolbarRef} className="gp-drawing-quick-toolbar-box" onPointerDown={handleToolbarDragStart} style={{ display: "none", position: "absolute", transform: "translate(-50%, -100%)", backgroundColor: "rgba(16, 42, 67, 0.95)", backdropFilter: "blur(10px)", borderRadius: "6px", padding: "6px 8px", zIndex: 1000, flexDirection: "row", alignItems: "center", gap: "4px", border: "1px solid rgba(255, 255, 255, 0.1)", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)", pointerEvents: "auto", cursor: "default", touchAction: "none" }}>
                         {selectedDrawing?.type && (toolbarConfig as unknown as ToolbarConfig).drawings[selectedDrawing.type]?.toolbar.map((btnId: string) => (
                           <ToolbarButton
                             key={btnId}
@@ -1121,68 +1068,53 @@ const TechnicalAnalysisInner: React.FC = () => {
                       <div ref={drawingTooltipRef} style={{ position: "absolute", display: "none", zIndex: 101, backgroundColor: "rgba(15, 23, 42, 0.9)", backdropFilter: "blur(4px)", padding: "4px 6px", borderRadius: "4px", color: "#e2e8f0", fontSize: "10px", fontWeight: 500, fontFamily: "Inter, sans-serif", whiteSpace: "pre-line", pointerEvents: "none", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", lineHeight: "1.2" }} />
                     </div>
                   </div>
-                  <TechnicalAnalysisFooter
+
+                  <MemoizedFooter
                     chartFooterRef={chartFooterRef}
                     selectedTimeRange={uiState.selectedTimeRange}
                     handleTimeRangeSelect={handleTimeRangeSelect}
-                    setIsDatePickerModalOpen={(isOpen: boolean) => dispatch(setModalOpen({ modal: "datePicker", isOpen }))}
+                    setIsDatePickerModalOpen={handleOpenDatePicker}
                     s={s}
                   />
                 </div>
               </div>
-              <button ref={sidebarToggleRef} id="gp-sidebar-toggle" className={s["gp-sidebar-toggle-btn"]} title="Basculer la barre latérale">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 6 l6 6 l-6 6" /></svg>
-              </button>
-            </div>
 
-            {/* [TENOR 2026 FEAT] Right sidebar — toujours monté (GSAP stable), overlay Object Tree injecté via prop */}
-            <TechnicalAnalysisSidebar
-              sidebarRef={sidebarRef}
-              security={displaySecurity}
-              chartData={chartData}
-              livePrice={convertedLivePrice}
-              isMarketPositive={isMarketPositive}
-              liveChange={convertedLiveChange}
-              liveChangePercent={liveChangePercent}
-              lastUpdate={liveSnapshot?.lastUpdate}
-              liveVolume={liveVolume}
-              liveMarketCap={liveSnapshot?.marketCap}
-              liveReturnYTD={liveSnapshot?.returnYTD}
-              livePeRatio={liveSnapshot?.peRatio}
-              currentVolume={currentVolume ?? 0}
-              avgVolume={avgVolume ?? 0}
-              benefitsChartRef={benefitsChartRef}
-              dividendsChartRef={dividendsChartRef}
-              s={s}
-              isLoading={globalIsLoading}
-              dataMode={dataMode}
-              isObjectTreeOpen={isObjectTreeOpen}
-              onToggleObjectTree={toggleObjectTree}
-              overlayContent={isObjectTreeOpen ? (
-                <ObjectTreePanel
-                  isOpen={isObjectTreeOpen}
-                  activeTab={objectTreeTab}
-                  setActiveTab={setObjectTreeTab}
-                  drawings={drawings}
-                  selectedDrawingId={selectedDrawingId}
-                  setSelectedDrawingId={setSelectedDrawingId}
-                  updateDrawing={updateDrawing}
-                  deleteDrawing={deleteDrawing}
-                  handleClone={handleClone}
-                  handleVisualOrder={handleVisualOrder}
-                  reorderDrawing={reorderDrawing}
-                  dataWindow={dataWindow}
-                  symbolDisplay={`${displaySecurity.ticker} · BRVM, 1D`}
-                  isMainChartVisible={isMainChartVisible}
-                  setIsMainChartVisible={setIsMainChartVisible}
-                />
-              ) : undefined}
-            />
+              {/* [TENOR 2026 SRE] DEFERRED SIDEBAR RENDERING */}
+              <MemoizedSidebar
+                sidebarRef={sidebarRef}
+                security={displaySecurity}
+                chartData={deferredChartData}
+                livePrice={deferredLivePrice}
+                isMarketPositive={isMarketPositive}
+                liveChange={deferredLiveChange}
+                liveChangePercent={deferredLiveChangePercent}
+                lastUpdate={deferredLiveSnapshot?.lastUpdate}
+                liveVolume={deferredLiveVolume}
+                liveMarketCap={deferredLiveSnapshot?.marketCap}
+                liveReturnYTD={deferredLiveSnapshot?.returnYTD}
+                livePeRatio={deferredLiveSnapshot?.peRatio}
+                currentVolume={currentVolume ?? 0}
+                avgVolume={avgVolume ?? 0}
+                benefitsChartRef={benefitsChartRef}
+                dividendsChartRef={dividendsChartRef}
+                s={s}
+                isLoading={globalIsLoading}
+                dataMode={dataMode}
+                isObjectTreeOpen={isObjectTreeOpen}
+                onToggleObjectTree={toggleObjectTree}
+                overlayContent={memoizedOverlayContent}
+              />
+
+            </div>
           </div>
         </div>
+
+        <button ref={sidebarToggleRef} id="gp-sidebar-toggle" className={s["gp-sidebar-toggle-btn"]} title="Basculer la barre latérale">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 6 l6 6 l-6 6" /></svg>
+        </button>
       </div>
 
-      <ModalOrchestrator
+      <MemoizedModalOrchestrator
         dr={dr}
         updateDrawing={updateDrawing}
         startReplay={startReplay}

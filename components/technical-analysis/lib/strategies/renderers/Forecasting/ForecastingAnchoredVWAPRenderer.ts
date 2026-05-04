@@ -2,9 +2,9 @@
 import { Drawing, DrawingHelpers, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { ChartDataPoint } from "../../../Indicators/TechnicalIndicators";
+import type { ECharts } from "echarts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+type EChartsInstance = ECharts;
 
 type AnchoredVWAPSource = NonNullable<Drawing["anchoredVWAPProps"]>["source"];
 
@@ -99,7 +99,7 @@ const distanceToSegment = (
 
 const buildAnchoredVWAPSeries = (
     drawing: Drawing,
-    chart: EChartsInstance,
+    chart: ECharts,
     chartData: ChartDataPoint[],
 ): AnchoredVWAPPoint[] => {
     const props = drawing.anchoredVWAPProps;
@@ -170,7 +170,7 @@ export const renderForecastingAnchoredVWAP = (
     pts: { x: number; y: number }[],
     dataPoints: DrawingPoint[],
     drawing: Drawing,
-    chart: EChartsInstance,
+    chart: ECharts,
     isSelected: boolean,
     h: DrawingHelpers,
     chartData: ChartDataPoint[]

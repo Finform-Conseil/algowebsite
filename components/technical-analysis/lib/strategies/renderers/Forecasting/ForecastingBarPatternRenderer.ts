@@ -1,9 +1,10 @@
 import { Drawing, DrawingHelpers, BarPatternMode } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { distancePointToSegment } from "./ForecastingUtils";
+import type { ECharts } from "echarts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+type EChartsInstance = ECharts;
+type SeriesOptionLite = { type?: string };
 
 /**
  * [TENOR 2026] Renders the Bar Pattern forecasting tool with EXACT TradingView parity.
@@ -15,7 +16,7 @@ type EChartsInstance = any;
 export const renderForecastingBarPattern = (
   pts: { x: number; y: number }[],
   drawing: Drawing,
-  chart: EChartsInstance,
+  chart: ECharts,
   isSelected: boolean,
   h: DrawingHelpers
 ): void => {
@@ -97,8 +98,8 @@ export const renderForecastingBarPattern = (
 
   // --- VERTICAL PROJECTION (Price Space Translation) ---
   const option = chart.getOption();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const candlestickIdx = option.series?.findIndex((s: any) => s.type === "candlestick");
+  const seriesList = Array.isArray(option.series) ? (option.series as SeriesOptionLite[]) : [];
+  const candlestickIdx = seriesList.findIndex((series) => series.type === "candlestick");
   const targetSeriesIdx = candlestickIdx !== -1 ? candlestickIdx : 0;
 
   const originalBasePrice = props.data[0].o;
@@ -280,10 +281,9 @@ export const hitTestForecastingBarPattern = (
       if (bar.h > max_h) max_h = bar.h;
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const option = chart.getOption() as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const candlestickIdx = option.series?.findIndex((s: any) => s.type === "candlestick");
+    const option = chart.getOption();
+    const seriesList = Array.isArray(option.series) ? (option.series as SeriesOptionLite[]) : [];
+    const candlestickIdx = seriesList.findIndex((series) => series.type === "candlestick");
     const targetSeriesIdx = candlestickIdx !== -1 ? candlestickIdx : 0;
 
     const originalBasePrice = drawing.barPatternProps.data[0].o;

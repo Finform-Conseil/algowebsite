@@ -32,7 +32,6 @@ export const TimeAxisControls: React.FC<TimeAxisControlsProps> = ({
     const chart = chartInstanceRef.current;
     if (!chart) return null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return ((chart as any).__tvTimeAxisControls ?? null) as TradingViewTimeAxisControls | null;
   };
 

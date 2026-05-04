@@ -24,9 +24,16 @@ import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy
 import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints, isPointInRect } from "../../../math/geometry";
 import { renderCustomText } from "../ChartPatterns/support/BaseRendererUtils";
+import type { EChartsInstance, EChartsWithModel } from "../../../types/echarts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+type SeriesOptionLite = {
+  type?: string;
+  data?: SeriesPoint[];
+};
+
+type XAxisOptionLite = {
+  data?: Array<string | number>;
+};
 
 // --- CONSTANTES DE STYLE (TRADINGVIEW EXACT MATCH) ---
 const C_PROFIT_FILL_LIVE  = "rgba(8, 153, 129, 0.50)"; // Zone vert foncé (P&L latent)
@@ -185,12 +192,12 @@ type SeriesPoint = [string | number, number] | [number, number, number, number];
 
 function getLatestCloseData(chart: EChartsInstance): { x: number; y: number, price: number } | null {
   const opt = chart.getOption();
-  const seriesOpt = opt?.series;
-  const xAxisOpt = opt?.xAxis;
+  const seriesOpt = Array.isArray(opt.series) ? (opt.series as SeriesOptionLite[]) : [];
+  const xAxisOpt = Array.isArray(opt.xAxis) ? (opt.xAxis as XAxisOptionLite[]) : opt.xAxis ? [opt.xAxis as XAxisOptionLite] : [];
 
-  if (!seriesOpt?.[0]?.data?.length) return null;
+  if (!seriesOpt[0]?.data?.length) return null;
 
-  const allData = seriesOpt[0].data as SeriesPoint[];
+  const allData = seriesOpt[0].data;
   const isCandle = seriesOpt[0].type === "candlestick";
   const last = allData[allData.length - 1];
 
@@ -199,7 +206,7 @@ function getLatestCloseData(chart: EChartsInstance): { x: number; y: number, pri
   let closePrice: number;
   let time: string | number;
 
-  const xAxisData = (Array.isArray(xAxisOpt) ? xAxisOpt[0]?.data : xAxisOpt?.data) ?? [];
+  const xAxisData = xAxisOpt[0]?.data ?? [];
 
   if (isCandle) {
     closePrice = Number(last[1]);
@@ -216,9 +223,10 @@ function getLatestCloseData(chart: EChartsInstance): { x: number; y: number, pri
 
 function getMainGridRect(chart: EChartsInstance): { x: number; y: number; width: number; height: number } | null {
   try {
-    const model = chart.getModel();
+    const model = (chart as EChartsWithModel).getModel?.();
+    if (!model) return null;
     const grid = model.getComponent("grid");
-    return grid ? grid.coordinateSystem.getRect() : null;
+    return grid?.coordinateSystem?.getRect() ?? null;
   } catch {
     return null;
   }

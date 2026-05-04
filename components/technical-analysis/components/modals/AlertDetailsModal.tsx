@@ -16,8 +16,8 @@ interface AlertDetailsModalProps {
     selectedTicker: { ticker: string; logoUrl?: string } | null;
     timeframe: string;
     selectedDrawing: Record<string, unknown>;
-    alertMessageTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
-    placeholderButtonRef: React.RefObject<HTMLButtonElement | null>;
+    alertMessageTextareaRef: React.RefObject<HTMLTextAreaElement>;
+    placeholderButtonRef: React.RefObject<HTMLButtonElement>;
     isPlaceholderDropdownOpen: boolean;
     setIsPlaceholderDropdownOpen: (open: boolean) => void;
     placeholderMenuPos: { top: number; left: number } | null;
@@ -26,7 +26,7 @@ interface AlertDetailsModalProps {
     setIsConditionDropdownOpen: (open: boolean) => void;
     selectedCondition: string;
     setSelectedCondition: (cond: string) => void;
-    conditionButtonRef: React.RefObject<HTMLButtonElement | null>;
+    conditionButtonRef: React.RefObject<HTMLButtonElement>;
     conditionMenuPos: { top: number; left: number } | null;
     onAddAlert: () => void;
 }

@@ -2,6 +2,8 @@
 // FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/store/technicalAnalysisSlice.ts
 // [TENOR 2026 FIX] SCAR-123: Default Indicators Cleanup. Purged default SMAs for TradingView parity.
 // [TENOR 2026 FIX] Default Timeframe updated to "1D" for optimal FCP and UX.
+// [TENOR 2026 SRE] SCAR-REDUX-MERGE: Eradicated Shallow Merge Data Loss.
+// [TENOR 2026 SRE] SCAR-TS2322: Eradicated Spread Operator Type Errors with Explicit Assignments.
 // ================================================================================
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
@@ -116,8 +118,22 @@ export const technicalAnalysisSlice = createSlice({
       state.chartConfig.chartType =
         state.chartConfig.chartType === "candlestick" ? "line" : "candlestick";
     },
+    // [TENOR 2026 SRE FIX] Deep Merge & TS2322 Enforcement
+    // Replaced shallow merge `{ ...state, ...payload }` with explicit property assignment
+    // to prevent nested objects from being overwritten and to satisfy TypeScript's Partial<T> strictness.
     setChartConfig: (state, action: PayloadAction<Partial<ChartState>>) => {
-      state.chartConfig = { ...state.chartConfig, ...action.payload };
+      const { symbol, timeframe, chartType, indicators } = action.payload;
+      if (symbol !== undefined) state.chartConfig.symbol = symbol;
+      if (timeframe !== undefined) state.chartConfig.timeframe = timeframe;
+      if (chartType !== undefined) state.chartConfig.chartType = chartType;
+      
+      if (indicators !== undefined) {
+        if (indicators.sma !== undefined) state.chartConfig.indicators.sma = indicators.sma;
+        if (indicators.ema !== undefined) state.chartConfig.indicators.ema = indicators.ema;
+        if (indicators.volume !== undefined) state.chartConfig.indicators.volume = indicators.volume;
+        if (indicators.activeSma !== undefined) state.chartConfig.indicators.activeSma = indicators.activeSma;
+        if (indicators.activeEma !== undefined) state.chartConfig.indicators.activeEma = indicators.activeEma;
+      }
     },
 
     // --- INDICATORS REDUCERS ---
@@ -125,20 +141,50 @@ export const technicalAnalysisSlice = createSlice({
       state,
       action: PayloadAction<keyof AdvancedIndicatorsState>
     ) => {
-      state.advancedIndicators[action.payload] =
-        !state.advancedIndicators[action.payload];
+      state.advancedIndicators[action.payload] = !state.advancedIndicators[action.payload];
     },
+    // [TENOR 2026 SRE FIX] Explicit assignment to satisfy TS2322
     setAdvancedIndicators: (
       state,
-      action: PayloadAction<AdvancedIndicatorsState>
+      action: PayloadAction<Partial<AdvancedIndicatorsState>>
     ) => {
-      state.advancedIndicators = action.payload;
+      const p = action.payload;
+      if (p.rsi !== undefined) state.advancedIndicators.rsi = p.rsi;
+      if (p.macd !== undefined) state.advancedIndicators.macd = p.macd;
+      if (p.bollinger !== undefined) state.advancedIndicators.bollinger = p.bollinger;
+      if (p.stochastic !== undefined) state.advancedIndicators.stochastic = p.stochastic;
+      if (p.atr !== undefined) state.advancedIndicators.atr = p.atr;
+      if (p.cci !== undefined) state.advancedIndicators.cci = p.cci;
+      if (p.williamsR !== undefined) state.advancedIndicators.williamsR = p.williamsR;
+      if (p.roc !== undefined) state.advancedIndicators.roc = p.roc;
+      if (p.obv !== undefined) state.advancedIndicators.obv = p.obv;
     },
-    setIndicatorPeriods: (state, action: PayloadAction<IndicatorPeriods>) => {
-      state.indicatorPeriods = action.payload;
+    // [TENOR 2026 SRE FIX] Explicit assignment to satisfy TS2322 (Index Signature)
+    setIndicatorPeriods: (state, action: PayloadAction<Partial<IndicatorPeriods>>) => {
+      const p = action.payload;
+      if (p.sma1 !== undefined) state.indicatorPeriods.sma1 = p.sma1;
+      if (p.sma2 !== undefined) state.indicatorPeriods.sma2 = p.sma2;
+      if (p.sma3 !== undefined) state.indicatorPeriods.sma3 = p.sma3;
+      if (p.rsiPeriod !== undefined) state.indicatorPeriods.rsiPeriod = p.rsiPeriod;
+      
+      // Handle dynamic keys from index signature safely
+      for (const key in p) {
+        if (Object.prototype.hasOwnProperty.call(p, key)) {
+          const val = p[key];
+          if (val !== undefined) {
+            state.indicatorPeriods[key] = val;
+          }
+        }
+      }
     },
-    setChartAppearance: (state, action: PayloadAction<ChartAppearance>) => {
-      state.chartAppearance = action.payload;
+    // [TENOR 2026 SRE FIX] Explicit assignment to satisfy TS2322
+    setChartAppearance: (state, action: PayloadAction<Partial<ChartAppearance>>) => {
+      const p = action.payload;
+      if (p.showGrid !== undefined) state.chartAppearance.showGrid = p.showGrid;
+      if (p.upColor !== undefined) state.chartAppearance.upColor = p.upColor;
+      if (p.downColor !== undefined) state.chartAppearance.downColor = p.downColor;
+      if (p.backgroundColor !== undefined) state.chartAppearance.backgroundColor = p.backgroundColor;
+      if (p.showVolume !== undefined) state.chartAppearance.showVolume = p.showVolume;
     },
     resetChartAppearance: (state) => {
       state.chartAppearance = initialState.chartAppearance;
@@ -316,7 +362,7 @@ export const technicalAnalysisSlice = createSlice({
     updateAlert: (state, action: PayloadAction<Alert>) => {
       const index = state.alerts.findIndex((a: Alert) => a.id === action.payload.id);
       if (index !== -1) {
-        state.alerts[index] = action.payload;
+        state.alerts[index] = action.payload; // Safe mutation via Immer
       }
     },
     deactivateAlert: (state, action: PayloadAction<string>) => {
@@ -396,3 +442,4 @@ export const selectMarketSnapshots = (state: RootState) => state.technicalAnalys
 // REDUCER EXPORT
 // ============================================================================
 export default technicalAnalysisSlice.reducer;
+// --- EOF ---

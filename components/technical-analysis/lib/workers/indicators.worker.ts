@@ -161,12 +161,10 @@ self.onmessage = (e: MessageEvent) => {
 
         // 4. Send Results Back (Transferring ownership of all result buffers)
         // [TENOR 2026 FIX] Echo messageId back to client
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (self as any).postMessage({ messageId, success: true, results }, transferables);
 
     } catch (error) {
         // [TENOR 2026 FIX] Echo messageId back even on error
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (self as any).postMessage({ 
             messageId, 
             success: false, 

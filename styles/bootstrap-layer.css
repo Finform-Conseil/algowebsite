@@ -1,0 +1,15 @@
+/**
+ * [TENOR 2026] Bootstrap CSS Layer Wrapper
+ * 
+ * Isole Bootstrap dans une CSS @layer pour éviter qu'il écrase les styles
+ * SCSS du projet AfriMarket/QuantumLedger.
+ * 
+ * Principe CSS @layer :
+ * - Les styles dans une @layer ont TOUJOURS une priorité inférieure aux styles
+ *   NON-layered (globals.scss, CSS Modules), quelle que soit la cascade.
+ * - Cela permet à Bootstrap de fournir ses classes utilitaires et composants
+ *   au module technical-analysis SANS jamais écraser le design du reste du site.
+ */
+@layer bootstrap {
+  @import url("bootstrap/dist/css/bootstrap.min.css");
+}

@@ -69,7 +69,7 @@ interface VerticalDrawingToolbarProps {
   activeTool: AllToolType | null;
   setActiveTool: (tool: AllToolType | null) => void;
   mainContainerRef: React.RefObject<HTMLDivElement>;
-  verticalToolbarRef?: React.RefObject<HTMLDivElement | null>;
+  verticalToolbarRef?: React.RefObject<HTMLDivElement>;
   handleClearAllDrawings: () => void;
 }
 

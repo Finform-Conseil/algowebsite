@@ -4,15 +4,15 @@
 // NIVEAU : HDR (Habilitation à Diriger des Recherches) - Production Grade
 // ================================================================================
 
-type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
-interface CircuitBreakerConfig {
+export interface CircuitBreakerConfig {
   failureThreshold: number; // Nombre d'échecs avant ouverture (défaut: 5)
   resetTimeout: number; // Délai avant tentative de récupération en ms (défaut: 30000)
   halfOpenMaxAttempts: number; // Nombre de tentatives en HALF_OPEN (défaut: 1)
 }
 
-interface CircuitMetrics {
+export interface CircuitMetrics {
   failures: number;
   successes: number;
   rejectedRequests: number;
@@ -20,11 +20,18 @@ interface CircuitMetrics {
   lastStateChange: number;
 }
 
+const DEFAULT_CONFIG: CircuitBreakerConfig = {
+  failureThreshold: 5,
+  resetTimeout: 30000, // 30 secondes
+  halfOpenMaxAttempts: 1,
+};
+
 export class CircuitBreaker {
   private state: CircuitState = 'CLOSED';
   private failures = 0;
   private nextAttemptTime = 0;
   private halfOpenAttempts = 0;
+  private readonly config: CircuitBreakerConfig;
 
   private metrics: CircuitMetrics = {
     failures: 0,
@@ -36,12 +43,13 @@ export class CircuitBreaker {
 
   constructor(
     private readonly name: string,
-    private readonly config: CircuitBreakerConfig = {
-      failureThreshold: 5,
-      resetTimeout: 30000, // 30 secondes
-      halfOpenMaxAttempts: 1,
-    }
-  ) { }
+    config?: Partial<CircuitBreakerConfig>
+  ) {
+    // [TENOR 2026 SRE FIX] Fusion stricte pour éviter les valeurs undefined (NaN)
+    // Une configuration partielle écrasait les valeurs par défaut dans la version précédente,
+    // provoquant un Date.now() + undefined = NaN, ce qui bloquait le circuit en état OPEN pour toujours.
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
 
   /**
    * Exécute une fonction avec protection du circuit breaker
@@ -67,11 +75,8 @@ export class CircuitBreaker {
 
   /**
    * Détermine si une requête peut être tentée.
-   * [TENOR 2026 FIX] SCAR-119: Synchronous State Mutation
-   * L'incrémentation de halfOpenAttempts DOIT se faire ici de manière synchrone
-   * pour éviter le problème du "Thundering Herd" (troupeau foudroyant) où des
-   * requêtes concurrentes passeraient toutes la condition avant que la première
-   * n'ait eu le temps de répondre.
+   * L'incrémentation de halfOpenAttempts se fait ici de manière synchrone
+   * pour éviter le problème du "Thundering Herd" (troupeau foudroyant).
    */
   private canAttempt(): boolean {
     const now = Date.now();
@@ -93,7 +98,7 @@ export class CircuitBreaker {
       case 'HALF_OPEN':
         // Limiter le nombre de tentatives en HALF_OPEN
         if (this.halfOpenAttempts < this.config.halfOpenMaxAttempts) {
-          this.halfOpenAttempts++; // [CRITICAL FIX] Incrémentation manquante
+          this.halfOpenAttempts++;
           return true;
         }
         return false;
@@ -196,8 +201,8 @@ export class CircuitBreaker {
 // ================================================================================
 // SINGLETON PAR API TARGET
 // ================================================================================
-// Note de sécurité : Les clés utilisées ici (apiIdentifier) sont strictement 
-// bornées (ex: '1', '2', '9') par le proxy. Il n'y a pas de risque de fuite 
+// Note de sécurité : Les clés utilisées ici (apiIdentifier) sont strictement
+// bornées (ex: '1', '2', '9') par le proxy. Il n'y a pas de risque de fuite
 // de mémoire (Memory Leak) par accumulation de clés dynamiques infinies.
 const circuitBreakers = new Map<string, CircuitBreaker>();
 
@@ -211,8 +216,9 @@ export function getCircuitBreaker(
   if (!circuitBreakers.has(apiIdentifier)) {
     circuitBreakers.set(
       apiIdentifier,
-      new CircuitBreaker(apiIdentifier, config as CircuitBreakerConfig)
+      new CircuitBreaker(apiIdentifier, config)
     );
   }
   return circuitBreakers.get(apiIdentifier)!;
 }
+// --- EOF ---

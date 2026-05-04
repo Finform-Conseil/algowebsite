@@ -6,7 +6,7 @@
  * Adheres to PP-0010 (Rigorous Typing).
  */
 
-import type { ECharts, EChartsOption } from 'echarts';
+import type { EChartsType, EChartsCoreOption } from 'echarts/core';
 
 /**
  * Represents the internal model of an ECharts component (e.g., Grid, Axis).
@@ -38,7 +38,7 @@ export interface EChartsModel {
  * Extended ECharts instance providing access to the internal getModel() method.
  * Use this instead of 'any' when performing advanced geometric calculations.
  */
-export interface EChartsWithModel extends ECharts {
+export interface EChartsWithModel extends EChartsType {
   /**
    * Accesses the internal model manager of the chart.
    * Note: This is an internal ECharts method, use with caution.
@@ -49,11 +49,11 @@ export interface EChartsWithModel extends ECharts {
 /**
  * Standardized alias for the ECharts instance type.
  */
-export type EChartsInstance = ECharts;
+export type EChartsInstance = EChartsType;
 
 /**
  * Standardized alias for ECharts Option type.
  */
-export type EChartsCoreOption = EChartsOption;
+export type TechnicalEChartsOption = EChartsCoreOption;
 
 // --- EOF ---

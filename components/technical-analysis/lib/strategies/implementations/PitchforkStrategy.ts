@@ -5,9 +5,7 @@ import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { PITCHFORK_TOOLS } from "../../../config/TechnicalAnalysisConstants";
 import { distToSegment, distanceBetweenPoints, diagonal, calculatePitchforkOrigin } from "../../math/geometry";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+import type { EChartsInstance } from "../../types/echarts";
 
 export class PitchforkStrategy implements IDrawingStrategy {
     supportedTools = [...PITCHFORK_TOOLS];

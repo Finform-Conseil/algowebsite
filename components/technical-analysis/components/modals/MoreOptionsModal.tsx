@@ -1,10 +1,18 @@
 import React from "react";
 import { BaseModal } from "../common/BaseModal";
+import s from "../../style.module.css";
 
 interface MoreOptionsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
+
+const OPTIONS = [
+    { icon: "bi-file-earmark-bar-graph", label: "Fondamentaux", action: "Données Fondamentales" },
+    { icon: "bi-building", label: "Profil Société", action: "Profil de l'entreprise" },
+    { icon: "bi-newspaper", label: "Actualités", action: "Actualités du symbole" },
+    { icon: "bi-calendar-event", label: "Calendrier", action: "Calendrier économique" },
+];
 
 export const MoreOptionsModal: React.FC<MoreOptionsModalProps> = ({
     isOpen,
@@ -15,57 +23,31 @@ export const MoreOptionsModal: React.FC<MoreOptionsModalProps> = ({
             isOpen={isOpen}
             onClose={onClose}
             title="Plus d'Options"
-            icon={<i className="bi bi-plus-circle-fill" />}
+            icon={<i className="bi bi-grid-3x2-gap-fill" />}
+            primaryLabel="Appliquer"
+            secondaryLabel="Fermer"
         >
-            <div className="row g-3">
-                <div className="col-md-6">
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.75rem",
+                    padding: "0.5rem 0",
+                }}
+            >
+                {OPTIONS.map(({ icon, label, action }) => (
                     <button
-                        className="btn btn-outline-light w-100 p-3 d-flex flex-column align-items-center gap-2"
+                        key={label}
+                        className={s["gp-option-tile"]}
                         onClick={() => {
-                            alert("Données Fondamentales");
+                            alert(action);
                             onClose();
                         }}
                     >
-                        <i className="bi bi-file-earmark-bar-graph fs-3"></i>
-                        <span>Fondamentaux</span>
+                        <i className={`bi ${icon}`} style={{ fontSize: "1.6rem", marginBottom: "0.4rem" }} />
+                        <span style={{ fontSize: "0.8rem", fontWeight: 500 }}>{label}</span>
                     </button>
-                </div>
-                <div className="col-md-6">
-                    <button
-                        className="btn btn-outline-light w-100 p-3 d-flex flex-column align-items-center gap-2"
-                        onClick={() => {
-                            alert("Profil de l'entreprise");
-                            onClose();
-                        }}
-                    >
-                        <i className="bi bi-building fs-3"></i>
-                        <span>Profil Société</span>
-                    </button>
-                </div>
-                <div className="col-md-6">
-                    <button
-                        className="btn btn-outline-light w-100 p-3 d-flex flex-column align-items-center gap-2"
-                        onClick={() => {
-                            alert("Actualités du symbole");
-                            onClose();
-                        }}
-                    >
-                        <i className="bi bi-newspaper fs-3"></i>
-                        <span>Actualités</span>
-                    </button>
-                </div>
-                <div className="col-md-6">
-                    <button
-                        className="btn btn-outline-light w-100 p-3 d-flex flex-column align-items-center gap-2"
-                        onClick={() => {
-                            alert("Calendrier économique");
-                            onClose();
-                        }}
-                    >
-                        <i className="bi bi-calendar-event fs-3"></i>
-                        <span>Calendrier</span>
-                    </button>
-                </div>
+                ))}
             </div>
         </BaseModal>
     );

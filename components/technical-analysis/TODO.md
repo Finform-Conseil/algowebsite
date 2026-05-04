@@ -3,6 +3,12 @@
 
 ---
 
+## AXIOM-ENGINE : Question de dignité professionnelle : on ne met pas de any sur les objets le plus complexe de l'application (l'instance ECharts). Choisis ta bataille."`
+
+pire eviter de mettre des any partout et pour tout !
+
+---
+
 ## 🏆 1. BATAILLES REMPORTÉES (En production)
 - ✅ **God Component démantelé** : `TechnicalAnalysis.tsx` purgé. État décentralisé via Redux + hooks spécialisés (`useDrawingManager`, `useFloatingToolbar`, `useAlertMonitor`).
 - ✅ **Moteur Performance (Web Worker)** : Calculs lourds (MACD, RSI, Bollinger…) déportés dans `indicators.worker.ts`. Communication Zero-Copy (Float64Array). UI stable à 60 FPS.

@@ -1,5 +1,3 @@
-
-
 // ================================================================================
 // Ce proxy fait confiance au `middleware.ts` qui s'exécute avant lui.
 // Sa seule responsabilité est de :
@@ -12,7 +10,7 @@
 // ================================================================================
 // FICHIER : src/app/api/proxy/[...path]/route.ts
 // RÔLE : LE MESSAGER OPTIMISÉ & SÉCURISÉ (HDR GRADE)
-// VERSION : HARMONISÉE 4.1 (CORRECTION TS NEXTREQUEST API)
+// VERSION : HARMONISÉE 5.0 (SRE CIRCUIT BREAKER ENFORCEMENT)
 // ================================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,6 +20,7 @@ import { checkRateLimit } from '../rate-limiter';
 import { getCachedResponse, setCachedResponse } from '../cache';
 import { apiConfig } from '@/core/infrastructure/store/config';
 import { fetchWithRetry } from '@/shared/utils/fetchWithRetry';
+import { getCircuitBreaker } from '@/shared/utils/circuit-breaker';
 
 const logger = {
   // eslint-disable-next-line no-console
@@ -110,7 +109,6 @@ async function handleRequest(method: string, request: NextRequest, params: Route
   const clientIp = forwardedFor?.split(',')[0].trim() || realIp || 'unknown_ip';
 
   const userIdForRateLimit = clientIp;
-
   const logContext = { ...baseLogContext, userId: 'anonymous', path: actualPath, apiIdentifier };
 
   if (!isValidApiIdentifier(apiIdentifier)) {
@@ -151,7 +149,7 @@ async function handleRequest(method: string, request: NextRequest, params: Route
     externalApiHeaders.set('accept-encoding', 'identity');
     externalApiHeaders.set('User-Agent', `Algoway-Proxy/15.0.0`);
     externalApiHeaders.set('X-Request-ID', requestId);
-
+    
     // [TENOR 2026] Forwarding IP sécurisé pour les logs d'audit Django
     externalApiHeaders.set('X-Forwarded-For', clientIp);
     externalApiHeaders.set('X-Forwarded-Proto', request.headers.get('x-forwarded-proto') || 'https');
@@ -162,18 +160,26 @@ async function handleRequest(method: string, request: NextRequest, params: Route
     // pour éviter les problèmes de consommation de stream (body used/locked) lors des retries.
     const shouldRetry = method === 'GET' || method === 'HEAD';
 
-    const response = await fetchWithRetry(targetUrl.toString(), {
-      method,
-      headers: externalApiHeaders,
-      body: request.body,
-      credentials: 'omit',
-      // @ts-expect-error duplex est requis pour le streaming de body dans Node.js fetch.
-      duplex: 'half',
-      timeout: proxyConfig.fetch.timeout,
-      retries: shouldRetry ? 3 : 0,
-      retryDelay: 1000,
-      // Protection circuit breaker par API
-      circuitBreakerKey: `api-${apiIdentifier}`,
+    // [TENOR 2026 SRE] CIRCUIT BREAKER ENFORCEMENT
+    // Empêche l'épuisement du pool de connexions (Cascading Failure) si le backend est mort.
+    const circuitBreaker = getCircuitBreaker(`api-${apiIdentifier}`, {
+      failureThreshold: 5,
+      resetTimeout: 30000,
+      halfOpenMaxAttempts: 1
+    });
+
+    const response = await circuitBreaker.execute(async () => {
+      return await fetchWithRetry(targetUrl.toString(), {
+        method,
+        headers: externalApiHeaders,
+        body: request.body,
+        credentials: 'omit',
+        // @ts-expect-error duplex est requis pour le streaming de body dans Node.js fetch.
+        duplex: 'half',
+        timeout: proxyConfig.fetch.timeout,
+        retries: shouldRetry ? 3 : 0,
+        backoff: 1000, // Exponential backoff base delay
+      });
     });
 
     if (method === 'GET' && response.ok && applicableTtl > 0) {
@@ -193,6 +199,14 @@ async function handleRequest(method: string, request: NextRequest, params: Route
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // [TENOR 2026 SRE] FAIL-FAST RESPONSE
+    // Si le Circuit Breaker est ouvert, on renvoie un 503 immédiat sans attendre de timeout.
+    if (errorMessage.includes('Circuit breaker is OPEN')) {
+      logger.warn('Requête rejetée par le Circuit Breaker (Fail-Fast)', { ...logContext });
+      return NextResponse.json({ error: 'Service Temporarily Unavailable', requestId }, { status: 503 });
+    }
+
     logger.error('Erreur interne inattendue dans le proxy', { ...logContext, error: errorMessage });
     return NextResponse.json({ error: 'Erreur interne du proxy', requestId }, { status: 500 });
   }
@@ -243,49 +257,42 @@ export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, { status: 204, headers });
 }
 
-
-/* [ Conclusion ]
+/*
+[ Conclusion ]
 ---
 ### **Manifeste Architectural du Proxy "Messager" (Version Canonique v15.0.0)**
 ---
-
 #### **1. Philosophie Fondamentale : Confiance et Délégation**
-
 Le principe immuable de ce proxy a évolué. Il n'est plus le "Gardien Vigilant", mais le "Messager Efficace". Il opère sur un principe de **confiance absolue** envers le `middleware.ts`. Il part du postulat que toute requête qui lui parvient a **déjà été authentifiée, autorisée et validée** par le middleware.
 
 Sa mission est désormais unique et spécialisée :
-1.  **Extraire** les informations de session (le token) de la requête.
-2.  **Relayer** la requête de manière performante vers l'API externe appropriée.
-3.  **Streamer** la réponse vers le client.
+1. **Extraire** les informations de session (le token) de la requête.
+2. **Relayer** la requête de manière performante vers l'API externe appropriée.
+3. **Streamer** la réponse vers le client.
 
 Cette séparation des responsabilités est la clé de la performance et de la maintenabilité du système.
 
 ---
-
 #### **2. Anatomie d'une Requête : Le Flux de Contrôle Harmonisé**
-
 Chaque requête traversant ce proxy suit désormais un flux optimisé :
 
-1.  **Point d'Entrée :** Une requête du client (ex: RTK Query vers `/api/proxy/1/commands/`) atteint l'infrastructure Next.js.
-
-2.  **SAS 1 : Le Gardien (`middleware.ts`)**
-    *   **Mécanisme :** Le `middleware.ts` est le **premier et unique point de contrôle de session**.
-    *   **Logique :** Il appelle `getToken()`, qui déclenche la logique de validation et de rafraîchissement dans `authOptions.ts`. Si la session est invalide, la requête est **rejetée ici** et n'atteint jamais le proxy.
-    *   **Résultat :** Seules les requêtes authentifiées et autorisées sont autorisées à continuer.
-
-3.  **SAS 2 : Le Messager (`proxy/route.ts`)**
-    *   **Mécanisme :** La requête, maintenant garantie comme étant valide, atteint le proxy.
-    *   **Logique :**
-        *   **Pas de re-validation :** Le proxy **ne vérifie plus** si le token est présent ou valide. Il fait confiance au middleware.
-        *   **Récupération du Token :** Il appelle `getToken()` **uniquement** pour récupérer les données du token (notamment l'`accessToken`) afin de les injecter dans la requête sortante. Cet appel est rapide car il lit un cookie déjà validé.
-        *   **Relais et Streaming :** Il exécute la logique de relais vers l'API Django et streame la réponse, comme auparavant.
-    *   **Résultat :** Le proxy exécute sa mission de messager sans latence ajoutée par une validation redondante.
+1. **Point d'Entrée :** Une requête du client (ex: RTK Query vers `/api/proxy/1/commands/`) atteint l'infrastructure Next.js.
+2. **SAS 1 : Le Gardien (`middleware.ts`)**
+   * **Mécanisme :** Le `middleware.ts` est le **premier et unique point de contrôle de session**.
+   * **Logique :** Il appelle `getToken()`, qui déclenche la logique de validation et de rafraîchissement dans `authOptions.ts`. Si la session est invalide, la requête est **rejetée ici** et n'atteint jamais le proxy.
+   * **Résultat :** Seules les requêtes authentifiées et autorisées sont autorisées à continuer.
+3. **SAS 2 : Le Messager (`proxy/route.ts`)**
+   * **Mécanisme :** La requête, maintenant garantie comme étant valide, atteint le proxy.
+   * **Logique :**
+     * **Pas de re-validation :** Le proxy **ne vérifie plus** si le token est présent ou valide. Il fait confiance au middleware.
+     * **Récupération du Token :** Il appelle `getToken()` **uniquement** pour récupérer les données du token (notamment l'`accessToken`) afin de les injecter dans la requête sortante. Cet appel est rapide car il lit un cookie déjà validé.
+     * **Relais et Streaming :** Il exécute la logique de relais vers l'API Django et streame la réponse, comme auparavant.
+   * **Résultat :** Le proxy exécute sa mission de messager sans latence ajoutée par une validation redondante.
 
 ---
-
 #### **3. Piliers Architecturaux (Synthèse v15.0)**
-
-*   **Performance :** Assurée par le **Streaming de bout en bout**, le **Caching**, la **réutilisation des connexions TCP (Keep-Alive)**, et surtout, la **suppression de la double validation de session**.
-*   **Sécurité :** Garantie par le **"Relais Aveugle"** (pas de token côté client) et la **centralisation de toute la logique d'autorisation dans le `middleware.ts`**, qui agit comme un point de contrôle unique et infaillible.
-*   **Robustesse & Scalabilité :** Fondée sur une architecture **stateless**, une **Limitation de Débit** externalisée, et une **séparation claire des responsabilités** entre le gardien (middleware) et le messager (proxy), ce qui rend le système plus simple, plus prévisible et plus facile à déboguer.
+* **Performance :** Assurée par le **Streaming de bout en bout**, le **Caching**, la **réutilisation des connexions TCP (Keep-Alive)**, et surtout, la **suppression de la double validation de session**.
+* **Sécurité :** Garantie par le **"Relais Aveugle"** (pas de token côté client) et la **centralisation de toute la logique d'autorisation dans le `middleware.ts`**, qui agit comme un point de contrôle unique et infaillible.
+* **Robustesse & Scalabilité :** Fondée sur une architecture **stateless**, une **Limitation de Débit** externalisée, un **Circuit Breaker** anti-cascading failures, et une **séparation claire des responsabilités** entre le gardien (middleware) et le messager (proxy), ce qui rend le système plus simple, plus prévisible et plus facile à déboguer.
 */
+// --- EOF ---

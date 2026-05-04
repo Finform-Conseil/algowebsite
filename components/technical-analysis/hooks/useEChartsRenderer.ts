@@ -28,13 +28,7 @@ import {
 } from "../lib/Indicators/TechnicalIndicators";
 import { setChartConfig } from "../store/technicalAnalysisSlice";
 import { createIndicatorsWorker } from "../lib/workers/createIndicatorsWorker";
-import {
-  useChartViewport,
-  TV_Y_AXIS_WIDTH,
-  TV_X_AXIS_HEIGHT,
-  MAIN_GRID_LEFT,
-  clamp
-} from "./useChartViewport";
+import { useChartViewport, TV_Y_AXIS_WIDTH, TV_X_AXIS_HEIGHT, MAIN_GRID_LEFT, clamp } from "./useChartViewport";
 
 // ============================================================================
 // [TENOR 2026 FIX] SCAR-TS-01: Exported Interface to fix TS 2304
@@ -49,12 +43,7 @@ export interface UseEChartsRendererProps {
   chartAppearance: ChartAppearance;
   uiState: UiState;
   displaySymbol: string;
-  lastZoomRangeRef?: MutableRefObject<{
-    start: number;
-    end: number;
-    barsFromRightStart?: number;
-    barsFromRightEnd?: number;
-  }>;
+  lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; }>;
   cursorPriceBadgeRef?: RefObject<HTMLDivElement | null>;
   cursorPriceTextRef?: RefObject<HTMLSpanElement | null>;
   cursorPriceActionRef?: RefObject<HTMLButtonElement | null>;
@@ -97,18 +86,27 @@ interface UseChartIndicatorsProps {
 interface PendingJob {
   buffer: ArrayBuffer;
   length: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config: any;
 }
 
 const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indicatorPeriods }: UseChartIndicatorsProps) => {
   const [asyncIndicators, setAsyncIndicators] = useState<Record<string, (number | string)[]>>({});
   const [workerFailed, setWorkerFailed] = useState(false);
+
   const workerRef = useRef<Worker | null>(null);
   const isWorkerBusyRef = useRef(false);
   const currentMessageIdRef = useRef(0);
   const workerMessageTimeoutRef = useRef<number | null>(null);
   const pendingJobRef = useRef<PendingJob | null>(null);
+
+  // [TENOR 2026 SRE] Strict Lifecycle Guard
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const clearWorkerMessageTimeout = useCallback(() => {
     if (workerMessageTimeoutRef.current !== null) {
@@ -120,10 +118,11 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
   const setupWorker = useCallback(() => {
     try {
       // [SCAR-WORKER-ROOT FIX] Blob Worker — bypasses browser HTTP cache entirely.
-      // The worker code is embedded in the bundle via createIndicatorsWorker.ts.
       const worker = createIndicatorsWorker();
 
       worker.onmessage = (e: MessageEvent) => {
+        if (!isMountedRef.current) return; // Guard against unmounted state
+
         clearWorkerMessageTimeout();
 
         if (e.data.messageId === currentMessageIdRef.current) {
@@ -143,10 +142,12 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
         if (pendingJobRef.current) {
           const job = pendingJobRef.current;
           pendingJobRef.current = null;
+
           currentMessageIdRef.current += 1;
           const nextMessageId = currentMessageIdRef.current;
 
           workerMessageTimeoutRef.current = window.setTimeout(() => {
+            if (!isMountedRef.current) return;
             console.warn("[EChartsRenderer] Worker timeout. Forcing synchronous fallback.");
             isWorkerBusyRef.current = false;
             workerRef.current?.terminate();
@@ -164,24 +165,27 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
       };
 
       worker.onerror = (err) => {
+        if (!isMountedRef.current) return;
         console.warn("[EChartsRenderer] Worker failed to load, falling back to sync math.", err);
         isWorkerBusyRef.current = false;
         clearWorkerMessageTimeout();
-        setTimeout(() => setWorkerFailed(true), 0);
+        setTimeout(() => { if (isMountedRef.current) setWorkerFailed(true); }, 0);
       };
 
       worker.onmessageerror = (err) => {
+        if (!isMountedRef.current) return;
         console.warn("[EChartsRenderer] Worker message channel failed, falling back to sync math.", err);
         isWorkerBusyRef.current = false;
         clearWorkerMessageTimeout();
-        setTimeout(() => setWorkerFailed(true), 0);
+        setTimeout(() => { if (isMountedRef.current) setWorkerFailed(true); }, 0);
       };
 
       return worker;
     } catch (err) {
+      if (!isMountedRef.current) return null;
       console.warn("[EChartsRenderer] Worker initialization failed, falling back to sync math.", err);
       clearWorkerMessageTimeout();
-      setTimeout(() => setWorkerFailed(true), 0);
+      setTimeout(() => { if (isMountedRef.current) setWorkerFailed(true); }, 0);
       return null;
     }
   }, [clearWorkerMessageTimeout]);
@@ -235,6 +239,7 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
 
     clearWorkerMessageTimeout();
     workerMessageTimeoutRef.current = window.setTimeout(() => {
+      if (!isMountedRef.current) return;
       console.warn("[EChartsRenderer] Worker timeout. Forcing synchronous fallback.");
       isWorkerBusyRef.current = false;
       workerRef.current?.terminate();
@@ -252,9 +257,6 @@ const useChartIndicators = ({ chartData, chartConfig, advancedIndicators, indica
     if (!workerFailed) return {};
 
     // [TENOR 2026 SRE FIX] SCAR-WORKER-FALLBACK: Graceful Degradation
-    // If the Web Worker fails (e.g., CSP block, network error loading the worker file),
-    // falling back to synchronous math on a massive dataset (> 1500 candles) WILL freeze the UI thread.
-    // SRE Principle: It is better to degrade gracefully (hide indicators) than to crash the user's browser.
     if (chartData.length > 1500) {
       console.error("[SRE] Web Worker failed and dataset is too large (>1500) for synchronous fallback. Indicators disabled to prevent UI freeze.");
       return {};
@@ -362,9 +364,7 @@ const useChartBadges = ({
     const chart = chartInstanceRef.current;
     if (chart && !chart.isDisposed()) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const gridComponent = (chart as any).getModel?.().getComponent?.("grid", 0);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rect = gridComponent?.coordinateSystem?.getRect?.() as any;
         if (rect && Number.isFinite(rect.y) && Number.isFinite(rect.height)) {
           return {
@@ -478,7 +478,6 @@ const useChartBadges = ({
       cursorAction.style.visibility = "visible";
       cursorAction.dataset.price = priceValue.toString();
       cursorAction.dataset.priceLabel = formattedPrice;
-
     } catch {
       hideCursorPriceAxisBadge();
     }
@@ -514,6 +513,15 @@ export const useEChartsRenderer = ({
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
   const legendSelectionRef = useRef<Record<string, boolean>>({});
 
+  // [TENOR 2026 SRE] Strict Lifecycle Guard for RAFs and Observers
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // [TENOR 2026 FIX] Getter Pattern to hide Ref mutation from ESLint
   const getChartContainer = useCallback(() => stockChartRef.current, [stockChartRef]);
   const getCursorBadge = useCallback(() => cursorPriceBadgeRef?.current || null, [cursorPriceBadgeRef]);
@@ -523,16 +531,34 @@ export const useEChartsRenderer = ({
   const getLastLine = useCallback(() => lastPriceLineRef?.current || null, [lastPriceLineRef]);
 
   // 1. Indicators Engine
-  const { indicatorsData } = useChartIndicators({ chartData, chartConfig, advancedIndicators, indicatorPeriods });
+  const { indicatorsData } = useChartIndicators({
+    chartData,
+    chartConfig,
+    advancedIndicators,
+    indicatorPeriods
+  });
 
   // 2. Badges Engine
   const { updateCursorPriceAxisBadge, updateLastPriceAxisBadge } = useChartBadges({
-    chartInstanceRef, getChartContainer, getCursorBadge, getCursorText, getCursorAction, getLastBadge, getLastLine, lastPriceAxisValue, uiState
+    chartInstanceRef,
+    getChartContainer,
+    getCursorBadge,
+    getCursorText,
+    getCursorAction,
+    getLastBadge,
+    getLastLine,
+    lastPriceAxisValue,
+    uiState
   });
 
   // 3. Viewport Engine (Extracted to useChartViewport.ts for SRP)
   const { applyViewport, resetManualYViewport } = useChartViewport({
-    chartInstanceRef, getChartContainer, chartData, lastZoomRangeRef, updateCursorPriceAxisBadge, updateLastPriceAxisBadge
+    chartInstanceRef,
+    getChartContainer,
+    chartData,
+    lastZoomRangeRef,
+    updateCursorPriceAxisBadge,
+    updateLastPriceAxisBadge
   });
 
   // --- ECHARTS RENDER LOGIC (React Cycle) ---
@@ -541,7 +567,9 @@ export const useEChartsRenderer = ({
 
     const container = stockChartRef.current;
     if (container.clientWidth === 0 || container.clientHeight === 0) {
-      const timeout = setTimeout(() => dispatch(setChartConfig({} as Partial<ChartState>)), 50);
+      const timeout = setTimeout(() => {
+        if (isMountedRef.current) dispatch(setChartConfig({} as Partial<ChartState>));
+      }, 50);
       return () => clearTimeout(timeout);
     }
 
@@ -591,6 +619,7 @@ export const useEChartsRenderer = ({
     const spacingPercent = 6;
     const bottomMargin = 5;
     const topMargin = 8;
+
     const totalPanelsHeight = visiblePanelsCount * (panelHeightPrecent + spacingPercent);
     const mainChartHeight = 100 - topMargin - bottomMargin - totalPanelsHeight;
 
@@ -630,17 +659,21 @@ export const useEChartsRenderer = ({
         lastVisibleMonth = currentMonth;
         return `{bold|${currentYear}}`;
       }
+
       if (showMonth) {
         lastVisibleMonth = currentMonth;
         const monthStr = capitalizeFr(date.toLocaleDateString('fr-FR', { month: 'short' }));
         return `{bold|${monthStr}}`;
       }
+
       if (hasTime && isNewDay) {
         return `{bold|${date.getDate()}}`;
       }
+
       if (hasTime) {
         return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
       }
+
       return `${date.getDate()}`;
     };
 
@@ -671,7 +704,6 @@ export const useEChartsRenderer = ({
           show: true,
           backgroundColor: '#1e222d',
           color: '#ffffff',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter: function (params: any) {
             if (!params.value) return "";
             const date = new Date(params.value);
@@ -1065,7 +1097,6 @@ export const useEChartsRenderer = ({
             xAxisIndex: gridIndex,
             yAxisIndex: gridIndex,
             data: histData,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             itemStyle: { color: (p: any) => (p.value[1] > 0 ? upColor : downColor) },
           },
           {
@@ -1243,9 +1274,7 @@ export const useEChartsRenderer = ({
                 axisLabel: {
                   fontSize: 9,
                   formatter: smartXAxisFormatter,
-                  rich: {
-                    bold: { fontWeight: 'bold', color: '#d1d4dc' }
-                  }
+                  rich: { bold: { fontWeight: 'bold', color: '#d1d4dc' } }
                 },
               },
             ],
@@ -1254,8 +1283,10 @@ export const useEChartsRenderer = ({
       ],
     };
 
-    requestAnimationFrame(() => {
-      if (chart && !chart.isDisposed()) {
+    // [TENOR 2026 SRE] RAF Cleanup Enforcement
+    let rafId: number;
+    rafId = requestAnimationFrame(() => {
+      if (isMountedRef.current && chart && !chart.isDisposed()) {
         chart.setOption(option, {
           notMerge: false,
           replaceMerge: ['series'],
@@ -1265,17 +1296,18 @@ export const useEChartsRenderer = ({
       }
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleLegendChange = (params: any) => {
+      if (!isMountedRef.current) return;
       legendSelectionRef.current = params.selected;
       setLegendSelection(params.selected);
     };
 
     chart.on('legendselectchanged', handleLegendChange);
 
+    let resizeRafId: number;
     const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
+      resizeRafId = requestAnimationFrame(() => {
+        if (isMountedRef.current && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
           chartInstanceRef.current.resize();
           resetManualYViewport();
         }
@@ -1285,7 +1317,11 @@ export const useEChartsRenderer = ({
     if (stockChartRef.current) resizeObserver.observe(stockChartRef.current);
 
     return () => {
-      chart.off('legendselectchanged', handleLegendChange);
+      cancelAnimationFrame(rafId);
+      cancelAnimationFrame(resizeRafId);
+      if (chart && !chart.isDisposed()) {
+        chart.off('legendselectchanged', handleLegendChange);
+      }
       resizeObserver.disconnect();
     };
   }, [

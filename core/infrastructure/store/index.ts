@@ -22,11 +22,22 @@ export const makeStore = () => {
         // this takes >100ms and freezes the UI thread.
         // We surgically bypass these checks ONLY for the massive marketData cache.
         serializableCheck: {
-          ignoredActions: ['technicalAnalysis/updateMarketData'],
-          ignoredPaths: ['technicalAnalysis.marketData'],
+          ignoredActions: [
+            'technicalAnalysis/updateMarketData',
+            'technicalAnalysis/updateMarketSnapshot',
+          ],
+          ignoredPaths: [
+            'technicalAnalysis.marketData',
+            'technicalAnalysis.marketSnapshots',
+          ],
+          warnAfter: 128,
         },
         immutableCheck: {
-          ignoredPaths: ['technicalAnalysis.marketData'],
+          ignoredPaths: [
+            'technicalAnalysis.marketData',
+            'technicalAnalysis.marketSnapshots',
+          ],
+          warnAfter: 128,
         },
       }).concat(baseApi.middleware),
     devTools: process.env.NODE_ENV !== 'production',

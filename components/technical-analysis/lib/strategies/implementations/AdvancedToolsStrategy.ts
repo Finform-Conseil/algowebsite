@@ -5,15 +5,13 @@ import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import { MULTI_POINT_TOOLS } from "../../../config/TechnicalAnalysisConstants";
 import { distanceBetweenPoints } from "../../math/geometry";
+import type { EChartsInstance } from "../../types/echarts";
 
 // --- RENDERERS PURES (1 Fichier = 1 Outil) ---
 import { renderPolyline, hitTestPolyline } from "../renderers/AdvancedTools/PolylineRenderer";
 import { renderPath, hitTestPath } from "../renderers/AdvancedTools/PathRenderer";
 import { renderCurve, hitTestCurve } from "../renderers/AdvancedTools/CurveRenderer";
 import { renderProjection, hitTestProjection } from "../renderers/AdvancedTools/ProjectionRenderer";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
 
 /**
  * [HDR 2026] AdvancedToolsStrategy — Orchestrator Only
@@ -60,13 +58,12 @@ export class AdvancedToolsStrategy implements IDrawingStrategy {
         mx: number,
         my: number,
         drawing: Drawing,
-        chartInstance: unknown,
+        chartInstance: EChartsInstance,
         threshold: number
     ): HitTestResult {
-        const chart = chartInstance as { convertToPixel: (opts: unknown, pt: unknown) => number[] | null };
         const points = drawing.points
             .map((p) => {
-                const pixel = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
+                const pixel = chartInstance.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
                 return pixel ? { x: pixel[0], y: pixel[1] } : null;
             })
             .filter((p): p is { x: number; y: number } => p !== null);

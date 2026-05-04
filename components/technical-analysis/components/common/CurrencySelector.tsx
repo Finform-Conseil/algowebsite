@@ -10,7 +10,7 @@ interface CurrencyOption {
   flag: string;
 }
 
-const AFRICAN_CURRENCIES: CurrencyOption[] = [
+export const AFRICAN_CURRENCIES: CurrencyOption[] = [
   { code: "XOF", name: "Franc CFA BCEAO", flag: "🇨🇮" },
   { code: "XAF", name: "Franc CFA CEMAC", flag: "🇨🇲" },
   { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬" },
@@ -24,14 +24,16 @@ const AFRICAN_CURRENCIES: CurrencyOption[] = [
   { code: "GBP", name: "British Pound", flag: "🇬🇧" },
 ];
 
+export type CurrencyCode = (typeof AFRICAN_CURRENCIES)[number]["code"];
+
 export interface CurrencySelectorProps {
-  selectedCurrency: string;
-  setSelectedCurrency: (val: string) => void;
+  selectedCurrency: CurrencyCode;
+  setSelectedCurrency: (val: CurrencyCode) => void;
   isCurrencyOpen: boolean;
   setIsCurrencyOpen: (val: boolean) => void;
   currencyQuery: string;
   setCurrencyQuery: (val: string) => void;
-  currencyBtnRef: React.RefObject<HTMLDivElement | null>;
+  currencyBtnRef: React.RefObject<HTMLDivElement>;
   currencyPos: { top: number; left: number };
   setCurrencyPos: (pos: { top: number; left: number }) => void;
 }

@@ -9,6 +9,8 @@ import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
 import { getVolatilityTermStructure, getVolatilitySkew } from "@/shared/utils/volatility-engine";
 
+import type { DisplaySecurity } from "../../config/TechnicalAnalysisTypes";
+
 const DividendHistoryModal = dynamic(
   () => import("./DividendHistoryModal").then((module) => module.DividendHistoryModal),
   {
@@ -19,7 +21,7 @@ const DividendHistoryModal = dynamic(
 
 interface TechnicalAnalysisSidebarProps {
   sidebarRef: React.RefObject<HTMLElement | null>;
-  security: BRVMSecurity;
+  security: DisplaySecurity;
   chartData: ChartDataPoint[];
   livePrice: number;
   isMarketPositive: boolean;
@@ -58,6 +60,12 @@ interface BRVMNewsItem {
   date: string;
   link: string;
 }
+
+const FALLBACK_NEWS_ITEM: BRVMNewsItem = {
+  title: "BRVM : Forte croissance des volumes en ce debut d'annee 2026",
+  date: "aujourd'hui",
+  link: "#",
+};
 
 export const TechnicalAnalysisSidebar: React.FC<
   TechnicalAnalysisSidebarProps
@@ -138,6 +146,19 @@ export const TechnicalAnalysisSidebar: React.FC<
     const interval = setInterval(fetchNews, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const safeNews = useMemo(
+    () =>
+      news.filter(
+        (item): item is BRVMNewsItem =>
+          !!item &&
+          typeof item.title === "string" &&
+          typeof item.date === "string" &&
+          typeof item.link === "string" &&
+          item.link.length > 0,
+      ),
+    [news],
+  );
 
   // [TENOR 2026] ADJUST STATE DURING RENDER (Official React Pattern for prop sync)
   const normTicker = (security.ticker || "").trim().toUpperCase();
@@ -222,18 +243,20 @@ export const TechnicalAnalysisSidebar: React.FC<
   }, [security.ticker, dataMode]);
 
   useEffect(() => {
-    if (news.length <= 1 || isHovered) return;
+    if (currentNewsIdx === 0 && safeNews.length === 0) return;
+    if (currentNewsIdx < safeNews.length) return;
+    setCurrentNewsIdx(0);
+  }, [currentNewsIdx, safeNews.length]);
+
+  useEffect(() => {
+    if (safeNews.length <= 1 || isHovered) return;
     const interval = setInterval(() => {
-      setCurrentNewsIdx(prev => (prev + 1) % news.length);
+      setCurrentNewsIdx((prev) => (prev + 1) % safeNews.length);
     }, 10000);
     return () => clearInterval(interval);
-  }, [news, isHovered]);
+  }, [safeNews.length, isHovered]);
 
-  const activeNews = news.length > 0 ? news[currentNewsIdx] : {
-    title: "BRVM : Forte croissance des volumes en ce début d'année 2026",
-    date: "aujourd'hui",
-    link: "#"
-  };
+  const activeNews = safeNews[currentNewsIdx] ?? FALLBACK_NEWS_ITEM;
 
   const formatNewsDate = (date: string) => {
     if (date.toLowerCase() === "aujourd'hui") return "Aujourd'hui";
@@ -1194,9 +1217,9 @@ export const TechnicalAnalysisSidebar: React.FC<
                 {" "}Liste de surveillance{" "}<i className="bi bi-chevron-down" style={{ fontSize: "0.6em", verticalAlign: "middle" }}></i>
               </span>
               <div className={s["gp-sidebar-actions"]}>
-                <button className={clsx("btn", s["hover-lift"], "hover-lift")} title="Ajouter à la liste"><i className="bi bi-plus"></i></button>
-                <button className={clsx("btn", s["hover-lift"], "hover-lift")} title="Créer une liste"><i className="bi bi-pie-chart"></i></button>
-                <button className={clsx("btn", s["hover-lift"], "hover-lift")} title="Plus d'options"><i className="bi bi-three-dots"></i></button>
+                <button className={clsx(s["btn"], s["hover-lift"], "hover-lift")} title="Ajouter à la liste"><i className="bi bi-plus"></i></button>
+                <button className={clsx(s["btn"], s["hover-lift"], "hover-lift")} title="Créer une liste"><i className="bi bi-pie-chart"></i></button>
+                <button className={clsx(s["btn"], s["hover-lift"], "hover-lift")} title="Plus d'options"><i className="bi bi-three-dots"></i></button>
               </div>
             </div>
 

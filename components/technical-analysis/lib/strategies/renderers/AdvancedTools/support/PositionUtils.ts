@@ -1,11 +1,9 @@
 import { Drawing } from "../../../../../config/TechnicalAnalysisTypes";
 import { DrawingHelpers } from "../../../interfaces/IDrawingStrategy";
 import { calculatePositionStats } from "../../../../math/geometry";
+import type { ECharts } from "echarts";
 
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export type EChartsInstance = any;
-/* eslint-enable @typescript-eslint/no-explicit-any */
+export type EChartsInstance = ECharts;
 
 export function renderPositionStats(
     x: number,

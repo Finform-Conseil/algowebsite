@@ -8,9 +8,9 @@ import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy
 import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { distancePointToSegment } from "./ForecastingUtils";
+import type { ECharts } from "echarts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+type EChartsInstance = ECharts;
 
 const C_HANDLE = "#2962ff";
 
@@ -139,8 +139,7 @@ export function renderForecastingSector(
   h.ctx.globalAlpha = 1;
   h.ctx.strokeStyle = color;
   h.ctx.lineWidth = lineWidth;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  h.applyLineDash(lineStyle as any, lineWidth);
+  h.applyLineDash(lineStyle, lineWidth);
   
   h.ctx.beginPath();
   h.ctx.moveTo(p0.x, p0.y);

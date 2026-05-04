@@ -16,9 +16,9 @@ import {
     distancePointToSegment,
     RawBar
 } from "./ForecastingUtils";
+import type { ECharts } from "echarts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+type EChartsInstance = ECharts;
 
 type PixelPoint = { x: number; y: number };
 
@@ -62,7 +62,7 @@ const renderCache = new WeakMap<object, RenderCache>();
 
 // --- RESOLVERS ---
 
-function convertDataPointToPixel(chart: EChartsInstance, logicalX: number, price: number): PixelPoint | undefined {
+function convertDataPointToPixel(chart: ECharts, logicalX: number, price: number): PixelPoint | undefined {
     const finder = { seriesIndex: 0 };
     try {
         const res = chart?.convertToPixel?.(finder, [logicalX, price]) || 
@@ -72,7 +72,7 @@ function convertDataPointToPixel(chart: EChartsInstance, logicalX: number, price
     return undefined;
 }
 
-function convertPixelToDataPoint(chart: EChartsInstance, point: PixelPoint): { x: number; y: number } | undefined {
+function convertPixelToDataPoint(chart: ECharts, point: PixelPoint): { x: number; y: number } | undefined {
     try {
         const res = chart?.convertFromPixel?.({ seriesIndex: 0 }, [point.x, point.y]) ||
                     chart?.convertFromPixel?.("grid", [point.x, point.y]);

@@ -2,6 +2,12 @@
 // QUANTUM LEDGER - Main Stylesheet
 // ============================================
 
+// [TENOR 2026] Déclaration des CSS @layers.
+// Les layers sont prioritaires dans l'ordre de déclaration.
+// Les styles non-layered (tout le reste du fichier) ont la priorité ABSOLUE.
+// Cela permet à Bootstrap d'être isolé sans écraser nos styles SCSS.
+@layer bootstrap;
+
 // Abstracts
 @import 'abstracts/variables';
 
@@ -161,3 +167,32 @@
 .p-3 { padding: $spacing-md; }
 .p-4 { padding: $spacing-lg; }
 .p-5 { padding: $spacing-xl; }
+
+// ============================================================================
+// COMPATIBILITÉ BOOTSTRAP — Module Technical Analysis
+// ============================================================================
+// Le reset SCSS global écrase les styles de base de Bootstrap (button, h1-h6, etc.)
+// Ce bloc restaure les comportements Bootstrap nécessaires UNIQUEMENT dans le périmètre
+// du module technical-analysis, sans affecter le reste du site.
+
+// Préserver les boutons Bootstrap dans le module
+[class*="gp-modal"],
+[class*="technical-analysis"] {
+  button.btn {
+    border-width: 1px;
+    border-style: solid;
+  }
+  // Inputs/selects Bootstrap
+  input.form-control,
+  select.form-select,
+  textarea.form-control {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background-color: #fff;
+    color: #212529;
+  }
+}

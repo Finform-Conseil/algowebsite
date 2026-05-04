@@ -4,14 +4,12 @@ import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/I
 import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import { CHANNEL_TOOLS } from "../../../config/TechnicalAnalysisConstants";
+import type { EChartsInstance } from "../../types/echarts";
 
 import { renderParallelChannel, hitTestParallelChannel } from "../renderers/Channels/ParallelChannelRenderer";
 import { renderDisjointChannel, hitTestDisjointChannel } from "../renderers/Channels/DisjointChannelRenderer";
 import { renderFlatTopBottom, hitTestFlatTopBottom } from "../renderers/Channels/FlatTopBottomRenderer";
 import { renderRegressionTrend, hitTestRegressionTrend } from "../renderers/Channels/RegressionTrendRenderer";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
 
 export class ChannelsStrategy implements IDrawingStrategy {
     supportedTools = [...CHANNEL_TOOLS];
@@ -43,10 +41,9 @@ export class ChannelsStrategy implements IDrawingStrategy {
         }
     }
 
-    hitTest(mx: number, my: number, drawing: Drawing, chartInstance: unknown, threshold: number): HitTestResult {
-        const chart = chartInstance as { convertToPixel: (opts: unknown, pt: unknown) => number[] | null };
+    hitTest(mx: number, my: number, drawing: Drawing, chartInstance: EChartsInstance, threshold: number): HitTestResult {
         const points = drawing.points.map(p => {
-            const pixel = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
+            const pixel = chartInstance.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
             return pixel ? { x: pixel[0], y: pixel[1] } : null;
         }).filter((p): p is { x: number; y: number } => p !== null);
 

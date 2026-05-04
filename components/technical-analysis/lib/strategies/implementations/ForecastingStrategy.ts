@@ -7,6 +7,7 @@ import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/I
 import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import { distanceBetweenPoints, isPointInPolygon, isPointInTriangle } from "../../math/geometry";
+import type { EChartsInstance } from "../../types/echarts";
 
 // Renderers dédiés — répertoire Forecasting/
 import {
@@ -42,9 +43,6 @@ import {
   hitTestFixedRangeVolumeProfile,
 } from "../renderers/Forecasting/FixedRangeVolumeProfileRenderer";
 import { distancePointToSegment } from "../renderers/Forecasting/ForecastingUtils";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
 
 export class ForecastingStrategy implements IDrawingStrategy {
   public supportedTools = [
@@ -103,18 +101,17 @@ export class ForecastingStrategy implements IDrawingStrategy {
     mx: number,
     my: number,
     drawing: Drawing,
-    chartInstance: unknown,
+    chartInstance: EChartsInstance,
     threshold: number = 8 // [SRE-FIX] Safety baseline for dispatching
   ): HitTestResult {
-    const chart = chartInstance as EChartsInstance;
-    const option = chart.getOption();
+    const option = chartInstance.getOption();
     const seriesList = (option.series as Array<{ type?: string }>) || [];
     let priceIdx = seriesList.findIndex((s) => s.type === "candlestick");
     if (priceIdx === -1) priceIdx = 0;
 
     const points = drawing.points
       .map((p) => {
-        const pixel = chart.convertToPixel({ seriesIndex: priceIdx }, [p.time, p.value]);
+        const pixel = chartInstance.convertToPixel({ seriesIndex: priceIdx }, [p.time, p.value]);
         return pixel ? { x: pixel[0], y: pixel[1] } : null;
       })
       .filter((p): p is { x: number; y: number } => p !== null);
@@ -156,28 +153,28 @@ export class ForecastingStrategy implements IDrawingStrategy {
     let result: HitTestResult = { isHit: false, hitType: null };
     switch (type) {
       case "long_position":
-        result = hitTestForecastingLongPosition(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingLongPosition(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "short_position":
-        result = hitTestForecastingShortPosition(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingShortPosition(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "position_forecast":
-        result = hitTestForecastingPositionForecast(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingPositionForecast(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "bar_pattern":
-        result = hitTestForecastingBarPattern(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingBarPattern(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "ghost_feed":
-        result = hitTestForecastingGhostFeed(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingGhostFeed(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "sector":
-        result = hitTestForecastingSector(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingSector(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "anchored_vwap":
-        result = hitTestForecastingAnchoredVWAP(mx, my, points, drawing, chart, threshold);
+        result = hitTestForecastingAnchoredVWAP(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "anchored_volume_profile":
-        result = hitTestFixedRangeVolumeProfile(mx, my, points, drawing, chart, threshold);
+        result = hitTestFixedRangeVolumeProfile(mx, my, points, drawing, chartInstance, threshold);
         break;
     }
 

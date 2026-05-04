@@ -6,7 +6,7 @@
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
 ; Session_Count ; 1
-; Last_Update ; 2026-04-20T12:30:00+01:00
+; Last_Update ; 2026-05-04T01:01:00+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -15,6 +15,9 @@
     bugs_fixed: 6
     regressions_prevented: 2
   journal:
+    - date: "2026-04-22"
+      task: "Optimisation Performance Store Redux"
+      details: "Désactivation des checks de sérialisation et d'immutabilité pour `marketSnapshots`. Augmentation du seuil `warnAfter` à 128ms pour éviter les alertes intempestives en dev."
     - date: "2026-04-20"
       task: "Mise en conformité du Store Redux"
       details: "2026-04-20 12:40: Fix(Proxy): Suppression dépendance authOptions pour mode Anonymous. 2026-04-20 12:41: Fix(Chart): Restauration des imports corrompus dans TechnicalAnalysis.tsx. 2026-04-20 12:42: Arch(Providers): Création AppProviders. 2026-04-20 12:43: Fix(StoreProvider): Passage au pattern factory (makeStore) pour conformité Next.js App Router. 2026-04-20 18:24: Fix(Toolbar): Relocalisation structurelle dans gp-chart-main-section pour résoudre l'occlusion par la sidebar."
@@ -40,6 +43,11 @@
 
 [CAUSAL_CHAINING_YAML]
 scars:
+  - id: "SCAR-POINTER-001"
+    severity: "HIGH"
+    description: "Support tactile partiellement cassé par une chaîne d'interaction mixte: canvas en Pointer Events mais toolbar flottante encore en Mouse Events, plus overlay price-axis resté inline/fantôme."
+    resolution: "Extraction de `PriceAxisOverlay.tsx`, ajout de `touchAction: none`, capture/perte de pointeur gérées sur le canvas, et migration du drag de toolbar vers Pointer Events."
+    test_binding: "Sur mobile/tablette ou device emulation, dessiner puis déplacer un objet et faire glisser la toolbar flottante sans blocage ni perte de capture."
   - id: "SCAR-125"
     description: "Next.js/Turbopack failure to resolve export BRVM_NAME_TO_TICKER from brvm-mapping.ts (claimed no exports)."
     resolution: "Explicit named export at the end of file instead of inline typed export. Touched importing route to bust cache."
@@ -54,11 +62,38 @@ scars:
     description: "Régression visuelle ChartToolbar : débordement horizontal ET disparition des icônes de droite par occlusion de la sidebar."
     resolution: "Relocalisation structurelle : Transfert de la <ChartToolbar> du niveau racine vers l'intérieur de gp-chart-main-section. Ajustement de la section en flex-direction: column. La toolbar hérite désormais de la largeur disponible calculée par le layout principal, évitant tout recouvrement physique."
     test_binding: "Ouvrir la sidebar d'objets et vérifier que le bouton Publier reste collé au bord de la sidebar sans être caché."
+  - id: "SCAR-FLEX-OVERFLOW"
+    severity: "HIGH"
+    description: "Débordement de la Toolbar horizontale sur petits écrans/tablettes, provoquant la disparition des actions de droite (Publier, Toggle)."
+    resolution: "Passage de justify-content: flex-start à space-between + gap: 0.5rem. Flex: 1 1 auto sur le scroll central avec min-width: 50px. Flex: 0 1 auto sur le bloc de droite pour autoriser le shrink. Ajout d'une media query @768px pour le masquage ciblé."
+    test_binding: "Redimensionner la fenêtre à 800px puis 700px. Vérifier que le bouton Publier reste visible et que le scroll central se réduit proprement."
+  - id: "SCAR-TOOLBAR-MONOLITHIC"
+    severity: "BLOCKER"
+    description: "Éclatement du layout Toolbar : Symbole (BOAB) invisible et actions de droite disparues à cause d'une largeur aberrante (width: var(--gp-toolbar-width)) sur le badge initials et suppression JSX accidentelle."
+    test_binding: "Vérifier que le badge DA ne pousse pas le texte BOAB et que les boutons de droite (Publier) reviennent en vue immédiate."
+  - id: "SCAR-BOOTSTRAP-001"
+    severity: "CRITICAL"
+    description: "Perte totale du styling sur les Modaux et la Sidebar du module TechnicalAnalysis suite à l'intégration dans le monorepo. Les classes Bootstrap (.btn, .form-control) n'avaient aucune définition CSS car Bootstrap n'était jamais importé, et le _reset.scss écrasait les balises HTML de base (button, input)."
+    resolution: "Import global de `bootstrap/dist/css/bootstrap.min.css` dans `layout.tsx` AVANT l'import de `globals.scss`. L'ordre garantit que le Reboot de Bootstrap est neutralisé par le reset SCSS du projet (préservant le reste du site), tout en rendant les classes utilitaires Bootstrap disponibles pour les modaux."
+    test_binding: "Ouvrir un modal (ex: Recherche Symbole ou Plus d'Options) et vérifier que les boutons, formulaires et grilles sont stylés (bordures, espacements, typographie)."
 vaccins:
+  - id: "VAC-ECHARTS-001"
+    description: "Interdiction de déclarer `EChartsInstance = any` dans les stratégies et renderers."
+    pattern: "Importer `type { ECharts } from \"echarts\"` puis utiliser `type EChartsInstance = ECharts` ou typer directement les signatures."
   - id: "VAC-045"
     description: "Anti-Hydration Mismatch for live clocks. Always use useEffect/useState for dynamic time rendering."
     pattern: "const [val, setVal] = useState(''); useEffect(() => setVal(new Date()...), [])"
-patterns: []
+  - id: "VAC-046"
+    description: "Éviter l'utilisation d'implémentations maison de validateurs (mini-zod) qui causent des pertes d'inférence TypeScript ('implicit any' dans les callbacks refine)."
+    pattern: "Toujours utiliser la librairie officielle `zod` et laisser l'inférence de type opérer sur les variables de callback `refine((data) => ...)`."
+  - id: "VAC-047"
+    description: "Conflits d'exports Next.js/Turbopack : 'Module has no exported member' sur les types."
+    pattern: "Ne jamais exporter de types nommés (export type X) depuis un fichier de composant React ayant un `export default`. Extraire les types dans un fichier dédié (ex: TechnicalAnalysisTypes.ts)."
+patterns:
+  - id: "PAT-STORE-001"
+    description: "Store Performance: Bypass recursive checks for large real-time datasets (candles, snapshots)."
+    application: "Use ignoredActions/ignoredPaths in configureStore middleware and increase warnAfter threshold."
+
 ghosts: []
 meta_patterns: []
 hypotheses: []
@@ -66,6 +101,42 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-04"
+      titre: "FIX CSS CONFLICTS & BOOTSTRAP ISOLATION"
+      llm: "TENOR 2026 (Gemini 3.1 Pro)"
+      session_numero: 6
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Restauration des styles des modaux (Recherche, Options, Indicateurs) et de la Sidebar. Import stratégique de Bootstrap CDN via npm dans layout.tsx AVANT le fichier globals.scss pour éviter que Bootstrap Reboot n'écrase le design system SCSS global."
+      scribe_delta: "SCAR-BOOTSTRAP-001"
+    - date: "2026-04-27"
+      titre: "FIX IMPORT EXPORT & ZOD TYPES"
+      llm: "Antigravity 3.1"
+      session_numero: 5
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Extraction pure de DisplaySecurity vers TechnicalAnalysisTypes.ts pour contourner le bug Turbopack de résolution mixte (default/named type export) qui empêchait TechnicalAnalysis.tsx de trouver le type."
+      scribe_delta: "VAC-047"
+    - date: "2026-04-26"
+      titre: "PATCH CHIRURGICAL TOOLBAR"
+      llm: "Antigravity 3.0"
+      session_numero: 4
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Restauration monolithique de la Toolbar. Fix critique du badge-wrapper (width: auto) qui bloquait le layout. Rétablissement des éléments JSX et alignement vertical forcé."
+      scribe_delta: "SCAR-TOOLBAR-MONOLITHIC"
+    - date: "2026-04-26"
+      titre: "FIX PRICE AXIS OVERLAY / POINTER / ECHARTS TYPES"
+      llm: "Codex GPT-5"
+      session_numero: 3
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Extraction du fichier fantôme `PriceAxisOverlay.tsx`, unification Pointer Events sur le dessin et la toolbar flottante, et remplacement des alias ECharts `any` par un typage strict dans les stratégies/renderers critiques."
+      scribe_delta: "SCAR-POINTER-001 | VAC-ECHARTS-001"
     - date: "2026-04-20"
       titre: "FIX BUILD ERROR & LINT"
       llm: "Antigravity 3.0"
@@ -85,8 +156,6 @@ journal:
           description: "Résolution de l'erreur de compilation sur BRVM_NAME_TO_TICKER. Passage à un export nommé en fin de fichier pour garantir la visibilité du module."
       scribe_delta: "SCAR-125"
     - date: "2026-04-14"
-    titre: "SESSION INITIALISATION"
-    llm: "Codex GPT-5"
       titre: "SESSION INITIALISATION"
       llm: "Codex GPT-5"
       session_numero: 1

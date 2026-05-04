@@ -10,7 +10,7 @@ import { sanitizeCanvasText } from "./utils/sanitize";
 // ============================================================================
 export class DrawingRenderer {
   private ctx: CanvasRenderingContext2D;
-  
+
   // [TENOR 2026 SRE] OBJECT POOLING & ZERO-ALLOCATION BUFFERS
   // These buffers eliminate Garbage Collector (GC) stuttering by preventing
   // object creation during the 60 FPS requestAnimationFrame loop.
@@ -18,6 +18,16 @@ export class DrawingRenderer {
   private pixelBuffer: { x: number; y: number }[] = [];
   private dataBuffer: DrawingPoint[] = [];
   private cachedHelpers: DrawingHelpers;
+
+  // [TENOR 2026 SRE] Zero-Allocation Constants
+  private static readonly NO_HIT: HitTestResult = { isHit: false, hitType: null };
+  private static readonly DASH_PATTERN = [10, 5];
+  private static readonly DOT_PATTERN = [2, 5];
+  private static readonly SOLID_PATTERN: number[] = [];
+
+  // [TENOR 2026 SRE] Reusable objects for preview to avoid GC stutter
+  private previewPixPool = { x: 0, y: 0 };
+  private virtualDataPointPool: DrawingPoint = { time: 0, value: 0 };
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -116,12 +126,12 @@ export class DrawingRenderer {
     threshold: number = 20
   ): HitTestResult {
     if (drawing.hidden) {
-      return { isHit: false, hitType: null };
+      return DrawingRenderer.NO_HIT;
     }
 
     const strategy = drawingStrategyRegistry.getStrategy(drawing.type);
     if (!strategy) {
-      return { isHit: false, hitType: null };
+      return DrawingRenderer.NO_HIT;
     }
 
     // Note: Pixel conversion for hitTest is handled inside the strategies
@@ -131,7 +141,8 @@ export class DrawingRenderer {
 
   /**
    * Convert pixel coordinates to data coordinates
-   * Used only during preview (mouse move), so allocation is negligible.
+   * Used only during preview (mouse move), so allocation is negligible,
+   * but optimized with Object Pooling anyway.
    */
   private fromPixel(
     pos: { x: number; y: number },
@@ -141,19 +152,21 @@ export class DrawingRenderer {
     if (!chart || chart.isDisposed()) return null;
     const point = chart.convertFromPixel({ seriesIndex }, [pos.x, pos.y]);
     if (point && point.length >= 2) {
-      return { time: point[0] as string | number, value: point[1] as number };
+      this.virtualDataPointPool.time = point[0] as string | number;
+      this.virtualDataPointPool.value = point[1] as number;
+      return this.virtualDataPointPool;
     }
     return null;
   }
 
   /**
-   * Apply line dash configuration to context.
+   * Apply line dash configuration to context using static arrays.
    */
   private applyLineDash(lineStyle: "solid" | "dashed" | "dotted", lineWidth: number) {
     this.ctx.lineWidth = lineWidth;
-    this.ctx.setLineDash([]);
-    if (lineStyle === "dashed") this.ctx.setLineDash([10, 5]);
-    else if (lineStyle === "dotted") this.ctx.setLineDash([2, 5]);
+    if (lineStyle === "dashed") this.ctx.setLineDash(DrawingRenderer.DASH_PATTERN);
+    else if (lineStyle === "dotted") this.ctx.setLineDash(DrawingRenderer.DOT_PATTERN);
+    else this.ctx.setLineDash(DrawingRenderer.SOLID_PATTERN);
   }
 
   /**
@@ -185,14 +198,12 @@ export class DrawingRenderer {
     // Mutating length to 0 clears the array without reallocating memory.
     this.pixelBuffer.length = 0;
     this.dataBuffer.length = 0;
-
     let validCount = 0;
 
     // Convert points to pixels using the Object Pool
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       const pos = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
-      
       if (pos) {
         // Retrieve or expand pool
         let pooledPt = this.pointPool[validCount];
@@ -203,7 +214,6 @@ export class DrawingRenderer {
           pooledPt.x = pos[0];
           pooledPt.y = pos[1];
         }
-        
         this.pixelBuffer.push(pooledPt);
         this.dataBuffer.push(p);
         validCount++;
@@ -221,10 +231,9 @@ export class DrawingRenderer {
         const radius = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
         const angleToMouse = Math.atan2(mousePos.y - p1.y, mousePos.x - p1.x);
         
-        previewPix = {
-          x: p1.x + radius * Math.cos(angleToMouse),
-          y: p1.y + radius * Math.sin(angleToMouse)
-        };
+        this.previewPixPool.x = p1.x + radius * Math.cos(angleToMouse);
+        this.previewPixPool.y = p1.y + radius * Math.sin(angleToMouse);
+        previewPix = this.previewPixPool;
       }
 
       // Add preview point to buffers
@@ -236,9 +245,8 @@ export class DrawingRenderer {
         pooledPreview.x = previewPix.x;
         pooledPreview.y = previewPix.y;
       }
-      
       this.pixelBuffer.push(pooledPreview);
-      
+
       const virtualDataPoint = this.fromPixel(previewPix, chart);
       if (virtualDataPoint) {
         this.dataBuffer.push(virtualDataPoint);
@@ -370,6 +378,7 @@ export class DrawingRenderer {
       } else if (textOrientation === "aligned") {
         this.ctx.rotate(Math.PI / 2);
       }
+
       this.ctx.fillText(sanitizedText, sideOffset, 0);
     } else {
       this.ctx.translate(posX, posY);

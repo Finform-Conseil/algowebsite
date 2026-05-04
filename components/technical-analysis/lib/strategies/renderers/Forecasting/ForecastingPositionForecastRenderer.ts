@@ -4,13 +4,12 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
 import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+import type { EChartsInstance } from "../../../types/echarts";
 type ForecastOutcome = "success" | "failure" | "pending";
 type ForecastDrawing = Drawing & { outcome?: ForecastOutcome };
 type AxisWithData = { data?: Array<string | number> };
 type CandleDatum = [number, number, number, number] | number;
+type SeriesOptionLite = { data?: CandleDatum[] };
 const TOP_RADIUS: [number, number, number, number] = [4, 4, 0, 0];
 const BOTTOM_RADIUS: [number, number, number, number] = [0, 0, 4, 4];
 
@@ -125,7 +124,8 @@ function evaluateOutcome(
     if (chart) {
         try {
             const option    = chart.getOption();
-            const series    = option.series?.[0];
+            const seriesList = Array.isArray(option.series) ? (option.series as SeriesOptionLite[]) : [];
+            const series    = seriesList[0];
             const axisData  = (option.xAxis as AxisWithData[])?.[0]?.data;
             const t0ms      = resolveTimeToMs(dp0.time, chart);
 
@@ -157,7 +157,8 @@ function evaluateOutcome(
     if (result !== "success" && chart) {
         try {
             const option      = chart.getOption();
-            const series      = option.series?.[0];
+            const seriesList  = Array.isArray(option.series) ? (option.series as SeriesOptionLite[]) : [];
+            const series      = seriesList[0];
             const lastBar     = series?.data?.[series.data.length - 1];
             const currentPrice: number = Array.isArray(lastBar) ? lastBar[1] : lastBar;
             if (typeof currentPrice === "number") {

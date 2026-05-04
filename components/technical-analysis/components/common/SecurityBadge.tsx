@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { BRVM_SECURITIES } from "@/shared/data/brvm-securities";
+import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 
 interface SecurityBadgeProps {
     ticker: string;
@@ -17,7 +17,7 @@ export const SecurityBadge: React.FC<SecurityBadgeProps> = ({
     className,
     style,
 }) => {
-    const security = BRVM_SECURITIES.find((s) => s.ticker.toUpperCase() === ticker.toUpperCase());
+    const security = BRVM_SECURITIES.find((securityItem) => securityItem.ticker.toUpperCase() === ticker.toUpperCase());
     const logoUrl = security?.logoUrl;
 
     return (

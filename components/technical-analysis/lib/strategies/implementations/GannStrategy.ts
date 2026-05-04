@@ -4,9 +4,7 @@ import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/I
 import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { distToSegment, distanceBetweenPoints, diagonal, isPointInRect, logValue, linearValue, extendToRay } from "../../math/geometry";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+import type { EChartsInstance } from "../../types/echarts";
 
 export class GannStrategy implements IDrawingStrategy {
     supportedTools = [
@@ -43,12 +41,10 @@ export class GannStrategy implements IDrawingStrategy {
         }
     }
 
-    hitTest(mx: number, my: number, drawing: Drawing, chartInstance: unknown, threshold: number): HitTestResult {
-        const chart = chartInstance as { convertToPixel: (opts: unknown, pt: unknown) => number[] | null };
-
+    hitTest(mx: number, my: number, drawing: Drawing, chartInstance: ECharts, threshold: number): HitTestResult {
         // [SNIPER V5.0] Fidelity Fix: Do NOT filter points, preserve indices for handles
         const points = drawing.points.map(p => {
-            const pixel = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
+            const pixel = chartInstance.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
             return pixel ? { x: pixel[0], y: pixel[1] } : null;
         });
 

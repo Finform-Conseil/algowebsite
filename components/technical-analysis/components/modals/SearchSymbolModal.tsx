@@ -96,7 +96,7 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
       overlayRef={searchOverlayRef}
       contentRef={searchModalRef}
       maxWidth="600px"
-      footer={null} // Specialized footer handled inside modal content for the search button
+      hideFooter={true}
     >
       <div className="p-1">
         <form onSubmit={handleSearchSubmit}>

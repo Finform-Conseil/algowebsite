@@ -169,6 +169,53 @@
   max-width: none;
 }
 
+/* ============================================================================
+ * [TENOR 2026 — CONTRE-MESURE RESET SCSS]
+ * Le _reset.scss global du projet parent écrase button { border:none; background:none }
+ * et d'autres éléments de base que Bootstrap et ce module utilisent.
+ * Ce bloc restaure le comportement attendu UNIQUEMENT dans le périmètre du module.
+ * ============================================================================ */
+
+/* Restauration des boutons Bootstrap dans notre périmètre */
+.technical-analysis-root :global(button) {
+  font-family: var(--gp-font-family-base, 'Roboto', sans-serif);
+}
+
+.technical-analysis-root :global(.btn) {
+  padding: inherit;
+  line-height: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Restauration des labels (le reset colle les labels aux inputs sans espacement) */
+.technical-analysis-root :global(label) {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+}
+
+/* Restauration des inputs et selects */
+.technical-analysis-root :global(input),
+.technical-analysis-root :global(textarea),
+.technical-analysis-root :global(select) {
+  font-family: var(--gp-font-family-base, 'Roboto', sans-serif);
+  font-size: 0.875rem;
+}
+
+/* Restauration des images dans Bootstrap grid */
+.technical-analysis-root :global(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Counter the global reset's list-style removal for Bootstrap breadcrumbs etc. */
+.technical-analysis-root :global(.list-unstyled),
+.technical-analysis-root :global(.list-inline) {
+  padding-left: 0;
+  list-style: none;
+}
+
 /* [STABILITÉ] Les éléments sont VISIBLES par défaut - Plus de dépendance à GSAP
    L'animation est purement décorative et ne bloque pas l'affichage. */
 .prepare-animation {
@@ -834,6 +881,31 @@
 /* ========================================================================== */
 /* == TOOLBARS == */
 /* ========================================================================== */
+
+
+
+/* [FIX] Neutralisation des marges parasites (ex: mb-2 du SettingsToggle) */
+/* Ces marges cassaient l'alignement vertical et forçaient le chevron à passer à la ligne */
+.gp-horizontal-toolbar [role="switch"],
+.gp-horizontal-toolbar .mb-2 {
+  margin-bottom: 0 !important;
+}
+.gp-horizontal-toolbar > div {
+  align-items: center !important;
+  height: 100% !important;
+}
+
+.gp-toolbar-left-cluster {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  flex: 0 0 auto !important;
+  min-width: max-content !important;
+  height: 38px !important;
+  overflow: visible !important;
+}
+
+
 .gp-vertical-toolbar {
   flex-shrink: 0;
   width: var(--gp-toolbar-width);
@@ -882,18 +954,31 @@
   flex-shrink: 0;
   background-color: var(--gp-bg-toolbar);
   border-radius: var(--bs-border-radius);
-  padding: 0 1rem !important;
+  padding: 0 0.5rem !important;
   font-size: 0.8rem;
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
-  justify-content: flex-start !important; /* [TENOR 2026] Locked: flex-start + single grow element for deterministic alignment */
+  justify-content: space-between !important;
+  gap: 0.25rem !important;
   width: 100% !important;
   max-width: 100% !important;
   position: relative;
   z-index: 1050 !important;
-  overflow: hidden !important; /* [TENOR 2026] Locked: No spill-over outside the 38px height */
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.gp-horizontal-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.gp-horizontal-toolbar > div {
+  align-items: center !important;
+  height: 100% !important;
 }
 
 .gp-toolbar-btn {
@@ -952,11 +1037,59 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0 0.5rem;
+  height: 32px;
+  line-height: 1;
   font-size: 0.8rem;
   transition: all 0.2s ease-in-out;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: max-content;
+}
+
+.gp-toolbar-symbol-selector {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.5rem !important;
+  min-width: 92px !important;
+  height: 32px !important;
+  padding: 0 0.5rem !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: none !important;
+  border-radius: var(--bs-border-radius-sm) !important;
+  color: #f8f9fa !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  box-shadow: none !important;
+  position: relative !important;
+  z-index: 2 !important;
+  cursor: pointer !important;
+  align-self: center !important;
+  overflow: visible !important;
+}
+
+.gp-toolbar-symbol-selector svg {
+  color: #f8f9fa !important;
+  font-size: 15px !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+.gp-toolbar-symbol-selector-label {
+  color: #f8f9fa !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .gp-toolbar-btn:hover,
@@ -983,8 +1116,11 @@
 }
 
 .gp-toolbar-scroll-wrapper {
-  flex: 1 1 0% !important; /* [TENOR 2026] The primary grow element */
-  min-width: 0 !important;
+  flex: 1 1 auto !important; /* [TENOR 2026 FIX] SCAR-FLEX-OVERFLOW: Bloc sacrificiel pour le shrink */
+  min-width: 30px !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -992,9 +1128,11 @@
 }
 
 .gp-toolbar-scroll-wrapper-right {
-  flex: 0 0 auto !important; /* [TENOR 2026] Locked: No expansion inside the right block */
-  min-width: 0 !important;
-  overflow-x: auto;
+  flex: 0 0 auto !important; /* [TENOR 2026 FIX] SCAR-FLEX-OVERFLOW: Jamais de shrink ici */
+  min-width: max-content !important;
+  display: flex !important;
+  align-items: center !important;
+  overflow-x: visible !important; /* Autorise le contenu à respirer */
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: relative;
@@ -1005,15 +1143,15 @@
   display: none;
 }
 
-.gp-toolbar-scroll-content,
-.gp-toolbar-scroll-content-right {
+.gp-toolbar-scroll-content, .gp-toolbar-scroll-content-right {
   display: flex !important;
   align-items: center !important;
-  flex-wrap: nowrap !important; /* DO NOT WRAP */
+  flex-wrap: nowrap !important;
   gap: 0.5rem;
-  min-width: 0 !important; /* [TENOR 2026] Deep min-width constraint */
+  min-width: max-content !important;
+  height: 100% !important; /* [FIX] Force l'occupation verticale pour l'alignement */
+  flex-shrink: 0;
 }
-
 /* ========================================================================== */
 /* == CHART AREA == */
 /* ========================================================================== */
@@ -1196,6 +1334,11 @@
   font-size: 1rem;
   background: none;
   border: none;
+  padding: 4px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .gp-sidebar-actions .btn.btn-primary-outline {
@@ -2049,15 +2192,16 @@
   align-items: center;
   justify-content: center;
   padding: 0 !important;
+  border-radius: 50% !important; /* [FIX] Force le cercle parfait contre les conflits Bootstrap */
 }
 
 .gp-timeframe-badge-wrapper {
-  width: var(--gp-toolbar-width);
+  width: auto;
   display: flex;
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  margin-left: -0.5rem !important;
+  margin: 0 !important;
   padding: 0 !important;
   transform: none;
 }
@@ -2254,6 +2398,12 @@
     display: none !important;
   }
 
+  .gp-hide-on-small {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
   .gp-hide-on-small {
     display: none !important;
   }
@@ -3270,7 +3420,31 @@
   padding: 1.5rem;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--gp-border-color) transparent;
+  scrollbar-color: var(--gp-border-color, #244869) transparent;
+}
+
+/* [TENOR 2026] Tuile d'option autonome — N'utilise PAS Bootstrap pour éviter le conflit SCSS global */
+.gp-option-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--gp-border-color, #244869);
+  border-radius: 10px;
+  color: var(--gp-text-primary, #f8f9fa);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  width: 100%;
+  font-family: var(--gp-font-family-base, 'Roboto', sans-serif);
+  gap: 0;
+}
+
+.gp-option-tile:hover {
+  background: rgba(255, 159, 4, 0.1);
+  border-color: var(--gp-accent-gold, #ff9f04);
+  transform: translateY(-2px);
 }
 
 .gp-tabs-nav {

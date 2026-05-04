@@ -268,7 +268,6 @@ export const useChartViewport = ({
   useEffect(() => {
     if (chartData.length === 0) return;
     const recentData = chartData.slice(-20);
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-data-to-parent
     const currentMax = Math.max(...recentData.map(d => d.high));
 
     if (prevDataMaxRef.current !== 0 && currentMax !== 0) {
@@ -276,9 +275,7 @@ export const useChartViewport = ({
       if (ratio > 1.5 || ratio < 0.6) {
         viewportStateRef.current.isYManual = false;
         if (chartInstanceRef.current) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const option = chartInstanceRef.current.getOption() as any;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, react-you-might-not-need-an-effect/no-pass-data-to-parent
           const dzY = option?.dataZoom?.find((z: any) => z.id === 'price-zoom' || z.yAxisIndex !== null);
           if (dzY) {
             chartInstanceRef.current.dispatchAction({
@@ -385,7 +382,6 @@ export const useChartViewport = ({
       applyViewport();
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (chart as any).__tvTimeAxisControls = {
       zoomIn: () => applyExternalTimeZoom("in"),
       zoomOut: () => applyExternalTimeZoom("out"),
@@ -702,7 +698,6 @@ export const useChartViewport = ({
     window.addEventListener("pointerout", onPointerUp);
 
     return () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (chart as any).__tvTimeAxisControls;
       containerEl.removeEventListener("wheel", onWheel, wheelListenerOptions);
       containerEl.removeEventListener("pointerdown", onPointerDown);

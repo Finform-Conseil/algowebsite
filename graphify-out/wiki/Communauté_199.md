@@ -1,0 +1,26 @@
+# Communauté 199
+
+> 2 nodes · cohesion 1.00
+
+## Key Concepts
+
+- **in-memory-rate-limiter.ts** (1 connections) — `core/infrastructure/security/rate/in-memory-rate-limiter.ts`
+- **checkInMemoryRateLimit()** (1 connections) — `core/infrastructure/security/rate/in-memory-rate-limiter.ts`
+
+## Relationships
+
+- No strong cross-community connections detected
+
+## Source Files
+
+- `core/infrastructure/security/rate/in-memory-rate-limiter.ts`
+
+## Audit Trail
+
+- EXTRACTED: 2 (100%)
+- INFERRED: 0 (0%)
+- AMBIGUOUS: 0 (0%)
+
+---
+
+*Part of the graphify knowledge wiki. See [[index]] to navigate.*

@@ -1,9 +1,9 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
 import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { calculateLinearRegression } from "../../../math/geometry";
+import type { ECharts } from "echarts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+type EChartsInstance = ECharts;
 
 export function renderRegressionTrend(
     pts: { x: number; y: number }[],

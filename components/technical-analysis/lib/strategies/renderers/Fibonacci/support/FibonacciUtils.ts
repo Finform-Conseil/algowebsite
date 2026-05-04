@@ -1,8 +1,5 @@
 import { Drawing } from "../../../../../config/TechnicalAnalysisTypes";
-
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type EChartsInstance = any;
+import type { EChartsInstance, EChartsWithModel } from "../../../../types/echarts";
 
 export function getEnabledFibLevels(drawing: Drawing) {
     if (!drawing.fibProps) return [];
@@ -19,16 +16,19 @@ export function getSortedEnabledLevels(fibProps: NonNullable<Drawing["fibProps"]
 
 export function getGridRect(chart: EChartsInstance) {
     try {
-        const model = chart.getModel();
+        const model = (chart as EChartsWithModel).getModel?.();
+        if (!model) return null;
         const grid = model.getComponent("grid");
-        return grid ? grid.coordinateSystem.getRect() : null;
+        return grid?.coordinateSystem?.getRect() ?? null;
     } catch {
         return null;
     }
 }
 
 export function yToValue(y: number, chart: EChartsInstance, referenceTime: string | number): number | null {
-    const data = chart.convertFromPixel({ seriesIndex: 0 }, [referenceTime, y]);
+    const x = timeToX(referenceTime, chart);
+    if (x === null) return null;
+    const data = chart.convertFromPixel({ seriesIndex: 0 }, [x, y]);
     return data ? Number(data[1]) : null;
 }
 

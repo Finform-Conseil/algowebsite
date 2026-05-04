@@ -8,4 +8,4 @@ export { TickerSelectorModal } from './TickerSelectorModal';
 export { TickerBreadcrumbTrigger } from './TickerBreadcrumbTrigger';
 
 // Re-export types
-export type { BRVMSecurity } from '@/shared/data/brvm-securities';
+export type { BRVMSecurity } from '@/core/data/brvm-securities';

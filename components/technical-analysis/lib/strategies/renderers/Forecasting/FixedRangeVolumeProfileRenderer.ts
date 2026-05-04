@@ -7,9 +7,7 @@
 import { Drawing, DrawingHelpers, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { ChartDataPoint } from "../../../Indicators/TechnicalIndicators";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EChartsInstance = any;
+import type { EChartsInstance, EChartsWithModel } from "../../../types/echarts";
 
 interface VolumeBin {
     price: number;
@@ -87,9 +85,10 @@ const getPriceAxisInfo = (chart: EChartsInstance): { yAxisIdx: number; gridIdx: 
 
 const getGridRect = (chart: EChartsInstance, gridIdx: number) => {
     try {
-        const model = chart.getModel();
+        const model = (chart as EChartsWithModel).getModel?.();
+        if (!model) return null;
         const grid = model.getComponent("grid", gridIdx);
-        return grid.coordinateSystem.getRect();
+        return grid?.coordinateSystem?.getRect() ?? null;
     } catch {
         return null;
     }

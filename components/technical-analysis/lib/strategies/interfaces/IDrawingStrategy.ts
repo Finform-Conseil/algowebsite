@@ -2,6 +2,7 @@
 
 import { Drawing, DrawingStyle, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { EChartsInstance } from "../../types/echarts";
 
 // ============================================================================
 // HIT-TEST RESULT
@@ -65,7 +66,7 @@ export interface IDrawingStrategy {
         pixelPoints: { x: number; y: number }[],
         dataPoints: DrawingPoint[], 
         drawing: Drawing,
-        chart: unknown,
+        chart: EChartsInstance,
         isSelected: boolean,
         helpers: DrawingHelpers,
         chartData: ChartDataPoint[]
@@ -84,7 +85,7 @@ export interface IDrawingStrategy {
         mx: number,
         my: number,
         drawing: Drawing,
-        chartInstance: unknown,
+        chartInstance: EChartsInstance,
         threshold: number
     ): HitTestResult;
 }

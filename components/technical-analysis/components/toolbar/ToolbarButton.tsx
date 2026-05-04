@@ -183,6 +183,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
         return (
             <React.Fragment key={buttonId}>
                 <div
+                    data-toolbar-drag-handle="true"
                     style={{
                         display: "grid",
                         gridTemplateColumns: "repeat(2, 2px)",

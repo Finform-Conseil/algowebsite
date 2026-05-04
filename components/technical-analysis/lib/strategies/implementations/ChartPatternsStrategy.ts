@@ -3,7 +3,7 @@
 import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import type { ECharts } from "echarts";
+import type { EChartsInstance } from "../../types/echarts";
 
 // ─── UNIT RENDERERS (HDR 2026 - SOLID) ────────────────────────────────────────
 import { renderXABCD } from "../renderers/ChartPatterns/XABCDPatternRenderer";
@@ -50,7 +50,7 @@ export class ChartPatternsStrategy implements IDrawingStrategy {
         pixelPoints: { x: number; y: number }[],
         dataPoints: DrawingPoint[],
         drawing: Drawing,
-        chart: ECharts,
+        chart: EChartsInstance,
         isSelected: boolean,
         helpers: DrawingHelpers,
         _chartData: ChartDataPoint[]

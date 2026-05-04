@@ -43,7 +43,7 @@ export interface CommonTickerPanelProps {
   /** Additional CSS class for the info panel container */
   infoPanelClassName?: string;
   /** Reference for the main info panel (often used for GSAP animations) */
-  mainPanelRef?: React.RefObject<HTMLDivElement | null>;
+  mainPanelRef?: React.RefObject<HTMLDivElement>;
   /** Loading state for anti-flicker */
   isLoading?: boolean;
 }

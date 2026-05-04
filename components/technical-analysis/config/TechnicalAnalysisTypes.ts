@@ -1,9 +1,11 @@
 // [TENOR 2026] Imports for caching
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { BRVMSecurity } from "@/core/data/brvm-securities";
 
 // ============================================================================
 // CORE DRAWING TYPES
 // ============================================================================
+export type DisplaySecurity = Omit<BRVMSecurity, "currency"> & { currency: string };
 export type DrawingToolType =
   | "line"
   | "horizontal_line"

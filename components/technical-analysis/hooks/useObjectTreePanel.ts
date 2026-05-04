@@ -106,12 +106,10 @@ export const useObjectTreePanel = ({
     };
 
     // ECharts émet 'updateAxisPointer' avec les données de la bougie pointée
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chart.on("updateAxisPointer", handleMouseMove as any);
 
     return () => {
       if (!chart.isDisposed()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         chart.off("updateAxisPointer", handleMouseMove as any);
       }
     };
