@@ -5,7 +5,7 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 13
+; Session_Count ; 14
 ; Last_Update ; 2026-05-05T00:00:00+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
@@ -107,6 +107,18 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-05"
+      titre: "FETCH WITH RETRY WORKTREE CLEANUP"
+      llm: "Codex GPT-5"
+      session_numero: 14
+      taches_effectuees:
+        - statut: "DONE"
+          type: "CLEANUP"
+          description: "Traitement séparé du dernier fichier hors périmètre après commit TechnicalAnalysis : conservation des changements fonctionnels résilients et correction uniquement des whitespace/newline pour rendre le diff committable."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ciblée par diff-check, ESLint du fichier, présence des exports directs et dépendance undici; TypeScript global a dépassé le timeout sans erreur affichée."
+      scribe_delta: "Aucun nouveau vaccin — séparation stricte des commits respectée"
     - date: "2026-05-05"
       titre: "TECHNICAL ANALYSIS DESIGN SYSTEM PHASE 3"
       llm: "Codex GPT-5"
