@@ -92,6 +92,9 @@ vaccins:
   - id: "VAC-SCSS-001"
     description: "Restructuration SCSS de fichiers massifs (>4000 lignes) issus de migrations brutes (CSS plat -> SCSS idiomatique)."
     pattern: "Appliquer `.agent/workflows/SCSS_RESTRUCTURING_PROTOCOL.md` : Backup -> Placeholders -> Injection par chunks -> Nesting `&`."
+  - id: "VAC-SCSS-002"
+    description: "Après la migration SCSS globale, ne pas traiter les anciens fichiers `.module.css` comme source de vérité visuelle."
+    pattern: "Pour TechnicalAnalysis, vérifier d'abord `styles/pages/_technical-analysis-final.scss`; si un composant garde des classes globales dont le style a disparu, migrer le bloc CSS restant vers le SCSS global avant de modifier le JSX."
 patterns:
   - id: "PAT-STORE-001"
     description: "Store Performance: Bypass recursive checks for large real-time datasets (candles, snapshots)."
@@ -104,6 +107,18 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-05"
+      titre: "FIX TIME AXIS CONTROLS STYLE REGRESSION"
+      llm: "Codex GPT-5"
+      session_numero: 9
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction d'une régression visuelle zoom/dezoom causée par des styles time-axis restés dans un ancien CSS module alors que la source de vérité avait migré vers `_technical-analysis-final.scss`."
+        - statut: "DONE"
+          type: "VACCIN"
+          description: "Ajout d'un rappel causal pour toujours vérifier le SCSS global TechnicalAnalysis avant de conclure à un problème de CSS module."
+      scribe_delta: "VAC-SCSS-002"
     - date: "2026-05-04"
       titre: "UI RESPONSIVE ANCHORING - SIDEBAR TOGGLE"
       llm: "Antigravity (Gemini 3 Flash)"

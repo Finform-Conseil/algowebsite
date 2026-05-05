@@ -544,12 +544,13 @@ const TechnicalAnalysisInner: React.FC = () => {
   }
 
   const convertedLivePrice = livePrice * effectiveRate;
+  const convertedLastCandleClose = (lastCandle ? lastCandle.close : livePrice) * effectiveRate;
   const convertedLiveChange = liveChange * effectiveRate;
   const isMarketPositive = convertedLiveChange >= 0;
   const displaySymbolName = uiState.isAnonyme
     ? uiState.selectedPseudo
     : selectedTicker?.ticker || chartConfig.symbol;
-  const isLastPricePositive = convertedLiveChange >= 0;
+  const isLastPricePositive = lastCandle ? lastCandle.close >= lastCandle.open : convertedLiveChange >= 0;
   const comparisonSeries = useMemo(
     () =>
       (uiState.comparisonSymbols || [])
@@ -719,7 +720,7 @@ const TechnicalAnalysisInner: React.FC = () => {
     cursorPriceActionRef,
     lastPriceBadgeRef,
     lastPriceLineRef,
-    lastPriceAxisValue: convertedLivePrice,
+    lastPriceAxisValue: convertedLastCandleClose,
     isMainChartVisible,
     comparisonSeries,
   });
@@ -1331,7 +1332,7 @@ const TechnicalAnalysisInner: React.FC = () => {
 
                     <PriceAxisOverlay
                       displaySymbolName={displaySymbolName}
-                      convertedLivePrice={convertedLivePrice}
+                      convertedLivePrice={convertedLastCandleClose}
                       lastPriceTimeLabel={lastPriceTimeLabel}
                       isLastPricePositive={isLastPricePositive}
                       cursorPriceBadgeRef={cursorPriceBadgeRef}

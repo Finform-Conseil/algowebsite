@@ -414,9 +414,8 @@ const useChartBadges = ({
       lastBadge.style.opacity = "1";
       lastBadge.style.visibility = "visible";
 
-      lastLine.style.top = `${Math.round(clampedY)}px`;
-      lastLine.style.opacity = "1";
-      lastLine.style.visibility = "visible";
+      lastLine.style.opacity = "0";
+      lastLine.style.visibility = "hidden";
     } catch {
       hideLastPriceAxisBadge();
     }

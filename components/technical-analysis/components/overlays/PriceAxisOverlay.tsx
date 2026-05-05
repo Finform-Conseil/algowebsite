@@ -78,7 +78,7 @@ export const PriceAxisOverlay = ({
   handlePriceAxisAction,
 }: PriceAxisOverlayProps) => (
   <div className="gp-price-axis-overlay" style={{ position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none" }}>
-    <div ref={lastPriceLineRef} className="gp-price-axis-last-line" style={{ position: "absolute", left: "15px", right: "84px", top: 0, transform: "translateY(-50%)", height: "0", borderTop: `1px dotted ${isLastPricePositive ? "#089981" : "#f23645"}`, opacity: 0, visibility: "hidden" }} />
+    <div ref={lastPriceLineRef} className="gp-price-axis-last-line" style={{ display: "none" }} />
     <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" style={{ position: "absolute", right: "8px", top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: "74px", padding: "4px 8px", borderRadius: "4px", background: isLastPricePositive ? "#089981" : "#f23645", color: "#ffffff", boxShadow: "0 8px 20px rgba(0, 0, 0, 0.28)", border: "1px solid rgba(255,255,255,0.16)", lineHeight: 1.05, opacity: 0, visibility: "hidden" }}>
       <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.02em" }}>{displaySymbolName}</span>
       <span style={{ fontSize: "14px", fontWeight: 800 }}>{formatPriceAxisLabel(convertedLivePrice)}</span>

@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import clsx from "clsx";
-import s from "./TimeAxisControls.module.css";
 import * as echarts from "echarts/core";
 
 type TradingViewTimeAxisControls = {
@@ -10,6 +9,9 @@ type TradingViewTimeAxisControls = {
   panRight: () => void;
   reset: () => void;
 };
+
+const HOLD_START_DELAY_MS = 260;
+const HOLD_REPEAT_INTERVAL_MS = 72;
 
 export interface TimeAxisControlsProps {
   chartInstanceRef: React.RefObject<echarts.ECharts | null>;
@@ -27,6 +29,8 @@ export const TimeAxisControls: React.FC<TimeAxisControlsProps> = ({
   className,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const holdDelayRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const holdIntervalRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
 
   const getTradingViewControls = (): TradingViewTimeAxisControls | null => {
     const chart = chartInstanceRef.current;
@@ -88,6 +92,33 @@ export const TimeAxisControls: React.FC<TimeAxisControlsProps> = ({
     }
   };
 
+  const stopHoldAction = useCallback(() => {
+    if (holdDelayRef.current !== null) {
+      window.clearTimeout(holdDelayRef.current);
+      holdDelayRef.current = null;
+    }
+
+    if (holdIntervalRef.current !== null) {
+      window.clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
+  }, []);
+
+  const startHoldAction = useCallback((action: () => void) => (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    stopHoldAction();
+    action();
+
+    holdDelayRef.current = window.setTimeout(() => {
+      holdIntervalRef.current = window.setInterval(action, HOLD_REPEAT_INTERVAL_MS);
+    }, HOLD_START_DELAY_MS);
+  }, [stopHoldAction]);
+
+  useEffect(() => stopHoldAction, [stopHoldAction]);
+
   return (
     <div className={"time-axis-hover-zone"} style={{ pointerEvents: 'none' }}>
       <div
@@ -99,31 +130,31 @@ export const TimeAxisControls: React.FC<TimeAxisControlsProps> = ({
         style={{ pointerEvents: 'auto' }}
         onMouseEnter={() => setIsVisible(true)}
       >
-        <button className={"control-btn"} onClick={() => handleZoom("out")} title="Zoom Out">
+        <button className={"control-btn"} onPointerDown={startHoldAction(() => handleZoom("out"))} onPointerUp={stopHoldAction} onPointerCancel={stopHoldAction} onPointerLeave={stopHoldAction} title="Dézoomer la fenêtre temporelle" aria-label="Dézoomer la fenêtre temporelle">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M4 8.5h10v1H4z" />
           </svg>
         </button>
         
-        <button className={"control-btn"} onClick={() => handleZoom("in")} title="Zoom In">
+        <button className={"control-btn"} onPointerDown={startHoldAction(() => handleZoom("in"))} onPointerUp={stopHoldAction} onPointerCancel={stopHoldAction} onPointerLeave={stopHoldAction} title="Zoomer la fenêtre temporelle" aria-label="Zoomer la fenêtre temporelle">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M8.5 4v4.5H4v1h4.5V14h1V9.5H14v-1H9.5V4z" />
           </svg>
         </button>
         
-        <button className={"control-btn"} onClick={() => handlePan("left")} title="Pan Left">
+        <button className={"control-btn"} onPointerDown={startHoldAction(() => handlePan("left"))} onPointerUp={stopHoldAction} onPointerCancel={stopHoldAction} onPointerLeave={stopHoldAction} title="Déplacer les bougies vers la gauche" aria-label="Déplacer les bougies vers la gauche">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M11.5 13.5l-4-4.5 4-4.5-.7-.7-4.7 5.2 4.7 5.2z" />
           </svg>
         </button>
         
-        <button className={"control-btn"} onClick={() => handlePan("right")} title="Pan Right">
+        <button className={"control-btn"} onPointerDown={startHoldAction(() => handlePan("right"))} onPointerUp={stopHoldAction} onPointerCancel={stopHoldAction} onPointerLeave={stopHoldAction} title="Déplacer les bougies vers la droite" aria-label="Déplacer les bougies vers la droite">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M6.5 4.5l4 4.5-4 4.5.7.7 4.7-5.2-4.7-5.2z" />
           </svg>
         </button>
         
-        <button className={"control-btn"} onClick={handleReset} title="Reset Chart">
+        <button className={"control-btn"} onClick={handleReset} title="Reset Chart" aria-label="Reset chart">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
             <path fill="currentColor" d="M9 4c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5h-1c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4c1.3 0 2.4.6 3.1 1.5L9.5 8h4V3.5l-1.3 1.3C11.3 3.7 10.2 3 9 3v1z" />
           </svg>

@@ -330,7 +330,6 @@ export const useChartViewport = ({
       if (chart.isDisposed() || chartData.length === 0) return;
       const state = viewportStateRef.current;
       const totalBars = chartData.length;
-      const cursorRatio = 0.88;
       const syntheticDeltaY = direction === "in" ? -120 : 120;
       const zoomFactor = Math.exp(syntheticDeltaY * TV_ZOOM_VELOCITY);
 
@@ -338,9 +337,9 @@ export const useChartViewport = ({
         startIdx: state.startIdx,
         endIdx: state.endIdx,
         totalBars,
-        cursorRatio,
+        cursorRatio: 0.5,
         zoomFactor,
-        deltaY: syntheticDeltaY,
+        deltaY: 0,
       });
 
       state.startIdx = nextViewport.startIdx;
@@ -432,7 +431,7 @@ export const useChartViewport = ({
           const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
           const cursorRatio = Math.max(0, Math.min(1, (mouseX - MAIN_GRID_LEFT) / gridWidth));
 
-          const nextViewport = computeDirectionalZoomViewport({
+          let nextViewport = computeDirectionalZoomViewport({
             startIdx: state.startIdx,
             endIdx: state.endIdx,
             totalBars,
@@ -440,6 +439,12 @@ export const useChartViewport = ({
             zoomFactor,
             deltaY: event.deltaY,
           });
+
+          const span = Math.max(1, nextViewport.endIdx - nextViewport.startIdx);
+          nextViewport = {
+            startIdx: Math.max(0, (totalBars - 1) - span),
+            endIdx: totalBars - 1,
+          };
 
           state.startIdx = nextViewport.startIdx;
           state.endIdx = nextViewport.endIdx;
@@ -563,7 +568,6 @@ export const useChartViewport = ({
 
         const totalBars = chartData.length;
         const visibleCount = state.endIdx - state.startIdx;
-
         const rect = containerEl.getBoundingClientRect();
         const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
         const cursorRatio = Math.max(0, Math.min(1, (state.initialPinchCenter - MAIN_GRID_LEFT) / gridWidth));
