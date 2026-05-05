@@ -164,7 +164,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         {/* Standardized Footer */}
         {!hideFooter && (
           <div
-            className="d-flex justify-content-end gap-2 p-3 border-top"
+            className="gp-modal-footer d-flex justify-content-end gap-2 border-top"
             style={{ backgroundColor: "rgba(255,255,255,0.02)" }}
           >
             {footer ? (

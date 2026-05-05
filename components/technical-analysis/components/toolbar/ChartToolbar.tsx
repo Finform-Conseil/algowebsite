@@ -12,6 +12,7 @@ import {
   setSelectedPseudo,
   setSearchMode,
   selectChartConfig,
+  selectAdvancedIndicators,
   selectUiState,
   selectDataMode,
   setDataMode,
@@ -45,6 +46,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const dispatch = useDispatch();
   const { toggleDropdown } = useUserActions();
   const chartConfig = useSelector(selectChartConfig);
+  const advancedIndicators = useSelector(selectAdvancedIndicators);
   const uiState = useSelector(selectUiState);
   const dataMode = useSelector(selectDataMode);
   const { handleTimeframeChange, handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions();
@@ -78,6 +80,10 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   }, [isPseudoDropdownOpen]);
 
   const safeDisplaySymbol = displaySymbol.trim() || "BOAN";
+  const hasActiveOverlayIndicator =
+    (chartConfig.indicators.sma && chartConfig.indicators.activeSma.length > 0) ||
+    (chartConfig.indicators.ema && chartConfig.indicators.activeEma.length > 0) ||
+    Object.values(advancedIndicators).some(Boolean);
 
   return (
     <div
@@ -218,7 +224,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           </button>
 
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", chartConfig.indicators.sma && "active")}
+            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", hasActiveOverlayIndicator && "active")}
             title="Indicateurs"
             onClick={() => dispatch(setModalOpen({ modal: "indicators", isOpen: true }))}
           >

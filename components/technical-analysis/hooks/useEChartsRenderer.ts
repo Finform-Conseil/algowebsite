@@ -640,9 +640,10 @@ export const useEChartsRenderer = ({
     ].filter(Boolean) as string[];
 
     const isPanelVisible = (name: string) => legendSelection[name] !== false;
+    const shouldRenderVolumePanel = chartAppearance.showVolume && isPanelVisible("Volume");
 
     let visiblePanelsCount = 0;
-    if (chartAppearance.showVolume && isPanelVisible('Volume')) visiblePanelsCount++;
+    if (shouldRenderVolumePanel) visiblePanelsCount++;
     activeOscillators.forEach(osc => {
       if (isPanelVisible(osc)) visiblePanelsCount++;
     });
@@ -793,13 +794,12 @@ export const useEChartsRenderer = ({
     let currentTopPercent = topMargin + Math.max(30, mainChartHeight) + spacingPercent;
 
     // --- 1: VOLUME GRID ---
-    if (chartAppearance.showVolume) {
-      const volVisible = isPanelVisible('Volume');
+    if (shouldRenderVolumePanel) {
       gridOptions.push({
         left: gridLeft,
         right: gridRightMargin,
-        top: volVisible ? `${currentTopPercent}%` : '100%',
-        height: volVisible ? `${panelHeightPrecent}%` : '0%',
+        top: `${currentTopPercent}%`,
+        height: `${panelHeightPrecent}%`,
         containLabel: false,
       });
 
@@ -837,7 +837,7 @@ export const useEChartsRenderer = ({
         },
       });
 
-      if (volVisible) currentTopPercent += panelHeightPrecent + spacingPercent;
+      currentTopPercent += panelHeightPrecent + spacingPercent;
     }
 
     const candlestickData = values;
@@ -907,7 +907,7 @@ export const useEChartsRenderer = ({
         },
     ];
 
-    if (chartAppearance.showVolume) {
+    if (shouldRenderVolumePanel) {
       seriesOptions.push({
         id: "volume-bar",
         name: "Volume",
@@ -925,6 +925,20 @@ export const useEChartsRenderer = ({
         backgroundStyle: {
           color: 'rgba(255, 255, 255, 0.03)',
         }
+      });
+    } else if (chartAppearance.showVolume) {
+      seriesOptions.push({
+        id: "volume-legend-proxy",
+        name: "Volume",
+        type: "line",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: [],
+        showSymbol: false,
+        silent: true,
+        legendHoverLink: false,
+        lineStyle: { opacity: 0 },
+        itemStyle: { color: "rgba(126, 116, 240, 0.38)" },
       });
     }
 
@@ -1065,7 +1079,7 @@ export const useEChartsRenderer = ({
 
     // --- 2+: OSCILLATOR GRIDS ---
     activeOscillators.forEach((osc, idx) => {
-      const gridIndex = (chartAppearance.showVolume ? 2 : 1) + idx;
+      const gridIndex = gridOptions.length;
       const oscVisible = isPanelVisible(osc);
 
       gridOptions.push({
@@ -1249,6 +1263,13 @@ export const useEChartsRenderer = ({
       if (oscVisible) currentTopPercent += panelHeightPrecent + spacingPercent;
     });
 
+    const legendData = [
+      chartAppearance.showVolume ? "Volume" : null,
+      ...seriesOptions
+        .filter((opt) => opt.id !== "main-series" && opt.name !== "Volume")
+        .map((opt) => opt.name),
+    ].filter((name): name is string => !!name);
+
     const option: echarts.EChartsCoreOption = {
       backgroundColor: "transparent",
       animation: false,
@@ -1265,10 +1286,7 @@ export const useEChartsRenderer = ({
         z: 1000,
         padding: [5, 10],
         itemGap: 15,
-        data: seriesOptions
-          .filter((opt) => opt.id !== "main-series" && opt.id !== "volume-bar")
-          .map((opt) => opt.name)
-          .filter((name): name is string => !!name),
+        data: legendData,
         textStyle: { color: textColor },
         icon: "roundRect",
         itemWidth: 15,
@@ -1303,8 +1321,9 @@ export const useEChartsRenderer = ({
 
     const handleLegendChange = (params: any) => {
       if (!isMountedRef.current) return;
-      legendSelectionRef.current = params.selected;
-      setLegendSelection(params.selected);
+      const nextSelection = { ...(params.selected || {}) };
+      legendSelectionRef.current = nextSelection;
+      setLegendSelection(nextSelection);
     };
 
     chart.on('legendselectchanged', handleLegendChange);

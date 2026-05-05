@@ -5,7 +5,7 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 10
+; Session_Count ; 13
 ; Last_Update ; 2026-05-05T00:00:00+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
@@ -13,7 +13,7 @@
   metrics:
     files_migrated: 12
     bugs_fixed: 9
-    regressions_prevented: 4
+    regressions_prevented: 7
   journal:
     - date: "2026-04-22"
       task: "Optimisation Performance Store Redux"
@@ -107,6 +107,51 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-05"
+      titre: "TECHNICAL ANALYSIS DESIGN SYSTEM PHASE 3"
+      llm: "Codex GPT-5"
+      session_numero: 13
+      taches_effectuees:
+        - statut: "DONE"
+          type: "REFACTOR"
+          description: "Extraction prudente des dimensions legacy structurelles/sidebar vers des tokens explicites afin de documenter les tailles sans changer le rendu attendu."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation Sass, ESLint ciblé, diff-check ciblé et captures desktop/mobile : layout desktop stable et responsive mobile sans régression visible liée aux tokens."
+      scribe_delta: "PAT-UI-DS-001"
+    - date: "2026-05-05"
+      titre: "TECHNICAL ANALYSIS DESIGN SYSTEM PHASE 2"
+      llm: "Codex GPT-5"
+      session_numero: 12
+      taches_effectuees:
+        - statut: "DONE"
+          type: "REFACTOR"
+          description: "Harmonisation incrémentale des inputs, selects et toolbars TechnicalAnalysis sur les tokens locaux validés en phase 1, sans changement de comportement métier ni changement de palette."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation Sass, ESLint ciblé, diff-check ciblé et capture headless : toolbar stable, modale Indicateurs intacte, champs et boutons mesurés dans des dimensions cohérentes."
+        - statut: "DONE"
+          type: "POLISH"
+          description: "Correction visuelle du chip symbole/recherche dans la chart toolbar : hauteur dédiée plus compacte que la toolbar afin d'éviter l'effet de filtre trop large."
+      scribe_delta: "PAT-UI-DS-001"
+    - date: "2026-05-05"
+      titre: "TECHNICAL ANALYSIS DESIGN SYSTEM PHASE 1"
+      llm: "Codex GPT-5"
+      session_numero: 11
+      taches_effectuees:
+        - statut: "DONE"
+          type: "REFACTOR"
+          description: "Migration incrémentale des formes UI TechnicalAnalysis vers des tokens locaux alignés sur les espacements, rayons et tailles de contrôles du design-system existant, sans modifier la palette métier."
+        - statut: "DONE"
+          type: "UI"
+          description: "Standardisation des footers de modales via BaseModal afin que les boutons Fermer/Appliquer restent compacts et cohérents sur toutes les modales."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Conservation volontaire du périmètre : aucune correction hors scope sur `shared/utils/fetchWithRetry.ts`, dont les whitespace existaient déjà dans la working tree."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation visuelle headless de la modale Indicateurs : footer visible, boutons compacts, aucun overflow observé; décision autorisée pour passer à la phase 2 inputs/selects/toolbars."
+      scribe_delta: "PAT-UI-DS-001"
     - date: "2026-05-05"
       titre: "TECHNICAL ANALYSIS VIEWPORT & PRICE BADGE FINALIZATION"
       llm: "Codex GPT-5"
