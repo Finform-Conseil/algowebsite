@@ -4,7 +4,7 @@
 // [TENOR 2026 FIX] SCAR-126: Premium UI Overhaul. Fixed overlapping cards and removed native checkboxes.
 // ================================================================================
 
-import React from "react";
+import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { BaseModal } from "../common/BaseModal";
 import { AdvancedIndicatorsState } from "../../config/TechnicalAnalysisTypes";
@@ -49,6 +49,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   const advancedIndicators = useSelector(selectAdvancedIndicators);
   const chartConfig = useSelector(selectChartConfig);
   const indicatorPeriods = useSelector(selectIndicatorPeriods);
+  const [indicatorSearch, setIndicatorSearch] = useState("");
 
   const smaIndicators = [
     { key: "sma_5", period: indicatorPeriods.sma1, label: `SMA ${indicatorPeriods.sma1}`, color: "#45c3a1" },
@@ -501,6 +502,47 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     },
   ];
 
+  const indicatorSearchTerm = indicatorSearch.trim().toLowerCase();
+  const hasIndicatorSearch = indicatorSearchTerm.length > 0;
+  const matchesIndicatorSearch = (...values: Array<string | number | undefined>) =>
+    !hasIndicatorSearch ||
+    values.some((value) => String(value ?? "").toLowerCase().includes(indicatorSearchTerm));
+
+  const filteredSmaIndicators = smaIndicators.filter(({ key, period, label }) =>
+    matchesIndicatorSearch(key, period, label, "sma", "simple moving average", "moyenne mobile simple")
+  );
+  const filteredEmaIndicators = emaIndicators.filter(({ key, period, label }) =>
+    matchesIndicatorSearch(key, period, label, "ema", "exponential moving average", "moyenne mobile exponentielle")
+  );
+  const filteredBackendIndicatorGroups = backendIndicatorGroups
+    .map((group) => {
+      const groupMatches = matchesIndicatorSearch(group.title, group.subtitle);
+      const sections = group.sections
+        .map((section) => {
+          const sectionMatches = groupMatches || matchesIndicatorSearch(section.title);
+          const items = sectionMatches
+            ? section.items
+            : section.items.filter((item) =>
+                matchesIndicatorSearch(item.key, item.name, item.desc, group.title, group.subtitle, section.title)
+              );
+
+          return { ...section, items };
+        })
+        .filter((section) => section.items.length > 0);
+
+      return { ...group, sections };
+    })
+    .filter((group) => group.sections.length > 0);
+  const visibleMovingAverageCount = filteredSmaIndicators.length + filteredEmaIndicators.length;
+  const visibleBackendIndicatorCount = filteredBackendIndicatorGroups.reduce(
+    (groupTotal, group) =>
+      groupTotal + group.sections.reduce((sectionTotal, section) => sectionTotal + section.items.length, 0),
+    0
+  );
+  const visibleIndicatorCount = visibleMovingAverageCount + visibleBackendIndicatorCount;
+  const hasVisibleMovingAverages = visibleMovingAverageCount > 0;
+  const hasVisibleIndicators = visibleIndicatorCount > 0;
+
   // --- HANDLERS ---
 
   const handleToggleMA = (type: "sma" | "ema", period: number) => {
@@ -640,93 +682,137 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       secondaryLabel="Fermer"
       maxWidth="750px"
     >
-      {/* --- SECTION 1: MOYENNES MOBILES --- */}
-      <div className="mb-4">
-        <div className="d-flex align-items-center mb-3 px-1">
-          <div
-            style={{
-              width: "3px",
-              height: "16px",
-              background: "linear-gradient(180deg, #ff9800, #ff5252)",
-              borderRadius: "2px",
-              marginRight: "8px",
-            }}
+      <div className="gp-indicator-search-panel">
+        <div className="gp-indicator-search-box">
+          <i className="bi bi-search" aria-hidden="true"></i>
+          <input
+            aria-label="Rechercher un indicateur technique"
+            className="gp-indicator-search-input"
+            onChange={(event) => setIndicatorSearch(event.target.value)}
+            placeholder="Rechercher RSI, EMA 20, Ichimoku, Doji..."
+            type="search"
+            value={indicatorSearch}
           />
-          <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-            Moyennes Mobiles
-          </small>
+          {hasIndicatorSearch && (
+            <button
+              aria-label="Effacer la recherche"
+              className="gp-indicator-search-clear"
+              onClick={() => setIndicatorSearch("")}
+              type="button"
+            >
+              <i className="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          )}
         </div>
-        <div className="gp-ma-groups">
-          <div className="gp-ma-group gp-ma-group-sma">
-            <div className="gp-ma-group-header">
-              <span className="gp-ma-group-kicker">Simple Moving Average</span>
-              <strong>SMA</strong>
-            </div>
-            <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0">
-              {smaIndicators.map(({ key, period, label, color }) => (
-                <React.Fragment key={key}>{renderMACard("sma", period, label, color)}</React.Fragment>
-              ))}
-            </div>
-          </div>
-
-          <div className="gp-ma-group gp-ma-group-ema">
-            <div className="gp-ma-group-header">
-              <span className="gp-ma-group-kicker">Exponential Moving Average</span>
-              <strong>EMA</strong>
-            </div>
-            <div className="row row-cols-1 row-cols-sm-2 mx-0">
-              {emaIndicators.map(({ key, period, label, color }) => (
-                <React.Fragment key={key}>{renderMACard("ema", period, label, color)}</React.Fragment>
-              ))}
-            </div>
-          </div>
+        <div className="gp-indicator-search-meta" aria-live="polite">
+          <span>{hasIndicatorSearch ? `${visibleIndicatorCount} résultats` : `${visibleIndicatorCount} indicateurs disponibles`}</span>
+          {hasIndicatorSearch && <span>Filtre actif</span>}
         </div>
       </div>
 
-      {/* --- SECTION 2: CATALOGUE BACKEND STRUCTURÉ --- */}
-      <div className="mb-4">
-        <div className="d-flex align-items-center mb-3 px-1">
-          <div
-            style={{
-              width: "3px",
-              height: "16px",
-              background: "linear-gradient(180deg, #2962ff, #00bcd4)",
-              borderRadius: "2px",
-              marginRight: "8px",
-            }}
-          />
-          <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-            Catalogue Backend
-          </small>
-        </div>
-
-        <div className="gp-indicator-catalog">
-          {backendIndicatorGroups.map((group) => (
-            <section className="gp-indicator-family" key={group.title}>
-              <div className="gp-indicator-family-header">
-                <div>
-                  <strong>{group.title}</strong>
-                  <span>{group.subtitle}</span>
+      {/* --- SECTION 1: MOYENNES MOBILES --- */}
+      {hasVisibleMovingAverages && (
+        <div className="mb-4">
+          <div className="d-flex align-items-center mb-3 px-1">
+            <div
+              style={{
+                width: "3px",
+                height: "16px",
+                background: "linear-gradient(180deg, #ff9800, #ff5252)",
+                borderRadius: "2px",
+                marginRight: "8px",
+              }}
+            />
+            <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
+              Moyennes Mobiles
+            </small>
+          </div>
+          <div className="gp-ma-groups">
+            {filteredSmaIndicators.length > 0 && (
+              <div className="gp-ma-group gp-ma-group-sma">
+                <div className="gp-ma-group-header">
+                  <span className="gp-ma-group-kicker">Simple Moving Average</span>
+                  <strong>SMA</strong>
+                </div>
+                <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0">
+                  {filteredSmaIndicators.map(({ key, period, label, color }) => (
+                    <React.Fragment key={key}>{renderMACard("sma", period, label, color)}</React.Fragment>
+                  ))}
                 </div>
               </div>
-              <div className="gp-indicator-subfamilies">
-                {group.sections.map((section) => (
-                  <div
-                    className="gp-indicator-subfamily"
-                    data-family={section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
-                    key={`${group.title}-${section.title}`}
-                  >
-                    <div className="gp-indicator-subfamily-title">{section.title}</div>
-                    <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 mx-0">
-                      {section.items.map(renderIndicatorCard)}
-                    </div>
-                  </div>
-                ))}
+            )}
+
+            {filteredEmaIndicators.length > 0 && (
+              <div className="gp-ma-group gp-ma-group-ema">
+                <div className="gp-ma-group-header">
+                  <span className="gp-ma-group-kicker">Exponential Moving Average</span>
+                  <strong>EMA</strong>
+                </div>
+                <div className="row row-cols-1 row-cols-sm-2 mx-0">
+                  {filteredEmaIndicators.map(({ key, period, label, color }) => (
+                    <React.Fragment key={key}>{renderMACard("ema", period, label, color)}</React.Fragment>
+                  ))}
+                </div>
               </div>
-            </section>
-          ))}
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* --- SECTION 2: CATALOGUE BACKEND STRUCTURÉ --- */}
+      {filteredBackendIndicatorGroups.length > 0 && (
+        <div className="mb-4">
+          <div className="d-flex align-items-center mb-3 px-1">
+            <div
+              style={{
+                width: "3px",
+                height: "16px",
+                background: "linear-gradient(180deg, #2962ff, #00bcd4)",
+                borderRadius: "2px",
+                marginRight: "8px",
+              }}
+            />
+            <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
+              Catalogue Backend
+            </small>
+          </div>
+
+          <div className="gp-indicator-catalog">
+            {filteredBackendIndicatorGroups.map((group) => (
+              <section className="gp-indicator-family" key={group.title}>
+                <div className="gp-indicator-family-header">
+                  <div>
+                    <strong>{group.title}</strong>
+                    <span>{group.subtitle}</span>
+                  </div>
+                </div>
+                <div className="gp-indicator-subfamilies">
+                  {group.sections.map((section) => (
+                    <div
+                      className="gp-indicator-subfamily"
+                      data-family={section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
+                      key={`${group.title}-${section.title}`}
+                    >
+                      <div className="gp-indicator-subfamily-title">{section.title}</div>
+                      <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 mx-0">
+                        {section.items.map(renderIndicatorCard)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasVisibleIndicators && (
+        <div className="gp-indicator-empty-state">
+          <i className="bi bi-search" aria-hidden="true"></i>
+          <strong>Aucun indicateur trouvé</strong>
+          <span>Essaie un nom, une période, une famille ou une clé backend.</span>
+        </div>
+      )}
     </BaseModal>
   );
 };
