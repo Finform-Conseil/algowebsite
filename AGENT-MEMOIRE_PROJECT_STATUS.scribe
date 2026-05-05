@@ -5,15 +5,15 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 8
-; Last_Update ; 2026-05-04T16:25:00+01:00
+; Session_Count ; 10
+; Last_Update ; 2026-05-05T00:00:00+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
   metrics:
     files_migrated: 12
-    bugs_fixed: 6
-    regressions_prevented: 2
+    bugs_fixed: 9
+    regressions_prevented: 4
   journal:
     - date: "2026-04-22"
       task: "Optimisation Performance Store Redux"
@@ -107,6 +107,24 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-05"
+      titre: "TECHNICAL ANALYSIS VIEWPORT & PRICE BADGE FINALIZATION"
+      llm: "Codex GPT-5"
+      session_numero: 10
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Séparation UX des contrôles time-axis : `+/-` zooment, les flèches déplacent les bougies, et l'appui long répète l'action sans clics successifs."
+        - statut: "DONE"
+          type: "FIX"
+          description: "Verrouillage du comportement molette : la dernière bougie reste collée à droite pendant le zoom/dézoom temporel, conformément au comportement attendu par l'utilisateur."
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction du badge dernier prix : alignement sur le close de la dernière bougie, couleur dérivée de cette bougie, et suppression de la ligne horizontale rouge redondante."
+        - statut: "DONE"
+          type: "GIT"
+          description: "Récupération du commit distant `origin/dev1`, résolution du conflit dans TechnicalAnalysis.tsx pendant le rebase, puis push réussi sur `dev1` sans écraser les changements du second PC."
+      scribe_delta: "Aucun nouveau vaccin — renforcement VAC-SCSS-002 et invariant zéro régression"
     - date: "2026-05-05"
       titre: "FIX TIME AXIS CONTROLS STYLE REGRESSION"
       llm: "Codex GPT-5"
