@@ -5,8 +5,8 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 14
-; Last_Update ; 2026-05-05T00:00:00+01:00
+; Session_Count ; 17
+; Last_Update ; 2026-05-05T16:02:37+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -107,6 +107,21 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-05"
+      titre: "INDICATORS MODAL BACKEND CATALOG COMPLETION"
+      llm: "Codex GPT-5"
+      session_numero: 17
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI"
+          description: "Transformation du modal Indicateurs en catalogue extensible aligné sur l'interface backend avec sous-familles lisibles et accents couleurs par type."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Distinction volontaire entre indicateurs déjà câblés côté front et indicateurs seulement disponibles côté backend, via badge Backend, pour préparer l'avenir sans promettre une activation non implémentée."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation Sass, ESLint ciblé, diff-check ciblé et contrôle automatique champ-par-champ contre l'interface backend : 215 attendus, 215 déclarés, 0 manquant, 0 extra, 0 doublon."
+      scribe_delta: "PAT-UI-DS-001"
     - date: "2026-05-05"
       titre: "FETCH WITH RETRY WORKTREE CLEANUP"
       llm: "Codex GPT-5"
