@@ -32,13 +32,16 @@ type BackendIndicatorItem = {
   wiredId?: keyof AdvancedIndicatorsState;
 };
 
+type BackendIndicatorSection = {
+  title: string;
+  items: BackendIndicatorItem[];
+  rowGrouping?: "name-prefix";
+};
+
 type BackendIndicatorGroup = {
   title: string;
   subtitle: string;
-  sections: {
-    title: string;
-    items: BackendIndicatorItem[];
-  }[];
+  sections: BackendIndicatorSection[];
 };
 
 export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
@@ -96,6 +99,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "WMA / DEMA / TEMA",
+          rowGrouping: "name-prefix",
           items: [
             { key: "wma_20", name: "WMA 20", desc: "Weighted Moving Average" },
             { key: "wma_50", name: "WMA 50", desc: "Weighted Moving Average" },
@@ -107,6 +111,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Adaptive",
+          rowGrouping: "name-prefix",
           items: [
             { key: "hma_20", name: "HMA 20", desc: "Hull Moving Average" },
             { key: "hma_50", name: "HMA 50", desc: "Hull Moving Average" },
@@ -133,6 +138,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Stochastic",
+          rowGrouping: "name-prefix",
           items: [
             { key: "stoch_k", name: "Stoch %K", desc: "Stochastic oscillator", wiredId: "stochastic" },
             { key: "stoch_d", name: "Stoch %D", desc: "Signal stochastic" },
@@ -142,6 +148,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "CCI / MFI",
+          rowGrouping: "name-prefix",
           items: [
             { key: "cci_14", name: "CCI 14", desc: "Commodity Channel Index", wiredId: "cci" },
             { key: "cci_20", name: "CCI 20", desc: "CCI période 20" },
@@ -150,6 +157,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "ROC / Momentum",
+          rowGrouping: "name-prefix",
           items: [
             { key: "williams_r", name: "Williams %R", desc: "Surachat/Survente (-100 à 0)", wiredId: "williamsR" },
             { key: "roc_10", name: "ROC 10", desc: "Rate of Change", wiredId: "roc" },
@@ -160,6 +168,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Oscillateurs avancés",
+          rowGrouping: "name-prefix",
           items: [
             { key: "cmo_14", name: "CMO 14", desc: "Chande Momentum Oscillator" },
             { key: "dpo_20", name: "DPO 20", desc: "Detrended Price Oscillator" },
@@ -173,6 +182,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Signal avancé",
+          rowGrouping: "name-prefix",
           items: [
             { key: "rvi", name: "RVI", desc: "Relative Vigor Index" },
             { key: "rvi_signal", name: "RVI Signal", desc: "Signal RVI" },
@@ -191,6 +201,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       sections: [
         {
           title: "MACD",
+          rowGrouping: "name-prefix",
           items: [
             { key: "macd_line", name: "MACD Line", desc: "Ligne MACD", wiredId: "macd" },
             { key: "macd_signal", name: "MACD Signal", desc: "Signal MACD" },
@@ -201,6 +212,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Parabolic SAR",
+          rowGrouping: "name-prefix",
           items: [
             { key: "parabolic_sar", name: "SAR", desc: "Stop and reverse" },
             { key: "parabolic_sar_signal", name: "SAR Signal", desc: "Signal Parabolic SAR" },
@@ -208,6 +220,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Ichimoku",
+          rowGrouping: "name-prefix",
           items: [
             { key: "ichimoku_tenkan", name: "Tenkan", desc: "Ligne de conversion" },
             { key: "ichimoku_kijun", name: "Kijun", desc: "Ligne de base" },
@@ -220,6 +233,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "ADX / Directional",
+          rowGrouping: "name-prefix",
           items: [
             { key: "adx", name: "ADX", desc: "Average Directional Index" },
             { key: "adx_plus_di", name: "+DI", desc: "Directional Indicator positif" },
@@ -229,6 +243,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Aroon",
+          rowGrouping: "name-prefix",
           items: [
             { key: "aroon_up", name: "Aroon Up", desc: "Aroon haussier" },
             { key: "aroon_down", name: "Aroon Down", desc: "Aroon baissier" },
@@ -237,6 +252,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Supertrend / Vortex",
+          rowGrouping: "name-prefix",
           items: [
             { key: "supertrend", name: "Supertrend", desc: "Suivi de tendance" },
             { key: "supertrend_signal", name: "Supertrend Signal", desc: "Signal Supertrend" },
@@ -246,6 +262,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Trend avancé",
+          rowGrouping: "name-prefix",
           items: [
             { key: "trix", name: "TRIX", desc: "Triple exponential oscillator" },
             { key: "kst", name: "KST", desc: "Know Sure Thing" },
@@ -264,6 +281,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       sections: [
         {
           title: "Bollinger",
+          rowGrouping: "name-prefix",
           items: [
             { key: "bb_upper", name: "BB Upper", desc: "Bollinger supérieure", wiredId: "bollinger" },
             { key: "bb_middle", name: "BB Middle", desc: "Bollinger médiane" },
@@ -274,6 +292,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "ATR",
+          rowGrouping: "name-prefix",
           items: [
             { key: "atr_14", name: "ATR 14", desc: "Average True Range", wiredId: "atr" },
             { key: "atr_20", name: "ATR 20", desc: "ATR période 20" },
@@ -282,6 +301,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Canaux",
+          rowGrouping: "name-prefix",
           items: [
             { key: "keltner_upper", name: "Keltner Upper", desc: "Canal de Keltner haut" },
             { key: "keltner_lower", name: "Keltner Lower", desc: "Canal de Keltner bas" },
@@ -292,6 +312,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Historical Volatility",
+          rowGrouping: "name-prefix",
           items: [
             { key: "hv_10", name: "HV 10", desc: "Volatilité historique" },
             { key: "hv_20", name: "HV 20", desc: "Volatilité historique" },
@@ -303,6 +324,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Risque",
+          rowGrouping: "name-prefix",
           items: [
             { key: "std_dev_20", name: "Std Dev 20", desc: "Ecart-type 20" },
             { key: "chaikin_vol", name: "Chaikin Vol", desc: "Chaikin Volatility" },
@@ -317,6 +339,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       sections: [
         {
           title: "Accumulation",
+          rowGrouping: "name-prefix",
           items: [
             { key: "obv", name: "OBV", desc: "On Balance Volume", wiredId: "obv" },
             { key: "ad_line", name: "A/D Line", desc: "Accumulation/Distribution" },
@@ -327,6 +350,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Oscillateurs volume",
+          rowGrouping: "name-prefix",
           items: [
             { key: "chaikin_osc", name: "Chaikin Osc", desc: "Oscillateur Chaikin" },
             { key: "volume_osc", name: "Volume Osc", desc: "Oscillateur de volume" },
@@ -337,6 +361,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Force / Mouvement",
+          rowGrouping: "name-prefix",
           items: [
             { key: "force_index_13", name: "Force Index 13", desc: "Force du mouvement" },
             { key: "elder_force_index", name: "Elder Force", desc: "Elder Force Index" },
@@ -345,6 +370,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Volume Profile",
+          rowGrouping: "name-prefix",
           items: [
             { key: "vp_poc", name: "POC", desc: "Point of Control" },
             { key: "vp_vah", name: "VAH", desc: "Value Area High" },
@@ -359,6 +385,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       sections: [
         {
           title: "Pivots standards",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pivot_standard", name: "Pivot", desc: "Pivot standard" },
             { key: "pivot_r1", name: "R1", desc: "Résistance 1" },
@@ -371,6 +398,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Pivots Fibonacci",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pivot_fib_r1", name: "Fib R1", desc: "Résistance Fibonacci 1" },
             { key: "pivot_fib_r2", name: "Fib R2", desc: "Résistance Fibonacci 2" },
@@ -380,6 +408,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Croisements",
+          rowGrouping: "name-prefix",
           items: [
             { key: "golden_cross", name: "Golden Cross", desc: "Croisement haussier" },
             { key: "death_cross", name: "Death Cross", desc: "Croisement baissier" },
@@ -387,6 +416,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Position prix",
+          rowGrouping: "name-prefix",
           items: [
             { key: "is_above_sma50", name: "> SMA 50", desc: "Prix au-dessus SMA 50" },
             { key: "is_above_sma200", name: "> SMA 200", desc: "Prix au-dessus SMA 200" },
@@ -396,6 +426,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Extrêmes / Breakout",
+          rowGrouping: "name-prefix",
           items: [
             { key: "is_52w_high", name: "52W High", desc: "Plus haut 52 semaines" },
             { key: "is_52w_low", name: "52W Low", desc: "Plus bas 52 semaines" },
@@ -407,6 +438,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Gaps / Barres",
+          rowGrouping: "name-prefix",
           items: [
             { key: "gap_up", name: "Gap Up", desc: "Ouverture en gap haussier" },
             { key: "gap_down", name: "Gap Down", desc: "Ouverture en gap baissier" },
@@ -425,6 +457,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       sections: [
         {
           title: "Doji",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pattern_doji", name: "Doji", desc: "Indécision" },
             { key: "pattern_doji_dragonfly", name: "Dragonfly", desc: "Doji dragonfly" },
@@ -436,6 +469,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Bougie simple",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pattern_hammer", name: "Hammer", desc: "Marteau" },
             { key: "pattern_hanging_man", name: "Hanging Man", desc: "Pendu" },
@@ -449,6 +483,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Deux bougies",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pattern_engulfing_bull", name: "Engulf Bull", desc: "Englobante haussiere" },
             { key: "pattern_engulfing_bear", name: "Engulf Bear", desc: "Englobante baissiere" },
@@ -466,6 +501,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Trois bougies",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pattern_morning_star", name: "Morning Star", desc: "Etoile du matin" },
             { key: "pattern_evening_star", name: "Evening Star", desc: "Etoile du soir" },
@@ -479,6 +515,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         },
         {
           title: "Patterns avancés",
+          rowGrouping: "name-prefix",
           items: [
             { key: "pattern_kicker_bull", name: "Kicker Bull", desc: "Kicker haussier" },
             { key: "pattern_kicker_bear", name: "Kicker Bear", desc: "Kicker baissier" },
@@ -671,6 +708,86 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     );
   };
 
+  const getIndicatorSemanticGroup = (name: string) => {
+    const multiWordPrefixes = [
+      "Stoch RSI",
+      "MACD",
+      "Parabolic SAR",
+      "Trend Strength",
+      "Aroon",
+      "Supertrend",
+      "Vortex",
+      "KST",
+      "LinReg",
+      "BB",
+      "Keltner",
+      "Donchian",
+      "Chaikin",
+      "Klinger",
+      "Force Index",
+      "Elder Force",
+      "Volume Osc",
+      "Fib",
+      "Golden Cross",
+      "Death Cross",
+      "Gap",
+      "Inside Bar",
+      "Outside Bar",
+      "Doji",
+      "Marubozu",
+      "Engulf",
+      "Harami",
+      "Tweezer",
+      "Kicker",
+      "Belthold",
+      "Breakaway",
+      "Abandoned",
+    ];
+    const matchingPrefix = multiWordPrefixes.find((prefix) => name.startsWith(prefix));
+
+    if (matchingPrefix) {
+      return matchingPrefix;
+    }
+
+    return name.split(" ")[0] || name;
+  };
+
+  const renderIndicatorSectionItems = (section: BackendIndicatorSection) => {
+    if (section.rowGrouping !== "name-prefix") {
+      return (
+        <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 mx-0">
+          {section.items.map(renderIndicatorCard)}
+        </div>
+      );
+    }
+
+    const groupedItems = section.items.reduce<Array<{ label: string; items: BackendIndicatorItem[] }>>(
+      (groups, item) => {
+        const label = getIndicatorSemanticGroup(item.name);
+        const lastGroup = groups[groups.length - 1];
+
+        if (lastGroup?.label === label) {
+          lastGroup.items.push(item);
+          return groups;
+        }
+
+        groups.push({ label, items: [item] });
+        return groups;
+      },
+      []
+    );
+
+    return (
+      <div className="gp-indicator-row-groups">
+        {groupedItems.map((group) => (
+          <div className="gp-indicator-row-group" key={`${section.title}-${group.label}`}>
+            {group.items.map(renderIndicatorCard)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <BaseModal
       isOpen={isOpen}
@@ -794,9 +911,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                       key={`${group.title}-${section.title}`}
                     >
                       <div className="gp-indicator-subfamily-title">{section.title}</div>
-                      <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 mx-0">
-                        {section.items.map(renderIndicatorCard)}
-                      </div>
+                      {renderIndicatorSectionItems(section)}
                     </div>
                   ))}
                 </div>

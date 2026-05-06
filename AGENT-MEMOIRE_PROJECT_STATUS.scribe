@@ -5,8 +5,8 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 18
-; Last_Update ; 2026-05-05T16:26:00+01:00
+; Session_Count ; 19
+; Last_Update ; 2026-05-06T10:27:41+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -107,6 +107,21 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-05"
+      titre: "INDICATORS MODAL SEMANTIC ROW GROUPING"
+      llm: "Codex GPT-5"
+      session_numero: 19
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Extension du rendu en lignes sémantiques aux sous-familles d'indicateurs qui contiennent des variantes proches, afin que la lecture métier ne soit plus cassée par une grille visuelle automatique."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "La complétude du catalogue reste l'invariant prioritaire : aucune clé backend retirée, aucune activation front inventée."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée, Sass, diff-check ciblé et contrôle de complétude : 215 clés uniques, 0 doublon."
+      scribe_delta: "PAT-UI-DS-001"
     - date: "2026-05-05"
       titre: "INDICATORS MODAL INTELLIGENT FILTER"
       llm: "Codex GPT-5"
