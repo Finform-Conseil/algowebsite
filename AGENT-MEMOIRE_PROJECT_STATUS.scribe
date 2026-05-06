@@ -6,7 +6,7 @@
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
 ; Session_Count ; 19
-; Last_Update ; 2026-05-06T10:27:41+01:00
+; Last_Update ; 2026-05-06T15:32:19+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -100,13 +100,80 @@ patterns:
     description: "Store Performance: Bypass recursive checks for large real-time datasets (candles, snapshots)."
     application: "Use ignoredActions/ignoredPaths in configureStore middleware and increase warnAfter threshold."
 
-ghosts: []
+ghosts:
+  - id: "GHOST-INDICATOR-COMPOSITES-001"
+    titre: "Indicator UI parents aggregate backend atomic outputs"
+    date: "2026-05-06"
+    l0_abstract: "Le catalogue front doit exposer des indicateurs parents compréhensibles, tandis que les champs backend restent des sorties atomiques regroupées par le renderer."
+    l2_details: >
+      Les indicateurs composites comme Ichimoku, Bollinger Bands, MACD, ADX,
+      Stochastic, Donchian Channels et Volume Profile ne doivent pas être
+      présentés comme une simple liste plate de champs backend. Le parent UI
+      active l'intention utilisateur complète; les sorties enfants permettent
+      ensuite de masquer ou afficher des lignes/couches individuelles.
+    alternatives_rejetees:
+      - nom: "Afficher les 215 champs backend comme indicateurs principaux"
+        raison_rejet: "Cette approche reflète l'implémentation backend mais pas le modèle mental utilisateur ni les usages TradingView."
+      - nom: "Rendre chaque sortie composite totalement indépendante"
+        raison_rejet: "Cela force l'utilisateur à reconstruire manuellement des études connues comme Ichimoku ou Bollinger."
+    ne_pas_reproposer: ["Catalogue plat de champs backend", "Sous-sorties composites comme seuls éléments principaux"]
 meta_patterns: []
 hypotheses: []
 adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL LEFT GRADIENT REMOVAL"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI"
+          description: "Suppression du dégradé latéral gauche dans les sous-sections du modal Indicateurs pour obtenir un rendu plus neutre et moins visuellement bruité."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compilation Sass validée; warnings Sass legacy existants uniquement."
+      scribe_delta: "Aucun nouveau vaccin — continuité PAT-UI-DS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL SEVEN COMPOSITE PARENTS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Refonte ciblée du modal Indicateurs pour regrouper uniquement Ichimoku, Bollinger Bands, MACD, ADX, Stochastic, Donchian Channels et Volume Profile sous des parents composites avec sorties enfants visibles."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les parents déjà câblés front restent cliquables; les composites backend-only restent affichés comme non câblés pour ne pas promettre une activation graphique inexistante."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001"
+    - date: "2026-05-06"
+      titre: "INDICATOR CATALOG COMPOSITE ARCHITECTURE DECISION"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "ARCHITECTURE"
+          description: "Décision produit/architecture: un indicateur UI représente une intention utilisateur parent, tandis que le backend expose des sorties atomiques; les indicateurs composites doivent activer plusieurs outputs ensemble."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Le futur modal doit distinguer parent cliquable et enfants masquables afin d'éviter un catalogue plat de 215 champs qui dégrade l'expérience utilisateur."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL NO-MOTION SCROLL"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Suppression ciblée des transitions et animations dans le contenu du modal Indicateurs afin que le scroll vertical reste immédiat et que les sections ne donnent plus une impression de formation progressive."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass existants liés aux imports legacy et divisions globales, sans erreur de compilation."
+      scribe_delta: "Aucun nouveau vaccin — renforcement PAT-UI-DS-001 et VAC-SCSS-002"
     - date: "2026-05-05"
       titre: "INDICATORS MODAL SEMANTIC ROW GROUPING"
       llm: "Codex GPT-5"

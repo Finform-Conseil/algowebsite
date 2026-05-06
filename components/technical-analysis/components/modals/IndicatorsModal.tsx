@@ -44,6 +44,70 @@ type BackendIndicatorGroup = {
   sections: BackendIndicatorSection[];
 };
 
+type CompositeIndicatorSpec = {
+  id: string;
+  title: string;
+  desc: string;
+  outputKeys: string[];
+  wiredId?: keyof AdvancedIndicatorsState;
+};
+
+const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
+  {
+    id: "ichimoku",
+    title: "Ichimoku",
+    desc: "Tenkan, Kijun, Senkou, Chikou et nuage",
+    outputKeys: [
+      "ichimoku_tenkan",
+      "ichimoku_kijun",
+      "ichimoku_senkou_a",
+      "ichimoku_senkou_b",
+      "ichimoku_chikou",
+      "ichimoku_cloud_color",
+      "price_vs_cloud",
+    ],
+  },
+  {
+    id: "bollinger",
+    title: "Bollinger Bands",
+    desc: "Bandes supérieure, médiane, inférieure et métriques dérivées",
+    outputKeys: ["bb_upper", "bb_middle", "bb_lower", "bb_width", "bb_pct"],
+    wiredId: "bollinger",
+  },
+  {
+    id: "macd",
+    title: "MACD",
+    desc: "Ligne MACD, signal et histogramme",
+    outputKeys: ["macd_line", "macd_signal", "macd_histogram"],
+    wiredId: "macd",
+  },
+  {
+    id: "adx",
+    title: "ADX",
+    desc: "Force de tendance, +DI et -DI",
+    outputKeys: ["adx", "adx_plus_di", "adx_minus_di", "adx_trend_strength"],
+  },
+  {
+    id: "stochastic",
+    title: "Stochastic",
+    desc: "Oscillateur %K et ligne signal %D",
+    outputKeys: ["stoch_k", "stoch_d"],
+    wiredId: "stochastic",
+  },
+  {
+    id: "donchian",
+    title: "Donchian Channels",
+    desc: "Canal supérieur, médian et inférieur",
+    outputKeys: ["donchian_upper", "donchian_middle", "donchian_lower"],
+  },
+  {
+    id: "volume-profile",
+    title: "Volume Profile",
+    desc: "POC, VAH et VAL",
+    outputKeys: ["vp_poc", "vp_vah", "vp_val"],
+  },
+];
+
 export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   isOpen,
   onClose,
@@ -621,7 +685,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
             cursor: "pointer",
             // 1A is ~10% opacity in hex, creating a subtle glow of the indicator's color
             backgroundColor: isActive ? `${color}1A` : "rgba(0,0,0,0.2)",
-            transition: "all 0.2s ease"
           }}
           onClick={() => handleToggleMA(type, period)}
         >
@@ -634,7 +697,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
               borderRadius: '4px', 
               border: `1px solid ${isActive ? color : 'rgba(255,255,255,0.2)'}`,
               backgroundColor: isActive ? color : 'transparent',
-              transition: "all 0.2s ease"
             }}
           >
             {isActive && (
@@ -668,7 +730,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
             border: `1px solid ${isActive ? activeColor : 'rgba(255,255,255,0.08)'}`,
             cursor: isWired ? "pointer" : "default",
             backgroundColor: isActive ? "rgba(41, 98, 255, 0.1)" : "rgba(0,0,0,0.2)",
-            transition: "all 0.2s ease"
           }}
           onClick={() => {
             if (ind.wiredId) handleToggleAdvanced(ind.wiredId);
@@ -683,7 +744,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
               borderRadius: '4px', 
               border: `1px solid ${isActive ? activeColor : isWired ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)'}`,
               backgroundColor: isActive ? activeColor : 'transparent',
-              transition: "all 0.2s ease"
             }}
           >
             {isActive && (
@@ -703,6 +763,56 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           </div>
 
           {!isWired && <span className="gp-indicator-backend-badge">Backend</span>}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCompositeIndicator = (
+    spec: CompositeIndicatorSpec,
+    items: BackendIndicatorItem[]
+  ) => {
+    const isWired = !!spec.wiredId;
+    const isActive = isWired ? !!advancedIndicators[spec.wiredId as keyof AdvancedIndicatorsState] : false;
+    const activeColor = "#2962ff";
+
+    return (
+      <div className={`gp-composite-indicator ${isActive ? "active" : ""} ${!isWired ? "is-backend-only" : ""}`} key={spec.id}>
+        <button
+          aria-pressed={isWired ? isActive : undefined}
+          className="gp-composite-indicator-parent"
+          disabled={!isWired}
+          onClick={() => {
+            if (spec.wiredId) handleToggleAdvanced(spec.wiredId);
+          }}
+          type="button"
+        >
+          <span
+            className="gp-composite-indicator-check"
+            style={{
+              borderColor: isActive ? activeColor : "rgba(255,255,255,0.18)",
+              backgroundColor: isActive ? activeColor : "transparent",
+            }}
+          >
+            {isActive && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            )}
+          </span>
+          <span className="gp-composite-indicator-copy">
+            <strong>{spec.title}</strong>
+            <small>{spec.desc}</small>
+          </span>
+          {!isWired && <span className="gp-indicator-backend-badge">Backend</span>}
+        </button>
+        <div className="gp-composite-indicator-children">
+          {items.map((item) => (
+            <span className="gp-composite-indicator-child" key={item.key}>
+              <span>{item.name}</span>
+              <small>{item.desc}</small>
+            </span>
+          ))}
         </div>
       </div>
     );
@@ -753,6 +863,30 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   };
 
   const renderIndicatorSectionItems = (section: BackendIndicatorSection) => {
+    const sectionCompositeSpecs = compositeIndicatorSpecs.filter((spec) =>
+      spec.outputKeys.some((key) => section.items.some((item) => item.key === key))
+    );
+    const compositeOutputKeys = new Set(sectionCompositeSpecs.flatMap((spec) => spec.outputKeys));
+    const standaloneItems = section.items.filter((item) => !compositeOutputKeys.has(item.key));
+
+    if (sectionCompositeSpecs.length > 0) {
+      return (
+        <div className="gp-composite-indicators">
+          {sectionCompositeSpecs.map((spec) =>
+            renderCompositeIndicator(
+              spec,
+              section.items.filter((item) => spec.outputKeys.includes(item.key))
+            )
+          )}
+          {standaloneItems.length > 0 && (
+            <div className="gp-composite-standalone-items">
+              {standaloneItems.map(renderIndicatorCard)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (section.rowGrouping !== "name-prefix") {
       return (
         <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 mx-0">
@@ -798,6 +932,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       primaryAction={onClose}
       secondaryLabel="Fermer"
       maxWidth="750px"
+      className="gp-indicators-modal"
     >
       <div className="gp-indicator-search-panel">
         <div className="gp-indicator-search-box">
