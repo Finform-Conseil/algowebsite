@@ -49,6 +49,7 @@ type CompositeIndicatorSpec = {
   title: string;
   desc: string;
   outputKeys: string[];
+  missingOutputs?: BackendIndicatorItem[];
   wiredId?: keyof AdvancedIndicatorsState;
 };
 
@@ -95,10 +96,111 @@ const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
     wiredId: "stochastic",
   },
   {
+    id: "stochastic-rsi",
+    title: "Stochastic RSI",
+    desc: "Stochastique appliqué au RSI avec %K et %D",
+    outputKeys: ["stoch_rsi_k", "stoch_rsi_d"],
+  },
+  {
+    id: "tsi",
+    title: "TSI",
+    desc: "True Strength Index et ligne signal",
+    outputKeys: ["tsi", "tsi_signal"],
+  },
+  {
+    id: "rvi",
+    title: "RVI",
+    desc: "Relative Vigor Index et ligne signal",
+    outputKeys: ["rvi", "rvi_signal"],
+  },
+  {
+    id: "fisher-transform",
+    title: "Fisher Transform",
+    desc: "Fisher et ligne signal",
+    outputKeys: ["fisher_transform", "fisher_transform_signal"],
+  },
+  {
+    id: "elder-ray",
+    title: "Elder Bull/Bear Power",
+    desc: "Pression acheteuse et vendeuse",
+    outputKeys: ["elder_bull_power", "elder_bear_power"],
+  },
+  {
+    id: "aroon",
+    title: "Aroon",
+    desc: "Récence des plus hauts et plus bas",
+    outputKeys: ["aroon_up", "aroon_down"],
+  },
+  {
+    id: "supertrend",
+    title: "Supertrend",
+    desc: "Ligne et signal de régime",
+    outputKeys: ["supertrend", "supertrend_signal"],
+  },
+  {
+    id: "vortex",
+    title: "Vortex Indicator",
+    desc: "VI+ et VI-",
+    outputKeys: ["vortex_plus", "vortex_minus"],
+  },
+  {
+    id: "kst",
+    title: "KST",
+    desc: "Know Sure Thing et ligne signal",
+    outputKeys: ["kst", "kst_signal"],
+  },
+  {
+    id: "linear-regression",
+    title: "Linear Regression",
+    desc: "Valeur de régression et pente analytique",
+    outputKeys: ["linear_reg_value", "linear_reg_slope"],
+  },
+  {
+    id: "klinger",
+    title: "Klinger Oscillator",
+    desc: "Oscillateur volume-prix et ligne signal",
+    outputKeys: ["klinger_osc", "klinger_signal"],
+  },
+  {
+    id: "pivot-points-standard",
+    title: "Pivot Points Standard",
+    desc: "Pivot central, résistances R1-R3 et supports S1-S3",
+    outputKeys: [
+      "pivot_standard",
+      "pivot_r1",
+      "pivot_r2",
+      "pivot_r3",
+      "pivot_s1",
+      "pivot_s2",
+      "pivot_s3",
+    ],
+  },
+  {
+    id: "pivot-points-fibonacci",
+    title: "Pivot Points Fibonacci",
+    desc: "Pivot central, résistances et supports Fibonacci",
+    outputKeys: ["pivot_standard", "pivot_fib_r1", "pivot_fib_r2", "pivot_fib_s1", "pivot_fib_s2"],
+  },
+  {
+    id: "moving-average-crosses",
+    title: "Croisements de moyennes",
+    desc: "Signaux Golden Cross et Death Cross",
+    outputKeys: ["golden_cross", "death_cross"],
+  },
+  {
     id: "donchian",
     title: "Donchian Channels",
-    desc: "Canal supérieur, médian et inférieur",
+    desc: "Canal prix basé sur les plus hauts et plus bas",
     outputKeys: ["donchian_upper", "donchian_middle", "donchian_lower"],
+  },
+  {
+    id: "keltner",
+    title: "Keltner Channels",
+    desc: "Canal de volatilité basé sur moyenne et ATR",
+    outputKeys: ["keltner_upper", "keltner_lower"],
+    missingOutputs: [
+      { key: "keltner_middle", name: "Keltner Middle", desc: "Recommandé, non fourni par le backend" },
+    ],
   },
   {
     id: "volume-profile",
@@ -174,16 +276,31 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Adaptive",
+          title: "Réduction du retard",
           rowGrouping: "name-prefix",
           items: [
             { key: "hma_20", name: "HMA 20", desc: "Hull Moving Average" },
             { key: "hma_50", name: "HMA 50", desc: "Hull Moving Average" },
-            { key: "vwma_20", name: "VWMA 20", desc: "Volume Weighted MA" },
-            { key: "alma_20", name: "ALMA 20", desc: "Arnaud Legoux MA" },
-            { key: "kama_20", name: "KAMA 20", desc: "Kaufman Adaptive MA" },
             { key: "zlema_20", name: "ZLEMA 20", desc: "Zero Lag EMA" },
+          ],
+        },
+        {
+          title: "Lissage avancé",
+          items: [
+            { key: "alma_20", name: "ALMA 20", desc: "Arnaud Legoux MA" },
             { key: "smma_20", name: "SMMA 20", desc: "Smoothed Moving Average" },
+          ],
+        },
+        {
+          title: "Adaptative",
+          items: [
+            { key: "kama_20", name: "KAMA 20", desc: "Kaufman Adaptive MA" },
+          ],
+        },
+        {
+          title: "Pondérée volume",
+          items: [
+            { key: "vwma_20", name: "VWMA 20", desc: "Volume Weighted MA" },
           ],
         },
       ],
@@ -195,9 +312,9 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         {
           title: "RSI",
           items: [
-            { key: "rsi_9", name: "RSI 9", desc: "RSI court terme" },
-            { key: "rsi_14", name: "RSI 14", desc: "Relative Strength Index", wiredId: "rsi" },
-            { key: "rsi_25", name: "RSI 25", desc: "RSI lissé long terme" },
+            { key: "rsi_9", name: "RSI 9", desc: "Court terme" },
+            { key: "rsi_14", name: "RSI 14", desc: "Standard", wiredId: "rsi" },
+            { key: "rsi_25", name: "RSI 25", desc: "Lissé / long terme" },
           ],
         },
         {
@@ -211,37 +328,67 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "CCI / MFI",
-          rowGrouping: "name-prefix",
+          title: "Momentum prix",
           items: [
             { key: "cci_14", name: "CCI 14", desc: "Commodity Channel Index", wiredId: "cci" },
             { key: "cci_20", name: "CCI 20", desc: "CCI période 20" },
+          ],
+        },
+        {
+          title: "Momentum prix + volume",
+          items: [
             { key: "mfi_14", name: "MFI 14", desc: "Money Flow Index" },
           ],
         },
         {
-          title: "ROC / Momentum",
-          rowGrouping: "name-prefix",
+          title: "Oscillateur borné",
           items: [
-            { key: "williams_r", name: "Williams %R", desc: "Surachat/Survente (-100 à 0)", wiredId: "williamsR" },
+            { key: "williams_r", name: "Williams %R", desc: "Surachat / survente", wiredId: "williamsR" },
+          ],
+        },
+        {
+          title: "Variation en pourcentage",
+          items: [
             { key: "roc_10", name: "ROC 10", desc: "Rate of Change", wiredId: "roc" },
             { key: "roc_20", name: "ROC 20", desc: "Rate of Change long" },
+          ],
+        },
+        {
+          title: "Momentum brut",
+          items: [
             { key: "momentum_10", name: "Momentum 10", desc: "Momentum court terme" },
             { key: "momentum_20", name: "Momentum 20", desc: "Momentum long terme" },
           ],
         },
         {
-          title: "Oscillateurs avancés",
+          title: "Momentum pur",
           rowGrouping: "name-prefix",
           items: [
             { key: "cmo_14", name: "CMO 14", desc: "Chande Momentum Oscillator" },
+            { key: "dymi", name: "DYMI", desc: "Dynamic Momentum Index" },
+            { key: "ultimate_osc", name: "Ultimate Osc", desc: "Ultimate Oscillator" },
+          ],
+        },
+        {
+          title: "Cycle / Detrending",
+          items: [
             { key: "dpo_20", name: "DPO 20", desc: "Detrended Price Oscillator" },
+          ],
+        },
+        {
+          title: "Force + signal",
+          rowGrouping: "name-prefix",
+          items: [
             { key: "tsi", name: "TSI", desc: "True Strength Index" },
             { key: "tsi_signal", name: "TSI Signal", desc: "Signal TSI" },
-            { key: "ultimate_osc", name: "Ultimate Osc", desc: "Ultimate Oscillator" },
+          ],
+        },
+        {
+          title: "Bill Williams",
+          rowGrouping: "name-prefix",
+          items: [
             { key: "awesome_osc", name: "Awesome Osc", desc: "Awesome Oscillator" },
             { key: "ac_osc", name: "AC Osc", desc: "Acceleration/Deceleration" },
-            { key: "dymi", name: "DYMI", desc: "Dynamic Momentum Index" },
           ],
         },
         {
@@ -264,12 +411,17 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       subtitle: "Direction, force et suivi de tendance",
       sections: [
         {
-          title: "MACD",
+          title: "Convergence / Divergence",
           rowGrouping: "name-prefix",
           items: [
             { key: "macd_line", name: "MACD Line", desc: "Ligne MACD", wiredId: "macd" },
             { key: "macd_signal", name: "MACD Signal", desc: "Signal MACD" },
             { key: "macd_histogram", name: "MACD Histogram", desc: "Histogramme MACD" },
+          ],
+        },
+        {
+          title: "Oscillateurs dérivés",
+          items: [
             { key: "macd_ppo", name: "PPO", desc: "Percentage Price Oscillator" },
             { key: "macd_apo", name: "APO", desc: "Absolute Price Oscillator" },
           ],
@@ -306,35 +458,57 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Aroon",
+          title: "Aroon — Détection de tendance",
           rowGrouping: "name-prefix",
           items: [
             { key: "aroon_up", name: "Aroon Up", desc: "Aroon haussier" },
             { key: "aroon_down", name: "Aroon Down", desc: "Aroon baissier" },
+          ],
+        },
+        {
+          title: "Aroon Oscillator",
+          items: [
             { key: "aroon_oscillator", name: "Aroon Osc", desc: "Oscillateur Aroon" },
           ],
         },
         {
-          title: "Supertrend / Vortex",
+          title: "Overlay de tendance",
           rowGrouping: "name-prefix",
           items: [
             { key: "supertrend", name: "Supertrend", desc: "Suivi de tendance" },
             { key: "supertrend_signal", name: "Supertrend Signal", desc: "Signal Supertrend" },
+          ],
+        },
+        {
+          title: "Oscillateur directionnel",
+          rowGrouping: "name-prefix",
+          items: [
             { key: "vortex_plus", name: "Vortex +", desc: "Vortex positif" },
             { key: "vortex_minus", name: "Vortex -", desc: "Vortex négatif" },
           ],
         },
         {
-          title: "Trend avancé",
-          rowGrouping: "name-prefix",
+          title: "Oscillateurs de tendance",
           items: [
             { key: "trix", name: "TRIX", desc: "Triple exponential oscillator" },
-            { key: "kst", name: "KST", desc: "Know Sure Thing" },
-            { key: "kst_signal", name: "KST Signal", desc: "Signal KST" },
             { key: "stc", name: "STC", desc: "Schaff Trend Cycle" },
             { key: "mass_index", name: "Mass Index", desc: "Mass Index" },
-            { key: "linear_reg_slope", name: "LinReg Slope", desc: "Pente regression" },
+          ],
+        },
+        {
+          title: "KST — Know Sure Thing",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "kst", name: "KST", desc: "Know Sure Thing" },
+            { key: "kst_signal", name: "KST Signal", desc: "Signal KST" },
+          ],
+        },
+        {
+          title: "Régression linéaire",
+          rowGrouping: "name-prefix",
+          items: [
             { key: "linear_reg_value", name: "LinReg Value", desc: "Valeur regression" },
+            { key: "linear_reg_slope", name: "LinReg Slope", desc: "Pente regression" },
           ],
         },
       ],
@@ -364,14 +538,14 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Canaux",
+          title: "Canaux de prix",
           rowGrouping: "name-prefix",
           items: [
-            { key: "keltner_upper", name: "Keltner Upper", desc: "Canal de Keltner haut" },
-            { key: "keltner_lower", name: "Keltner Lower", desc: "Canal de Keltner bas" },
             { key: "donchian_upper", name: "Donchian Upper", desc: "Canal de Donchian haut" },
             { key: "donchian_middle", name: "Donchian Middle", desc: "Canal de Donchian median" },
             { key: "donchian_lower", name: "Donchian Lower", desc: "Canal de Donchian bas" },
+            { key: "keltner_upper", name: "Keltner Upper", desc: "Canal de Keltner haut" },
+            { key: "keltner_lower", name: "Keltner Lower", desc: "Canal de Keltner bas" },
           ],
         },
         {
@@ -387,12 +561,21 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Risque",
-          rowGrouping: "name-prefix",
+          title: "Dispersion du prix",
           items: [
-            { key: "std_dev_20", name: "Std Dev 20", desc: "Ecart-type 20" },
-            { key: "chaikin_vol", name: "Chaikin Vol", desc: "Chaikin Volatility" },
-            { key: "ulcer_index", name: "Ulcer Index", desc: "Risque de drawdown" },
+            { key: "std_dev_20", name: "Std Dev 20", desc: "Dispersion sur 20 périodes" },
+          ],
+        },
+        {
+          title: "Expansion de volatilité",
+          items: [
+            { key: "chaikin_vol", name: "Chaikin Volatility", desc: "Expansion / contraction High-Low" },
+          ],
+        },
+        {
+          title: "Risque de drawdown",
+          items: [
+            { key: "ulcer_index", name: "Ulcer Index", desc: "Profondeur et durée des replis" },
           ],
         },
       ],
@@ -402,33 +585,59 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       subtitle: "Flux, accumulation et pression volume-prix",
       sections: [
         {
-          title: "Accumulation",
+          title: "Flux cumulatifs",
           rowGrouping: "name-prefix",
           items: [
             { key: "obv", name: "OBV", desc: "On Balance Volume", wiredId: "obv" },
             { key: "ad_line", name: "A/D Line", desc: "Accumulation/Distribution" },
+          ],
+        },
+        {
+          title: "Pression volume-prix",
+          items: [
             { key: "cmf_20", name: "CMF 20", desc: "Chaikin Money Flow" },
+          ],
+        },
+        {
+          title: "Indices de volume",
+          rowGrouping: "name-prefix",
+          items: [
             { key: "nvi", name: "NVI", desc: "Negative Volume Index" },
             { key: "pvi", name: "PVI", desc: "Positive Volume Index" },
           ],
         },
         {
-          title: "Oscillateurs volume",
+          title: "Flux accumulation / distribution",
+          items: [
+            { key: "chaikin_osc", name: "Chaikin Oscillator", desc: "Dynamique A/D autour de zéro" },
+          ],
+        },
+        {
+          title: "Variation du volume",
+          items: [
+            { key: "volume_osc", name: "Volume Oscillator", desc: "Écart entre moyennes de volume" },
+            { key: "vroc_14", name: "VROC 14", desc: "Volume Rate of Change" },
+          ],
+        },
+        {
+          title: "Klinger Volume Oscillator",
           rowGrouping: "name-prefix",
           items: [
-            { key: "chaikin_osc", name: "Chaikin Osc", desc: "Oscillateur Chaikin" },
-            { key: "volume_osc", name: "Volume Osc", desc: "Oscillateur de volume" },
-            { key: "vroc_14", name: "VROC 14", desc: "Volume Rate of Change" },
             { key: "klinger_osc", name: "Klinger Osc", desc: "Klinger oscillator" },
             { key: "klinger_signal", name: "Klinger Signal", desc: "Signal Klinger" },
           ],
         },
         {
-          title: "Force / Mouvement",
+          title: "Force du mouvement",
           rowGrouping: "name-prefix",
           items: [
-            { key: "force_index_13", name: "Force Index 13", desc: "Force du mouvement" },
+            { key: "force_index_13", name: "Force Index 13", desc: "Puissance prix-volume" },
             { key: "elder_force_index", name: "Elder Force", desc: "Elder Force Index" },
+          ],
+        },
+        {
+          title: "Facilité du mouvement",
+          items: [
             { key: "eom_14", name: "EOM 14", desc: "Ease of Movement" },
           ],
         },
@@ -448,7 +657,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       subtitle: "Niveaux pivots et signaux de marché",
       sections: [
         {
-          title: "Pivots standards",
+          title: "Pivot Points Standard",
           rowGrouping: "name-prefix",
           items: [
             { key: "pivot_standard", name: "Pivot", desc: "Pivot standard" },
@@ -461,9 +670,10 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Pivots Fibonacci",
+          title: "Pivot Points Fibonacci",
           rowGrouping: "name-prefix",
           items: [
+            { key: "pivot_standard", name: "Pivot", desc: "Pivot central commun" },
             { key: "pivot_fib_r1", name: "Fib R1", desc: "Résistance Fibonacci 1" },
             { key: "pivot_fib_r2", name: "Fib R2", desc: "Résistance Fibonacci 2" },
             { key: "pivot_fib_s1", name: "Fib S1", desc: "Support Fibonacci 1" },
@@ -471,7 +681,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Croisements",
+          title: "Croisements de moyennes",
           rowGrouping: "name-prefix",
           items: [
             { key: "golden_cross", name: "Golden Cross", desc: "Croisement haussier" },
@@ -479,38 +689,67 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Position prix",
+          title: "Tendance moyenne mobile",
           rowGrouping: "name-prefix",
           items: [
-            { key: "is_above_sma50", name: "> SMA 50", desc: "Prix au-dessus SMA 50" },
-            { key: "is_above_sma200", name: "> SMA 200", desc: "Prix au-dessus SMA 200" },
-            { key: "is_above_ema20", name: "> EMA 20", desc: "Prix au-dessus EMA 20" },
-            { key: "is_above_vwap", name: "> VWAP", desc: "Prix au-dessus VWAP" },
+            { key: "is_above_sma50", name: "Prix > SMA 50", desc: "État au-dessus SMA 50" },
+            { key: "is_above_sma200", name: "Prix > SMA 200", desc: "État au-dessus SMA 200" },
+            { key: "is_above_ema20", name: "Prix > EMA 20", desc: "État au-dessus EMA 20" },
           ],
         },
         {
-          title: "Extrêmes / Breakout",
+          title: "Position intraday / volume",
+          items: [
+            { key: "is_above_vwap", name: "Prix > VWAP", desc: "État au-dessus VWAP" },
+          ],
+        },
+        {
+          title: "Niveaux 52 semaines",
           rowGrouping: "name-prefix",
           items: [
             { key: "is_52w_high", name: "52W High", desc: "Plus haut 52 semaines" },
             { key: "is_52w_low", name: "52W Low", desc: "Plus bas 52 semaines" },
-            { key: "is_ath", name: "ATH", desc: "Plus haut historique" },
-            { key: "is_atl", name: "ATL", desc: "Plus bas historique" },
-            { key: "breakout_resistance", name: "Breakout", desc: "Cassure resistance" },
-            { key: "breakdown_support", name: "Breakdown", desc: "Cassure support" },
           ],
         },
         {
-          title: "Gaps / Barres",
+          title: "Records historiques",
           rowGrouping: "name-prefix",
           items: [
-            { key: "gap_up", name: "Gap Up", desc: "Ouverture en gap haussier" },
-            { key: "gap_down", name: "Gap Down", desc: "Ouverture en gap baissier" },
-            { key: "gap_pct", name: "Gap %", desc: "Amplitude du gap" },
-            { key: "consecutive_up_days", name: "Jours hausse", desc: "Hausses consecutives" },
-            { key: "consecutive_down_days", name: "Jours baisse", desc: "Baisses consecutives" },
-            { key: "inside_bar", name: "Inside Bar", desc: "Barre intérieure" },
-            { key: "outside_bar", name: "Outside Bar", desc: "Barre extérieure" },
+            { key: "is_ath", name: "ATH", desc: "Plus haut historique" },
+            { key: "is_atl", name: "ATL", desc: "Plus bas historique" },
+          ],
+        },
+        {
+          title: "Cassures techniques",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "breakout_resistance", name: "Breakout résistance", desc: "Cassure de résistance" },
+            { key: "breakdown_support", name: "Breakdown support", desc: "Cassure de support" },
+          ],
+        },
+        {
+          title: "Gaps",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "gap_up", name: "Gap Up", desc: "Marqueur de gap haussier" },
+            { key: "gap_down", name: "Gap Down", desc: "Marqueur de gap baissier" },
+            { key: "gap_pct", name: "Gap %", desc: "Amplitude du gap en métrique" },
+          ],
+        },
+        {
+          title: "Séquences directionnelles",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "consecutive_up_days", name: "Jours hausse", desc: "Compteur de hausses consécutives" },
+            { key: "consecutive_down_days", name: "Jours baisse", desc: "Compteur de baisses consécutives" },
+          ],
+        },
+        {
+          title: "Structure de barres",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "inside_bar", name: "Inside Bar", desc: "Bougie contenue dans le range précédent" },
+            { key: "outside_bar", name: "Outside Bar", desc: "Bougie englobant le range précédent" },
           ],
         },
       ],
@@ -520,29 +759,57 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       subtitle: "Reconnaissance des structures de chandeliers",
       sections: [
         {
-          title: "Doji",
+          title: "Doji classiques",
           rowGrouping: "name-prefix",
           items: [
-            { key: "pattern_doji", name: "Doji", desc: "Indécision" },
-            { key: "pattern_doji_dragonfly", name: "Dragonfly", desc: "Doji dragonfly" },
-            { key: "pattern_doji_gravestone", name: "Gravestone", desc: "Doji gravestone" },
-            { key: "pattern_doji_longleg", name: "Long Leg", desc: "Doji longues mèches" },
-            { key: "pattern_tristar", name: "Tristar", desc: "Pattern tristar" },
-            { key: "pattern_rickshaw_man", name: "Rickshaw", desc: "Rickshaw man" },
+            { key: "pattern_doji", name: "Doji", desc: "Indécision générale" },
+            { key: "pattern_doji_longleg", name: "Long-legged Doji", desc: "Doji à longues mèches" },
+            { key: "pattern_rickshaw_man", name: "Rickshaw Man", desc: "Forte indécision avec longues mèches" },
           ],
         },
         {
-          title: "Bougie simple",
+          title: "Doji directionnels",
           rowGrouping: "name-prefix",
           items: [
-            { key: "pattern_hammer", name: "Hammer", desc: "Marteau" },
-            { key: "pattern_hanging_man", name: "Hanging Man", desc: "Pendu" },
-            { key: "pattern_inv_hammer", name: "Inv Hammer", desc: "Marteau inversé" },
-            { key: "pattern_shooting_star", name: "Shooting Star", desc: "Etoile filante" },
-            { key: "pattern_marubozu_bull", name: "Marubozu Bull", desc: "Marubozu haussier" },
-            { key: "pattern_marubozu_bear", name: "Marubozu Bear", desc: "Marubozu baissier" },
-            { key: "pattern_spinning_top", name: "Spinning Top", desc: "Toupie" },
-            { key: "pattern_takuri", name: "Takuri", desc: "Takuri" },
+            { key: "pattern_doji_dragonfly", name: "Dragonfly Doji", desc: "Rejet bas potentiel" },
+            { key: "pattern_doji_gravestone", name: "Gravestone Doji", desc: "Rejet haut potentiel" },
+          ],
+        },
+        {
+          title: "Structure rare",
+          items: [
+            { key: "pattern_tristar", name: "Tristar", desc: "Structure rare de retournement potentiel" },
+          ],
+        },
+        {
+          title: "Rejets bas",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "pattern_hammer", name: "Hammer", desc: "Rejet bas après baisse potentielle" },
+            { key: "pattern_hanging_man", name: "Hanging Man", desc: "Rejet bas après hausse potentielle" },
+            { key: "pattern_takuri", name: "Takuri", desc: "Rejet bas marqué" },
+          ],
+        },
+        {
+          title: "Rejets hauts",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "pattern_inv_hammer", name: "Inverted Hammer", desc: "Rejet haut après baisse potentielle" },
+            { key: "pattern_shooting_star", name: "Shooting Star", desc: "Rejet haut après hausse potentielle" },
+          ],
+        },
+        {
+          title: "Bougies de force",
+          rowGrouping: "name-prefix",
+          items: [
+            { key: "pattern_marubozu_bull", name: "Marubozu Bull", desc: "Domination acheteuse" },
+            { key: "pattern_marubozu_bear", name: "Marubozu Bear", desc: "Domination vendeuse" },
+          ],
+        },
+        {
+          title: "Indécision",
+          items: [
+            { key: "pattern_spinning_top", name: "Spinning Top", desc: "Petit corps avec mèches" },
           ],
         },
         {
@@ -809,6 +1076,12 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         <div className="gp-composite-indicator-children">
           {items.map((item) => (
             <span className="gp-composite-indicator-child" key={item.key}>
+              <span>{item.name}</span>
+              <small>{item.desc}</small>
+            </span>
+          ))}
+          {spec.missingOutputs?.map((item) => (
+            <span className="gp-composite-indicator-child is-missing" key={item.key}>
               <span>{item.name}</span>
               <small>{item.desc}</small>
             </span>

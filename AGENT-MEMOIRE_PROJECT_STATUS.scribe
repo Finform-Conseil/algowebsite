@@ -6,7 +6,7 @@
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
 ; Session_Count ; 19
-; Last_Update ; 2026-05-06T15:32:19+01:00
+; Last_Update ; 2026-05-06T18:00:14+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -107,22 +107,749 @@ ghosts:
     l0_abstract: "Le catalogue front doit exposer des indicateurs parents compréhensibles, tandis que les champs backend restent des sorties atomiques regroupées par le renderer."
     l2_details: >
       Les indicateurs composites comme Ichimoku, Bollinger Bands, MACD, ADX,
-      Stochastic, Donchian Channels et Volume Profile ne doivent pas être
-      présentés comme une simple liste plate de champs backend. Le parent UI
-      active l'intention utilisateur complète; les sorties enfants permettent
-      ensuite de masquer ou afficher des lignes/couches individuelles.
+      Stochastic, Stochastic RSI, TSI, Donchian Channels et Volume Profile ne
+      doivent pas être présentés comme une simple liste plate de champs backend.
+      Le parent UI active l'intention utilisateur complète; les sorties enfants
+      permettent ensuite de masquer ou afficher des lignes/couches individuelles.
+      Stochastic et Stochastic RSI sont deux parents distincts: Stochastic RSI
+      applique une logique stochastique au RSI et ne doit pas être traité comme
+      un enfant du Stochastic classique. Dans Oscillateurs avancés, TSI est le
+      seul vrai parent composite: il regroupe tsi et tsi_signal; CMO, DPO,
+      Ultimate Oscillator, Awesome Oscillator, AC Oscillator et DYMI restent
+      indépendants. Dans Signal avancé, RVI, Fisher Transform et Elder
+      Bull/Bear Power sont des parents composites; Coppock Curve reste
+      indépendant. MACD regroupe uniquement macd_line, macd_signal et
+      macd_histogram; PPO et APO sont des oscillateurs dérivés indépendants,
+      pas des enfants directs du parent MACD. Aroon est un composite partiel:
+      Aroon Up et Aroon Down forment le parent Aroon, tandis que Aroon
+      Oscillator reste indépendant car il a une échelle dérivée -100/+100.
+      Supertrend est un parent léger: supertrend est la ligne prix et
+      supertrend_signal sert au régime/couleur; Vortex est un composite fort
+      en panneau séparé avec vortex_plus et vortex_minus. Dans Trend avancé,
+      KST est un composite fort qui regroupe kst et kst_signal; TRIX, STC et
+      Mass Index restent indépendants. Linear Regression est un parent léger:
+      linear_reg_value est la sortie prix principale, tandis que
+      linear_reg_slope est une métrique de pente à traiter séparément.
     alternatives_rejetees:
       - nom: "Afficher les 215 champs backend comme indicateurs principaux"
         raison_rejet: "Cette approche reflète l'implémentation backend mais pas le modèle mental utilisateur ni les usages TradingView."
       - nom: "Rendre chaque sortie composite totalement indépendante"
         raison_rejet: "Cela force l'utilisateur à reconstruire manuellement des études connues comme Ichimoku ou Bollinger."
     ne_pas_reproposer: ["Catalogue plat de champs backend", "Sous-sorties composites comme seuls éléments principaux"]
+  - id: "GHOST-INDICATOR-METRICS-001"
+    titre: "Derived distance metrics stay independent UI items"
+    date: "2026-05-06"
+    l0_abstract: "Les champs comme price_vs_sma*_pct et price_vs_ema*_pct sont des métriques dérivées indépendantes, pas des enfants graphiques d'un indicateur composite parent."
+    l2_details: >
+      Les distances prix/moyenne mobile mesurent un écart en pourcentage sur
+      une période donnée. Prix / SMA 20, 50, 150, 200 et Prix / EMA 20, 50,
+      200 doivent rester des choix séparés; les activer ensemble relèverait
+      d'un preset analytique, pas d'un indicateur parent comparable à Ichimoku
+      ou Bollinger. Une métrique Prix / EMA peut dépendre mathématiquement
+      d'une EMA sans imposer l'affichage de cette EMA sur le graphique.
+    alternatives_rejetees:
+      - nom: "Parent Prix vs SMA activant toutes les périodes"
+        raison_rejet: "Chaque période exprime une intention temporelle distincte; tout activer ensemble impose une lecture non demandée."
+      - nom: "Rendu sur le même axe prix que les bougies"
+        raison_rejet: "Ces valeurs sont en pourcentage et doivent plutôt vivre en panneau séparé, badge de légende ou carte de signal."
+    ne_pas_reproposer: ["Composite Prix vs SMA", "Composite Prix vs EMA sans justification métier"]
+  - id: "GHOST-INDICATOR-VARIANTS-001"
+    titre: "Single-line indicator variants stay independent"
+    date: "2026-05-06"
+    l0_abstract: "Les variantes mono-courbe comme WMA, DEMA et TEMA restent des choix indépendants, même lorsqu'elles sont groupées visuellement."
+    l2_details: >
+      WMA 20/50, DEMA 20/50 et TEMA 20/50 sont des méthodes de moyenne mobile
+      avancées qui produisent chacune une seule courbe finale sur le prix.
+      Elles ne forment pas ensemble une étude composite: le groupe WMA / DEMA /
+      TEMA sert à organiser la lecture, pas à activer toutes les variantes.
+      Même règle pour les moyennes avancées HMA, VWMA, ALMA, KAMA, ZLEMA et
+      SMMA: les sous-groupes Low-lag, Lissage avancé, Adaptative et Pondérée
+      volume sont des aides de lecture, pas des parents activables.
+    alternatives_rejetees:
+      - nom: "Parent WMA / DEMA / TEMA activant toutes les variantes"
+        raison_rejet: "Cela force six courbes de lissage sans intention explicite utilisateur et alourdit le graphique."
+      - nom: "Exposer les calculs internes DEMA/TEMA comme enfants"
+        raison_rejet: "TradingView-like, l'utilisateur veut la courbe finale DEMA/TEMA, pas les EMA internes de calcul."
+    ne_pas_reproposer: ["Composite WMA/DEMA/TEMA", "Composite Adaptive", "Activation globale des variantes mono-courbe"]
+  - id: "GHOST-INDICATOR-PRESETS-001"
+    titre: "Parameterized indicator presets stay independent"
+    date: "2026-05-06"
+    l0_abstract: "Les familles comme RSI exposent des presets de période indépendants, pas un parent d'affichage multiple."
+    l2_details: >
+      RSI 9, RSI 14 et RSI 25 représentent la même formule avec des périodes
+      différentes. Même logique pour CCI 14 et CCI 20. L'utilisateur active
+      une instance d'indicateur avec un paramètre, pas toutes les périodes
+      simultanément. Cette catégorie est un parent de configuration/famille,
+      pas un parent composite graphique. MFI est un oscillateur distinct basé
+      prix + volume et ne doit pas être activé automatiquement avec CCI. ROC 10
+      et ROC 20 sont aussi des presets indépendants; Momentum 10/20 sont des
+      lectures distinctes qui peuvent être en valeur brute et ne doivent pas
+      être confondues avec ROC en pourcentage.
+    alternatives_rejetees:
+      - nom: "Parent RSI activant RSI 9, RSI 14 et RSI 25"
+        raison_rejet: "Cela encombre le panneau oscillateur et ne correspond pas au comportement TradingView-like."
+      - nom: "Tracer RSI sur les bougies"
+        raison_rejet: "RSI est un oscillateur borné 0-100; il doit vivre en panneau séparé avec niveaux 30/50/70."
+    ne_pas_reproposer: ["Composite RSI", "Composite CCI/MFI", "Composite ROC/Momentum", "Activation globale des presets RSI, CCI, ROC ou Momentum"]
+  - id: "GHOST-INDICATOR-CHANNELS-001"
+    titre: "Price channels are composite parents, not global section toggles"
+    date: "2026-05-06"
+    l0_abstract: "La section Canaux organise les indicateurs; Donchian Channels et Keltner Channels sont les vrais parents composites activables."
+    l2_details: >
+      Donchian Channels active conceptuellement donchian_upper,
+      donchian_middle et donchian_lower sur le panneau prix. Keltner Channels
+      active actuellement keltner_upper et keltner_lower; keltner_middle est
+      une sortie backend recommandée mais absente, à afficher seulement quand
+      elle existe réellement. La section Canaux ne doit jamais devenir un
+      toggle global qui active tous les canaux ensemble.
+    alternatives_rejetees:
+      - nom: "Activer la section Canaux comme parent global"
+        raison_rejet: "Une section métier organise la navigation; elle ne correspond pas à une intention d'étude graphique unique."
+      - nom: "Laisser Keltner Upper et Keltner Lower comme indicateurs principaux"
+        raison_rejet: "Les deux lignes forment un canal de volatilité et doivent être présentées sous un parent Keltner Channels."
+      - nom: "Créer un faux champ front keltner_middle"
+        raison_rejet: "Le front ne doit pas inventer une sortie backend absente; il doit signaler la dette jusqu'à disponibilité réelle."
+    ne_pas_reproposer: ["Parent global Canaux", "Keltner Upper/Lower isolés", "keltner_middle simulé côté catalogue"]
+  - id: "GHOST-INDICATOR-RISK-001"
+    titre: "Risk metrics stay independent separate-pane indicators"
+    date: "2026-05-06"
+    l0_abstract: "Std Dev 20, Chaikin Volatility et Ulcer Index sont trois métriques de risque indépendantes, pas un parent composite."
+    l2_details: >
+      Standard Deviation 20 mesure la dispersion du prix, Chaikin Volatility
+      mesure l'expansion/contraction de la volatilité High-Low, et Ulcer
+      Index mesure le risque de drawdown. Ces métriques ne partagent pas une
+      échelle ni une intention d'étude unique; elles doivent donc rester
+      activables séparément et vivre en panneau séparé.
+    alternatives_rejetees:
+      - nom: "Parent composite Risque activant les trois métriques"
+        raison_rejet: "Le groupe Risque est une catégorie de lecture, pas une étude graphique multi-sorties."
+      - nom: "Std Dev 20 comme enfant de Bollinger Bands"
+        raison_rejet: "Même si la déviation standard sert au calcul Bollinger, l'indicateur Std Dev autonome exprime une intention différente."
+      - nom: "Mélanger Chaikin Volatility avec les indicateurs money flow"
+        raison_rejet: "Chaikin Volatility est une métrique de volatilité High-Low, distincte de CMF, A/D Line et Chaikin Oscillator."
+    ne_pas_reproposer: ["Parent Risque global", "Std Dev enfant de Bollinger", "Chaikin Vol dans money flow"]
+  - id: "GHOST-INDICATOR-ACCUMULATION-001"
+    titre: "Accumulation indicators stay independent volume-pressure studies"
+    date: "2026-05-06"
+    l0_abstract: "OBV, A/D Line, CMF 20, NVI et PVI sont des études volume-prix autonomes, pas les enfants d'un parent Accumulation."
+    l2_details: >
+      OBV et A/D Line sont des flux cumulatifs distincts; CMF 20 mesure une
+      pression volume-prix périodique lue autour de zéro; NVI et PVI sont des
+      indices liés mais activables séparément. Le groupe Accumulation sert à
+      structurer la lecture métier, pas à activer tous les indicateurs en bloc.
+      Un futur Volume Accumulation Pack relèverait d'un preset analytique, pas
+      d'un indicateur parent TradingView-like.
+    alternatives_rejetees:
+      - nom: "Parent Accumulation activant OBV, A/D, CMF, NVI et PVI"
+        raison_rejet: "Cela impose cinq lectures hétérogènes et alourdit le graphique sans intention utilisateur unique."
+      - nom: "NVI/PVI comme parent composite obligatoire"
+        raison_rejet: "Ils sont conceptuellement liés, mais l'utilisateur peut vouloir analyser seulement NVI ou seulement PVI."
+      - nom: "Mélanger CMF 20 avec Chaikin Volatility"
+        raison_rejet: "CMF mesure le money flow autour de zéro; Chaikin Volatility mesure l'expansion High-Low et appartient à la volatilité."
+    ne_pas_reproposer: ["Parent Accumulation global", "Composite obligatoire NVI/PVI", "CMF confondu avec Chaikin Volatility"]
+  - id: "GHOST-INDICATOR-VOLUME-OSC-001"
+    titre: "Klinger is the only composite parent in volume oscillators"
+    date: "2026-05-06"
+    l0_abstract: "Dans Oscillateurs de volume, seul Klinger Oscillator regroupe une ligne oscillateur et une ligne signal; Chaikin Osc, Volume Osc et VROC restent indépendants."
+    l2_details: >
+      Chaikin Oscillator mesure une dynamique accumulation/distribution et ne
+      doit pas activer A/D Line, CMF 20 ou Chaikin Volatility. Volume Oscillator
+      et VROC 14 sont deux lectures autonomes de variation du volume. Klinger
+      Oscillator est la seule étude multi-sorties de cette section, avec
+      klinger_osc et klinger_signal en panneau séparé autour d'une baseline
+      conceptuelle zéro.
+    alternatives_rejetees:
+      - nom: "Parent global Oscillateurs volume"
+        raison_rejet: "La section est un groupe visuel; activer tous les oscillateurs impose des lectures hétérogènes."
+      - nom: "Chaikin Oscillator comme enfant de A/D Line ou CMF"
+        raison_rejet: "Les noms sont proches, mais les lectures métier et les sorties restent distinctes."
+      - nom: "Volume Oscillator + VROC comme composite"
+        raison_rejet: "Ils mesurent des variations de volume différentes et peuvent être utilisés séparément."
+    ne_pas_reproposer: ["Parent global Oscillateurs volume", "Chaikin Osc enfant A/D ou CMF", "Composite Volume Osc/VROC"]
+  - id: "GHOST-INDICATOR-FORCE-MOVE-001"
+    titre: "Force and movement indicators stay independent"
+    date: "2026-05-06"
+    l0_abstract: "Force Index 13, Elder Force et EOM 14 sont trois études volume-prix autonomes; Force / Mouvement reste un regroupement visuel."
+    l2_details: >
+      Force Index 13 et Elder Force mesurent la puissance prix-volume, mais
+      leur convention backend exacte n'est pas confirmée et ne doit pas être
+      fusionnée côté UI. EOM 14 mesure la facilité du déplacement prix-volume,
+      une lecture différente de l'intensité du mouvement. Ces trois indicateurs
+      doivent rester activables séparément en panneau séparé, idéalement autour
+      d'une baseline zéro selon la sortie backend.
+    alternatives_rejetees:
+      - nom: "Parent Force / Mouvement activant les trois indicateurs"
+        raison_rejet: "La section est un thème de navigation, pas une étude graphique multi-sorties."
+      - nom: "Fusionner Force Index 13 et Elder Force"
+        raison_rejet: "Le backend expose deux champs distincts; leur différence exacte doit être confirmée avant toute fusion."
+      - nom: "Traiter EOM 14 comme enfant de Force Index"
+        raison_rejet: "EOM mesure la facilité du déplacement, pas seulement la puissance directionnelle prix-volume."
+    ne_pas_reproposer: ["Parent Force/Mouvement global", "Fusion Force Index/Elder Force sans preuve backend", "EOM enfant Force Index"]
+  - id: "GHOST-INDICATOR-PIVOTS-001"
+    titre: "Standard pivot points are a strong composite parent"
+    date: "2026-05-06"
+    l0_abstract: "Pivot Points Standard active le pivot central, R1-R3 et S1-S3 comme un système complet de niveaux prix."
+    l2_details: >
+      Les pivots standards forment une étude support/résistance complète sur
+      le panneau prix. Pivot, R1, R2, R3, S1, S2 et S3 ne doivent pas être
+      exposés comme indicateurs principaux indépendants dans le catalogue. La
+      période de calcul backend reste à confirmer: daily, weekly, monthly,
+      previous session ou previous candle.
+    alternatives_rejetees:
+      - nom: "R1/R2/R3/S1/S2/S3 comme indicateurs principaux plats"
+        raison_rejet: "Le trader active généralement le système Pivot Points, pas un niveau isolé du catalogue principal."
+      - nom: "Parent global Pivots activant standards et Fibonacci"
+        raison_rejet: "Les pivots standards et Fibonacci sont des systèmes distincts; le parent doit rester scoped à la méthode standard."
+      - nom: "Rendu en panneau séparé"
+        raison_rejet: "Les pivots sont des niveaux horizontaux de prix et appartiennent au panneau des bougies."
+    ne_pas_reproposer: ["Pivots standards plats", "Parent global Pivots", "Pivots en panneau séparé"]
+  - id: "GHOST-INDICATOR-FIB-PIVOTS-001"
+    titre: "Fibonacci pivot points are a composite price-level parent"
+    date: "2026-05-06"
+    l0_abstract: "Pivot Points Fibonacci regroupe le pivot central commun et les niveaux Fib R1/R2/S1/S2 comme un système prix complet."
+    l2_details: >
+      Les pivots Fibonacci sont une étude de niveaux horizontaux sur le prix.
+      Fib R1, Fib R2, Fib S1 et Fib S2 ne doivent pas être exposés comme
+      indicateurs principaux indépendants. En absence d'un champ backend
+      pivot_fib_standard, le catalogue réutilise pivot_standard comme pivot
+      central commun jusqu'à clarification du contrat backend.
+    alternatives_rejetees:
+      - nom: "Fib R1/R2/S1/S2 comme indicateurs principaux plats"
+        raison_rejet: "Ces sorties sont des niveaux enfants d'un système Pivot Points Fibonacci."
+      - nom: "Parent global Pivots activant standards et Fibonacci"
+        raison_rejet: "Standard et Fibonacci sont deux méthodes de calcul distinctes qui doivent rester activables séparément."
+      - nom: "Inventer pivot_fib_standard côté front"
+        raison_rejet: "Le front ne doit pas créer une sortie absente du backend; pivot_standard est seulement réutilisé explicitement comme centre commun."
+    ne_pas_reproposer: ["Pivots Fibonacci plats", "Parent global Pivots", "pivot_fib_standard simulé côté front"]
+  - id: "GHOST-INDICATOR-MA-CROSSES-001"
+    titre: "Moving average crosses are a lightweight event-signal parent"
+    date: "2026-05-06"
+    l0_abstract: "Golden Cross et Death Cross sont deux signaux opposés du même concept de croisement de moyennes, regroupés sous Croisements de moyennes."
+    l2_details: >
+      Golden Cross et Death Cross ne sont pas des courbes ni des panneaux
+      séparés; ce sont des événements à rendre comme marqueurs sur le panneau
+      prix. La convention backend exacte reste à confirmer, notamment si les
+      signaux correspondent au croisement SMA 50/SMA 200 ou à une autre paire
+      de moyennes.
+    alternatives_rejetees:
+      - nom: "Golden Cross et Death Cross comme indicateurs principaux totalement séparés"
+        raison_rejet: "Ils sont deux faces opposées du même concept métier de croisement de moyennes."
+      - nom: "Rendu en courbe continue"
+        raison_rejet: "Ce sont des événements ponctuels, pas des séries numériques continues."
+      - nom: "Parent global Croisements pour tous les futurs crosses"
+        raison_rejet: "MACD cross, Stochastic cross et prix/moyenne sont des familles différentes; le parent actuel doit rester limité aux moyennes."
+    ne_pas_reproposer: ["Golden/Death Cross plats", "Croisements en courbe", "Parent global tous croisements"]
+  - id: "GHOST-INDICATOR-PRICE-POSITION-001"
+    titre: "Price position conditions stay independent state signals"
+    date: "2026-05-06"
+    l0_abstract: "Les signaux Prix > SMA/EMA/VWAP sont des états booléens indépendants, pas un composite obligatoire."
+    l2_details: >
+      is_above_sma50, is_above_sma200, is_above_ema20 et is_above_vwap
+      répondent chacun à une condition différente de position du prix. Ils
+      doivent rester activables séparément. La présence d'un booléen permet un
+      badge ou marqueur d'état, mais ne garantit pas que la courbe source soit
+      traçable; pour VWAP notamment, il faut confirmer l'existence d'une série
+      vwap si l'on veut tracer la ligne.
+    alternatives_rejetees:
+      - nom: "Parent composite obligatoire Position du prix"
+        raison_rejet: "Les conditions ne sont pas les sorties d'une même étude graphique et l'utilisateur peut vouloir une condition isolée."
+      - nom: "Traiter is_above_* comme courbes continues"
+        raison_rejet: "Ce sont des états booléens ou signaux de légende, pas des séries de prix."
+      - nom: "Assimiler VWAP aux moyennes mobiles classiques"
+        raison_rejet: "VWAP exprime une position prix-volume/intraday différente des SMA/EMA."
+    ne_pas_reproposer: ["Parent Position prix obligatoire", "is_above comme courbe", "VWAP mélangé aux SMA/EMA sans nuance"]
+  - id: "GHOST-INDICATOR-EXTREMES-BREAKOUT-001"
+    titre: "Extremes and breakout signals are market events, not curves"
+    date: "2026-05-06"
+    l0_abstract: "Les signaux 52W, ATH/ATL et Breakout/Breakdown restent indépendants, regroupés seulement par familles métier."
+    l2_details: >
+      Les extrêmes 52 semaines, records historiques et cassures techniques ne
+      sont pas des indicateurs composites graphiques. Ils doivent se rendre en
+      marqueurs, badges ou alertes sur le panneau prix. Les familles métier
+      améliorent la lecture du catalogue, mais chaque signal reste contrôlable
+      individuellement; un parent global Extrêmes / Breakout qui active tout
+      serait trop large et non professionnel.
+    alternatives_rejetees:
+      - nom: "Parent composite unique Extrêmes / Breakout"
+        raison_rejet: "52W, ATH/ATL et cassures techniques ne décrivent pas une même étude multi-sorties."
+      - nom: "Rendu en lignes continues ou panneau séparé"
+        raison_rejet: "Ces champs expriment des états ou événements ponctuels, pas des séries numériques continues."
+      - nom: "Fusionner ATH/ATL avec 52W High/Low"
+        raison_rejet: "Les records historiques ont une portée métier plus forte que les extrêmes sur 52 semaines."
+    ne_pas_reproposer: ["Parent global Extrêmes / Breakout", "Extrêmes comme courbes", "ATH/ATL mélangés aux 52W"]
+  - id: "GHOST-INDICATOR-GAPS-BARS-001"
+    titre: "Gaps and bar structures are lightweight event-signal families"
+    date: "2026-05-06"
+    l0_abstract: "Gap Up/Down, streak counters et Inside/Outside Bar sont des signaux prix indépendants regroupés en familles légères."
+    l2_details: >
+      Gaps regroupe Gap Up, Gap Down et Gap %; Gap % est une métrique
+      d'amplitude à utiliser dans un tooltip, label ou badge, pas une courbe
+      principale. Les séquences directionnelles sont des compteurs d'état et
+      la structure de barres regroupe les patterns Inside Bar et Outside Bar.
+      Le rendu attendu est sur le panneau prix via marqueurs, annotations ou
+      badges discrets; pas de panneau séparé ni de ligne continue par défaut.
+    alternatives_rejetees:
+      - nom: "Parent composite global Gaps / Barres"
+        raison_rejet: "La section mélange événements de gap, compteurs de séquence et patterns de range; tout activer ensemble serait trop large."
+      - nom: "Gap % comme indicateur principal autonome"
+        raison_rejet: "Gap % qualifie l'amplitude d'un gap et doit accompagner Gap Up/Down plutôt que vivre comme une courbe isolée."
+      - nom: "Tracer les compteurs de jours comme lignes par défaut"
+        raison_rejet: "Ce sont des états ou métriques de légende; un panneau statistique serait un choix avancé, pas le rendu par défaut."
+    ne_pas_reproposer: ["Parent global Gaps/Barres", "Gap % courbe principale", "Streak counters en ligne par défaut"]
+  - id: "GHOST-INDICATOR-DOJI-001"
+    titre: "Doji variants are independent candlestick pattern markers"
+    date: "2026-05-06"
+    l0_abstract: "Doji, Dragonfly, Gravestone, Long-legged, Tristar et Rickshaw sont des patterns indépendants dans une famille d'indécision."
+    l2_details: >
+      La famille Doji organise des signaux de chandeliers proches, mais ne
+      constitue pas un indicateur composite graphique. Chaque variante porte
+      une signification de trading différente: indécision générale, rejet bas,
+      rejet haut, longues mèches, structure rare ou forte indécision. Le rendu
+      attendu est un marqueur discret sur le panneau prix avec tooltip ou
+      inspection de détail, pas une courbe ni une activation obligatoire de
+      toutes les variantes.
+    alternatives_rejetees:
+      - nom: "Doji comme parent composite obligatoire"
+        raison_rejet: "Les variantes Doji sont des patterns distincts; activer Doji classique ne doit pas afficher automatiquement Dragonfly, Gravestone, Tristar ou Rickshaw."
+      - nom: "Afficher beaucoup de texte directement sur les bougies"
+        raison_rejet: "Les patterns chandeliers doivent rester lisibles via marqueurs discrets et tooltip pour éviter de saturer le graphique."
+      - nom: "Traiter les Doji comme panneaux ou courbes"
+        raison_rejet: "Ce sont des événements de bougie sur le prix, pas des séries numériques continues."
+    ne_pas_reproposer: ["Doji composite obligatoire", "Doji en courbe", "Labels longs permanents sur toutes les bougies"]
+  - id: "GHOST-INDICATOR-SIMPLE-CANDLES-001"
+    titre: "Simple candlestick patterns stay independent market markers"
+    date: "2026-05-06"
+    l0_abstract: "Hammer, Hanging Man, Inverted Hammer, Shooting Star, Marubozu, Spinning Top et Takuri restent des patterns indépendants."
+    l2_details: >
+      La famille Bougies simples organise des signaux de chandeliers unitaires
+      par lecture métier: rejets bas, rejets hauts, bougies de force et
+      indécision. Elle ne doit pas devenir un composite obligatoire qui active
+      tous les patterns. Pour Hammer, Hanging Man, Inverted Hammer et Shooting
+      Star, l'interprétation dépend fortement du contexte de tendance; le
+      contrat backend doit préciser si les booléens détectent uniquement la
+      forme de bougie ou intègrent déjà ce contexte.
+    alternatives_rejetees:
+      - nom: "Parent composite obligatoire Bougie simple"
+        raison_rejet: "Les patterns ne sont pas les sorties d'une même étude graphique et l'utilisateur peut vouloir seulement les rejets, la force ou l'indécision."
+      - nom: "Fusionner Hammer et Hanging Man"
+        raison_rejet: "La forme est proche, mais l'interprétation dépend du contexte de tendance et doit rester séparée."
+      - nom: "Rendu en courbes ou panneau séparé"
+        raison_rejet: "Ces patterns sont des marqueurs de bougie sur le panneau prix."
+    ne_pas_reproposer: ["Bougie simple composite obligatoire", "Fusion Hammer/Hanging Man", "Patterns simples en courbe"]
 meta_patterns: []
 hypotheses: []
 adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL SIMPLE CANDLE PATTERNS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Bougie simple en Rejets bas, Rejets hauts, Bougies de force et Indécision."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Chaque pattern reste indépendant; aucun parent composite Bougie simple obligatoire n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-SIMPLE-CANDLES-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL DOJI PATTERNS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Doji en Doji classiques, Doji directionnels et Structure rare."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les variantes Doji restent des patterns indépendants; aucun parent composite Doji obligatoire n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-DOJI-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL GAPS BARS SIGNALS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Gaps / Barres en Gaps, Séquences directionnelles et Structure de barres."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Gap % est conservé comme métrique associée; aucun parent composite global Gaps / Barres n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-GAPS-BARS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL EXTREMES BREAKOUT SIGNALS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Extrêmes / Breakout en Niveaux 52 semaines, Records historiques et Cassures techniques."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les six signaux restent indépendants; aucun parent composite unique n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-EXTREMES-BREAKOUT-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL PRICE POSITION SIGNALS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Position prix en Tendance moyenne mobile pour Prix > SMA/EMA et Position intraday / volume pour Prix > VWAP."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les quatre signaux de position restent indépendants; aucun parent composite obligatoire n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-PRICE-POSITION-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL MOVING AVERAGE CROSSES"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Ajout de Croisements de moyennes comme parent signal léger regroupant Golden Cross et Death Cross."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les crosses sont documentés comme signaux événementiels à marqueurs prix, pas comme courbes ou panneau séparé; convention backend SMA 50/200 à confirmer."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-MA-CROSSES-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL FIBONACCI PIVOTS COMPOSITE"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Ajout de Pivot Points Fibonacci comme parent composite regroupant Pivot central, Fib R1/R2 et Fib S1/S2."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les niveaux Fibonacci ne sont plus des entrées principales plates; pivot_standard sert de centre commun tant que le backend n'expose pas de pivot Fibonacci dédié."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-FIB-PIVOTS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL STANDARD PIVOTS COMPOSITE"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Ajout de Pivot Points Standard comme parent composite regroupant Pivot, R1-R3 et S1-S3."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les niveaux standards ne sont plus des entrées principales plates; la période de calcul backend reste à confirmer."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-PIVOTS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL FORCE MOVEMENT SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Force / Mouvement en Force du mouvement pour Force Index 13/Elder Force et Facilité du mouvement pour EOM 14."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Aucun parent composite n'est créé; force_index_13, elder_force_index et eom_14 restent indépendants jusqu'à confirmation backend."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-FORCE-MOVE-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL VOLUME OSCILLATORS KLINGER"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation d'Oscillateurs volume en Flux accumulation / distribution, Variation du volume et Klinger Volume Oscillator."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Klinger Oscillator devient le seul parent composite de cette zone; Chaikin Oscillator, Volume Oscillator et VROC 14 restent indépendants."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-VOLUME-OSC-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL ACCUMULATION SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Remplacement de la sous-section Accumulation par trois sous-familles: Flux cumulatifs, Pression volume-prix et Indices de volume."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "OBV, A/D Line, CMF 20, NVI et PVI restent des indicateurs autonomes; aucun parent Accumulation ni composite NVI/PVI obligatoire n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-ACCUMULATION-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL RISK METRICS SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Remplacement de la sous-section Risque par trois sous-familles indépendantes: Dispersion du prix, Expansion de volatilité et Risque de drawdown."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Std Dev 20, Chaikin Volatility et Ulcer Index restent des indicateurs autonomes; aucun parent Risque global ni enfant Bollinger n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-RISK-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL PRICE CHANNELS COMPOSITES"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Renommage de la section Volatilité/Canaux en Canaux de prix et présentation Donchian/Keltner comme parents composites."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Donchian regroupe Upper/Middle/Lower; Keltner regroupe Upper/Lower et marque Middle comme sortie backend recommandée mais absente."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée validés."
+      scribe_delta: "GHOST-INDICATOR-CHANNELS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL TREND AVANCE KST LINREG"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Trend avancé en Oscillateurs de tendance, KST — Know Sure Thing et Régression linéaire."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "KST devient un parent composite fort KST + Signal; Linear Regression devient un parent léger Value + Slope; TRIX, STC et Mass Index restent indépendants."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass prévues après patch; yamllint dépend de la disponibilité locale."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL SUPERTREND VORTEX SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Supertrend / Vortex en Overlay de tendance pour Supertrend et Oscillateur directionnel pour Vortex."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Supertrend est un parent léger ligne + signal de régime sur le prix; Vortex est un parent composite fort VI+/VI- en panneau séparé."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL AROON PARTIAL COMPOSITE"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Transformation d'Aroon en composite partiel: Aroon Up et Aroon Down sous le parent Aroon, avec Aroon Oscillator séparé en indicateur indépendant."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Aroon Oscillator n'est pas activé avec le parent Aroon afin d'éviter le mélange des échelles 0-100 et -100/+100."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL MACD DERIVED OSCILLATORS SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de la zone MACD en Convergence / Divergence pour le parent MACD composite et Oscillateurs dérivés pour PPO/APO indépendants."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "MACD active uniquement line/signal/histogram; PPO et APO restent autonomes et ne sont pas inclus dans le parent MACD."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL ADVANCED SIGNAL COMPOSITES"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Regroupement de Signal avancé en parents composites RVI, Fisher Transform et Elder Bull/Bear Power, avec Coppock Curve conservé comme indicateur indépendant."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "RVI Signal, Fisher Signal et Elder Bear/Bull ne sont plus présentés comme indicateurs principaux plats; ils restent des sorties enfants de leur étude graphique."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée du modal Indicateurs."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL ADVANCED OSCILLATORS TSI COMPOSITE"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Réorganisation des Oscillateurs avancés en Momentum pur, Cycle / Detrending, Force + signal et Bill Williams."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "TSI est le seul parent composite de cette zone; CMO, DPO, Ultimate Osc, Awesome Osc, AC Osc et DYMI restent indépendants."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL ROC MOMENTUM VISUAL SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de la section ROC / Momentum en Oscillateur borné, Variation en pourcentage et Momentum brut afin de refléter les échelles de lecture distinctes."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Williams %R, ROC 10/20 et Momentum 10/20 restent indépendants; aucun parent composite ou activation globale n'a été introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-PRESETS-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL CCI MFI VISUAL SPLIT"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de la section CCI / MFI en Momentum prix pour CCI 14/20 et Momentum prix + volume pour MFI 14 afin d'éviter un groupe hybride ambigu."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "CCI et MFI restent indépendants; CCI est non borné avec niveaux -100/0/+100, MFI est borné 0-100 avec niveaux 20/50/80."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-PRESETS-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL STOCHASTIC COMPOSITE PARENTS"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Ajout de Stochastic RSI comme parent composite distinct dans le modal Indicateurs, séparé du parent Stochastic classique."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Stochastic regroupe stoch_k/stoch_d; Stochastic RSI regroupe stoch_rsi_k/stoch_rsi_d, sans présenter les quatre sorties comme indicateurs plats équivalents."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée du modal Indicateurs."
+      scribe_delta: "GHOST-INDICATOR-COMPOSITES-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATOR CATALOG RSI PRESETS DECISION"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "ARCHITECTURE"
+          description: "Décision produit: RSI 9, RSI 14 et RSI 25 sont des presets de période indépendants, pas les enfants d'un indicateur parent composite."
+        - statut: "DONE"
+          type: "UI"
+          description: "Clarification des libellés du modal Indicateurs: RSI 9 court terme, RSI 14 standard, RSI 25 lissé / long terme."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée du modal Indicateurs."
+      scribe_delta: "GHOST-INDICATOR-PRESETS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL ADVANCED SMOOTHING INLINE"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI"
+          description: "Correction du groupe Lissage avancé: suppression du regroupement par préfixe afin que ALMA 20 et SMMA 20 s'affichent côte à côte en grille responsive plutôt qu'empilés inutilement."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée du modal Indicateurs."
+      scribe_delta: "Aucun nouveau ghost — précision UX sur GHOST-INDICATOR-VARIANTS-001"
+    - date: "2026-05-06"
+      titre: "INDICATORS MODAL ADVANCED MOVING AVERAGES GROUPING"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Remplacement du bloc générique Adaptive par des sous-sections métier pour les moyennes mobiles avancées: Réduction du retard, Lissage avancé, Adaptative et Pondérée volume."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Chaque item HMA/VWMA/ALMA/KAMA/ZLEMA/SMMA reste indépendant et aucun parent composite ou activation globale n'a été introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Validation ESLint ciblée et compilation Sass; warnings Sass legacy existants uniquement."
+      scribe_delta: "GHOST-INDICATOR-VARIANTS-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATOR CATALOG MOVING AVERAGE VARIANTS DECISION"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "ARCHITECTURE"
+          description: "Décision produit: WMA, DEMA et TEMA sont des variantes de moyennes mobiles avancées mono-courbe, pas un indicateur parent composite."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "La section WMA / DEMA / TEMA reste un groupe visuel; chaque item wma_*, dema_* ou tema_* s'active seul en overlay prix."
+      scribe_delta: "GHOST-INDICATOR-VARIANTS-001"
+    - date: "2026-05-06"
+      titre: "INDICATOR CATALOG EMA DISTANCE METRICS DECISION"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "ARCHITECTURE"
+          description: "Extension de la décision métriques dérivées à Prix vs EMA: chaque champ price_vs_ema*_pct reste indépendant et ne doit pas former un parent activant toutes les périodes."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "L'activation d'une métrique Prix / EMA n'impose ni les autres périodes EMA, ni l'affichage automatique de l'EMA source sur le graphique."
+      scribe_delta: "GHOST-INDICATOR-METRICS-001 reinforced"
+    - date: "2026-05-06"
+      titre: "INDICATOR CATALOG DERIVED METRICS DECISION"
+      llm: "Codex GPT-5"
+      session_numero: 20
+      taches_effectuees:
+        - statut: "DONE"
+          type: "ARCHITECTURE"
+          description: "Décision produit: les métriques dérivées de distance prix/moyenne mobile restent des indicateurs indépendants par période, et ne doivent pas être regroupées comme parents composites."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Prix vs SMA doit rester une section visuelle; chaque item price_vs_sma*_pct s'active seul et se rend idéalement en pourcentage hors axe prix."
+      scribe_delta: "GHOST-INDICATOR-METRICS-001"
     - date: "2026-05-06"
       titre: "INDICATORS MODAL LEFT GRADIENT REMOVAL"
       llm: "Codex GPT-5"

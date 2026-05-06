@@ -2067,43 +2067,95 @@
   &[data-family="rsi"] { --indicator-family-accent: #22c55e; }
   &[data-family="stochastic"] { --indicator-family-accent: #38bdf8; }
   &[data-family="cci-mfi"] { --indicator-family-accent: #f59e0b; }
+  &[data-family="momentum-prix"] { --indicator-family-accent: #f59e0b; }
+  &[data-family="momentum-prix-volume"] { --indicator-family-accent: #10b981; }
   &[data-family="momentum"] { --indicator-family-accent: #ec4899; }
+  &[data-family="oscillateur-borne"] { --indicator-family-accent: #f43f5e; }
+  &[data-family="variation-en-pourcentage"] { --indicator-family-accent: #38bdf8; }
+  &[data-family="momentum-brut"] { --indicator-family-accent: #ec4899; }
   &[data-family="prix-vs-sma"] { --indicator-family-accent: #45c3a1; }
   &[data-family="prix-vs-ema"] { --indicator-family-accent: #e91e63; }
   &[data-family="wma-dema-tema"] { --indicator-family-accent: #a78bfa; }
   &[data-family="adaptive"] { --indicator-family-accent: #14b8a6; }
+  &[data-family="reduction-du-retard"] { --indicator-family-accent: #38bdf8; }
+  &[data-family="lissage-avance"] { --indicator-family-accent: #a78bfa; }
+  &[data-family="adaptative"] { --indicator-family-accent: #14b8a6; }
+  &[data-family="ponderee-volume"] { --indicator-family-accent: #f59e0b; }
   &[data-family="roc-momentum"] { --indicator-family-accent: #ec4899; }
   &[data-family="oscillateurs-avances"] { --indicator-family-accent: #fb7185; }
+  &[data-family="momentum-pur"] { --indicator-family-accent: #fb7185; }
+  &[data-family="cycle-detrending"] { --indicator-family-accent: #06b6d4; }
+  &[data-family="force-signal"] { --indicator-family-accent: #818cf8; }
+  &[data-family="bill-williams"] { --indicator-family-accent: #f59e0b; }
   &[data-family="signal-avance"] { --indicator-family-accent: #f97316; }
   &[data-family="macd"] { --indicator-family-accent: #60a5fa; }
+  &[data-family="convergence-divergence"] { --indicator-family-accent: #60a5fa; }
+  &[data-family="oscillateurs-derives"] { --indicator-family-accent: #38bdf8; }
   &[data-family="parabolic-sar"] { --indicator-family-accent: #facc15; }
   &[data-family="adx-directional"] { --indicator-family-accent: #a78bfa; }
   &[data-family="aroon"] { --indicator-family-accent: #14b8a6; }
+  &[data-family="aroon-detection-de-tendance"] { --indicator-family-accent: #14b8a6; }
+  &[data-family="aroon-oscillator"] { --indicator-family-accent: #38bdf8; }
   &[data-family="suivi"] { --indicator-family-accent: #fb7185; }
   &[data-family="supertrend-vortex"] { --indicator-family-accent: #22c55e; }
+  &[data-family="overlay-de-tendance"] { --indicator-family-accent: #22c55e; }
+  &[data-family="oscillateur-directionnel"] { --indicator-family-accent: #38bdf8; }
   &[data-family="trend-avance"] { --indicator-family-accent: #818cf8; }
+  &[data-family="oscillateurs-de-tendance"] { --indicator-family-accent: #818cf8; }
+  &[data-family="kst-know-sure-thing"] { --indicator-family-accent: #60a5fa; }
+  &[data-family="regression-lineaire"] { --indicator-family-accent: #14b8a6; }
   &[data-family="bollinger"] { --indicator-family-accent: #facc15; }
   &[data-family="atr"] { --indicator-family-accent: #f97316; }
   &[data-family="canaux"] { --indicator-family-accent: #06b6d4; }
+  &[data-family="canaux-de-prix"] { --indicator-family-accent: #06b6d4; }
   &[data-family="dispersion"] { --indicator-family-accent: #94a3b8; }
+  &[data-family="dispersion-du-prix"] { --indicator-family-accent: #94a3b8; }
   &[data-family="historical-volatility"] { --indicator-family-accent: #c084fc; }
+  &[data-family="expansion-de-volatilite"] { --indicator-family-accent: #c084fc; }
   &[data-family="risque"] { --indicator-family-accent: #ef4444; }
+  &[data-family="risque-de-drawdown"] { --indicator-family-accent: #ef4444; }
   &[data-family="accumulation"] { --indicator-family-accent: #10b981; }
+  &[data-family="flux-cumulatifs"] { --indicator-family-accent: #10b981; }
+  &[data-family="pression-volume-prix"] { --indicator-family-accent: #22c55e; }
+  &[data-family="indices-de-volume"] { --indicator-family-accent: #14b8a6; }
   &[data-family="oscillateurs-volume"] { --indicator-family-accent: #8b5cf6; }
+  &[data-family="flux-accumulation-distribution"] { --indicator-family-accent: #10b981; }
+  &[data-family="variation-du-volume"] { --indicator-family-accent: #8b5cf6; }
+  &[data-family="klinger-volume-oscillator"] { --indicator-family-accent: #38bdf8; }
   &[data-family="force-mouvement"] { --indicator-family-accent: #ef4444; }
+  &[data-family="force-du-mouvement"] { --indicator-family-accent: #ef4444; }
+  &[data-family="facilite-du-mouvement"] { --indicator-family-accent: #f97316; }
   &[data-family="volume-profile"] { --indicator-family-accent: #38bdf8; }
   &[data-family="ichimoku"] { --indicator-family-accent: #eab308; }
   &[data-family="pivots"] { --indicator-family-accent: #0ea5e9; }
   &[data-family="pivots-standards"] { --indicator-family-accent: #0ea5e9; }
+  &[data-family="pivot-points-standard"] { --indicator-family-accent: #0ea5e9; }
   &[data-family="pivots-fibonacci"] { --indicator-family-accent: #22d3ee; }
+  &[data-family="pivot-points-fibonacci"] { --indicator-family-accent: #22d3ee; }
   &[data-family="signaux"] { --indicator-family-accent: #22c55e; }
   &[data-family="croisements"] { --indicator-family-accent: #22c55e; }
+  &[data-family="croisements-de-moyennes"] { --indicator-family-accent: #22c55e; }
   &[data-family="position-prix"] { --indicator-family-accent: #84cc16; }
+  &[data-family="tendance-moyenne-mobile"] { --indicator-family-accent: #84cc16; }
+  &[data-family="position-intraday-volume"] { --indicator-family-accent: #14b8a6; }
   &[data-family="extremes-breakout"] { --indicator-family-accent: #f97316; }
+  &[data-family="niveaux-52-semaines"] { --indicator-family-accent: #f97316; }
+  &[data-family="records-historiques"] { --indicator-family-accent: #eab308; }
+  &[data-family="cassures-techniques"] { --indicator-family-accent: #ef4444; }
   &[data-family="gaps-barres"] { --indicator-family-accent: #f43f5e; }
+  &[data-family="gaps"] { --indicator-family-accent: #f43f5e; }
+  &[data-family="sequences-directionnelles"] { --indicator-family-accent: #22c55e; }
+  &[data-family="structure-de-barres"] { --indicator-family-accent: #38bdf8; }
   &[data-family="patterns"] { --indicator-family-accent: #f472b6; }
   &[data-family="doji"] { --indicator-family-accent: #94a3b8; }
+  &[data-family="doji-classiques"] { --indicator-family-accent: #94a3b8; }
+  &[data-family="doji-directionnels"] { --indicator-family-accent: #f59e0b; }
+  &[data-family="structure-rare"] { --indicator-family-accent: #a78bfa; }
   &[data-family="bougie-simple"] { --indicator-family-accent: #f59e0b; }
+  &[data-family="rejets-bas"] { --indicator-family-accent: #22c55e; }
+  &[data-family="rejets-hauts"] { --indicator-family-accent: #ef4444; }
+  &[data-family="bougies-de-force"] { --indicator-family-accent: #f59e0b; }
+  &[data-family="indecision"] { --indicator-family-accent: #94a3b8; }
   &[data-family="deux-bougies"] { --indicator-family-accent: #38bdf8; }
   &[data-family="trois-bougies"] { --indicator-family-accent: #a78bfa; }
   &[data-family="patterns-avances"] { --indicator-family-accent: #f472b6; }
@@ -2253,6 +2305,19 @@
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &.is-missing {
+    border-color: rgba(255,159,4,.22);
+    background: rgba(255,159,4,.07);
+
+    span {
+      color: #ffd08a;
+    }
+
+    small {
+      color: rgba(255,208,138,.78);
+    }
   }
 }
 
