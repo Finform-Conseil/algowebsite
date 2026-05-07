@@ -436,12 +436,116 @@ ghosts:
       - nom: "Rendu en courbes ou panneau séparé"
         raison_rejet: "Ces patterns sont des marqueurs de bougie sur le panneau prix."
     ne_pas_reproposer: ["Bougie simple composite obligatoire", "Fusion Hammer/Hanging Man", "Patterns simples en courbe"]
+  - id: "GHOST-INDICATOR-TWO-CANDLE-PATTERNS-001"
+    titre: "Two-candle patterns are independent marker families"
+    date: "2026-05-07"
+    l0_abstract: "Les patterns à deux bougies restent indépendants, regroupés par logique métier sans parent composite obligatoire."
+    l2_details: >
+      Engulfing, Harami, Tweezer, Piercing/Dark Cloud, Tasuki, Separating,
+      Thrusting et Counterattack sont des signaux de chandeliers détectés sur
+      deux bougies. Ils ne sont pas les sorties d'une même étude graphique.
+      Les sous-familles améliorent la navigation et le filtrage, mais le rendu
+      attendu reste un marqueur discret sur le panneau prix avec tooltip ou
+      légende; activer toute la famille Deux bougies par défaut saturerait le
+      graphique.
+    alternatives_rejetees:
+      - nom: "Parent composite obligatoire Deux bougies"
+        raison_rejet: "La section mélange plusieurs logiques de trading indépendantes: engloutissement, harami, rejets, retournements et continuation."
+      - nom: "Liste plate de douze patterns"
+        raison_rejet: "La liste plate masque la logique métier et rend la sélection plus lente pour le trader."
+      - nom: "Rendu en lignes ou panneau séparé"
+        raison_rejet: "Ces patterns sont des événements de bougie sur le prix, pas des séries numériques continues."
+    ne_pas_reproposer: ["Deux bougies composite obligatoire", "Deux bougies liste plate", "Patterns deux bougies en courbe"]
+  - id: "GHOST-INDICATOR-THREE-CANDLE-PATTERNS-001"
+    titre: "Three-candle patterns stay independent marker families"
+    date: "2026-05-07"
+    l0_abstract: "Les patterns à trois bougies restent indépendants, regroupés en étoiles, impulsions, Three Inside et patterns rares."
+    l2_details: >
+      Morning Star, Evening Star, Three White Soldiers, Three Black Crows,
+      Three Inside Up/Down, Unique Three River et Upside Gap Two Crows sont
+      des structures de chandeliers indépendantes. Les familles rendent la
+      lecture trader plus nette, mais aucun parent composite obligatoire ne
+      doit activer tous les patterns Trois bougies. Comme pour les autres
+      chandeliers, le rendu attendu est un marqueur prix discret avec tooltip,
+      pas une courbe ni un panneau séparé.
+    alternatives_rejetees:
+      - nom: "Parent composite obligatoire Trois bougies"
+        raison_rejet: "Les patterns couvrent des logiques différentes: retournement, impulsion, confirmation après Harami et structures rares."
+      - nom: "Liste plate de huit patterns"
+        raison_rejet: "La liste plate cache les intentions de trading et rend le filtrage plus lent."
+      - nom: "Rendu en lignes ou panneau séparé"
+        raison_rejet: "Ces patterns sont des marqueurs de chandeliers sur le panneau prix."
+    ne_pas_reproposer: ["Trois bougies composite obligatoire", "Trois bougies liste plate", "Patterns trois bougies en courbe"]
+  - id: "GHOST-INDICATOR-ADVANCED-CANDLE-PATTERNS-001"
+    titre: "Advanced candlestick patterns are independent rare-event markers"
+    date: "2026-05-07"
+    l0_abstract: "Les patterns chandeliers avancés restent des signaux indépendants, regroupés par retournement, continuation, gap/structure et rareté."
+    l2_details: >
+      Kicker, Abandoned Baby, Belt Hold, Breakaway, Three Methods, Mat Hold,
+      Hikkake, Concealing Baby Swallow, Ladder Bottom et Stick Sandwich ne
+      forment pas une étude composite unique. Les paires Bull/Bear sont
+      seulement des familles directionnelles légères. Comme ces signaux sont
+      rares, complexes et parfois contradictoires, une activation globale de
+      Patterns avancés créerait du bruit visuel et affaiblirait l'analyse.
+    alternatives_rejetees:
+      - nom: "Parent composite obligatoire Patterns avancés"
+        raison_rejet: "La section regroupe des patterns hétérogènes de retournement, continuation, gap et structures rares."
+      - nom: "Liste plate des patterns avancés"
+        raison_rejet: "La liste plate masque la nature du signal et ralentit le filtrage par intention de trading."
+      - nom: "Rendu permanent avec longs labels texte"
+        raison_rejet: "Ces signaux doivent rester des marqueurs discrets avec tooltip ou inspection de détail pour éviter la surcharge graphique."
+    ne_pas_reproposer: ["Patterns avancés composite obligatoire", "Patterns avancés liste plate", "Labels longs permanents"]
 meta_patterns: []
 hypotheses: []
 adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-07"
+      titre: "INDICATORS MODAL ADVANCED CANDLE PATTERNS"
+      llm: "Codex GPT-5"
+      session_numero: 21
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Patterns avancés en Retournements directionnels, Continuation, Gap / structure avancée et Retournements rares."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les patterns avancés restent indépendants; aucun parent composite global Patterns avancés n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-ADVANCED-CANDLE-PATTERNS-001"
+    - date: "2026-05-07"
+      titre: "INDICATORS MODAL THREE-CANDLE PATTERNS"
+      llm: "Codex GPT-5"
+      session_numero: 21
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Trois bougies en Retournements en étoile, Impulsion directionnelle, Three Inside et Patterns rares avancés."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les huit patterns restent indépendants; aucun parent composite Trois bougies obligatoire n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-THREE-CANDLE-PATTERNS-001"
+    - date: "2026-05-07"
+      titre: "INDICATORS MODAL TWO-CANDLE PATTERNS"
+      llm: "Codex GPT-5"
+      session_numero: 21
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Séparation de Deux bougies en Engulfing, Harami, Tweezer, Retournements classiques, Continuation / gap et Confrontation acheteurs vendeurs."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Les douze patterns restent indépendants; aucun parent composite Deux bougies obligatoire n'est introduit."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "ESLint ciblé IndicatorsModal et compilation Sass ciblée exécutés après patch; yamllint indisponible localement."
+      scribe_delta: "GHOST-INDICATOR-TWO-CANDLE-PATTERNS-001"
     - date: "2026-05-06"
       titre: "INDICATORS MODAL SIMPLE CANDLE PATTERNS"
       llm: "Codex GPT-5"
