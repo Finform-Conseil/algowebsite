@@ -77,6 +77,9 @@ scars:
     resolution: "Import global de `bootstrap/dist/css/bootstrap.min.css` dans `layout.tsx` AVANT l'import de `globals.scss`. L'ordre garantit que le Reboot de Bootstrap est neutralisé par le reset SCSS du projet (préservant le reste du site), tout en rendant les classes utilitaires Bootstrap disponibles pour les modaux."
     test_binding: "Ouvrir un modal (ex: Recherche Symbole ou Plus d'Options) et vérifier que les boutons, formulaires et grilles sont stylés (bordures, espacements, typographie)."
 vaccins:
+  - id: "VAC-INDICATOR-COUNT-001"
+    description: "Le catalogue Indicateurs ne doit jamais perdre une sortie backend indépendante lors d'un regroupement UX."
+    pattern: "Avant de supprimer une entrée du modal, prouver qu'elle est absente du backend ou remplacée par un parent activable équivalent; sinon préserver le total unique attendu."
   - id: "VAC-ECHARTS-001"
     description: "Interdiction de déclarer `EChartsInstance = any` dans les stratégies et renderers."
     pattern: "Importer `type { ECharts } from \"echarts\"` puis utiliser `type EChartsInstance = ECharts` ou typer directement les signatures."
@@ -501,6 +504,36 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-07"
+      titre: "INDICATORS MODAL MOVING AVERAGE TREND RELOCATION"
+      llm: "Codex GPT-5"
+      session_numero: 22
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UX"
+          description: "Déplacement des signaux de tendance prix/moyennes vers la zone Moyennes Mobiles pour respecter le modèle mental utilisateur."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Le déplacement préserve le total de 216 indicateurs uniques; aucune sortie backend indépendante n'est supprimée."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compteur unique vérifié à 216 et ESLint ciblé IndicatorsModal exécuté sans erreur."
+      scribe_delta: "VAC-INDICATOR-COUNT-001 (REINFORCED)"
+    - date: "2026-05-07"
+      titre: "INDICATORS MODAL COUNT REGRESSION FIX"
+      llm: "Codex GPT-5"
+      session_numero: 22
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Restauration immédiate du total attendu de 216 indicateurs uniques après retrait accidentel de signaux indépendants de tendance moyenne mobile."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "Ajout d'un vaccin: un regroupement UX ne peut pas supprimer une sortie backend indépendante sans preuve de remplacement équivalent."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compteur unique vérifié à 216; diff code nul après restauration exacte de l'état versionné."
+      scribe_delta: "VAC-INDICATOR-COUNT-001"
     - date: "2026-05-07"
       titre: "INDICATORS MODAL ADVANCED CANDLE PATTERNS"
       llm: "Codex GPT-5"

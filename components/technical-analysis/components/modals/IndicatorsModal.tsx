@@ -241,6 +241,12 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     { key: "ema_200", period: 200, label: "EMA 200", color: "#22c55e" },
   ];
 
+  const movingAverageTrendIndicators: BackendIndicatorItem[] = [
+    { key: "is_above_sma50", name: "Prix > SMA 50", desc: "État au-dessus SMA 50" },
+    { key: "is_above_sma200", name: "Prix > SMA 200", desc: "État au-dessus SMA 200" },
+    { key: "is_above_ema20", name: "Prix > EMA 20", desc: "État au-dessus EMA 20" },
+  ];
+
   const backendIndicatorGroups: BackendIndicatorGroup[] = [
     {
       title: "Moyennes & Comparaisons",
@@ -689,15 +695,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           ],
         },
         {
-          title: "Tendance moyenne mobile",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "is_above_sma50", name: "Prix > SMA 50", desc: "État au-dessus SMA 50" },
-            { key: "is_above_sma200", name: "Prix > SMA 200", desc: "État au-dessus SMA 200" },
-            { key: "is_above_ema20", name: "Prix > EMA 20", desc: "État au-dessus EMA 20" },
-          ],
-        },
-        {
           title: "Position intraday / volume",
           items: [
             { key: "is_above_vwap", name: "Prix > VWAP", desc: "État au-dessus VWAP" },
@@ -947,6 +944,17 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   const filteredEmaIndicators = emaIndicators.filter(({ key, period, label }) =>
     matchesIndicatorSearch(key, period, label, "ema", "exponential moving average", "moyenne mobile exponentielle")
   );
+  const filteredMovingAverageTrendIndicators = movingAverageTrendIndicators.filter((item) =>
+    matchesIndicatorSearch(
+      item.key,
+      item.name,
+      item.desc,
+      "tendance moyenne mobile",
+      "prix au-dessus moyenne mobile",
+      "sma",
+      "ema"
+    )
+  );
   const filteredBackendIndicatorGroups = backendIndicatorGroups
     .map((group) => {
       const groupMatches = matchesIndicatorSearch(group.title, group.subtitle);
@@ -966,7 +974,8 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       return { ...group, sections };
     })
     .filter((group) => group.sections.length > 0);
-  const visibleMovingAverageCount = filteredSmaIndicators.length + filteredEmaIndicators.length;
+  const visibleMovingAverageCount =
+    filteredSmaIndicators.length + filteredEmaIndicators.length + filteredMovingAverageTrendIndicators.length;
   const visibleBackendIndicatorCount = filteredBackendIndicatorGroups.reduce(
     (groupTotal, group) =>
       groupTotal + group.sections.reduce((sectionTotal, section) => sectionTotal + section.items.length, 0),
@@ -1342,6 +1351,18 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                   {filteredEmaIndicators.map(({ key, period, label, color }) => (
                     <React.Fragment key={key}>{renderMACard("ema", period, label, color)}</React.Fragment>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {filteredMovingAverageTrendIndicators.length > 0 && (
+              <div className="gp-ma-group gp-ma-group-trend">
+                <div className="gp-ma-group-header">
+                  <span className="gp-ma-group-kicker">Tendance moyenne mobile</span>
+                  <strong>Prix vs Moyennes</strong>
+                </div>
+                <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0">
+                  {filteredMovingAverageTrendIndicators.map(renderIndicatorCard)}
                 </div>
               </div>
             )}
