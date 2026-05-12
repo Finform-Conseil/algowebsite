@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { BaseModal } from "../common/BaseModal";
+
+type IndicatorTemplateType = "day" | "swing" | "scalping" | "long";
 
 interface IndicatorTemplatesModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onApplyTemplate: (type: "day" | "swing" | "scalping" | "long") => void;
+    onApplyTemplate: (type: IndicatorTemplateType) => void;
 }
 
 export const IndicatorTemplatesModal: React.FC<IndicatorTemplatesModalProps> = ({
@@ -12,6 +14,17 @@ export const IndicatorTemplatesModal: React.FC<IndicatorTemplatesModalProps> = (
     onClose,
     onApplyTemplate,
 }) => {
+    const [optimisticTemplate, setOptimisticTemplate] = useState<IndicatorTemplateType | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) setOptimisticTemplate(null);
+    }, [isOpen]);
+
+    const handleApplyTemplate = useCallback((type: IndicatorTemplateType) => {
+        setOptimisticTemplate(type);
+        setTimeout(() => onApplyTemplate(type), 0);
+    }, [onApplyTemplate]);
+
     if (!isOpen) return null;
 
     const templates = [
@@ -56,24 +69,32 @@ export const IndicatorTemplatesModal: React.FC<IndicatorTemplatesModalProps> = (
                     différents styles de trading.
                 </p>
                 <div className="row g-3">
-                    {templates.map((tpl) => (
+                    {templates.map((tpl) => {
+                        const isApplying = optimisticTemplate === tpl.id;
+                        return (
                         <div className="col-md-6" key={tpl.id}>
                             <div
-                                className="card bg-dark border-secondary h-100"
-                                style={{ cursor: "pointer", backgroundColor: "rgba(255,255,255,0.05)" }}
-                                onClick={() => onApplyTemplate(tpl.id)}
+                                className={`card bg-dark h-100 ${isApplying ? "border-warning" : "border-secondary"}`}
+                                style={{
+                                    cursor: "pointer",
+                                    backgroundColor: isApplying ? "rgba(255,159,4,0.14)" : "rgba(255,255,255,0.05)",
+                                    boxShadow: isApplying ? "0 0 0 2px rgba(255,159,4,0.2)" : "none",
+                                    transition: "background-color 120ms ease, box-shadow 120ms ease",
+                                }}
+                                onClick={() => handleApplyTemplate(tpl.id)}
                             >
                                 <div className="card-body">
                                     <h6 className="card-title text-white d-flex align-items-center">
                                         {tpl.icon} {tpl.title}
                                     </h6>
                                     <p className="card-text text-secondary small">
-                                        {tpl.description}
+                                        {isApplying ? "Application..." : tpl.description}
                                     </p>
                                 </div>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </BaseModal>

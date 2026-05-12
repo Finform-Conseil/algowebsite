@@ -11,8 +11,11 @@
  *
  * [TENOR 2026 FIX] SCAR-192 : Eradication des appels natifs bloquants (prompt, confirm, alert).
  * Remplacement par une UI inline fluide et non-bloquante (Premium UI).
+ * 
+ * [TENOR 2026 FIX] SCAR-PERF-05 : DataWindow DOM Anchors
+ * Injection des IDs statiques (dw-open, dw-close, etc.) pour permettre au hook
+ * useObjectTreePanel de muter le DOM en O(1) à 60FPS sans re-render React.
  */
-
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import type { Drawing, ObjectTreePanelTab, DataWindowCandleValues } from "../../config/TechnicalAnalysisTypes";
 
@@ -227,6 +230,7 @@ const DrawingRow: React.FC<DrawingRowProps> = ({
       >
         <i className={`bi ${drawing.hidden ? "bi-eye-slash" : "bi-eye"}`} />
       </button>
+
       <button
         id={`obj-tree-lock-${drawing.id}`}
         type="button"
@@ -240,6 +244,7 @@ const DrawingRow: React.FC<DrawingRowProps> = ({
       >
         <i className={`bi ${drawing.locked ? "bi-lock-fill" : "bi-unlock"}`} />
       </button>
+
       <button
         id={`obj-tree-del-${drawing.id}`}
         type="button"
@@ -290,13 +295,7 @@ const toolbarIconBtnStyle: React.CSSProperties = {
   borderRadius: "4px"
 };
 
-const IconButton: React.FC<{
-  icon: string,
-  title: string,
-  style?: React.CSSProperties,
-  onClick?: () => void,
-  active?: boolean
-}> = ({ icon, title, style, onClick, active }) => {
+const IconButton: React.FC<{ icon: string, title: string, style?: React.CSSProperties, onClick?: () => void, active?: boolean }> = ({ icon, title, style, onClick, active }) => {
   const [isHovered, setIsHovered] = React.useState(false);
   return (
     <button
@@ -334,15 +333,9 @@ const DataWindowTab: React.FC<{ data: DataWindowCandleValues | null }> = ({ data
 
   const valueColor = data.isUp ? TV.bullColor : TV.bearColor;
 
-  const rows: { label: string; value: string; color?: string }[] = [
-    { label: "Open", value: fmtPrice(data.open), color: valueColor },
-    { label: "High", value: fmtPrice(data.high), color: valueColor },
-    { label: "Low", value: fmtPrice(data.low), color: valueColor },
-    { label: "Close", value: fmtPrice(data.close), color: valueColor },
-    { label: "Change", value: `${data.change >= 0 ? "+" : ""}${fmtPrice(data.change)}`, color: valueColor },
-    { label: "Volume", value: fmtVol(data.volume) },
-  ];
-
+  // [TENOR 2026 FIX] SCAR-PERF-05: DOM Anchors Injected
+  // The map() loop is unrolled to inject static IDs (dw-open, dw-close, etc.)
+  // This allows useObjectTreePanel to mutate the DOM directly at 60FPS.
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Date header */}
@@ -350,7 +343,7 @@ const DataWindowTab: React.FC<{ data: DataWindowCandleValues | null }> = ({ data
         <span style={{ fontSize: 11, fontWeight: 600, color: TV.labelColor, textTransform: "uppercase", letterSpacing: "0.04em" }}>
           Date
         </span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: TV.tabText, float: "right" }}>
+        <span id="dw-date" style={{ fontSize: 12, fontWeight: 700, color: TV.tabText, float: "right" }}>
           {data.date}
         </span>
       </div>
@@ -363,24 +356,36 @@ const DataWindowTab: React.FC<{ data: DataWindowCandleValues | null }> = ({ data
         <span style={{ fontSize: 12, fontWeight: 700, color: TV.tabText }}>OHLCV</span>
       </div>
 
-      {/* OHLCV rows */}
-      {rows.map((row) => (
-        <div
-          key={row.label}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "5px 14px",
-            borderBottom: TV.divider,
-          }}
-        >
-          <span style={{ fontSize: 12, color: TV.labelColor }}>{row.label}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: row.color ?? TV.valueColor }}>
-            {row.value}
-          </span>
-        </div>
-      ))}
+      {/* OHLCV rows with Static IDs */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
+        <span style={{ fontSize: 12, color: TV.labelColor }}>Open</span>
+        <span id="dw-open" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.open)}</span>
+      </div>
+      
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
+        <span style={{ fontSize: 12, color: TV.labelColor }}>High</span>
+        <span id="dw-high" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.high)}</span>
+      </div>
+      
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
+        <span style={{ fontSize: 12, color: TV.labelColor }}>Low</span>
+        <span id="dw-low" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.low)}</span>
+      </div>
+      
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
+        <span style={{ fontSize: 12, color: TV.labelColor }}>Close</span>
+        <span id="dw-close" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.close)}</span>
+      </div>
+      
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
+        <span style={{ fontSize: 12, color: TV.labelColor }}>Change</span>
+        <span id="dw-change" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{`${data.change >= 0 ? "+" : ""}${fmtPrice(data.change)}`}</span>
+      </div>
+      
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
+        <span style={{ fontSize: 12, color: TV.labelColor }}>Volume</span>
+        <span id="dw-volume" style={{ fontSize: 12, fontWeight: 600, color: TV.valueColor }}>{fmtVol(data.volume)}</span>
+      </div>
     </div>
   );
 };
@@ -407,12 +412,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 }) => {
   const [activeMenu, setActiveMenu] = useState<"zorder" | "layouts" | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  
+
   // [TENOR 2026] Inline UI States (Replacing native dialogs)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup timeout on unmount
@@ -722,19 +728,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 };
 
 const menuItemStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-  width: "100%",
-  padding: "8px 12px",
-  background: "transparent",
-  border: "none",
-  color: "#d1d4dc",
-  fontSize: "12px",
-  textAlign: "left",
-  cursor: "pointer",
-  transition: "background 0.1s",
-  borderRadius: 4
+  display: "flex", alignItems: "center", gap: "10px", width: "100%",
+  padding: "8px 12px", background: "transparent", border: "none",
+  color: "#d1d4dc", fontSize: "12px", textAlign: "left",
+  cursor: "pointer", transition: "background 0.1s", borderRadius: 4
 };
 
 export default ObjectTreePanel;
+// --- EOF ---

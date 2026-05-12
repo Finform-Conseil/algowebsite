@@ -21,10 +21,70 @@ export const TV_RESET_VISIBLE_BARS = 120;
 export const MAIN_GRID_LEFT = 15;
 
 // ============================================================================
+// [TENOR 2026 SRE] REGISTRY & ADAPTERS (API DECOUPLING)
+// SCAR-API-01: Eradicated direct mutation of ECharts instance (__tvTimeAxisControls).
+// SCAR-API-02: Encapsulated internal getModel() calls with DOM fallbacks.
+// ============================================================================
+
+export interface TradingViewTimeAxisControls {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  panLeft: () => void;
+  panRight: () => void;
+  reset: () => void;
+}
+
+/**
+ * Registry O(1) GC-Safe pour stocker les contrôles sans muter l'instance ECharts.
+ */
+export const TimeAxisRegistry = new WeakMap<ECharts, TradingViewTimeAxisControls>();
+
+/**
+ * Adaptateur sécurisé pour récupérer les dimensions de la grille.
+ * Tente d'utiliser l'API interne d'ECharts, avec un fallback robuste sur le DOM
+ * si l'API change dans une future version d'ECharts.
+ */
+export const getSafeGridRect = (chart: ECharts | null, container: HTMLElement | null) => {
+  const defaultFallback = { x: MAIN_GRID_LEFT, y: 30, width: 800, height: 600 };
+  if (!chart || !container) return defaultFallback;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const model = (chart as any).getModel?.();
+    if (model) {
+      const grid = model.getComponent("grid", 0);
+      const rect = grid?.coordinateSystem?.getRect?.();
+      if (rect && Number.isFinite(rect.x) && Number.isFinite(rect.width)) {
+        return rect;
+      }
+    }
+  } catch (e) {
+    console.warn("[SRE] ECharts getModel() failed. Using DOM fallback.", e);
+  }
+
+  // Fallback based on DOM container dimensions
+  const rect = container.getBoundingClientRect();
+  const safeTop = Math.max(30, rect.height * 0.08);
+  const safeBottom = rect.height - TV_X_AXIS_HEIGHT;
+  const safeLeft = MAIN_GRID_LEFT;
+  const safeRight = rect.width - TV_Y_AXIS_WIDTH;
+
+  return {
+    x: safeLeft,
+    y: safeTop,
+    width: Math.max(10, safeRight - safeLeft),
+    height: Math.max(10, safeBottom - safeTop)
+  };
+};
+
+// ============================================================================
 // MATH & GEOMETRY HELPERS
 // ============================================================================
-export const lerp = (start: number, end: number, weight: number): number => start + ((end - start) * weight);
-export const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+export const lerp = (start: number, end: number, weight: number): number =>
+  start + ((end - start) * weight);
+
+export const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
 
 export const getViewportSpanBounds = (totalBars: number) => {
   const maxSpan = Math.max(1, totalBars - 1);
@@ -134,11 +194,12 @@ export const computeHorizontalPanViewport = ({
   endIdx: number;
   totalBars: number;
   shift: number;
-}): ViewportWindow => clampViewportWindow(
-  startIdx + (shift * TV_PAN_DRIFT_DAMPING),
-  endIdx + (shift * TV_PAN_DRIFT_DAMPING),
-  totalBars,
-);
+}): ViewportWindow =>
+  clampViewportWindow(
+    startIdx + (shift * TV_PAN_DRIFT_DAMPING),
+    endIdx + (shift * TV_PAN_DRIFT_DAMPING),
+    totalBars,
+  );
 
 // ============================================================================
 // HOOK: VIEWPORT ENGINE (Absolute Coordinates & DOM Events)
@@ -226,7 +287,8 @@ export const useChartViewport = ({
       finalMin = center - (scaledRange / 2) + state.yPan;
       finalMax = center + (scaledRange / 2) + state.yPan;
 
-      const isInvalidManualViewport = !Number.isFinite(finalMin) || !Number.isFinite(finalMax) || finalMin >= finalMax || finalMax < visibleMin || finalMin > visibleMax;
+      const isInvalidManualViewport = !Number.isFinite(finalMin) || !Number.isFinite(finalMax) ||
+        finalMin >= finalMax || finalMax < visibleMin || finalMin > visibleMax;
 
       if (isInvalidManualViewport) {
         // Auto-recovery: if manual pan/zoom pushes the visible range fully out of price bounds,
@@ -275,7 +337,9 @@ export const useChartViewport = ({
       if (ratio > 1.5 || ratio < 0.6) {
         viewportStateRef.current.isYManual = false;
         if (chartInstanceRef.current) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const option = chartInstanceRef.current.getOption() as any;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const dzY = option?.dataZoom?.find((z: any) => z.id === 'price-zoom' || z.yAxisIndex !== null);
           if (dzY) {
             chartInstanceRef.current.dispatchAction({
@@ -323,7 +387,6 @@ export const useChartViewport = ({
     if (!containerEl || !chart) return;
 
     containerEl.style.touchAction = 'none';
-
     const wheelListenerOptions: AddEventListenerOptions = { passive: false, capture: true };
 
     const applyExternalTimeZoom = (direction: "in" | "out") => {
@@ -381,13 +444,15 @@ export const useChartViewport = ({
       applyViewport();
     };
 
-    (chart as any).__tvTimeAxisControls = {
+    // [TENOR 2026 SRE] API DECOUPLING
+    // Register controls in the WeakMap instead of mutating the ECharts instance.
+    TimeAxisRegistry.set(chart, {
       zoomIn: () => applyExternalTimeZoom("in"),
       zoomOut: () => applyExternalTimeZoom("out"),
       panLeft: () => applyExternalTimePan("left"),
       panRight: () => applyExternalTimePan("right"),
       reset: resetExternalTimeViewport,
-    };
+    });
 
     const onWheel = (event: WheelEvent) => {
       const cursor = (event.target as HTMLElement)?.style?.cursor;
@@ -396,7 +461,6 @@ export const useChartViewport = ({
       if (cursor === 'move' || cursor === 'grab' || cursor === 'grabbing' || cursor === 'ns-resize') {
         return;
       }
-
       if (target?.closest('.gp-price-axis-action-menu') || target?.closest('.gp-price-axis-cursor-action')) {
         return;
       }
@@ -504,9 +568,11 @@ export const useChartViewport = ({
         const pointers = Array.from(state.activePointers.values());
         const p1 = pointers[0];
         const p2 = pointers[1];
+
         const dx = p1.clientX - p2.clientX;
         const dy = p1.clientY - p2.clientY;
         state.initialPinchDistance = Math.hypot(dx, dy);
+
         const centerX = (p1.clientX + p2.clientX) / 2 - rect.left;
         state.initialPinchCenter = centerX;
 
@@ -541,8 +607,8 @@ export const useChartViewport = ({
 
     const onPointerMove = (event: PointerEvent) => {
       if (chart.isDisposed() || chartData.length === 0) return;
-      const state = viewportStateRef.current;
 
+      const state = viewportStateRef.current;
       lastCursorClientPointRef.current = { x: event.clientX, y: event.clientY };
       updateCursorPriceAxisBadge(event.clientX, event.clientY);
 
@@ -554,6 +620,7 @@ export const useChartViewport = ({
         const pointers = Array.from(state.activePointers.values());
         const p1 = pointers[0];
         const p2 = pointers[1];
+
         const dx = p1.clientX - p2.clientX;
         const dy = p1.clientY - p2.clientY;
         const currentDistance = Math.hypot(dx, dy);
@@ -568,6 +635,7 @@ export const useChartViewport = ({
 
         const totalBars = chartData.length;
         const visibleCount = state.endIdx - state.startIdx;
+
         const rect = containerEl.getBoundingClientRect();
         const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
         const cursorRatio = Math.max(0, Math.min(1, (state.initialPinchCenter - MAIN_GRID_LEFT) / gridWidth));
@@ -594,6 +662,7 @@ export const useChartViewport = ({
       if (state.isDraggingYScale) {
         const deltaY = event.clientY - state.startY;
         state.startY = event.clientY;
+
         const scaleFactor = Math.exp(deltaY * 0.01);
         state.yScale *= scaleFactor;
         state.isYManual = true;
@@ -604,9 +673,9 @@ export const useChartViewport = ({
 
         const totalBars = chartData.length;
         const visibleCount = state.endIdx - state.startIdx;
+
         const rect = containerEl.getBoundingClientRect();
         const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
-
         const shiftX = -(deltaX / gridWidth) * visibleCount;
 
         const nextViewport = computeHorizontalPanViewport({
@@ -626,12 +695,14 @@ export const useChartViewport = ({
           if (state.isYManual) {
             const gridHeight = Math.max(1, rect.height - (rect.height * 0.08) - 30);
             let visibleMin = Infinity, visibleMax = -Infinity;
+
             for (let i = state.startIdx; i <= state.endIdx; i++) {
               if (chartData[i]) {
                 visibleMin = Math.min(visibleMin, chartData[i].low);
                 visibleMax = Math.max(visibleMax, chartData[i].high);
               }
             }
+
             const priceRange = (visibleMax - visibleMin) * state.yScale;
             const shiftY = (deltaY / gridHeight) * priceRange;
             state.yPan += shiftY;
@@ -702,7 +773,7 @@ export const useChartViewport = ({
     window.addEventListener("pointerout", onPointerUp);
 
     return () => {
-      delete (chart as any).__tvTimeAxisControls;
+      TimeAxisRegistry.delete(chart);
       containerEl.removeEventListener("wheel", onWheel, wheelListenerOptions);
       containerEl.removeEventListener("pointerdown", onPointerDown);
       containerEl.removeEventListener("dblclick", onDoubleClick);
@@ -722,4 +793,5 @@ export const useChartViewport = ({
 
   return { applyViewport, lastCursorClientPointRef, resetManualYViewport };
 };
+
 // --- EOF ---

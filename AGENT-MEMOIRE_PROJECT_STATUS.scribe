@@ -6,7 +6,7 @@
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
 ; Session_Count ; 19
-; Last_Update ; 2026-05-06T18:00:14+01:00
+; Last_Update ; 2026-05-12T15:51:56+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -15,6 +15,99 @@
     bugs_fixed: 9
     regressions_prevented: 7
   journal:
+    - date: "2026-05-12"
+      titre: "OBJECT TREE SIDEBAR SLOT RECONNECTION"
+      llm: "Codex GPT-5"
+      session_numero: 37
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Reconnexion du panneau Object Tree au slot overlayContent prévu par TechnicalAnalysisSidebar au lieu de le rendre comme overlay frère externe."
+        - statut: "DONE"
+          type: "CAUSE"
+          description: "Le bouton layers togglait l'état, mais la zone sidebar ne remplaçait pas son contenu via son API interne; le panneau était monté au mauvais niveau de composition."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus d'erreur ciblée TechnicalAnalysis/ObjectTree; ESLint ciblé TechnicalAnalysis.tsx passe sans sortie."
+      scribe_delta: "Aucun nouveau vaccin — slot sidebar reconnecté"
+    - date: "2026-05-12"
+      titre: "ROSETTA AUDIT TEMPLATE MODAL PATCH"
+      llm: "Codex GPT-5"
+      session_numero: 36
+      taches_effectuees:
+        - statut: "DONE"
+          type: "AUDIT"
+          description: "Audit des interactions UI lourdes TechnicalAnalysis: IndicatorsModal déjà ROSETTA, TickerSelectorModal déjà découplé via useDeferredValue, IndicatorTemplatesModal identifié comme candidat clair."
+        - statut: "DONE"
+          type: "PATCH"
+          description: "Application de ROSETTA au modal des templates indicateurs: feedback local immédiat sur la carte sélectionnée puis dispatch applyTemplate repoussé via setTimeout."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus d'erreur ciblée sur IndicatorTemplatesModal; ESLint ciblé passe sans sortie."
+      scribe_delta: "PAT-OPTIMISTIC-HEAVY-UI-001 applied"
+    - date: "2026-05-12"
+      titre: "ROSETTA OPTIMISTIC INDICATORS UI DECISION"
+      llm: "Codex GPT-5"
+      session_numero: 35
+      taches_effectuees:
+        - statut: "DONE"
+          type: "SCRIBE"
+          description: "Gravure du protocole ROSETTA: état local optimiste immédiat puis setTimeout pour laisser peindre l'UI avant Redux/ECharts lourd."
+        - statut: "DONE"
+          type: "GHOST_INTENT"
+          description: "Alternative startTransition seul rejetée pour IndicatorsModal: elle ne garantit pas le feedback visuel si l'enfant dépend uniquement du store global."
+        - statut: "DONE"
+          type: "PRODUCT_RULE"
+          description: "RSI 9, RSI 14 et RSI 25 sont des presets fonctionnels câblés à rsiPeriod Redux, pas des entrées backend passives."
+      scribe_delta: "PAT-OPTIMISTIC-HEAVY-UI-001 | GHOST-ROSETTA-INDICATORS-001"
+    - date: "2026-05-12"
+      titre: "ECHARTS RENDERER DEAD DISPATCH DEPENDENCY FIX"
+      llm: "Codex GPT-5"
+      session_numero: 34
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Suppression d'une dépendance React morte vers dispatch dans useEChartsRenderer au lieu d'instancier un dispatch Redux inutile."
+        - statut: "DONE"
+          type: "HYGIENE"
+          description: "Nettoyage des directives ESLint locales incompatibles avec la configuration actuelle, sans changement de comportement runtime."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus le diagnostic useEChartsRenderer/dispatch; ESLint ciblé passe sans sortie."
+      scribe_delta: "Aucun nouveau vaccin — dépendance morte supprimée"
+    - date: "2026-05-12"
+      titre: "TORVALDS PERFORMANCE RULE PROMOTED"
+      llm: "Codex GPT-5"
+      session_numero: 33
+      taches_effectuees:
+        - statut: "DONE"
+          type: "SCRIBE_RULE"
+          description: "Promotion en grande règle projet: éviter les animations CSS coûteuses sur les listes massives et utiliser startTransition pour découpler la réactivité UI des calculs lourds."
+      scribe_delta: "VAC-UI-PERF-001 | PAT-REACT-TRANSITION-001"
+    - date: "2026-05-12"
+      titre: "TICKER SELECTOR MODAL DESIGN SYSTEM REALIGNMENT"
+      llm: "Codex GPT-5"
+      session_numero: 32
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI_FIX"
+          description: "Réduction de l'assombrissement propre au modal ticker et réalignement de sa palette sur les surfaces/tokens gp du design system technique."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus d'erreur ciblée sur TickerSelectorModal; ESLint ciblé passe sans sortie."
+      scribe_delta: "Aucun nouveau vaccin — cohérence visuelle avec le design system"
+    - date: "2026-05-12"
+      titre: "TICKER SELECTOR CONTEXT API ALIGNMENT"
+      llm: "Codex GPT-5"
+      session_numero: 31
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Alignement du modal de sélection ticker sur l'API réelle du provider: sélection par symbole via selectByTicker au lieu d'une méthode selectTicker absente."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus le diagnostic TickerSelectorModal/selectTicker; ESLint ciblé passe sans sortie."
+      scribe_delta: "Aucun nouveau vaccin — contrat de contexte réaligné"
     - date: "2026-04-22"
       task: "Optimisation Performance Store Redux"
       details: "Désactivation des checks de sérialisation et d'immutabilité pour `marketSnapshots`. Augmentation du seuil `warnAfter` à 128ms pour éviter les alertes intempestives en dev."
@@ -43,6 +136,11 @@
 
 [CAUSAL_CHAINING_YAML]
 scars:
+  - id: "SCAR-INDICATORS-PERF-001"
+    severity: "HIGH"
+    description: "Le modal Indicateurs peut devenir très lent au scroll et au clic quand le catalogue complet est reconstruit et refiltré à chaque render Redux."
+    resolution: "Limiter les subscriptions Redux au strict nécessaire, mémoïser les tableaux et filtrages du catalogue, stabiliser les callbacks, et isoler le rendu des familles avec containment CSS."
+    test_binding: "Ouvrir le modal Indicateurs, scroller verticalement jusqu'aux patterns, puis activer un indicateur câblé: le scroll doit rester fluide et le clic ne doit pas bloquer le rendu du graphique."
   - id: "SCAR-POINTER-001"
     severity: "HIGH"
     description: "Support tactile partiellement cassé par une chaîne d'interaction mixte: canvas en Pointer Events mais toolbar flottante encore en Mouse Events, plus overlay price-axis resté inline/fantôme."
@@ -77,6 +175,9 @@ scars:
     resolution: "Import global de `bootstrap/dist/css/bootstrap.min.css` dans `layout.tsx` AVANT l'import de `globals.scss`. L'ordre garantit que le Reboot de Bootstrap est neutralisé par le reset SCSS du projet (préservant le reste du site), tout en rendant les classes utilitaires Bootstrap disponibles pour les modaux."
     test_binding: "Ouvrir un modal (ex: Recherche Symbole ou Plus d'Options) et vérifier que les boutons, formulaires et grilles sont stylés (bordures, espacements, typographie)."
 vaccins:
+  - id: "VAC-UI-PERF-001"
+    description: "Les animations CSS sur des listes massives sont interdites quand elles touchent le scroll, le hover répété ou des centaines d'items."
+    pattern: "Sur catalogue/modal/table volumineux, préférer containment, rendu stable, transitions minimales et zéro animation décorative par ligne; valider la fluidité au scroll/clic avant livraison."
   - id: "VAC-INDICATOR-COUNT-001"
     description: "Le catalogue Indicateurs ne doit jamais perdre une sortie backend indépendante lors d'un regroupement UX."
     pattern: "Avant de supprimer une entrée du modal, prouver qu'elle est absente du backend ou remplacée par un parent activable équivalent; sinon préserver le total unique attendu."
@@ -99,6 +200,12 @@ vaccins:
     description: "Après la migration SCSS globale, ne pas traiter les anciens fichiers `.module.css` comme source de vérité visuelle."
     pattern: "Pour TechnicalAnalysis, vérifier d'abord `styles/pages/_technical-analysis-final.scss`; si un composant garde des classes globales dont le style a disparu, migrer le bloc CSS restant vers le SCSS global avant de modifier le JSX."
 patterns:
+  - id: "PAT-REACT-TRANSITION-001"
+    description: "Pour les interactions UI qui déclenchent des calculs lourds de graphique ou de catalogue, utiliser startTransition afin de préserver la réactivité perçue."
+    application: "Découpler l'état urgent visible immédiatement de l'état non urgent qui recalcule le graphique, les indicateurs ou une grande liste; le clic/scroll doit rester prioritaire."
+  - id: "PAT-OPTIMISTIC-HEAVY-UI-001"
+    description: "Quand une interaction déclenche Redux + ECharts lourd, l'UI visible doit être optimiste localement avant le calcul global."
+    application: "Mettre à jour l'état local du composant en premier, puis différer le dispatch/calcul lourd via setTimeout court pour laisser le navigateur peindre; utiliser ce pattern quand startTransition seul ne donne pas de feedback visuel immédiat."
   - id: "PAT-STORE-001"
     description: "Store Performance: Bypass recursive checks for large real-time datasets (candles, snapshots)."
     application: "Use ignoredActions/ignoredPaths in configureStore middleware and increase warnAfter threshold."
@@ -194,6 +301,24 @@ ghosts:
       - nom: "Tracer RSI sur les bougies"
         raison_rejet: "RSI est un oscillateur borné 0-100; il doit vivre en panneau séparé avec niveaux 30/50/70."
     ne_pas_reproposer: ["Composite RSI", "Composite CCI/MFI", "Composite ROC/Momentum", "Activation globale des presets RSI, CCI, ROC ou Momentum"]
+  - id: "GHOST-ROSETTA-INDICATORS-001"
+    titre: "Optimistic local feedback before heavy indicator rendering"
+    date: "2026-05-12"
+    l0_abstract: "IndicatorsModal doit cocher visuellement en état local optimiste avant de déclencher Redux/ECharts, sinon le clic peut attendre le calcul lourd."
+    l2_details: >
+      Le blocage observé venait du fait que React attendait la fin du calcul
+      lourd Redux + ECharts avant de peindre la case cochée. La décision
+      ROSETTA est de donner un feedback humain immédiat: état local mis à jour
+      en environ 1ms, puis dispatch/calcul repoussé à la frame suivante avec
+      setTimeout court. Les presets RSI 9, RSI 14 et RSI 25 doivent modifier
+      dynamiquement rsiPeriod dans Redux afin de se comporter comme des presets
+      TradingView-like fonctionnels, pas comme des sorties backend inactives.
+    alternatives_rejetees:
+      - nom: "startTransition seul"
+        raison_rejet: "startTransition peut différer le rendu React, mais si le composant enfant dépend seulement de l'état global, le feedback visuel peut attendre la fin du calcul lourd."
+      - nom: "Câbler les RSI comme sorties backend passives"
+        raison_rejet: "Cela conserve des entrées visibles mais inactives et ne respecte pas l'intention utilisateur: choisir une période RSI active."
+    ne_pas_reproposer: ["startTransition seul pour feedback immédiat IndicatorsModal", "RSI presets BACKEND inactifs"]
   - id: "GHOST-INDICATOR-CHANNELS-001"
     titre: "Price channels are composite parents, not global section toggles"
     date: "2026-05-06"
@@ -504,6 +629,111 @@ adrs: []
 dettes: []
 lecons: []
 journal:
+    - date: "2026-05-12"
+      titre: "TIME AXIS AND FIBONACCI TYPE HYGIENE FIXES"
+      llm: "Codex GPT-5"
+      session_numero: 30
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction du typage des timers du contrôle d'axe temporel en ids navigateur et suppression d'une directive @ts-expect-error devenue inutile dans les utilitaires Fibonacci."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus les diagnostics TimeAxisControls/FibonacciUtils ciblés; ESLint ciblé passe sans sortie."
+      scribe_delta: "Aucun nouveau vaccin — hygiène TypeScript ciblée"
+    - date: "2026-05-11"
+      titre: "DRAWING QUICK TOOLBAR BORDERLESS ICON SURFACE"
+      llm: "Codex GPT-5"
+      session_numero: 29
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI"
+          description: "Ajustement visuel de la toolbar flottante de dessin: les boutons n'affichent plus de bordure et gardent une surface remplie discrète similaire à l'état hover."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compilation Sass globale réussie avec warnings historiques uniquement."
+      scribe_delta: "Aucun nouveau vaccin — polish UI ciblé"
+    - date: "2026-05-11"
+      titre: "TECHNICAL ANALYSIS BROKER ACTION TYPE FIX"
+      llm: "Codex GPT-5"
+      session_numero: 28
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction des diagnostics TypeScript sur les composants connectés TechnicalAnalysis: import explicite du type BRVMSecurity et séparation correcte entre BrokerOrderSide et BrokerOrderType dans les actions price-axis."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus les erreurs BRVMSecurity/BrokerOrderSide ciblées; ESLint ciblé TechnicalAnalysis.tsx passe sans sortie."
+      scribe_delta: "Aucun nouveau vaccin — typage broker clarifié"
+    - date: "2026-05-11"
+      titre: "MARKET DATA LIVE SNAPSHOT NULLABILITY FIX"
+      llm: "Codex GPT-5"
+      session_numero: 27
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction du narrowing TypeScript sur le snapshot live BRVM en construisant d'abord une constante non-null typée LiveSnapshot avant assignation à la variable nullable."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus de diagnostic useMarketData.ts, TS18047, possibly null ou liveSnapshot; ESLint ciblé du hook a expiré sans sortie d'erreur."
+      scribe_delta: "Aucun nouveau vaccin — narrowing strict TypeScript"
+    - date: "2026-05-11"
+      titre: "TECHNICAL ANALYSIS FOOTER CARD SURFACE FIX"
+      llm: "Codex GPT-5"
+      session_numero: 26
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction de la vraie régression visuelle: le footer temps/live était contenu en hauteur mais restait hors de l'enveloppe visuelle de la carte graphique, avec un fond différent et une fin de carte avant le footer."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "L'apparence de carte a été portée par le wrapper chart+footer, tandis que le conteneur chart interne devient transparent; cela évite de dupliquer les fonds ou de déplacer le JSX."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Capture headless chargée confirmant que la carte graphique englobe désormais la zone chart, le volume et le footer."
+      scribe_delta: "SCAR-HEIGHT-001 reinforced"
+    - date: "2026-05-11"
+      titre: "TECHNICAL ANALYSIS FOOTER FLEX CONTAINMENT FIX"
+      llm: "Codex GPT-5"
+      session_numero: 25
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction d'une régression visuelle où le footer de contrôle temps/live sortait sous la zone chart, causée par un conteneur chart qui absorbait toute la hauteur disponible avant que le footer ne soit compté."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "La correction réserve explicitement une hauteur de footer dans la colonne flex au lieu d'augmenter la page ou de relâcher la chaîne de hauteur verrouillée par SCAR-HEIGHT-001."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compilation Sass globale réussie avec warnings historiques uniquement; capture headless localhost chargée confirmant que le footer reste visible dans la zone chart."
+      scribe_delta: "SCAR-HEIGHT-001 reinforced"
+    - date: "2026-05-11"
+      titre: "DRAWING MANAGER ZOD VALIDATION TYPE FIX"
+      llm: "Codex GPT-5"
+      session_numero: 24
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FIX"
+          description: "Correction des erreurs TypeScript du bouclier LocalStorage DrawingManager en remplaçant le mini-validateur incomplet par zod officiel et en évitant le narrowing fragile de safeParse dans une chaîne filter/map."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré ne remonte plus les erreurs useDrawingManager.ts, z.number ou parsed.data; ESLint ciblé reste bloqué par des règles de configuration absentes non introduites par ce patch."
+      scribe_delta: "VAC-046 reinforced"
+    - date: "2026-05-07"
+      titre: "INDICATORS MODAL PERFORMANCE STABILIZATION"
+      llm: "Codex GPT-5"
+      session_numero: 23
+      taches_effectuees:
+        - statut: "DONE"
+          type: "PERF"
+          description: "Réduction des re-renders coûteux du modal Indicateurs en limitant la subscription Redux et en mémoïsant le catalogue, les filtres et les callbacks."
+        - statut: "DONE"
+          type: "UX"
+          description: "Ajout de containment CSS sur les familles et cartes d'indicateurs pour éviter que le scroll vertical ne repeigne tout le catalogue visible et hors écran."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compteur unique maintenu à 216; ESLint ciblé vert; Sass compile avec warnings historiques hors patch; TypeScript global bloque sur dettes existantes hors modal."
+      scribe_delta: "SCAR-INDICATORS-PERF-001"
     - date: "2026-05-07"
       titre: "INDICATORS MODAL MOVING AVERAGE TREND RELOCATION"
       llm: "Codex GPT-5"

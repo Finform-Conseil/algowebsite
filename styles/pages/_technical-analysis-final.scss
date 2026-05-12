@@ -948,9 +948,13 @@
 
 .gp-drawing-quick-toolbar-box {
   .gp-toolbar-btn {
+    background-color: rgba(255,255,255,.08);
+    border: 0 !important;
+    box-shadow: none;
+
     &:hover,
     &.active {
-      background-color: rgba(255,255,255,.1);
+      background-color: rgba(255,255,255,.12);
       color: #2962ff;
     }
   }
@@ -1060,20 +1064,25 @@
 // ============================================================================
 
 .gp-chart-view-wrapper {
-  flex-grow: 1;
+  flex: 1 1 0%;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: .75rem;
+  gap: 0;
   position: relative;
-}
-
-.gp-chart-container {
-  flex-grow: 1;
-  min-height: 0;
+  overflow: hidden;
   background-color: var(--gp-bg-toolbar);
   border-radius: var(--bs-border-radius);
   padding: .5rem;
+}
+
+.gp-chart-container {
+  flex: 1 1 0%;
+  min-height: 0;
+  background-color: transparent;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
 }
@@ -1098,13 +1107,15 @@
 }
 
 .gp-chart-footer {
-  flex-shrink: 0;
+  flex: 0 0 38px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: .25rem 1rem 0 1rem;
+  min-height: 38px;
+  padding: 0 .5rem;
   font-size: .75rem;
   color: var(--gp-text-secondary);
+  overflow: hidden;
 }
 
 .gp-time-selector {
@@ -1970,6 +1981,9 @@
   border-radius: var(--gp-radius-md);
   background: rgba(0,0,0,.12);
   padding: var(--gp-space-xs);
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: 9rem;
 
   & + & {
     margin-top: var(--gp-space-sm);
@@ -2013,6 +2027,9 @@
   border-radius: var(--gp-radius-md);
   background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.1));
   padding: var(--gp-space-xs);
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: 16rem;
 }
 
 .gp-indicator-family-header {
@@ -2054,6 +2071,9 @@
   padding: var(--gp-space-xs);
   position: relative;
   overflow: hidden;
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: 8rem;
 
   &::before {
     content: "";
@@ -2225,6 +2245,7 @@
   border-radius: var(--gp-radius-md);
   background: rgba(0,0,0,.2);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  contain: layout paint;
 
   &.active {
     border-color: rgba(41,98,255,.9);
@@ -2355,6 +2376,7 @@
   border-radius: var(--gp-radius-md);
   gap: var(--gp-space-xs);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  contain: layout paint;
 
   &.is-backend-only {
     opacity: .82;
