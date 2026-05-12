@@ -1,10 +1,12 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/TechnicalIndicators.ts
-
-/**
- * [TENOR 2026] Optimized Technical Indicators Library.
- * Performance Warfare Edition: Implements Sliding Window and Incremental Updates.
- * Reduces complexity from O(n*p) to O(n).
- */
+// ================================================================================
+// FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/Indicators/TechnicalIndicators.ts
+// [TENOR 2026] Optimized Technical Indicators Library.
+// Performance Warfare Edition: Implements Sliding Window and Incremental Updates.
+// [TENOR 2026 SRE] SCAR-MATH-PRECISION: TradingView Parity for Stochastic & StochRSI.
+// [TENOR 2026 SRE] SCAR-TIME-SHIFTING: Added Ichimoku Cloud with Future/Past Projections.
+// [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE: Added BB Width, BB %B, and enforced ddof=0.
+// Strict NaN propagation ("-") and Zero-Division shields applied.
+// ================================================================================
 
 export interface ChartDataPoint {
   time: string;
@@ -80,7 +82,6 @@ export const calculateEMA = (data: ChartDataPoint[], period: number): (number | 
   if (data.length < period) return results;
 
   const k = 2 / (period + 1);
-
   // Start with SMA for the first EMA point
   let sum = 0;
   for (let i = 0; i < period; i++) {
@@ -100,8 +101,9 @@ export const calculateEMA = (data: ChartDataPoint[], period: number): (number | 
 };
 
 /**
- * Relative Strength Index (RSI) - Optimized with Wilder's Smoothing.
+ * Relative Strength Index (RSI) - Optimized with Wilder's Smoothing (RMA).
  * Complexity: O(n)
+ * TradingView Parity: Exact Wilder's RMA implementation.
  */
 export const calculateRSI = (data: ChartDataPoint[], period: number = 14): (number | string)[] => {
   const results: (number | string)[] = new Array(data.length).fill("-");
@@ -122,7 +124,7 @@ export const calculateRSI = (data: ChartDataPoint[], period: number = 14): (numb
   const firstRS = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
   results[period] = parseFloat(firstRS.toFixed(2));
 
-  // Wilder's Smoothing
+  // Wilder's Smoothing (RMA)
   for (let i = period + 1; i < data.length; i++) {
     const diff = data[i].close - data[i - 1].close;
     const gain = diff >= 0 ? diff : 0;
@@ -203,7 +205,10 @@ export const calculateMACD = (
 };
 
 /**
- * Bollinger Bands - Optimized with Sliding Window Variance.
+ * [TENOR 2026 HDR] Bollinger Bands (TradingView Parity)
+ * Optimized with O(n) Sliding Window Variance.
+ * Enforces ddof=0 (Population Standard Deviation) to match Pine Script exactly.
+ * Calculates BB Upper, BB Middle, BB Lower, BB Width, and BB %B.
  */
 export const calculateBollinger = (
   data: ChartDataPoint[],
@@ -213,84 +218,200 @@ export const calculateBollinger = (
   const upper: (number | string)[] = new Array(data.length).fill("-");
   const middle: (number | string)[] = new Array(data.length).fill("-");
   const lower: (number | string)[] = new Array(data.length).fill("-");
+  const width: (number | string)[] = new Array(data.length).fill("-");
+  const percentB: (number | string)[] = new Array(data.length).fill("-");
 
-  if (data.length < period) return { upper, middle, lower };
+  if (data.length < period) return { upper, middle, lower, width, percentB };
 
   let sum = 0;
   let sumSq = 0;
 
+  // Initial window
   for (let i = 0; i < period; i++) {
     const val = data[i].close;
     sum += val;
     sumSq += val * val;
   }
 
-  const updateBands = (idx: number, s: number, s2: number) => {
+  const updateBands = (idx: number, s: number, s2: number, currentClose: number) => {
     const avg = s / period;
+    // Population variance (ddof=0) matches TradingView standard
     const variance = (s2 / period) - (avg * avg);
+    // Zero-Division Shield & Float Precision Guard
     const stdDev = Math.sqrt(Math.max(0, variance));
-    middle[idx] = parseFloat(avg.toFixed(2));
-    upper[idx] = parseFloat((avg + multiplier * stdDev).toFixed(2));
-    lower[idx] = parseFloat((avg - multiplier * stdDev).toFixed(2));
+
+    const up = avg + multiplier * stdDev;
+    const dn = avg - multiplier * stdDev;
+
+    middle[idx] = parseFloat(avg.toFixed(4));
+    upper[idx] = parseFloat(up.toFixed(4));
+    lower[idx] = parseFloat(dn.toFixed(4));
+
+    // BB Width = ((Upper - Lower) / Middle) * 100
+    if (avg !== 0) {
+      width[idx] = parseFloat((((up - dn) / avg) * 100).toFixed(4));
+    }
+
+    // BB %B = (Close - Lower) / (Upper - Lower)
+    const bandRange = up - dn;
+    if (bandRange !== 0) {
+      percentB[idx] = parseFloat(((currentClose - dn) / bandRange).toFixed(4));
+    }
   };
 
-  updateBands(period - 1, sum, sumSq);
+  // Calculate for the first valid window
+  updateBands(period - 1, sum, sumSq, data[period - 1].close);
 
+  // Sliding window for the rest
   for (let i = period; i < data.length; i++) {
     const out = data[i - period].close;
     const inv = data[i].close;
     sum = sum - out + inv;
     sumSq = sumSq - (out * out) + (inv * inv);
-    updateBands(i, sum, sumSq);
+    updateBands(i, sum, sumSq, data[i].close);
   }
 
-  return { upper, middle, lower };
+  return { upper, middle, lower, width, percentB };
 };
 
 /**
- * Stochastic Oscillator.
+ * [TENOR 2026 HDR] Stochastic Oscillator (TradingView Parity)
+ * Formula:
+ * rawK = 100 * (close - lowest(low, periodK)) / (highest(high, periodK) - lowest(low, periodK))
+ * %K = SMA(rawK, smoothK)
+ * %D = SMA(%K, periodD)
+ * Strict NaN ("-") propagation.
  */
 export const calculateStochastic = (
   data: ChartDataPoint[],
-  period = 14,
+  periodK = 14,
   smoothK = 3,
-  smoothD = 3
+  periodD = 3
 ) => {
   const rawK: (number | string)[] = new Array(data.length).fill("-");
   const kLine: (number | string)[] = new Array(data.length).fill("-");
   const dLine: (number | string)[] = new Array(data.length).fill("-");
 
-  if (data.length < period) return { kLine, dLine };
+  if (data.length < periodK) return { kLine, dLine };
 
   // 1. Calculate Raw %K
-  for (let i = period - 1; i < data.length; i++) {
+  for (let i = periodK - 1; i < data.length; i++) {
     let low = Infinity;
     let high = -Infinity;
-    for (let j = 0; j < period; j++) {
+    for (let j = 0; j < periodK; j++) {
       const d = data[i - j];
       if (d.low < low) low = d.low;
       if (d.high > high) high = d.high;
     }
-    const den = high - low;
-    rawK[i] = den === 0 ? 100 : ((data[i].close - low) / den) * 100;
+    const denom = high - low;
+    // Zero-Division Shield
+    rawK[i] = denom === 0 ? "-" : ((data[i].close - low) / denom) * 100;
   }
 
-  // 2. Smooth %K
-  for (let i = period + smoothK - 2; i < data.length; i++) {
+  // 2. Smooth %K (SMA of rawK)
+  for (let i = periodK + smoothK - 2; i < data.length; i++) {
     let sum = 0;
+    let valid = true;
     for (let j = 0; j < smoothK; j++) {
-      sum += rawK[i - j] as number;
+      const val = rawK[i - j];
+      if (val === "-") {
+        valid = false;
+        break;
+      }
+      sum += val as number;
     }
-    kLine[i] = parseFloat((sum / smoothK).toFixed(2));
+    kLine[i] = valid ? parseFloat((sum / smoothK).toFixed(2)) : "-";
   }
 
-  // 3. Smooth %D
-  for (let i = period + smoothK + smoothD - 3; i < data.length; i++) {
+  // 3. Smooth %D (SMA of kLine)
+  for (let i = periodK + smoothK + periodD - 3; i < data.length; i++) {
     let sum = 0;
-    for (let j = 0; j < smoothD; j++) {
-      sum += kLine[i - j] as number;
+    let valid = true;
+    for (let j = 0; j < periodD; j++) {
+      const val = kLine[i - j];
+      if (val === "-") {
+        valid = false;
+        break;
+      }
+      sum += val as number;
     }
-    dLine[i] = parseFloat((sum / smoothD).toFixed(2));
+    dLine[i] = valid ? parseFloat((sum / periodD).toFixed(2)) : "-";
+  }
+
+  return { kLine, dLine };
+};
+
+/**
+ * [TENOR 2026 HDR] Stochastic RSI (TradingView Parity)
+ * Formula:
+ * rsi = RSI(close, rsiLength)
+ * rawStochRsi = 100 * (rsi - lowest(rsi, stochLength)) / (highest(rsi, stochLength) - lowest(rsi, stochLength))
+ * %K = SMA(rawStochRsi, smoothK)
+ * %D = SMA(%K, smoothD)
+ * Strict NaN ("-") propagation.
+ */
+export const calculateStochasticRSI = (
+  data: ChartDataPoint[],
+  rsiLength = 14,
+  stochLength = 14,
+  smoothK = 3,
+  smoothD = 3
+) => {
+  const rsi = calculateRSI(data, rsiLength);
+  const rawStochRsi: (number | string)[] = new Array(data.length).fill("-");
+  const kLine: (number | string)[] = new Array(data.length).fill("-");
+  const dLine: (number | string)[] = new Array(data.length).fill("-");
+
+  // 1. Calculate Raw StochRSI
+  for (let i = rsiLength + stochLength - 1; i < data.length; i++) {
+    let low = Infinity;
+    let high = -Infinity;
+    let valid = true;
+    for (let j = 0; j < stochLength; j++) {
+      const val = rsi[i - j];
+      if (val === "-") {
+        valid = false;
+        break;
+      }
+      const num = val as number;
+      if (num < low) low = num;
+      if (num > high) high = num;
+    }
+    if (!valid) continue;
+
+    const denom = high - low;
+    // Zero-Division Shield
+    rawStochRsi[i] = denom === 0 ? "-" : (((rsi[i] as number) - low) / denom) * 100;
+  }
+
+  // 2. Smooth %K (SMA of rawStochRsi)
+  for (let i = rsiLength + stochLength + smoothK - 2; i < data.length; i++) {
+    let sum = 0;
+    let valid = true;
+    for (let j = 0; j < smoothK; j++) {
+      const val = rawStochRsi[i - j];
+      if (val === "-") {
+        valid = false;
+        break;
+      }
+      sum += val as number;
+    }
+    kLine[i] = valid ? parseFloat((sum / smoothK).toFixed(2)) : "-";
+  }
+
+  // 3. Smooth %D (SMA of kLine)
+  for (let i = rsiLength + stochLength + smoothK + smoothD - 3; i < data.length; i++) {
+    let sum = 0;
+    let valid = true;
+    for (let j = 0; j < smoothD; j++) {
+      const val = kLine[i - j];
+      if (val === "-") {
+        valid = false;
+        break;
+      }
+      sum += val as number;
+    }
+    dLine[i] = valid ? parseFloat((sum / smoothD).toFixed(2)) : "-";
   }
 
   return { kLine, dLine };
@@ -421,4 +542,71 @@ export const calculateOBV = (data: ChartDataPoint[]): (number | string)[] => {
 
   return results;
 };
+
+/**
+ * [TENOR 2026 HDR] Ichimoku Cloud (TradingView Parity)
+ * Formula:
+ * Tenkan = (Highest(9) + Lowest(9)) / 2
+ * Kijun = (Highest(26) + Lowest(26)) / 2
+ * Senkou A = (Tenkan + Kijun) / 2 -> Shifted forward by 26
+ * Senkou B = (Highest(52) + Lowest(52)) / 2 -> Shifted forward by 26
+ * Chikou = Close -> Shifted backward by 26
+ */
+export const calculateIchimoku = (
+  data: ChartDataPoint[],
+  tenkanPeriod = 9,
+  kijunPeriod = 26,
+  senkouBPeriod = 52,
+  displacement = 26
+) => {
+  const N = data.length;
+  const outLen = N + displacement;
+
+  // Pre-allocate arrays with exact future size to prevent V8 deoptimizations
+  const tenkan: (number | string)[] = new Array(outLen).fill("-");
+  const kijun: (number | string)[] = new Array(outLen).fill("-");
+  const senkouA: (number | string)[] = new Array(outLen).fill("-");
+  const senkouB: (number | string)[] = new Array(outLen).fill("-");
+  const chikou: (number | string)[] = new Array(outLen).fill("-");
+
+  // Helper for Donchian Midpoint (Highest + Lowest) / 2
+  const getDonchianMidpoint = (endIdx: number, period: number) => {
+    if (endIdx - period + 1 < 0) return "-";
+    let highest = -Infinity;
+    let lowest = Infinity;
+    for (let i = endIdx - period + 1; i <= endIdx; i++) {
+      if (data[i].high > highest) highest = data[i].high;
+      if (data[i].low < lowest) lowest = data[i].low;
+    }
+    return (highest + lowest) / 2;
+  };
+
+  for (let i = 0; i < N; i++) {
+    const t = getDonchianMidpoint(i, tenkanPeriod);
+    const k = getDonchianMidpoint(i, kijunPeriod);
+
+    tenkan[i] = t !== "-" ? parseFloat((t as number).toFixed(4)) : "-";
+    kijun[i] = k !== "-" ? parseFloat((k as number).toFixed(4)) : "-";
+
+    if (t !== "-" && k !== "-") {
+      const sa = ((t as number) + (k as number)) / 2;
+      // Shift Senkou A into the future
+      senkouA[i + displacement] = parseFloat(sa.toFixed(4));
+    }
+
+    const sb = getDonchianMidpoint(i, senkouBPeriod);
+    if (sb !== "-") {
+      // Shift Senkou B into the future
+      senkouB[i + displacement] = parseFloat((sb as number).toFixed(4));
+    }
+
+    if (i >= displacement) {
+      // Shift Chikou into the past
+      chikou[i - displacement] = data[i].close;
+    }
+  }
+
+  return { tenkan, kijun, senkouA, senkouB, chikou };
+};
+
 // --- EOF ---

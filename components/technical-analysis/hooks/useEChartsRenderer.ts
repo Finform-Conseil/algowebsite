@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, RefObject, MutableRefObject, useMemo, useCallback } from "react";
 import * as echarts from "echarts/core";
+import { useDispatch } from "react-redux";
 import {
   ChartState,
   AdvancedIndicatorsState,
@@ -10,6 +11,7 @@ import {
   XAxisOption,
   YAxisOption,
   SeriesOption,
+  BollingerSettings,
 } from "../config/TechnicalAnalysisTypes";
 import {
   ChartDataPoint,
@@ -19,6 +21,8 @@ import {
   calculateMACD,
   calculateBollinger,
   calculateStochastic,
+  calculateStochasticRSI,
+  calculateIchimoku,
   calculateATR,
   calculateCCI,
   calculateWilliamsR,
@@ -37,6 +41,7 @@ export interface UseEChartsRendererProps {
   chartConfig: ChartState;
   advancedIndicators: AdvancedIndicatorsState;
   indicatorPeriods: IndicatorPeriods;
+  bollingerSettings: BollingerSettings; // [TENOR 2026 HDR] Added Bollinger Settings
   chartAppearance: ChartAppearance;
   uiState: UiState;
   displaySymbol: string;
@@ -166,6 +171,7 @@ const useChartBadges = ({
       }
 
       const clampedY = clamp(yPixel, top + 11, bottom - 11);
+
       lastBadge.style.top = `${Math.round(clampedY)}px`;
       lastBadge.style.opacity = "1";
       lastBadge.style.visibility = "visible";
@@ -213,6 +219,7 @@ const useChartBadges = ({
 
     try {
       const pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [localX, localY]);
+
       if (!Array.isArray(pointInData) || !Number.isFinite(Number(pointInData[1]))) {
         hideCursorPriceAxisBadge();
         return;
@@ -253,6 +260,7 @@ export const useEChartsRenderer = ({
   chartConfig,
   advancedIndicators,
   indicatorPeriods,
+  bollingerSettings,
   chartAppearance,
   uiState,
   displaySymbol,
@@ -266,6 +274,7 @@ export const useEChartsRenderer = ({
   isMainChartVisible = true,
   comparisonSeries = [],
 }: UseEChartsRendererProps) => {
+  const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
   const legendSelectionRef = useRef<Record<string, boolean>>({});
 
@@ -289,9 +298,35 @@ export const useEChartsRenderer = ({
   const getLastLine = useCallback(() => lastPriceLineRef?.current || null, [lastPriceLineRef]);
 
   // ============================================================================
-  // [TENOR 2026 SRE] SYNCHRONOUS MATH PIPELINE (ERADICATED WEB WORKER)
-  // The 15s timeout bug is dead. V8 compiles this inline and executes 10k candles
-  // in < 2ms. This is true Mechanical Sympathy.
+  // [TENOR 2026 SRE] TIME AXIS DILATION (ICHIMOKU PROJECTION)
+  // Extends the dataset into the future to allow ECharts to render projected lines.
+  // ============================================================================
+  const extendedChartData = useMemo(() => {
+    if (!advancedIndicators.ichimoku) return chartData;
+    const ext = [...chartData];
+    if (ext.length > 0) {
+      let currTime = new Date(ext[ext.length - 1].time).getTime();
+      const dayMs = 24 * 60 * 60 * 1000;
+      for (let i = 0; i < 26; i++) {
+        currTime += dayMs;
+        const dt = new Date(currTime);
+        if (dt.getDay() === 6) currTime += 2 * dayMs; // Skip Saturday
+        else if (dt.getDay() === 0) currTime += dayMs; // Skip Sunday
+        ext.push({
+          time: new Date(currTime).toISOString(),
+          open: NaN,
+          high: -Infinity,
+          low: Infinity,
+          close: NaN,
+          volume: 0
+        });
+      }
+    }
+    return ext;
+  }, [chartData, advancedIndicators]);
+
+  // ============================================================================
+  // [TENOR 2026 SRE] SYNCHRONOUS MATH PIPELINE
   // ============================================================================
   const indicatorsData = useMemo(() => {
     const res: Record<string, (number | string)[]> = {};
@@ -306,61 +341,94 @@ export const useEChartsRenderer = ({
         if (chartConfig.indicators.activeSma.includes(50)) res.sma50 = calculateSMA(chartData, 50);
         if (chartConfig.indicators.activeSma.includes(200)) res.sma200 = calculateSMA(chartData, 200);
       }
+
       // EMA
       if (chartConfig.indicators.ema) {
         if (chartConfig.indicators.activeEma.includes(5)) res.ema5 = calculateEMA(chartData, 5);
         if (chartConfig.indicators.activeEma.includes(10)) res.ema10 = calculateEMA(chartData, 10);
       }
+
       // Advanced
       if (advancedIndicators.rsi) res.rsi = calculateRSI(chartData, indicatorPeriods.rsiPeriod);
+      
       if (advancedIndicators.macd) {
         const macd = calculateMACD(chartData);
         res.macdLine = macd.macdLine;
         res.macdSignal = macd.signalLine;
         res.macdHist = macd.histogram;
       }
-      if (advancedIndicators.bollinger) {
-        const boll = calculateBollinger(chartData, 20, 2);
-        res.bollUpper = boll.upper;
-        res.bollMiddle = boll.middle;
-        res.bollLower = boll.lower;
+
+      // [TENOR 2026 HDR] BOLLINGER BANDS
+      if (advancedIndicators.bollinger || advancedIndicators.bbWidth || advancedIndicators.bbPercentB) {
+        // Fallback to defaults if settings are somehow missing
+        const period = bollingerSettings?.length ?? 20;
+        const multiplier = bollingerSettings?.multiplier ?? 2.0;
+        
+        const boll = calculateBollinger(chartData, period, multiplier);
+        
+        if (advancedIndicators.bollinger) {
+          res.bollUpper = boll.upper;
+          res.bollMiddle = boll.middle;
+          res.bollLower = boll.lower;
+        }
+        if (advancedIndicators.bbWidth) res.bbWidth = boll.width;
+        if (advancedIndicators.bbPercentB) res.bbPercentB = boll.percentB;
       }
+
       if (advancedIndicators.stochastic) {
-        const stoch = calculateStochastic(chartData);
+        const stoch = calculateStochastic(chartData, 14, 3, 3); // TV Defaults
         res.stochK = stoch.kLine;
         res.stochD = stoch.dLine;
       }
+
+      if (advancedIndicators.stochRsi) {
+        const stochRsi = calculateStochasticRSI(chartData, 14, 14, 3, 3); // TV Defaults
+        res.stochRsiK = stochRsi.kLine;
+        res.stochRsiD = stochRsi.dLine;
+      }
+
+      // [TENOR 2026] Ichimoku Cloud
+      if (advancedIndicators.ichimoku) {
+        const ichi = calculateIchimoku(chartData, 9, 26, 52, 26); // TV Defaults
+        res.tenkan = ichi.tenkan;
+        res.kijun = ichi.kijun;
+        res.senkouA = ichi.senkouA;
+        res.senkouB = ichi.senkouB;
+        res.chikou = ichi.chikou;
+      }
+
       if (advancedIndicators.atr) res.atr = calculateATR(chartData);
       if (advancedIndicators.cci) res.cci = calculateCCI(chartData);
       if (advancedIndicators.williamsR) res.williamsR = calculateWilliamsR(chartData);
       if (advancedIndicators.roc) res.roc = calculateROC(chartData);
       if (advancedIndicators.obv) res.obv = calculateOBV(chartData);
+
     } catch (err) {
       console.error("[SRE] Synchronous Math Pipeline Error:", err);
     }
-
     return res;
-  }, [chartData, chartConfig.indicators, advancedIndicators, indicatorPeriods]);
+  }, [chartData, chartConfig.indicators, advancedIndicators, indicatorPeriods, bollingerSettings]);
 
   // ============================================================================
-  // [TENOR 2026 SRE] O(N) DATA EXTRACTION
-  // Fused 3 separate .map() loops into a single pass to maximize L1 Cache hits.
+  // [TENOR 2026 SRE] O(N) DATA EXTRACTION (Uses extendedChartData for X-Axis)
   // ============================================================================
   const { dates, values, volumes } = useMemo(() => {
     const d: string[] = [];
     const v: number[][] = [];
     const vol: (number | string)[][] = [];
-    const len = chartData.length;
-    
+    const len = extendedChartData.length;
+
     for (let i = 0; i < len; i++) {
-      const item = chartData[i];
+      const item = extendedChartData[i];
       d.push(item.time);
-      v.push([item.open, item.close, item.low, item.high]);
-      vol.push([i, item.volume, item.close > item.open ? 1 : -1]);
+      // Only push valid candles to values and volumes (ignore future ghost candles)
+      if (i < chartData.length) {
+        v.push([item.open, item.close, item.low, item.high]);
+        vol.push([i, item.volume, item.close > item.open ? 1 : -1]);
+      }
     }
-    
     return { dates: d, values: v, volumes: vol };
-  }, [chartData]);
+  }, [extendedChartData, chartData.length]);
 
   // 2. Badges Engine
   const { updateCursorPriceAxisBadge, updateLastPriceAxisBadge } = useChartBadges({
@@ -376,10 +444,11 @@ export const useEChartsRenderer = ({
   });
 
   // 3. Viewport Engine (Extracted to useChartViewport.ts for SRP)
+  // [TENOR 2026] Pass extendedChartData so the user can pan into the future
   const { applyViewport, resetManualYViewport } = useChartViewport({
     chartInstanceRef,
     getChartContainer,
-    chartData,
+    chartData: extendedChartData,
     lastZoomRangeRef,
     updateCursorPriceAxisBadge,
     updateLastPriceAxisBadge
@@ -428,7 +497,6 @@ export const useEChartsRenderer = ({
     }
 
     const chart = chartInstanceRef.current;
-
     const upColor = chartAppearance.upColor;
     const downColor = chartAppearance.downColor;
     const textColor = "#a0aec0";
@@ -438,15 +506,19 @@ export const useEChartsRenderer = ({
     const isLivePositive = lastCandle ? lastCandle.close >= lastCandle.open : true;
     const liveColor = isLivePositive ? upColor : downColor;
 
+    // [TENOR 2026 HDR] Added BB Width and BB %B to active oscillators
     const activeOscillators = [
       advancedIndicators.rsi ? "RSI" : null,
       advancedIndicators.macd ? "MACD" : null,
       advancedIndicators.stochastic ? "Stoch" : null,
+      advancedIndicators.stochRsi ? "StochRSI" : null,
       advancedIndicators.atr ? "ATR" : null,
       advancedIndicators.cci ? "CCI" : null,
       advancedIndicators.williamsR ? "Will%R" : null,
       advancedIndicators.roc ? "ROC" : null,
       advancedIndicators.obv ? "OBV" : null,
+      advancedIndicators.bbWidth ? "BB Width" : null,
+      advancedIndicators.bbPercentB ? "BB %B" : null,
     ].filter(Boolean) as string[];
 
     const isPanelVisible = (name: string) => legendSelection[name] !== false;
@@ -462,6 +534,7 @@ export const useEChartsRenderer = ({
     const spacingPercent = 6;
     const bottomMargin = 5;
     const topMargin = 8;
+
     const totalPanelsHeight = visiblePanelsCount * (panelHeightPrecent + spacingPercent);
     const mainChartHeight = 100 - topMargin - bottomMargin - totalPanelsHeight;
 
@@ -490,6 +563,7 @@ export const useEChartsRenderer = ({
       const isNewMonth = !prevDate || currentMonth !== prevDate.getMonth();
       const isFirstLabel = index === 0;
       const isNewDay = !prevDate || date.getDate() !== prevDate.getDate();
+
       const hasTime = value.includes("T") && !value.includes("T00:00:00");
 
       const showYear = isFirstLabel || (isNewYear && lastVisibleYear !== currentYear);
@@ -541,6 +615,7 @@ export const useEChartsRenderer = ({
           show: true,
           backgroundColor: '#1e222d',
           color: '#ffffff',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter: function (params: any) {
             if (!params.value) return "";
             const date = new Date(params.value);
@@ -550,6 +625,7 @@ export const useEChartsRenderer = ({
             const year = date.getFullYear().toString();
             const hours = date.getHours().toString().padStart(2, '0');
             const minutes = date.getMinutes().toString().padStart(2, '0');
+
             const hasTime = params.value.includes("T") && !params.value.includes("T00:00:00");
 
             if (hasTime) {
@@ -644,55 +720,68 @@ export const useEChartsRenderer = ({
     }
 
     const candlestickData = values;
+
     const seriesOptions: SeriesOption[] = [
-      chartConfig.chartType === "candlestick"
-        ? {
-            id: "main-series",
-            name: displaySymbol,
-            type: "candlestick",
-            data: candlestickData,
-            itemStyle: {
-              color: upColor,
-              color0: downColor,
-              borderColor: undefined,
-              borderColor0: undefined,
-              opacity: isMainChartVisible ? 1 : 0,
-            },
-            markLine: {
-              symbol: ['none', 'none'],
-              animation: false,
-              silent: true,
-              data: [
-                {
-                  yAxis: latestPrice,
-                  label: { show: false, },
-                  lineStyle: { color: liveColor, type: 'dashed', width: 1, opacity: 0.8 }
-                }
-              ]
+      chartConfig.chartType === "candlestick" ? {
+        id: "main-series",
+        name: displaySymbol,
+        type: "candlestick",
+        data: candlestickData,
+        itemStyle: {
+          color: upColor,
+          color0: downColor,
+          borderColor: undefined,
+          borderColor0: undefined,
+          opacity: isMainChartVisible ? 1 : 0,
+        },
+        markLine: {
+          symbol: ['none', 'none'],
+          animation: false,
+          silent: true,
+          data: [
+            {
+              yAxis: latestPrice,
+              label: {
+                show: false,
+              },
+              lineStyle: {
+                color: liveColor,
+                type: 'dashed',
+                width: 1,
+                opacity: 0.8
+              }
             }
-          }
-        : {
-            id: "main-series",
-            name: displaySymbol,
-            type: "line",
-            data: chartData.map((item: ChartDataPoint) => item.close),
-            itemStyle: { color: upColor, opacity: isMainChartVisible ? 1 : 0 },
-            lineStyle: { opacity: isMainChartVisible ? 1 : 0 },
-            showSymbol: true,
-            symbolSize: 6,
-            markLine: {
-              symbol: ['none', 'none'],
-              animation: false,
-              silent: true,
-              data: [
-                {
-                  yAxis: latestPrice,
-                  label: { show: false, },
-                  lineStyle: { color: liveColor, type: 'dashed', width: 1, opacity: 0.8 }
-                }
-              ]
+          ]
+        }
+      } : {
+        id: "main-series",
+        name: displaySymbol,
+        type: "line",
+        data: chartData.map((item: ChartDataPoint) => item.close),
+        itemStyle: { color: upColor, opacity: isMainChartVisible ? 1 : 0 },
+        lineStyle: { opacity: isMainChartVisible ? 1 : 0 },
+        showSymbol: true,
+        symbolSize: 6,
+        markLine: {
+          symbol: ['none', 'none'],
+          animation: false,
+          silent: true,
+          data: [
+            {
+              yAxis: latestPrice,
+              label: {
+                show: false,
+              },
+              lineStyle: {
+                color: liveColor,
+                type: 'dashed',
+                width: 1,
+                opacity: 0.8
+              }
             }
-          },
+          ]
+        }
+      },
     ];
 
     if (shouldRenderVolumePanel) {
@@ -734,8 +823,7 @@ export const useEChartsRenderer = ({
     const commonLineProps = {
       type: "line" as const,
       smooth: true,
-      showSymbol: true,
-      symbolSize: 4,
+      showSymbol: false, // [TENOR 2026 FIX] Clean lines without dots
     };
 
     const activeSmas = chartConfig.indicators.activeSma || [];
@@ -816,6 +904,180 @@ export const useEChartsRenderer = ({
       }
     }
 
+    // [TENOR 2026] ICHIMOKU CLOUD (MAIN PANE OVERLAY)
+    if (advancedIndicators.ichimoku && indicatorsData.tenkan) {
+      seriesOptions.push({
+        id: "ichimoku-tenkan",
+        name: "Tenkan",
+        type: "line",
+        data: indicatorsData.tenkan,
+        showSymbol: false,
+        lineStyle: { width: 1.5, color: "#2962FF" },
+        itemStyle: { color: "#2962FF" },
+      });
+      seriesOptions.push({
+        id: "ichimoku-kijun",
+        name: "Kijun",
+        type: "line",
+        data: indicatorsData.kijun,
+        showSymbol: false,
+        lineStyle: { width: 1.5, color: "#B71C1C" },
+        itemStyle: { color: "#B71C1C" },
+      });
+      seriesOptions.push({
+        id: "ichimoku-chikou",
+        name: "Chikou",
+        type: "line",
+        data: indicatorsData.chikou,
+        showSymbol: false,
+        lineStyle: { width: 1.5, color: "#43A047" },
+        itemStyle: { color: "#43A047" },
+      });
+      seriesOptions.push({
+        id: "ichimoku-senkouA",
+        name: "Senkou A",
+        type: "line",
+        data: indicatorsData.senkouA,
+        showSymbol: false,
+        lineStyle: { width: 1, color: "#A5D6A7" },
+        itemStyle: { color: "#A5D6A7" },
+      });
+      seriesOptions.push({
+        id: "ichimoku-senkouB",
+        name: "Senkou B",
+        type: "line",
+        data: indicatorsData.senkouB,
+        showSymbol: false,
+        lineStyle: { width: 1, color: "#EF9A9A" },
+        itemStyle: { color: "#EF9A9A" },
+      });
+
+      // [TENOR 2026] KUMO CLOUD POLYGON FILL
+      const cloudData = [];
+      for (let i = 1; i < indicatorsData.senkouA.length; i++) {
+        cloudData.push([
+          i,
+          indicatorsData.senkouA[i],
+          indicatorsData.senkouB[i],
+          indicatorsData.senkouA[i - 1],
+          indicatorsData.senkouB[i - 1]
+        ]);
+      }
+
+      seriesOptions.push({
+        id: "ichimoku-cloud",
+        name: "Kumo Cloud",
+        type: "custom",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        renderItem: function (params: any, api: any) {
+          const valA1 = api.value(1);
+          const valB1 = api.value(2);
+          const valA0 = api.value(3);
+          const valB0 = api.value(4);
+
+          if (valA0 === "-" || valB0 === "-" || valA1 === "-" || valB1 === "-" || isNaN(valA0) || isNaN(valB0) || isNaN(valA1) || isNaN(valB1)) return;
+
+          const p0 = api.coord([api.value(0) - 1, valA0]);
+          const p1 = api.coord([api.value(0), valA1]);
+          const p2 = api.coord([api.value(0), valB1]);
+          const p3 = api.coord([api.value(0) - 1, valB0]);
+
+          const isBullish = valA1 >= valB1;
+
+          return {
+            type: 'polygon',
+            shape: { points: [p0, p1, p2, p3] },
+            style: api.style({ fill: isBullish ? 'rgba(67, 160, 71, 0.15)' : 'rgba(244, 67, 54, 0.15)' })
+          };
+        },
+        data: cloudData,
+        z: 0 // Behind candles
+      });
+    }
+
+    // [TENOR 2026 HDR] BOLLINGER BANDS (MAIN PANE OVERLAY)
+    if (advancedIndicators.bollinger && indicatorsData.bollUpper && indicatorsData.bollLower && indicatorsData.bollMiddle) {
+      const bs = bollingerSettings || {
+        showUpper: true, showMiddle: true, showLower: true, showFill: true,
+        upperColor: "#2962FF", middleColor: "#FF6D00", lowerColor: "#2962FF",
+        fillColor: "#2196F3", fillOpacity: 0.05
+      };
+
+      // 1. The Fill (Custom Series Polygon)
+      if (bs.showFill) {
+        const fillData = [];
+        for (let i = 1; i < indicatorsData.bollUpper.length; i++) {
+          fillData.push([
+            i,
+            indicatorsData.bollUpper[i],
+            indicatorsData.bollLower[i],
+            indicatorsData.bollUpper[i - 1],
+            indicatorsData.bollLower[i - 1]
+          ]);
+        }
+        seriesOptions.push({
+          id: "boll-fill",
+          name: "BB Background",
+          type: "custom",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          renderItem: function (params: any, api: any) {
+            const valU1 = api.value(1);
+            const valL1 = api.value(2);
+            const valU0 = api.value(3);
+            const valL0 = api.value(4);
+
+            if (valU0 === "-" || valL0 === "-" || valU1 === "-" || valL1 === "-" || isNaN(valU0) || isNaN(valL0) || isNaN(valU1) || isNaN(valL1)) return;
+
+            const p0 = api.coord([api.value(0) - 1, valU0]);
+            const p1 = api.coord([api.value(0), valU1]);
+            const p2 = api.coord([api.value(0), valL1]);
+            const p3 = api.coord([api.value(0) - 1, valL0]);
+
+            return {
+              type: 'polygon',
+              shape: { points: [p0, p1, p2, p3] },
+              style: api.style({ fill: bs.fillColor })
+            };
+          },
+          data: fillData,
+          itemStyle: { opacity: bs.fillOpacity ?? 0.05 },
+          z: 0 // Behind candles
+        });
+      }
+
+      // 2. The Lines
+      if (bs.showUpper) {
+        seriesOptions.push({
+          ...commonLineProps,
+          id: "boll-upper",
+          name: "BB Upper",
+          data: indicatorsData.bollUpper,
+          lineStyle: { opacity: 1, width: 1.5, color: bs.upperColor },
+          itemStyle: { color: bs.upperColor },
+        });
+      }
+      if (bs.showMiddle) {
+        seriesOptions.push({
+          ...commonLineProps,
+          id: "boll-mid",
+          name: "BB Middle",
+          data: indicatorsData.bollMiddle,
+          lineStyle: { opacity: 1, width: 1.5, color: bs.middleColor },
+          itemStyle: { color: bs.middleColor },
+        });
+      }
+      if (bs.showLower) {
+        seriesOptions.push({
+          ...commonLineProps,
+          id: "boll-lower",
+          name: "BB Lower",
+          data: indicatorsData.bollLower,
+          lineStyle: { opacity: 1, width: 1.5, color: bs.lowerColor },
+          itemStyle: { color: bs.lowerColor },
+        });
+      }
+    }
+
     const comparePalette = ["#2E93fA", "#66DA26", "#E91E63", "#FF9F04", "#775DD0"];
     comparisonSeries.forEach((entry, idx) => {
       const closes = entry.data.map((p) => p.close).filter((v) => Number.isFinite(v));
@@ -838,32 +1100,6 @@ export const useEChartsRenderer = ({
         itemStyle: { color: comparePalette[idx % comparePalette.length] },
       });
     });
-
-    if (advancedIndicators.bollinger && indicatorsData.bollUpper) {
-      seriesOptions.push(
-        {
-          ...commonLineProps,
-          id: "boll-upper",
-          name: "Boll Upper",
-          data: indicatorsData.bollUpper,
-          lineStyle: { opacity: 0.5, width: 1, type: "dashed", color: "#ccc" },
-        },
-        {
-          ...commonLineProps,
-          id: "boll-lower",
-          name: "Boll Lower",
-          data: indicatorsData.bollLower,
-          lineStyle: { opacity: 0.5, width: 1, type: "dashed", color: "#ccc" },
-        },
-        {
-          ...commonLineProps,
-          id: "boll-mid",
-          name: "Boll Mid",
-          data: indicatorsData.bollMiddle,
-          lineStyle: { opacity: 0.8, width: 1, color: "#ffa726" },
-        }
-      );
-    }
 
     // --- 2+: OSCILLATOR GRIDS ---
     activeOscillators.forEach((osc, idx) => {
@@ -891,6 +1127,10 @@ export const useEChartsRenderer = ({
         max: "dataMax",
       });
 
+      // [TENOR 2026 HDR] TV-Parity: Fixed Y-Axis bounds for bounded oscillators
+      const isBounded0to100 = osc === "RSI" || osc === "Stoch" || osc === "StochRSI";
+      const isBoundedWillR = osc === "Will%R";
+
       yAxisOptions.push({
         id: `osc-yaxis-${idx}`,
         position: "right",
@@ -902,7 +1142,9 @@ export const useEChartsRenderer = ({
           lineStyle: { color: "rgba(42, 46, 57, 0.5)", type: "dashed" }
         },
         axisLabel: { color: textColor, fontSize: 10 },
-        scale: true,
+        scale: !(isBounded0to100 || isBoundedWillR),
+        min: isBounded0to100 ? 0 : (isBoundedWillR ? -100 : undefined),
+        max: isBounded0to100 ? 100 : (isBoundedWillR ? 0 : undefined),
         axisPointer: {
           show: uiState.cursorMode !== "arrow",
           label: { show: true }
@@ -918,12 +1160,23 @@ export const useEChartsRenderer = ({
           yAxisIndex: gridIndex,
           data: indicatorsData.rsi,
           showSymbol: false,
-          lineStyle: { width: 1.5, color: "#b388ff" },
-          markLine: {
-            data: [{ yAxis: 30 }, { yAxis: 70 }],
-            label: { show: false },
-            lineStyle: { type: "dotted", color: "#666" },
+          lineStyle: { width: 1.5, color: "#7E57C2" }, // TV Purple
+          markArea: {
+            silent: true,
+            itemStyle: { color: "rgba(126, 87, 194, 0.08)" },
+            data: [[{ yAxis: 30 }, { yAxis: 70 }]]
           },
+          markLine: {
+            silent: true,
+            symbol: ['none', 'none'],
+            label: { show: false },
+            lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
+            data: [
+              { yAxis: 70 },
+              { yAxis: 30 },
+              { yAxis: 50, lineStyle: { type: "dotted" } }
+            ]
+          }
         });
       } else if (osc === "MACD" && indicatorsData.macdLine) {
         const histData = (indicatorsData.macdHist as number[]).map((val, i) => [i, val]);
@@ -935,6 +1188,7 @@ export const useEChartsRenderer = ({
             xAxisIndex: gridIndex,
             yAxisIndex: gridIndex,
             data: histData,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             itemStyle: { color: (p: any) => (p.value[1] > 0 ? upColor : downColor) },
           },
           {
@@ -962,23 +1216,78 @@ export const useEChartsRenderer = ({
         seriesOptions.push(
           {
             id: "stoch-k",
-            name: "Stoch %K",
+            name: "%K",
             type: "line",
             xAxisIndex: gridIndex,
             yAxisIndex: gridIndex,
             data: indicatorsData.stochK,
             showSymbol: false,
-            lineStyle: { width: 1.5, color: "#2E93fA" },
+            lineStyle: { width: 1.5, color: "#2962FF" }, // TV Blue
+            markArea: {
+              silent: true,
+              itemStyle: { color: "rgba(33, 150, 243, 0.08)" },
+              data: [[{ yAxis: 20 }, { yAxis: 80 }]]
+            },
+            markLine: {
+              silent: true,
+              symbol: ['none', 'none'],
+              label: { show: false },
+              lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
+              data: [
+                { yAxis: 80 },
+                { yAxis: 20 },
+                { yAxis: 50, lineStyle: { type: "dotted" } }
+              ]
+            }
           },
           {
             id: "stoch-d",
-            name: "Stoch %D",
+            name: "%D",
             type: "line",
             xAxisIndex: gridIndex,
             yAxisIndex: gridIndex,
             data: indicatorsData.stochD,
             showSymbol: false,
-            lineStyle: { width: 1.5, color: "#FF9F04" },
+            lineStyle: { width: 1.5, color: "#FF6D00" }, // TV Orange
+          }
+        );
+      } else if (osc === "StochRSI" && indicatorsData.stochRsiK) {
+        seriesOptions.push(
+          {
+            id: "stochrsi-k",
+            name: "StochRSI %K",
+            type: "line",
+            xAxisIndex: gridIndex,
+            yAxisIndex: gridIndex,
+            data: indicatorsData.stochRsiK,
+            showSymbol: false,
+            lineStyle: { width: 1.5, color: "#2962FF" },
+            markArea: {
+              silent: true,
+              itemStyle: { color: "rgba(33, 150, 243, 0.08)" },
+              data: [[{ yAxis: 20 }, { yAxis: 80 }]]
+            },
+            markLine: {
+              silent: true,
+              symbol: ['none', 'none'],
+              label: { show: false },
+              lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
+              data: [
+                { yAxis: 80 },
+                { yAxis: 20 },
+                { yAxis: 50, lineStyle: { type: "dotted" } }
+              ]
+            }
+          },
+          {
+            id: "stochrsi-d",
+            name: "StochRSI %D",
+            type: "line",
+            xAxisIndex: gridIndex,
+            yAxisIndex: gridIndex,
+            data: indicatorsData.stochRsiD,
+            showSymbol: false,
+            lineStyle: { width: 1.5, color: "#FF6D00" },
           }
         );
       } else if (osc === "ATR" && indicatorsData.atr) {
@@ -1013,10 +1322,21 @@ export const useEChartsRenderer = ({
           data: indicatorsData.williamsR,
           showSymbol: false,
           lineStyle: { width: 1.5, color: "#FFEB3B" },
+          markArea: {
+            silent: true,
+            itemStyle: { color: "rgba(255, 235, 59, 0.08)" },
+            data: [[{ yAxis: -80 }, { yAxis: -20 }]]
+          },
           markLine: {
-            data: [{ yAxis: -20 }, { yAxis: -80 }],
+            silent: true,
+            symbol: ['none', 'none'],
             label: { show: false },
-            lineStyle: { type: "dotted", color: "#666" },
+            lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
+            data: [
+              { yAxis: -20 },
+              { yAxis: -80 },
+              { yAxis: -50, lineStyle: { type: "dotted" } }
+            ]
           },
         });
       } else if (osc === "ROC" && indicatorsData.roc) {
@@ -1030,9 +1350,11 @@ export const useEChartsRenderer = ({
           showSymbol: false,
           lineStyle: { width: 1.5, color: "#2196F3" },
           markLine: {
-            data: [{ yAxis: 0 }],
+            silent: true,
+            symbol: ['none', 'none'],
             label: { show: false },
-            lineStyle: { type: "dashed", color: "#666" },
+            lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
+            data: [{ yAxis: 0 }],
           },
         });
       } else if (osc === "OBV" && indicatorsData.obv) {
@@ -1046,6 +1368,41 @@ export const useEChartsRenderer = ({
           showSymbol: false,
           lineStyle: { width: 1.5, color: "#FF5722" },
         });
+      } else if (osc === "BB Width" && indicatorsData.bbWidth) {
+        seriesOptions.push({
+          id: "bb-width-series",
+          name: "BB Width",
+          type: "line",
+          xAxisIndex: gridIndex,
+          yAxisIndex: gridIndex,
+          data: indicatorsData.bbWidth,
+          showSymbol: false,
+          lineStyle: { width: 1.5, color: "#FF6D00" }, // TV Orange
+        });
+      } else if (osc === "BB %B" && indicatorsData.bbPercentB) {
+        seriesOptions.push({
+          id: "bb-percentb-series",
+          name: "BB %B",
+          type: "line",
+          xAxisIndex: gridIndex,
+          yAxisIndex: gridIndex,
+          data: indicatorsData.bbPercentB,
+          showSymbol: false,
+          lineStyle: { width: 1.5, color: "#2962FF" }, // TV Blue
+          markLine: {
+            silent: true,
+            symbol: ['none', 'none'],
+            label: { show: false },
+            lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
+            data: [
+              { yAxis: 1 },
+              { yAxis: 0.8, lineStyle: { type: "dotted" } },
+              { yAxis: 0.5, lineStyle: { type: "dotted" } },
+              { yAxis: 0.2, lineStyle: { type: "dotted" } },
+              { yAxis: 0 }
+            ]
+          }
+        });
       }
 
       if (oscVisible) currentTopPercent += panelHeightPrecent + spacingPercent;
@@ -1054,7 +1411,7 @@ export const useEChartsRenderer = ({
     const legendData = [
       chartAppearance.showVolume ? "Volume" : null,
       ...seriesOptions
-        .filter((opt) => opt.id !== "main-series" && opt.name !== "Volume")
+        .filter((opt) => opt.id !== "main-series" && opt.name !== "Volume" && opt.id !== "boll-fill" && opt.id !== "ichimoku-cloud")
         .map((opt) => opt.name),
     ].filter((name): name is string => !!name);
 
@@ -1107,6 +1464,7 @@ export const useEChartsRenderer = ({
       }
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleLegendChange = (params: any) => {
       if (!isMountedRef.current) return;
       const nextSelection = { ...(params.selected || {}) };
@@ -1132,8 +1490,10 @@ export const useEChartsRenderer = ({
     displaySymbol,
     chartAppearance,
     indicatorPeriods,
+    bollingerSettings,
     uiState.cursorMode,
     indicatorsData,
+    dispatch,
     chartInstanceRef,
     stockChartRef,
     lastZoomRangeRef,
@@ -1153,9 +1513,11 @@ export const useEChartsRenderer = ({
     hasSize,
     dates,
     values,
-    volumes
+    volumes,
+    extendedChartData
   ]);
 
   return { indicatorsData };
 };
+
 // --- EOF ---

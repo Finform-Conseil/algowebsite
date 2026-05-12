@@ -5,7 +5,9 @@ import { BRVMSecurity } from "@/core/data/brvm-securities";
 // ============================================================================
 // CORE DRAWING TYPES
 // ============================================================================
+
 export type DisplaySecurity = Omit<BRVMSecurity, "currency"> & { currency: string };
+
 export type DrawingToolType =
   | "line"
   | "horizontal_line"
@@ -183,7 +185,6 @@ export interface Drawing {
   isCreating?: boolean;
   _boxOffset?: number; // [TENOR 2026] UI offset for multi-tool reconciliation
   groupId?: string; // [TENOR 2026] Folder/Group support for Object Tree
-
   text?: string;
   showText?: boolean;
   textColor?: string;
@@ -635,6 +636,7 @@ export interface Drawing {
 // ============================================================================
 // HIT-TEST & RENDERING HELPERS
 // ============================================================================
+
 export interface HitTestResult {
   isHit: boolean;
   hitType: "point" | "shape" | "zone_tp" | "zone_sl" | "width_resize" | null;
@@ -659,6 +661,7 @@ export interface DrawingHelpers {
 // ============================================================================
 // MARKET SNAPSHOT TYPES
 // ============================================================================
+
 export interface LiveSnapshot {
   symbol: string;
   price: number;
@@ -696,6 +699,25 @@ export interface Alert {
   active: boolean;
 }
 
+// ============================================================================
+// [TENOR 2026 HDR] BOLLINGER BANDS SETTINGS
+// ============================================================================
+export interface BollingerSettings {
+  length: number;
+  source: "open" | "high" | "low" | "close" | "hl2" | "hlc3" | "ohlc4" | "hlcc4";
+  multiplier: number;
+  offset: number;
+  showUpper: boolean;
+  showMiddle: boolean;
+  showLower: boolean;
+  showFill: boolean;
+  upperColor: string;
+  middleColor: string;
+  lowerColor: string;
+  fillColor: string;
+  fillOpacity: number;
+}
+
 export interface AdvancedIndicatorsState {
   rsi: boolean;
   macd: boolean;
@@ -703,15 +725,20 @@ export interface AdvancedIndicatorsState {
   stochastic: boolean;
   atr: boolean;
   cci: boolean;
-  // [TENOR 2026 FEAT] New indicators
   williamsR: boolean;
   roc: boolean;
   obv: boolean;
+  ichimoku: boolean;
+  stochRsi: boolean;
+  // [TENOR 2026 HDR] Bollinger Derived Metrics (Oscillators)
+  bbWidth: boolean;
+  bbPercentB: boolean;
 }
 
 // ============================================================================
 // TOOLBAR & CONFIG TYPES
 // ============================================================================
+
 export interface ToolbarButtonDefinition {
   icon: string;
   iconLocked?: string;
@@ -747,6 +774,7 @@ export type SeriesOption = Record<string, unknown>;
 // ============================================================================
 // PERSISTENCE TYPES
 // ============================================================================
+
 export interface SavedAnalysisIndicators {
   sma: boolean;
   ema: boolean;
@@ -765,6 +793,11 @@ export interface SavedAnalysisAdvancedIndicators {
   williamsR?: boolean;
   roc?: boolean;
   obv?: boolean;
+  ichimoku?: boolean;
+  stochRsi?: boolean;
+  // [TENOR 2026 HDR] Optional for backward compatibility
+  bbWidth?: boolean;
+  bbPercentB?: boolean;
 }
 
 export interface SavedAnalysis {
@@ -776,6 +809,7 @@ export interface SavedAnalysis {
     chartType: string;
     indicators: SavedAnalysisIndicators;
     advancedIndicators: SavedAnalysisAdvancedIndicators;
+    bollingerSettings?: BollingerSettings; // [TENOR 2026 HDR] Optional for backward compatibility
     timeRange?: string;
     savedAt: string;
   };
@@ -784,7 +818,7 @@ export interface SavedAnalysis {
 // ============================================================================
 // GLOBAL CONFIG TYPES
 // ============================================================================
-// [TENOR 2026] Added "eraser" to resolve TS2367 in VerticalDrawingToolbar
+
 export type CursorModeType =
   | "cross"
   | "dot"
@@ -822,7 +856,6 @@ export interface UiState {
   dataMode: "mock" | "real";
   comparisonSymbols: string[];
   searchMode: "replace" | "compare";
-  // [TENOR 2026] Officially typed modals:
   modals: {
     search: boolean;
     indicators: boolean;
@@ -848,11 +881,12 @@ export interface TechnicalAnalysisState {
   chartConfig: ChartState;
   advancedIndicators: AdvancedIndicatorsState;
   indicatorPeriods: IndicatorPeriods;
+  bollingerSettings: BollingerSettings; // [TENOR 2026 HDR] Centralized Bollinger Config
   chartAppearance: ChartAppearance;
   ui: UiState;
   alerts: Alert[];
-  marketData: Record<string, ChartDataPoint[]>; // [TENOR 2026] Root level cache
-  marketSnapshots: Record<string, LiveSnapshot>; // [TENOR 2026] Live technical data (from indicator.csv)
+  marketData: Record<string, ChartDataPoint[]>;
+  marketSnapshots: Record<string, LiveSnapshot>;
 }
 
 // ============================================================================
@@ -861,16 +895,15 @@ export interface TechnicalAnalysisState {
 
 export type ObjectTreePanelTab = "object_tree" | "data_window";
 
-/** Valeurs OHLCV + Change affichées dans le Data Window au survol du curseur */
 export interface DataWindowCandleValues {
-  date: string;       // ex: "Mon 18 Jan '26"
+  date: string;
   open: number;
   high: number;
   low: number;
   close: number;
   volume: number;
-  change: number;     // close - open
-  isUp: boolean;      // close >= open
+  change: number;
+  isUp: boolean;
 }
 
 // --- EOF ---

@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useEffect } from 'react';
+import { useLayoutEffect, useRef, useCallback, useEffect } from 'react';
 import * as echarts from 'echarts/core';
+import { useMasterRenderLoop } from './useMasterRenderLoop';
 
 const MAIN_GRID_LEFT = 15;
 
@@ -48,20 +49,13 @@ interface Particle {
 
 /**
  * High-performance cursor renderer hook for TechnicalAnalysis chart.
- *
+ * 
  * Renders custom cursor overlays (crosshair, dot, presentation mode, magic wand, eraser) on a canvas layer.
- * Uses ResizeObserver for robust canvas sizing and requestAnimationFrame for smooth rendering.
+ * Uses ResizeObserver for robust canvas sizing and useMasterRenderLoop for smooth rendering.
  * Now supports "Pro" Order Flow style tooltips with visual candles and a Physics Engine.
  */
-export const useCursorRenderer = ({
-  canvasRef,
-  containerRef,
-  mode,
-  chartRef,
-  chartData
-}: UseCursorRendererProps) => {
+export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, chartData }: UseCursorRendererProps) => {
   const mouseRef = useRef<{ x: number, y: number } | null>(null);
-  const rafRef = useRef<number | null>(null);
   const isReadyRef = useRef(false);
 
   // --- INITIALISATION DE L'OBJECT POOL (Ring Buffer) ---
@@ -137,13 +131,14 @@ export const useCursorRenderer = ({
     };
   }, [containerRef, mode]); // Re-bind si le mode change
 
-  // useLayoutEffect ensures canvas is sized BEFORE paint, preventing flicker
+  // ============================================================================
+  // 1. CANVAS SIZING & RESIZE OBSERVER
+  // ============================================================================
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    // === CANVAS SIZE SYNCHRONIZATION ===
     // Critical: Canvas internal size must match CSS display size
     const syncCanvasSize = (): boolean => {
       const rect = container.getBoundingClientRect();
@@ -169,13 +164,25 @@ export const useCursorRenderer = ({
 
     syncCanvasSize();
 
-    // === RESIZE OBSERVER ===
     const resizeObserver = new ResizeObserver(() => {
       syncCanvasSize();
     });
+    
     resizeObserver.observe(container);
 
-    // === RENDER LOOP ===
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [canvasRef, containerRef]);
+
+  // ============================================================================
+  // 2. RENDER LOOP (Orchestrated by MasterRenderLoop)
+  // ============================================================================
+  const render = useCallback((_time: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx || !isReadyRef.current) return;
 
     // Helper: Draw Axis Labels (The TradingView-style "Ribbons")
     const drawAxisLabels = (
@@ -227,7 +234,7 @@ export const useCursorRenderer = ({
                 const year = date.getFullYear().toString(); // Full 4-digit year
                 const hours = date.getHours().toString().padStart(2, '0');
                 const minutes = date.getMinutes().toString().padStart(2, '0');
-                
+
                 const timeStr = typeof time === 'string' ? time : date.toISOString();
                 const hasTime = timeStr.includes("T") && !timeStr.includes("T00:00:00");
 
@@ -243,7 +250,7 @@ export const useCursorRenderer = ({
           // coordinate system might not be ready yet
         }
       }
-      
+
       if (!dateText) {
         const now = new Date();
         dateText = `${now.toLocaleDateString('en-US', { weekday: 'short' })} ${now.getDate().toString().padStart(2, '0')} ${now.toLocaleDateString('en-US', { month: 'short' })} ${now.getFullYear()}`;
@@ -259,6 +266,7 @@ export const useCursorRenderer = ({
       ctx.beginPath();
       ctx.roundRect(dateLabelX, dateLabelY, dateLabelWidth, dateLabelHeight, cornerRadius);
       ctx.fill();
+
       ctx.fillStyle = textColor;
       ctx.fillText(dateText, dateLabelX + dateLabelWidth / 2, dateLabelY + dateLabelHeight / 2);
     };
@@ -281,19 +289,17 @@ export const useCursorRenderer = ({
     ) => {
       // 1. Get Candle Data
       if (chart.isDisposed()) return;
-      
       let pointInData;
       try {
         pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [x, y]);
       } catch {
         return;
       }
-      
+
       if (!pointInData || !Array.isArray(pointInData)) return;
-      
       const dataIndex = Math.round(pointInData[0]);
       if (dataIndex < 0 || dataIndex >= data.length) return;
-      
+
       const candle = data[dataIndex];
       let dOpen, dHigh, dLow, dClose, dVol;
 
@@ -319,7 +325,7 @@ export const useCursorRenderer = ({
       const colorBull = '#00da3c'; // Green
       const colorBear = '#ce4243'; // Red
       const candleColor = isBullish ? colorBull : colorBear;
-      
+
       const metrics = {
         rng: (dHigh - dLow).toFixed(2),
         body: Math.abs(dOpen - dClose).toFixed(2),
@@ -333,11 +339,11 @@ export const useCursorRenderer = ({
       const padding = 12;
       const visualCandleWidth = 30; // Width of the graphical candle area
       const offset = 20;
-      
+
       // Smart Positioning (Flip if near edges)
       let boxX = x + offset;
       let boxY = y + offset;
-      
+
       if (boxX + boxWidth > w) boxX = x - offset - boxWidth;
       if (boxY + boxHeight > h) boxY = y - offset - boxHeight;
 
@@ -358,18 +364,18 @@ export const useCursorRenderer = ({
       const candleAreaY = boxY + padding;
       const candleAreaH = boxHeight - padding * 2;
       const candleAreaW = visualCandleWidth;
-      
+
       // Visual ratios
       const rng = dHigh - dLow || 1; // Avoid divide by zero
       const bodyH = Math.abs(dOpen - dClose);
       const wickTopH = dHigh - Math.max(dOpen, dClose);
-      
+
       // Scale factor to fit inside the candle area
       const pxPerUnit = candleAreaH / (rng * 1.2); // 1.2 for breathing room
-      
+
       const visualBodyH = Math.max(1, bodyH * pxPerUnit); // Min 1px
       const visualWickTopH = wickTopH * pxPerUnit;
-      
+
       // Center vertically in the area
       const startY = candleAreaY + (candleAreaH - (rng * pxPerUnit)) / 2;
       const topY = startY;
@@ -377,7 +383,7 @@ export const useCursorRenderer = ({
 
       ctx.fillStyle = candleColor;
       ctx.strokeStyle = candleColor;
-      
+
       // Draw Wicks (Center line)
       const centerX = candleAreaX + candleAreaW / 2;
       ctx.beginPath();
@@ -385,7 +391,7 @@ export const useCursorRenderer = ({
       ctx.lineTo(centerX, startY + (rng * pxPerUnit));
       ctx.lineWidth = 2; // Thicker wicks for visual impact
       ctx.stroke();
-      
+
       // Draw Body (Rectangle)
       const bodyW = 16;
       ctx.beginPath();
@@ -396,10 +402,9 @@ export const useCursorRenderer = ({
       const col1X = textStartX;
       const col2X = textStartX + 90;
       const lineHeight = 20;
-      
       const labelColor = '#94a3b8'; // Slate-400
       const valColor = '#f8fafc'; // Slate-50
-      
+
       ctx.font = '11px Inter, system-ui, sans-serif';
       ctx.textBaseline = 'middle';
 
@@ -446,205 +451,194 @@ export const useCursorRenderer = ({
       });
     };
 
-    // === RENDER LOOP ===
-    const render = () => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx || !isReadyRef.current) {
-        rafRef.current = requestAnimationFrame(render);
-        return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ============================================================================
+    // [TENOR 2026] MOTEUR PHYSIQUE DES PARTICULES (Indépendant de la souris)
+    // ============================================================================
+    const particles = particlesRef.current;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (!p.active) continue;
+
+      // Intégration d'Euler (Physique)
+      p.vy += GRAVITY;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.angle += p.vAngle;
+      p.life--;
+
+      if (p.life <= 0) {
+        p.active = false;
+        continue;
       }
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Rendu de la particule
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      // Opacité dégressive pour une disparition en douceur
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.font = `${p.size}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.emoji, 0, 0);
+      ctx.restore();
+    }
 
-      // ============================================================================
-      // [TENOR 2026] MOTEUR PHYSIQUE DES PARTICULES (Indépendant de la souris)
-      // ============================================================================
-      const particles = particlesRef.current;
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        if (!p.active) continue;
+    // ============================================================================
+    // RENDU DES CURSEURS SPÉCIFIQUES (Dépendant de la souris)
+    // ============================================================================
+    if (mouseRef.current) {
+      const { x, y } = mouseRef.current;
+      const w = canvas.width;
+      const h = canvas.height;
 
-        // Intégration d'Euler (Physique)
-        p.vy += GRAVITY;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.angle += p.vAngle;
-        p.life--;
+      // --- COLORS ---
+      const axisLabelBg = '#1e222d';
+      const axisLabelText = '#ffffff'; // [TENOR 2026 FIX] Pure white for TradingView fidelity
+      const accentCyan = '#29b6f6';
 
-        if (p.life <= 0) {
-          p.active = false;
-          continue;
-        }
+      const chart = chartRef.current;
 
-        // Rendu de la particule
+      // --- MODE: CROSS & CROSS-TOOLTIP ---
+      if (mode === 'cross' || mode === 'cross-tooltip') {
         ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.angle);
-        // Opacité dégressive pour une disparition en douceur
-        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-        ctx.font = `${p.size}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(p.emoji, 0, 0);
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = 'rgba(108, 117, 125, 0.8)';
+        ctx.lineWidth = 1;
+        ctx.moveTo(Math.floor(x) + 0.5, 0);
+        ctx.lineTo(Math.floor(x) + 0.5, h);
+        ctx.moveTo(0, Math.floor(y) + 0.5);
+        ctx.lineTo(w, Math.floor(y) + 0.5);
+        ctx.stroke();
         ctx.restore();
-      }
 
-      // ============================================================================
-      // RENDU DES CURSEURS SPÉCIFIQUES (Dépendant de la souris)
-      // ============================================================================
-      if (mouseRef.current) {
-        const { x, y } = mouseRef.current;
-        const w = canvas.width;
-        const h = canvas.height;
+        // [TENOR 2026 FIX] ALWAYS draw axis labels (ribbons) for crosshair modes
+        drawAxisLabels(ctx, x, y, w, h, axisLabelBg, axisLabelText);
 
-        // --- COLORS ---
-        const axisLabelBg = '#1e222d';
-        const axisLabelText = '#ffffff'; // [TENOR 2026 FIX] Pure white for TradingView fidelity
-        const accentCyan = '#29b6f6';
-
-        const chart = chartRef.current;
-
-        // --- MODE: CROSS & CROSS-TOOLTIP ---
-        if (mode === 'cross' || mode === 'cross-tooltip') {
-          ctx.save();
-          ctx.beginPath();
-          ctx.setLineDash([4, 3]);
-          ctx.strokeStyle = 'rgba(108, 117, 125, 0.8)';
-          ctx.lineWidth = 1;
-          ctx.moveTo(Math.floor(x) + 0.5, 0);
-          ctx.lineTo(Math.floor(x) + 0.5, h);
-          ctx.moveTo(0, Math.floor(y) + 0.5);
-          ctx.lineTo(w, Math.floor(y) + 0.5);
-          ctx.stroke();
-          ctx.restore();
-
-          // [TENOR 2026 FIX] ALWAYS draw axis labels (ribbons) for crosshair modes
-          drawAxisLabels(ctx, x, y, w, h, axisLabelBg, axisLabelText);
-
-          if (mode === 'cross-tooltip') {
-            if (chart && chartData.length > 0) {
-              drawProTooltip(ctx, x, y, w, h, chart, chartData);
-            }
-          }
-        }
-
-        // --- MODE: ARROW-TOOLTIP ---
-        if (mode === 'arrow-tooltip') {
-          drawAxisLabels(ctx, x, y, w, h, axisLabelBg, axisLabelText);
+        if (mode === 'cross-tooltip') {
           if (chart && chartData.length > 0) {
             drawProTooltip(ctx, x, y, w, h, chart, chartData);
           }
         }
+      }
 
-        // --- MODE: DOT ---
-        if (mode === 'dot') {
-          ctx.save();
-          ctx.shadowBlur = 4;
-          ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          ctx.beginPath();
-          ctx.fillStyle = '#ffffff';
-          ctx.arc(x, y, 4.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-          ctx.lineWidth = 1;
-          ctx.stroke();
-          ctx.restore();
-        }
+      // --- MODE: ARROW-TOOLTIP ---
+      if (mode === 'arrow-tooltip') {
+        drawAxisLabels(ctx, x, y, w, h, axisLabelBg, axisLabelText);
 
-        // --- MODE: DEMONSTRATION ---
-        if (mode === 'demonstration') {
-          ctx.save();
-          const pulseSize = 15 + Math.sin(Date.now() / 200) * 3;
-          ctx.beginPath();
-          ctx.fillStyle = 'rgba(41, 182, 246, 0.2)';
-          ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.beginPath();
-          ctx.fillStyle = accentCyan;
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = accentCyan;
-          ctx.arc(x, y, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        // --- MODE: MAGIC WAND ---
-        if (mode === 'magic') {
-          ctx.save();
-          ctx.font = '22px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          // Décalage pour que l'étoile de la baguette soit sur la pointe du curseur natif
-          ctx.fillText('🪄', x + 12, y - 12);
-          ctx.restore();
-        }
-
-        // --- MODE: ERASER ---
-        if (mode === 'eraser') {
-          // 1. Draw crosshair (TradingView keeps the crosshair for the eraser)
-          ctx.save();
-          ctx.beginPath();
-          ctx.setLineDash([4, 3]);
-          ctx.strokeStyle = 'rgba(108, 117, 125, 0.8)';
-          ctx.lineWidth = 1;
-          ctx.moveTo(Math.floor(x) + 0.5, 0);
-          ctx.lineTo(Math.floor(x) + 0.5, h);
-          ctx.moveTo(0, Math.floor(y) + 0.5);
-          ctx.lineTo(w, Math.floor(y) + 0.5);
-          ctx.stroke();
-          ctx.restore();
-
-          // [TENOR 2026 FIX] TradingView Parity Eraser Icon
-          ctx.save();
-          // Offset the eraser icon to the bottom right of the cursor
-          ctx.translate(x + 16, y + 16);
-          ctx.rotate(-Math.PI / 4); // Tilt 45 degrees
-          
-          // Shadow for depth
-          ctx.shadowColor = 'rgba(0,0,0,0.3)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 2;
-
-          // Draw Eraser Body
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(-6, -10, 12, 20, 2);
-          } else {
-            ctx.rect(-6, -10, 12, 20);
-          }
-          ctx.fillStyle = '#ffffff';
-          ctx.fill();
-          
-          ctx.shadowColor = 'transparent'; // turn off shadow for stroke
-          ctx.lineWidth = 1.5;
-          ctx.strokeStyle = '#131722';
-          ctx.stroke();
-
-          // Draw Eraser Top (Dark sleeve)
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(-6, -10, 12, 8, [2, 2, 0, 0]);
-          } else {
-            ctx.rect(-6, -10, 12, 8);
-          }
-          ctx.fillStyle = '#4b5563'; // Slate 600
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.restore();
+        if (chart && chartData.length > 0) {
+          drawProTooltip(ctx, x, y, w, h, chart, chartData);
         }
       }
 
-      rafRef.current = requestAnimationFrame(render);
-    };
+      // --- MODE: DOT ---
+      if (mode === 'dot') {
+        ctx.save();
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.fillStyle = '#ffffff';
+        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      }
 
-    rafRef.current = requestAnimationFrame(render);
+      // --- MODE: DEMONSTRATION ---
+      if (mode === 'demonstration') {
+        ctx.save();
+        const pulseSize = 15 + Math.sin(Date.now() / 200) * 3;
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(41, 182, 246, 0.2)';
+        ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
+        ctx.fill();
 
-    // CLEANUP
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      resizeObserver.disconnect();
-    };
-  }, [canvasRef, containerRef, mode, chartRef, chartData]);
+        ctx.beginPath();
+        ctx.fillStyle = accentCyan;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = accentCyan;
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // --- MODE: MAGIC WAND ---
+      if (mode === 'magic') {
+        ctx.save();
+        ctx.font = '22px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // Décalage pour que l'étoile de la baguette soit sur la pointe du curseur natif
+        ctx.fillText('🪄', x + 12, y - 12);
+        ctx.restore();
+      }
+
+      // --- MODE: ERASER ---
+      if (mode === 'eraser') {
+        // 1. Draw crosshair (TradingView keeps the crosshair for the eraser)
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = 'rgba(108, 117, 125, 0.8)';
+        ctx.lineWidth = 1;
+        ctx.moveTo(Math.floor(x) + 0.5, 0);
+        ctx.lineTo(Math.floor(x) + 0.5, h);
+        ctx.moveTo(0, Math.floor(y) + 0.5);
+        ctx.lineTo(w, Math.floor(y) + 0.5);
+        ctx.stroke();
+        ctx.restore();
+
+        // [TENOR 2026 FIX] TradingView Parity Eraser Icon
+        ctx.save();
+        // Offset the eraser icon to the bottom right of the cursor
+        ctx.translate(x + 16, y + 16);
+        ctx.rotate(-Math.PI / 4); // Tilt 45 degrees
+
+        // Shadow for depth
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+
+        // Draw Eraser Body
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(-6, -10, 12, 20, 2);
+        } else {
+          ctx.rect(-6, -10, 12, 20);
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        ctx.shadowColor = 'transparent'; // turn off shadow for stroke
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#131722';
+        ctx.stroke();
+
+        // Draw Eraser Top (Dark sleeve)
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(-6, -10, 12, 8, [2, 2, 0, 0]);
+        } else {
+          ctx.rect(-6, -10, 12, 8);
+        }
+        ctx.fillStyle = '#4b5563'; // Slate 600
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+  }, [canvasRef, mode, chartRef, chartData]);
+
+  // ============================================================================
+  // 3. MASTER RENDER LOOP SUBSCRIPTION
+  // ============================================================================
+  useMasterRenderLoop(render);
 };
+
+// --- EOF ---

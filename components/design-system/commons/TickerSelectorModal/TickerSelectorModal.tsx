@@ -10,7 +10,7 @@ import { useTickerSelector } from "./context/TickerSelectorContext";
 // Architecture:
 // 1. useDeferredValue: Decouples typing (120Hz) from list filtering/rendering.
 // 2. React.memo (O(1) Updates): Only the newly active and previously active rows re-render during keyboard navigation.
-// 3. CSS content-visibility: Offloads off-screen rendering to the GPU.
+// 3. Stable native scrolling: containment without content-visibility layout jumps.
 // 4. Safe Highlighting: No dangerouslySetInnerHTML (XSS Shield).
 // ============================================================================
 
@@ -335,7 +335,7 @@ export const TickerSelectorModal: React.FC = () => {
         .tsm-row {
           position: relative; display: flex; align-items: center; gap: 16px;
           padding: 10px 20px; cursor: pointer; transition: background 0.1s;
-          content-visibility: auto; contain-intrinsic-size: 52px;
+          contain: content;
         }
         .tsm-row.active { background: rgba(28, 58, 87, 0.86); }
         .tsm-row-indicator {

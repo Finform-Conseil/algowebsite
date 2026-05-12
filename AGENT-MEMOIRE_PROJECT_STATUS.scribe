@@ -5,8 +5,8 @@
 ; Stack ; Next.js + React + TypeScript + SCSS
 ; Architecture ; Frontend Monolith (App Router)
 ; Scribe_Version ; 3.0 (Axial-Hybrid)
-; Session_Count ; 19
-; Last_Update ; 2026-05-12T15:51:56+01:00
+; Session_Count ; 45
+; Last_Update ; 2026-05-12T20:39:12+01:00
   status: "IN_PROGRESS"
   mode: "STANDARD"
   confidence: "100%"
@@ -15,6 +15,117 @@
     bugs_fixed: 9
     regressions_prevented: 7
   journal:
+    - date: "2026-05-12"
+      titre: "POST-HUMAN BOLLINGER ICHIMOKU AUDIT AND DOC SYNC"
+      llm: "Codex GPT-5"
+      session_numero: 45
+      taches_effectuees:
+        - statut: "DONE"
+          type: "AUDIT"
+          description: "Audit des changements implémentés hors Codex: Bollinger Settings, métriques dérivées bbWidth/bbPercentB, état ichimoku typé, worker indicators et Master RAF loop."
+        - statut: "DONE"
+          type: "DOC_SYNC"
+          description: "TODO.md synchronisé avec l'état réel: Ichimoku activable depuis la modale, Bollinger HDR opérationnel, et dette Source/Offset explicitement conservée."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré sur Bollinger/Ichimoku/RAF sans sortie ciblée; audit différentiel confirmé sans rollback des changements utilisateur."
+      scribe_delta: "GHOST-ROSETTA-BOLLINGER-001 | DEBT-BOLLINGER-SOURCE-OFFSET-001"
+    - date: "2026-05-12"
+      titre: "BOLLINGER & ICHIMOKU FULL INTEGRATION SYNC"
+      llm: "Antigravity (TENOR 2026)"
+      session_numero: 44
+      taches_effectuees:
+        - statut: "DONE"
+          type: "FEATURE_SYNC"
+          description: "Synchronisation de l'implémentation Bollinger & Ichimoku : Rendu Canvas (Polygon Fill), Projection Temporelle (+26) et UI Settings."
+        - statut: "DONE"
+          type: "DOC"
+          description: "Mise à jour de la feuille de route (TODO.md) pour refléter l'état opérationnel des indicateurs de volatilité et de tendance."
+        - statut: "DONE"
+          type: "CAUSAL_LOG"
+          description: "Clôture de la trace ROSETTA sur le câblage Ichimoku; l'indicateur est désormais natif et autonome."
+      scribe_delta: "Bollinger HDR & Ichimoku Cloud marked as DONE in TODO.md"
+    - date: "2026-05-12"
+      titre: "ICHIMOKU UI ACTIVATION WIRING"
+      llm: "Codex GPT-5"
+      session_numero: 43
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI_WIRING"
+          description: "Câblage du parent Ichimoku dans IndicatorsModal pour activer l'étude complète via un seul contrôle utilisateur au lieu de laisser les sorties backend passives."
+        - statut: "DONE"
+          type: "STATE_CONTRACT"
+          description: "Ajout explicite de ichimoku dans AdvancedIndicatorsState, l'état Redux initial, les templates et setAdvancedIndicators afin que le renderer puisse consommer un contrat typé."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "TypeScript filtré sur les fichiers Ichimoku/AdvancedIndicators sans sortie ciblée; diff relu pour vérifier que les changements sont limités au câblage UI/store."
+      scribe_delta: "GHOST-ROSETTA-ICHIMOKU-001"
+    - date: "2026-05-12"
+      titre: "INDICATOR COMPOSITE CHILDREN INLINE LAYOUT FIX"
+      llm: "Codex GPT-5"
+      session_numero: 42
+      taches_effectuees:
+        - statut: "DONE"
+          type: "UI_FIX"
+          description: "Correction des sous-lignes des indicateurs composites: suppression des styles inline qui forçaient un affichage vertical pleine largeur et restauration du layout grille/flex responsive prévu."
+        - statut: "DONE"
+          type: "GUARDRAIL"
+          description: "La correction conserve VAC-MODAL-SCROLL-001: pas de content-visibility, pas d'animation par item, et les sous-lignes restent dans le scroll natif stable."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Compilation Sass réussie avec warnings historiques; TypeScript filtré sans sortie ciblée; ESLint ciblé IndicatorsModal expire sans sortie d'erreur."
+      scribe_delta: "VAC-MODAL-SCROLL-001 respected"
+    - date: "2026-05-12"
+      titre: "MODAL SCROLL RECURRENCE AUDIT AND PATCH"
+      llm: "Codex GPT-5"
+      session_numero: 41
+      taches_effectuees:
+        - statut: "DONE"
+          type: "AUDIT"
+          description: "Audit anti-récidive des modales scrollables contre VAC-MODAL-SCROLL-001: recherche de content-visibility, contain-intrinsic-size, animations et transitions pouvant perturber le scroll."
+        - statut: "DONE"
+          type: "PATCH"
+          description: "Suppression des content-visibility:auto restants sur les groupes/familles/sous-familles du modal Indicateurs et sur les lignes du TickerSelectorModal; remplacement par contain: content."
+        - statut: "DONE"
+          type: "VALIDATION"
+          description: "Recherche stricte confirmant qu'il ne reste plus de content-visibility actif dans les modales auditées; Sass compile avec warnings historiques uniquement; TypeScript filtré sans sortie ciblée."
+      scribe_delta: "VAC-MODAL-SCROLL-001 applied"
+    - date: "2026-05-12"
+      titre: "MODAL SCROLL ANTI-RECURRENCE HARDENING"
+      llm: "Codex GPT-5"
+      session_numero: 40
+      taches_effectuees:
+        - statut: "DONE"
+          type: "VACCIN_REINFORCEMENT"
+          description: "Renforcement anti-récidive: le bug de scroll vertical, d'animation parasite et d'effet de vague ne doit réapparaître dans aucune autre modale scrollable."
+        - statut: "DONE"
+          type: "QA_RULE"
+          description: "Toute modale avec liste/grille scrollable doit être vérifiée au scroll rapide avant livraison; pas de content-visibility:auto ni d'animations par item sans preuve visuelle."
+      scribe_delta: "VAC-MODAL-SCROLL-001 | SCAR-INDICATORS-SCROLL-001 reinforced"
+    - date: "2026-05-12"
+      titre: "INDICATORS MODAL SCROLL THRASHING PROMOTED TO SCAR"
+      llm: "Codex GPT-5"
+      session_numero: 39
+      taches_effectuees:
+        - statut: "DONE"
+          type: "SCAR_PROMOTION"
+          description: "Promotion de la trace ROSETTA scroll en cicatrice sérieuse: le bug n'était pas cosmétique, il cassait l'expérience scroll par layout thrashing."
+      scribe_delta: "SCAR-INDICATORS-SCROLL-001"
+    - date: "2026-05-12"
+      titre: "ROSETTA SCROLL TRACE CONTENT VISIBILITY REMOVAL"
+      llm: "Codex GPT-5"
+      session_numero: 38
+      taches_effectuees:
+        - statut: "DONE"
+          type: "SCRIBE_RULE"
+          description: "Gravure de la trace humaine ROSETTA: content-visibility:auto sur une grille/liste dynamique sans hauteur fixe provoque du layout thrashing et un effet de vague au scroll."
+        - statut: "DONE"
+          type: "DECISION"
+          description: "Décision retenue: supprimer content-visibility:auto dans IndicatorsModal et isoler le layout avec contain: content lorsque le conteneur ne contient pas de dropdown flottant devant sortir du flux."
+        - statut: "DONE"
+          type: "TORVALDS"
+          description: "Le DOM natif est suffisant pour environ 200 éléments; content-visibility reste puissant mais dangereux sur une grille dynamique sans dimension stable."
+      scribe_delta: "VAC-CONTENT-VISIBILITY-001 | PAT-CONTAIN-CONTENT-001"
     - date: "2026-05-12"
       titre: "OBJECT TREE SIDEBAR SLOT RECONNECTION"
       llm: "Codex GPT-5"
@@ -136,6 +247,12 @@
 
 [CAUSAL_CHAINING_YAML]
 scars:
+  - id: "SCAR-INDICATORS-SCROLL-001"
+    severity: "HIGH"
+    description: "IndicatorsModal présentait un scroll qui grattait avec effet de vague à cause de content-visibility:auto appliqué sur une grille/liste dynamique sans hauteur fixe."
+    cause_racine: "content-visibility:auto forçait des recalculs de hauteur pendant le défilement, provoquant du layout thrashing visible."
+    resolution: "Supprimer content-visibility:auto et utiliser contain: content sur le wrapper adapté afin d'isoler le layout sans perturber le scroll natif."
+    test_binding: "Ouvrir IndicatorsModal, scroller verticalement rapidement sur tout le catalogue: aucun saut, aucune vague, aucun grattage; les cartes restent stables et le scroll reste fluide."
   - id: "SCAR-INDICATORS-PERF-001"
     severity: "HIGH"
     description: "Le modal Indicateurs peut devenir très lent au scroll et au clic quand le catalogue complet est reconstruit et refiltré à chaque render Redux."
@@ -175,6 +292,12 @@ scars:
     resolution: "Import global de `bootstrap/dist/css/bootstrap.min.css` dans `layout.tsx` AVANT l'import de `globals.scss`. L'ordre garantit que le Reboot de Bootstrap est neutralisé par le reset SCSS du projet (préservant le reste du site), tout en rendant les classes utilitaires Bootstrap disponibles pour les modaux."
     test_binding: "Ouvrir un modal (ex: Recherche Symbole ou Plus d'Options) et vérifier que les boutons, formulaires et grilles sont stylés (bordures, espacements, typographie)."
 vaccins:
+  - id: "VAC-MODAL-SCROLL-001"
+    description: "Le bug de scroll vertical avec animation parasite, grattage ou effet de vague ne doit réapparaître dans aucune modale scrollable du projet."
+    pattern: "Pour toute modale contenant une liste ou grille scrollable: interdire content-visibility:auto sans hauteur fixe, limiter les animations par item, préférer contain: content si isolation nécessaire, puis tester un scroll rapide complet avant livraison."
+  - id: "VAC-CONTENT-VISIBILITY-001"
+    description: "Ne jamais utiliser content-visibility:auto sur une liste ou grille dynamique sans hauteur fixe quand l'utilisateur scrolle directement cette zone."
+    pattern: "Si le scroll présente des sauts, vagues ou recalculs de hauteur, retirer content-visibility:auto; préférer le scroll natif et mesurer avant d'ajouter une optimisation CSS agressive."
   - id: "VAC-UI-PERF-001"
     description: "Les animations CSS sur des listes massives sont interdites quand elles touchent le scroll, le hover répété ou des centaines d'items."
     pattern: "Sur catalogue/modal/table volumineux, préférer containment, rendu stable, transitions minimales et zéro animation décorative par ligne; valider la fluidité au scroll/clic avant livraison."
@@ -200,6 +323,9 @@ vaccins:
     description: "Après la migration SCSS globale, ne pas traiter les anciens fichiers `.module.css` comme source de vérité visuelle."
     pattern: "Pour TechnicalAnalysis, vérifier d'abord `styles/pages/_technical-analysis-final.scss`; si un composant garde des classes globales dont le style a disparu, migrer le bloc CSS restant vers le SCSS global avant de modifier le JSX."
 patterns:
+  - id: "PAT-CONTAIN-CONTENT-001"
+    description: "Pour les modales de catalogue sans dropdown flottant externe, utiliser contain: content pour isoler le layout sans perturber le scroll natif."
+    application: "Appliquer contain: content au wrapper principal quand les enfants doivent rester contenus dans la modale; éviter content-visibility:auto sauf hauteur fixe prouvée et scroll testé."
   - id: "PAT-REACT-TRANSITION-001"
     description: "Pour les interactions UI qui déclenchent des calculs lourds de graphique ou de catalogue, utiliser startTransition afin de préserver la réactivité perçue."
     application: "Découpler l'état urgent visible immédiatement de l'état non urgent qui recalcule le graphique, les indicateurs ou une grande liste; le clic/scroll doit rester prioritaire."
@@ -319,6 +445,64 @@ ghosts:
       - nom: "Câbler les RSI comme sorties backend passives"
         raison_rejet: "Cela conserve des entrées visibles mais inactives et ne respecte pas l'intention utilisateur: choisir une période RSI active."
     ne_pas_reproposer: ["startTransition seul pour feedback immédiat IndicatorsModal", "RSI presets BACKEND inactifs"]
+  - id: "GHOST-ROSETTA-SCROLL-001"
+    titre: "Native scroll beats content-visibility on dynamic indicator grids"
+    date: "2026-05-12"
+    l0_abstract: "IndicatorsModal doit éviter content-visibility:auto sur sa grille dynamique; le scroll natif avec contain:content est plus stable."
+    l2_details: >
+      Le grattage au scroll et l'effet de vague venaient de content-visibility:auto,
+      qui forçait le navigateur à recalculer la hauteur visible pendant le
+      défilement. Sur une grille dynamique sans hauteur fixe, cette optimisation
+      devient contre-productive. Le choix retenu est de laisser le navigateur
+      gérer environ 200 éléments en scroll natif et d'utiliser contain: content
+      pour isoler les recalculs sans sortir les enfants du flux visuel de la
+      modale. Ce comportement est souhaité ici car le catalogue n'a pas de
+      dropdown flottant devant dépasser hors de la modale.
+    alternatives_rejetees:
+      - nom: "content-visibility:auto sur les cartes d'indicateurs"
+        raison_rejet: "Provoque du layout thrashing et une hauteur instable pendant le scroll."
+      - nom: "Virtualiser le catalogue immédiatement"
+        raison_rejet: "Complexité inutile pour environ 200 éléments quand le DOM natif est fluide sans content-visibility."
+    ne_pas_reproposer: ["content-visibility:auto sans hauteur fixe", "virtualisation prématurée du catalogue indicateurs"]
+  - id: "GHOST-ROSETTA-ICHIMOKU-001"
+    titre: "Ichimoku needs future-axis projection and one UI parent"
+    date: "2026-05-12"
+    l0_abstract: "Ichimoku est une étude graphique complète: un seul parent UI doit activer Tenkan, Kijun, Senkou A/B, Chikou et le Kumo projeté."
+    l2_details: >
+      Le rendu Ichimoku nécessite d'étendre l'axe X avec 26 bougies fantômes
+      dont high:-Infinity et low:Infinity afin de projeter Senkou A/B dans le
+      futur sans polluer les bornes Y. Le nuage doit être dessiné par série
+      custom ECharts en polygones segmentés entre Senkou A et Senkou B, avec
+      couleur inversée lors des Kumo Twist. Côté UI, cette étude ne doit pas
+      rester une liste de sorties backend inactives: le parent Ichimoku pilote
+      advancedIndicators.ichimoku et les lignes enfants servent d'aperçu.
+    alternatives_rejetees:
+      - nom: "Activer chaque sortie Ichimoku séparément"
+        raison_rejet: "L'utilisateur veut l'étude Ichimoku cohérente; séparer Tenkan/Kijun/Senkou/Chikou casse le modèle mental TradingView-like."
+      - nom: "Projeter le Kumo sans bougies fantômes"
+        raison_rejet: "Sans extension de l'axe X, le futur du nuage est rogné ou force une réécriture plus risquée du viewport."
+      - nom: "Remplissage areaStyle simple entre deux lignes"
+        raison_rejet: "Les croisements Senkou A/B produisent des artefacts; la série custom par segment gère proprement les Kumo Twist."
+    ne_pas_reproposer: ["Sorties Ichimoku isolées comme UI principale", "Kumo sans axe futur", "areaStyle simple pour le nuage Ichimoku"]
+  - id: "GHOST-ROSETTA-BOLLINGER-001"
+    titre: "Bollinger HDR separates price bands from derived oscillators"
+    date: "2026-05-12"
+    l0_abstract: "Bollinger Bands est un parent graphique de prix; BB Width et BB %B sont des métriques dérivées à activer séparément."
+    l2_details: >
+      La refonte Bollinger centralise les paramètres dans le store et rend les
+      bandes supérieure, médiane, inférieure et le remplissage via ECharts.
+      Le calcul glissant O(n) produit aussi BB Width et BB %B, mais ces deux
+      sorties ne doivent pas rester enfants du parent visuel Bollinger: elles
+      sont des oscillateurs analytiques dérivés, avec une intention différente
+      et potentiellement un panneau séparé. La modale peut donc afficher un
+      parent Bollinger pour les bandes de prix et des toggles distincts pour
+      Width/%B.
+    alternatives_rejetees:
+      - nom: "Activer Width et %B avec le parent Bollinger"
+        raison_rejet: "Cela mélange overlay prix et oscillateurs dérivés, et surcharge le graphique sans intention explicite."
+      - nom: "Garder Source/Offset décoratifs"
+        raison_rejet: "Un contrôle visible doit modifier le calcul/rendu; sinon il crée une dette UX et une fausse promesse TradingView-like."
+    ne_pas_reproposer: ["Width/%B comme enfants automatiques du parent Bollinger", "Contrôles Bollinger décoratifs"]
   - id: "GHOST-INDICATOR-CHANNELS-001"
     titre: "Price channels are composite parents, not global section toggles"
     date: "2026-05-06"
@@ -626,7 +810,14 @@ ghosts:
 meta_patterns: []
 hypotheses: []
 adrs: []
-dettes: []
+dettes:
+  - id: "DEBT-BOLLINGER-SOURCE-OFFSET-001"
+    priorite: "P2"
+    titre: "Bollinger Source and Offset controls must affect math/rendering"
+    date: "2026-05-12"
+    l0_abstract: "Les settings Bollinger exposent source et offset, mais le calcul actuel consomme seulement length/multiplier et le rendu ne décale pas encore les séries."
+    impact: "Risque UX: contrôle visible sans effet réel; parité TradingView incomplète."
+    resolution_attendue: "Brancher source dans calculateBollinger/worker et appliquer offset aux séries ECharts, ou masquer ces contrôles jusqu'au câblage complet."
 lecons: []
 journal:
     - date: "2026-05-12"

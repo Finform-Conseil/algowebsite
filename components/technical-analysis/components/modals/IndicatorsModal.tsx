@@ -2,25 +2,35 @@
 // FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/components/modals/IndicatorsModal.tsx
 // [TENOR 2026 FIX] SCAR-125: Restored SMA/EMA toggles. Migrated to Smart Component.
 // [TENOR 2026 FIX] SCAR-126: Premium UI Overhaul. Fixed overlapping cards.
-// [TENOR 2026 SRE] SCAR-SCROLL-JUMPING: Eradicated `content-visibility` and CSS transitions.
 // [TENOR 2026 SRE] SCAR-UI-FREEZE: Implemented Optimistic UI with Event Loop Yielding (setTimeout).
+// [TENOR 2026 SRE] SCAR-SCROLL-JUMPING: Eradicated `content-visibility` hack. Restored pure native scroll.
 // [TENOR 2026 FEAT] RSI 9, 14, 25 fully wired and functional per TradingView parity.
+// [TENOR 2026 FIX] SCAR-DATA-BINDING: Wired Stochastic RSI to enable UI interaction.
+// [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE: Added inline settings panel and separated derived oscillators.
 // ================================================================================
 
 import React, { useCallback, useMemo, useState, useDeferredValue, useEffect } from "react";
 import { shallowEqual, useDispatch, useSelector } from "react-redux";
 import { BaseModal } from "../common/BaseModal";
-import { AdvancedIndicatorsState } from "../../config/TechnicalAnalysisTypes";
+import { AdvancedIndicatorsState, BollingerSettings } from "../../config/TechnicalAnalysisTypes";
 import {
   selectAdvancedIndicators,
   selectChartConfig,
   selectIndicatorPeriods,
+  selectBollingerSettings,
   toggleAdvancedIndicator,
   setChartConfig,
   setIndicatorPeriods,
-  setAdvancedIndicators
+  setAdvancedIndicators,
+  setBollingerSettings
 } from "../../store/technicalAnalysisSlice";
 import type { RootState } from "@/core/infrastructure/store";
+import {
+  SettingsNumberInput,
+  SettingsColorOpacityInput,
+  SettingsCheckbox,
+  SettingsSelectInput
+} from "../common/SettingsField";
 
 interface IndicatorsModalProps {
   isOpen: boolean;
@@ -54,7 +64,8 @@ type CompositeIndicatorSpec = {
   desc: string;
   outputKeys: string[];
   missingOutputs?: BackendIndicatorItem[];
-  wiredId?: keyof AdvancedIndicatorsState;
+  wiredId?: keyof AdvancedIndicatorsState | string;
+  hasSettings?: boolean; // [TENOR 2026 HDR] Enables the settings gear icon
 };
 
 const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
@@ -71,13 +82,15 @@ const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
       "ichimoku_cloud_color",
       "price_vs_cloud",
     ],
+    wiredId: "ichimoku",
   },
   {
     id: "bollinger",
     title: "Bollinger Bands",
-    desc: "Bandes supérieure, médiane, inférieure et métriques dérivées",
-    outputKeys: ["bb_upper", "bb_middle", "bb_lower", "bb_width", "bb_pct"],
+    desc: "Bandes supérieure, médiane, inférieure",
+    outputKeys: ["bb_upper", "bb_middle", "bb_lower"], // Width and %B are now standalone
     wiredId: "bollinger",
+    hasSettings: true, // [TENOR 2026 HDR] Enable settings panel
   },
   {
     id: "macd",
@@ -104,6 +117,7 @@ const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
     title: "Stochastic RSI",
     desc: "Stochastique appliqué au RSI avec %K et %D",
     outputKeys: ["stoch_rsi_k", "stoch_rsi_d"],
+    wiredId: "stochRsi",
   },
   {
     id: "tsi",
@@ -216,25 +230,31 @@ const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
 
 // ============================================================================
 // [TENOR 2026 SRE] BARE-METAL LEAF COMPONENTS WITH OPTIMISTIC UI
-// Eradicates UI Freezes by painting the checkmark instantly, then yielding
-// to the event loop before dispatching heavy Redux/ECharts calculations.
 // ============================================================================
 
-const MACard = React.memo(({ 
-  type, period, label, color, isActive, onToggle 
-}: { 
-  type: "sma" | "ema"; period: number; label: string; color: string; isActive: boolean; onToggle: (type: "sma" | "ema", period: number) => void;
+const MACard = React.memo(({
+  type,
+  period,
+  label,
+  color,
+  isActive,
+  onToggle
+}: {
+  type: "sma" | "ema";
+  period: number;
+  label: string;
+  color: string;
+  isActive: boolean;
+  onToggle: (type: "sma" | "ema", period: number) => void;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
 
-  // Resync with Redux state (Eventual Consistency)
   useEffect(() => {
     setOptimisticActive(isActive);
   }, [isActive]);
 
   const handleClick = () => {
-    setOptimisticActive(!optimisticActive); // Instant UI feedback
-    // Yield to browser paint (16ms = 1 frame)
+    setOptimisticActive(!optimisticActive);
     setTimeout(() => {
       onToggle(type, period);
     }, 16);
@@ -254,7 +274,9 @@ const MACard = React.memo(({
         <div
           className="d-flex align-items-center justify-content-center me-2 flex-shrink-0"
           style={{
-            width: '16px', height: '16px', borderRadius: '4px',
+            width: '16px',
+            height: '16px',
+            borderRadius: '4px',
             border: `1px solid ${optimisticActive ? color : '#334155'}`,
             backgroundColor: optimisticActive ? color : 'transparent',
           }}
@@ -277,10 +299,16 @@ const MACard = React.memo(({
 });
 MACard.displayName = "MACard";
 
-const IndicatorCard = React.memo(({ 
-  ind, isActive, isWired, onToggle 
-}: { 
-  ind: BackendIndicatorItem; isActive: boolean; isWired: boolean; onToggle: (id: string) => void;
+const IndicatorCard = React.memo(({
+  ind,
+  isActive,
+  isWired,
+  onToggle
+}: {
+  ind: BackendIndicatorItem;
+  isActive: boolean;
+  isWired: boolean;
+  onToggle: (id: string) => void;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
 
@@ -317,7 +345,9 @@ const IndicatorCard = React.memo(({
         <div
           className="d-flex align-items-center justify-content-center me-3 flex-shrink-0"
           style={{
-            width: '18px', height: '18px', borderRadius: '4px',
+            width: '18px',
+            height: '18px',
+            borderRadius: '4px',
             border: `1px solid ${optimisticActive ? activeColor : isWired ? '#334155' : '#1e293b'}`,
             backgroundColor: optimisticActive ? activeColor : 'transparent',
           }}
@@ -337,10 +367,7 @@ const IndicatorCard = React.memo(({
           </small>
         </div>
         {!isWired && (
-          <span style={{ 
-            fontSize: "9px", fontWeight: 600, color: "#94a3b8", 
-            backgroundColor: "#1e293b", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px" 
-          }}>
+          <span style={{ fontSize: "9px", fontWeight: 600, color: "#94a3b8", backgroundColor: "#1e293b", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px" }}>
             BACKEND
           </span>
         )}
@@ -350,12 +377,102 @@ const IndicatorCard = React.memo(({
 });
 IndicatorCard.displayName = "IndicatorCard";
 
-const CompositeIndicatorCard = React.memo(({ 
-  spec, items, isActive, isWired, onToggle 
-}: { 
-  spec: CompositeIndicatorSpec; items: BackendIndicatorItem[]; isActive: boolean; isWired: boolean; onToggle: (id: string) => void;
+// ============================================================================
+// [TENOR 2026 HDR] BOLLINGER SETTINGS PANEL
+// ============================================================================
+const BollingerSettingsPanel = React.memo(() => {
+  const dispatch = useDispatch();
+  const settings = useSelector(selectBollingerSettings, shallowEqual);
+
+  const update = (patch: Partial<BollingerSettings>) => {
+    dispatch(setBollingerSettings(patch));
+  };
+
+  return (
+    <div className="p-3 mt-2 rounded" style={{ backgroundColor: "rgba(0,0,0,0.2)", border: "1px solid #1e293b" }}>
+      <div className="row g-2 mb-3">
+        <div className="col-4">
+          <SettingsNumberInput
+            label="Length"
+            value={settings.length}
+            onChange={v => update({ length: v })}
+          />
+        </div>
+        <div className="col-4">
+          <SettingsNumberInput
+            label="StdDev"
+            value={settings.multiplier}
+            step={0.1}
+            onChange={v => update({ multiplier: v })}
+          />
+        </div>
+        <div className="col-4">
+          <SettingsNumberInput
+            label="Offset"
+            value={settings.offset}
+            onChange={v => update({ offset: v })}
+          />
+        </div>
+      </div>
+      <div className="mb-3">
+        <SettingsSelectInput
+          label="Source"
+          value={settings.source}
+          options={[
+            { label: "Close", value: "close" },
+            { label: "Open", value: "open" },
+            { label: "High", value: "high" },
+            { label: "Low", value: "low" },
+            { label: "HL2", value: "hl2" },
+            { label: "HLC3", value: "hlc3" },
+            { label: "OHLC4", value: "ohlc4" },
+            { label: "HLCC4", value: "hlcc4" }
+          ]}
+          onChange={v => update({ source: v as any })}
+          width="100%"
+        />
+      </div>
+      <hr className="gp-separator" />
+      <div className="d-flex flex-column gap-2">
+        <div className="d-flex align-items-center justify-content-between">
+          <SettingsCheckbox label="Upper Band" checked={settings.showUpper} onChange={v => update({ showUpper: v })} />
+          <SettingsColorOpacityInput color={settings.upperColor} opacity={1} onColorChange={v => update({ upperColor: v })} onOpacityChange={() => { }} />
+        </div>
+        <div className="d-flex align-items-center justify-content-between">
+          <SettingsCheckbox label="Middle Band" checked={settings.showMiddle} onChange={v => update({ showMiddle: v })} />
+          <SettingsColorOpacityInput color={settings.middleColor} opacity={1} onColorChange={v => update({ middleColor: v })} onOpacityChange={() => { }} />
+        </div>
+        <div className="d-flex align-items-center justify-content-between">
+          <SettingsCheckbox label="Lower Band" checked={settings.showLower} onChange={v => update({ showLower: v })} />
+          <SettingsColorOpacityInput color={settings.lowerColor} opacity={1} onColorChange={v => update({ lowerColor: v })} onOpacityChange={() => { }} />
+        </div>
+        <div className="d-flex align-items-center justify-content-between">
+          <SettingsCheckbox label="Background Fill" checked={settings.showFill} onChange={v => update({ showFill: v })} />
+          <SettingsColorOpacityInput color={settings.fillColor} opacity={settings.fillOpacity} onColorChange={v => update({ fillColor: v })} onOpacityChange={v => update({ fillOpacity: v })} />
+        </div>
+      </div>
+    </div>
+  );
+});
+BollingerSettingsPanel.displayName = "BollingerSettingsPanel";
+
+const CompositeIndicatorCard = React.memo(({
+  spec,
+  items,
+  isActive,
+  isWired,
+  onToggle,
+  children
+}: {
+  spec: CompositeIndicatorSpec;
+  items: BackendIndicatorItem[];
+  isActive: boolean;
+  isWired: boolean;
+  onToggle: (id: string) => void;
+  children?: React.ReactNode;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     setOptimisticActive(isActive);
@@ -374,56 +491,84 @@ const CompositeIndicatorCard = React.memo(({
 
   return (
     <div className={`gp-composite-indicator ${optimisticActive ? "active" : ""} ${!isWired ? "is-backend-only" : ""}`} style={{ marginBottom: "8px" }}>
-      <button
-        aria-pressed={isWired ? optimisticActive : undefined}
-        className="gp-composite-indicator-parent"
-        disabled={!isWired}
-        onClick={handleClick}
-        type="button"
-        style={{
-          width: "100%", display: "flex", alignItems: "center", padding: "10px 12px",
-          backgroundColor: optimisticActive ? "rgba(41, 98, 255, 0.1)" : "#0f172a",
-          border: `1px solid ${optimisticActive ? activeColor : '#1e293b'}`,
-          borderRadius: "6px", cursor: isWired ? "pointer" : "default", textAlign: "left"
-        }}
-      >
-        <span
-          className="gp-composite-indicator-check d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <button
+          aria-pressed={isWired ? optimisticActive : undefined}
+          className="gp-composite-indicator-parent"
+          disabled={!isWired}
+          onClick={handleClick}
+          type="button"
           style={{
-            width: '18px', height: '18px', borderRadius: '4px',
-            border: `1px solid ${optimisticActive ? activeColor : '#334155'}`,
-            backgroundColor: optimisticActive ? activeColor : "transparent",
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            padding: "10px 12px",
+            backgroundColor: optimisticActive ? "rgba(41, 98, 255, 0.1)" : "#0f172a",
+            border: `1px solid ${optimisticActive ? activeColor : '#1e293b'}`,
+            borderRadius: "6px",
+            cursor: isWired ? "pointer" : "default",
+            textAlign: "left"
           }}
         >
-          {optimisticActive && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          )}
-        </span>
-        <span className="gp-composite-indicator-copy flex-grow-1">
-          <strong style={{ display: "block", color: optimisticActive ? '#fff' : '#cbd5e1', fontSize: "13px" }}>{spec.title}</strong>
-          <small style={{ display: "block", color: "#64748b", fontSize: "11px", marginTop: "2px" }}>{spec.desc}</small>
-        </span>
-        {!isWired && (
-          <span style={{ 
-            fontSize: "9px", fontWeight: 600, color: "#94a3b8", 
-            backgroundColor: "#1e293b", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px" 
-          }}>
-            BACKEND
+          <span
+            className="gp-composite-indicator-check d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+            style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '4px',
+              border: `1px solid ${optimisticActive ? activeColor : '#334155'}`,
+              backgroundColor: optimisticActive ? activeColor : "transparent",
+            }}
+          >
+            {optimisticActive && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            )}
           </span>
+          <span className="gp-composite-indicator-copy flex-grow-1">
+            <strong style={{ display: "block", color: optimisticActive ? '#fff' : '#cbd5e1', fontSize: "13px" }}>{spec.title}</strong>
+            <small style={{ display: "block", color: "#64748b", fontSize: "11px", marginTop: "2px" }}>{spec.desc}</small>
+          </span>
+          {!isWired && (
+            <span style={{ fontSize: "9px", fontWeight: 600, color: "#94a3b8", backgroundColor: "#1e293b", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px" }}>
+              BACKEND
+            </span>
+          )}
+        </button>
+        
+        {/* [TENOR 2026 HDR] Settings Gear Icon */}
+        {spec.hasSettings && isWired && (
+          <button
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            className="btn btn-link p-2"
+            style={{
+              color: isSettingsOpen ? activeColor : "#64748b",
+              backgroundColor: isSettingsOpen ? "rgba(41, 98, 255, 0.1)" : "transparent",
+              border: `1px solid ${isSettingsOpen ? activeColor : 'transparent'}`,
+              borderRadius: "6px",
+              transition: "all 0.2s ease"
+            }}
+            title="Paramètres de l'indicateur"
+          >
+            <i className="bi bi-gear-fill"></i>
+          </button>
         )}
-      </button>
-      <div className="gp-composite-indicator-children" style={{ paddingLeft: "42px", marginTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+      </div>
+
+      {/* [TENOR 2026 HDR] Inline Settings Panel */}
+      {isSettingsOpen && children}
+
+      <div className="gp-composite-indicator-children">
         {items.map((item) => (
-          <span className="gp-composite-indicator-child d-flex align-items-center" key={item.key} style={{ fontSize: "12px", color: "#94a3b8" }}>
+          <span className="gp-composite-indicator-child" key={item.key}>
             <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#475569", marginRight: "8px" }}></span>
             <span style={{ color: "#cbd5e1", marginRight: "6px" }}>{item.name}</span>
             <small style={{ color: "#64748b", fontSize: "11px" }}>{item.desc}</small>
           </span>
         ))}
         {spec.missingOutputs?.map((item) => (
-          <span className="gp-composite-indicator-child is-missing d-flex align-items-center" key={item.key} style={{ fontSize: "12px", color: "#64748b", opacity: 0.7 }}>
+          <span className="gp-composite-indicator-child is-missing" key={item.key}>
             <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#334155", marginRight: "8px" }}></span>
             <span style={{ marginRight: "6px" }}>{item.name}</span>
             <small style={{ fontSize: "11px" }}>{item.desc}</small>
@@ -441,7 +586,6 @@ CompositeIndicatorCard.displayName = "CompositeIndicatorCard";
 
 export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
-  
   const advancedIndicators = useSelector(selectAdvancedIndicators, shallowEqual);
   const chartIndicators = useSelector((state: RootState) => selectChartConfig(state).indicators, shallowEqual);
   const indicatorPeriods = useSelector(selectIndicatorPeriods, shallowEqual);
@@ -476,7 +620,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     { key: "is_above_ema20", name: "Prix > EMA 20", desc: "État au-dessus EMA 20" },
   ], []);
 
-  // [TENOR 2026] RSI 9, 14, 25 wired to the Redux store dynamically
   const backendIndicatorGroups = useMemo<BackendIndicatorGroup[]>(() => [
     {
       title: "Moyennes & Comparaisons",
@@ -760,8 +903,9 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
             { key: "bb_upper", name: "BB Upper", desc: "Bollinger supérieure", wiredId: "bollinger" },
             { key: "bb_middle", name: "BB Middle", desc: "Bollinger médiane" },
             { key: "bb_lower", name: "BB Lower", desc: "Bollinger inférieure" },
-            { key: "bb_width", name: "BB Width", desc: "Largeur des bandes" },
-            { key: "bb_pct", name: "BB %B", desc: "Position dans les bandes" },
+            // [TENOR 2026 HDR] Separated derived oscillators
+            { key: "bb_width", name: "BB Width", desc: "Largeur des bandes", wiredId: "bbWidth" },
+            { key: "bb_pct", name: "BB %B", desc: "Position dans les bandes", wiredId: "bbPercentB" },
           ],
         },
         {
@@ -1200,11 +1344,9 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         const sections = group.sections
           .map((section) => {
             const sectionMatches = groupMatches || matchesIndicatorSearch(section.title);
-            const items = sectionMatches
-              ? section.items
-              : section.items.filter((item) =>
-                  matchesIndicatorSearch(item.key, item.name, item.desc, group.title, group.subtitle, section.title)
-                );
+            const items = sectionMatches ? section.items : section.items.filter((item) =>
+              matchesIndicatorSearch(item.key, item.name, item.desc, group.title, group.subtitle, section.title)
+            );
             return { ...section, items };
           })
           .filter((section) => section.items.length > 0);
@@ -1232,6 +1374,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     const activeArray = type === "sma" ? chartIndicators.activeSma : chartIndicators.activeEma;
     const safeArray = activeArray || [];
     const newArray = safeArray.includes(period) ? safeArray.filter((p) => p !== period) : [...safeArray, period];
+
     dispatch(
       setChartConfig({
         indicators: {
@@ -1244,8 +1387,6 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
   }, [chartIndicators, dispatch]);
 
   // [TENOR 2026 SRE] RSI MULTI-PERIOD ROUTING
-  // Intercepts RSI IDs to mutate the `rsiPeriod` in the Redux store,
-  // making RSI 9, 14, and 25 fully functional without changing the state shape.
   const handleToggleAdvanced = useCallback((id: string) => {
     if (id === "rsi_9") {
       if (advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 9) {
@@ -1274,7 +1415,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
       }
       return;
     }
-    
+
     dispatch(toggleAdvancedIndicator(id as keyof AdvancedIndicatorsState));
   }, [dispatch, advancedIndicators.rsi, indicatorPeriods.rsiPeriod]);
 
@@ -1282,14 +1423,18 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     if (id === "rsi_9") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 9;
     if (id === "rsi_14") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 14;
     if (id === "rsi_25") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 25;
-    return !!advancedIndicators[id as keyof AdvancedIndicatorsState];
+
+    // [TENOR 2026 FIX] SCAR-DATA-BINDING: Safe dynamic read for injected keys like stochRsi
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return !!(advancedIndicators as any)[id];
   }, [advancedIndicators, indicatorPeriods.rsiPeriod]);
 
   const getIndicatorSemanticGroup = useCallback((name: string) => {
     const multiWordPrefixes = [
-      "Stoch RSI", "MACD", "Parabolic SAR", "Trend Strength", "Aroon", "Supertrend", "Vortex", "KST", "LinReg",
-      "BB", "Keltner", "Donchian", "Chaikin", "Klinger", "Force Index", "Elder Force", "Volume Osc", "Fib",
-      "Golden Cross", "Death Cross", "Gap", "Inside Bar", "Outside Bar", "Doji", "Marubozu", "Engulf", "Harami",
+      "Stoch RSI", "MACD", "Parabolic SAR", "Trend Strength", "Aroon", "Supertrend",
+      "Vortex", "KST", "LinReg", "BB", "Keltner", "Donchian", "Chaikin", "Klinger",
+      "Force Index", "Elder Force", "Volume Osc", "Fib", "Golden Cross", "Death Cross",
+      "Gap", "Inside Bar", "Outside Bar", "Doji", "Marubozu", "Engulf", "Harami",
       "Tweezer", "Kicker", "Belthold", "Breakaway", "Abandoned",
     ];
     const matchingPrefix = multiWordPrefixes.find((prefix) => name.startsWith(prefix));
@@ -1303,6 +1448,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     const sectionCompositeSpecs = compositeIndicatorSpecs.filter((spec) =>
       spec.outputKeys.some((key) => section.items.some((item) => item.key === key))
     );
+
     const compositeOutputKeys = new Set(sectionCompositeSpecs.flatMap((spec) => spec.outputKeys));
     const standaloneItems = section.items.filter((item) => !compositeOutputKeys.has(item.key));
 
@@ -1317,7 +1463,10 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
               isActive={!!spec.wiredId && isIndicatorActive(spec.wiredId as string)}
               isWired={!!spec.wiredId}
               onToggle={handleToggleAdvanced}
-            />
+            >
+              {/* [TENOR 2026 HDR] Inject Bollinger Settings Panel if applicable */}
+              {spec.id === "bollinger" && <BollingerSettingsPanel />}
+            </CompositeIndicatorCard>
           ))}
           {standaloneItems.length > 0 && (
             <div className="gp-composite-standalone-items">
@@ -1397,150 +1546,155 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
       maxWidth="750px"
       className="gp-indicators-modal"
     >
-      <div className="gp-indicator-search-panel">
-        <div className="gp-indicator-search-box">
-          <i className="bi bi-search" aria-hidden="true"></i>
-          <input
-            aria-label="Rechercher un indicateur technique"
-            className="gp-indicator-search-input"
-            onChange={(event) => setIndicatorSearch(event.target.value)}
-            placeholder="Rechercher RSI, EMA 20, Ichimoku, Doji..."
-            type="search"
-            value={indicatorSearch}
-          />
-          {hasIndicatorSearch && (
-            <button
-              aria-label="Effacer la recherche"
-              className="gp-indicator-search-clear"
-              onClick={() => setIndicatorSearch("")}
-              type="button"
-            >
-              <i className="bi bi-x-lg" aria-hidden="true"></i>
-            </button>
-          )}
+      {/* [TENOR 2026 SRE] CSS CONTAINMENT FOR NATIVE SCROLL */}
+      <div style={{ contain: 'content', transform: 'translateZ(0)', WebkitFontSmoothing: 'antialiased' }}>
+        <div className="gp-indicator-search-panel">
+          <div className="gp-indicator-search-box">
+            <i className="bi bi-search" aria-hidden="true"></i>
+            <input
+              aria-label="Rechercher un indicateur technique"
+              className="gp-indicator-search-input"
+              onChange={(event) => setIndicatorSearch(event.target.value)}
+              placeholder="Rechercher RSI, EMA 20, Ichimoku, Doji..."
+              type="search"
+              value={indicatorSearch}
+            />
+            {hasIndicatorSearch && (
+              <button
+                aria-label="Effacer la recherche"
+                className="gp-indicator-search-clear"
+                onClick={() => setIndicatorSearch("")}
+                type="button"
+              >
+                <i className="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            )}
+          </div>
+          <div className="gp-indicator-search-meta" aria-live="polite">
+            <span style={{ color: "#2962ff", fontWeight: 700, textTransform: "uppercase", fontSize: "11px" }}>
+              {hasIndicatorSearch ? `${visibleIndicatorCount} résultats` : `${visibleIndicatorCount} indicateurs disponibles`}
+            </span>
+            {hasIndicatorSearch && <span style={{ color: "#ff9800", fontSize: "11px" }}>Filtre actif</span>}
+          </div>
         </div>
-        <div className="gp-indicator-search-meta" aria-live="polite">
-          <span style={{ color: "#2962ff", fontWeight: 700, textTransform: "uppercase", fontSize: "11px" }}>
-            {hasIndicatorSearch ? `${visibleIndicatorCount} résultats` : `${visibleIndicatorCount} indicateurs disponibles`}
-          </span>
-          {hasIndicatorSearch && <span style={{ color: "#ff9800", fontSize: "11px" }}>Filtre actif</span>}
-        </div>
-      </div>
 
-      {/* --- SECTION 1: MOYENNES MOBILES --- */}
-      {hasVisibleMovingAverages && (
-        <div className="mb-4">
-          <div className="d-flex align-items-center mb-3 px-1">
-            <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #ff9800, #ff5252)", borderRadius: "2px", marginRight: "8px" }} />
-            <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-              Moyennes Mobiles
-            </small>
-          </div>
-          <div className="gp-ma-groups">
-            {filteredSmaIndicators.length > 0 && (
-              <div className="gp-ma-group gp-ma-group-sma">
-                <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
-                  <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Simple Moving Average</span>
-                  <strong style={{ color: "#f8fafc", fontSize: "12px" }}>SMA</strong>
-                </div>
-                <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0 mt-2">
-                  {filteredSmaIndicators.map(({ key, period, label, color }) => (
-                    <MACard
-                      key={key}
-                      type="sma"
-                      period={period}
-                      label={label}
-                      color={color}
-                      isActive={(chartIndicators.activeSma || []).includes(period)}
-                      onToggle={handleToggleMA}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            {filteredEmaIndicators.length > 0 && (
-              <div className="gp-ma-group gp-ma-group-ema mt-3">
-                <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
-                  <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Exponential Moving Average</span>
-                  <strong style={{ color: "#f8fafc", fontSize: "12px" }}>EMA</strong>
-                </div>
-                <div className="row row-cols-1 row-cols-sm-2 mx-0 mt-2">
-                  {filteredEmaIndicators.map(({ key, period, label, color }) => (
-                    <MACard
-                      key={key}
-                      type="ema"
-                      period={period}
-                      label={label}
-                      color={color}
-                      isActive={(chartIndicators.activeEma || []).includes(period)}
-                      onToggle={handleToggleMA}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            {filteredMovingAverageTrendIndicators.length > 0 && (
-              <div className="gp-ma-group gp-ma-group-trend mt-3">
-                <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
-                  <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Tendance moyenne mobile</span>
-                  <strong style={{ color: "#f8fafc", fontSize: "12px" }}>Prix vs Moyennes</strong>
-                </div>
-                <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0 mt-2">
-                  {filteredMovingAverageTrendIndicators.map((item) => (
-                    <IndicatorCard
-                      key={item.key}
-                      ind={item}
-                      isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
-                      isWired={!!item.wiredId}
-                      onToggle={handleToggleAdvanced}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* --- SECTION 2: CATALOGUE BACKEND STRUCTURÉ --- */}
-      {filteredBackendIndicatorGroups.length > 0 && (
-        <div className="mb-4">
-          <div className="d-flex align-items-center mb-3 px-1">
-            <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #2962ff, #00bcd4)", borderRadius: "2px", marginRight: "8px" }} />
-            <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-              Catalogue Backend
-            </small>
-          </div>
-          <div className="gp-indicator-catalog">
-            {filteredBackendIndicatorGroups.map((group) => (
-              <section className="gp-indicator-family mb-4" key={group.title}>
-                <div className="gp-indicator-family-header mb-2">
-                  <div>
-                    <strong style={{ color: "#f8fafc", fontSize: "14px", display: "block" }}>{group.title}</strong>
-                    <span style={{ color: "#64748b", fontSize: "11px" }}>{group.subtitle}</span>
+        {/* --- SECTION 1: MOYENNES MOBILES --- */}
+        {hasVisibleMovingAverages && (
+          <div className="mb-4">
+            <div className="d-flex align-items-center mb-3 px-1">
+              <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #ff9800, #ff5252)", borderRadius: "2px", marginRight: "8px" }} />
+              <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
+                Moyennes Mobiles
+              </small>
+            </div>
+            <div className="gp-ma-groups">
+              {filteredSmaIndicators.length > 0 && (
+                <div className="gp-ma-group gp-ma-group-sma">
+                  <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
+                    <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Simple Moving Average</span>
+                    <strong style={{ color: "#f8fafc", fontSize: "12px" }}>SMA</strong>
+                  </div>
+                  <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0 mt-2">
+                    {filteredSmaIndicators.map(({ key, period, label, color }) => (
+                      <MACard
+                        key={key}
+                        type="sma"
+                        period={period}
+                        label={label}
+                        color={color}
+                        isActive={(chartIndicators.activeSma || []).includes(period)}
+                        onToggle={handleToggleMA}
+                      />
+                    ))}
                   </div>
                 </div>
-                <div className="gp-indicator-subfamilies">
-                  {group.sections.map((section) => (
-                    <div className="gp-indicator-subfamily mb-3" data-family={section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")} key={`${group.title}-${section.title}`}>
-                      <div className="gp-indicator-subfamily-title mb-2" style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 600 }}>{section.title}</div>
-                      {renderIndicatorSectionItems(section)}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </div>
-      )}
+              )}
 
-      {!hasVisibleIndicators && (
-        <div className="gp-indicator-empty-state" style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
-          <i className="bi bi-search" aria-hidden="true" style={{ fontSize: "24px", display: "block", marginBottom: "10px" }}></i>
-          <strong style={{ display: "block", color: "#cbd5e1" }}>Aucun indicateur trouvé</strong>
-          <span style={{ fontSize: "12px" }}>Essaie un nom, une période, une famille ou une clé backend.</span>
-        </div>
-      )}
+              {filteredEmaIndicators.length > 0 && (
+                <div className="gp-ma-group gp-ma-group-ema mt-3">
+                  <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
+                    <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Exponential Moving Average</span>
+                    <strong style={{ color: "#f8fafc", fontSize: "12px" }}>EMA</strong>
+                  </div>
+                  <div className="row row-cols-1 row-cols-sm-2 mx-0 mt-2">
+                    {filteredEmaIndicators.map(({ key, period, label, color }) => (
+                      <MACard
+                        key={key}
+                        type="ema"
+                        period={period}
+                        label={label}
+                        color={color}
+                        isActive={(chartIndicators.activeEma || []).includes(period)}
+                        onToggle={handleToggleMA}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filteredMovingAverageTrendIndicators.length > 0 && (
+                <div className="gp-ma-group gp-ma-group-trend mt-3">
+                  <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
+                    <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Tendance moyenne mobile</span>
+                    <strong style={{ color: "#f8fafc", fontSize: "12px" }}>Prix vs Moyennes</strong>
+                  </div>
+                  <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0 mt-2">
+                    {filteredMovingAverageTrendIndicators.map((item) => (
+                      <IndicatorCard
+                        key={item.key}
+                        ind={item}
+                        isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
+                        isWired={!!item.wiredId}
+                        onToggle={handleToggleAdvanced}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --- SECTION 2: CATALOGUE BACKEND STRUCTURÉ --- */}
+        {filteredBackendIndicatorGroups.length > 0 && (
+          <div className="mb-4">
+            <div className="d-flex align-items-center mb-3 px-1">
+              <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #2962ff, #00bcd4)", borderRadius: "2px", marginRight: "8px" }} />
+              <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
+                Catalogue Backend
+              </small>
+            </div>
+            <div className="gp-indicator-catalog">
+              {filteredBackendIndicatorGroups.map((group) => (
+                <section className="gp-indicator-family mb-4" key={group.title}>
+                  <div className="gp-indicator-family-header mb-2">
+                    <div>
+                      <strong style={{ color: "#f8fafc", fontSize: "14px", display: "block" }}>{group.title}</strong>
+                      <span style={{ color: "#64748b", fontSize: "11px" }}>{group.subtitle}</span>
+                    </div>
+                  </div>
+                  <div className="gp-indicator-subfamilies">
+                    {group.sections.map((section) => (
+                      <div className="gp-indicator-subfamily mb-3" data-family={section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")} key={`${group.title}-${section.title}`}>
+                        <div className="gp-indicator-subfamily-title mb-2" style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 600 }}>{section.title}</div>
+                        {renderIndicatorSectionItems(section)}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!hasVisibleIndicators && (
+          <div className="gp-indicator-empty-state" style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+            <i className="bi bi-search" aria-hidden="true" style={{ fontSize: "24px", display: "block", marginBottom: "10px" }}></i>
+            <strong style={{ display: "block", color: "#cbd5e1" }}>Aucun indicateur trouvé</strong>
+            <span style={{ fontSize: "12px" }}>Essaie un nom, une période, une famille ou une clé backend.</span>
+          </div>
+        )}
+      </div>
     </BaseModal>
   );
 };

@@ -1981,9 +1981,7 @@
   border-radius: var(--gp-radius-md);
   background: rgba(0,0,0,.12);
   padding: var(--gp-space-xs);
-  contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 9rem;
+  contain: content;
 
   & + & {
     margin-top: var(--gp-space-sm);
@@ -2027,9 +2025,7 @@
   border-radius: var(--gp-radius-md);
   background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.1));
   padding: var(--gp-space-xs);
-  contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 16rem;
+  contain: content;
 }
 
 .gp-indicator-family-header {
@@ -2071,9 +2067,7 @@
   padding: var(--gp-space-xs);
   position: relative;
   overflow: hidden;
-  contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 8rem;
+  contain: content;
 
   &::before {
     content: "";
@@ -2311,20 +2305,27 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8.75rem, 1fr));
   gap: .375rem;
+  margin-top: .375rem;
   padding: 0 var(--gp-space-xs) var(--gp-space-xs) 2.25rem;
 }
 
 .gp-composite-indicator-child {
-  display: grid;
+  display: flex;
+  align-items: center;
   min-width: 0;
   padding: .375rem .5rem;
   border: 1px solid rgba(255,255,255,.06);
   border-radius: var(--gp-radius-sm);
   background: rgba(255,255,255,.025);
 
+  > span:first-child {
+    flex: 0 0 auto;
+  }
+
   span {
     overflow: hidden;
     color: var(--gp-text-primary);
+    flex: 0 1 auto;
     font-size: .72rem;
     font-weight: 800;
     line-height: 1.25;
@@ -2335,6 +2336,8 @@
   small {
     overflow: hidden;
     color: var(--gp-text-secondary);
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: .62rem;
     font-weight: 600;
     line-height: 1.25;

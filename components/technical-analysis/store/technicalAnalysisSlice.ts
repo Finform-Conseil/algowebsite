@@ -4,6 +4,8 @@
 // [TENOR 2026 FIX] Default Timeframe updated to "1D" for optimal FCP and UX.
 // [TENOR 2026 SRE] SCAR-REDUX-MERGE: Eradicated Shallow Merge Data Loss.
 // [TENOR 2026 SRE] SCAR-TS2322: Eradicated Spread Operator Type Errors with Explicit Assignments.
+// [TENOR 2026 SRE] SCAR-TYPESYNC: Synchronized stochRsi with AdvancedIndicatorsState interface.
+// [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE: Added bollingerSettings, bbWidth, bbPercentB.
 // ================================================================================
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
@@ -17,6 +19,7 @@ import {
   TechnicalAnalysisState,
   CursorModeType,
   LiveSnapshot,
+  BollingerSettings,
 } from "../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import type { RootState } from "@/core/infrastructure/store";
@@ -24,6 +27,7 @@ import type { RootState } from "@/core/infrastructure/store";
 // ============================================================================
 // INITIAL STATE
 // ============================================================================
+
 const initialState: TechnicalAnalysisState = {
   chartConfig: {
     symbol: "BOAB", // Default, will be synced with TickerSelectorContext
@@ -49,12 +53,34 @@ const initialState: TechnicalAnalysisState = {
     williamsR: false,
     roc: false,
     obv: false,
+    ichimoku: false,
+    // [TENOR 2026 SRE FIX] Synchronized with interface
+    stochRsi: false,
+    // [TENOR 2026 HDR] Bollinger Derived Metrics
+    bbWidth: false,
+    bbPercentB: false,
   },
   indicatorPeriods: {
     sma1: 5,
     sma2: 10,
     sma3: 20,
     rsiPeriod: 14,
+  },
+  // [TENOR 2026 HDR] Centralized Bollinger Config (TradingView Parity Defaults)
+  bollingerSettings: {
+    length: 20,
+    source: "close",
+    multiplier: 2.0,
+    offset: 0,
+    showUpper: true,
+    showMiddle: true,
+    showLower: true,
+    showFill: true,
+    upperColor: "#2962FF",
+    middleColor: "#FF6D00",
+    lowerColor: "#2962FF",
+    fillColor: "#2196F3", // Base color, opacity handled separately
+    fillOpacity: 0.05,
   },
   chartAppearance: {
     showGrid: true,
@@ -102,6 +128,7 @@ const initialState: TechnicalAnalysisState = {
 // ============================================================================
 // SLICE DEFINITION
 // ============================================================================
+
 export const technicalAnalysisSlice = createSlice({
   name: "technicalAnalysis",
   initialState,
@@ -128,7 +155,7 @@ export const technicalAnalysisSlice = createSlice({
       if (symbol !== undefined) state.chartConfig.symbol = symbol;
       if (timeframe !== undefined) state.chartConfig.timeframe = timeframe;
       if (chartType !== undefined) state.chartConfig.chartType = chartType;
-      
+
       if (indicators !== undefined) {
         if (indicators.sma !== undefined) state.chartConfig.indicators.sma = indicators.sma;
         if (indicators.ema !== undefined) state.chartConfig.indicators.ema = indicators.ema;
@@ -160,6 +187,10 @@ export const technicalAnalysisSlice = createSlice({
       if (p.williamsR !== undefined) state.advancedIndicators.williamsR = p.williamsR;
       if (p.roc !== undefined) state.advancedIndicators.roc = p.roc;
       if (p.obv !== undefined) state.advancedIndicators.obv = p.obv;
+      if (p.ichimoku !== undefined) state.advancedIndicators.ichimoku = p.ichimoku;
+      if (p.stochRsi !== undefined) state.advancedIndicators.stochRsi = p.stochRsi;
+      if (p.bbWidth !== undefined) state.advancedIndicators.bbWidth = p.bbWidth;
+      if (p.bbPercentB !== undefined) state.advancedIndicators.bbPercentB = p.bbPercentB;
     },
     // [TENOR 2026 SRE FIX] Explicit assignment to satisfy TS2322 (Index Signature)
     setIndicatorPeriods: (state, action: PayloadAction<Partial<IndicatorPeriods>>) => {
@@ -179,6 +210,25 @@ export const technicalAnalysisSlice = createSlice({
         }
       }
     },
+
+    // [TENOR 2026 HDR] Bollinger Settings Reducer
+    setBollingerSettings: (state, action: PayloadAction<Partial<BollingerSettings>>) => {
+      const p = action.payload;
+      if (p.length !== undefined) state.bollingerSettings.length = p.length;
+      if (p.source !== undefined) state.bollingerSettings.source = p.source;
+      if (p.multiplier !== undefined) state.bollingerSettings.multiplier = p.multiplier;
+      if (p.offset !== undefined) state.bollingerSettings.offset = p.offset;
+      if (p.showUpper !== undefined) state.bollingerSettings.showUpper = p.showUpper;
+      if (p.showMiddle !== undefined) state.bollingerSettings.showMiddle = p.showMiddle;
+      if (p.showLower !== undefined) state.bollingerSettings.showLower = p.showLower;
+      if (p.showFill !== undefined) state.bollingerSettings.showFill = p.showFill;
+      if (p.upperColor !== undefined) state.bollingerSettings.upperColor = p.upperColor;
+      if (p.middleColor !== undefined) state.bollingerSettings.middleColor = p.middleColor;
+      if (p.lowerColor !== undefined) state.bollingerSettings.lowerColor = p.lowerColor;
+      if (p.fillColor !== undefined) state.bollingerSettings.fillColor = p.fillColor;
+      if (p.fillOpacity !== undefined) state.bollingerSettings.fillOpacity = p.fillOpacity;
+    },
+
     // [TENOR 2026 SRE FIX] Explicit assignment to satisfy TS2322
     setChartAppearance: (state, action: PayloadAction<Partial<ChartAppearance>>) => {
       const p = action.payload;
@@ -191,6 +241,7 @@ export const technicalAnalysisSlice = createSlice({
     resetChartAppearance: (state) => {
       state.chartAppearance = initialState.chartAppearance;
       state.indicatorPeriods = initialState.indicatorPeriods;
+      state.bollingerSettings = initialState.bollingerSettings;
     },
 
     // --- TEMPLATES REDUCER ---
@@ -218,6 +269,10 @@ export const technicalAnalysisSlice = createSlice({
             williamsR: false,
             roc: true,
             obv: false,
+            ichimoku: false,
+            stochRsi: false,
+            bbWidth: false,
+            bbPercentB: false,
           };
           break;
         case "swing":
@@ -239,6 +294,10 @@ export const technicalAnalysisSlice = createSlice({
             williamsR: true,
             roc: false,
             obv: true,
+            ichimoku: false,
+            stochRsi: false,
+            bbWidth: false,
+            bbPercentB: false,
           };
           break;
         case "scalping":
@@ -260,6 +319,10 @@ export const technicalAnalysisSlice = createSlice({
             williamsR: false,
             roc: true,
             obv: false,
+            ichimoku: false,
+            stochRsi: false,
+            bbWidth: false,
+            bbPercentB: false,
           };
           break;
         case "long":
@@ -281,6 +344,10 @@ export const technicalAnalysisSlice = createSlice({
             williamsR: false,
             roc: false,
             obv: true,
+            ichimoku: false,
+            stochRsi: false,
+            bbWidth: false,
+            bbPercentB: false,
           };
           break;
       }
@@ -324,6 +391,7 @@ export const technicalAnalysisSlice = createSlice({
       if (normalized === state.chartConfig.symbol.trim().toUpperCase()) return;
       if (state.ui.comparisonSymbols.includes(normalized)) return;
       if (state.ui.comparisonSymbols.length >= 5) return;
+      
       state.ui.comparisonSymbols.push(normalized);
     },
     removeComparisonSymbol: (state, action: PayloadAction<string>) => {
@@ -405,6 +473,7 @@ export const technicalAnalysisSlice = createSlice({
 // ============================================================================
 // ACTIONS EXPORT
 // ============================================================================
+
 export const {
   setSymbol,
   setTimeframe,
@@ -414,6 +483,7 @@ export const {
   toggleAdvancedIndicator,
   setAdvancedIndicators,
   setIndicatorPeriods,
+  setBollingerSettings,
   setChartAppearance,
   resetChartAppearance,
   applyTemplate,
@@ -450,10 +520,12 @@ export const {
 // ============================================================================
 // SELECTORS (For easy access in components)
 // ============================================================================
+
 export const selectTA = (state: RootState): TechnicalAnalysisState => state.technicalAnalysis;
 export const selectChartConfig = (state: RootState) => state.technicalAnalysis.chartConfig;
 export const selectAdvancedIndicators = (state: RootState) => state.technicalAnalysis.advancedIndicators;
 export const selectIndicatorPeriods = (state: RootState): IndicatorPeriods => state.technicalAnalysis.indicatorPeriods;
+export const selectBollingerSettings = (state: RootState): BollingerSettings => state.technicalAnalysis.bollingerSettings;
 export const selectChartAppearance = (state: RootState) => state.technicalAnalysis.chartAppearance;
 export const selectUiState = (state: RootState): UiState => state.technicalAnalysis.ui;
 export const selectModals = (state: RootState) => state.technicalAnalysis.ui.modals;
@@ -465,5 +537,7 @@ export const selectMarketSnapshots = (state: RootState) => state.technicalAnalys
 // ============================================================================
 // REDUCER EXPORT
 // ============================================================================
+
 export default technicalAnalysisSlice.reducer;
+
 // --- EOF ---
