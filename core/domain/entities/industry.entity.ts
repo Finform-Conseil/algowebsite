@@ -1,4 +1,5 @@
 import { SectorEntity } from "./sector.entity";
+import { ShortSocietyEntity, SocietyEntity } from "./society.entity";
 
 export interface IndustryEntity {
     id: string;
@@ -8,4 +9,11 @@ export interface IndustryEntity {
     slug: string;
     sector: SectorEntity;
     description?: string;
+}
+
+export interface ShortIndustryEntity {
+    id: string;
+    number?: string;
+    name: string;
+    societies: ShortSocietyEntity[];
 }

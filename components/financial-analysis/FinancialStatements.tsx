@@ -1,413 +1,231 @@
 'use client';
 
-import { useState } from 'react';
-import { IncomeStatement, BalanceSheet, CashFlowStatement } from '@/types/financial-analysis';
-import { formatCurrency } from '@/core/data/FinancialData';
+import { useEffect, useState, useMemo } from 'react';
+import { useStatementRepository } from '@/core/infra/repositories/statement.repository.impl';
+import { useQueryParams } from '@/core/presenter/hooks/useQueryParams';
+import { StatementQueryParams } from '@/core/domain/types/statement.type';
+import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { FinancialStatementEntity, FinancialItemTreeNode } from '@/core/domain/entities/statement.entity';
+import { PeriodEntity } from '@/core/domain/entities/config.entity';
 
 interface FinancialStatementsProps {
-  incomeStatements: IncomeStatement[];
-  balanceSheets: BalanceSheet[];
-  cashFlowStatements: CashFlowStatement[];
+  action: ActionEntity;
   currency: string;
 }
 
-type StatementType = 'income' | 'balance' | 'cashflow';
-
 export default function FinancialStatements({
-  incomeStatements,
-  balanceSheets,
-  cashFlowStatements,
+  action,
   currency
 }: FinancialStatementsProps) {
-  const [activeStatement, setActiveStatement] = useState<StatementType>('income');
-  const [selectedPeriods, setSelectedPeriods] = useState<string[]>(
-    incomeStatements.slice(0, 3).map(s => s.period)
-  );
 
+  const { params: queryParams } = useQueryParams<StatementQueryParams>({ view_type: "action_tree", action_id: action.id });
+  const { allStatementsData, getAllStatements } = useStatementRepository();
+  
+  useEffect(() => { 
+    getAllStatements(queryParams); 
+  }, [queryParams]);
+
+  const [activeStatementName, setActiveStatementName] = useState<string>('');
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  // Fonction pour toggle l'expansion d'un item
+  const toggleExpand = (itemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  // Récupérer les statements de l'API
+  const statements = useMemo(() => {
+    const extracted = (allStatementsData as any)?.statements || [];
+    return extracted;
+  }, [allStatementsData]);
+
+  // Statement actif
+  const activeStatement = useMemo(() => {
+    const found = statements.find((s: FinancialStatementEntity) => s.name === activeStatementName) || statements[0];
+    return found;
+  }, [statements, activeStatementName]);
+
+  // Extraire les périodes disponibles
+  const availablePeriods = useMemo(() => {
+    if (!activeStatement?.items?.[0]?.values) {
+      console.log("[FinancialStatements] ⚠️ No values found in items");
+      return [];
+    }
+    
+    const periods = activeStatement.items[0].values.map((v: any) => v.period);
+    console.log("[FinancialStatements] 📅 Extracted periods:", periods);
+    return periods;
+  }, [activeStatement]);
+
+  // Toutes les périodes disponibles (pas de limitation)
+  const selectedPeriods = useMemo(() => {
+    return availablePeriods;
+  }, [availablePeriods]);
+
+  // Formater les valeurs
   const formatValue = (value: number) => {
-    if (value >= 1000000000) {
+    const absValue = Math.abs(value);
+    if (absValue >= 1000000000) {
       return `${(value / 1000000000).toFixed(2)}B`;
-    } else if (value >= 1000000) {
+    } else if (absValue >= 1000000) {
       return `${(value / 1000000).toFixed(2)}M`;
     }
     return value.toLocaleString();
   };
 
-  const renderIncomeStatement = () => {
-    const statements = incomeStatements.filter(s => selectedPeriods.includes(s.period));
+  // Déterminer la classe CSS selon le level et le code
+  const getRowClassName = (level: number, code: string): string => {
+    // Les totaux principaux (level 0) sont mis en évidence
+    if (level === 0) return 'total-row highlight';
+    // Les sous-totaux (level 1) sont en gras
+    if (level === 1) return 'total-row';
+    // Les lignes normales
+    return '';
+  };
+
+  // Déterminer la classe d'indentation
+  const getIndentClass = (level: number): string => {
+    return level > 1 ? 'indent' : '';
+  };
+
+  // Déterminer si une valeur est négative et doit être affichée entre parenthèses
+  const isNegativeValue = (value: number): boolean => {
+    return value < 0;
+  };
+
+  // Fonction récursive pour rendre un item et ses enfants
+  const renderStatementItem = (item: FinancialItemTreeNode, periods: PeriodEntity[]): JSX.Element[] => {
+    const rowClassName = getRowClassName(item.level, item.code);
+    const labelClassName = `row-label ${getIndentClass(item.level)}`;
+    const isExpanded = expandedItems.has(item.id);
+    const hasChildren = item.children && item.children.length > 0;
+    
+    const rows: JSX.Element[] = [];
+
+    // Ligne principale
+    rows.push(
+      <tr key={item.id} className={rowClassName}>
+        <td className={labelClassName}>
+          {item.level === 0 && hasChildren && (
+            <button
+              onClick={() => toggleExpand(item.id)}
+              className="expand-toggle"
+              aria-label={isExpanded ? 'Réduire' : 'Développer'}
+            >
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2"
+                style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
+          {item.label}
+        </td>
+        {periods.map((period: PeriodEntity) => {
+          const valueData = item.values.find((v: any) => v.period.id === period.id);
+          const numValue = parseFloat(valueData?.value || '0');
+          const isNegative = isNegativeValue(numValue);
+          
+          return (
+            <td 
+              key={period.id} 
+              className={`value ${isNegative ? 'negative' : ''} ${rowClassName.includes('bold') || rowClassName.includes('highlight') ? 'bold' : ''}`}
+              title={`${isNegative ? '-' : ''}${Math.abs(numValue)} ${action.bourse.currency?.symbol}`}
+            >
+              {isNegative ? '-' : ''}{formatValue(Math.abs(numValue))}
+            </td>
+          );
+        })}
+      </tr>
+    );
+    
+    // Rendu récursif des enfants (seulement si level 0 est expanded ou si ce n'est pas level 0)
+    if (hasChildren) {
+      if (item.level === 0) {
+        // Pour level 0, afficher les enfants seulement si expanded
+        if (isExpanded) {
+          item.children!.forEach((child: FinancialItemTreeNode) => {
+            rows.push(...renderStatementItem(child, periods));
+          });
+        }
+      } else {
+        // Pour les autres levels, toujours afficher les enfants
+        item.children!.forEach((child: FinancialItemTreeNode) => {
+          rows.push(...renderStatementItem(child, periods));
+        });
+      }
+    }
+    
+    return rows;
+  };
+
+  // Rendu dynamique du statement actif
+  const renderDynamicStatement = () => {
+    if (!activeStatement || !activeStatement.items || activeStatement.items.length === 0) {
+      console.log("[FinancialStatements] ❌ No data available for rendering");
+      return (
+        <div className="statement-table">
+          <div className="no-data">Aucune donnée disponible</div>
+        </div>
+      );
+    }
     
     return (
       <div className="statement-table">
         <table>
           <thead>
             <tr>
-              <th className="row-header">Compte de résultat</th>
-              {statements.map(stmt => (
-                <th key={stmt.period} className="period-header">{stmt.period}</th>
+              <th className="row-header">{activeStatement.name || 'État Financier'}</th>
+              {selectedPeriods.map((period: PeriodEntity) => (
+                <th key={period.id} className="period-header">{period.display || period.year}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Revenus</td>
-            </tr>
-            <tr>
-              <td className="row-label">Chiffre d'affaires</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.revenue)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Coût des revenus</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(stmt.costOfRevenue)})</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Marge brute</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.grossProfit)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Charges opérationnelles</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Frais généraux et admin.</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(stmt.sellingGeneralAdmin)})</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Résultat opérationnel</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.operatingIncome)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Résultat net</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Charges d'intérêts</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(stmt.interestExpense)})</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Autres revenus/charges</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.otherIncomeExpense)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label">Résultat avant impôts</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.incomeBeforeTax)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Impôts sur le revenu</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(stmt.incomeTax)})</td>
-              ))}
-            </tr>
-            <tr className="total-row highlight">
-              <td className="row-label">Résultat net</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.netIncome)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Par action</td>
-            </tr>
-            <tr>
-              <td className="row-label">BPA (dilué)</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{stmt.epsDiluted.toLocaleString()}</td>
-              ))}
-            </tr>
+            {activeStatement.items.map((item: FinancialItemTreeNode) => 
+              renderStatementItem(item, selectedPeriods)
+            )}
           </tbody>
         </table>
       </div>
     );
   };
 
-  const renderBalanceSheet = () => {
-    const statements = balanceSheets.filter(s => selectedPeriods.includes(s.period));
-    
-    return (
-      <div className="statement-table">
-        <table>
-          <thead>
-            <tr>
-              <th className="row-header">Bilan</th>
-              {statements.map(stmt => (
-                <th key={stmt.period} className="period-header">{stmt.period}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Actifs courants</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Trésorerie et équivalents</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.cashAndEquivalents)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Placements court terme</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.shortTermInvestments)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Créances clients</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.accountsReceivable)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Stocks</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.inventory)}</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Total actifs courants</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.currentAssets)}</td>
-              ))}
-            </tr>
+  // Initialiser le premier statement au chargement
+  useEffect(() => {
+    if (statements.length > 0 && !activeStatementName) {
+      const firstName = statements[0].name || '';
+      console.log("[FinancialStatements] ✅ Setting active statement to:", firstName);
+      setActiveStatementName(firstName);
+    }
+  }, [statements, activeStatementName]);
 
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Actifs non courants</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Immobilisations</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.propertyPlantEquipment)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Goodwill</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.goodwill)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Actifs incorporels</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.intangibleAssets)}</td>
-              ))}
-            </tr>
-            <tr className="total-row highlight">
-              <td className="row-label">Total actifs</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.totalAssets)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Passifs courants</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Dettes fournisseurs</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.accountsPayable)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Dette court terme</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.shortTermDebt)}</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Total passifs courants</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.currentLiabilities)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Passifs non courants</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Dette long terme</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.longTermDebt)}</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Total passifs</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.totalLiabilities)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Capitaux propres</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Capital social</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.commonStock)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Résultats non distribués</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.retainedEarnings)}</td>
-              ))}
-            </tr>
-            <tr className="total-row highlight">
-              <td className="row-label">Total capitaux propres</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.totalEquity)}</td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  const renderCashFlowStatement = () => {
-    const statements = cashFlowStatements.filter(s => selectedPeriods.includes(s.period));
-    
-    return (
-      <div className="statement-table">
-        <table>
-          <thead>
-            <tr>
-              <th className="row-header">Flux de trésorerie</th>
-              {statements.map(stmt => (
-                <th key={stmt.period} className="period-header">{stmt.period}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Activités opérationnelles</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Résultat net</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.netIncome)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Amortissements</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.depreciationAmortization)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Variation BFR</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className={`value ${stmt.changeInWorkingCapital < 0 ? 'negative' : ''}`}>
-                  {stmt.changeInWorkingCapital < 0 ? '(' : ''}{formatValue(Math.abs(stmt.changeInWorkingCapital))}{stmt.changeInWorkingCapital < 0 ? ')' : ''}
-                </td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Flux opérationnels</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.operatingCashFlow)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Activités d'investissement</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Investissements (CAPEX)</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(Math.abs(stmt.capitalExpenditures))})</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Achats de placements</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(Math.abs(stmt.investmentPurchases))})</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Flux d'investissement</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold negative">({formatValue(Math.abs(stmt.investingCashFlow))})</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Activités de financement</td>
-            </tr>
-            <tr>
-              <td className="row-label indent">Émission de dette</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.debtIssuance)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Remboursement dette</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(Math.abs(stmt.debtRepayment))})</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label indent">Dividendes versés</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value negative">({formatValue(Math.abs(stmt.dividendsPaid))})</td>
-              ))}
-            </tr>
-            <tr className="total-row">
-              <td className="row-label">Flux de financement</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold negative">({formatValue(Math.abs(stmt.financingCashFlow))})</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Variation de trésorerie</td>
-            </tr>
-            <tr className="total-row highlight">
-              <td className="row-label">Variation nette</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.netChangeInCash)}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="row-label">Trésorerie début</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value">{formatValue(stmt.cashAtBeginning)}</td>
-              ))}
-            </tr>
-            <tr className="total-row highlight">
-              <td className="row-label">Trésorerie fin</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold">{formatValue(stmt.cashAtEnd)}</td>
-              ))}
-            </tr>
-
-            <tr className="section-header">
-              <td colSpan={statements.length + 1}>Indicateur clé</td>
-            </tr>
-            <tr className="total-row highlight">
-              <td className="row-label">Free Cash Flow</td>
-              {statements.map(stmt => (
-                <td key={stmt.period} className="value bold primary">{formatValue(stmt.freeCashFlow)}</td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+  // Déplier tous les items de niveau 0 par défaut au changement de statement
+  useEffect(() => {
+    if (activeStatement?.items) {
+      const level0Ids = activeStatement.items
+        .filter((item: FinancialItemTreeNode) => item.level === 0 && item.children && item.children.length > 0)
+        .map((item: FinancialItemTreeNode) => item.id);
+      
+      if (level0Ids.length > 0) {
+        setExpandedItems(new Set(level0Ids));
+      }
+    }
+  }, [activeStatement]);
 
   return (
     <div className="financial-statements">
@@ -436,44 +254,39 @@ export default function FinancialStatements({
 
       {/* Tabs */}
       <div className="statements-tabs">
-        <button
-          className={`tab-btn ${activeStatement === 'income' ? 'active' : ''}`}
-          onClick={() => setActiveStatement('income')}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="20" x2="18" y2="10" />
-            <line x1="12" y1="20" x2="12" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="14" />
-          </svg>
-          Compte de résultat
-        </button>
-        <button
-          className={`tab-btn ${activeStatement === 'balance' ? 'active' : ''}`}
-          onClick={() => setActiveStatement('balance')}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="9" y1="21" x2="9" y2="9" />
-          </svg>
-          Bilan
-        </button>
-        <button
-          className={`tab-btn ${activeStatement === 'cashflow' ? 'active' : ''}`}
-          onClick={() => setActiveStatement('cashflow')}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          Flux de trésorerie
-        </button>
+        {statements.map((statement: FinancialStatementEntity) => (
+          <button
+            key={statement.id}
+            className={`tab-btn ${activeStatementName === statement.name ? 'active' : ''}`}
+            onClick={() => setActiveStatementName(statement.name || '')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {statement.code === 'IS' && (
+                <>
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </>
+              )}
+              {statement.code === 'BS' && (
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" />
+                  <line x1="9" y1="21" x2="9" y2="9" />
+                </>
+              )}
+              {statement.code === 'CF' && (
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              )}
+            </svg>
+            {statement.name}
+          </button>
+        ))}
       </div>
 
       {/* Content */}
       <div className="statements-content">
-        {activeStatement === 'income' && renderIncomeStatement()}
-        {activeStatement === 'balance' && renderBalanceSheet()}
-        {activeStatement === 'cashflow' && renderCashFlowStatement()}
+        {renderDynamicStatement()}
       </div>
     </div>
   );

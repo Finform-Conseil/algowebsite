@@ -7,6 +7,10 @@ export interface CountryEntity {
     symbol: string;
     name: string;
     slug: string;
-    bourse: BourseEntity;
-    currency: CurrencyEntity
+    bourse: string | BourseEntity;
+    currency: string | CurrencyEntity;
+    orientation_strategique?: string;
+    objectif_investissement?: string;
+    aum?: number;
+    performance?: number;
 }

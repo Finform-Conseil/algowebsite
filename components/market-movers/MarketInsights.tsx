@@ -62,7 +62,7 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
             <path d="M12 16v-4" />
             <path d="M12 8h.01" />
           </svg>
-          Insights & Alertes
+          Insights & Alerts
         </h2>
       </div>
 
@@ -101,7 +101,7 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
                     </svg>
                   </div>
                   <div className="badge-content">
-                    <span className="badge-label">Leader du jour</span>
+                    <span className="badge-label">Top Performer</span>
                     <span className="badge-value">{insight.data.ticker}</span>
                     <span className="badge-change positive">+{insight.data.change.toFixed(2)}%</span>
                   </div>
@@ -119,7 +119,7 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
                     </svg>
                   </div>
                   <div className="badge-content">
-                    <span className="badge-label">Flop du jour</span>
+                    <span className="badge-label">Worst Performer</span>
                     <span className="badge-value">{insight.data.ticker}</span>
                     <span className="badge-change negative">{insight.data.change.toFixed(2)}%</span>
                   </div>
@@ -138,7 +138,7 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
                     </svg>
                   </div>
                   <div className="badge-content">
-                    <span className="badge-label">Secteur performant</span>
+                    <span className="badge-label">Top Sector</span>
                     <span className="badge-value">{insight.data.sector}</span>
                     <span className="badge-change positive">+{insight.data.avg.toFixed(2)}%</span>
                   </div>
@@ -152,18 +152,18 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
 
         {/* Custom Alerts Configuration */}
         <div className="alerts-config">
-          <h3>Configurer vos alertes</h3>
+          <h3>Configure Your Alerts</h3>
           <div className="alerts-form">
             <div className="form-row">
               <div className="form-group">
-                <label>Hausse supérieure à</label>
+                <label>Gain greater than</label>
                 <div className="input-with-unit">
                   <input type="number" placeholder="5" defaultValue="5" />
                   <span className="unit">%</span>
                 </div>
               </div>
               <div className="form-group">
-                <label>Baisse supérieure à</label>
+                <label>Loss greater than</label>
                 <div className="input-with-unit">
                   <input type="number" placeholder="5" defaultValue="5" />
                   <span className="unit">%</span>
@@ -173,19 +173,19 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Volume supérieur à</label>
+                <label>Volume greater than</label>
                 <div className="input-with-unit">
                   <input type="number" placeholder="2" defaultValue="2" />
-                  <span className="unit">x moyenne</span>
+                  <span className="unit">x average</span>
                 </div>
               </div>
               <div className="form-group">
-                <label>Notification par</label>
+                <label>Notify via</label>
                 <select>
                   <option>Email</option>
                   <option>SMS</option>
                   <option>Push</option>
-                  <option>Tous</option>
+                  <option>All</option>
                 </select>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function MarketInsights({ insights }: MarketInsightsProps) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
               </svg>
-              Enregistrer les alertes
+              Save Alerts
             </button>
           </div>
         </div>

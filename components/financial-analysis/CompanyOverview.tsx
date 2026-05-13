@@ -1,15 +1,16 @@
 'use client';
 
-import { CompanyProfile, FinancialRatios } from '@/types/financial-analysis';
-import { formatCurrency } from '@/core/data/FinancialData';
+import { ActionEntity } from '@/core/domain/entities/action.entity';
 
 interface CompanyOverviewProps {
-  profile: CompanyProfile;
-  latestRatios: FinancialRatios;
+  action: ActionEntity;
 }
 
-export default function CompanyOverview({ profile, latestRatios }: CompanyOverviewProps) {
-  const formatMarketCap = (value: number) => {
+export default function CompanyOverview({ action }: CompanyOverviewProps) {
+  const formatMarketCap = (value: number | string) => {
+    if (typeof value === 'string') {
+      return value;
+    }
     if (value >= 1000000000000) {
       return `${(value / 1000000000000).toFixed(2)}T`;
     } else if (value >= 1000000000) {
@@ -24,16 +25,18 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
       <div className="overview-header">
         <div className="company-identity">
           <div className="company-logo">
-            {profile.name.substring(0, 2).toUpperCase()}
+            {action?.society.name.substring(0, 2).toUpperCase()}
           </div>
           <div className="company-info">
-            <h1>{profile.name}</h1>
+            <h1>{action?.society.name}</h1>
             <div className="company-meta">
-              <span className="ticker">{profile.ticker}</span>
+              <span className="ticker">{action.ticker}</span>
               <span className="separator">•</span>
-              <span className="exchange">{profile.exchange}</span>
+              <span className="exchange">{action.bourse.ticker}</span>
               <span className="separator">•</span>
-              <span className="sector">{profile.sector}</span>
+              <span className="sector">{action?.society.activity.name}</span>
+              <span className="separator">•</span>
+              <span className="sector">{action?.society?.industry?.name ?? "--"}</span>
             </div>
           </div>
         </div>
@@ -67,8 +70,8 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
           </div>
           <div className="metric-content">
             <span className="metric-label">Capitalisation</span>
-            <span className="metric-value">{formatMarketCap(profile.marketCap)} {profile.currency}</span>
-            <span className="metric-sublabel">{profile.sharesOutstanding.toLocaleString()} actions</span>
+            <span className="metric-value">{formatMarketCap(action.latest_valuation_ratio?.market_cap || "--")} {action.bourse.currency?.symbol}</span>
+            <span className="metric-sublabel">{action.number_of_actions?.toLocaleString()} actions</span>
           </div>
         </div>
 
@@ -81,7 +84,7 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
           </div>
           <div className="metric-content">
             <span className="metric-label">ROE</span>
-            <span className="metric-value">{latestRatios.returnOnEquity.toFixed(1)}%</span>
+            <span className="metric-value">{(action.latest_valuation_ratio?.roe ?? 0).toFixed(1)}%</span>
             <span className="metric-sublabel">Rentabilité capitaux propres</span>
           </div>
         </div>
@@ -95,7 +98,7 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
           </div>
           <div className="metric-content">
             <span className="metric-label">Marge nette</span>
-            <span className="metric-value">{latestRatios.netMargin.toFixed(1)}%</span>
+            <span className="metric-value">{(action.latest_valuation_ratio?.net_margin ?? 0).toFixed(1)}%</span>
             <span className="metric-sublabel">Profitabilité</span>
           </div>
         </div>
@@ -111,8 +114,8 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
           </div>
           <div className="metric-content">
             <span className="metric-label">Employés</span>
-            <span className="metric-value">{profile.employees.toLocaleString()}</span>
-            <span className="metric-sublabel">{(latestRatios.revenuePerEmployee / 1000000).toFixed(1)}M XOF/employé</span>
+            <span className="metric-value">{action?.society.employee_count?.toLocaleString() ?? 'N/A'}</span>
+            <span className="metric-sublabel">{((action?.latest_valuation_ratio?.revenue_per_employee ?? 0) / 1000000).toFixed(1)}M XOF/employé</span>
           </div>
         </div>
       </div>
@@ -130,20 +133,20 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
           <div className="details-grid">
             <div className="detail-item">
               <span className="detail-label">Industrie</span>
-              <span className="detail-value">{profile.industry}</span>
+              <span className="detail-value">{action?.society.industry?.name ?? "--"}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Siège social</span>
-              <span className="detail-value">{profile.headquarters}</span>
+              <span className="detail-value">{action?.society.headquarters_address}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Fondée en</span>
-              <span className="detail-value">{profile.founded}</span>
+              <span className="detail-value">{action?.society?.founded_date?.toString()}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Site web</span>
-              <a href={profile.website} target="_blank" rel="noopener noreferrer" className="detail-link">
-                {profile.website.replace('https://', '')}
+              <a href={action?.society?.website} target="_blank" rel="noopener noreferrer" className="detail-link">
+                {action?.society?.website?.replace('https://', '')}
               </a>
             </div>
           </div>
@@ -160,85 +163,75 @@ export default function CompanyOverview({ profile, latestRatios }: CompanyOvervi
           <div className="details-grid">
             <div className="detail-item">
               <span className="detail-label">CEO</span>
-              <span className="detail-value">{profile.ceo}</span>
+              <span className="detail-value">{action.society.chief_executive_officer ?? "--"}</span>
             </div>
-            {profile.cfo && (
+            <div className="detail-item">
+              <span className="detail-label">CFO</span>
+              <span className="detail-value">{action.society.financial_manager ?? "--"}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Président</span>
+              <span className="detail-value">{action.society.chairman_board ?? "--"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="details-section">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            Historique boursier
+          </h3>
+          <div className="details-grid">
+            <div className="detail-item">
+              <span className="detail-label">Date d'introduction</span>
+              <span className="detail-value">
+                {new Date(action?.initial_public_offer_date?.toString() || '').toLocaleDateString('fr-FR')}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Prix d'introduction</span>
+              <span className="detail-value">{action.initial_public_offer_price?.toString() || '--'} {action.bourse.currency?.symbol || ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="details-section">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 3v18h18" />
+              <path d="M18 17V9" />
+              <path d="M13 17V5" />
+              <path d="M8 17v-3" />
+            </svg>
+            Structure du groupe
+          </h3>
+          <div className="details-grid">
+            {action?.society.parent && (
               <div className="detail-item">
-                <span className="detail-label">CFO</span>
-                <span className="detail-value">{profile.cfo}</span>
+                <span className="detail-label">Société mère</span>
+                <span className="detail-value">{action?.society?.parent.name}</span>
               </div>
             )}
-            {profile.chairman && (
-              <div className="detail-item">
-                <span className="detail-label">Président</span>
-                <span className="detail-value">{profile.chairman}</span>
+            {action.society.subsidiaries && action.society.subsidiaries.length > 0 && (
+              <div className="detail-item full-width">
+                <span className="detail-label">Filiales</span>
+                <div className="subsidiaries-list">
+                  {action.society.subsidiaries.split(',').map((sub, index) => (
+                    <span key={index} className="subsidiary-badge">{sub}</span>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         </div>
-
-        {profile.ipoDate && (
-          <div className="details-section">
-            <h3>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-              Historique boursier
-            </h3>
-            <div className="details-grid">
-              <div className="detail-item">
-                <span className="detail-label">Date d'introduction</span>
-                <span className="detail-value">
-                  {new Date(profile.ipoDate).toLocaleDateString('fr-FR')}
-                </span>
-              </div>
-              {profile.ipoPrice && (
-                <div className="detail-item">
-                  <span className="detail-label">Prix d'introduction</span>
-                  <span className="detail-value">{profile.ipoPrice.toLocaleString()} {profile.currency}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {(profile.parentCompany || (profile.subsidiaries && profile.subsidiaries.length > 0)) && (
-          <div className="details-section">
-            <h3>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 3v18h18" />
-                <path d="M18 17V9" />
-                <path d="M13 17V5" />
-                <path d="M8 17v-3" />
-              </svg>
-              Structure du groupe
-            </h3>
-            <div className="details-grid">
-              {profile.parentCompany && (
-                <div className="detail-item">
-                  <span className="detail-label">Société mère</span>
-                  <span className="detail-value">{profile.parentCompany}</span>
-                </div>
-              )}
-              {profile.subsidiaries && profile.subsidiaries.length > 0 && (
-                <div className="detail-item full-width">
-                  <span className="detail-label">Filiales</span>
-                  <div className="subsidiaries-list">
-                    {profile.subsidiaries.map((sub, index) => (
-                      <span key={index} className="subsidiary-badge">{sub}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Description */}
       <div className="company-description">
-        <h3>À propos de {profile.name}</h3>
-        <p>{profile.description}</p>
+        <h3>À propos de {action?.society.name}</h3>
+        <p>{action?.society?.description}</p>
       </div>
     </div>
   );

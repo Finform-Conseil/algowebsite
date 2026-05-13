@@ -25,32 +25,8 @@ export const AFRICAN_EXCHANGES: StockExchange[] = [
     oneYearReturn: 24.3,
     threeYearReturn: 42.8,
     volatility: 18.2,
-    
-    regulation: {
-      level: 'medium',
-      description: 'West African AMF regulation',
-      restrictions: ['Foreign participation limits', 'Prior approval for certain investments']
-    },
-    foreignAccess: {
-      level: 'restricted',
-      description: 'Open access with certain conditions',
-      requirements: ['Foreign currency account', 'AMF authorization', 'Minimum investment']
-    },
-    marketMaturity: {
-      level: 'developing',
-      description: 'Developing market with growth potential'
-    },
+  
     dominantSectors: ['Banking', 'Telecommunications', 'Industry', 'Utilities'],
-    tradingHours: {
-      open: '09:00',
-      close: '16:00',
-      lunchBreak: '12:00-13:00',
-      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    },
-    settlementMethod: {
-      type: 'T+3',
-      description: 'Settlement 3 days after transaction'
-    },
     
     liquidity: 'medium',
     growth: 'high',
@@ -89,30 +65,7 @@ export const AFRICAN_EXCHANGES: StockExchange[] = [
     threeYearReturn: 28.9,
     volatility: 22.4,
     
-    regulation: {
-      level: 'high',
-      description: 'Robust FSB regulation',
-      restrictions: ['Strict disclosure rules', 'Investor protection']
-    },
-    foreignAccess: {
-      level: 'open',
-      description: 'Completely open access to foreign investors',
-      requirements: ['Trading account', 'KYC knowledge']
-    },
-    marketMaturity: {
-      level: 'mature',
-      description: 'Mature and liquid market'
-    },
     dominantSectors: ['Mining Resources', 'Finance', 'Consumer Goods', 'Telecommunications'],
-    tradingHours: {
-      open: '09:00',
-      close: '17:00',
-      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    },
-    settlementMethod: {
-      type: 'T+3',
-      description: 'Settlement 3 days after transaction'
-    },
     
     liquidity: 'high',
     growth: 'medium',
@@ -151,30 +104,7 @@ export const AFRICAN_EXCHANGES: StockExchange[] = [
     threeYearReturn: 68.5,
     volatility: 28.7,
     
-    regulation: {
-      level: 'medium',
-      description: 'SEC regulation under modernization',
-      restrictions: ['Sectoral foreign participation limits']
-    },
-    foreignAccess: {
-      level: 'restricted',
-      description: 'Open access with sectoral restrictions',
-      requirements: ['SEC registration', 'Sectoral approval']
-    },
-    marketMaturity: {
-      level: 'developing',
-      description: 'Developing market with strong growth'
-    },
     dominantSectors: ['Banking', 'Oil and Gas', 'Consumer Goods', 'Telecommunications'],
-    tradingHours: {
-      open: '09:30',
-      close: '15:30',
-      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    },
-    settlementMethod: {
-      type: 'T+3',
-      description: 'Settlement 3 days after transaction'
-    },
     
     liquidity: 'medium',
     growth: 'high',
@@ -213,30 +143,7 @@ export const AFRICAN_EXCHANGES: StockExchange[] = [
     threeYearReturn: 38.4,
     volatility: 19.6,
     
-    regulation: {
-      level: 'high',
-      description: 'Modern AMMC regulation',
-      restrictions: ['Adapted European standards']
-    },
-    foreignAccess: {
-      level: 'open',
-      description: 'Open and attractive access for foreign investors',
-      requirements: ['Securities account', 'Tax identification']
-    },
-    marketMaturity: {
-      level: 'mature',
-      description: 'Mature and well-regulated market'
-    },
     dominantSectors: ['Banking', 'Real Estate', 'Industry', 'Telecommunications'],
-    tradingHours: {
-      open: '09:00',
-      close: '15:30',
-      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    },
-    settlementMethod: {
-      type: 'T+3',
-      description: 'Settlement 3 days after transaction'
-    },
     
     liquidity: 'medium',
     growth: 'medium',
@@ -275,30 +182,7 @@ export const AFRICAN_EXCHANGES: StockExchange[] = [
     threeYearReturn: 35.2,
     volatility: 24.1,
     
-    regulation: {
-      level: 'medium',
-      description: 'CMA regulation under development',
-      restrictions: ['Sectoral limits for foreigners']
-    },
-    foreignAccess: {
-      level: 'restricted',
-      description: 'Open access with certain restrictions',
-      requirements: ['CDS account', 'Investor eligibility']
-    },
-    marketMaturity: {
-      level: 'developing',
-      description: 'Developing market with technological potential'
-    },
     dominantSectors: ['Banking', 'Telecommunications', 'Trade', 'Energy'],
-    tradingHours: {
-      open: '09:00',
-      close: '15:00',
-      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    },
-    settlementMethod: {
-      type: 'T+3',
-      description: 'Settlement 3 days after transaction'
-    },
     
     liquidity: 'low',
     growth: 'medium',
@@ -337,30 +221,7 @@ export const AFRICAN_EXCHANGES: StockExchange[] = [
     threeYearReturn: 65.8,
     volatility: 26.3,
     
-    regulation: {
-      level: 'medium',
-      description: 'SEC regulation under modernization',
-      restrictions: ['Limited foreign participation']
-    },
-    foreignAccess: {
-      level: 'limited',
-      description: 'Limited access for foreign investors',
-      requirements: ['Special approval', 'High minimum investment']
-    },
-    marketMaturity: {
-      level: 'developing',
-      description: 'Emerging market with strong potential'
-    },
     dominantSectors: ['Banking', 'Natural Resources', 'Telecommunications', 'Consumer Goods'],
-    tradingHours: {
-      open: '09:30',
-      close: '15:00',
-      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    },
-    settlementMethod: {
-      type: 'T+3',
-      description: 'Settlement 3 days after transaction'
-    },
     
     liquidity: 'low',
     growth: 'high',
@@ -416,36 +277,6 @@ export const EXCHANGE_INSIGHTS: ExchangeInsight[] = [
     trend: 'neutral',
     timestamp: '2024-01-15T09:45:00Z'
   }
-];
-
-// Sample listed stocks for each exchange
-export const SAMPLE_STOCKS: ListedStock[] = [
-  // BRVM stocks
-  { id: 'nsia', symbol: 'NSIA', name: 'NSIA Banque', exchangeId: 'brvm', sector: 'Banking', marketCap: 2850, price: 12500, change: 150, changePercent: 1.21, volume: 125000, peRatio: 12.5, dividendYield: 3.2 },
-  { id: 'sivm', symbol: 'SIVM', name: 'SIVM', exchangeId: 'brvm', sector: 'Industry', marketCap: 1850, price: 8500, change: -50, changePercent: -0.58, volume: 85000, peRatio: 15.2, dividendYield: 2.8 },
-  { id: 'cie', symbol: 'CIE', name: 'CIE Ivoire', exchangeId: 'brvm', sector: 'Utilities', marketCap: 3200, price: 18500, change: 200, changePercent: 1.09, volume: 95000, peRatio: 18.7, dividendYield: 4.1 },
-  
-  // JSE stocks
-  { id: 'naspers', symbol: 'NPN', name: 'Naspers', exchangeId: 'jse', sector: 'Media', marketCap: 45000, price: 2850, change: -25, changePercent: -0.87, volume: 850000, peRatio: 22.1, dividendYield: 1.5 },
-  { id: 'standardbank', symbol: 'SBK', name: 'Standard Bank', exchangeId: 'jse', sector: 'Banking', marketCap: 28000, price: 185, change: 2.5, changePercent: 1.37, volume: 650000, peRatio: 11.8, dividendYield: 4.2 },
-  { id: 'anglo', symbol: 'AGL', name: 'Anglo American', exchangeId: 'jse', sector: 'Mining Resources', marketCap: 52000, price: 950, change: 15, changePercent: 1.60, volume: 1200000, peRatio: 14.3, dividendYield: 3.8 },
-  
-  // NGX stocks
-  { id: 'dangote', symbol: 'DANGCEM', name: 'Dangote Cement', exchangeId: 'ngx', sector: 'Construction', marketCap: 8500, price: 285, change: 5.2, changePercent: 1.86, volume: 450000, peRatio: 16.8, dividendYield: 2.9 },
-  { id: 'gtbank', symbol: 'GUARANTY', name: 'Guaranty Trust Bank', exchangeId: 'ngx', sector: 'Banking', marketCap: 4200, price: 38.5, change: 0.8, changePercent: 2.12, volume: 380000, peRatio: 8.5, dividendYield: 5.1 },
-  { id: 'nestle', symbol: 'NESTLE', name: 'Nestle Nigeria', exchangeId: 'ngx', sector: 'Consumer Goods', marketCap: 3200, price: 1280, change: 15, changePercent: 1.19, volume: 125000, peRatio: 25.6, dividendYield: 3.5 },
-  
-  // CSE stocks
-  { id: 'attijari', symbol: 'ATW', name: 'Attijariwafa Bank', exchangeId: 'cse', sector: 'Banking', marketCap: 6500, price: 485, change: 8.5, changePercent: 1.78, volume: 185000, peRatio: 12.1, dividendYield: 3.8 },
-  { id: 'maroctelecom', symbol: 'IAM', name: 'Maroc Telecom', exchangeId: 'cse', sector: 'Telecommunications', marketCap: 7200, price: 125, change: 1.2, changePercent: 0.97, volume: 155000, peRatio: 18.5, dividendYield: 4.2 },
-  
-  // NSE stocks
-  { id: 'safaricom', symbol: 'SCOM', name: 'Safaricom', exchangeId: 'nse', sector: 'Telecommunications', marketCap: 12000, price: 28.5, change: 0.3, changePercent: 1.06, volume: 8500000, peRatio: 15.2, dividendYield: 5.8 },
-  { id: 'equity', symbol: 'EQTY', name: 'Equity Group', exchangeId: 'nse', sector: 'Banking', marketCap: 3500, price: 48.2, change: 0.8, changePercent: 1.69, volume: 1200000, peRatio: 9.8, dividendYield: 4.5 },
-  
-  // GSE stocks
-  { id: 'gcb', symbol: 'GCB', name: 'GCB Bank', exchangeId: 'gse', sector: 'Banking', marketCap: 450, price: 5.2, change: 0.05, changePercent: 0.97, volume: 85000, peRatio: 7.2, dividendYield: 6.1 },
-  { id: 'mtng', symbol: 'MTNGH', name: 'MTN Ghana', exchangeId: 'gse', sector: 'Telecommunications', marketCap: 850, price: 1.85, change: 0.02, changePercent: 1.09, volume: 125000, peRatio: 12.8, dividendYield: 4.8 }
 ];
 
 export const REGIONS = [

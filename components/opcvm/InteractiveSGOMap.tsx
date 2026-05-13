@@ -6,6 +6,9 @@ import L from 'leaflet';
 import { motion } from 'framer-motion';
 import type { SGO } from '@/types/sgo';
 import 'leaflet/dist/leaflet.css';
+import { useQueryParams } from '@/core/presenter/hooks/useQueryParams';
+import { useSgoRepository } from '@/core/infra/repositories/sgo.repository.impl';
+import { SgoQueryParams } from '@/core/domain/types/sgo.type';
 
 // Fix pour les icônes Leaflet dans Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -53,6 +56,34 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+
+    const { 
+      params: queryParams, 
+      setPage, 
+      setSearch,
+      updateParams,
+      resetParams 
+    } = useQueryParams<SgoQueryParams>({
+      bourse_tickers: exchangeShortName,
+      view_type: "bourse",
+      page: -1
+    });
+  
+    const {
+      allSgosData,
+      getAllSgos,
+      isLoadingAllSgos,
+    } = useSgoRepository();
+  
+    useEffect(() => { getAllSgos(queryParams); }, [queryParams]);
+  
+    useEffect(() =>
+    {
+      console.log("All SGO Data", allSgosData)
+    }, [allSgosData])
+  
+  
 
   // Créer une icône personnalisée pour les SGO
   const createCustomIcon = (color: string) => {
@@ -155,7 +186,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
           top: '1rem',
           right: '1rem',
           padding: '0.75rem 1.5rem',
-          background: 'rgba(255,255,255,0.95)',
+          background: 'var(--background-color)',
           borderRadius: '0.75rem',
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           border: `2px solid ${exchangeColor}`,
@@ -165,10 +196,10 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
         <div style={{
           fontSize: '0.75rem',
           fontWeight: '600',
-          color: exchangeColor,
+          color: 'var(--text-color)',
           marginBottom: '0.25rem',
         }}>
-          {exchangeShortName} ({sgos.length} SGO{sgos.length > 1 ? 's' : ''})
+          {exchangeShortName} ({allSgosData?.data.length} SGO{allSgosData?.data.length ? 's' : ''})
         </div>
         <div style={{
           fontSize: '1rem',
@@ -194,10 +225,12 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {sgos.map((sgo) => (
+        {allSgosData?.data
+          .filter((sgo) => sgo.latitude != null && sgo.longitude != null)
+          .map((sgo) => (
           <Marker
             key={sgo.id}
-            position={[sgo.latitude, sgo.longitude]}
+            position={[sgo.latitude!, sgo.longitude!]}
             icon={createCustomIcon(exchangeColor)}
           >
             <Popup>
@@ -214,13 +247,13 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                   {sgo.name}
                 </h4>
                 
-                {sgo.city && (
+                {sgo.geographic_address && (
                   <div style={{
                     fontSize: '0.8rem',
                     color: '#666',
                     marginBottom: '0.5rem',
                   }}>
-                    📍 {sgo.city}{sgo.country ? `, ${sgo.country}` : ''}
+                    📍 {sgo.geographic_address}
                   </div>
                 )}
 
@@ -230,10 +263,10 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                   paddingTop: '0.5rem',
                   borderTop: '1px solid #e5e7eb',
                 }}>
-                  <strong>{sgo.opcvmCount}</strong> OPCVM géré{sgo.opcvmCount > 1 ? 's' : ''}
+                  <strong>{sgo.opcvms_count ?? 0}</strong> OPCVM géré{(sgo.opcvms_count ?? 0) > 1 ? 's' : ''}
                 </div>
 
-                {sgo.opcvmNames.length > 0 && (
+                {sgo?.opcvms && sgo?.opcvms.length > 0 && (
                   <div style={{
                     fontSize: '0.75rem',
                     color: '#666',
@@ -247,9 +280,9 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                       maxHeight: '120px',
                       overflowY: 'auto',
                     }}>
-                      {sgo.opcvmNames.map((name, idx) => (
+                      {sgo?.opcvms && sgo?.opcvms.map((opcvm, idx) => (
                         <li key={idx} style={{ marginBottom: '0.15rem' }}>
-                          {name}
+                          {opcvm.intitule}
                         </li>
                       ))}
                     </ul>

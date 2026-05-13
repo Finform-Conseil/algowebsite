@@ -17,7 +17,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
   const [hoveredItem, setHoveredItem] = useState<HeatmapItem | null>(null);
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
 
-  // Filtrer les données
+  // Filter data
   const filteredData = useMemo(() => {
     let filtered = [...data];
     
@@ -41,7 +41,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
     return filtered;
   }, [data, filterMode, selectedSector]);
 
-  // Grouper les données selon le mode de vue
+  // Group data according to view mode
   const groupedData = useMemo(() => {
     const groups: Record<string, HeatmapItem[]> = {};
     
@@ -59,7 +59,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
     return groups;
   }, [filteredData, viewMode]);
 
-  // Calculer la taille relative
+  // Calculate relative size
   const getSize = (item: HeatmapItem) => {
     const maxValue = Math.max(...filteredData.map(d => 
       viewMode === 'marketcap' ? d.marketCap : d.volume
@@ -68,7 +68,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
     return Math.max((value / maxValue) * 100, 10); // Min 10%
   };
 
-  // Obtenir la couleur selon la variation
+  // Get color based on change
   const getColor = (change: number) => {
     if (change > 5) return '#10b981';
     if (change > 2) return '#34d399';
@@ -78,7 +78,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
     return '#ef4444';
   };
 
-  // Obtenir l'intensité de la couleur
+  // Get color intensity
   const getColorIntensity = (change: number) => {
     const absChange = Math.abs(change);
     if (absChange > 8) return 1;
@@ -154,13 +154,13 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
               className={viewMode === 'sectors' ? 'active' : ''}
               onClick={() => setViewMode('sectors')}
             >
-              Secteurs
+              Sectors
             </button>
             <button
               className={viewMode === 'exchanges' ? 'active' : ''}
               onClick={() => setViewMode('exchanges')}
             >
-              Bourses
+              Exchanges
             </button>
             <button
               className={viewMode === 'performance' ? 'active' : ''}
@@ -172,7 +172,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
               className={viewMode === 'marketcap' ? 'active' : ''}
               onClick={() => setViewMode('marketcap')}
             >
-              Cap. Pondérée
+              Weighted Cap
             </button>
           </div>
 
@@ -182,25 +182,25 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
               className={filterMode === 'all' ? 'active' : ''}
               onClick={() => setFilterMode('all')}
             >
-              Tous
+              All
             </button>
             <button
               className={filterMode === 'gainers' ? 'active' : ''}
               onClick={() => setFilterMode('gainers')}
             >
-              Hausses
+              Gainers
             </button>
             <button
               className={filterMode === 'losers' ? 'active' : ''}
               onClick={() => setFilterMode('losers')}
             >
-              Baisses
+              Losers
             </button>
             <button
               className={filterMode === 'highvolume' ? 'active' : ''}
               onClick={() => setFilterMode('highvolume')}
             >
-              Forts volumes
+              High Volume
             </button>
           </div>
         </div>
@@ -212,7 +212,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
             {viewMode !== 'performance' && (
               <div className="group-header">
                 <h3>{groupKey}</h3>
-                <span className="group-count">{items.length} titres</span>
+                <span className="group-count">{items.length} stocks</span>
               </div>
             )}
             
@@ -261,13 +261,13 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
           
           <div className="tooltip-stats">
             <div className="stat-row">
-              <span className="label">Variation</span>
+              <span className="label">Change</span>
               <span className={`value ${hoveredItem.change >= 0 ? 'positive' : 'negative'}`}>
                 {hoveredItem.change >= 0 ? '+' : ''}{hoveredItem.change.toFixed(2)}%
               </span>
             </div>
             <div className="stat-row">
-              <span className="label">Prix</span>
+              <span className="label">Price</span>
               <span className="value">{formatPrice(hoveredItem.price)}</span>
             </div>
             <div className="stat-row">
@@ -275,21 +275,21 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
               <span className="value">{formatVolume(hoveredItem.volume)}</span>
             </div>
             <div className="stat-row">
-              <span className="label">Cap. boursière</span>
+              <span className="label">Market Cap</span>
               <span className="value">{(hoveredItem.marketCap / 1000000000).toFixed(2)}B</span>
             </div>
             <div className="stat-row">
-              <span className="label">Secteur</span>
+              <span className="label">Sector</span>
               <span className="value">{hoveredItem.sector}</span>
             </div>
             <div className="stat-row">
-              <span className="label">Bourse</span>
+              <span className="label">Exchange</span>
               <span className="value">{hoveredItem.exchange}</span>
             </div>
           </div>
 
           <div className="tooltip-sparkline">
-            <span className="sparkline-label">Tendance</span>
+            <span className="sparkline-label">Trend</span>
             {renderSparkline(hoveredItem.sparklineData)}
           </div>
         </div>
@@ -297,7 +297,7 @@ export default function MarketHeatmap({ data }: MarketHeatmapProps) {
 
       {/* Color Legend */}
       <div className="market-heatmap__legend">
-        <div className="legend-title">Légende des variations</div>
+        <div className="legend-title">Change Legend</div>
         <div className="legend-gradient">
           <div className="gradient-bar">
             <div className="gradient-stop" style={{ backgroundColor: '#ef4444' }}></div>

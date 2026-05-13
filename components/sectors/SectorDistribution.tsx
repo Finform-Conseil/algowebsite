@@ -2,6 +2,7 @@
 
 import { Sector } from '@/types/sectors';
 import SectorIcon from './SectorIcon';
+import { SectorEntity } from '@/core/domain/entities/sector.entity';
 
 interface SectorDistributionProps {
   sectors: Sector[];
@@ -31,7 +32,7 @@ export default function SectorDistribution({
             <h3>Actions par secteur</h3>
             <span className="card-badge">{sectors.reduce((sum, s) => sum + s.stockCount, 0)} actions</span>
           </div>
-          <div className="chart-container">
+          <div className="sector-chart-container">
             <div className="bar-chart-horizontal">
               {sectors
                 .sort((a, b) => b.stockCount - a.stockCount)
@@ -67,7 +68,7 @@ export default function SectorDistribution({
             <h3>Pondération par capitalisation</h3>
             <span className="card-badge">${(totalMarketCap / 1000).toFixed(1)}T</span>
           </div>
-          <div className="chart-container">
+          <div className="sector-chart-container">
             <div className="pie-chart">
               <svg viewBox="0 0 200 200" className="pie-svg">
                 {(() => {
@@ -146,7 +147,7 @@ export default function SectorDistribution({
               {sectors.reduce((sum, s) => sum + s.industries.length, 0)} industries
             </span>
           </div>
-          <div className="chart-container">
+          <div className="sector-chart-container">
             <div className="treemap">
               {sectors
                 .sort((a, b) => b.totalMarketCap - a.totalMarketCap)
@@ -155,7 +156,6 @@ export default function SectorDistribution({
                     key={sector.id}
                     className={`treemap-sector ${selectedSectorId === sector.id ? 'selected' : ''}`}
                     style={{
-                      flex: sector.weightInTotal,
                       backgroundColor: `${sector.color}15`,
                       borderColor: sector.color
                     }}

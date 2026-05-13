@@ -7,19 +7,22 @@ import MultiSelect from '@/components/corporate-events/MultiSelect';
 interface MarketHeaderProps {
   indicators: MarketIndicators;
   onFilterChange: (filters: any) => void;
+  availableSectors?: string[];
 }
 
-export default function MarketHeader({ indicators, onFilterChange }: MarketHeaderProps) {
-  const [period, setPeriod] = useState<Period>('day');
+export default function MarketHeader({ indicators, onFilterChange, availableSectors = [] }: MarketHeaderProps) {
+  // const [period, setPeriod] = useState<Period>('day');
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [minVolume, setMinVolume] = useState<string>('');
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const exchanges: Exchange[] = ['BRVM', 'JSE', 'CSE', 'NGX', 'GSE', 'NSE', 'EGX', 'TUNSE'];
-  const sectors: Sector[] = ['Finance', 'Énergie', 'Télécom', 'Industrie', 'Consommation', 'Immobilier', 'Santé', 'Technologie', 'Matériaux', 'Services'];
+  const sectors: Sector[] = availableSectors.length > 0 
+    ? availableSectors as Sector[] 
+    : ['Finance', 'Energy', 'Telecom', 'Industry', 'Consumer', 'Real Estate', 'Healthcare', 'Technology', 'Materials', 'Services'];
 
-  // Simuler le rafraîchissement temps réel
+  // Simulate real-time refresh
   useEffect(() => {
     const interval = setInterval(() => {
       setLastUpdate(new Date());
@@ -27,15 +30,15 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
     return () => clearInterval(interval);
   }, []);
 
-  // Mettre à jour les filtres
+  // Update filters
   useEffect(() => {
     onFilterChange({
-      period,
+      // period,
       exchanges: selectedExchanges,
       sectors: selectedSectors,
       minVolume: minVolume ? parseInt(minVolume) : undefined
     });
-  }, [period, selectedExchanges, selectedSectors, minVolume, onFilterChange]);
+  }, [/* period, */ selectedExchanges, selectedSectors, minVolume, onFilterChange]);
 
   const getSentimentColor = () => {
     switch (indicators.sentiment) {
@@ -191,7 +194,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
 
         {/* Filters */}
         <div className="market-filters">
-          {/* Period */}
+          {/* Period - Commenté temporairement 
           <div className="filter-group period-filter">
             <label>Period</label>
             <div className="period-buttons">
@@ -215,6 +218,7 @@ export default function MarketHeader({ indicators, onFilterChange }: MarketHeade
               </button>
             </div>
           </div>
+          */}
 
           {/* Exchanges */}
           <MultiSelect

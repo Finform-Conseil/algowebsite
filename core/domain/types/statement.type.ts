@@ -8,4 +8,5 @@ export type UpdateStatementType = z.infer<typeof updateStatementSchema>;
 
 export interface StatementQueryParams extends QueryParams {
     action?: string;
+    action_id?: string;
 }

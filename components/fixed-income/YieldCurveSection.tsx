@@ -26,7 +26,7 @@ interface YieldCurveSectionProps {
 }
 
 export default function YieldCurveSection({ selectedCountries }: YieldCurveSectionProps) {
-  const [viewMode, setViewMode] = useState<'table' | 'chart'>('chart');
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
   const [isHistorical, setIsHistorical] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);

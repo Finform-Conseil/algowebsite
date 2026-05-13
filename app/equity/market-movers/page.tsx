@@ -9,54 +9,166 @@ import MarketHeatmap from '@/components/market-movers/MarketHeatmap';
 import MarketInsights from '@/components/market-movers/MarketInsights';
 import QuickComparison from '@/components/market-movers/QuickComparison';
 import {
-  MARKET_STOCKS,
-  filterStocks,
-  getTopGainers,
-  getTopLosers,
-  getMostActive,
   calculateMarketIndicators,
   generateHeatmapData,
   generateInsights
 } from '@/core/data/MarketMoversData';
+import { ActionQueryParams } from '@/core/domain/types/action.type';
+import { useActionRepository } from '@/core/infra/repositories/action.repository.impl';
+import { useSectorRepository } from '@/core/infra/repositories/sector.repository.impl';
+import { transformActionsToStocks } from '@/lib/utils/marketMoversTransform';
 
 type TabType = 'movers' | 'active' | 'heatmap' | 'insights';
 
 export default function MarketMoversPage() {
+
   const [filters, setFilters] = useState<any>({
-    period: 'day',
     exchanges: [],
     sectors: [],
     minVolume: undefined
   });
 
+  const getTopGainersParams = (): ActionQueryParams => {
+    const params: ActionQueryParams = { 
+      view_type: "market_movers",
+      page_size: 10,
+      ordering: '-latest_price_metric__change_1d_pct'
+    };
+    
+    if (filters.exchanges?.length > 0) {
+      params.bourse_tickers = filters.exchanges.join(',');
+    }
+    
+    if (filters.sectors?.length > 0) {
+      params.activity_names = filters.sectors.join(',');
+    }
+    
+    if (filters.minVolume) {
+      params.min_volume = filters.minVolume;
+    }
+    
+    return params;
+  };
+
+  const getTopLosersParams = (): ActionQueryParams => {
+    const params: ActionQueryParams = { 
+      view_type: "market_movers",
+      page_size: 10,
+      ordering: 'latest_price_metric__change_1d_pct'
+    };
+    
+    if (filters.exchanges?.length > 0) {
+      params.bourse_tickers = filters.exchanges.join(',');
+    }
+    
+    if (filters.sectors?.length > 0) {
+      params.activity_names = filters.sectors.join(',');
+    }
+    
+    if (filters.minVolume) {
+      params.min_volume = filters.minVolume;
+    }
+    
+    return params;
+  };
+
+  const getMostActiveParams = (): ActionQueryParams => {
+    const params: ActionQueryParams = { 
+      view_type: "market_movers",
+      page_size: 100,
+      ordering: '-latest_price_metric__volume'
+    };
+    
+    if (filters.exchanges?.length > 0) {
+      params.bourse_tickers = filters.exchanges.join(',');
+    }
+    
+    if (filters.sectors?.length > 0) {
+      params.activity_names = filters.sectors.join(',');
+    }
+    
+    if (filters.minVolume) {
+      params.min_volume = filters.minVolume;
+    }
+    
+    return params;
+  };
+  
+  const topGainersRepo = useActionRepository();
+  const topLosersRepo = useActionRepository();
+  const mostActiveRepo = useActionRepository();
+  const { allSectorsData, getAllSectors } = useSectorRepository();
+  
+  useEffect(() => {
+    getAllSectors({ page_size: 100 });
+  }, []);
+  
+  useEffect(() => {
+    topGainersRepo.getAllActions(getTopGainersParams());
+    topLosersRepo.getAllActions(getTopLosersParams());
+    mostActiveRepo.getAllActions(getMostActiveParams());
+  }, [filters]);
+
+
+
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeTab, setActiveTab] = useState<TabType>('movers');
+
+  const availableSectors = useMemo(() => {
+    if (!allSectorsData?.data) return [];
+    return allSectorsData.data.map(sector => sector.name);
+  }, [allSectorsData]);
+
+  const topGainers = useMemo(() => {
+    if (!topGainersRepo.allActionsData?.data) return [];
+    return transformActionsToStocks(topGainersRepo.allActionsData.data);
+  }, [topGainersRepo.allActionsData]);
+
+  const topLosers = useMemo(() => {
+    if (!topLosersRepo.allActionsData?.data) return [];
+    return transformActionsToStocks(topLosersRepo.allActionsData.data);
+  }, [topLosersRepo.allActionsData]);
+
+  const mostActive = useMemo(() => {
+    if (!mostActiveRepo.allActionsData?.data) return [];
+    return transformActionsToStocks(mostActiveRepo.allActionsData.data);
+  }, [mostActiveRepo.allActionsData]);
 
   // Simulate real-time refresh
   useEffect(() => {
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
+      topGainersRepo.getAllActions(getTopGainersParams());
+      topLosersRepo.getAllActions(getTopLosersParams());
+      mostActiveRepo.getAllActions(getMostActiveParams());
       setLastRefresh(new Date());
-      // In a real case, we would fetch new data here
-    }, 10000); // Refresh every 10 seconds
+    }, 10000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh]);
+  }, [autoRefresh, filters]);
 
-  // Filter stocks
-  const filteredStocks = useMemo(() => {
-    return filterStocks(MARKET_STOCKS, filters);
-  }, [filters]);
+  const marketIndicators = useMemo(() => {
+    const allStocks = [...topGainers, ...topLosers, ...mostActive];
+    if (allStocks.length === 0) {
+      return {
+        selectedMarket: 'All Markets',
+        avgChange: 0,
+        totalVolume: 0,
+        sentiment: 'neutral' as const,
+        activeStocks: 0,
+        gainers: 0,
+        losers: 0
+      };
+    }
+    return calculateMarketIndicators(allStocks);
+  }, [topGainers, topLosers, mostActive]);
 
-  // Calculate data for each section
-  const topGainers = useMemo(() => getTopGainers(filteredStocks, 10), [filteredStocks]);
-  const topLosers = useMemo(() => getTopLosers(filteredStocks, 10), [filteredStocks]);
-  const mostActive = useMemo(() => getMostActive(filteredStocks, 100), [filteredStocks]);
-  const marketIndicators = useMemo(() => calculateMarketIndicators(filteredStocks), [filteredStocks]);
-  const heatmapData = useMemo(() => generateHeatmapData(filteredStocks), [filteredStocks]);
-  const insights = useMemo(() => generateInsights(filteredStocks), [filteredStocks]);
+  const heatmapData = useMemo(() => generateHeatmapData(mostActive), [mostActive]);
+  const insights = useMemo(() => generateInsights(mostActive), [mostActive]);
+
+  const isLoading = topGainersRepo.isLoadingAllActions || topLosersRepo.isLoadingAllActions || mostActiveRepo.isLoadingAllActions;
 
   return (
     <div className="market-movers-page">
@@ -64,7 +176,29 @@ export default function MarketMoversPage() {
       <MarketHeader
         indicators={marketIndicators}
         onFilterChange={setFilters}
+        availableSectors={availableSectors}
       />
+
+      {isLoading && (
+        <div className="loading-container" style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '40vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <div className="spinner" style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid rgba(59, 130, 246, 0.1)',
+            borderTopColor: '#3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading market data...</p>
+        </div>
+      )}
 
       {/* Tabs Navigation */}
       <div className="movers-tabs">
@@ -165,7 +299,7 @@ export default function MarketMoversPage() {
       </div>
 
       {/* Quick Comparison (Slider) */}
-      <QuickComparison availableStocks={filteredStocks} />
+      <QuickComparison availableStocks={mostActive} />
 
       {/* Floating Stats */}
       <div className="floating-stats">

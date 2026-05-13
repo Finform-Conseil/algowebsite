@@ -10,6 +10,7 @@ import { statementApi } from "./statement.api";
 import { sheetApi } from "./sheet.api";
 import { eventApi } from "./event.api";
 import { industryApi } from "./industry.api";
+import { activityApi } from "./activity.api";
 import { resultApi } from "./result.api";
 import { fileApi } from "./file.api";
 import { dividendApi } from "./dividend.api";
@@ -91,6 +92,18 @@ export const {
   useUpdateIndustryMutation,
   endpoints: { createIndustry, uploadIndustries, deleteIndustry, getAllIndustries, getIndustryById, updateIndustry },
 } = industryApi;
+
+export const {
+  useCreateActivityMutation,
+  useUploadActivitiesMutation,
+  useDeleteActivityMutation,
+  useGetAllActivitiesQuery,
+  useLazyGetAllActivitiesQuery,
+  useGetActivityByIdQuery,
+  useUpdateActivityMutation,
+  endpoints: { createActivity, uploadActivities, deleteActivity, getAllActivities, getActivityById, updateActivity },
+} = activityApi;
+
 
 export const {
   useCreateSocietyMutation,

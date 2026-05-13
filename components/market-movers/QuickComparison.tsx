@@ -176,7 +176,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
         })}
 
         {/* Labels */}
-        {['Variation', 'Volume', 'Cap.'].map((label, index) => {
+        {['Change', 'Volume', 'Cap.'].map((label, index) => {
           const angle = index * angleStep - Math.PI / 2;
           const x = center + (radius + 20) * Math.cos(angle);
           const y = center + (radius + 20) * Math.sin(angle);
@@ -210,7 +210,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
           <line x1="6" y1="20" x2="14" y2="12" />
           <line x1="6" y1="4" x2="14" y2="12" />
         </svg>
-        Comparaison rapide
+        Quick Comparison
         {selectedStocks.length > 0 && (
           <span className="comparison-count">{selectedStocks.length}</span>
         )}
@@ -220,7 +220,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
       {isOpen && (
         <div className="comparison-panel">
           <div className="panel-header">
-            <h3>Comparaison rapide</h3>
+            <h3>Quick Comparison</h3>
             <button className="close-btn" onClick={() => setIsOpen(false)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -234,7 +234,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
             <div className="stock-selector">
               <input
                 type="text"
-                placeholder="Rechercher un titre..."
+                placeholder="Search a stock..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -257,7 +257,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                 ))}
               </div>
               <div className="selector-hint">
-                {selectedStocks.length}/5 titres sélectionnés
+                {selectedStocks.length}/5 stocks selected
               </div>
             </div>
 
@@ -287,7 +287,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                   <table>
                     <thead>
                       <tr>
-                        <th>Métrique</th>
+                        <th>Metric</th>
                         {selectedStocks.map((stock, index) => (
                           <th key={stock.ticker} style={{ color: Object.values(SECTOR_COLORS)[index % Object.values(SECTOR_COLORS).length] }}>
                             {stock.ticker}
@@ -297,7 +297,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                     </thead>
                     <tbody>
                       <tr>
-                        <td>Variation</td>
+                        <td>Change</td>
                         {selectedStocks.map(stock => (
                           <td key={stock.ticker} className={stock.change >= 0 ? 'positive' : 'negative'}>
                             {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}%
@@ -305,7 +305,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                         ))}
                       </tr>
                       <tr>
-                        <td>Prix</td>
+                        <td>Price</td>
                         {selectedStocks.map(stock => (
                           <td key={stock.ticker}>
                             {formatPrice(stock.price, stock.currency)} {stock.currency}
@@ -319,19 +319,19 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                         ))}
                       </tr>
                       <tr>
-                        <td>Cap. boursière</td>
+                        <td>Market Cap</td>
                         {selectedStocks.map(stock => (
                           <td key={stock.ticker}>{(stock.marketCap / 1000000000).toFixed(2)}B</td>
                         ))}
                       </tr>
                       <tr>
-                        <td>Secteur</td>
+                        <td>Sector</td>
                         {selectedStocks.map(stock => (
                           <td key={stock.ticker}>{stock.sector}</td>
                         ))}
                       </tr>
                       <tr>
-                        <td>Bourse</td>
+                        <td>Exchange</td>
                         {selectedStocks.map(stock => (
                           <td key={stock.ticker}>{stock.exchange}</td>
                         ))}
@@ -343,7 +343,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                 {/* Charts */}
                 <div className="comparison-charts">
                   <div className="chart-container">
-                    <h4>Évolution des prix</h4>
+                    <h4>Price Evolution</h4>
                     {renderPriceChart()}
                     <div className="chart-legend">
                       {selectedStocks.map((stock, index) => (
@@ -359,7 +359,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                   </div>
 
                   <div className="chart-container">
-                    <h4>Performance radar</h4>
+                    <h4>Performance Radar</h4>
                     {renderRadarChart()}
                   </div>
                 </div>

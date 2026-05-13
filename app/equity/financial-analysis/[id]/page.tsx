@@ -1,17 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import CompanyOverview from '@/components/financial-analysis/CompanyOverview';
 import FinancialStatements from '@/components/financial-analysis/FinancialStatements';
 import FinancialRatios from '@/components/financial-analysis/FinancialRatios';
 import CompanyProfile from '@/components/financial-analysis/CompanyProfile';
 import { SONATEL_DATA } from '@/core/data/FinancialData';
+import { useParams, useRouter } from 'next/navigation';
+import { useActionRepository } from '@/core/infra/repositories/action.repository.impl';
+import { ActionQueryParams } from '@/core/domain/types/action.type';
 
 type TabType = 'overview' | 'statements' | 'ratios' | 'profile';
 
 export default function FinancialAnalysisPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  const getActionQueryParams = (): ActionQueryParams => {
+    const params: ActionQueryParams = { view_type: "financial-analysis", page: -1 };
+    if (id) params.id = id;
+    return params;
+  };
+    
+  const { currentActionData, getActionById, allActionsData, getAllActions } = useActionRepository();
+
+  useEffect(() => { getActionById(id); }, [id]);
+
+  useEffect(() =>
+  {
+    console.log("Current Equity Data", currentActionData);
+  }, [currentActionData])
+
+
+
+
   const { profile, incomeStatements, balanceSheets, cashFlowStatements, ratios, statistics } = SONATEL_DATA;
 
   return (
@@ -80,30 +105,35 @@ export default function FinancialAnalysisPage() {
       <div className="financial-content">
         {activeTab === 'overview' && (
           <div className="financial-section overview-section">
-            <CompanyOverview profile={profile} latestRatios={ratios[0]} />
+            {
+              currentActionData && 
+                (<CompanyOverview action={currentActionData} />)
+            }
           </div>
         )}
 
         {activeTab === 'statements' && (
           <div className="financial-section statements-section">
-            <FinancialStatements
-              incomeStatements={incomeStatements}
-              balanceSheets={balanceSheets}
-              cashFlowStatements={cashFlowStatements}
-              currency={profile.currency}
-            />
+            {currentActionData && (
+              <FinancialStatements
+                action={currentActionData}
+                currency={currentActionData.bourse.currency?.symbol || ''}
+              />
+            )}
           </div>
         )}
 
         {activeTab === 'ratios' && (
           <div className="financial-section ratios-section">
-            <FinancialRatios ratios={ratios} statistics={statistics} />
+            {currentActionData && (
+            <FinancialRatios action={currentActionData} ratios={ratios} statistics={statistics} />)}
           </div>
         )}
 
         {activeTab === 'profile' && (
           <div className="financial-section profile-section">
-            <CompanyProfile profile={profile} />
+            {currentActionData && (
+            <CompanyProfile action={currentActionData} profile={profile} />)}
           </div>
         )}
       </div>

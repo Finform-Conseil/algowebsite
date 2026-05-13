@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 type OptionType = string | { value: string; label: string };
 
 interface MultiSelectProps {
-  label: string;
+  label?: string;
   options: OptionType[];
   selected: string[];
   onChange: (selected: string[]) => void;
@@ -72,7 +72,8 @@ export default function MultiSelect({ label, options, selected, onChange, placeh
 
   return (
     <div className="multiselect" ref={dropdownRef}>
-      <label className="multiselect__label">{label}</label>
+
+      {label && <label className="multiselect__label">{label}</label>}
       
       <div 
         className={`multiselect__trigger ${isOpen ? 'open' : ''}`}

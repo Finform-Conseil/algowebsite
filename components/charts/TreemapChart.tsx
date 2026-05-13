@@ -126,7 +126,7 @@ export default function TreemapChart({
       borderColor: 'var(--border-color)',
       borderWidth: 1,
       textStyle: {
-        color: 'var(--text-color)',
+        color: '#ffffff',
         fontSize: 12,
       },
       formatter: tooltipFormatter || defaultTooltipFormatter,

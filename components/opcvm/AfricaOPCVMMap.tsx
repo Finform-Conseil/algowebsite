@@ -1,26 +1,17 @@
-import React, { useState } from "react";
+'use client'
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import BrvmRegion from "../map/BrvmRegion";
-import NGXRegion from "../map/NGXRegion";
-import NSERegion from "../map/NSERegion";
-import JSERegion from "../map/JSERegion";
-import GSERegion from "../map/GSERegion";
-import CSERegion from "../map/CSERegion";
 import InteractiveSGOMap from "./InteractiveSGOMap";
 import { exchangeSGOData } from "@/core/data/SGOData";
-
-type ExchangeData = {
-  count: number;
-  bestPerformance: number;
-  bestFund: any | null;
-  avgRating: number;
-};
+import { useQueryParams } from "@/core/presenter/hooks/useQueryParams";
+import { BourseQueryParams } from "@/core/domain/types/bourse.type";
+import { useBourseRepository } from "@/core/infra/repositories/bourse.repository.impl";
 
 type AfricaOPCVMMapProps = {
-  exchangeData: Record<string, ExchangeData>;
   mode: "performance" | "count";
   color?: string;
   regionRefs?: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+  selectedExchange?: string;
 };
 
 const stockExchanges = [
@@ -68,32 +59,48 @@ const stockExchanges = [
   },
 ];
 
-const exchangeComponents = {
-  BRVM: BrvmRegion,
-  NGX: NGXRegion,
-  NSE: NSERegion,
-  JSE: JSERegion,
-  GSE: GSERegion,
-  CSE: CSERegion,
-};
-
 // if color is defined then use it, otherwise set #10B981
 const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
-  exchangeData,
   mode,
   regionRefs,
-  
+  selectedExchange: selectedExchangeProp,
 }) => {
 
   const [activeExchange, setActiveExchange] = useState<string | null>(null);
   const [selectedExchange, setSelectedExchange] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (selectedExchangeProp && selectedExchangeProp !== 'all') {
+      setSelectedExchange(selectedExchangeProp);
+    } else {
+      setSelectedExchange(null);
+    }
+  }, [selectedExchangeProp]);
+
+
+  const { params: queryParams } = useQueryParams<BourseQueryParams>({ view_type: "opcvm", page: 1, page_size: 10 });
+  
+  const { allBoursesData, getAllBourses, } = useBourseRepository();
+
+  useEffect(() => { getAllBourses(queryParams); }, [queryParams]);
+
+  const getExchangeBourseEntity = (exchangeId: string) => {
+    return allBoursesData?.data?.find((bourse) => bourse.ticker === exchangeId);
+  }
+
+  useEffect(() =>
+  {
+    console.log("All Bourses Data", allBoursesData)
+  }, [allBoursesData])
+  
 
   const getColorForExchange = (exchangeId: string) => {
-    const data = exchangeData[exchangeId];
+    const data = allBoursesData?.data?.find((bourse) => bourse.ticker === exchangeId);
+
     if (!data) return "var(--card-background)";
 
     if (mode === "performance") {
-      const perf = data.bestPerformance;
+      const perf = data.best_performing_opcvm?.latest_metrics?.performance_1y || 0;
       if (perf < 0) {
         const intensity = Math.min(Math.abs(perf) / 10, 1);
         return `rgba(239, 68, 68, ${0.3 + intensity * 0.7})`;
@@ -103,9 +110,9 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
       }
     } else {
       const maxCount = Math.max(
-        ...Object.values(exchangeData).map((d) => d.count)
+        ...Object.values(allBoursesData?.data || []).map((d) => d.opcvm_count || 0)
       );
-      const intensity = data.count / maxCount;
+      const intensity = (data.opcvm_count || 0) / maxCount;
       return `rgba(255, 159, 4, ${0.3 + intensity * 0.7})`;
     }
   };
@@ -126,9 +133,6 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
     setSelectedExchange(null);
   };
 
-  const RegionalComponent = selectedExchange
-    ? exchangeComponents[selectedExchange as keyof typeof exchangeComponents]
-    : null;
   const selectedExchangeData = stockExchanges.find(
     (ex) => ex.id === selectedExchange
   );
@@ -597,7 +601,7 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
 
             {/* Pins */}
             {stockExchanges.map((exchange) => {
-              const data = exchangeData[exchange.id];
+              const data = getExchangeBourseEntity(exchange.id);
               if (!data) return null;
 
               return (
@@ -680,94 +684,100 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
                   </motion.div>
 
                   <AnimatePresence>
-                    {activeExchange === exchange.id && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        style={{
-                          position: "absolute",
-                          bottom: "100%",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          marginBottom: "1rem",
-                          width: "220px",
-                          background: "var(--card-background)",
-                          borderRadius: "0.75rem",
-                          padding: "1rem",
-                          boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
-                          border:
-                            "2px solid " + getColorForExchange(exchange.id),
-                          pointerEvents: "none",
-                        }}
-                      >
-                        <h4
+                    {activeExchange === exchange.id && (() => {
+                      const bourseEntity = getExchangeBourseEntity(exchange.id);
+                      const bestPerformingOpcvm = bourseEntity?.best_performing_opcvm;
+                      const performance = bestPerformingOpcvm?.latest_metrics?.performance_1y;
+                      
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
                           style={{
-                            fontSize: "0.875rem",
-                            fontWeight: "700",
-                            margin: "0 0 0.5rem 0",
-                            color: "var(--text-primary)",
+                            position: "absolute",
+                            bottom: "100%",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            marginBottom: "1rem",
+                            width: "220px",
+                            background: "var(--card-background)",
+                            borderRadius: "0.75rem",
+                            padding: "1rem",
+                            boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+                            border:
+                              "2px solid " + getColorForExchange(exchange.id),
+                            pointerEvents: "none",
                           }}
                         >
-                          {exchange.name}
-                        </h4>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            display: "grid",
-                            gap: "0.25rem",
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          <div
+                          <h4
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
+                              fontSize: "0.875rem",
+                              fontWeight: "700",
+                              margin: "0 0 0.5rem 0",
+                              color: "var(--text-primary)",
                             }}
                           >
-                            <span>OPCVM:</span>
-                            <strong style={{ color: "var(--text-primary)" }}>{data.count}</strong>
-                          </div>
+                            {exchange.name}
+                          </h4>
                           <div
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
+                              fontSize: "0.75rem",
+                              display: "grid",
+                              gap: "0.25rem",
+                              color: "var(--text-secondary)",
                             }}
                           >
-                            <span>Meilleure perf:</span>
-                            <strong
-                              style={{
-                                color:
-                                  data.bestPerformance >= 0
-                                    ? "#10B981"
-                                    : "#EF4444",
-                              }}
-                            >
-                              {data.bestPerformance >= 0 ? "+" : ""}
-                              {data.bestPerformance.toFixed(1)}%
-                            </strong>
-                          </div>
-                          {data.bestFund && (
                             <div
                               style={{
-                                marginTop: "0.5rem",
-                                paddingTop: "0.5rem",
-                                borderTop: "1px solid var(--border-color)",
+                                display: "flex",
+                                justifyContent: "space-between",
                               }}
                             >
-                              <div
-                                style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}
-                              >
-                                Meilleur fonds:
-                              </div>
-                              <div style={{ fontWeight: "600", color: "var(--text-primary)" }}>
-                                {data.bestFund.name}
-                              </div>
+                              <span>OPCVM:</span>
+                              <strong style={{ color: "var(--text-primary)" }}>{bourseEntity?.opcvm_count}</strong>
                             </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                              }}
+                            >
+                              <span>Meilleure perf:</span>
+                              <strong
+                                style={{
+                                  color:
+                                    bestPerformingOpcvm && performance && performance !== undefined && performance >= 0
+                                      ? "#10B981"
+                                      : "#EF4444",
+                                }}
+                              >
+                                {performance && performance !== undefined && performance >= 0 ? "+" : ""}
+                                {Number(performance)?.toFixed(1)}%
+                              </strong>
+                            </div>
+                            {bestPerformingOpcvm && (
+                              <div
+                                style={{
+                                  marginTop: "0.5rem",
+                                  paddingTop: "0.5rem",
+                                  borderTop: "1px solid var(--border-color)",
+                                }}
+                              >
+                                <div
+                                  style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}
+                                >
+                                  Meilleur fonds:
+                                </div>
+                                <div style={{ fontWeight: "600", color: "var(--text-primary)" }}>
+                                  {bestPerformingOpcvm.intitule}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
                   </AnimatePresence>
                 </motion.div>
               );

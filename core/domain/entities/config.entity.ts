@@ -4,4 +4,5 @@ export interface PeriodEntity {
     year?: number;
     frequency: 'A' | 'Q' | 'S';
     number: string;
+    display?: string;
 }

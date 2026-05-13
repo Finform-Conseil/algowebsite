@@ -16,6 +16,7 @@ export interface PaginatedResponse<T> {
 export interface QueryParams {
   page?: number;
   page_size?: number;
+  view_type?: string;
   search?: string;
   start_date?: string;
   end_date?: string;

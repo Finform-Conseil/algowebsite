@@ -21,7 +21,7 @@ export default function PieChart({ data, title, height = '250px', colors }: PieC
     title: title ? {
       text: title,
       textStyle: {
-        color: 'var(--text-color)',
+        color: '#ffffff',
         fontSize: 14,
         fontWeight: 600,
       },
@@ -32,7 +32,7 @@ export default function PieChart({ data, title, height = '250px', colors }: PieC
       backgroundColor: 'var(--card-background)',
       borderColor: 'var(--border-color)',
       textStyle: {
-        color: 'var(--text-color)',
+        color: '#ffffff',
       },
       formatter: '{a} <br/>{b}: {c} ({d}%)',
     },
@@ -40,7 +40,7 @@ export default function PieChart({ data, title, height = '250px', colors }: PieC
       orient: 'vertical',
       left: 'left',
       textStyle: {
-        color: 'var(--text-secondary)',
+        color: '#ffffff',
         fontSize: 10,
       },
       top: title ? '20%' : '10%',

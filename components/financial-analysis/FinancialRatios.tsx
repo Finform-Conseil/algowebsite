@@ -2,92 +2,124 @@
 
 import { useState } from 'react';
 import { FinancialRatios as RatiosType, CompanyStatistics } from '@/types/financial-analysis';
+import { ActionEntity } from '@/core/domain/entities/action.entity';
 
 interface FinancialRatiosProps {
+  action: ActionEntity
   ratios: RatiosType[];
   statistics: CompanyStatistics;
 }
 
 type RatioCategory = 'profitability' | 'liquidity' | 'leverage' | 'efficiency';
 
-export default function FinancialRatios({ ratios, statistics }: FinancialRatiosProps) {
+export default function FinancialRatios({ action, ratios, statistics }: FinancialRatiosProps) {
   const [activeCategory, setActiveCategory] = useState<RatioCategory>('profitability');
   const latestRatios = ratios[0];
 
-  const getRatioTrend = (current: number, previous: number) => {
-    if (current > previous) return 'up';
-    if (current < previous) return 'down';
+  const getRatioTrend = (current: number) => {
+    if (current > 0) return 'up';
+    if (current < 0) return 'down';
     return 'stable';
   };
 
   const renderProfitability = () => (
-    <div className="ratios-grid">
-      <div className="ratio-card highlight">
-        <div className="ratio-header">
-          <span className="ratio-label">ROE</span>
-          <span className={`ratio-trend ${getRatioTrend(latestRatios.returnOnEquity, ratios[1]?.returnOnEquity || 0)}`}>
-            {latestRatios.returnOnEquity > (ratios[1]?.returnOnEquity || 0) ? '↑' : '↓'}
-          </span>
+    <>
+      <div className="ratios-grid">
+        <div className="ratio-card highlight">
+          <div className="ratio-header">
+            <span className="ratio-label">ROE</span>
+            <span className={`ratio-trend ${getRatioTrend(action?.latest_valuation_ratio?.roe ?? 0)}`}>
+              {(action?.latest_valuation_ratio?.roe ?? 0) > 0 ? '↑' : (action?.latest_valuation_ratio?.roe ?? 0) < 0 ? '↓' : '-'}
+            </span>
+          </div>
+          <div className="ratio-value">{(action?.latest_valuation_ratio?.roe ?? 0).toFixed(1)}%</div>
+          <div className="ratio-sublabel">Rentabilité capitaux propres</div>
+          <div className="ratio-comparison">
+            Moy. 5 ans: {(action?.latest_valuation_ratio?.roe_5y ?? 0).toFixed(1)}%
+          </div>
         </div>
-        <div className="ratio-value">{latestRatios.returnOnEquity.toFixed(1)}%</div>
-        <div className="ratio-sublabel">Rentabilité capitaux propres</div>
-        <div className="ratio-comparison">
-          Moy. 3 ans: {statistics.avgROE.toFixed(1)}%
-        </div>
-      </div>
 
-      <div className="ratio-card">
-        <div className="ratio-header">
-          <span className="ratio-label">ROA</span>
-          <span className={`ratio-trend ${getRatioTrend(latestRatios.returnOnAssets, ratios[1]?.returnOnAssets || 0)}`}>
-            {latestRatios.returnOnAssets > (ratios[1]?.returnOnAssets || 0) ? '↑' : '↓'}
-          </span>
+        <div className="ratio-card">
+          <div className="ratio-header">
+            <span className="ratio-label">ROA</span>
+            <span className={`ratio-trend ${getRatioTrend(action?.latest_valuation_ratio?.roa ?? 0)}`}>
+              {(action?.latest_valuation_ratio?.roa ?? 0) > 0 ? '↑' : (action?.latest_valuation_ratio?.roa ?? 0) < 0 ? '↓' : '-'}
+            </span>
+          </div>
+          <div className="ratio-value">{(action?.latest_valuation_ratio?.roa ?? 0).toFixed(1)}%</div>
+          <div className="ratio-sublabel">Rentabilité des actifs</div>
+          <div className="ratio-comparison">
+            Moy. 3 ans: {(action?.latest_valuation_ratio?.roa_5y ?? 0).toFixed(1)}%
+          </div>
         </div>
-        <div className="ratio-value">{latestRatios.returnOnAssets.toFixed(1)}%</div>
-        <div className="ratio-sublabel">Rentabilité des actifs</div>
-        <div className="ratio-comparison">
-          Moy. 3 ans: {statistics.avgROA.toFixed(1)}%
-        </div>
-      </div>
 
-      <div className="ratio-card">
-        <div className="ratio-header">
-          <span className="ratio-label">ROIC</span>
+        <div className="ratio-card">
+          <div className="ratio-header">
+            <span className="ratio-label">ROIC</span>
+          </div>
+          <div className="ratio-value">{(action?.latest_valuation_ratio?.roic ?? 0).toFixed(1)}%</div>
+          <div className="ratio-sublabel">Rentabilité capital investi</div>
         </div>
-        <div className="ratio-value">{latestRatios.returnOnInvestedCapital.toFixed(1)}%</div>
-        <div className="ratio-sublabel">Rentabilité capital investi</div>
-      </div>
 
-      <div className="ratio-card">
-        <div className="ratio-header">
-          <span className="ratio-label">Marge brute</span>
+        <div className="ratio-card">
+          <div className="ratio-header">
+            <span className="ratio-label">Marge brute</span>
+          </div>
+          <div className="ratio-value">{(action?.latest_valuation_ratio?.gross_margin ?? 0).toFixed(1)}%</div>
+          <div className="ratio-sublabel">Profitabilité brute</div>
         </div>
-        <div className="ratio-value">{latestRatios.grossMargin.toFixed(1)}%</div>
-        <div className="ratio-sublabel">Profitabilité brute</div>
-      </div>
 
-      <div className="ratio-card">
-        <div className="ratio-header">
-          <span className="ratio-label">Marge opérationnelle</span>
+        <div className="ratio-card">
+          <div className="ratio-header">
+            <span className="ratio-label">Marge opérationnelle</span>
+          </div>
+          <div className="ratio-value">{(action?.latest_valuation_ratio?.operating_margin ?? 0).toFixed(1)}%</div>
+          <div className="ratio-sublabel">Efficacité opérationnelle</div>
         </div>
-        <div className="ratio-value">{latestRatios.operatingMargin.toFixed(1)}%</div>
-        <div className="ratio-sublabel">Efficacité opérationnelle</div>
-      </div>
 
-      <div className="ratio-card highlight">
-        <div className="ratio-header">
-          <span className="ratio-label">Marge nette</span>
-        </div>
-        <div className="ratio-value">{latestRatios.netMargin.toFixed(1)}%</div>
-        <div className="ratio-sublabel">Profitabilité nette</div>
-        <div className="ratio-comparison">
-          Moy. 3 ans: {statistics.avgNetMargin.toFixed(1)}%
+        <div className="ratio-card highlight">
+          <div className="ratio-header">
+            <span className="ratio-label">Marge nette</span>
+          </div>
+          <div className="ratio-value">{(action?.latest_valuation_ratio?.net_margin ?? 0).toFixed(1)}%</div>
+          <div className="ratio-sublabel">Profitabilité nette</div>
+          <div className="ratio-comparison">
+            FCF Margin : {(action?.latest_valuation_ratio?.fcf_margin ?? 0).toFixed(1)}%
+          </div>
         </div>
       </div>
-    </div>
+      <div className="statistics-summary">
+        <h3>Statistiques clés</h3>
+        <div className="stats-grid">
+          <div className="stat-item">
+            <span className="stat-label">Croissance CA (YoY)</span>
+            <span className={`stat-value ${(action?.latest_valuation_ratio?.revenue_growth_yoy ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(action?.latest_valuation_ratio?.revenue_growth_yoy ?? 0) >= 0 ? '+' : ''}{(action?.latest_valuation_ratio?.revenue_growth_yoy ?? 0).toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Croissance bénéfice (YoY)</span>
+            <span className={`stat-value ${(action?.latest_valuation_ratio?.net_income_growth_yoy ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(action?.latest_valuation_ratio?.net_income_growth_yoy ?? 0) >= 0 ? '+' : ''}{(action?.latest_valuation_ratio?.net_income_growth_yoy ?? 0).toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">CAGR 3 ans (CA)</span>
+            <span className="stat-value">{(action?.latest_price_metric?.cagr_3y ?? 0).toFixed(1)}%</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">vs Industrie (ROE)</span>
+            <span className={`stat-value ${(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? '+' : ''}{(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+    </>
   );
 
   const renderLiquidity = () => (
+    <>
     <div className="ratios-grid">
       <div className="ratio-card highlight">
         <div className="ratio-header">
@@ -119,9 +151,38 @@ export default function FinancialRatios({ ratios, statistics }: FinancialRatiosP
         <div className="ratio-sublabel">Trésorerie / Passifs courants</div>
       </div>
     </div>
+    <div className="statistics-summary">
+        <h3>Statistiques clés</h3>
+        <div className="stats-grid">
+          <div className="stat-item">
+            <span className="stat-label">Croissance CA (YoY)</span>
+            <span className={`stat-value ${statistics.revenueGrowth >= 0 ? 'positive' : 'negative'}`}>
+              {statistics.revenueGrowth >= 0 ? '+' : ''}{statistics.revenueGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Croissance bénéfice (YoY)</span>
+            <span className={`stat-value ${statistics.netIncomeGrowth >= 0 ? 'positive' : 'negative'}`}>
+              {statistics.netIncomeGrowth >= 0 ? '+' : ''}{statistics.netIncomeGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">CAGR 3 ans (CA)</span>
+            <span className="stat-value">{statistics.revenueCAGR3Y.toFixed(1)}%</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">vs Industrie (ROE)</span>
+            <span className={`stat-value ${(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? '+' : ''}{(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+      </>
   );
 
   const renderLeverage = () => (
+    <>
     <div className="ratios-grid">
       <div className="ratio-card highlight">
         <div className="ratio-header">
@@ -161,9 +222,38 @@ export default function FinancialRatios({ ratios, statistics }: FinancialRatiosP
         </div>
       </div>
     </div>
+    <div className="statistics-summary">
+        <h3>Statistiques clés</h3>
+        <div className="stats-grid">
+          <div className="stat-item">
+            <span className="stat-label">Croissance CA (YoY)</span>
+            <span className={`stat-value ${statistics.revenueGrowth >= 0 ? 'positive' : 'negative'}`}>
+              {statistics.revenueGrowth >= 0 ? '+' : ''}{statistics.revenueGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Croissance bénéfice (YoY)</span>
+            <span className={`stat-value ${statistics.netIncomeGrowth >= 0 ? 'positive' : 'negative'}`}>
+              {statistics.netIncomeGrowth >= 0 ? '+' : ''}{statistics.netIncomeGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">CAGR 3 ans (CA)</span>
+            <span className="stat-value">{statistics.revenueCAGR3Y.toFixed(1)}%</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">vs Industrie (ROE)</span>
+            <span className={`stat-value ${(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? '+' : ''}{(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+      </>
   );
 
   const renderEfficiency = () => (
+    <>
     <div className="ratios-grid">
       <div className="ratio-card">
         <div className="ratio-header">
@@ -205,6 +295,34 @@ export default function FinancialRatios({ ratios, statistics }: FinancialRatiosP
         <div className="ratio-sublabel">Rentabilité par employé</div>
       </div>
     </div>
+    <div className="statistics-summary">
+        <h3>Statistiques clés</h3>
+        <div className="stats-grid">
+          <div className="stat-item">
+            <span className="stat-label">Croissance CA (YoY)</span>
+            <span className={`stat-value ${statistics.revenueGrowth >= 0 ? 'positive' : 'negative'}`}>
+              {statistics.revenueGrowth >= 0 ? '+' : ''}{statistics.revenueGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Croissance bénéfice (YoY)</span>
+            <span className={`stat-value ${statistics.netIncomeGrowth >= 0 ? 'positive' : 'negative'}`}>
+              {statistics.netIncomeGrowth >= 0 ? '+' : ''}{statistics.netIncomeGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">CAGR 3 ans (CA)</span>
+            <span className="stat-value">{statistics.revenueCAGR3Y.toFixed(1)}%</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">vs Industrie (ROE)</span>
+            <span className={`stat-value ${(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0) >= 0 ? '+' : ''}{(action?.latest_valuation_ratio?.rs_vs_sector_3m ?? 0).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+      </>
   );
 
   return (
@@ -270,36 +388,7 @@ export default function FinancialRatios({ ratios, statistics }: FinancialRatiosP
         {activeCategory === 'efficiency' && renderEfficiency()}
       </div>
 
-      {/* Statistics Summary */}
-      <div className="statistics-summary">
-        <h3>Statistiques clés</h3>
-        <div className="stats-grid">
-          <div className="stat-item">
-            <span className="stat-label">Croissance CA (YoY)</span>
-            <span className={`stat-value ${statistics.revenueGrowth >= 0 ? 'positive' : 'negative'}`}>
-              {statistics.revenueGrowth >= 0 ? '+' : ''}{statistics.revenueGrowth.toFixed(1)}%
-            </span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Croissance bénéfice (YoY)</span>
-            <span className={`stat-value ${statistics.netIncomeGrowth >= 0 ? 'positive' : 'negative'}`}>
-              {statistics.netIncomeGrowth >= 0 ? '+' : ''}{statistics.netIncomeGrowth.toFixed(1)}%
-            </span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">CAGR 3 ans (CA)</span>
-            <span className="stat-value">{statistics.revenueCAGR3Y.toFixed(1)}%</span>
-          </div>
-          {statistics.vsIndustryROE && (
-            <div className="stat-item">
-              <span className="stat-label">vs Industrie (ROE)</span>
-              <span className={`stat-value ${statistics.vsIndustryROE >= 0 ? 'positive' : 'negative'}`}>
-                {statistics.vsIndustryROE >= 0 ? '+' : ''}{statistics.vsIndustryROE.toFixed(1)}%
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
+
     </div>
   );
 }

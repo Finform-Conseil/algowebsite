@@ -40,25 +40,32 @@ export default function LineChart({ data, title, height = '200px' }: LineChartPr
       data: data.categories,
       boundaryGap: false,
       axisLabel: {
-        color: 'var(--text-secondary)',
+        color: '#ffffff',
         fontSize: 10,
       },
       axisLine: {
         lineStyle: {
-          color: 'var(--border-color)',
+          color: '#ffffff',
+          width: 1,
         },
       },
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        color: 'var(--text-secondary)',
+        color: '#ffffff',
         fontSize: 10,
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#ffffff',
+          width: 1,
+        },
       },
       splitLine: {
         lineStyle: {
-          color: 'var(--border-color)',
-          opacity: 0.3,
+          color: '#ffffff',
+          opacity: 0.15,
         },
       },
     },

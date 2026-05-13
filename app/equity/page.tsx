@@ -3,14 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import TreemapChart, { TreemapNode } from '@/components/charts/TreemapChart';
+import { useBourseRepository } from '@/core/infra/repositories/bourse.repository.impl';
+import { useQueryParams } from '@/core/presenter/hooks/useQueryParams';
+import { BourseQueryParams } from '@/core/domain/types/bourse.type';
 
-const backgroundImages = [
-  '/images/screener-header-3.jpg',
-  '/images/exchanges-header-2.jpg',
-  '/images/exchanges-header-1.jpg',
-];
-
-const exchanges = ['All', 'BRVM', 'NSE', 'JSE', 'EGX', 'NGSE', 'DSE'];
+const exchanges = ['All', 'BRVM', 'CSE', 'GSE', 'JSE', 'NSE', 'NGX'];
 
 const equityTools = [
   {
@@ -35,7 +32,7 @@ const equityTools = [
       </svg>
     ),
     link: '/equity/market-movers',
-    color: '#10b981',
+    color: '#00BFFF',
   },
   {
     title: 'Sectors Analysis',
@@ -49,7 +46,7 @@ const equityTools = [
       </svg>
     ),
     link: '/equity/sectors',
-    color: '#8b5cf6',
+    color: '#00BFFF',
   },
   {
     title: 'IPO Calendar',
@@ -63,7 +60,7 @@ const equityTools = [
       </svg>
     ),
     link: '/equity/ipo',
-    color: '#f59e0b',
+    color: '#00BFFF',
   },
   {
     title: 'Corporate Events',
@@ -75,7 +72,7 @@ const equityTools = [
       </svg>
     ),
     link: '/equity/corporate-events',
-    color: '#ec4899',
+    color: '#00BFFF',
   },
   {
     title: 'Technical Analysis',
@@ -88,7 +85,7 @@ const equityTools = [
       </svg>
     ),
     link: '/equity/technical-analysis',
-    color: '#06b6d4',
+    color: '#00BFFF',
   },
 ];
 
@@ -142,17 +139,18 @@ const newsArticles: NewsArticle[] = [
 ];
 
 export default function EquityHomePage() {
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
   const [selectedExchange, setSelectedExchange] = useState('All');
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
 
-  // Background image carousel
+
+  const { params: queryParams } = useQueryParams<BourseQueryParams>({ view_type: "treemap", page: 1, page_size: 10 });
+  const { allBoursesData, getAllBourses, } = useBourseRepository();
+  useEffect(() => { getAllBourses(queryParams); }, [queryParams]);
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    console.log("All Bourses Data", allBoursesData);
+  }, [allBoursesData]);
+  
 
   // News auto-rotation with countdown
   const [countdown, setCountdown] = useState(15);
@@ -270,10 +268,41 @@ export default function EquityHomePage() {
     },
   ];
 
+  // Transformer les données de l'API vers le format TreemapNode
+  const transformedData = useMemo(() => {
+    console.log('[Treemap] Starting transformation...');
+    console.log('[Treemap] allBoursesData:', allBoursesData);
+    
+    if (!allBoursesData?.data) {
+      console.log('[Treemap] No data available');
+      return [];
+    }
+    
+    const transformed = allBoursesData.data.map(exchange => ({
+      name: exchange.ticker || '',
+      value: [
+        exchange.total_market_cap || 0,
+        0, // Réservé pour usage futur
+        exchange.total_change_pct || 0
+      ],
+      children: (exchange.top_stocks || []).map(stock => ({
+        name: stock.company_name || '',
+        value: [
+          stock.market_cap || 0,
+          0, // Réservé pour usage futur
+          stock.change_pct || 0
+        ]
+      }))
+    }));
+    
+    console.log('[Treemap] Transformed data:', transformed);
+    return transformed;
+  }, [allBoursesData]);
+
   const filteredData = useMemo(() => {
-    if (selectedExchange === 'All') return marketCapData;
-    return marketCapData.filter(item => item.name === selectedExchange);
-  }, [selectedExchange]);
+    if (selectedExchange === 'All') return transformedData;
+    return transformedData.filter(item => item.name === selectedExchange);
+  }, [selectedExchange, transformedData]);
 
   const currentNews = newsArticles[currentNewsIndex];
   const recommendedNews = newsArticles.filter((_, idx) => idx !== currentNewsIndex).slice(0, 2);
@@ -285,7 +314,7 @@ export default function EquityHomePage() {
         <div 
           className="eq-header"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
             backgroundSize: 'cover',
             backgroundPosition: 'center center',
             transition: 'background-image 1s ease-in-out',
@@ -319,10 +348,10 @@ export default function EquityHomePage() {
         <div className="left-column">
           {/* Market Cap Treemap */}
           <div className="treemap-container">
-            <TreemapChart
+            {filteredData && <TreemapChart
               data={filteredData}
               height="100%"
-            />
+            />}
           </div>
 
           {/* Equity Tools Grid */}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ActiveFilter } from '@/core/data/StockScreenerV2';
+import { ActiveFilter } from '@/core/data/StockScreenerFilters';
 
 interface SavedScreen {
   id: string;

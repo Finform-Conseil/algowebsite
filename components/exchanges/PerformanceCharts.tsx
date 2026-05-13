@@ -14,7 +14,7 @@ export default function PerformanceCharts({
   selectedPeriod, 
   onPeriodChange 
 }: PerformanceChartsProps) {
-  const [activeChart, setActiveChart] = useState<'indices' | 'volume' | 'returns' | 'volatility'>('indices');
+  const [activeChart, setActiveChart] = useState<'indices' | 'volume' | 'returns'>('indices');
   const [hoveredExchange, setHoveredExchange] = useState<string | null>(null);
 
   const periods = [
@@ -29,7 +29,6 @@ export default function PerformanceCharts({
     { id: 'indices', label: 'Indices Comparatifs', icon: '📈' },
     { id: 'volume', label: 'Volumes Échangés', icon: '📊' },
     { id: 'returns', label: 'Rendements', icon: '💰' },
-    { id: 'volatility', label: 'Volatilité', icon: '⚡' }
   ];
 
   const getExchangeColor = (exchangeId: string) => {
@@ -68,9 +67,6 @@ export default function PerformanceCharts({
         case 'returns':
           value = exchange.ytdReturn * (0.9 + Math.random() * 0.2);
           break;
-        case 'volatility':
-          value = exchange.volatility * (0.9 + Math.random() * 0.2);
-          break;
         default:
           value = 0;
       }
@@ -92,8 +88,6 @@ export default function PerformanceCharts({
         return renderVolumeChart();
       case 'returns':
         return renderReturnsChart();
-      case 'volatility':
-        return renderVolatilityChart();
       default:
         return null;
     }
@@ -283,64 +277,6 @@ export default function PerformanceCharts({
     );
   };
 
-  const renderVolatilityChart = () => {
-    return (
-      <div className="volatility-chart">
-        <div className="chart-container">
-          <div className="scatter-plot">
-            {exchanges.map(exchange => {
-              const x = (exchange.volatility / 40) * 600 + 100; // Scale to chart width
-              const y = 350 - ((exchange.ytdReturn + 20) / 60) * 300; // Scale to chart height
-              
-              return (
-                <div
-                  key={exchange.id}
-                  className="scatter-point"
-                  style={{
-                    left: `${x}px`,
-                    top: `${y}px`,
-                    backgroundColor: getExchangeColor(exchange.id),
-                    width: hoveredExchange === exchange.id ? '20px' : '12px',
-                    height: hoveredExchange === exchange.id ? '20px' : '12px',
-                    opacity: hoveredExchange && hoveredExchange !== exchange.id ? 0.3 : 1
-                  }}
-                  onMouseEnter={() => setHoveredExchange(exchange.id)}
-                  onMouseLeave={() => setHoveredExchange(null)}
-                  title={`${exchange.shortName}: Volatilité ${exchange.volatility.toFixed(1)}%, Rendement YTD ${exchange.ytdReturn.toFixed(1)}%`}
-                >
-                  {hoveredExchange === exchange.id && (
-                    <div className="scatter-tooltip">
-                      <div className="tooltip-title">{exchange.shortName}</div>
-                      <div className="tooltip-metric">
-                        <span>Volatilité:</span>
-                        <span>{exchange.volatility.toFixed(1)}%</span>
-                      </div>
-                      <div className="tooltip-metric">
-                        <span>Rendement YTD:</span>
-                        <span className={exchange.ytdReturn >= 0 ? 'positive' : 'negative'}>
-                          {exchange.ytdReturn >= 0 ? '+' : ''}{exchange.ytdReturn.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          
-          <div className="chart-axes">
-            <div className="x-axis">
-              <span>Volatilité (%)</span>
-            </div>
-            <div className="y-axis">
-              <span>Rendement YTD (%)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="performance-charts">
       {/* Chart Controls */}
@@ -371,25 +307,6 @@ export default function PerformanceCharts({
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="chart-actions">
-          <button className="action-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7,10 12,15 17,10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Exporter
-          </button>
-          <button className="action-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-            </svg>
-            Plein écran
-          </button>
         </div>
       </div>
 

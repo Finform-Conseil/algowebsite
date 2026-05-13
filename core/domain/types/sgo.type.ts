@@ -7,5 +7,6 @@ export type CreateSgoType = z.infer<typeof createSgoSchema>;
 export type UpdateSgoType = z.infer<typeof updateSgoSchema>;
 
 export interface SgoQueryParams extends QueryParams {
-    institution?: string;
+    bourse?: string;
+    bourse_ticker?: string;
 }

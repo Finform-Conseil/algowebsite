@@ -50,7 +50,7 @@ export default function GaugeChart({ value, title, height = '180px', max = 100, 
         detail: {
           valueAnimation: true,
           formatter: '{value}' + unit,
-          color: 'var(--text-color)',
+          color: '#ffffff',
           fontSize: 20,
           fontWeight: 'bold',
           offsetCenter: [0, '0%'],
@@ -59,7 +59,7 @@ export default function GaugeChart({ value, title, height = '180px', max = 100, 
           show: title ? true : false,
           offsetCenter: [0, '70%'],
           fontSize: 12,
-          color: 'var(--text-secondary)',
+          color: '#ffffff',
         },
         data: [
           {

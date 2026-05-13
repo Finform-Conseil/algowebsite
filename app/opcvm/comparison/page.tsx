@@ -1,91 +1,47 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import StockSelector from '@/components/comparison/StockSelector';
-import QuickFilters from '@/components/comparison/QuickFilters';
-import IndicatorSidebar from '@/components/comparison/IndicatorSidebar';
-import ComparisonTable from '@/components/comparison/ComparisonTable';
-import ComparisonChartsTab from '@/components/comparison/ComparisonChartsTab';
-import ComparisonHistogramsTab from '@/components/comparison/ComparisonHistogramsTab';
 import ExportMenu from '@/components/comparison/ExportMenu';
-import ComparisonFloatingInsights from '@/components/comparison/ComparisonFloatingInsights';
 
 import {
-  COMPARISON_STOCKS,
-  INDICATOR_CATEGORIES,
-  ComparisonStock,
   ComparisonTemplate,
-  getIndicatorById,
+  getOpcvmIndicatorById,
 } from '@/core/data/StockComparison';
 import FinancialTooltip from '@/components/common/FinancialTooltip';
+import OPCVMIndicatorSidebar from '@/components/comparison/OPCVMIndicatorSidebar';
+import OPCVMSelector from '@/components/comparison/OPCVMSelector';
+import { OPCVMEntity } from '@/core/domain/entities/opcvm.entity';
+import OPCVMComparisonHistogramsTab from '@/components/comparison/OPCVMComparisonHistogramsTab';
+import OPCVMComparisonTable from '@/components/comparison/OPCVMComparisonTable';
+import OPCVMComparisonChartsTab from '@/components/comparison/OPCVMComparisonChartsTab';
 
 type TabType = 'charts' | 'histograms' | 'table';
 
-export default function StockComparisonPage() {
-  const [selectedStocks, setSelectedStocks] = useState<ComparisonStock[]>([]);
-  const [selectedIndicators, setSelectedIndicators] = useState<string[]>(['pe', 'roe', 'netMargin', 'dividendYield']);
-  const [quickFilters, setQuickFilters] = useState({
-    sector: '',
-    country: '',
-    market: '',
-    currency: '',
-    capitalization: 'All',
-  });
+export default function FundComparisonPage() {
+  const [selectedOPCVMs, setSelectedOPCVMs] = useState<OPCVMEntity[]>([]);
+  const [selectedIndicators, setSelectedIndicators] = useState<string[]>(['performance_1y', 'rendement_1y', 'volatility_1y', 'ratio_sharpe_1y']);
+
   const [showAverage, setShowAverage] = useState(true);
   const [highlightBest, setHighlightBest] = useState(true);
   const [showIndicatorSidebar, setShowIndicatorSidebar] = useState(false);
   const [showStockSelector, setShowStockSelector] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('charts');
 
-  // Filter available stocks based on quick filters
-  const filteredStocks = useMemo(() => {
-    let stocks = [...COMPARISON_STOCKS];
-
-    if (quickFilters.sector) {
-      stocks = stocks.filter((s) => s.sector === quickFilters.sector);
-    }
-
-    if (quickFilters.country) {
-      stocks = stocks.filter((s) => s.country === quickFilters.country);
-    }
-
-    if (quickFilters.market) {
-      stocks = stocks.filter((s) => s.market === quickFilters.market);
-    }
-
-    if (quickFilters.currency) {
-      stocks = stocks.filter((s) => s.currency === quickFilters.currency);
-    }
-
-    if (quickFilters.capitalization && quickFilters.capitalization !== 'All') {
-      if (quickFilters.capitalization.includes('Small')) {
-        stocks = stocks.filter((s) => s.marketCap < 1000);
-      } else if (quickFilters.capitalization.includes('Mid')) {
-        stocks = stocks.filter((s) => s.marketCap >= 1000 && s.marketCap <= 10000);
-      } else if (quickFilters.capitalization.includes('Large')) {
-        stocks = stocks.filter((s) => s.marketCap > 10000);
-      }
-    }
-
-    return stocks;
-  }, [quickFilters]);
-
   // Get selected indicators
   const indicators = useMemo(() => {
     return selectedIndicators
-      .map((id) => getIndicatorById(id))
+      .map((id) => getOpcvmIndicatorById(id))
       .filter((ind) => ind !== undefined);
   }, [selectedIndicators]);
 
-  const handleAddStock = (stock: ComparisonStock) => {
-    if (!selectedStocks.find((s) => s.id === stock.id)) {
-      setSelectedStocks([...selectedStocks, stock]);
+  const handleAddStock = (stock: OPCVMEntity) => {
+    if (!selectedOPCVMs.find((s) => s.id === stock.id)) {
+      setSelectedOPCVMs([...selectedOPCVMs, stock]);
     }
   };
 
   const handleRemoveStock = (stockId: string) => {
-    setSelectedStocks(selectedStocks.filter((s) => s.id !== stockId));
+    setSelectedOPCVMs(selectedOPCVMs.filter((s) => s.id !== stockId));
   };
 
   const handleToggleIndicator = (indicatorId: string) => {
@@ -100,20 +56,13 @@ export default function StockComparisonPage() {
     setSelectedIndicators(template.indicators);
   };
 
-  const handleFilterChange = (filterType: string, value: string) => {
-    setQuickFilters({
-      ...quickFilters,
-      [filterType]: value,
-    });
-  };
-
   const handleExport = (format: 'pdf' | 'excel' | 'csv' | 'image') => {
     console.log(`Exporter en ${format}`);
     alert(`Export ${format} - Fonctionnalité à venir`);
   };
 
   const handleShare = () => {
-    const shareUrl = `${window.location.origin}/stock-comparison?stocks=${selectedStocks.map((s) => s.id).join(',')}&indicators=${selectedIndicators.join(',')}`;
+    const shareUrl = `${window.location.origin}/opcvm/comparison?stocks=${selectedOPCVMs.map((s) => s.id).join(',')}&indicators=${selectedIndicators.join(',')}`;
     navigator.clipboard.writeText(shareUrl);
     alert('Lien copié dans le presse-papiers !');
   };
@@ -153,17 +102,22 @@ export default function StockComparisonPage() {
       <div className="comparison-header">
         <div className="comparison-header__hero">
           <div className="comparison-header__content">
-            <h1 className="comparison-header__title">Stock Comparison</h1>
+            <h1 className="comparison-header__title">Funds Comparison</h1>
             <p className="comparison-header__subtitle">
-              Multi-market comparative analysis • 2 to 10 stocks
+              Compare up to 3 funds side-by-side to make informed investment decision
             </p>
           </div>
           <div className="comparison-header__controls">
-            <QuickFilters
-              allStocks={COMPARISON_STOCKS}
-              filters={quickFilters}
-              onFilterChange={handleFilterChange}
-            />
+            <button 
+              className="btn btn--outline"
+              onClick={() => setShowStockSelector(true)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Fund
+            </button>
             <button 
               className="btn btn--outline"
               onClick={() => setShowIndicatorSidebar(true)}
@@ -207,15 +161,15 @@ export default function StockComparisonPage() {
       {/* Tab Content */}
       <div className="comparison-tab-content">
         {activeTab === 'charts' && (
-          <ComparisonChartsTab
-            stocks={selectedStocks}
+          <OPCVMComparisonChartsTab
+            opcvms={selectedOPCVMs}
             indicators={indicators as any}
           />
         )}
 
         {activeTab === 'histograms' && (
-          <ComparisonHistogramsTab
-            stocks={selectedStocks}
+          <OPCVMComparisonHistogramsTab
+            opcvms={selectedOPCVMs}
             indicators={indicators as any}
           />
         )}
@@ -230,7 +184,7 @@ export default function StockComparisonPage() {
                   checked={showAverage}
                   onChange={() => setShowAverage(!showAverage)}
                 />
-                <span>Afficher moyenne</span>
+                <span>Display average</span>
               </label>
               <label className="comparison-option">
                 <input
@@ -244,13 +198,13 @@ export default function StockComparisonPage() {
                   formula="Extrême si valeur > moyenne + 2 × écart-type OU valeur < moyenne – 2 × écart-type"
                   example="Par exemple, si la moyenne des rendements est de 3% avec un écart-type de 1%, toute valeur supérieure à 5% ou inférieure à 1% sera considérée comme extrême."
                 >
-                  <span className='tooltip-trigger'>Surligner valeurs extrêmes</span>
+                  <span className='tooltip-trigger'>Highlight Extreme values</span>
                 </FinancialTooltip>
               </label>
             </div>
 
-            <ComparisonTable
-              stocks={selectedStocks}
+            <OPCVMComparisonTable
+              opcvms={selectedOPCVMs}
               indicators={indicators as any}
               showAverage={showAverage}
               highlightBest={highlightBest}
@@ -260,16 +214,16 @@ export default function StockComparisonPage() {
       </div>
 
       {/* Floating Insights */}
-      <ComparisonFloatingInsights stocks={selectedStocks} indicators={indicators as any} />
+      {/* <ComparisonFloatingInsights stocks={selectedOPCVMs} indicators={indicators as any} /> */}
       
       {/* Indicator Sidebar */}
-      <IndicatorSidebar
-        isOpen={showIndicatorSidebar}
-        onClose={() => setShowIndicatorSidebar(false)}
-        selectedIndicators={selectedIndicators}
-        onToggleIndicator={handleToggleIndicator}
-        onApplyTemplate={handleApplyTemplate}
-      />
+        <OPCVMIndicatorSidebar
+            isOpen={showIndicatorSidebar}
+            onClose={() => setShowIndicatorSidebar(false)}
+            selectedIndicators={selectedIndicators}
+            onToggleIndicator={handleToggleIndicator}
+            onApplyTemplate={handleApplyTemplate}
+        />
 
       {/* Stock Selector Modal */}
       {showStockSelector && (
@@ -277,15 +231,14 @@ export default function StockComparisonPage() {
           <div className="stock-selector-modal-overlay" onClick={() => setShowStockSelector(false)} />
           <div className="stock-selector-modal">
             <div className="stock-selector-modal__header">
-              <h3>Add Stocks to Compare</h3>
+              <h3>Add Funds to Compare</h3>
               <button className="stock-selector-modal__close" onClick={() => setShowStockSelector(false)}>
                 ✕
               </button>
             </div>
             <div className="stock-selector-modal__body">
-              <StockSelector
-                allStocks={filteredStocks}
-                selectedStocks={selectedStocks}
+              <OPCVMSelector
+                selectedOPCVMs={selectedOPCVMs}
                 onAddStock={handleAddStock}
                 onRemoveStock={handleRemoveStock}
                 maxStocks={10}
@@ -295,17 +248,6 @@ export default function StockComparisonPage() {
         </>
       )}
 
-      {/* Floating Add Stock Button */}
-      <button 
-        className="floating-add-stock-btn"
-        onClick={() => setShowStockSelector(true)}
-        title="Add stocks to compare"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
     </div>
   );
 }

@@ -6,6 +6,7 @@ export const societySchema = z.object({
     description: z.string().max(500, "La description doit faire moins de 500 caractères"),
     country: z.uuid().optional().nullable(),
     industry: z.uuid().optional().nullable(),
+    activity: z.uuid().optional().nullable(),
     parent: z.uuid().optional().nullable(),
     phone: z.string().min(1).max(20).optional().nullable(),
     email: z.string().email().optional().nullable(),

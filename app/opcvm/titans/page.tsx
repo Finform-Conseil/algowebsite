@@ -29,19 +29,6 @@ export default function OPCVMTitansPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
-  const backgroundImages = [
-    '/images/screener-header-3.jpg',
-    '/images/exchanges-header-2.jpg',
-    '/images/exchanges-header-1.jpg',
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [backgroundImages.length]);
-
   // Mock data - Top 5 Management Companies
   const mockCompanies: ManagementCompany[] = [
     {
@@ -132,7 +119,7 @@ export default function OPCVMTitansPage() {
       case 'asset-nature':
         return 'Mastery by Asset Nature';
       case 'opcvm-category':
-        return 'Leadership by UCITS Category';
+        return 'Leadership by Funds Category';
       case 'continental':
         return 'Continental Influence';
       default:
@@ -147,7 +134,7 @@ export default function OPCVMTitansPage() {
         <div 
           className="header-hero"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
           }}
         >
           <div className="header-content">
@@ -166,7 +153,7 @@ export default function OPCVMTitansPage() {
                 >
                   <option value="market">By Stock Market</option>
                   <option value="asset-nature">By Asset Nature</option>
-                  <option value="opcvm-category">By UCITS Category</option>
+                  <option value="opcvm-category">By Funds Category</option>
                   <option value="continental">Continental Influence</option>
                 </select>
               </div>
@@ -200,18 +187,6 @@ export default function OPCVMTitansPage() {
       {/* View Mode Tabs */}
       <div className="view-mode-tabs">
         <button
-          className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
-          onClick={() => setViewMode('table')}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="3" y1="15" x2="21" y2="15" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-          </svg>
-          Table View
-        </button>
-        <button
           className={`tab-btn ${viewMode === 'overview' ? 'active' : ''}`}
           onClick={() => setViewMode('overview')}
         >
@@ -224,7 +199,18 @@ export default function OPCVMTitansPage() {
           </svg>
           Overview
         </button>
-        
+        <button
+          className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
+          onClick={() => setViewMode('table')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <line x1="3" y1="9" x2="21" y2="9" />
+            <line x1="3" y1="15" x2="21" y2="15" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+          </svg>
+          Table View
+        </button>
         <button
           className={`tab-btn ${viewMode === 'cards' ? 'active' : ''}`}
           onClick={() => setViewMode('cards')}

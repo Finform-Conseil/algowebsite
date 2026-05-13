@@ -5,14 +5,14 @@ import SectorIcon from './SectorIcon';
 
 interface SectorPerformanceProps {
   sectors: Sector[];
-  period: Period;
+  period?: Period;
   selectedSectorId?: string;
   onSectorSelect: (sectorId: string) => void;
 }
 
 export default function SectorPerformance({
   sectors,
-  period,
+  period = '1Y',
   selectedSectorId,
   onSectorSelect
 }: SectorPerformanceProps) {
@@ -53,7 +53,7 @@ export default function SectorPerformance({
               ))}
             </div>
           </div>
-          <div className="chart-container">
+          <div className="sector-chart-container">
             <div className="line-chart">
               {sectors.map((sector) => {
                 const performance = getPerformanceByPeriod(sector);
@@ -97,7 +97,7 @@ export default function SectorPerformance({
             <h3>Volatilité vs Rendement</h3>
             <span className="card-badge">Analyse risque/rendement</span>
           </div>
-          <div className="chart-container">
+          <div className="sector-chart-container">
             <div className="scatter-plot">
               <div className="scatter-grid">
                 {/* Grid lines */}
@@ -146,7 +146,7 @@ export default function SectorPerformance({
             <h3>Indicateurs clés</h3>
             <span className="card-badge">{sectors.length} secteurs</span>
           </div>
-          <div className="chart-container">
+          <div className="sector-chart-container">
             <div className="kpis-table">
               <div className="kpis-header">
                 <div className="kpi-col">Secteur</div>

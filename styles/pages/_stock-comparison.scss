@@ -204,6 +204,41 @@
     margin-bottom: 1.5rem;
     z-index: 10;
   }
+
+  .fund-selector-div {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    
+    .fund-comparison-select {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: white;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+
+      option {
+        background: var(--card-background);
+        color: var(--text-primary);
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.35);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      &:focus {
+        background: rgba(255, 255, 255, 0.35);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    }
+  }
 }
 
 .search-input-wrapper {
@@ -1437,18 +1472,18 @@
   align-items: center;
   justify-content: center;
   animation: gentlePulse 2s ease-in-out infinite;
-  
+ 
   &:hover {
     transform: translateY(-4px) scale(1.05);
     box-shadow: 0 8px 24px rgba(255, 159, 4, 0.6);
     animation: none;
   }
-  
+ 
   svg {
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
   }
 }
-
+ 
 @keyframes gentlePulse {
   0%, 100% {
     transform: scale(1);

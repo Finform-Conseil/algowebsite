@@ -1,13 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ComparisonStock, Indicator } from '@/core/data/StockComparison';
+import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { ColumnDefinition } from '@/core/data/ColumnRegistry';
 import ComparisonStockHoverCard from './ComparisonStockHoverCard';
 import IndicatorChartPopup from './IndicatorChartPopup';
 
 interface ComparisonTableProps {
-  stocks: ComparisonStock[];
-  indicators: Indicator[];
+  stocks: ActionEntity[];
+  indicators: ColumnDefinition[];
   showAverage: boolean;
   highlightBest: boolean;
 }
@@ -22,7 +23,11 @@ export default function ComparisonTable({
   const averages = useMemo(() => {
     const avg: Record<string, number> = {};
     indicators.forEach((indicator) => {
-      const sum = stocks.reduce((acc, stock) => acc + (stock[indicator.field] as number), 0);
+      const values = stocks.map(stock => {
+        const value = indicator.accessor(stock);
+        return value !== null && value !== undefined ? Number(value) : 0;
+      });
+      const sum = values.reduce((acc, val) => acc + val, 0);
       avg[indicator.id] = sum / stocks.length;
     });
     return avg;
@@ -34,21 +39,21 @@ export default function ComparisonTable({
     const worst: Record<string, { value: number; stockId: string }> = {};
     
     indicators.forEach((indicator) => {
-      const values = stocks.map((stock) => ({
-        value: stock[indicator.field] as number,
-        stockId: stock.id,
-      }));
+      const values = stocks.map((stock) => {
+        const value = indicator.accessor(stock);
+        return {
+          value: value !== null && value !== undefined ? Number(value) : 0,
+          stockId: stock.id,
+        };
+      });
 
       const maxValue = Math.max(...values.map((v) => v.value));
       const minValue = Math.min(...values.map((v) => v.value));
 
-      if (indicator.higherIsBetter) {
-        best[indicator.id] = values.find((v) => v.value === maxValue)!;
-        worst[indicator.id] = values.find((v) => v.value === minValue)!;
-      } else {
-        best[indicator.id] = values.find((v) => v.value === minValue)!;
-        worst[indicator.id] = values.find((v) => v.value === maxValue)!;
-      }
+      // Pour l'instant, on considère que les valeurs plus élevées sont meilleures
+      // TODO: Ajouter une propriété higherIsBetter dans ColumnDefinition si nécessaire
+      best[indicator.id] = values.find((v) => v.value === maxValue)!;
+      worst[indicator.id] = values.find((v) => v.value === minValue)!;
     });
 
     return { best, worst };
@@ -77,12 +82,19 @@ export default function ComparisonTable({
     </svg>`;
   };
 
-  const formatValue = (value: number, indicator: Indicator): string => {
-    if (indicator.unit === '%') return `${value.toFixed(2)}%`;
-    if (indicator.unit === '$') return `$${value.toFixed(2)}`;
-    if (indicator.unit === 'x') return `${value.toFixed(2)}x`;
-    if (indicator.unit === 'Md') return `${value.toFixed(1)}Md`;
-    return value.toFixed(2);
+  const formatValue = (value: number | null | undefined, indicator: ColumnDefinition): string => {
+    if (value === null || value === undefined) return 'N/A';
+    
+    // Utiliser le formateur de la colonne si disponible
+    if (indicator.format) {
+      return indicator.format(value);
+    }
+    
+    // Sinon, formater selon le type
+    if (indicator.type === 'percentage') return `${value.toFixed(2)}%`;
+    if (indicator.type === 'currency') return `$${(value / 1000000).toFixed(2)}M`;
+    if (indicator.type === 'number') return value.toFixed(2);
+    return String(value);
   };
 
   const isBestValue = (stockId: string, indicatorId: string): boolean => {
@@ -96,7 +108,7 @@ export default function ComparisonTable({
   if (stocks.length === 0 || indicators.length === 0) {
     return (
       <div className="comparison-table comparison-table--empty">
-        <p>Sélectionnez des actions et indicateurs pour afficher le tableau comparatif</p>
+        <p>Select some stocks and criterions to display a comparative board</p>
       </div>
     );
   }
@@ -104,10 +116,10 @@ export default function ComparisonTable({
   return (
     <div className="comparison-table-container">
       <div className="comparison-table-header">
-        <h3>Tableau Comparatif Détaillé</h3>
+        <h3>Detailed Comparative Board</h3>
         <div className="comparison-table-actions">
           <span className="table-info">
-            {stocks.length} actions • {indicators.length} indicateurs
+            {stocks.length} stocks • {indicators.length} criterions
           </span>
         </div>
       </div>
@@ -116,13 +128,13 @@ export default function ComparisonTable({
         <table className="comparison-table comparison-table--horizontal">
           <thead>
             <tr>
-              <th className="sticky-col">Action</th>
+              <th className="sticky-col">Stock</th>
               {indicators.map((indicator) => (
                 <th key={indicator.id}>
                   <IndicatorChartPopup indicator={indicator} stocks={stocks}>
                     <div className="indicator-header">
                       <div className="indicator-header__name">{indicator.name}</div>
-                      <div className="indicator-header__unit">{indicator.unit}</div>
+                      <div className="indicator-header__unit">{indicator.type}</div>
                     </div>
                   </IndicatorChartPopup>
                 </th>
@@ -140,13 +152,13 @@ export default function ComparisonTable({
                       </div>
                       <div className="stock-cell__info">
                         <div className="stock-cell__ticker">{stock.ticker}</div>
-                        <div className="stock-cell__market">{stock.market}</div>
+                        <div className="stock-cell__market">{stock.bourse?.ticker || '--'}</div>
                       </div>
                     </div>
                   </ComparisonStockHoverCard>
                 </td>
                 {indicators.map((indicator) => {
-                  const value = stock[indicator.field] as number;
+                  const value = indicator.accessor(stock);
                   const isBest = isBestValue(stock.id, indicator.id);
                   const isWorst = isWorstValue(stock.id, indicator.id);
 
@@ -164,9 +176,9 @@ export default function ComparisonTable({
               </tr>
             ))}
             {showAverage && (
-              <tr className="avg-row">
+              <tr key="average-row" className="avg-row">
                 <td className="sticky-col">
-                  <strong>Moyenne</strong>
+                  <strong>Average</strong>
                 </td>
                 {indicators.map((indicator) => (
                   <td key={indicator.id} className="avg-col">

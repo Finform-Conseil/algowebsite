@@ -3,53 +3,25 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import MultiSelect from "@/components/corporate-events/MultiSelect";
+import { useQueryParams } from "@/core/presenter/hooks/useQueryParams";
+import { useOpcvmRepository } from "@/core/infra/repositories/opcvm.repository.impl";
+import { OpcvmQueryParams } from "@/core/domain/types/opcvm.type";
+import { OPCVMNatureEnum, OPCVMTypeEnum } from "@/core/domain/enums/opcvm.enum";
+import { 
+  Period, 
+  MetricFamily, 
+  familiesConfig, 
+  getMetricsByPeriod 
+} from "@/core/data/OPCVMScreenerConfig";
 
 // Types
-type Fund = {
-  id: string;
-  name: string;
-  isin: string;
-  ticker: string;
-  manager: string;
-  nature: "SICAV" | "FCP" | "SCPI" | "FIA" | "ETF";
-  type: string;
-  currency: string;
-  domicile: string;
-  aum: number;
-  nav: number;
-  navDate: string;
-  managementFee: number;
-  entryFee: number;
-  exitFee: number;
-  ter: number;
-  perf1M: number;
-  perf3M: number;
-  perf6M: number;
-  perf1Y: number;
-  perf3Y: number;
-  perf5Y: number;
-  perfYTD: number;
-  volatility: number;
-  sharpe: number;
-  maxDrawdown: number;
-  riskRating: number;
-  inceptionDate: string;
-  market: string;
-};
-
 type FilterState = {
   search: string;
   markets: string[];
   natures: string[];
   types: string[];
-  currencies: string[];
-  aumRange: [number, number];
-  perfRange: [number, number];
-  feeRange: [number, number];
   riskRatings: number[];
 };
-
-type Period = "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y" | "ALL";
 
 export default function OPCVMScreenerPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("1Y");
@@ -59,167 +31,51 @@ export default function OPCVMScreenerPage() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
-
-  const backgroundImages = [
-    "/images/screener-header-3.jpg",
-    "/images/exchanges-header-2.jpg",
-    "/images/exchanges-header-1.jpg",
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [backgroundImages.length]);
+  const [selectedFamily, setSelectedFamily] = useState<MetricFamily>("general");
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     markets: [],
     natures: [],
     types: [],
-    currencies: [],
-    aumRange: [0, 10000],
-    perfRange: [-100, 100],
-    feeRange: [0, 5],
     riskRatings: [],
   });
 
-  // Mock data - To be replaced with real API data
-  const mockFunds: Fund[] = useMemo(
-    () => [
-      {
-        id: "1",
-        name: "NSIA Ivory Coast Equity",
-        isin: "CI0001234567",
-        ticker: "NSIA-CI",
-        manager: "NSIA Banque",
-        nature: "SICAV",
-        type: "Equity",
-        currency: "XOF",
-        domicile: "Ivory Coast",
-        aum: 15000000000,
-        nav: 12500,
-        navDate: "2024-11-30",
-        managementFee: 1.5,
-        entryFee: 2.0,
-        exitFee: 1.0,
-        ter: 1.8,
-        perf1M: 2.5,
-        perf3M: 7.2,
-        perf6M: 12.5,
-        perf1Y: 18.3,
-        perf3Y: 45.2,
-        perf5Y: 78.5,
-        perfYTD: 15.8,
-        volatility: 12.5,
-        sharpe: 1.2,
-        maxDrawdown: -15.3,
-        riskRating: 5,
-        inceptionDate: "2015-03-15",
-        market: "BRVM",
-      },
-      {
-        id: "2",
-        name: "BOA WAEMU Bonds",
-        isin: "SN0009876543",
-        ticker: "BOA-OBL",
-        manager: "BOA Capital",
-        nature: "FCP",
-        type: "Bonds",
-        currency: "XOF",
-        domicile: "Senegal",
-        aum: 8500000000,
-        nav: 10850,
-        navDate: "2024-11-30",
-        managementFee: 0.8,
-        entryFee: 1.0,
-        exitFee: 0.5,
-        ter: 1.0,
-        perf1M: 0.8,
-        perf3M: 2.5,
-        perf6M: 5.2,
-        perf1Y: 8.5,
-        perf3Y: 22.8,
-        perf5Y: 38.5,
-        perfYTD: 7.2,
-        volatility: 4.2,
-        sharpe: 1.8,
-        maxDrawdown: -5.2,
-        riskRating: 2,
-        inceptionDate: "2018-06-20",
-        market: "BRVM",
-      },
-      // Add more mock funds...
-    ],
-    [],
+  const getOpcvmParams = (): OpcvmQueryParams => {
+    const params: OpcvmQueryParams = { view_type: "screener", page: currentPage, page_size: 20 };
+    
+    if (filters.search) params.search = filters.search;
+    if (filters.natures.length > 0) params.natures = filters.natures.join(',');
+    if (filters.types.length > 0) params.types = filters.types.join(',');
+    if (filters.markets.length > 0) params.bourse_tickers = filters.markets.join(',');
+    if (filters.riskRatings.length > 0) params.niveaux_risque = filters.riskRatings.join(',');
+    if (sortBy) params.ordering = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
+    
+    return params;
+  };
+  
+  const { allOpcvmsData, getAllOpcvms } = useOpcvmRepository();
+  
+  useEffect(() => {
+    getAllOpcvms(getOpcvmParams());
+  }, [filters, sortBy, sortOrder, currentPage]);
+
+  useEffect(() =>
+  {
+    console.log("All OPCVM Data", allOpcvmsData)
+  }, [allOpcvmsData])
+
+
+  const currentFamily = useMemo(() => 
+    familiesConfig.find(f => f.id === selectedFamily) || familiesConfig[0],
+    [selectedFamily]
   );
 
-  // Fund filtering
-  const filteredFunds = useMemo(() => {
-    return mockFunds.filter((fund) => {
-      // Text search
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        if (
-          !fund.name.toLowerCase().includes(searchLower) &&
-          !fund.isin.toLowerCase().includes(searchLower) &&
-          !fund.ticker.toLowerCase().includes(searchLower) &&
-          !fund.manager.toLowerCase().includes(searchLower)
-        ) {
-          return false;
-        }
-      }
-
-      // Market filters
-      if (
-        filters.markets.length > 0 &&
-        !filters.markets.includes(fund.market)
-      ) {
-        return false;
-      }
-
-      // Nature filters
-      if (
-        filters.natures.length > 0 &&
-        !filters.natures.includes(fund.nature)
-      ) {
-        return false;
-      }
-
-      // AUM filters
-      if (
-        fund.aum < filters.aumRange[0] * 1000000 ||
-        fund.aum > filters.aumRange[1] * 1000000
-      ) {
-        return false;
-      }
-
-      // Performance filters
-      const perf = fund.perf1Y;
-      if (perf < filters.perfRange[0] || perf > filters.perfRange[1]) {
-        return false;
-      }
-
-      // Fee filters
-      if (
-        fund.managementFee < filters.feeRange[0] ||
-        fund.managementFee > filters.feeRange[1]
-      ) {
-        return false;
-      }
-
-      // Risk rating filters
-      if (
-        filters.riskRatings.length > 0 &&
-        !filters.riskRatings.includes(fund.riskRating)
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [mockFunds, filters]);
+  // Les données sont déjà filtrées côté backend via les query params
+  const filteredFunds = allOpcvmsData?.data || [];
 
   const handleToggleFundSelection = (fundId: string) => {
     setSelectedFunds((prev) =>
@@ -229,18 +85,34 @@ export default function OPCVMScreenerPage() {
     );
   };
 
+  const handleSort = (columnSortKey: string) => {
+    if (sortBy === columnSortKey) {
+      // Toggle entre asc et desc
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Nouvelle colonne, commencer par desc
+      setSortBy(columnSortKey);
+      setSortOrder('desc');
+    }
+    // Retour à la page 1 lors d'un nouveau tri
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    // Scroll vers le haut du tableau
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleResetFilters = () => {
     setFilters({
       search: "",
       markets: [],
       natures: [],
       types: [],
-      currencies: [],
-      aumRange: [0, 10000],
-      perfRange: [-100, 100],
-      feeRange: [0, 5],
       riskRatings: [],
     });
+    setCurrentPage(1);
   };
 
   const handleApplyPreset = (preset: string) => {
@@ -283,7 +155,7 @@ export default function OPCVMScreenerPage() {
         <div
           className="header-hero"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
           }}
         >
           <div className="header-top">
@@ -403,10 +275,10 @@ export default function OPCVMScreenerPage() {
                 <option value="1M">1 Month</option>
                 <option value="3M">3 Months</option>
                 <option value="6M">6 Months</option>
+                <option value="9M">9 Months</option>
                 <option value="1Y">1 Year</option>
                 <option value="3Y">3 Years</option>
                 <option value="5Y">5 Years</option>
-                <option value="ALL">Since inception</option>
               </select>
             </div>
 
@@ -425,9 +297,9 @@ export default function OPCVMScreenerPage() {
 
             <MultiSelect
               label="Nature"
-              options={["SICAV", "FCP", "SCPI", "FIA", "ETF"].map((n) => ({
-                value: n,
-                label: n,
+              options={Object.values(OPCVMNatureEnum).map((nature) => ({
+                value: nature,
+                label: nature.toUpperCase(),
               }))}
               selected={filters.natures}
               onChange={(natures) =>
@@ -438,13 +310,10 @@ export default function OPCVMScreenerPage() {
 
             <MultiSelect
               label="Type"
-              options={[
-                "Equity",
-                "Bonds",
-                "Money Market",
-                "Mixed",
-                "Real Estate",
-              ].map((t) => ({ value: t, label: t }))}
+              options={Object.values(OPCVMTypeEnum).map((type) => ({
+                value: type,
+                label: type,
+              }))}
               selected={filters.types}
               onChange={(types) => setFilters((prev) => ({ ...prev, types }))}
               placeholder="All types"
@@ -453,7 +322,7 @@ export default function OPCVMScreenerPage() {
             <div className="filter-group">
               <label>Risk</label>
               <div className="risk-selector">
-                {[1, 2, 3, 4, 5, 6, 7].map((rating) => (
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
                   <button
                     key={rating}
                     className={`risk-btn ${filters.riskRatings.includes(rating) ? "active" : ""}`}
@@ -514,98 +383,6 @@ export default function OPCVMScreenerPage() {
           </div>
 
           {/* Advanced filters (collapsible) */}
-          {showAdvancedFilters && (
-            <div className="advanced-filters">
-              <div className="filter-group range-filter">
-                <label>AUM Size (in millions)</label>
-                <div className="range-inputs">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.aumRange[0]}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        aumRange: [Number(e.target.value), prev.aumRange[1]],
-                      }))
-                    }
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.aumRange[1]}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        aumRange: [prev.aumRange[0], Number(e.target.value)],
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="filter-group range-filter">
-                <label>1Y Performance (%)</label>
-                <div className="range-inputs">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.perfRange[0]}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        perfRange: [Number(e.target.value), prev.perfRange[1]],
-                      }))
-                    }
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.perfRange[1]}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        perfRange: [prev.perfRange[0], Number(e.target.value)],
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="filter-group range-filter">
-                <label>Management Fees (%)</label>
-                <div className="range-inputs">
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Min"
-                    value={filters.feeRange[0]}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        feeRange: [Number(e.target.value), prev.feeRange[1]],
-                      }))
-                    }
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Max"
-                    value={filters.feeRange[1]}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        feeRange: [prev.feeRange[0], Number(e.target.value)],
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -613,16 +390,19 @@ export default function OPCVMScreenerPage() {
       <div className="screener-content">
         {/* Center - Data Table */}
         <div className="data-table-container">
-          <div className="table-header">
-            <div className="table-info">
-              <span className="results-count">
-                {filteredFunds.length} funds found
-              </span>
-              {selectedFunds.length > 0 && (
-                <span className="selected-count">
-                  {selectedFunds.length} selected
-                </span>
-              )}
+          {/* Metric Family Tabs */}
+          <div className="metric-family-tabs">
+            <div className="tabs-wrapper">
+              {familiesConfig.map((family) => (
+                <button
+                  key={family.id}
+                  className={`family-tab ${selectedFamily === family.id ? 'active' : ''}`}
+                  onClick={() => setSelectedFamily(family.id)}
+                >
+                  {family.icon}
+                  <span>{family.label}</span>
+                </button>
+              ))}
             </div>
             <div className="table-actions">
               <button className="btn-secondary">
@@ -663,122 +443,135 @@ export default function OPCVMScreenerPage() {
             </div>
           </div>
 
-          <div className="data-table">
-            <table>
-              <thead>
-                <tr>
-                  <th className="checkbox-col">
-                    <input type="checkbox" />
-                  </th>
-                  <th>Fund Name</th>
-                  <th>ISIN</th>
-                  <th>Manager</th>
-                  <th>Nature</th>
-                  <th>Type</th>
-                  <th>Currency</th>
-                  <th className="number-col">AUM (M)</th>
-                  <th className="number-col">NAV</th>
-                  <th className="number-col">1M Perf</th>
-                  <th className="number-col">1Y Perf</th>
-                  <th className="number-col">Volatility</th>
-                  <th className="number-col">Sharpe</th>
-                  <th className="number-col">Fees</th>
-                  <th className="number-col">Risk</th>
-                  <th className="actions-col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFunds.map((fund) => (
-                  <tr
-                    key={fund.id}
-                    className={
-                      selectedFunds.includes(fund.id) ? "selected" : ""
-                    }
-                  >
-                    <td className="checkbox-col">
-                      <input
-                        type="checkbox"
-                        checked={selectedFunds.includes(fund.id)}
-                        onChange={() => handleToggleFundSelection(fund.id)}
-                      />
-                    </td>
-                    <td className="fund-name-col">
-                      <button
-                        className="fund-name-btn"
-                        onClick={() => setDetailFundId(fund.id)}
+          <div className="table-and-detail-wrapper">
+            <div className="data-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="checkbox-col">
+                      <input type="checkbox" />
+                    </th>
+                    <th>Fund Name ({allOpcvmsData?.count})</th>
+                    <th>ISIN</th>
+                    {currentFamily.columns.map((col) => (
+                      <th 
+                        key={col.key} 
+                        className={`${col.className || ''} ${col.sortable ? 'sortable' : ''}`}
+                        onClick={() => col.sortable && col.sortKey && handleSort(col.sortKey)}
+                        style={{ cursor: col.sortable ? 'pointer' : 'default' }}
                       >
-                        {fund.name}
-                      </button>
-                      <span className="fund-market">{fund.market}</span>
-                    </td>
-                    <td className="isin-col">{fund.isin}</td>
-                    <td>{fund.manager}</td>
-                    <td>
-                      <span
-                        className={`badge badge-${fund.nature.toLowerCase()}`}
-                      >
-                        {fund.nature}
-                      </span>
-                    </td>
-                    <td>{fund.type}</td>
-                    <td>{fund.currency}</td>
-                    <td className="number-col">
-                      {(fund.aum / 1000000).toFixed(0)}M
-                    </td>
-                    <td className="number-col">{fund.nav.toLocaleString()}</td>
-                    <td
-                      className={`number-col ${fund.perf1M >= 0 ? "positive" : "negative"}`}
-                    >
-                      {fund.perf1M >= 0 ? "+" : ""}
-                      {fund.perf1M.toFixed(2)}%
-                    </td>
-                    <td
-                      className={`number-col ${fund.perf1Y >= 0 ? "positive" : "negative"}`}
-                    >
-                      {fund.perf1Y >= 0 ? "+" : ""}
-                      {fund.perf1Y.toFixed(2)}%
-                    </td>
-                    <td className="number-col">
-                      {fund.volatility.toFixed(2)}%
-                    </td>
-                    <td className="number-col">{fund.sharpe.toFixed(2)}</td>
-                    <td className="number-col">
-                      {fund.managementFee.toFixed(2)}%
-                    </td>
-                    <td className="number-col">
-                      <span className={`risk-badge risk-${fund.riskRating}`}>
-                        {fund.riskRating}
-                      </span>
-                    </td>
-                    <td className="actions-col">
-                      <button
-                        className="btn-icon"
-                        title="View details"
-                        onClick={() => setDetailFundId(fund.id)}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      </button>
-                    </td>
+                        <div className="th-content">
+                          <span>{col.label}</span>
+                          {col.sortable && col.sortKey && (
+                            <span className="sort-icons">
+                              {sortBy === col.sortKey ? (
+                                sortOrder === 'asc' ? (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 14l5-5 5 5z"/>
+                                  </svg>
+                                ) : (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 10l5 5 5-5z"/>
+                                  </svg>
+                                )
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3">
+                                  <path d="M7 10l5 5 5-5z"/>
+                                </svg>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                    <th className="actions-col">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {allOpcvmsData?.data.map((fund) => (
+                    <tr
+                      key={fund.id}
+                      className={selectedFunds.includes(fund.id) ? "selected" : ""}
+                    >
+                      <td className="checkbox-col">
+                        <input
+                          type="checkbox"
+                          checked={selectedFunds.includes(fund.id)}
+                          onChange={() => handleToggleFundSelection(fund.id)}
+                        />
+                      </td>
+                      <td className="fund-name-col">
+                        <Link href={`/opcvm/${fund.id}`} className="fund-name-btn">
+                          {fund.intitule}
+                        </Link>
+                        <span className="fund-market">{fund.bourse}</span>
+                      </td>
+                      <td className="isin-col">{fund.isin}</td>
+                      {currentFamily.columns.map((col) => {
+                        const value = col.accessor(fund);
+                        const formattedValue = col.format ? col.format(value) : value;
+                        
+                        if (col.key === 'nature') {
+                          return (
+                            <td key={col.key}>
+                              <span className={`badge badge-${value?.toLowerCase()}`}>
+                                {value?.toUpperCase()}
+                              </span>
+                            </td>
+                          );
+                        }
+                        
+                        if (col.key === 'risk') {
+                          return (
+                            <td key={col.key} className={col.className}>
+                              <span className={`risk-badge risk-${value}`}>
+                                {value}
+                              </span>
+                            </td>
+                          );
+                        }
+                        
+                        const isPerformance = col.key.startsWith('perf_');
+                        const className = isPerformance && value != null && value >= 0 
+                          ? `${col.className} positive` 
+                          : isPerformance && value != null && value < 0
+                          ? `${col.className} negative`
+                          : col.className;
+                        
+                        return (
+                          <td key={col.key} className={className}>
+                            {formattedValue}
+                          </td>
+                        );
+                      })}
+                      <td className="actions-col">
+                        <button
+                          className="btn-icon"
+                          title="View details"
+                          onClick={() => setDetailFundId(fund.id)}
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        {/* Right Sidebar - Detail Panel */}
-        {detailFundId && (
-          <div className="detail-panel">
+            {/* Right Sidebar - Detail Panel */}
+            {detailFundId && (
+              <div className="detail-panel">
             <div className="detail-header">
               <h3>Fund Details</h3>
               <button
@@ -805,39 +598,38 @@ export default function OPCVMScreenerPage() {
                 return (
                   <>
                     <div className="detail-fund-header">
-                      <h4>{fund.name}</h4>
+                      <h4>{fund.intitule}</h4>
                       <span
-                        className={`badge badge-${fund.nature.toLowerCase()}`}
+                        className={`badge badge-${fund.nature?.toLowerCase()}`}
                       >
                         {fund.nature}
                       </span>
                     </div>
                     <div className="detail-metrics">
                       <div className="metric-item">
-                        <span className="metric-label">Current NAV</span>
+                        <span className="metric-label">AUM</span>
                         <span className="metric-value">
-                          {fund.nav.toLocaleString()} {fund.currency}
+                          {(fund.aum / 1000000).toFixed(0)}M {typeof fund.currency==='string'? fund.currency : fund.currency?.name}
                         </span>
                       </div>
                       <div className="metric-item">
-                        <span className="metric-label">1Y Performance</span>
+                        <span className="metric-label">Performance ({selectedPeriod})</span>
                         <span
-                          className={`metric-value ${fund.perf1Y >= 0 ? "positive" : "negative"}`}
+                          className={`metric-value ${getMetricsByPeriod(fund, selectedPeriod).perf !== null && getMetricsByPeriod(fund, selectedPeriod).perf !== undefined && getMetricsByPeriod(fund, selectedPeriod).perf! >= 0 ? "positive" : "negative"}`}
                         >
-                          {fund.perf1Y >= 0 ? "+" : ""}
-                          {fund.perf1Y.toFixed(2)}%
+                          {getMetricsByPeriod(fund, selectedPeriod).perf !== null && getMetricsByPeriod(fund, selectedPeriod).perf !== undefined ? `${getMetricsByPeriod(fund, selectedPeriod).perf! >= 0 ? "+" : ""}${getMetricsByPeriod(fund, selectedPeriod).perf!.toFixed(2)}%` : 'N/A'}
                         </span>
                       </div>
                       <div className="metric-item">
-                        <span className="metric-label">Volatility</span>
+                        <span className="metric-label">Volatility ({selectedPeriod})</span>
                         <span className="metric-value">
-                          {fund.volatility.toFixed(2)}%
+                          {getMetricsByPeriod(fund, selectedPeriod).vol !== null && getMetricsByPeriod(fund, selectedPeriod).vol !== undefined ? `${getMetricsByPeriod(fund, selectedPeriod).vol!.toFixed(2)}%` : 'N/A'}
                         </span>
                       </div>
                       <div className="metric-item">
-                        <span className="metric-label">Sharpe Ratio</span>
+                        <span className="metric-label">Sharpe Ratio ({selectedPeriod})</span>
                         <span className="metric-value">
-                          {fund.sharpe.toFixed(2)}
+                          {getMetricsByPeriod(fund, selectedPeriod).sharpe !== null && getMetricsByPeriod(fund, selectedPeriod).sharpe !== undefined ? getMetricsByPeriod(fund, selectedPeriod).sharpe!.toFixed(2) : 'N/A'}
                         </span>
                       </div>
                     </div>
@@ -853,8 +645,112 @@ export default function OPCVMScreenerPage() {
                 );
               })()}
             </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Pagination */}
+          {allOpcvmsData && allOpcvmsData.total_pages > 1 && (
+            <div className="pagination-container">
+              <div className="pagination-info">
+                Showing {((currentPage - 1) * 100) + 1} - {Math.min(currentPage * 100, allOpcvmsData.count)} of {allOpcvmsData.count} funds
+              </div>
+              <div className="pagination-controls">
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="11 17 6 12 11 7" />
+                    <polyline points="18 17 13 12 18 7" />
+                  </svg>
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                
+                {/* Page numbers */}
+                <div className="page-numbers">
+                  {(() => {
+                    const pages = [];
+                    const totalPages = allOpcvmsData.total_pages;
+                    const maxVisible = 5;
+                    
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                    
+                    if (endPage - startPage < maxVisible - 1) {
+                      startPage = Math.max(1, endPage - maxVisible + 1);
+                    }
+                    
+                    if (startPage > 1) {
+                      pages.push(
+                        <button key={1} className="page-number" onClick={() => handlePageChange(1)}>
+                          1
+                        </button>
+                      );
+                      if (startPage > 2) {
+                        pages.push(<span key="ellipsis-start" className="ellipsis">...</span>);
+                      }
+                    }
+                    
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          className={`page-number ${i === currentPage ? 'active' : ''}`}
+                          onClick={() => handlePageChange(i)}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    
+                    if (endPage < totalPages) {
+                      if (endPage < totalPages - 1) {
+                        pages.push(<span key="ellipsis-end" className="ellipsis">...</span>);
+                      }
+                      pages.push(
+                        <button key={totalPages} className="page-number" onClick={() => handlePageChange(totalPages)}>
+                          {totalPages}
+                        </button>
+                      );
+                    }
+                    
+                    return pages;
+                  })()}
+                </div>
+
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === allOpcvmsData.total_pages}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(allOpcvmsData.total_pages)}
+                  disabled={currentPage === allOpcvmsData.total_pages}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="13 17 18 12 13 7" />
+                    <polyline points="6 17 11 12 6 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Quick Compare Tray */}
@@ -896,7 +792,7 @@ export default function OPCVMScreenerPage() {
               if (!fund) return null;
               return (
                 <div key={fundId} className="tray-fund-item">
-                  <span className="fund-name">{fund.name}</span>
+                  <span className="fund-name">{fund.intitule}</span>
                   <button
                     className="btn-remove"
                     onClick={() => handleToggleFundSelection(fundId)}
@@ -948,7 +844,6 @@ export default function OPCVMScreenerPage() {
               </button>
             </div>
             <div className="modal-body">
-              <p>Detailed comparison feature coming soon...</p>
               <div className="compare-table">
                 <table>
                   <thead>
@@ -956,55 +851,61 @@ export default function OPCVMScreenerPage() {
                       <th>Metric</th>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
-                        return <th key={fundId}>{fund?.name}</th>;
+                        return <th key={fundId}>{fund?.intitule}</th>;
                       })}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>1Y Performance</td>
+                      <td>Performance ({selectedPeriod})</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
+                        const metrics = fund ? getMetricsByPeriod(fund, selectedPeriod) : null;
                         return (
                           <td
                             key={fundId}
                             className={
-                              fund && fund.perf1Y >= 0 ? "positive" : "negative"
+                              metrics && metrics.perf !== null && metrics.perf !== undefined && metrics.perf >= 0
+                                ? "positive"
+                                : "negative"
                             }
                           >
-                            {fund &&
-                              `${fund.perf1Y >= 0 ? "+" : ""}${fund.perf1Y.toFixed(2)}%`}
+                            {metrics && metrics.perf !== null && metrics.perf !== undefined
+                              ? `${metrics.perf >= 0 ? "+" : ""}${metrics.perf.toFixed(2)}%`
+                              : 'N/A'}
                           </td>
                         );
                       })}
                     </tr>
                     <tr>
-                      <td>Volatility</td>
+                      <td>Volatility ({selectedPeriod})</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
+                        const metrics = fund ? getMetricsByPeriod(fund, selectedPeriod) : null;
                         return (
                           <td key={fundId}>
-                            {fund && `${fund.volatility.toFixed(2)}%`}
+                            {metrics && metrics.vol ? `${metrics.vol.toFixed(2)}%` : 'N/A'}
                           </td>
                         );
                       })}
                     </tr>
                     <tr>
-                      <td>Sharpe Ratio</td>
+                      <td>Sharpe Ratio ({selectedPeriod})</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
+                        const metrics = fund ? getMetricsByPeriod(fund, selectedPeriod) : null;
                         return (
-                          <td key={fundId}>{fund && fund.sharpe.toFixed(2)}</td>
+                          <td key={fundId}>{metrics && metrics.sharpe ? metrics.sharpe.toFixed(2) : 'N/A'}</td>
                         );
                       })}
                     </tr>
                     <tr>
-                      <td>Management Fees</td>
+                      <td>Risk Level</td>
                       {selectedFunds.map((fundId) => {
                         const fund = filteredFunds.find((f) => f.id === fundId);
                         return (
                           <td key={fundId}>
-                            {fund && `${fund.managementFee.toFixed(2)}%`}
+                            {fund && fund.niveau_risque ? fund.niveau_risque : 'N/A'}
                           </td>
                         );
                       })}

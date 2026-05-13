@@ -25,10 +25,10 @@ export default function NewsHeader({ onSearch, onFilterChange }: NewsHeaderProps
   ];
 
   const backgroundImages = [
-    '/images/news-header-1.jpg', // Marchés financiers
-    '/images/news-header-2.jpg', // Indices boursiers
-    '/images/news-header-3.jpg', // Analyses expertes
-    '/images/news-header-4.jpg', // Veille intelligente
+    '/images/ban.jpg', // Marchés financiers
+    '/images/ban1.jpg', // Indices boursiers
+    '/images/ban.jpg', // Analyses expertes
+    '/images/ban1.jpg', // Veille intelligente
   ];
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function NewsHeader({ onSearch, onFilterChange }: NewsHeaderProps
   return (
     <div className="news-header">
       {/* Ticker Indices */}
-      <div className="news-ticker">
+      {/* <div className="news-ticker">
         <div className="ticker-content">
           {MARKET_TICKERS.map((ticker, index) => (
             <div key={ticker.symbol} className="ticker-item">
@@ -70,13 +70,14 @@ export default function NewsHeader({ onSearch, onFilterChange }: NewsHeaderProps
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* Main Header */}
       <div 
         className="news-header__main"
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url(${backgroundImages[currentSubtitle]})`,
+          // backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url(${backgroundImages[currentSubtitle]})`,
+          backgroundImage: `linear-gradient(to right, rgba(0, 0, 0, 1) 5%, rgba(0, 0, 0, 0.2)), url(${backgroundImages[currentSubtitle]})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',

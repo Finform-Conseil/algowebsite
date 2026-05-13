@@ -1,7 +1,6 @@
 export enum OPCVMNatureEnum {
     FCP = "fcp",
-    SICAV = "sicav",
-    HEDGE_FUND = "hedge_fund"
+    SICAV = "sicav"
 }
 
 export enum OPCVMTypeEnum {

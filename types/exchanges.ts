@@ -26,12 +26,7 @@ export interface StockExchange {
   volatility: number; // annualized
   
   // Structure
-  regulation: RegulationLevel;
-  foreignAccess: ForeignAccessLevel;
-  marketMaturity: MaturityLevel;
   dominantSectors: string[];
-  tradingHours: TradingHours;
-  settlementMethod: SettlementMethod;
   
   // Metrics
   liquidity: LiquidityLevel;
@@ -63,13 +58,6 @@ export interface ForeignAccessLevel {
 export interface MaturityLevel {
   level: 'mature' | 'developing' | 'emerging';
   description: string;
-}
-
-export interface TradingHours {
-  open: string;
-  close: string;
-  lunchBreak?: string;
-  days: string[];
 }
 
 export interface SettlementMethod {

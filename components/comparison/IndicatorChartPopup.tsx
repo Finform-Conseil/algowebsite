@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
-import { ComparisonStock, Indicator } from '@/core/data/StockComparison';
+import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { ColumnDefinition } from '@/core/data/ColumnRegistry';
 
 interface IndicatorChartPopupProps {
-  indicator: Indicator;
-  stocks: ComparisonStock[];
+  indicator: ColumnDefinition;
+  stocks: ActionEntity[];
   children: React.ReactNode;
 }
 
@@ -73,13 +74,16 @@ export default function IndicatorChartPopup({ indicator, stocks, children }: Ind
     const chart = echarts.init(chartRef.current);
 
     // Bar Chart only
-    const data = stocks.map((stock, index) => ({
-      name: stock.ticker,
-      value: stock[indicator.field] as number,
-      itemStyle: {
-        color: COLORS[index % COLORS.length],
-      },
-    }));
+    const data = stocks.map((stock, index) => {
+      const value = indicator.accessor(stock);
+      return {
+        name: stock.ticker,
+        value: value !== null && value !== undefined ? Number(value) : 0,
+        itemStyle: {
+          color: COLORS[index % COLORS.length],
+        },
+      };
+    });
 
     const option: echarts.EChartsOption = {
       title: {
@@ -103,7 +107,8 @@ export default function IndicatorChartPopup({ indicator, stocks, children }: Ind
         },
         formatter: (params: any) => {
           const param = params[0];
-          return `${param.marker} ${param.name}: ${param.value}${indicator.unit}`;
+          const formattedValue = indicator.format ? indicator.format(param.value) : param.value;
+          return `${param.marker} ${param.name}: ${formattedValue}`;
         },
       },
       grid: {
@@ -130,7 +135,12 @@ export default function IndicatorChartPopup({ indicator, stocks, children }: Ind
         axisLabel: {
           color: 'var(--text-secondary)',
           fontSize: 10,
-          formatter: (value: number) => `${value}${indicator.unit}`,
+          formatter: (value: number) => {
+            if (indicator.format) return indicator.format(value);
+            if (indicator.type === 'percentage') return `${value.toFixed(1)}%`;
+            if (indicator.type === 'currency') return `$${(value / 1000000).toFixed(1)}M`;
+            return value.toFixed(1);
+          },
         },
         splitLine: {
           lineStyle: {
@@ -149,7 +159,12 @@ export default function IndicatorChartPopup({ indicator, stocks, children }: Ind
             position: 'top',
             color: 'var(--text-color)',
             fontSize: 10,
-            formatter: (params: any) => `${params.value}${indicator.unit}`,
+            formatter: (params: any) => {
+              if (indicator.format) return indicator.format(params.value);
+              if (indicator.type === 'percentage') return `${params.value.toFixed(1)}%`;
+              if (indicator.type === 'currency') return `$${(params.value / 1000000).toFixed(1)}M`;
+              return params.value.toFixed(1);
+            },
           },
         },
       ],

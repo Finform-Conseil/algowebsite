@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
-import { ComparisonStock, Indicator } from '@/core/data/StockComparison';
+import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { ColumnDefinition } from '@/core/data/ColumnRegistry';
 
 interface ComparisonHistogramsTabProps {
-  stocks: ComparisonStock[];
-  indicators: Indicator[];
+  stocks: ActionEntity[];
+  indicators: ColumnDefinition[];
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -21,8 +22,8 @@ export default function ComparisonHistogramsTab({ stocks, indicators }: Comparis
           <rect x="14" y="14" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" />
         </svg>
-        <h3>Données insuffisantes</h3>
-        <p>Sélectionnez des actions et indicateurs pour afficher les histogrammes comparatifs</p>
+        <h3>Insufficient Data</h3>
+        <p>Select stocks and indicators to display comparative histograms</p>
       </div>
     );
   }
@@ -30,8 +31,8 @@ export default function ComparisonHistogramsTab({ stocks, indicators }: Comparis
   return (
     <div className="comparison-histograms-tab">
       <div className="histograms-header">
-        <h3>Comparaison Multi-Années par Indicateur</h3>
-        <p>Analyse de l'évolution des indicateurs sur plusieurs années pour chaque action</p>
+        <h3>Multi-Year Comparison by Indicator</h3>
+        <p>Analysis of indicator evolution over multiple years for each stock</p>
       </div>
 
       <div className="histograms-grid">
@@ -48,8 +49,8 @@ export default function ComparisonHistogramsTab({ stocks, indicators }: Comparis
 }
 
 interface HistogramChartProps {
-  indicator: Indicator;
-  stocks: ComparisonStock[];
+  indicator: ColumnDefinition;
+  stocks: ActionEntity[];
 }
 
 function HistogramChart({ indicator, stocks }: HistogramChartProps) {
@@ -60,16 +61,17 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
 
     const chart = echarts.init(chartRef.current);
 
-    // Générer des données multi-années simulées (2019-2024)
+    // Generate simulated multi-year data (2019-2024)
     const years = ['2019', '2020', '2021', '2022', '2023', '2024'];
     
     const series = stocks.map((stock, index) => {
-      const currentValue = stock[indicator.field] as number;
-      // Simuler des variations historiques basées sur la valeur actuelle
+      const currentValue = indicator.accessor(stock);
+      const numValue = currentValue !== null && currentValue !== undefined ? Number(currentValue) : 0;
+      // Simulate historical variations based on current value
       const historicalData = years.map((_, yearIndex) => {
-        const variation = (Math.random() - 0.5) * 0.3; // ±15% de variation
+        const variation = (Math.random() - 0.5) * 0.3; // ±15% variation
         const factor = 1 + (variation * (yearIndex / years.length));
-        return Number((currentValue * factor).toFixed(2));
+        return Number((numValue * factor).toFixed(2));
       });
 
       return {
@@ -114,7 +116,8 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
         formatter: (params: any) => {
           let result = `<strong>${params[0].axisValue}</strong><br/>`;
           params.forEach((param: any) => {
-            result += `${param.marker} ${param.seriesName}: ${param.value}${indicator.unit}<br/>`;
+            const formattedValue = indicator.format ? indicator.format(param.value) : param.value;
+            result += `${param.marker} ${param.seriesName}: ${formattedValue}<br/>`;
           });
           return result;
         },
@@ -147,13 +150,18 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
       },
       yAxis: {
         type: 'value',
-        name: indicator.unit,
+        name: indicator.type,
         nameTextStyle: {
           color: 'var(--text-secondary)',
         },
         axisLabel: {
           color: 'var(--text-secondary)',
-          formatter: (value: number) => `${value}${indicator.unit}`,
+          formatter: (value: number) => {
+            if (indicator.format) return indicator.format(value);
+            if (indicator.type === 'percentage') return `${value.toFixed(1)}%`;
+            if (indicator.type === 'currency') return `$${(value / 1000000).toFixed(1)}M`;
+            return value.toFixed(1);
+          },
         },
         splitLine: {
           lineStyle: {
@@ -179,7 +187,7 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
   return (
     <div className="histogram-card">
       <div className="histogram-card__info">
-        <span className="info-badge">{indicator.category}</span>
+        <span className="info-badge">{indicator.type}</span>
         <p className="info-description">{indicator.description}</p>
       </div>
       <div ref={chartRef} className="histogram-chart" style={{ width: '100%', height: '350px' }} />

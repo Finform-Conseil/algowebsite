@@ -2,7 +2,7 @@
 
 export type Period = 'day' | 'week' | 'month';
 export type Exchange = 'BRVM' | 'JSE' | 'CSE' | 'NGX' | 'GSE' | 'NSE' | 'EGX' | 'TUNSE';
-export type Sector = 'Finance' | 'Énergie' | 'Télécom' | 'Industrie' | 'Consommation' | 'Immobilier' | 'Santé' | 'Technologie' | 'Matériaux' | 'Services';
+export type Sector = 'Finance' | 'Energy' | 'Telecom' | 'Industry' | 'Consumer' | 'Real Estate' | 'Healthcare' | 'Technology' | 'Materials' | 'Services';
 export type Currency = 'XOF' | 'ZAR' | 'EGP' | 'NGN' | 'GHS' | 'KES' | 'TND' | 'USD';
 export type MarketSentiment = 'bullish' | 'bearish' | 'neutral';
 
@@ -13,15 +13,15 @@ export interface Stock {
   sector: Sector;
   price: number;
   currency: Currency;
-  change: number; // Variation en %
-  changeValue: number; // Variation en valeur
+  change: number; // Change in %
+  changeValue: number; // Change in value
   volume: number;
-  avgVolume: number; // Volume moyen 30 jours
+  avgVolume: number; // 30-day average volume
   marketCap: number;
   open: number;
   high: number;
   low: number;
-  sparklineData: number[]; // Données pour mini-graphique
+  sparklineData: number[]; // Data for mini-chart
   lastUpdate: Date;
 }
 
@@ -49,7 +49,7 @@ export interface HeatmapItem {
   sector: Sector;
   exchange: Exchange;
   change: number;
-  value: number; // Pour la taille (marketCap ou volume)
+  value: number; // For size (marketCap or volume)
   price: number;
   volume: number;
   marketCap: number;

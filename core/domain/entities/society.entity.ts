@@ -1,3 +1,4 @@
+import { ActivityEntity } from "./activity.entity";
 import { CountryEntity } from "./country.entity";
 import { IndustryEntity } from "./industry.entity";
 import { InstitutionEntity } from "./institution.entity";
@@ -10,6 +11,7 @@ export interface SocietyEntity {
     institution?: InstitutionEntity;
     country?: CountryEntity;
     industry: IndustryEntity;
+    activity: ActivityEntity;
     description: string;
     phone?: string;
     email?: string;
@@ -35,4 +37,14 @@ export interface SocietyEntity {
 }
 
 
-    
+export interface ShortSocietyEntity {
+    id: string;
+    number?: string;
+    name: string;
+    market_cap: number;
+    bourse: string;
+    performance_1y: number;
+    volatility: number;
+    roe: number;
+    roa: number;
+}

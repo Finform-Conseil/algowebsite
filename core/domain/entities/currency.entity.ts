@@ -4,5 +4,5 @@ export interface CurrencyEntity {
     symbol: string;
     code: string;
     slug?: string;
-    description: string;
+    description?: string;
 }

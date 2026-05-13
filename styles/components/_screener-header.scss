@@ -4,17 +4,17 @@
 
 .screener-header-component {
   background: var(--card-background);
-  border-bottom: 1px solid var(--border-color);
+  // border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 
   &__hero {
     position: relative;
     max-height: 140px;
-    min-height: 140px;
+    // min-height: 140px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
+    padding: 1.5rem;
     overflow: hidden;
     background-color: var(--background-secondary);
   }
@@ -41,53 +41,104 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
-  &__kpis {
+  .header-actions {
     display: flex;
     gap: 0.75rem;
     z-index: 1;
+    align-items: center;
 
-    .kpi-card {
-      background: rgba(255, 255, 255, 0.1);
+    .search-bar {
+      flex: 1;
+      max-width: 500px;
+
+      .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+
+        svg {
+          position: absolute;
+          left: 1rem;
+          color: rgba(255, 255, 255, 0.7);
+          pointer-events: none;
+        }
+
+        input {
+          width: 100%;
+          padding: 0.75rem 3rem 0.75rem 3rem;
+          background: var(--hover-background);
+          border: 2px solid var(--border-color);
+          backdrop-filter: blur(10px);
+          border-radius: 8px;
+          font-size: 0.9375rem;
+          color: white;
+          transition: all 0.3s ease;
+
+          &:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.15);
+          }
+
+          &::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+          }
+        }
+
+        .clear-search {
+          position: absolute;
+          right: 1rem;
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.7);
+          cursor: pointer;
+          padding: 0.25rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          transition: all 0.3s ease;
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+          }
+
+          svg {
+            position: static;
+          }
+        }
+      }
+    }
+
+    .btn-secondary {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: var(--hover-background);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 0.65rem 1rem;
-      min-width: 110px;
-      text-align: center;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
       transition: all 0.3s ease;
+      white-space: nowrap;
+
+      svg {
+        color: rgba(255, 255, 255, 0.9);
+      }
 
       &:hover {
         background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
         transform: translateY(-2px);
       }
 
-      .kpi-value {
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: white;
-        margin-bottom: 0.15rem;
-
-        &--positive {
-          color: #10b981;
-        }
-
-        &--negative {
-          color: #ef4444;
-        }
-      }
-
-      .kpi-label {
-        font-size: 0.65rem;
-        color: rgba(255, 255, 255, 0.8);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        font-weight: 500;
-      }
-
-      .kpi-sublabel {
-        font-size: 0.6rem;
-        color: rgba(255, 255, 255, 0.6);
-        margin-top: 0.15rem;
+      &:active {
+        transform: translateY(0);
       }
     }
   }
@@ -104,14 +155,18 @@
       padding: 1rem;
     }
 
-    &__kpis {
+    .header-actions {
       width: 100%;
       margin-top: 0.75rem;
       flex-wrap: wrap;
 
-      .kpi-card {
+      .search-bar {
+        max-width: 100%;
+        flex: 1 1 100%;
+      }
+
+      .btn-secondary {
         flex: 1;
-        min-width: 100px;
       }
     }
 
@@ -127,17 +182,23 @@
 
 @media (max-width: 768px) {
   .screener-header-component {
-    &__kpis {
-      .kpi-card {
-        min-width: 90px;
-        padding: 0.5rem 0.75rem;
-
-        .kpi-value {
-          font-size: 1.15rem;
+    .header-actions {
+      .search-bar {
+        .search-input-wrapper {
+          input {
+            font-size: 0.875rem;
+            padding: 0.65rem 2.5rem 0.65rem 2.5rem;
+          }
         }
+      }
 
-        .kpi-label {
-          font-size: 0.6rem;
+      .btn-secondary {
+        padding: 0.65rem 0.875rem;
+        font-size: 0.8125rem;
+
+        svg {
+          width: 16px;
+          height: 16px;
         }
       }
     }

@@ -709,9 +709,14 @@ export default function OPCVMChartView({ fundName, fundTicker }: OPCVMChartViewP
     chart.getZr().on('globalout', handleGlobalOut);
 
     return () => {
-      chart.getZr().off('click', handleChartClick);
-      chart.getZr().off('mousemove', handleMouseMove);
-      chart.getZr().off('globalout', handleGlobalOut);
+      if (chart && chart.getZr) {
+        const zr = chart.getZr();
+        if (zr) {
+          zr.off('click', handleChartClick);
+          zr.off('mousemove', handleMouseMove);
+          zr.off('globalout', handleGlobalOut);
+        }
+      }
     };
   }, [chart, selectedTool, drawingMode, draftPoints, navData, magnetMode, stayInDrawingMode, drawingsLocked]);
 

@@ -1,21 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import SectorsHeader from '@/components/sectors/SectorsHeader';
 import SectorDistribution from '@/components/sectors/SectorDistribution';
 import SectorPerformance from '@/components/sectors/SectorPerformance';
 import SectorRankings from '@/components/sectors/SectorRankings';
 import SectorIcon from '@/components/sectors/SectorIcon';
-import { AFRICAN_SECTORS, getTotalMarketCap, getTotalStockCount } from '@/core/data/SectorsData';
-import { Period, ComparisonMode } from '@/types/sectors';
+import { useSectorRepository } from '@/core/infra/repositories/sector.repository.impl';
+import { transformSectorsData } from '@/lib/utils/sectorTransform';
+import { SectorWithStats } from '@/core/domain/entities/sector.entity';
+import { Sector } from '@/types/sectors';
 
 type TabType = 'distribution' | 'performance' | 'rankings' | 'comparison' | 'heatmap' | 'table';
 
 export default function SectorsPage() {
-  const [selectedExchanges, setSelectedExchanges] = useState<string[]>(['brvm', 'jse', 'ngx', 'cse']);
-  const [period, setPeriod] = useState<Period>('1Y');
-  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('inter-bourses');
+  const [selectedExchanges, setSelectedExchanges] = useState<string[]>(['brvm', 'cse']);
   const [selectedSectorId, setSelectedSectorId] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState<TabType>('distribution');
 
@@ -27,13 +27,33 @@ export default function SectorsPage() {
     );
   };
 
-  // Filter sectors based on selected exchanges
-  const filteredSectors = AFRICAN_SECTORS.filter(sector =>
-    sector.exchangeBreakdown.some(ex => selectedExchanges.includes(ex.exchangeId))
-  );
+  const { allSectorsData, getAllSectors } = useSectorRepository();
+  
+  useEffect(() => {
+    getAllSectors({view_type: 'screener'});
+  }, []);
 
-  const totalMarketCap = getTotalMarketCap();
-  const totalStocks = getTotalStockCount();
+  useEffect(() => {
+    console.log("All Sectors Data", allSectorsData);
+  }, [allSectorsData]);
+
+  // Transform backend data to frontend format
+  const sectors: Sector[] = useMemo(() => {
+    if (!allSectorsData?.data) return [];
+    return transformSectorsData(allSectorsData.data as SectorWithStats[], selectedExchanges);
+  }, [allSectorsData, selectedExchanges]);
+
+  // Calculate totals
+  const totalMarketCap = useMemo(() => {
+    return sectors.reduce((sum, s) => sum + s.totalMarketCap, 0);
+  }, [sectors]);
+
+  const totalStocks = useMemo(() => {
+    return sectors.reduce((sum, s) => sum + s.stockCount, 0);
+  }, [sectors]);
+
+  // Filter sectors based on selected exchanges (already done in transform)
+  const filteredSectors = sectors;
 
   const tabs = [
     { id: 'distribution' as TabType, label: 'Répartition', icon: 'pie-chart' },
@@ -50,11 +70,8 @@ export default function SectorsPage() {
       <SectorsHeader
         selectedExchanges={selectedExchanges}
         onExchangeToggle={handleExchangeToggle}
-        period={period}
-        onPeriodChange={setPeriod}
-        comparisonMode={comparisonMode}
-        onComparisonModeChange={setComparisonMode}
-        totalSectors={AFRICAN_SECTORS.length}
+        onExchangesChange={setSelectedExchanges}
+        totalSectors={sectors.length}
         totalStocks={totalStocks}
         totalMarketCap={totalMarketCap}
       />
@@ -75,18 +92,28 @@ export default function SectorsPage() {
 
       {/* Main Content with Tabs */}
       <div className="sectors-content">
-        {activeTab === 'distribution' && (
-          <SectorDistribution
-            sectors={filteredSectors}
-            onSectorSelect={setSelectedSectorId}
-            selectedSectorId={selectedSectorId}
-          />
-        )}
+        {!allSectorsData?.data ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Chargement des données sectorielles...</p>
+          </div>
+        ) : sectors.length === 0 ? (
+          <div className="empty-state">
+            <p>Aucun secteur trouvé pour les bourses sélectionnées.</p>
+          </div>
+        ) : (
+          <>
+            {activeTab === 'distribution' && (
+              <SectorDistribution
+                sectors={filteredSectors}
+                onSectorSelect={setSelectedSectorId}
+                selectedSectorId={selectedSectorId}
+              />
+            )}
 
         {activeTab === 'performance' && (
           <SectorPerformance
             sectors={filteredSectors}
-            period={period}
             selectedSectorId={selectedSectorId}
             onSectorSelect={setSelectedSectorId}
           />
@@ -229,6 +256,8 @@ export default function SectorsPage() {
               </table>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

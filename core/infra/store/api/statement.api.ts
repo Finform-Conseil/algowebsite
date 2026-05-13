@@ -39,13 +39,13 @@ export const statementApi = api.injectEndpoints({
             method: "GET",
             params: params || {},
         }),
-        providesTags: (result, error, arg) =>
-            result
-            ? [
-                ...result.data.map(({ id }) => ({ type: "Statements" as const, id })),
-                { type: "Statements", id: "LIST" },
-                { type: "Statements", id: `PAGE-${result.current_page}` },
-            ] : [{ type: "Statements", id: "LIST" }],
+        // providesTags: (result, error, arg) =>
+        //     result
+        //     ? [
+        //         ...result.data.map(({ id }) => ({ type: "Statements" as const, id })),
+        //         { type: "Statements", id: "LIST" },
+        //         { type: "Statements", id: `PAGE-${result.current_page}` },
+        //     ] : [{ type: "Statements", id: "LIST" }],
     }),
     getStatementById: builder.query<FinancialValueEntity, { id: string }>({
       query: ({ id }) => `/financial-values/${id}/`,

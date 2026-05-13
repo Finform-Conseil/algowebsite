@@ -1,6 +1,6 @@
 'use client';
 
-import { ActiveFilter } from '@/core/data/StockScreenerV2';
+import { ActiveFilter } from '@/core/data/StockScreenerFilters';
 
 interface FilterChipProps {
   filter: ActiveFilter;
@@ -35,7 +35,7 @@ export default function FilterChip({ filter, onRemove, onEdit }: FilterChipProps
       <span className="filter-chip__name">{filter.criterion.name}</span>
       <span className="filter-chip__operator">{getOperatorSymbol(filter.operator)}</span>
       <input
-        type={filter.criterion.type === 'select' ? 'text' : 'number'}
+        type="number"
         className="filter-chip__value"
         value={filter.value}
         onChange={(e) => {

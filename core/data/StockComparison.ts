@@ -2,6 +2,8 @@
 // Stock Comparison Data & Types
 // ============================================
 
+import { OPCVMEntity, OPCVMMetricEntity } from "../domain/entities/opcvm.entity";
+
 export interface ComparisonStock {
   id: string;
   ticker: string;
@@ -81,6 +83,12 @@ export interface IndicatorCategory {
   indicators: Indicator[];
 }
 
+export interface OPCVMIndicatorCategory {
+  id: string;
+  name: string;
+  indicators: OPCVMIndicator[];
+}
+
 export interface Indicator {
   id: string;
   name: string;
@@ -90,6 +98,108 @@ export interface Indicator {
   description: string;
   higherIsBetter: boolean;
 }
+
+export interface OPCVMIndicator {
+  id: string;
+  name: string;
+  field: keyof OPCVMMetricEntity;
+  category: string;
+  unit: '%' | '$' | 'x' | 'Md' | '';
+  description: string;
+  higherIsBetter: boolean;
+}
+
+export const OPCVM_INDICATOR_CATEGORIES: OPCVMIndicatorCategory[] = [
+  {
+    id: 'fund-performance',
+    name: 'Fund Performance',
+    indicators: [
+      { id: 'performance_1m', name: 'Performance 1M', field: 'performance_1m', category: 'fund-performance', unit: '%', description: 'Performance sur 1 mois', higherIsBetter: true },
+      { id: 'performance_3m', name: 'Performance 3M', field: 'performance_3m', category: 'fund-performance', unit: '%', description: 'Performance sur 3 mois', higherIsBetter: true },
+      { id: 'performance_6m', name: 'Performance 6M', field: 'performance_6m', category: 'fund-performance', unit: '%', description: 'Performance sur 6 mois', higherIsBetter: true },
+      { id: 'performance_1y', name: 'Performance 1A', field: 'performance_1y', category: 'fund-performance', unit: '%', description: 'Performance sur 1 an', higherIsBetter: true },
+      { id: 'performance_5y', name: 'Performance 5A', field: 'performance_5y', category: 'fund-performance', unit: '%', description: 'Performance sur 5 ans', higherIsBetter: true },
+    ],
+  },
+  {
+    id: 'fund-rendement',
+    name: 'Fund Rendement',
+    indicators: [
+      { id: 'rendement_1m', name: 'Rendement 1M', field: 'rendement_1m', category: 'fund-rendement', unit: '%', description: 'Rendement sur 1 mois', higherIsBetter: true },
+      { id: 'rendement_3m', name: 'Rendement 3M', field: 'rendement_3m', category: 'fund-rendement', unit: '%', description: 'Rendement sur 3 mois', higherIsBetter: true },
+      { id: 'rendement_6m', name: 'Rendement 6M', field: 'rendement_6m', category: 'fund-rendement', unit: '%', description: 'Rendement sur 6 mois', higherIsBetter: true },
+      { id: 'rendement_1y', name: 'Rendement 1A', field: 'rendement_1y', category: 'fund-rendement', unit: '%', description: 'Rendement sur 1 an', higherIsBetter: true },
+      { id: 'rendement_5y', name: 'Rendement 5A', field: 'rendement_5y', category: 'fund-rendement', unit: '%', description: 'Rendement sur 5 ans', higherIsBetter: true },
+    ],
+  },
+  {
+    id: 'fund-volatility',
+    name: 'Fund Volatility',
+    indicators: [
+      { id: 'volatility_1m', name: 'Volatilité 1M', field: 'volatility_1m', category: 'fund-volatility', unit: '%', description: 'Volatilité sur 1 mois', higherIsBetter: false },
+      { id: 'volatility_3m', name: 'Volatilité 3M', field: 'volatility_3m', category: 'fund-volatility', unit: '%', description: 'Volatilité sur 3 mois', higherIsBetter: false },
+      { id: 'volatility_6m', name: 'Volatilité 6M', field: 'volatility_6m', category: 'fund-volatility', unit: '%', description: 'Volatilité sur 6 mois', higherIsBetter: false },
+      { id: 'volatility_1y', name: 'Volatilité 1A', field: 'volatility_1y', category: 'fund-volatility', unit: '%', description: 'Volatilité sur 1 an', higherIsBetter: false },
+      { id: 'volatility_5y', name: 'Volatilité 5A', field: 'volatility_5y', category: 'fund-volatility', unit: '%', description: 'Volatilité sur 5 ans', higherIsBetter: false },
+    ],
+  },
+  {
+    id: 'fund-ratio-sharpe',
+    name: 'Fund Sharpe Ratio',
+    indicators: [
+      { id: 'sharpe_ratio_1m', name: 'Ratio Sharpe 1M', field: 'sharpe_ratio_1m', category: 'fund-ratio-sharpe', unit: '', description: 'Ratio Sharpe sur 1 mois', higherIsBetter: true },
+      { id: 'sharpe_ratio_3m', name: 'Ratio Sharpe 3M', field: 'sharpe_ratio_3m', category: 'fund-ratio-sharpe', unit: '', description: 'Ratio Sharpe sur 3 mois', higherIsBetter: true },
+      { id: 'sharpe_ratio_6m', name: 'Ratio Sharpe 6M', field: 'sharpe_ratio_6m', category: 'fund-ratio-sharpe', unit: '', description: 'Ratio Sharpe sur 6 mois', higherIsBetter: true },
+      { id: 'sharpe_ratio_1y', name: 'Ratio Sharpe 1A', field: 'sharpe_ratio_1y', category: 'fund-ratio-sharpe', unit: '', description: 'Ratio Sharpe sur 1 an', higherIsBetter: true },
+      { id: 'sharpe_ratio_5y', name: 'Ratio Sharpe 5A', field: 'sharpe_ratio_5y', category: 'fund-ratio-sharpe', unit: '', description: 'Ratio Sharpe sur 5 ans', higherIsBetter: true },
+    ],
+  },
+  {
+    id: 'fund-ratio-sortino',
+    name: 'Fund Sortino Ratio',
+    indicators: [
+      { id: 'sortino_ratio_1m', name: 'Ratio Sortino 1M', field: 'sortino_ratio_1m', category: 'fund-ratio-sortino', unit: '', description: 'Ratio Sortino sur 1 mois', higherIsBetter: true },
+      { id: 'sortino_ratio_3m', name: 'Ratio Sortino 3M', field: 'sortino_ratio_3m', category: 'fund-ratio-sortino', unit: '', description: 'Ratio Sortino sur 3 mois', higherIsBetter: true },
+      { id: 'sortino_ratio_6m', name: 'Ratio Sortino 6M', field: 'sortino_ratio_6m', category: 'fund-ratio-sortino', unit: '', description: 'Ratio Sortino sur 6 mois', higherIsBetter: true },
+      { id: 'sortino_ratio_1y', name: 'Ratio Sortino 1A', field: 'sortino_ratio_1y', category: 'fund-ratio-sortino', unit: '', description: 'Ratio Sortino sur 1 an', higherIsBetter: true },
+      { id: 'sortino_ratio_5y', name: 'Ratio Sortino 5A', field: 'sortino_ratio_5y', category: 'fund-ratio-sortino', unit: '', description: 'Ratio Sortino sur 5 ans', higherIsBetter: true },
+    ],
+  },
+  {
+    id: 'fund-ratio-calmar',
+    name: 'Fund Calmar Ratio',
+    indicators: [
+      { id: 'calmar_ratio_1m', name: 'Ratio Calmar 1M', field: 'calmar_ratio_1m', category: 'fund-ratio-calmar', unit: '', description: 'Ratio Calmar sur 1 mois', higherIsBetter: true },
+      { id: 'calmar_ratio_3m', name: 'Ratio Calmar 3M', field: 'calmar_ratio_3m', category: 'fund-ratio-calmar', unit: '', description: 'Ratio Calmar sur 3 mois', higherIsBetter: true },
+      { id: 'calmar_ratio_6m', name: 'Ratio Calmar 6M', field: 'calmar_ratio_6m', category: 'fund-ratio-calmar', unit: '', description: 'Ratio Calmar sur 6 mois', higherIsBetter: true },
+      { id: 'calmar_ratio_1y', name: 'Ratio Calmar 1A', field: 'calmar_ratio_1y', category: 'fund-ratio-calmar', unit: '', description: 'Ratio Calmar sur 1 an', higherIsBetter: true },
+      { id: 'calmar_ratio_5y', name: 'Ratio Calmar 5A', field: 'calmar_ratio_5y', category: 'fund-ratio-calmar', unit: '', description: 'Ratio Calmar sur 5 ans', higherIsBetter: true },
+    ],
+  },
+  {
+    id: 'fund-alpha',
+    name: 'Fund Alpha',
+    indicators: [
+      { id: 'alpha_1m', name: 'Alpha 1M', field: 'alpha_1m', category: 'fund-alpha', unit: '', description: 'Alpha sur 1 mois', higherIsBetter: true },
+      { id: 'alpha_3m', name: 'Alpha 3M', field: 'alpha_3m', category: 'fund-alpha', unit: '', description: 'Alpha sur 3 mois', higherIsBetter: true },
+      { id: 'alpha_6m', name: 'Alpha 6M', field: 'alpha_6m', category: 'fund-alpha', unit: '', description: 'Alpha sur 6 mois', higherIsBetter: true },
+      { id: 'alpha_1y', name: 'Alpha 1A', field: 'alpha_1y', category: 'fund-alpha', unit: '', description: 'Alpha sur 1 an', higherIsBetter: true },
+      { id: 'alpha_5y', name: 'Alpha 5A', field: 'alpha_5y', category: 'fund-alpha', unit: '', description: 'Alpha sur 5 ans', higherIsBetter: true },
+    ],
+  },
+  {
+    id: 'fund-beta',
+    name: 'Fund Beta',
+    indicators: [
+      { id: 'beta_1m', name: 'Beta 1M', field: 'beta_1m', category: 'fund-beta', unit: '', description: 'Beta sur 1 mois', higherIsBetter: true },
+      { id: 'beta_3m', name: 'Beta 3M', field: 'beta_3m', category: 'fund-beta', unit: '', description: 'Beta sur 3 mois', higherIsBetter: true },
+      { id: 'beta_6m', name: 'Beta 6M', field: 'beta_6m', category: 'fund-beta', unit: '', description: 'Beta sur 6 mois', higherIsBetter: true },
+      { id: 'beta_1y', name: 'Beta 1A', field: 'beta_1y', category: 'fund-beta', unit: '', description: 'Beta sur 1 an', higherIsBetter: true },
+      { id: 'beta_5y', name: 'Beta 5A', field: 'beta_5y', category: 'fund-beta', unit: '', description: 'Beta sur 5 ans', higherIsBetter: true },
+    ],
+  }
+]
+
 
 export const INDICATOR_CATEGORIES: IndicatorCategory[] = [
   {
@@ -542,4 +652,18 @@ export function getIndicatorById(id: string): Indicator | undefined {
 
 export function getTemplateById(id: string): ComparisonTemplate | undefined {
   return COMPARISON_TEMPLATES.find((t) => t.id === id);
+}
+
+
+// ============================================
+// Fonctions utilitaires OPCVM
+// ============================================
+
+
+export function getAllOpcvmIndicators(): OPCVMIndicator[] {
+  return OPCVM_INDICATOR_CATEGORIES.flatMap((cat) => cat.indicators);
+}
+
+export function getOpcvmIndicatorById(id: string): OPCVMIndicator | undefined {
+  return getAllOpcvmIndicators().find((ind) => ind.id === id);
 }

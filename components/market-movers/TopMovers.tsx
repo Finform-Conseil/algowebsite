@@ -89,7 +89,7 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                 <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                 <polyline points="17 6 23 6 23 12" />
               </svg>
-              Meilleures Hausses
+              Top Gainers
             </>
           ) : (
             <>
@@ -97,12 +97,12 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                 <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
                 <polyline points="17 18 23 18 23 12" />
               </svg>
-              Plus Fortes Baisses
+              Top Losers
             </>
           )}
         </h2>
         <div className="header-stats">
-          <span>{stocks.length} titres</span>
+          <span>{stocks.length} stocks</span>
         </div>
       </div>
 
@@ -112,12 +112,12 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
             <tr>
               <th className="rank">#</th>
               <th className="ticker">Ticker</th>
-              <th className="name">Nom</th>
+              <th className="name">Name</th>
               <th 
                 className="change sortable"
                 onClick={() => handleSort('change')}
               >
-                Variation
+                Change
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   {sortBy === 'change' && sortOrder === 'asc' ? (
                     <polyline points="18 15 12 9 6 15" />
@@ -126,7 +126,7 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                   )}
                 </svg>
               </th>
-              <th className="price">Prix</th>
+              <th className="price">Price</th>
               <th 
                 className="volume sortable"
                 onClick={() => handleSort('volume')}
@@ -140,8 +140,8 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                   )}
                 </svg>
               </th>
-              <th className="sparkline">Tendance</th>
-              <th className="exchange">Bourse</th>
+              <th className="sparkline">Trend</th>
+              <th className="exchange">Exchange</th>
               <th className="actions">Actions</th>
             </tr>
           </thead>
@@ -210,12 +210,12 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                   <span className="exchange-badge">{stock.exchange}</span>
                 </td>
                 <td className="actions">
-                  <button className="btn-icon" title="Ajouter à la watchlist">
+                  <button className="btn-icon" title="Add to watchlist">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                     </svg>
                   </button>
-                  <button className="btn-icon" title="Voir détails">
+                  <button className="btn-icon" title="View details">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                       <polyline points="15 3 21 3 21 9" />
@@ -250,19 +250,19 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                   <h4>{stock.name} ({stock.ticker})</h4>
                   <div className="details-grid">
                     <div className="detail-item">
-                      <span className="label">Ouverture</span>
+                      <span className="label">Open</span>
                       <span className="value">{formatPrice(stock.open, stock.currency)}</span>
                     </div>
                     <div className="detail-item">
-                      <span className="label">Plus haut</span>
+                      <span className="label">High</span>
                       <span className="value positive">{formatPrice(stock.high, stock.currency)}</span>
                     </div>
                     <div className="detail-item">
-                      <span className="label">Plus bas</span>
+                      <span className="label">Low</span>
                       <span className="value negative">{formatPrice(stock.low, stock.currency)}</span>
                     </div>
                     <div className="detail-item">
-                      <span className="label">Cap. boursière</span>
+                      <span className="label">Market Cap</span>
                       <span className="value">{(stock.marketCap / 1000000000).toFixed(2)}B</span>
                     </div>
                   </div>

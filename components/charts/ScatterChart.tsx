@@ -58,21 +58,23 @@ export default function ScatterChart({ data, xLabel, yLabel, title, height = '35
         nameLocation: 'middle',
         nameGap: 30,
         nameTextStyle: {
-          color: 'var(--text-secondary)',
+          color: '#ffffff',
           fontSize: 12,
         },
         axisLabel: {
-          color: 'var(--text-secondary)',
+          color: '#ffffff',
         },
         axisLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#ffffff',
+            width: 1,
           },
         },
         splitLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#ffffff',
             type: 'dashed',
+            opacity: 0.15,
           },
         },
       },
@@ -82,21 +84,23 @@ export default function ScatterChart({ data, xLabel, yLabel, title, height = '35
         nameLocation: 'middle',
         nameGap: 50,
         nameTextStyle: {
-          color: 'var(--text-secondary)',
+          color: '#ffffff',
           fontSize: 12,
         },
         axisLabel: {
-          color: 'var(--text-secondary)',
+          color: '#ffffff',
         },
         axisLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#ffffff',
+            width: 1,
           },
         },
         splitLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#ffffff',
             type: 'dashed',
+            opacity: 0.15,
           },
         },
       },

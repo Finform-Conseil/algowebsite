@@ -84,7 +84,7 @@ export default function MostActive({ stocks }: MostActiveProps) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
-          Plus Actives
+          Most Active
         </h2>
         <div className="header-controls">
           <div className="limit-selector">
@@ -116,13 +116,13 @@ export default function MostActive({ stocks }: MostActiveProps) {
             <tr>
               <th className="rank">#</th>
               <th className="ticker">Ticker</th>
-              <th className="name">Nom</th>
+              <th className="name">Name</th>
               <th className="volume">Volume</th>
-              <th className="volume-bar">Répartition</th>
-              <th className="volume-change">vs Moy. 30j</th>
-              <th className="change">Variation</th>
+              <th className="volume-bar">Distribution</th>
+              <th className="volume-change">vs 30d Avg</th>
+              <th className="change">Change</th>
               <th className="candlestick">Intraday</th>
-              <th className="exchange">Bourse</th>
+              <th className="exchange">Exchange</th>
             </tr>
           </thead>
           <tbody>
@@ -216,7 +216,7 @@ export default function MostActive({ stocks }: MostActiveProps) {
             <div className="slide-over__content">
               <div className="price-section">
                 <div className="current-price">
-                  <span className="label">Prix actuel</span>
+                  <span className="label">Current Price</span>
                   <span className="value">{formatPrice(selectedStock.price, selectedStock.currency)} {selectedStock.currency}</span>
                 </div>
                 <div className={`price-change ${selectedStock.change >= 0 ? 'positive' : 'negative'}`}>
@@ -229,15 +229,15 @@ export default function MostActive({ stocks }: MostActiveProps) {
 
               <div className="stats-grid">
                 <div className="stat-item">
-                  <span className="stat-label">Ouverture</span>
+                  <span className="stat-label">Open</span>
                   <span className="stat-value">{formatPrice(selectedStock.open, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Plus haut</span>
+                  <span className="stat-label">High</span>
                   <span className="stat-value positive">{formatPrice(selectedStock.high, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Plus bas</span>
+                  <span className="stat-label">Low</span>
                   <span className="stat-value negative">{formatPrice(selectedStock.low, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
@@ -245,19 +245,19 @@ export default function MostActive({ stocks }: MostActiveProps) {
                   <span className="stat-value">{formatVolume(selectedStock.volume)}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Vol. moyen 30j</span>
+                  <span className="stat-label">30d Avg Vol</span>
                   <span className="stat-value">{formatVolume(selectedStock.avgVolume)}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Cap. boursière</span>
+                  <span className="stat-label">Market Cap</span>
                   <span className="stat-value">{(selectedStock.marketCap / 1000000000).toFixed(2)}B</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Secteur</span>
+                  <span className="stat-label">Sector</span>
                   <span className="stat-value">{selectedStock.sector}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Bourse</span>
+                  <span className="stat-label">Exchange</span>
                   <span className="stat-value">{selectedStock.exchange}</span>
                 </div>
               </div>
@@ -267,14 +267,14 @@ export default function MostActive({ stocks }: MostActiveProps) {
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                   </svg>
-                  Ajouter à la watchlist
+                  Add to watchlist
                 </button>
                 <button className="btn-secondary">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Créer une alerte
+                  Create alert
                 </button>
               </div>
             </div>

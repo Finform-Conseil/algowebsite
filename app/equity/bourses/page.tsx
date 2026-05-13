@@ -1,20 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import ExchangesHeader from '@/components/exchanges/ExchangesHeader';
 import ExchangeCard from '@/components/exchanges/ExchangeCard';
 import PerformanceCharts from '@/components/exchanges/PerformanceCharts';
-import StructureAnalysis from '@/components/exchanges/StructureAnalysis';
 import RankingDashboard from '@/components/exchanges/RankingDashboard';
-import StockDirectory from '@/components/exchanges/StockDirectory';
 import ExchangesFloatingInsights from '@/components/exchanges/ExchangesFloatingInsights';
 import { StockExchange, ListedStock } from '@/types/exchanges';
-import { AFRICAN_EXCHANGES, EXCHANGE_INSIGHTS, SAMPLE_STOCKS } from '@/core/data/ExchangesData';
+import { EXCHANGE_INSIGHTS } from '@/core/data/ExchangesData';
+import { useBourseRepository } from '@/core/infra/repositories/bourse.repository.impl';
+import { transformExchangeData } from '@/lib/utils/exchangeTransform';
 
 export default function BoursesPage() {
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(['brvm', 'jse', 'ngx', 'cse']);
-  const [viewMode, setViewMode] = useState<'overview' | 'performance' | 'structure' | 'ranking'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'performance' | 'ranking'>('overview');
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | '3Y'>('1Y');
   const [selectedExchange, setSelectedExchange] = useState<string>('brvm');
   const [selectedStock, setSelectedStock] = useState<ListedStock | null>(null);
@@ -24,10 +23,27 @@ export default function BoursesPage() {
   const structureRef = useRef<HTMLDivElement>(null);
   const rankingRef = useRef<HTMLDivElement>(null);
 
+  const { allBoursesData, getAllBourses, isLoadingAllBourses } = useBourseRepository();
+  
   useEffect(() => {
-    // Initialize with all exchanges selected
-    setSelectedExchanges(AFRICAN_EXCHANGES.map(e => e.id));
+    getAllBourses({view_type: 'comparison'});
   }, []);
+
+  const AFRICAN_EXCHANGES = useMemo(() => {
+    if (!allBoursesData || !allBoursesData.data || allBoursesData.data.length === 0) {
+      return [];
+    }
+    return transformExchangeData(allBoursesData.data);
+  }, [allBoursesData]);
+
+  useEffect(() => {
+    if (AFRICAN_EXCHANGES.length > 0 && selectedExchanges.length === 0) {
+      const defaultSelection = AFRICAN_EXCHANGES
+        .slice(0, 4)
+        .map(e => e.id);
+      setSelectedExchanges(defaultSelection);
+    }
+  }, [AFRICAN_EXCHANGES]);
 
   const handleExchangeToggle = (exchangeId: string) => {
     setSelectedExchanges(prev => 
@@ -44,7 +60,6 @@ export default function BoursesPage() {
 
   const handleSelectExchange = (exchange: StockExchange) => {
     setSelectedExchange(exchange.id);
-    setViewMode('structure');
     structureRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -54,11 +69,6 @@ export default function BoursesPage() {
     rankingRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleStockSelect = (stock: ListedStock) => {
-    setSelectedStock(stock);
-    setShowStockModal(true);
-  };
-
   const handleAnalyzeInScreener = (stock: ListedStock) => {
     // Navigate to screener with stock pre-selected
     console.log('Analyzing stock in screener:', stock);
@@ -66,7 +76,6 @@ export default function BoursesPage() {
 
   const handleAnalyzeExchange = (exchangeId: string) => {
     setSelectedExchange(exchangeId);
-    setViewMode('structure');
     structureRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -74,12 +83,55 @@ export default function BoursesPage() {
     selectedExchanges.includes(exchange.id)
   );
 
+  if (isLoadingAllBourses) {
+    return (
+      <div className="bourses-page">
+        <div className="loading-container" style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '60vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <div className="spinner" style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid rgba(59, 130, 246, 0.1)',
+            borderTopColor: '#3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading exchanges data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!allBoursesData || AFRICAN_EXCHANGES.length === 0) {
+    return (
+      <div className="bourses-page">
+        <div className="empty-state" style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '60vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <p style={{ color: 'var(--text-secondary)' }}>No exchange data available</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bourses-page">
       {/* Header */}
       <ExchangesHeader 
         selectedExchanges={selectedExchanges}
         onExchangeToggle={handleExchangeToggle}
+        onExchangesChange={setSelectedExchanges}
         onCompareClick={handleCompareClick}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -123,108 +175,15 @@ export default function BoursesPage() {
         </section>
       )}
 
-      {/* Structure Section */}
-      {viewMode === 'structure' && (
-        <section ref={structureRef} className="structure-section">
-          <div className="section-header">
-            <h2>Structural Specifics</h2>
-            <p>Discover regulations, sectors, and trading conditions</p>
-          </div>
-          
-          <StructureAnalysis 
-            exchanges={filteredExchanges}
-            selectedExchange={selectedExchange}
-            onExchangeSelect={setSelectedExchange}
-          />
-        </section>
-      )}
-
       {/* Ranking Section */}
       {viewMode === 'ranking' && (
         <section ref={rankingRef} className="ranking-section">
-          <div className="section-header">
-            <h2>Comparative Ranking</h2>
-            <p>Rank exchanges by different performance criteria</p>
-          </div>
-          
           <RankingDashboard 
             exchanges={filteredExchanges}
             onAnalyzeExchange={handleAnalyzeExchange}
           />
         </section>
       )}
-
-      {/* Stock Directory Section */}
-      {(viewMode === 'ranking' || viewMode === 'overview') && (
-        <section className="stock-directory-section">
-          <div className="section-header">
-            <h2>Listed Companies Directory</h2>
-            <p>Browse all available stocks on African markets</p>
-          </div>
-          
-          <StockDirectory 
-            selectedExchange={selectedExchange}
-            onStockSelect={handleStockSelect}
-            onAnalyzeInScreener={handleAnalyzeInScreener}
-            onExchangeChange={setSelectedExchange}
-          />
-        </section>
-      )}
-
-      {/* Regional Focus Map */}
-      <section className="regional-focus-section">
-        <div className="section-header">
-          <h2>Regional Focus</h2>
-          <p>Geographic visualization of African markets</p>
-        </div>
-        
-        <div className="africa-map-container">
-          <div className="map-placeholder">
-            <div className="map-content">
-              <h3>Interactive Map of African Stock Exchanges</h3>
-              <p>Click on a region to filter corresponding exchanges</p>
-              
-              <div className="region-highlights">
-                <div className="region-card west" onClick={() => setSelectedExchanges(['brvm', 'ngx', 'gse'])}>
-                  <h4>West Africa</h4>
-                  <div className="region-exchanges">BRVM • NGX • GSE</div>
-                  <div className="region-stats">
-                    <span>3 exchanges</span>
-                    <span>$116.3B total cap</span>
-                  </div>
-                </div>
-                
-                <div className="region-card east" onClick={() => setSelectedExchanges(['nse'])}>
-                  <h4>East Africa</h4>
-                  <div className="region-exchanges">NSE</div>
-                  <div className="region-stats">
-                    <span>1 exchange</span>
-                    <span>$28.7B total cap</span>
-                  </div>
-                </div>
-                
-                <div className="region-card north" onClick={() => setSelectedExchanges(['cse'])}>
-                  <h4>North Africa</h4>
-                  <div className="region-exchanges">CSE</div>
-                  <div className="region-stats">
-                    <span>1 exchange</span>
-                    <span>$72.5B total cap</span>
-                  </div>
-                </div>
-                
-                <div className="region-card south" onClick={() => setSelectedExchanges(['jse'])}>
-                  <h4>Southern Africa</h4>
-                  <div className="region-exchanges">JSE</div>
-                  <div className="region-stats">
-                    <span>1 exchange</span>
-                    <span>$1,250.8B total cap</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Stock Detail Modal */}
       {showStockModal && selectedStock && (
@@ -292,10 +251,10 @@ export default function BoursesPage() {
       )}
 
       {/* Floating Insights */}
-      <ExchangesFloatingInsights 
+      {/* <ExchangesFloatingInsights 
         exchanges={filteredExchanges}
         allExchanges={AFRICAN_EXCHANGES}
-      />
+      /> */}
     </div>
   );
 }

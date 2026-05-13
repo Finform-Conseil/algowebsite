@@ -3,151 +3,48 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-
+import { useBourseRepository } from '@/core/infra/repositories/bourse.repository.impl';
+import { useQueryParams } from '@/core/presenter/hooks/useQueryParams';
+import { BourseQueryParams } from '@/core/domain/types/bourse.type';
+import { OpcvmQueryParams } from '@/core/domain/types/opcvm.type';
+import { useOpcvmRepository } from '@/core/infra/repositories/opcvm.repository.impl';
 const AfricaOPCVMMap = dynamic(
   () => import('@/components/opcvm/AfricaOPCVMMap'),
   { ssr: false }
 );
 
-// Types
-type OPCVMData = {
-  id: string;
-  name: string;
-  isin: string;
-  exchange: string;
-  nav: number;
-  navChange: number;
-  performance: number;
-  volatility: number;
-  rating: number; // 1-5 stars
-};
-
 export default function OPCVMHomePage() {
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [mapMode, setMapMode] = useState<'performance' | 'count'>('performance');
   const [viewMode, setViewMode] = useState<'map' | 'methodology'>('map');
   const [filterExchange, setFilterExchange] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'rating' | 'performance' | 'score'>('rating');
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+  const [sortBy, setSortBy] = useState<'rating' | 'performance' | 'risk'>('performance');
 
-  const backgroundImages = [
-    '/images/screener-header-3.jpg',
-    '/images/exchanges-header-2.jpg',
-    '/images/exchanges-header-1.jpg',
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [backgroundImages.length]);
-
-  // Mock OPCVM data
-  const mockOPCVMData: OPCVMData[] = [
-    { id: '1', name: 'NSIA Actions CI', isin: 'CI0001', exchange: 'BRVM', nav: 12500, navChange: 18.3, performance: 18.3, volatility: 12.5, rating: 5 },
-    { id: '2', name: 'Coris Obligations', isin: 'BF0002', exchange: 'BRVM', nav: 10850, navChange: 5.8, performance: 5.8, volatility: 3.2, rating: 4 },
-    { id: '3', name: 'BOA Monétaire', isin: 'SN0003', exchange: 'BRVM', nav: 10125, navChange: 2.5, performance: 2.5, volatility: 1.1, rating: 3 },
-    { id: '4', name: 'Ecobank Mixte', isin: 'TG0004', exchange: 'BRVM', nav: 11750, navChange: 10.5, performance: 10.5, volatility: 7.8, rating: 4 },
-    { id: '5', name: 'SG Actions Growth', isin: 'CI0005', exchange: 'BRVM', nav: 13200, navChange: 22.1, performance: 22.1, volatility: 15.3, rating: 5 },
-    { id: '6', name: 'Stanbic Equity Fund', isin: 'NG0006', exchange: 'NGX', nav: 8500, navChange: 15.7, performance: 15.7, volatility: 11.2, rating: 5 },
-    { id: '7', name: 'FirstBank Bond Fund', isin: 'NG0007', exchange: 'NGX', nav: 9200, navChange: 6.3, performance: 6.3, volatility: 4.1, rating: 4 },
-    { id: '8', name: 'CIC Money Market', isin: 'KE0008', exchange: 'NSE', nav: 11100, navChange: 4.2, performance: 4.2, volatility: 2.5, rating: 3 },
-    { id: '9', name: 'Britam Equity Fund', isin: 'KE0009', exchange: 'NSE', nav: 14300, navChange: 19.8, performance: 19.8, volatility: 13.7, rating: 5 },
-    { id: '10', name: 'Allan Gray Balanced', isin: 'ZA0010', exchange: 'JSE', nav: 25600, navChange: 12.4, performance: 12.4, volatility: 8.9, rating: 4 },
-    { id: '11', name: 'Coronation Equity', isin: 'ZA0011', exchange: 'JSE', nav: 32100, navChange: 16.9, performance: 16.9, volatility: 12.1, rating: 5 },
-    { id: '12', name: 'Databank Epack', isin: 'GH0012', exchange: 'GSE', nav: 7800, navChange: 8.7, performance: 8.7, volatility: 6.3, rating: 4 },
-    { id: '13', name: 'CDG Obligations', isin: 'MA0013', exchange: 'CSE', nav: 9500, navChange: 3.9, performance: 3.9, volatility: 2.8, rating: 3 },
-  ];
-
-  // Calculate rating based on risk-adjusted performance
-  const calculateRatings = (funds: OPCVMData[]) => {
-    // Calculate Sharpe-like ratio (performance / volatility)
-    const fundsWithScore = funds.map(fund => ({
-      ...fund,
-      score: fund.performance / fund.volatility
-    }));
-
-    // Sort by score descending
-    const sorted = [...fundsWithScore].sort((a, b) => b.score - a.score);
-
-    // Divide into 5 groups
-    const groupSize = Math.ceil(sorted.length / 5);
-    
-    return sorted.map((fund, index) => {
-      const group = Math.floor(index / groupSize);
-      const rating = 5 - group; // 5 stars for best group, 1 for worst
-      return { ...fund, rating: Math.max(1, Math.min(5, rating)) };
-    });
-  };
-
-  const ratedFunds = useMemo(() => calculateRatings(mockOPCVMData), []);
-
-  // Group by exchange for map data
-  const exchangeData = useMemo(() => {
-    const grouped = ratedFunds.reduce((acc, fund) => {
-      if (!acc[fund.exchange]) {
-        acc[fund.exchange] = {
-          count: 0,
-          bestPerformance: -Infinity,
-          bestFund: null as OPCVMData | null,
-          avgRating: 0,
-          totalRating: 0
-        };
-      }
-      acc[fund.exchange].count++;
-      acc[fund.exchange].totalRating += fund.rating;
-      if (fund.navChange > acc[fund.exchange].bestPerformance) {
-        acc[fund.exchange].bestPerformance = fund.navChange;
-        acc[fund.exchange].bestFund = fund;
-      }
-      return acc;
-    }, {} as Record<string, { count: number; bestPerformance: number; bestFund: OPCVMData | null; avgRating: number; totalRating: number }>);
-
-    // Calculate average rating
-    Object.keys(grouped).forEach(key => {
-      grouped[key].avgRating = grouped[key].totalRating / grouped[key].count;
-    });
-
-    return grouped;
-  }, [ratedFunds]);
-
-  // Top rated funds with filters
-  const topRatedFunds = useMemo(() => {
-    let filtered = [...ratedFunds];
-    
-    // Filter by exchange
-    if (filterExchange !== 'all') {
-      filtered = filtered.filter(f => f.exchange === filterExchange);
-    }
-    
-    // Sort by selected criteria
-    filtered.sort((a, b) => {
-      if (sortBy === 'rating') {
-        return b.rating - a.rating || b.performance - a.performance;
-      } else if (sortBy === 'performance') {
-        return b.performance - a.performance;
-      } else { // score
-        const scoreA = a.performance / a.volatility;
-        const scoreB = b.performance / b.volatility;
-        return scoreB - scoreA;
-      }
-    });
-    
-    return filtered.slice(0, 6);
-  }, [ratedFunds, filterExchange, sortBy]);
+  const { params: queryParams } = useQueryParams<BourseQueryParams>({ view_type: "opcvm", page: 1, page_size: 10 });
   
-  // Get unique exchanges for filter
-  const exchanges = useMemo(() => {
-    return ['all', ...Array.from(new Set(ratedFunds.map(f => f.exchange)))];
-  }, [ratedFunds]);
+  const opcvmParams = useMemo((): OpcvmQueryParams => {
+    const params: OpcvmQueryParams = { view_type: "bourse", page: 1, page_size: 20 };
+    
+    if (sortBy === 'rating') params.ordering = 'rating';
+    else if (sortBy === 'performance') params.ordering = 'performance_1m';
+    else if (sortBy === 'risk') params.ordering = 'volatility_1m';
+    
+    if (filterExchange !== 'all') params.bourse_tickers = filterExchange;
+    
+    return params;
+  }, [sortBy, filterExchange]);
+  
+  const { allBoursesData, getAllBourses, } = useBourseRepository();
+  const { allOpcvmsData, getAllOpcvms, } = useOpcvmRepository();
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  useEffect(() => { getAllBourses(queryParams); }, [queryParams]);
+  useEffect(() => { getAllOpcvms(opcvmParams); }, [opcvmParams]);
+
+  useEffect(() =>
+  {
+    console.log("All Bourses Data", allBoursesData)
+    console.log("All OPCVM Data", allOpcvmsData)
+  }, [allBoursesData, allOpcvmsData])
+  
 
   const renderStars = (rating: number) => {
     return (
@@ -176,7 +73,7 @@ export default function OPCVMHomePage() {
         <div 
           className="opcvm-header__hero"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
           }}
         >
           <div className="header-top">
@@ -187,13 +84,30 @@ export default function OPCVMHomePage() {
             
             <div className="opcvm-controls">
               <div className="control-group">
-                <label>Date</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="date-input"
-                />
+                <label>Exchange</label>
+                <select 
+                  value={filterExchange} 
+                  onChange={(e) => setFilterExchange(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All exchanges</option>
+                  {allBoursesData?.data?.filter(e => e.name !== 'all').map(ex => (
+                    <option key={ex.id} value={ex.ticker}>{ex.ticker}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="control-group">
+                <label>Sort By</label>
+                <select 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value as 'rating' | 'performance' | 'risk')}
+                  className="filter-select"
+                >
+                  <option value="rating">By rating</option>
+                  <option value="performance">By performance</option>
+                  <option value="risk">By risk</option>
+                </select>
               </div>
               
               <div className="control-group">
@@ -237,7 +151,7 @@ export default function OPCVMHomePage() {
                 </div>
                 <div className="stat-content">
                   <div className="stat-label">Tracked Funds</div>
-                  <div className="stat-value">{ratedFunds.length}</div>
+                  <div className="stat-value">{allOpcvmsData?.count}</div>
                 </div>
               </div>
 
@@ -250,7 +164,7 @@ export default function OPCVMHomePage() {
                 </div>
                 <div className="stat-content">
                   <div className="stat-label">Exchanges</div>
-                  <div className="stat-value">{Object.keys(exchangeData).length}</div>
+                  <div className="stat-value">{allBoursesData?.data.length}</div>
                 </div>
               </div>
             </div>
@@ -264,8 +178,8 @@ export default function OPCVMHomePage() {
         <div className="map-section">
           <div className="map-container">
             <AfricaOPCVMMap 
-              exchangeData={exchangeData}
               mode={mapMode}
+              selectedExchange={filterExchange}
             />
             
             {/* Vertical Legend */}
@@ -317,53 +231,30 @@ export default function OPCVMHomePage() {
             <div className="top-funds-section">
               <div className="funds-header">
                 <h3>Top Rated Funds</h3>
-                
-                <div className="funds-filters">
-                  <select 
-                    value={filterExchange} 
-                    onChange={(e) => setFilterExchange(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All exchanges</option>
-                    {exchanges.filter(e => e !== 'all').map(ex => (
-                      <option key={ex} value={ex}>{ex}</option>
-                    ))}
-                  </select>
-                  
-                  <select 
-                    value={sortBy} 
-                    onChange={(e) => setSortBy(e.target.value as 'rating' | 'performance' | 'score')}
-                    className="filter-select"
-                  >
-                    <option value="rating">By rating</option>
-                    <option value="performance">By performance</option>
-                    <option value="score">By score</option>
-                  </select>
-                </div>
               </div>
               
               <div className="funds-list">
-                {topRatedFunds.slice(0, 6).map((fund) => (
+                {allOpcvmsData?.data.map((fund) => (
                   <Link key={fund.id} href={`/opcvm/${fund.id}`} className="fund-card">
                     <div className="fund-header">
-                      <div className="fund-name">{fund.name}</div>
-                      <div className="fund-exchange">{fund.exchange}</div>
+                      <div className="fund-name">{fund.intitule}</div>
+                      <div className="fund-exchange">{fund.bourse}</div>
                     </div>
                     
                     <div className="fund-rating">
-                      {renderStars(fund.rating)}
+                      {renderStars(fund?.latest_metrics?.rating || 0)}
                     </div>
                     
                     <div className="fund-metrics">
                       <div className="metric">
                         <span className="metric-label">Performance</span>
-                        <span className={`metric-value ${fund.performance >= 0 ? 'positive' : 'negative'}`}>
-                          {fund.performance >= 0 ? '+' : ''}{fund.performance}%
+                        <span className={`metric-value ${fund.latest_metrics?.performance_1y && fund.latest_metrics.performance_1y >= 0 ? 'positive' : 'negative'}`}>
+                          {fund?.latest_metrics?.performance_1y && fund.latest_metrics.performance_1y >= 0 ? '+' : ''}{Number(fund?.latest_metrics?.performance_1y)?.toFixed(2)}%
                         </span>
                       </div>
                       <div className="metric">
                         <span className="metric-label">Score</span>
-                        <span className="metric-value">{(fund.performance / fund.volatility).toFixed(2)}</span>
+                        <span className="metric-value">{fund?.latest_metrics?.performance_1y && fund.latest_metrics.volatility_1y ? (fund.latest_metrics.performance_1y / fund.latest_metrics.volatility_1y).toFixed(2) : 'N/A'}</span>
                       </div>
                     </div>
                   </Link>
@@ -414,7 +305,7 @@ export default function OPCVMHomePage() {
 
       {/* Quick Access Section */}
       <div className="quick-access-section">
-        <h3>UCITS Tools & Resources</h3>
+        <h3>Funds Tools & Resources</h3>
         <div className="tools-grid">
           <Link href="/opcvm/screener" className="tool-card">
             <div className="tool-icon">
@@ -426,7 +317,7 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>UCITS Screener</h4>
+              <h4>Funds Screener</h4>
               <p>Filter and compare funds according to your investment criteria</p>
             </div>
           </Link>
@@ -482,7 +373,7 @@ export default function OPCVMHomePage() {
             </div>
             <div className="tool-content">
               <h4>Learn</h4>
-              <p>Guides and resources to master UCITS investment</p>
+              <p>Guides and resources to master Funds investment</p>
             </div>
           </Link>
         </div>

@@ -30,7 +30,7 @@ export const DEMO_NEWS_ARTICLES: NewsArticle[] = [
     sentiment: 'positive',
     featured: true,
     readTime: 5,
-    imageUrl: '/images/banking-brvm.jpg',
+    imageUrl: '/images/ban.jpg',
     relatedTickers: ['NSIA', 'ECOBANK', 'UBA', 'BOA']
   },
   {
@@ -52,7 +52,7 @@ export const DEMO_NEWS_ARTICLES: NewsArticle[] = [
     impact: 'high',
     sentiment: 'positive',
     readTime: 4,
-    imageUrl: '/images/mining-jse.jpg',
+    imageUrl: '/images/ban1.jpg',
     relatedTickers: ['AGL', 'BHP', 'SOL', 'IMP']
   },
   {

@@ -6,6 +6,7 @@ export interface FinancialStatementEntity {
     code?: string;
     name?: string;
     description?: string;
+    items_tree?: FinancialItemTreeNode[];
 }
 
 export interface FinancialItemEntity {
@@ -23,4 +24,23 @@ export interface FinancialValueEntity {
     item: FinancialItemEntity;
     period: PeriodEntity;
     value: number;
+}
+
+// Structure hiérarchique pour l'arbre des items
+export interface FinancialItemTreeNode {
+    id: string;
+    code: string;
+    label: string;
+    level: number;
+    values: {
+        period: PeriodEntity;
+        value: string;
+    }[];
+    children?: FinancialItemTreeNode[];
+}
+
+// Response de l'API pour les statements
+export interface FinancialStatementsResponse {
+    action: ActionEntity;
+    statements: FinancialStatementEntity[];
 }

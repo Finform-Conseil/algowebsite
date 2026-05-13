@@ -102,8 +102,8 @@ export default function Navbar() {
       label: 'Equity',
       // icon: <ChartLine size={18} weight="duotone" />,
       items: [
-        { href: '/equity/stock-screener-v2', label: 'Stock Screener', icon: <Funnel size={16} weight="duotone" /> },
-        { href: '/equity/stock-comparison', label: 'Stock Comparison', icon: <Scales size={16} weight="duotone" /> },
+        { href: '/equity/screener', label: 'Stock Screener', icon: <Funnel size={16} weight="duotone" /> },
+        { href: '/equity/comparison', label: 'Stock Comparison', icon: <Scales size={16} weight="duotone" /> },
         { href: '/equity/bourses', label: 'African Exchanges', icon: <Bank size={16} weight="duotone" /> },
         { href: '/equity/market-movers', label: 'Market Movers', icon: <Rocket size={16} weight="duotone" /> },
         { 
