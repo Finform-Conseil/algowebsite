@@ -5,9 +5,15 @@ import { selectUiState, selectChartConfig, setReplayActive, setReplayPaused, set
 import { LiveSnapshot } from "../../config/TechnicalAnalysisTypes";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
+import { BRVM_NAME_TO_TICKER } from "@/shared/utils/brvm-mapping";
 
 type DataMode = "mock" | "real";
 type ErrorWithStatus = Error & { status?: number };
+
+const resolveBRVMDatasetTicker = (symbol: string): string => {
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  return BRVM_NAME_TO_TICKER[normalizedSymbol] ?? normalizedSymbol;
+};
 
 // --- CSV PARSER HELPER ---
 const parseBRVMCSV = (csvText: string): ChartDataPoint[] => {
@@ -214,10 +220,11 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
 
     try {
       const upperTicker = ticker.toUpperCase();
-      const dailyUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${upperTicker}/${upperTicker}.daily.csv`;
-      const githubIndicatorUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${upperTicker}/${upperTicker}.indicator.csv`;
-      const liveScraperUrl = `/api/market-data/brvm-live?ticker=${upperTicker}`;
-      const capScraperUrl = `/api/market-data/brvm-live-capitalisation?ticker=${upperTicker}`;
+      const datasetTicker = resolveBRVMDatasetTicker(upperTicker);
+      const dailyUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetTicker}/${datasetTicker}.daily.csv`;
+      const githubIndicatorUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetTicker}/${datasetTicker}.indicator.csv`;
+      const liveScraperUrl = `/api/market-data/brvm-live?ticker=${datasetTicker}`;
+      const capScraperUrl = `/api/market-data/brvm-live-capitalisation?ticker=${datasetTicker}`;
 
       const dailyRes = await fetch(dailyUrl, { cache: "no-store", signal: controller.signal });
       if (timeoutId) clearTimeout(timeoutId);
@@ -720,26 +727,51 @@ export const useLiveMetrics = (
 export const useComparisonManager = (comparisonSymbols: string[], dataMode: "mock" | "real") => {
   const dispatch = useDispatch();
   const marketDataCache = useSelector(selectMarketData);
+  const inflightFetches = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (comparisonSymbols.length === 0) return;
-    // Limit to 5 symbols to prevent DDoS
     const safeSymbols = comparisonSymbols.slice(0, 5);
+    let cancelled = false;
 
     safeSymbols.forEach(symbol => {
-      // If we already have data, skip
-      if (marketDataCache[symbol] && marketDataCache[symbol].length > 0) return;
+      const upperSymbol = symbol.trim().toUpperCase();
+      if (!upperSymbol) return;
+      if (marketDataCache[upperSymbol] && marketDataCache[upperSymbol].length > 0) return;
+      if (inflightFetches.current.has(upperSymbol)) return;
 
-      // In a real implementation, this would call the actual fetch logic.
-      // For this SRE fix, we simulate the fetch to populate the cache safely.
       if (dataMode === "mock") {
-        // Mock data generation is handled by the EChartsRenderer fallback if needed,
-        // but ideally we dispatch mock data here.
-      } else {
-        // Real fetch logic would go here.
-        // fetch(`/api/market-data/daily?ticker=${symbol}`).then(...)
+        dispatch(updateMarketData({ symbol: upperSymbol, data: GENERATE_INITIAL_DATA(200) }));
+        return;
       }
+
+      inflightFetches.current.add(upperSymbol);
+      const datasetSymbol = resolveBRVMDatasetTicker(upperSymbol);
+      const dailyUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetSymbol}/${datasetSymbol}.daily.csv`;
+
+      fetch(dailyUrl, { cache: "no-store" })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status} for ${upperSymbol}`);
+          return response.text();
+        })
+        .then((csvText) => {
+          if (cancelled) return;
+          const parsedDaily = parseBRVMCSV(csvText);
+          if (parsedDaily.length > 0) {
+            dispatch(updateMarketData({ symbol: upperSymbol, data: parsedDaily }));
+          }
+        })
+        .catch((error) => {
+          console.warn(`[ComparisonManager] Unable to load ${upperSymbol}`, error);
+        })
+        .finally(() => {
+          inflightFetches.current.delete(upperSymbol);
+        });
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [comparisonSymbols, dataMode, dispatch, marketDataCache]);
 };
 // --- EOF ---

@@ -20,8 +20,17 @@ import {
   CursorModeType,
   LiveSnapshot,
   BollingerSettings,
+  MultiChartLayoutId,
+  MultiChartLayoutState,
+  MultiChartSyncKey,
 } from "../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import {
+  createDefaultMultiChartLayout,
+  createPresetLayout,
+  MULTI_CHART_PRESETS,
+  reconcileMultiChartLayout,
+} from "../config/multiChartLayout";
 import type { RootState } from "@/core/infrastructure/store";
 
 // ============================================================================
@@ -99,6 +108,7 @@ const initialState: TechnicalAnalysisState = {
     isCapturing: false,
     dataMode: "real", // [TENOR 2026] Default to Real (BRVM) as requested by user
     comparisonSymbols: [],
+    multiChartLayout: createDefaultMultiChartLayout("single", "BOAB"),
     searchMode: "replace",
     modals: {
       search: false,
@@ -136,9 +146,22 @@ export const technicalAnalysisSlice = createSlice({
     // --- CHART CONFIG REDUCERS ---
     setSymbol: (state, action: PayloadAction<string>) => {
       state.chartConfig.symbol = action.payload;
+      const normalized = action.payload.trim().toUpperCase();
+      const layout = state.ui.multiChartLayout;
+      layout.charts.forEach((chart) => {
+        if (layout.sync.symbol || chart.chartId === layout.activeChartId) {
+          chart.symbol = normalized;
+        }
+      });
     },
     setTimeframe: (state, action: PayloadAction<string>) => {
       state.chartConfig.timeframe = action.payload;
+      const layout = state.ui.multiChartLayout;
+      layout.charts.forEach((chart) => {
+        if (layout.sync.interval || chart.chartId === layout.activeChartId) {
+          chart.interval = action.payload;
+        }
+      });
     },
     setChartType: (state, action: PayloadAction<"candlestick" | "line">) => {
       state.chartConfig.chartType = action.payload;
@@ -401,6 +424,73 @@ export const technicalAnalysisSlice = createSlice({
     clearComparisonSymbols: (state) => {
       state.ui.comparisonSymbols = [];
     },
+    setMultiChartLayout: (state, action: PayloadAction<MultiChartLayoutId>) => {
+      state.ui.multiChartLayout = reconcileMultiChartLayout(
+        state.ui.multiChartLayout,
+        action.payload,
+        state.chartConfig.symbol,
+        state.ui.comparisonSymbols
+      );
+    },
+    setMultiChartSync: (state, action: PayloadAction<{ key: MultiChartSyncKey; value: boolean }>) => {
+      state.ui.multiChartLayout.sync[action.payload.key] = action.payload.value;
+    },
+    setActiveLayoutChart: (state, action: PayloadAction<string>) => {
+      const target = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === action.payload);
+      if (!target) return;
+
+      state.ui.multiChartLayout.activeChartId = target.chartId;
+      state.ui.multiChartLayout.charts.forEach((chart) => {
+        chart.isActive = chart.chartId === target.chartId;
+      });
+      state.chartConfig.symbol = target.symbol;
+      state.chartConfig.timeframe = target.interval;
+    },
+    updateLayoutChart: (
+      state,
+      action: PayloadAction<{ chartId: string; symbol?: string; interval?: string }>
+    ) => {
+      const layout = state.ui.multiChartLayout;
+      const normalizedSymbol = action.payload.symbol?.trim().toUpperCase();
+      const target = layout.charts.find((chart) => chart.chartId === action.payload.chartId);
+      if (!target) return;
+
+      layout.charts.forEach((chart) => {
+        const isTarget = chart.chartId === target.chartId;
+        if (normalizedSymbol && (layout.sync.symbol || isTarget)) chart.symbol = normalizedSymbol;
+        if (action.payload.interval && (layout.sync.interval || isTarget)) chart.interval = action.payload.interval;
+      });
+
+      if (target.chartId === layout.activeChartId) {
+        if (normalizedSymbol) state.chartConfig.symbol = normalizedSymbol;
+        if (action.payload.interval) state.chartConfig.timeframe = action.payload.interval;
+      }
+    },
+    applyMultiChartPreset: (state, action: PayloadAction<string>) => {
+      const preset = MULTI_CHART_PRESETS.find((entry) => entry.id === action.payload);
+      if (!preset) return;
+      state.ui.multiChartLayout = createPresetLayout(preset, state.chartConfig.symbol);
+      const active = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === state.ui.multiChartLayout.activeChartId);
+      if (active) {
+        state.chartConfig.symbol = active.symbol;
+        state.chartConfig.timeframe = active.interval;
+      }
+    },
+    hydrateMultiChartLayout: (state, action: PayloadAction<MultiChartLayoutState>) => {
+      const hydrated = reconcileMultiChartLayout(
+        action.payload,
+        action.payload.layoutId,
+        action.payload.charts[0]?.symbol || state.chartConfig.symbol,
+        state.ui.comparisonSymbols
+      );
+      state.ui.multiChartLayout = {
+        ...hydrated,
+        sync: { ...state.ui.multiChartLayout.sync, ...action.payload.sync },
+      };
+    },
+    resetMultiChartLayout: (state) => {
+      state.ui.multiChartLayout = createDefaultMultiChartLayout("single", state.chartConfig.symbol);
+    },
 
     // --- MODALS REDUCERS ---
     setModalOpen: (
@@ -500,6 +590,13 @@ export const {
   addComparisonSymbol,
   removeComparisonSymbol,
   clearComparisonSymbols,
+  setMultiChartLayout,
+  setMultiChartSync,
+  setActiveLayoutChart,
+  updateLayoutChart,
+  applyMultiChartPreset,
+  hydrateMultiChartLayout,
+  resetMultiChartLayout,
   setModalOpen,
   closeAllModals,
   setReplayActive,

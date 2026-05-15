@@ -33,9 +33,9 @@
   position: fixed;
   inset: 0;
   z-index: 9998;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--tsm-transition-normal), visibility var(--tsm-transition-normal);
@@ -76,9 +76,8 @@
   display: flex;
   flex-direction: column;
   
-  /* Glassmorphism */
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   
   /* Initial animation state */
   opacity: 0;

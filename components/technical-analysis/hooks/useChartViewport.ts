@@ -23,7 +23,7 @@ export const MAIN_GRID_LEFT = 15;
 // ============================================================================
 // [TENOR 2026 SRE] REGISTRY & ADAPTERS (API DECOUPLING)
 // SCAR-API-01: Eradicated direct mutation of ECharts instance (__tvTimeAxisControls).
-// SCAR-API-02: Encapsulated internal getModel() calls with DOM fallbacks.
+// SCAR-API-02: Eradicated internal getModel() calls. Pure DOM math applied.
 // ============================================================================
 
 export interface TradingViewTimeAxisControls {
@@ -40,30 +40,18 @@ export interface TradingViewTimeAxisControls {
 export const TimeAxisRegistry = new WeakMap<ECharts, TradingViewTimeAxisControls>();
 
 /**
- * Adaptateur sécurisé pour récupérer les dimensions de la grille.
- * Tente d'utiliser l'API interne d'ECharts, avec un fallback robuste sur le DOM
- * si l'API change dans une future version d'ECharts.
+ * [TENOR 2026 SRE FIX] Adaptateur sécurisé pour récupérer les dimensions de la grille.
+ * Éradication totale de `(chart as any).getModel?.()`.
+ * Utilise exclusivement les mathématiques du DOM et les constantes physiques TradingView.
+ * Immunise l'application contre les Breaking Changes d'ECharts v6+.
  */
-export const getSafeGridRect = (chart: ECharts | null, container: HTMLElement | null) => {
+export const getSafeGridRect = (_chart: ECharts | null, container: HTMLElement | null) => {
   const defaultFallback = { x: MAIN_GRID_LEFT, y: 30, width: 800, height: 600 };
-  if (!chart || !container) return defaultFallback;
+  if (!container) return defaultFallback;
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const model = (chart as any).getModel?.();
-    if (model) {
-      const grid = model.getComponent("grid", 0);
-      const rect = grid?.coordinateSystem?.getRect?.();
-      if (rect && Number.isFinite(rect.x) && Number.isFinite(rect.width)) {
-        return rect;
-      }
-    }
-  } catch (e) {
-    console.warn("[SRE] ECharts getModel() failed. Using DOM fallback.", e);
-  }
-
-  // Fallback based on DOM container dimensions
   const rect = container.getBoundingClientRect();
+  
+  // Calcul basé sur les constantes TV injectées dans la configuration ECharts
   const safeTop = Math.max(30, rect.height * 0.08);
   const safeBottom = rect.height - TV_X_AXIS_HEIGHT;
   const safeLeft = MAIN_GRID_LEFT;
@@ -80,6 +68,7 @@ export const getSafeGridRect = (chart: ECharts | null, container: HTMLElement | 
 // ============================================================================
 // MATH & GEOMETRY HELPERS
 // ============================================================================
+
 export const lerp = (start: number, end: number, weight: number): number =>
   start + ((end - start) * weight);
 
@@ -165,7 +154,6 @@ export const computeDirectionalZoomViewport = ({
 
   const zoomDirection = deltaY < 0 ? 1 : deltaY > 0 ? -1 : 0;
   const changedBars = Math.abs(targetSpan - currentSpan);
-
   const directionalWeight = zoomDirection > 0
     ? 0.45 + (normalizedCursorRatio * 0.55)
     : 0.45 + ((1 - normalizedCursorRatio) * 0.55);
@@ -204,16 +192,12 @@ export const computeHorizontalPanViewport = ({
 // ============================================================================
 // HOOK: VIEWPORT ENGINE (Absolute Coordinates & DOM Events)
 // ============================================================================
+
 export interface UseChartViewportProps {
   chartInstanceRef: MutableRefObject<ECharts | null>;
   getChartContainer: () => HTMLDivElement | null;
   chartData: ChartDataPoint[];
-  lastZoomRangeRef?: MutableRefObject<{
-    start: number;
-    end: number;
-    barsFromRightStart?: number;
-    barsFromRightEnd?: number;
-  }>;
+  lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; }>;
   updateCursorPriceAxisBadge: (x: number, y: number) => void;
   updateLastPriceAxisBadge: () => void;
 }
@@ -241,7 +225,8 @@ export const useChartViewport = ({
     lastTap: 0,
     activePointers: new Map<number, PointerEvent>(),
     initialPinchDistance: 0,
-    initialPinchCenter: 0
+    initialPinchCenter: 0,
+    cachedRect: null as DOMRect | null // [TENOR 2026 SRE] Cache rect on pointerdown
   });
 
   const lastCursorClientPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -287,12 +272,14 @@ export const useChartViewport = ({
       finalMin = center - (scaledRange / 2) + state.yPan;
       finalMax = center + (scaledRange / 2) + state.yPan;
 
-      const isInvalidManualViewport = !Number.isFinite(finalMin) || !Number.isFinite(finalMax) ||
-        finalMin >= finalMax || finalMax < visibleMin || finalMin > visibleMax;
+      const isInvalidManualViewport =
+        !Number.isFinite(finalMin) ||
+        !Number.isFinite(finalMax) ||
+        finalMin >= finalMax ||
+        finalMax < visibleMin ||
+        finalMin > visibleMax;
 
       if (isInvalidManualViewport) {
-        // Auto-recovery: if manual pan/zoom pushes the visible range fully out of price bounds,
-        // reset to safe auto-scale so candles cannot disappear after resize/layout transitions.
         state.isYManual = false;
         state.yScale = 1.0;
         state.yPan = 0;
@@ -305,7 +292,7 @@ export const useChartViewport = ({
     }
 
     chart.setOption({
-      yAxis: [{ min: finalMin, max: finalMax }],
+      yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax }],
       dataZoom: [{ id: 'time-zoom', startValue: state.startIdx, endValue: state.endIdx }]
     });
 
@@ -326,7 +313,7 @@ export const useChartViewport = ({
     }
   }, [chartData, chartInstanceRef, lastZoomRangeRef, updateCursorPriceAxisBadge, updateLastPriceAxisBadge]);
 
-  // [TENOR 2026 FIX] SCAR-131: Currency Auto-Scaling Detector
+  // Currency Auto-Scaling Detector
   useEffect(() => {
     if (chartData.length === 0) return;
     const recentData = chartData.slice(-20);
@@ -337,17 +324,10 @@ export const useChartViewport = ({
       if (ratio > 1.5 || ratio < 0.6) {
         viewportStateRef.current.isYManual = false;
         if (chartInstanceRef.current) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const option = chartInstanceRef.current.getOption() as any;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const dzY = option?.dataZoom?.find((z: any) => z.id === 'price-zoom' || z.yAxisIndex !== null);
           if (dzY) {
-            chartInstanceRef.current.dispatchAction({
-              type: 'dataZoom',
-              dataZoomId: dzY.id,
-              start: 0,
-              end: 100
-            });
+            chartInstanceRef.current.dispatchAction({ type: 'dataZoom', dataZoomId: dzY.id, start: 0, end: 100 });
           }
         }
       }
@@ -355,7 +335,7 @@ export const useChartViewport = ({
     prevDataMaxRef.current = currentMax;
   }, [chartData, chartInstanceRef]);
 
-  // [TENOR 2026 SRE] SILENT HYDRATION SHIFT
+  // Silent Hydration Shift
   useEffect(() => {
     const currentLen = chartData.length;
     const lastLen = viewportStateRef.current.lastDataLength;
@@ -376,7 +356,6 @@ export const useChartViewport = ({
       viewportStateRef.current.isYManual = false;
       applyViewport();
     }
-
     viewportStateRef.current.lastDataLength = currentLen;
   }, [chartData.length, applyViewport]);
 
@@ -386,7 +365,9 @@ export const useChartViewport = ({
     const chart = chartInstanceRef.current;
     if (!containerEl || !chart) return;
 
+    // [TENOR 2026 SRE FIX] Enforce touch-action none to prevent native browser scrolling/zooming
     containerEl.style.touchAction = 'none';
+
     const wheelListenerOptions: AddEventListenerOptions = { passive: false, capture: true };
 
     const applyExternalTimeZoom = (direction: "in" | "out") => {
@@ -444,8 +425,7 @@ export const useChartViewport = ({
       applyViewport();
     };
 
-    // [TENOR 2026 SRE] API DECOUPLING
-    // Register controls in the WeakMap instead of mutating the ECharts instance.
+    // Register controls in the WeakMap
     TimeAxisRegistry.set(chart, {
       zoomIn: () => applyExternalTimeZoom("in"),
       zoomOut: () => applyExternalTimeZoom("out"),
@@ -537,6 +517,9 @@ export const useChartViewport = ({
 
       const state = viewportStateRef.current;
       state.activePointers.set(event.pointerId, event);
+      
+      // [TENOR 2026 SRE] Cache rect on pointer down to avoid layout thrashing in pointermove
+      state.cachedRect = containerEl.getBoundingClientRect();
 
       const now = Date.now();
       if (now - state.lastTap < 300 && state.activePointers.size === 1) {
@@ -562,20 +545,19 @@ export const useChartViewport = ({
         }
       }
 
-      const rect = containerEl.getBoundingClientRect();
-
-      if (state.activePointers.size === 2) {
-        const pointers = Array.from(state.activePointers.values());
+      const rect = state.cachedRect;
+      
+      // [TENOR 2026 SRE FIX] Multi-touch Pinch Initialization
+      if (state.activePointers.size >= 2) {
+        const pointers = Array.from(state.activePointers.values()).slice(0, 2); // Strictly 2 fingers
         const p1 = pointers[0];
         const p2 = pointers[1];
-
         const dx = p1.clientX - p2.clientX;
         const dy = p1.clientY - p2.clientY;
+        
         state.initialPinchDistance = Math.hypot(dx, dy);
-
-        const centerX = (p1.clientX + p2.clientX) / 2 - rect.left;
-        state.initialPinchCenter = centerX;
-
+        state.initialPinchCenter = ((p1.clientX + p2.clientX) / 2) - rect.left;
+        
         state.isDraggingXPan = false;
         state.isDraggingYScale = false;
         state.isDraggingChart = false;
@@ -616,11 +598,11 @@ export const useChartViewport = ({
         state.activePointers.set(event.pointerId, event);
       }
 
-      if (state.activePointers.size === 2) {
-        const pointers = Array.from(state.activePointers.values());
+      // [TENOR 2026 SRE FIX] Robust Pinch-to-Zoom Logic
+      if (state.activePointers.size >= 2) {
+        const pointers = Array.from(state.activePointers.values()).slice(0, 2);
         const p1 = pointers[0];
         const p2 = pointers[1];
-
         const dx = p1.clientX - p2.clientX;
         const dy = p1.clientY - p2.clientY;
         const currentDistance = Math.hypot(dx, dy);
@@ -630,13 +612,18 @@ export const useChartViewport = ({
           return;
         }
 
+        // [JITTER PROTECTION] Ignore micro-movements (< 5px)
+        if (Math.abs(currentDistance - state.initialPinchDistance) < 5) {
+            return;
+        }
+
         const rawRatio = state.initialPinchDistance / currentDistance;
         const zoomFactor = Math.pow(rawRatio, 0.5);
 
         const totalBars = chartData.length;
         const visibleCount = state.endIdx - state.startIdx;
-
-        const rect = containerEl.getBoundingClientRect();
+        
+        const rect = state.cachedRect || containerEl.getBoundingClientRect();
         const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
         const cursorRatio = Math.max(0, Math.min(1, (state.initialPinchCenter - MAIN_GRID_LEFT) / gridWidth));
 
@@ -662,7 +649,6 @@ export const useChartViewport = ({
       if (state.isDraggingYScale) {
         const deltaY = event.clientY - state.startY;
         state.startY = event.clientY;
-
         const scaleFactor = Math.exp(deltaY * 0.01);
         state.yScale *= scaleFactor;
         state.isYManual = true;
@@ -673,8 +659,8 @@ export const useChartViewport = ({
 
         const totalBars = chartData.length;
         const visibleCount = state.endIdx - state.startIdx;
-
-        const rect = containerEl.getBoundingClientRect();
+        
+        const rect = state.cachedRect || containerEl.getBoundingClientRect();
         const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
         const shiftX = -(deltaX / gridWidth) * visibleCount;
 
@@ -695,20 +681,17 @@ export const useChartViewport = ({
           if (state.isYManual) {
             const gridHeight = Math.max(1, rect.height - (rect.height * 0.08) - 30);
             let visibleMin = Infinity, visibleMax = -Infinity;
-
             for (let i = state.startIdx; i <= state.endIdx; i++) {
               if (chartData[i]) {
                 visibleMin = Math.min(visibleMin, chartData[i].low);
                 visibleMax = Math.max(visibleMax, chartData[i].high);
               }
             }
-
             const priceRange = (visibleMax - visibleMin) * state.yScale;
             const shiftY = (deltaY / gridHeight) * priceRange;
             state.yPan += shiftY;
           }
         }
-
         applyViewport();
       }
     };
@@ -725,6 +708,7 @@ export const useChartViewport = ({
         state.isDraggingXPan = false;
         state.isDraggingYScale = false;
         state.isDraggingChart = false;
+        state.cachedRect = null;
       } else if (state.activePointers.size === 1) {
         const remainingPointer = Array.from(state.activePointers.values())[0];
         state.startX = remainingPointer.clientX;
@@ -735,8 +719,8 @@ export const useChartViewport = ({
 
     const onDoubleClick = (event: MouseEvent | PointerEvent) => {
       if (chart.isDisposed()) return;
-
       const target = event.target as HTMLElement;
+
       if (target) {
         if (target.closest('.gp-price-axis-action-menu') || target.closest('.gp-price-axis-cursor-action')) {
           return;
@@ -767,6 +751,8 @@ export const useChartViewport = ({
     containerEl.addEventListener("wheel", onWheel, wheelListenerOptions);
     containerEl.addEventListener("pointerdown", onPointerDown);
     containerEl.addEventListener("dblclick", onDoubleClick);
+    
+    // [TENOR 2026 SRE FIX] Attach to window to catch fast swipes and ensure cleanup
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
@@ -777,6 +763,7 @@ export const useChartViewport = ({
       containerEl.removeEventListener("wheel", onWheel, wheelListenerOptions);
       containerEl.removeEventListener("pointerdown", onPointerDown);
       containerEl.removeEventListener("dblclick", onDoubleClick);
+      
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);

@@ -38,7 +38,7 @@ interface ToolbarButtonProps {
     handleHide: () => void;
     handleReverse: () => void;
     handleCopyToClipboard: () => void;
-    handleVisualOrder: (dir: "front" | "back") => void;
+    handleVisualOrder: (dir: "front" | "back" | "forward" | "backward") => void;
     toolbarConfig: ToolbarConfig;
 }
 
@@ -1087,6 +1087,20 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
 
                     <div className="tv-menu-divider"></div>
 
+                    <div className="tv-menu-item" onClick={() => handleVisualOrder("forward")}>
+                        <div className="d-flex align-items-center">
+                            <i className="bi bi-layer-forward"></i>
+                            <span>Avancer d'un plan</span>
+                        </div>
+                    </div>
+
+                    <div className="tv-menu-item" onClick={() => handleVisualOrder("backward")}>
+                        <div className="d-flex align-items-center">
+                            <i className="bi bi-layer-backward"></i>
+                            <span>Reculer d'un plan</span>
+                        </div>
+                    </div>
+
                     <div className="tv-menu-item" onClick={() => handleVisualOrder("front")}>
                         <div className="d-flex align-items-center">
                             <i className="bi bi-front"></i>
@@ -1098,7 +1112,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                     <div className="tv-menu-item" onClick={() => handleVisualOrder("back")}>
                         <div className="d-flex align-items-center">
                             <i className="bi bi-back"></i>
-                            <span>Mettre en arrière-plan</span>
+                            <span>Mettre en arriere-plan</span>
                         </div>
                         <span className="tv-menu-shortcut">Alt+B</span>
                     </div>

@@ -5,6 +5,7 @@
 // [TENOR 2026 SRE] SCAR-MATH-PRECISION: TradingView Parity for Stochastic & StochRSI.
 // [TENOR 2026 SRE] SCAR-TIME-SHIFTING: Added Ichimoku Cloud with Future/Past Projections.
 // [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE: Added BB Width, BB %B, and enforced ddof=0.
+// [TENOR 2026 FIX] BOLLINGER DEBT RESOLVED: Full support for Source and Offset.
 // Strict NaN propagation ("-") and Zero-Division shields applied.
 // ================================================================================
 
@@ -69,7 +70,6 @@ export const calculateSMA = (data: ChartDataPoint[], period: number): (number | 
     sum = sum - data[i - period].close + data[i].close;
     results[i] = parseFloat((sum / period).toFixed(2));
   }
-
   return results;
 };
 
@@ -96,7 +96,6 @@ export const calculateEMA = (data: ChartDataPoint[], period: number): (number | 
     results[i] = parseFloat(currentEma.toFixed(2));
     prevEma = currentEma;
   }
-
   return results;
 };
 
@@ -140,7 +139,6 @@ export const calculateRSI = (data: ChartDataPoint[], period: number = 14): (numb
       results[i] = parseFloat((100 - 100 / (1 + rs)).toFixed(2));
     }
   }
-
   return results;
 };
 
@@ -208,32 +206,53 @@ export const calculateMACD = (
  * [TENOR 2026 HDR] Bollinger Bands (TradingView Parity)
  * Optimized with O(n) Sliding Window Variance.
  * Enforces ddof=0 (Population Standard Deviation) to match Pine Script exactly.
- * Calculates BB Upper, BB Middle, BB Lower, BB Width, and BB %B.
+ * [FIX] Full support for Source and Offset.
  */
 export const calculateBollinger = (
   data: ChartDataPoint[],
   period = 20,
-  multiplier = 2
+  multiplier = 2,
+  source: "open" | "high" | "low" | "close" | "hl2" | "hlc3" | "ohlc4" | "hlcc4" = "close",
+  offset = 0
 ) => {
-  const upper: (number | string)[] = new Array(data.length).fill("-");
-  const middle: (number | string)[] = new Array(data.length).fill("-");
-  const lower: (number | string)[] = new Array(data.length).fill("-");
-  const width: (number | string)[] = new Array(data.length).fill("-");
-  const percentB: (number | string)[] = new Array(data.length).fill("-");
+  // If offset > 0, the arrays need to be longer to hold the future projection
+  const outLen = data.length + Math.max(0, offset);
+  const upper: (number | string)[] = new Array(outLen).fill("-");
+  const middle: (number | string)[] = new Array(outLen).fill("-");
+  const lower: (number | string)[] = new Array(outLen).fill("-");
+  const width: (number | string)[] = new Array(outLen).fill("-");
+  const percentB: (number | string)[] = new Array(outLen).fill("-");
 
   if (data.length < period) return { upper, middle, lower, width, percentB };
+
+  const getSourcePrice = (bar: ChartDataPoint) => {
+    switch (source) {
+      case "open": return bar.open;
+      case "high": return bar.high;
+      case "low": return bar.low;
+      case "close": return bar.close;
+      case "hl2": return (bar.high + bar.low) / 2;
+      case "hlc3": return (bar.high + bar.low + bar.close) / 3;
+      case "ohlc4": return (bar.open + bar.high + bar.low + bar.close) / 4;
+      case "hlcc4": return (bar.high + bar.low + bar.close + bar.close) / 4;
+      default: return bar.close;
+    }
+  };
 
   let sum = 0;
   let sumSq = 0;
 
   // Initial window
   for (let i = 0; i < period; i++) {
-    const val = data[i].close;
+    const val = getSourcePrice(data[i]);
     sum += val;
     sumSq += val * val;
   }
 
-  const updateBands = (idx: number, s: number, s2: number, currentClose: number) => {
+  const updateBands = (idx: number, s: number, s2: number) => {
+    const targetIdx = idx + offset;
+    if (targetIdx < 0 || targetIdx >= outLen) return;
+
     const avg = s / period;
     // Population variance (ddof=0) matches TradingView standard
     const variance = (s2 / period) - (avg * avg);
@@ -243,32 +262,39 @@ export const calculateBollinger = (
     const up = avg + multiplier * stdDev;
     const dn = avg - multiplier * stdDev;
 
-    middle[idx] = parseFloat(avg.toFixed(4));
-    upper[idx] = parseFloat(up.toFixed(4));
-    lower[idx] = parseFloat(dn.toFixed(4));
-
-    // BB Width = ((Upper - Lower) / Middle) * 100
-    if (avg !== 0) {
-      width[idx] = parseFloat((((up - dn) / avg) * 100).toFixed(4));
-    }
-
-    // BB %B = (Close - Lower) / (Upper - Lower)
-    const bandRange = up - dn;
-    if (bandRange !== 0) {
-      percentB[idx] = parseFloat(((currentClose - dn) / bandRange).toFixed(4));
-    }
+    middle[targetIdx] = parseFloat(avg.toFixed(4));
+    upper[targetIdx] = parseFloat(up.toFixed(4));
+    lower[targetIdx] = parseFloat(dn.toFixed(4));
   };
 
   // Calculate for the first valid window
-  updateBands(period - 1, sum, sumSq, data[period - 1].close);
+  updateBands(period - 1, sum, sumSq);
 
   // Sliding window for the rest
   for (let i = period; i < data.length; i++) {
-    const out = data[i - period].close;
-    const inv = data[i].close;
-    sum = sum - out + inv;
-    sumSq = sumSq - (out * out) + (inv * inv);
-    updateBands(i, sum, sumSq, data[i].close);
+    const outVal = getSourcePrice(data[i - period]);
+    const inVal = getSourcePrice(data[i]);
+    sum = sum - outVal + inVal;
+    sumSq = sumSq - (outVal * outVal) + (inVal * inVal);
+    updateBands(i, sum, sumSq);
+  }
+
+  // [TENOR 2026] Calculate Width and %B based on the SHIFTED bands and CURRENT price
+  // This guarantees mathematical parity with TradingView's oscillator behavior.
+  for (let i = 0; i < data.length; i++) {
+    const up = upper[i];
+    const dn = lower[i];
+    const mid = middle[i];
+
+    if (typeof up === "number" && typeof dn === "number" && typeof mid === "number") {
+      if (mid !== 0) {
+        width[i] = parseFloat((((up - dn) / mid) * 100).toFixed(4));
+      }
+      const bandRange = up - dn;
+      if (bandRange !== 0) {
+        percentB[i] = parseFloat(((data[i].close - dn) / bandRange).toFixed(4));
+      }
+    }
   }
 
   return { upper, middle, lower, width, percentB };
@@ -367,6 +393,7 @@ export const calculateStochasticRSI = (
     let low = Infinity;
     let high = -Infinity;
     let valid = true;
+
     for (let j = 0; j < stochLength; j++) {
       const val = rsi[i - j];
       if (val === "-") {
@@ -377,6 +404,7 @@ export const calculateStochasticRSI = (
       if (num < low) low = num;
       if (num > high) high = num;
     }
+
     if (!valid) continue;
 
     const denom = high - low;
@@ -445,7 +473,6 @@ export const calculateATR = (data: ChartDataPoint[], period = 14): (number | str
     results[i] = parseFloat(currentAtr.toFixed(2));
     prevAtr = currentAtr;
   }
-
   return results;
 };
 
@@ -470,7 +497,6 @@ export const calculateCCI = (data: ChartDataPoint[], period = 20): (number | str
     if (meanDev === 0) results[i] = 0;
     else results[i] = parseFloat(((tp[i] - smaTp) / (0.015 * meanDev)).toFixed(2));
   }
-
   return results;
 };
 
@@ -493,7 +519,6 @@ export const calculateWilliamsR = (data: ChartDataPoint[], period = 14): (number
     const den = highMax - lowMin;
     results[i] = den === 0 ? -50 : parseFloat((((highMax - data[i].close) / den) * -100).toFixed(2));
   }
-
   return results;
 };
 
@@ -514,7 +539,6 @@ export const calculateROC = (data: ChartDataPoint[], period = 12): (number | str
       results[i] = parseFloat((((data[i].close - prevClose) / prevClose) * 100).toFixed(2));
     }
   }
-
   return results;
 };
 
@@ -539,7 +563,6 @@ export const calculateOBV = (data: ChartDataPoint[]): (number | string)[] => {
     // If close === prevClose, OBV stays unchanged
     results[i] = obv;
   }
-
   return results;
 };
 
@@ -608,5 +631,4 @@ export const calculateIchimoku = (
 
   return { tenkan, kijun, senkouA, senkouB, chikou };
 };
-
 // --- EOF ---

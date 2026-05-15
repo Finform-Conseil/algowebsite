@@ -28,6 +28,7 @@ interface UseFloatingToolbarProps {
     drawings: Drawing[];
     selectedDrawingId: string | null;
     updateDrawing: (id: string, updates: Partial<Drawing>) => void;
+    reorderDrawing: (id: string, dir: "front" | "back" | "forward" | "backward") => void;
     addDrawing: (drawing: Drawing) => void;
     setSelectedDrawingId: (id: string | null) => void;
     deleteDrawing: (id: string) => void;
@@ -39,6 +40,7 @@ export const useFloatingToolbar = ({
     drawings,
     selectedDrawingId,
     updateDrawing,
+    reorderDrawing,
     addDrawing,
     setSelectedDrawingId,
     deleteDrawing,
@@ -201,14 +203,11 @@ export const useFloatingToolbar = ({
         setActiveToolbarPopup(null);
     }, [drawings, selectedDrawingId, addDrawing, setSelectedDrawingId, addNotification]);
 
-    const handleVisualOrder = useCallback((_direction: "front" | "back") => {
+    const handleVisualOrder = useCallback((direction: "front" | "back" | "forward" | "backward") => {
         if (!selectedDrawingId) return;
-        // In useDrawingManager, reorderDrawing is expected to be passed.
-        // For now, we utilize the updateDrawing to trigger a refresh if needed,
-        // but the actual array movement happens in useDrawingManager.
-        // We ensure setActiveToolbarPopup(null) to close the menu.
+        reorderDrawing(selectedDrawingId, direction);
         setActiveToolbarPopup(null);
-    }, [selectedDrawingId]);
+    }, [reorderDrawing, selectedDrawingId]);
 
     const handleHide = useCallback(() => {
         if (!selectedDrawingId) return;

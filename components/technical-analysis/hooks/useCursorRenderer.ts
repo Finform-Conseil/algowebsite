@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useCallback, useEffect } from 'react';
 import * as echarts from 'echarts/core';
-import { useMasterRenderLoop } from './useMasterRenderLoop';
+import { useMasterRenderLoop, type RenderFrameMeta } from './useMasterRenderLoop';
 
 const MAIN_GRID_LEFT = 15;
 
@@ -57,6 +57,9 @@ interface Particle {
 export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, chartData }: UseCursorRendererProps) => {
   const mouseRef = useRef<{ x: number, y: number } | null>(null);
   const isReadyRef = useRef(false);
+  const isDirtyRef = useRef(true);
+  const modeRef = useRef<CursorMode>(mode);
+  const chartDataRef = useRef<CandleData[]>(chartData);
 
   // --- INITIALISATION DE L'OBJECT POOL (Ring Buffer) ---
   const particlesRef = useRef<Particle[]>(
@@ -84,6 +87,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       } else {
         mouseRef.current = null;
       }
+      isDirtyRef.current = true;
     };
 
     // [TENOR 2026] Spawn de particules au clic (Mode Magic)
@@ -119,6 +123,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
           // Avance le pointeur du Ring Buffer
           particleIndexRef.current = (idx + 1) % MAX_PARTICLES;
         }
+        isDirtyRef.current = true;
       }
     };
 
@@ -130,6 +135,36 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       document.removeEventListener('pointerdown', handlePointerDown);
     };
   }, [containerRef, mode]); // Re-bind si le mode change
+
+  useEffect(() => {
+    modeRef.current = mode;
+    isDirtyRef.current = true;
+  }, [mode]);
+
+  useEffect(() => {
+    chartDataRef.current = chartData;
+    isDirtyRef.current = true;
+  }, [chartData]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || chart.isDisposed()) return;
+
+    const markDirty = () => {
+      isDirtyRef.current = true;
+    };
+
+    chart.on('datazoom', markDirty);
+    chart.on('restore', markDirty);
+    chart.on('finished', markDirty);
+
+    return () => {
+      if (chart.isDisposed()) return;
+      chart.off('datazoom', markDirty);
+      chart.off('restore', markDirty);
+      chart.off('finished', markDirty);
+    };
+  }, [chartRef]);
 
   // ============================================================================
   // 1. CANVAS SIZING & RESIZE OBSERVER
@@ -156,6 +191,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
         canvas.width = displayWidth;
         canvas.height = displayHeight;
+        isDirtyRef.current = true;
       }
       
       isReadyRef.current = true;
@@ -178,11 +214,28 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
   // ============================================================================
   // 2. RENDER LOOP (Orchestrated by MasterRenderLoop)
   // ============================================================================
-  const render = useCallback((_time: number) => {
+  const render = useCallback((_time: number, meta: RenderFrameMeta) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx || !isReadyRef.current) return;
+
+    const particles = particlesRef.current;
+    let hasActiveParticles = false;
+    for (let i = 0; i < particles.length; i++) {
+      if (particles[i].active) {
+        hasActiveParticles = true;
+        break;
+      }
+    }
+
+    if (!isDirtyRef.current && !hasActiveParticles) {
+      return;
+    }
+
+    isDirtyRef.current = false;
+    const currentMode = modeRef.current;
+    const currentChartData = chartDataRef.current;
 
     // Helper: Draw Axis Labels (The TradingView-style "Ribbons")
     const drawAxisLabels = (
@@ -207,14 +260,14 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
 
       // X-AXIS (DATE) - Positioned at the BOTTOM
       let dateText = "";
-      if (chartRef.current && !chartRef.current.isDisposed() && chartData.length > 0) {
+      if (chartRef.current && !chartRef.current.isDisposed() && currentChartData.length > 0) {
         try {
           const pointInData = chartRef.current.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [x, y]);
           if (pointInData && Array.isArray(pointInData)) {
             const dataIndex = Math.round(pointInData[0]);
             // [TENOR 2026 FIX] Safe clamping to prevent out-of-bounds errors
-            const safeIndex = Math.max(0, Math.min(chartData.length - 1, dataIndex));
-            const candle = chartData[safeIndex];
+            const safeIndex = Math.max(0, Math.min(currentChartData.length - 1, dataIndex));
+            const candle = currentChartData[safeIndex];
             
             if (candle) {
               // Support for object or array data format
@@ -456,7 +509,6 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
     // ============================================================================
     // [TENOR 2026] MOTEUR PHYSIQUE DES PARTICULES (Indépendant de la souris)
     // ============================================================================
-    const particles = particlesRef.current;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       if (!p.active) continue;
@@ -502,7 +554,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       const chart = chartRef.current;
 
       // --- MODE: CROSS & CROSS-TOOLTIP ---
-      if (mode === 'cross' || mode === 'cross-tooltip') {
+      if (currentMode === 'cross' || currentMode === 'cross-tooltip') {
         ctx.save();
         ctx.beginPath();
         ctx.setLineDash([4, 3]);
@@ -518,24 +570,24 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         // [TENOR 2026 FIX] ALWAYS draw axis labels (ribbons) for crosshair modes
         drawAxisLabels(ctx, x, y, w, h, axisLabelBg, axisLabelText);
 
-        if (mode === 'cross-tooltip') {
-          if (chart && chartData.length > 0) {
-            drawProTooltip(ctx, x, y, w, h, chart, chartData);
+        if (currentMode === 'cross-tooltip' && !meta.isDegraded) {
+          if (chart && currentChartData.length > 0) {
+            drawProTooltip(ctx, x, y, w, h, chart, currentChartData);
           }
         }
       }
 
       // --- MODE: ARROW-TOOLTIP ---
-      if (mode === 'arrow-tooltip') {
+      if (currentMode === 'arrow-tooltip') {
         drawAxisLabels(ctx, x, y, w, h, axisLabelBg, axisLabelText);
 
-        if (chart && chartData.length > 0) {
-          drawProTooltip(ctx, x, y, w, h, chart, chartData);
+        if (chart && currentChartData.length > 0 && !meta.isDegraded) {
+          drawProTooltip(ctx, x, y, w, h, chart, currentChartData);
         }
       }
 
       // --- MODE: DOT ---
-      if (mode === 'dot') {
+      if (currentMode === 'dot') {
         ctx.save();
         ctx.shadowBlur = 4;
         ctx.shadowColor = 'rgba(0,0,0,0.5)';
@@ -550,7 +602,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       }
 
       // --- MODE: DEMONSTRATION ---
-      if (mode === 'demonstration') {
+      if (currentMode === 'demonstration') {
         ctx.save();
         const pulseSize = 15 + Math.sin(Date.now() / 200) * 3;
         ctx.beginPath();
@@ -565,10 +617,11 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         ctx.arc(x, y, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+        isDirtyRef.current = true;
       }
 
       // --- MODE: MAGIC WAND ---
-      if (mode === 'magic') {
+      if (currentMode === 'magic') {
         ctx.save();
         ctx.font = '22px Arial';
         ctx.textAlign = 'center';
@@ -579,7 +632,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       }
 
       // --- MODE: ERASER ---
-      if (mode === 'eraser') {
+      if (currentMode === 'eraser') {
         // 1. Draw crosshair (TradingView keeps the crosshair for the eraser)
         ctx.save();
         ctx.beginPath();
@@ -633,12 +686,12 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         ctx.restore();
       }
     }
-  }, [canvasRef, mode, chartRef, chartData]);
+  }, [canvasRef, chartRef]);
 
   // ============================================================================
   // 3. MASTER RENDER LOOP SUBSCRIPTION
   // ============================================================================
-  useMasterRenderLoop(render);
+  useMasterRenderLoop(render, "cursor-canvas");
 };
 
 // --- EOF ---

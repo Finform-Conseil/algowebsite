@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, RefObject } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, RefObject } from "react";
 import { useSelector } from "react-redux";
 import DOMPurify from "dompurify";
 import { selectUiState } from "../store/technicalAnalysisSlice";
@@ -10,6 +10,117 @@ import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { z } from "zod";
 
 const MAIN_GRID_LEFT = 15;
+
+const isChartTimeValue = (value: unknown): value is string | number =>
+  typeof value === "string" || typeof value === "number";
+
+// ============================================================================
+// [TENOR 2026 SRE] SPATIAL HASH GRID (O(1) HIT-TEST ENGINE)
+// SCAR-PERF-HITTEST: Eradicates O(N*M) brute-force hit testing.
+// Separates finite shapes (AABB) from infinite lines (Rays) to prevent Grid Flooding.
+// ============================================================================
+const CELL_SIZE = 150; // Sweet spot for 1080p/4K screens
+const MAX_CELLS_PER_SHAPE = 100; // OOM Shield against giant polygons
+
+class SpatialHashGrid {
+  private cells: Map<string, { drawing: Drawing; zIndex: number }[]>;
+  private infiniteDrawings: { drawing: Drawing; zIndex: number }[];
+
+  constructor() {
+    this.cells = new Map();
+    this.infiniteDrawings = [];
+  }
+
+  public build(drawings: Drawing[], chart: EChartsType) {
+    this.cells.clear();
+    this.infiniteDrawings = [];
+
+    for (let i = 0; i < drawings.length; i++) {
+      const d = drawings[i];
+      if (d.hidden) continue;
+
+      // 1. Identify Infinite Tools (Rays, Extended Lines, Pitchforks, Gann Fans)
+      const isInfinite = [
+        "ray", "x_line", "horizontal_line", "vertical_line", "horizontal_ray",
+        "pitchfork", "schiff_pitchfork", "modified_schiff_pitchfork", "inside_pitchfork",
+        "pitchfan", "gann_fan", "regression_trend"
+      ].includes(d.type);
+
+      if (isInfinite) {
+        this.infiniteDrawings.push({ drawing: d, zIndex: i });
+        continue;
+      }
+
+      // 2. Calculate AABB for Finite Tools
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let hasValidPoints = false;
+
+      for (const p of d.points) {
+        const pix = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
+        if (pix && Number.isFinite(pix[0]) && Number.isFinite(pix[1])) {
+          minX = Math.min(minX, pix[0]);
+          maxX = Math.max(maxX, pix[0]);
+          minY = Math.min(minY, pix[1]);
+          maxY = Math.max(maxY, pix[1]);
+          hasValidPoints = true;
+        }
+      }
+
+      if (!hasValidPoints) continue;
+
+      // Add padding for handles and thick lines
+      const padding = 25;
+      minX -= padding; minY -= padding; maxX += padding; maxY += padding;
+
+      const startCol = Math.floor(minX / CELL_SIZE);
+      const endCol = Math.floor(maxX / CELL_SIZE);
+      const startRow = Math.floor(minY / CELL_SIZE);
+      const endRow = Math.floor(maxY / CELL_SIZE);
+
+      const cellsCount = (endCol - startCol + 1) * (endRow - startRow + 1);
+
+      // 3. OOM Shield: If a shape covers too many cells, treat it as infinite
+      if (cellsCount > MAX_CELLS_PER_SHAPE) {
+        this.infiniteDrawings.push({ drawing: d, zIndex: i });
+        continue;
+      }
+
+      // 4. Populate Grid
+      for (let c = startCol; c <= endCol; c++) {
+        for (let r = startRow; r <= endRow; r++) {
+          const key = `${c},${r}`;
+          let cell = this.cells.get(key);
+          if (!cell) {
+            cell = [];
+            this.cells.set(key, cell);
+          }
+          cell.push({ drawing: d, zIndex: i });
+        }
+      }
+    }
+  }
+
+  public query(x: number, y: number): Drawing[] {
+    const col = Math.floor(x / CELL_SIZE);
+    const row = Math.floor(y / CELL_SIZE);
+    const key = `${col},${row}`;
+    
+    const cellDrawings = this.cells.get(key) || [];
+    
+    // Combine infinite drawings and cell drawings
+    const combined = [...this.infiniteDrawings, ...cellDrawings];
+    
+    // Deduplicate by ID and sort by Z-Index descending (Top-most first)
+    const uniqueMap = new Map<string, { drawing: Drawing; zIndex: number }>();
+    for (const item of combined) {
+      uniqueMap.set(item.drawing.id, item);
+    }
+
+    return Array.from(uniqueMap.values())
+      .sort((a, b) => b.zIndex - a.zIndex)
+      .map(item => item.drawing);
+  }
+}
 
 // ============================================================================
 // [TENOR 2026 SRE] INDEXED-DB STORAGE ENGINE (OOM & 5MB LIMIT SHIELD)
@@ -134,81 +245,33 @@ const validateNamedTemplates = (data: unknown): Record<string, { name: string, s
 // ============================================================================
 const getPriceSeriesIndex = (chart: EChartsType): number => {
   const option = chart.getOption();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const seriesList = (option.series as any[]) || [];
+  const seriesList = (option.series as Array<{ yAxisIndex?: number; type?: string }>) || [];
   const idx = seriesList.findIndex((s) => s.yAxisIndex === 0 || s.yAxisIndex === undefined || s.type === "candlestick");
   return idx !== -1 ? idx : 0;
 };
 
 const SINGLE_CLICK_TOOLS: AllToolType[] = [
-  "horizontal_line",
-  "vertical_line",
-  "crosshair",
-  "arrow_marker",
-  "horizontal_ray",
-  "long_position",
-  "short_position",
-  "anchored_vwap",
+  "horizontal_line", "vertical_line", "crosshair", "arrow_marker",
+  "horizontal_ray", "long_position", "short_position", "anchored_vwap",
 ];
 
 const TWO_CLICK_TOOLS: AllToolType[] = [
-  "line",
-  "arrow",
-  "trend_angle",
-  "ray",
-  "x_line",
-  "date_range",
-  "price_range",
-  "date_price_range",
-  "regression_trend",
-  "anchored_volume_profile",
-  "fib_retracement",
-  "fib_time_zone",
-  "fib_speed_resistance_fan",
-  "fib_circles",
-  "fib_spiral",
-  "gann_box",
-  "gann_square",
-  "gann_square_fixed",
-  "gann_fan",
-  "cyclic_lines",
-  "time_cycles",
-  "sine_line",
-  "position_forecast",
-  "bar_pattern",
-  "fib_speed_resistance_arcs"
+  "line", "arrow", "trend_angle", "ray", "x_line", "date_range", "price_range",
+  "date_price_range", "regression_trend", "anchored_volume_profile", "fib_retracement",
+  "fib_time_zone", "fib_speed_resistance_fan", "fib_circles", "fib_spiral",
+  "gann_box", "gann_square", "gann_square_fixed", "gann_fan", "cyclic_lines",
+  "time_cycles", "sine_line", "position_forecast", "bar_pattern", "fib_speed_resistance_arcs"
 ];
 
 const MULTI_CLICK_TOOLS: AllToolType[] = [
-  "polyline",
-  "path",
-  "xabcd_pattern",
-  "cypher_pattern",
-  "abcd_pattern",
-  "triangle_pattern",
-  "three_drives_pattern",
-  "head_and_shoulders",
-  "elliott_impulse_wave",
-  "elliott_triangle_wave",
-  "elliott_triple_combo_wave",
-  "elliott_correction_wave",
-  "elliott_double_combo_wave",
-  "projection",
-  "curve",
-  "parallel_channel",
-  "flat_top_bottom",
-  "disjoint_channel",
-  "pitchfork",
-  "schiff_pitchfork",
-  "modified_schiff_pitchfork",
-  "inside_pitchfork",
-  "pitchfan",
-  "trend_based_fib_extension",
-  "fib_channel",
-  "trend_based_fib_time",
-  "fib_wedge",
-  "ghost_feed",
-  "sector",
+  "polyline", "path", "xabcd_pattern", "cypher_pattern", "abcd_pattern",
+  "triangle_pattern", "three_drives_pattern", "head_and_shoulders",
+  "elliott_impulse_wave", "elliott_triangle_wave", "elliott_triple_combo_wave",
+  "elliott_correction_wave", "elliott_double_combo_wave", "projection", "curve",
+  "parallel_channel", "flat_top_bottom", "disjoint_channel", "pitchfork",
+  "schiff_pitchfork", "modified_schiff_pitchfork", "inside_pitchfork", "pitchfan",
+  "trend_based_fib_extension", "fib_channel", "trend_based_fib_time", "fib_wedge",
+  "ghost_feed", "sector",
 ];
 
 const TOOL_MAX_CLICKS_REGISTRY: Record<string, number> = {
@@ -265,37 +328,34 @@ export const useDrawingManager = ({
   }, []);
 
   // ============================================================================
-  // [TENOR 2026 SRE] SYNCHRONOUS REF MUTATION (Zero-Latency State Sync)
+  // [TENOR 2026 SRE] SYNCHRONOUS REF MUTATION (Stale Closure Fix)
+  // Replaced useEffect with useLayoutEffect to guarantee synchronous updates
+  // before the browser paints, eliminating 1-frame lag and stale closures.
   // ============================================================================
   const cursorModeRef = useRef<string>(uiState.cursorMode as string);
-  // eslint-disable-next-line react-hooks/refs
-  cursorModeRef.current = uiState.cursorMode as string;
-
   const activeToolRef = useRef<AllToolType>(activeTool);
-  // eslint-disable-next-line react-hooks/refs
-  activeToolRef.current = activeTool;
-
   const drawingsRef = useRef<Drawing[]>(drawings);
-  // eslint-disable-next-line react-hooks/refs
-  drawingsRef.current = drawings;
-
   const currentDrawingRef = useRef<Drawing | null>(null);
   const isDrawingRef = useRef(false);
   const clickCountRef = useRef(0);
-
   const prevContextRef = useRef({ tool: activeTool, mode: uiState.cursorMode });
-  // eslint-disable-next-line react-hooks/refs
-  if (prevContextRef.current.tool !== activeTool || prevContextRef.current.mode !== uiState.cursorMode) {
-    // eslint-disable-next-line react-hooks/refs
-    isDrawingRef.current = false;
-    // eslint-disable-next-line react-hooks/refs
-    currentDrawingRef.current = null;
-    // eslint-disable-next-line react-hooks/refs
-    clickCountRef.current = 0;
-    // eslint-disable-next-line react-hooks/refs
-    prevContextRef.current = { tool: activeTool, mode: uiState.cursorMode };
-    markDirty();
-  }
+  
+  // [TENOR 2026] Spatial Hash Grid Instance
+  const spatialGridRef = useRef<SpatialHashGrid>(new SpatialHashGrid());
+
+  useLayoutEffect(() => {
+    cursorModeRef.current = uiState.cursorMode as string;
+    activeToolRef.current = activeTool;
+    drawingsRef.current = drawings;
+    
+    if (prevContextRef.current.tool !== activeTool || prevContextRef.current.mode !== uiState.cursorMode) {
+      isDrawingRef.current = false;
+      currentDrawingRef.current = null;
+      clickCountRef.current = 0;
+      prevContextRef.current = { tool: activeTool, mode: uiState.cursorMode };
+      markDirty();
+    }
+  }, [activeTool, uiState.cursorMode, drawings, markDirty]);
 
   useEffect(() => {
     setCurrentDrawing(null);
@@ -307,7 +367,7 @@ export const useDrawingManager = ({
   const chartSyncRef = useRef<number>(0);
   const chartDataRef = useRef<ChartDataPoint[]>(chartData);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     chartDataRef.current = chartData;
     markDirty(); // Force render when new candles arrive
   }, [chartData, markDirty]);
@@ -374,11 +434,11 @@ export const useDrawingManager = ({
     // We rely on React's strict immutability. `newDrawings` is an array of references.
     // Memory complexity drops from O(N^2) to O(1) per state.
     newHistory.push([...newDrawings]);
-
+    
     if (newHistory.length > MAX_HISTORY_STATES) {
       newHistory = newHistory.slice(newHistory.length - MAX_HISTORY_STATES);
     }
-
+    
     historyRef.current = newHistory;
     historyStepRef.current = newHistory.length - 1;
   }, []);
@@ -419,7 +479,7 @@ export const useDrawingManager = ({
 
   // --- CRUD Operations ---
   const selectedIdRef = useRef<string | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectedIdRef.current = selectedDrawingId;
     markDirty();
   }, [selectedDrawingId, markDirty]);
@@ -462,14 +522,19 @@ export const useDrawingManager = ({
     markDirty();
   }, [addDrawing, clearCurrentDrawing, resetDrawingInteraction, markDirty]);
 
-  const reorderDrawing = useCallback((id: string, dir: 'front' | 'back') => {
+  const reorderDrawing = useCallback((id: string, dir: 'front' | 'back' | 'forward' | 'backward') => {
     setDrawings(prev => {
       const idx = prev.findIndex(d => d.id === id);
       if (idx === -1) return prev;
       const next = [...prev];
       const [rem] = next.splice(idx, 1);
-      if (dir === 'back') next.unshift(rem);
-      else next.push(rem);
+      const targetIndex = (() => {
+        if (dir === 'back') return 0;
+        if (dir === 'front') return next.length;
+        if (dir === 'backward') return Math.max(0, idx - 1);
+        return Math.min(next.length, idx + 1);
+      })();
+      next.splice(targetIndex, 0, rem);
       pushHistory(next);
       return next;
     });
@@ -613,17 +678,18 @@ export const useDrawingManager = ({
       // [TENOR 2026 SRE FIX] SCAR-CPU-01: Dirty Flag Short-Circuit
       // If nothing has changed and we are not dragging, skip the entire render cycle.
       // Drops CPU usage from 15% to 0.01% when idle.
-      if (!isDirtyRef.current && !isDraggingRef.current) {
+      if (!isDirtyRef.current && !isDraggingRef.current && chartSyncRef.current === 0) {
         animationFrameId = requestAnimationFrame(renderLoop);
         return;
       }
+      
       isDirtyRef.current = false;
-
       const chart = chartInstanceRef.current;
+
       if (drawingCanvasRef.current && rendererRef.current && chart) {
         const dpr = window.devicePixelRatio || 1;
         const rect = drawingCanvasRef.current.getBoundingClientRect();
-        
+
         if (drawingCanvasRef.current.width !== rect.width * dpr || drawingCanvasRef.current.height !== rect.height * dpr) {
           drawingCanvasRef.current.width = rect.width * dpr;
           drawingCanvasRef.current.height = rect.height * dpr;
@@ -634,7 +700,6 @@ export const useDrawingManager = ({
         const height = chart.getHeight();
         const TV_Y_AXIS_WIDTH = 84;
         const TV_X_AXIS_HEIGHT = 28;
-        
         const safeTop = Math.max(30, height * 0.08);
         const safeBottom = height - TV_X_AXIS_HEIGHT;
         const safeLeft = MAIN_GRID_LEFT;
@@ -648,9 +713,9 @@ export const useDrawingManager = ({
         };
 
         if (!gridRectRef.current || 
-            Math.abs(gridRectRef.current.x - newGridRect.x) > 2.0 ||
-            Math.abs(gridRectRef.current.y - newGridRect.y) > 2.0 ||
-            Math.abs(gridRectRef.current.width - newGridRect.width) > 2.0 ||
+            Math.abs(gridRectRef.current.x - newGridRect.x) > 2.0 || 
+            Math.abs(gridRectRef.current.y - newGridRect.y) > 2.0 || 
+            Math.abs(gridRectRef.current.width - newGridRect.width) > 2.0 || 
             Math.abs(gridRectRef.current.height - newGridRect.height) > 2.0) {
           setGridRect(newGridRect);
           gridRectRef.current = newGridRect;
@@ -658,6 +723,7 @@ export const useDrawingManager = ({
         }
 
         let renderDrawings = drawingsRef.current;
+        
         if (isDraggingRef.current && draggedDrawingRef.current) {
           renderDrawings = [];
           const draggedId = draggedDrawingRef.current.id;
@@ -680,10 +746,16 @@ export const useDrawingManager = ({
             gridRectRef.current,
             chartDataRef.current
           );
+          
+          // [TENOR 2026 SRE] Rebuild Spatial Hash Grid after render if dirty
+          spatialGridRef.current.build(renderDrawings, chart);
+          chartSyncRef.current = 0;
+          
         } catch (err) {
           console.error("[TENOR SRE] Global Drawing Loop Exception:", err);
         }
       }
+
       animationFrameId = requestAnimationFrame(renderLoop);
     };
 
@@ -701,11 +773,9 @@ export const useDrawingManager = ({
   // --- Coordinate Conversion ---
   const getChartCoordinates = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): DrawingPoint | null => {
     if (!chartInstanceRef.current || chartInstanceRef.current.isDisposed() || !drawingCanvasRef.current) return null;
-    
     const rect = drawingCanvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     const chart = chartInstanceRef.current;
     const option = chart.getOption();
     const priceSeriesIndex = getPriceSeriesIndex(chart);
@@ -714,16 +784,25 @@ export const useDrawingManager = ({
     if (point && point.length >= 2) {
       let time = point[0] as string | number;
       const value = point[1] as number;
-
-      const xAxis = (Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis) as { type?: string; data?: (string | number)[] } | undefined;
-      if (xAxis && xAxis.type === 'category' && xAxis.data && typeof time === 'number') {
+      
+      const xAxis = (Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis) as { type?: string; data?: unknown[] } | undefined;
+      if (xAxis && xAxis.type === 'category' && Array.isArray(xAxis.data) && typeof time === 'number') {
         const index = Math.round(time);
         if (index >= 0 && index < xAxis.data.length) {
-          time = xAxis.data[index];
+          const axisTime = xAxis.data[index];
+          if (!isChartTimeValue(axisTime)) return null;
+          time = axisTime;
         } else if (index >= xAxis.data.length) {
           const lastIdx = xAxis.data.length - 1;
-          const lastTime = new Date(xAxis.data[lastIdx]).getTime();
-          const prevTime = xAxis.data.length > 1 ? new Date(xAxis.data[lastIdx - 1]).getTime() : lastTime - 86400000;
+          const lastAxisTime = xAxis.data[lastIdx];
+          const prevAxisTime = xAxis.data[lastIdx - 1];
+          if (!isChartTimeValue(lastAxisTime)) return null;
+
+          const lastTime = new Date(lastAxisTime).getTime();
+          const prevTime =
+            xAxis.data.length > 1 && isChartTimeValue(prevAxisTime)
+              ? new Date(prevAxisTime).getTime()
+              : lastTime - 86400000;
           const gap = lastTime - prevTime;
           const futureTime = lastTime + (index - lastIdx) * gap;
           time = new Date(futureTime).toISOString();
@@ -742,10 +821,8 @@ export const useDrawingManager = ({
     }
     const exact = data.findIndex((d) => d.time === time);
     if (exact !== -1) return exact;
-    
     const targetMs = new Date(time).getTime();
     if (!Number.isFinite(targetMs)) return -1;
-    
     let bestIdx = 0;
     let bestDist = Number.POSITIVE_INFINITY;
     for (let i = 0; i < data.length; i++) {
@@ -766,11 +843,9 @@ export const useDrawingManager = ({
     const i1 = resolveTimeToChartIndex(p1.time);
     const i2 = resolveTimeToChartIndex(p2.time);
     if (i1 < 0 || i2 < 0) return [];
-    
     const start = Math.max(0, Math.min(i1, i2));
     const end = Math.min(data.length - 1, Math.max(i1, i2));
     if (end < start) return [];
-    
     return data.slice(start, end + 1).map((bar, localIdx) => ({
       o: bar.open,
       c: bar.close,
@@ -787,7 +862,6 @@ export const useDrawingManager = ({
 
   const handleDoubleClick = useCallback(() => {
     if (!isDrawingRef.current || !currentDrawingRef.current) return;
-
     if (MULTI_CLICK_TOOLS.includes(currentDrawingRef.current.type)) {
       const finishedDrawing = currentDrawingRef.current;
       if (finishedDrawing.points.length >= 2) {
@@ -809,7 +883,6 @@ export const useDrawingManager = ({
 
   // --- Pointer Down Handler ---
   // [TENOR 2026 SRE FIX] SCAR-TOUCH-01: PointerEvents fully unified.
-  // Audited and validated for Option B (Touch Support). e.pointerId capture ensures robust tracking.
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) {
       e.preventDefault();
@@ -821,7 +894,7 @@ export const useDrawingManager = ({
       return;
     }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    
+
     if (drawingCanvasRef.current && e.pointerId !== undefined) {
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -843,7 +916,6 @@ export const useDrawingManager = ({
     const my = e.clientY - rect.top;
 
     const currentActiveTool = activeToolRef.current;
-    const currentDrawings = drawingsRef.current;
     const mode = cursorModeRef.current;
 
     if (mode !== 'magic') {
@@ -861,9 +933,12 @@ export const useDrawingManager = ({
 
     const HIT_THRESHOLD = 15;
 
-    if (currentDrawings.length > 0 && rendererRef.current) {
-      for (let i = currentDrawings.length - 1; i >= 0; i--) {
-        const d = currentDrawings[i];
+    // [TENOR 2026 SRE] SPATIAL HASH GRID HIT-TEST (O(1) Lookup)
+    if (drawingsRef.current.length > 0 && rendererRef.current) {
+      const candidates = spatialGridRef.current.query(mx, my);
+      
+      for (let i = 0; i < candidates.length; i++) {
+        const d = candidates[i];
         const result = rendererRef.current.hitTest(mx, my, d, chartInstanceRef.current, HIT_THRESHOLD);
         
         if (result.isHit) {
@@ -888,7 +963,7 @@ export const useDrawingManager = ({
             initialSlOffset: d.slOffset ?? (d.positionProps ? (d.type === 'long_position' ? d.positionProps.entryPrice - d.positionProps.slPrice : d.positionProps.slPrice - d.positionProps.entryPrice) : undefined),
             mouseStart: { x: mx, y: my }
           };
-          
+
           if (drawingCanvasRef.current) {
             if (result.hitType === 'point') drawingCanvasRef.current.style.cursor = 'grabbing';
             else if (result.hitType?.startsWith('zone_')) drawingCanvasRef.current.style.cursor = 'ns-resize';
@@ -896,30 +971,6 @@ export const useDrawingManager = ({
             else drawingCanvasRef.current.style.cursor = 'move';
           }
           return;
-        }
-
-        if (d.type === 'sector' && d.points.length > 0) {
-          const p0 = d.points[0];
-          const p0Pix = chartInstanceRef.current.convertToPixel({ seriesIndex: getPriceSeriesIndex(chartInstanceRef.current) }, [p0.time, p0.value]);
-          if (p0Pix && Math.sqrt(Math.pow(mx - p0Pix[0], 2) + Math.pow(my - p0Pix[1], 2)) < 50) {
-            if (mode === 'eraser') {
-              deleteDrawing(d.id);
-              return;
-            }
-            setSelectedDrawingId(d.id);
-            markDirty();
-            if (d.locked) return;
-            isDraggingRef.current = true;
-            dragTargetRef.current = {
-              drawingId: d.id,
-              type: 'shape',
-              pointIndex: -1,
-              initialPoints: [...d.points],
-              mouseStart: { x: mx, y: my }
-            };
-            if (drawingCanvasRef.current) drawingCanvasRef.current.style.cursor = 'move';
-            return;
-          }
         }
       }
     }
@@ -1039,6 +1090,7 @@ export const useDrawingManager = ({
             ]
           };
         }
+
         if (newDrawing.type === "fib_retracement" || newDrawing.type === "trend_based_fib_extension" || newDrawing.type === "fib_channel") {
           newDrawing.fibProps = {
             reverse: false,
@@ -1061,6 +1113,7 @@ export const useDrawingManager = ({
             labelsPosition: "right",
           };
         }
+
         if (newDrawing.type === "fib_speed_resistance_fan") {
           newDrawing.fibProps = {
             reverse: false,
@@ -1096,6 +1149,7 @@ export const useDrawingManager = ({
             }
           };
         }
+
         if (newDrawing.type === "trend_based_fib_time") {
           newDrawing.trendBasedFibTimeProps = {
             levels: [
@@ -1116,6 +1170,7 @@ export const useDrawingManager = ({
             showLevels: true,
           };
         }
+
         if (newDrawing.type === "time_cycles") {
           newDrawing.cyclesProps = {
             fillBackground: true,
@@ -1126,6 +1181,7 @@ export const useDrawingManager = ({
             showLabels: false
           };
         }
+
         if (newDrawing.type === "xabcd_pattern" || newDrawing.type === "cypher_pattern" || newDrawing.type === "triangle_pattern") {
           newDrawing.xabcdProps = {
             showLabels: true,
@@ -1134,6 +1190,7 @@ export const useDrawingManager = ({
             fillOpacity: 0.15
           };
         }
+
         if (newDrawing.type === "regression_trend") {
           newDrawing.regressionProps = {
             useUpperDev: true,
@@ -1160,6 +1217,7 @@ export const useDrawingManager = ({
             showPearsonsR: true
           };
         }
+
         if (newDrawing.type === "position_forecast") {
           newDrawing.forecastProps = {
             showSourceText: true,
@@ -1178,6 +1236,7 @@ export const useDrawingManager = ({
             failureBackgroundColor: "#f23645",
           };
         }
+
         if (newDrawing.type === "bar_pattern") {
           newDrawing.barPatternProps = {
             color: newDrawing.style.color || "#ff9800",
@@ -1187,6 +1246,7 @@ export const useDrawingManager = ({
             opacity: 1,
           };
         }
+
         if (newDrawing.type === "fib_time_zone") {
           newDrawing.fibProps = {
             reverse: false,
@@ -1211,6 +1271,7 @@ export const useDrawingManager = ({
             trendLine: { enabled: true, color: "#787b86", lineStyle: "dashed", lineWidth: 1 },
           };
         }
+
         if (newDrawing.type === "fib_circles") {
           newDrawing.fibCirclesProps = {
             levels: [
@@ -1226,6 +1287,7 @@ export const useDrawingManager = ({
             showLabels: true,
           };
         }
+
         if (newDrawing.type === "fib_spiral") {
           newDrawing.fibSpiralProps = {
             reverse: false,
@@ -1243,6 +1305,7 @@ export const useDrawingManager = ({
             counterclockwise: false,
           };
         }
+
         if (newDrawing.type === "gann_box") {
           newDrawing.gannBoxProps = {
             reverse: false,
@@ -1270,6 +1333,7 @@ export const useDrawingManager = ({
             timeBackground: { enabled: true, fillOpacity: 0.15 },
           };
         }
+
         if (newDrawing.type === "gann_square_fixed") {
           newDrawing.gannSquareFixedProps = {
             reverse: false,
@@ -1300,6 +1364,7 @@ export const useDrawingManager = ({
             lockRatio: false,
           };
         }
+
         if (newDrawing.type === "gann_square") {
           newDrawing.gannSquareProps = {
             color: "#2962ff",
@@ -1339,6 +1404,7 @@ export const useDrawingManager = ({
             ],
           };
         }
+
         if (newDrawing.type === "gann_fan") {
           newDrawing.gannFanProps = {
             reverse: false,
@@ -1357,6 +1423,7 @@ export const useDrawingManager = ({
             ],
           };
         }
+
         if (newDrawing.type === "fib_speed_resistance_arcs") {
           newDrawing.fibSpeedResistanceArcsProps = {
             levels: [
@@ -1373,6 +1440,7 @@ export const useDrawingManager = ({
             showLabels: true,
           };
         }
+
         if (newDrawing.type === "fib_wedge") {
           newDrawing.fibWedgeProps = {
             levels: [
@@ -1388,6 +1456,7 @@ export const useDrawingManager = ({
             showLabels: true,
           };
         }
+
         if (newDrawing.type === "pitchfan") {
           newDrawing.pitchfanProps = {
             levels: [
@@ -1457,7 +1526,7 @@ export const useDrawingManager = ({
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
     if (!drawingCanvasRef.current) return;
-    
+
     const rect = drawingCanvasRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -1468,7 +1537,6 @@ export const useDrawingManager = ({
       const { drawingId, type, pointIndex, initialPoints, mouseStart } = dragTargetRef.current;
       const dx = mx - mouseStart.x;
       const dy = my - mouseStart.y;
-
       const d = drawingsRef.current.find(draw => draw.id === drawingId);
       if (!d) return;
 
@@ -1482,7 +1550,6 @@ export const useDrawingManager = ({
           const newPix = [startPix[0] + dx, startPix[1] + dy];
           const newCoords = chartInstanceRef.current?.convertFromPixel({ seriesIndex: priceIdx }, newPix);
           if (!newCoords) return p;
-          
           const rawTime = newCoords[0];
           let finalTime: string | number = rawTime;
           if (typeof rawTime === 'number') {
@@ -1490,7 +1557,6 @@ export const useDrawingManager = ({
             const clampedIdx = Math.max(0, Math.min(idx, chartDataRef.current.length - 1));
             finalTime = chartDataRef.current[clampedIdx].time;
           }
-          
           return { time: finalTime, value: newCoords[1] as number };
         });
       } else if (type === 'point') {
@@ -1552,9 +1618,11 @@ export const useDrawingManager = ({
       } else if (type === 'width_resize') {
         const baseWidth = d.positionProps?.width ?? 200;
         const nextWidth = Math.max(60, Math.round(baseWidth + dx));
-        draggedDrawingRef.current = { 
-          ...d, 
-          positionProps: d.positionProps ? { ...d.positionProps, width: nextWidth } : { accountSize: 10000, riskPercent: 1, entryPrice: d.points[0]?.value ?? 0, tpPrice: d.points[0]?.value ?? 0, slPrice: d.points[0]?.value ?? 0, width: nextWidth } 
+        draggedDrawingRef.current = {
+          ...d,
+          positionProps: d.positionProps ? { ...d.positionProps, width: nextWidth } : {
+            accountSize: 10000, riskPercent: 1, entryPrice: d.points[0]?.value ?? 0, tpPrice: d.points[0]?.value ?? 0, slPrice: d.points[0]?.value ?? 0, width: nextWidth
+          }
         };
         return;
       }
@@ -1571,9 +1639,13 @@ export const useDrawingManager = ({
 
     let cursor = "default";
     let hoveringInt = false;
+
     if (drawingsRef.current.length > 0 && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
-      for (let i = drawingsRef.current.length - 1; i >= 0; i--) {
-        const hit = rendererRef.current?.hitTest(mx, my, drawingsRef.current[i], chartInstanceRef.current, 15);
+      // [TENOR 2026 SRE] SPATIAL HASH GRID HIT-TEST (O(1) Lookup)
+      const candidates = spatialGridRef.current.query(mx, my);
+      
+      for (let i = 0; i < candidates.length; i++) {
+        const hit = rendererRef.current?.hitTest(mx, my, candidates[i], chartInstanceRef.current, 15);
         if (hit?.isHit) {
           hoveringInt = true;
           cursor = hit.hitType === "point" ? "grab" : "move";
@@ -1592,7 +1664,6 @@ export const useDrawingManager = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {}
     }
-
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
       if (draggedDrawingRef.current) {
@@ -1616,7 +1687,6 @@ export const useDrawingManager = ({
         return;
       }
     }
-
     if (e.key === "Escape") {
       cancelDrawingSession();
     }

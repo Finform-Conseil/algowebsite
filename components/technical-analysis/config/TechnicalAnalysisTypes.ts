@@ -772,6 +772,46 @@ export type YAxisOption = Record<string, unknown>;
 export type SeriesOption = Record<string, unknown>;
 
 // ============================================================================
+// MULTI-CHART LAYOUT TYPES
+// ============================================================================
+
+export type MultiChartLayoutId =
+  | "single"
+  | "two_horizontal"
+  | "two_vertical"
+  | "three_focus_right"
+  | "four_grid"
+  | "six_grid";
+
+export type MultiChartSyncKey = "symbol" | "interval" | "crosshair" | "time" | "dateRange";
+
+export interface MultiChartLayoutSync {
+  symbol: boolean;
+  interval: boolean;
+  crosshair: boolean;
+  time: boolean;
+  dateRange: boolean;
+}
+
+export interface MultiChartLayoutCell {
+  chartId: string;
+  symbol: string;
+  exchange: "BRVM";
+  interval: string;
+  indicators: string[];
+  isActive: boolean;
+}
+
+export interface MultiChartLayoutState {
+  layoutId: MultiChartLayoutId;
+  name: string;
+  isEnabled: boolean;
+  sync: MultiChartLayoutSync;
+  charts: MultiChartLayoutCell[];
+  activeChartId: string;
+}
+
+// ============================================================================
 // PERSISTENCE TYPES
 // ============================================================================
 
@@ -810,6 +850,7 @@ export interface SavedAnalysis {
     indicators: SavedAnalysisIndicators;
     advancedIndicators: SavedAnalysisAdvancedIndicators;
     bollingerSettings?: BollingerSettings; // [TENOR 2026 HDR] Optional for backward compatibility
+    multiChartLayout?: MultiChartLayoutState;
     timeRange?: string;
     savedAt: string;
   };
@@ -855,6 +896,7 @@ export interface UiState {
   isCapturing: boolean;
   dataMode: "mock" | "real";
   comparisonSymbols: string[];
+  multiChartLayout: MultiChartLayoutState;
   searchMode: "replace" | "compare";
   modals: {
     search: boolean;

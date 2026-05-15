@@ -12,6 +12,7 @@ import {
   setReplaySpeed,
   selectModals,
   selectUiState,
+  selectChartConfig,
 } from "../../store/technicalAnalysisSlice";
 import { Drawing } from "../../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
@@ -90,8 +91,10 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
 
   // --- Global State ---
   const modals = useSelector(selectModals);
-  const replaySpeed = useSelector(selectUiState).replay.speed;
-  const searchMode = useSelector(selectUiState).searchMode;
+  const chartConfig = useSelector(selectChartConfig);
+  const uiState = useSelector(selectUiState);
+  const replaySpeed = uiState.replay.speed;
+  const searchMode = uiState.searchMode;
 
   // --- Handlers ---
   // [TENOR 2026 FIX] Centralized modal closing to DRY up the JSX
@@ -104,15 +107,18 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
       <SearchSymbolModal
         isOpen={modals.search}
         onClose={() => closeModal("search")}
-        onSearch={(symbol) => {
-          if (searchMode === "compare") {
+        initialMode={searchMode}
+        currentSymbol={chartConfig.symbol}
+        comparisonSymbols={uiState.comparisonSymbols}
+        onSearch={(symbol, mode) => {
+          if (mode === "compare") {
             dispatch(addComparisonSymbol(symbol));
           } else {
             dispatch(setChartConfig({ symbol }));
             // [TENOR 2026] Mock data generation for search. In production, this triggers useMarketData.
             setChartData(GENERATE_INITIAL_DATA(200));
+            dispatch(setSearchMode("replace"));
           }
-          dispatch(setSearchMode("replace"));
         }}
       />
 

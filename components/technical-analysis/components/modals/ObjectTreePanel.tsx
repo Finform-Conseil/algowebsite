@@ -11,13 +11,22 @@
  *
  * [TENOR 2026 FIX] SCAR-192 : Eradication des appels natifs bloquants (prompt, confirm, alert).
  * Remplacement par une UI inline fluide et non-bloquante (Premium UI).
- * 
+ *
  * [TENOR 2026 FIX] SCAR-PERF-05 : DataWindow DOM Anchors
  * Injection des IDs statiques (dw-open, dw-close, etc.) pour permettre au hook
  * useObjectTreePanel de muter le DOM en O(1) à 60FPS sans re-render React.
+ * 
+ * [TENOR 2026 HDR] COMPARE SYMBOLS INTEGRATION
+ * Les symboles comparés sont injectés dynamiquement depuis Redux dans l'Object Tree.
+ * Les 5 slots statiques pour la DataWindow sont pré-alloués pour le Zero-Lag DOM Mutation.
  */
+
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import type { Drawing, ObjectTreePanelTab, DataWindowCandleValues } from "../../config/TechnicalAnalysisTypes";
+import { useDispatch, useSelector } from "react-redux";
+import type { AdvancedIndicatorsState, ChartAppearance, ChartState, Drawing, ObjectTreePanelTab, DataWindowCandleValues } from "../../config/TechnicalAnalysisTypes";
+import { setAdvancedIndicators, setChartAppearance, setChartConfig, removeComparisonSymbol } from "../../store/technicalAnalysisSlice";
+import { getCompareSeriesColor, getCompareSeriesId } from "../../config/compareSeries";
+import type { RootState } from "@/core/infrastructure/store";
 
 // ============================================================================
 // CONSTANTS — Design System TV Light (PAT-143)
@@ -41,6 +50,19 @@ const TV = {
   iconBtnHover: "#d1d4dc",
   trashHover: "#f23645",
 } as const;
+
+const VOLUME_COLOR = "#6256d9";
+const SMA_COLORS_BY_PERIOD: Record<number, string> = {
+  5: "#45c3a1",
+  10: "#f06467",
+  20: "#FF9F04",
+  50: "#2E93fA",
+  200: "#66DA26",
+};
+const EMA_COLORS_BY_PERIOD: Record<number, string> = {
+  5: "#9C27B0",
+  10: "#E91E63",
+};
 
 // ============================================================================
 // UTILS
@@ -110,14 +132,149 @@ const TOOL_LABELS: Record<string, string> = {
   anchored_volume_profile: "Anchored Volume Profile",
 };
 
-const getDrawingLabel = (type: string, index: number): string =>
-  `${TOOL_LABELS[type] ?? type} ${index + 1}`;
+const getDrawingLabel = (type: string, index: number): string => `${TOOL_LABELS[type] ?? type} ${index + 1}`;
 
-const fmtPrice = (v: number): string =>
-  v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtPrice = (v: number): string => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtVol = (v: number): string => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(1)}K` : String(v);
 
-const fmtVol = (v: number): string =>
-  v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(1)}K` : String(v);
+type ObjectTreeItem = {
+  id: string;
+  label: string;
+  kind: "series" | "volume" | "overlay" | "indicator" | "tool";
+  visible: boolean;
+  color: string;
+  removable: boolean;
+};
+
+const ADVANCED_INDICATOR_LABELS: Record<keyof AdvancedIndicatorsState, { label: string; kind: ObjectTreeItem["kind"]; color: string }> = {
+  rsi: { label: "RSI", kind: "indicator", color: "#7E57C2" },
+  macd: { label: "MACD", kind: "indicator", color: "#FF9F04" },
+  bollinger: { label: "Bollinger Bands", kind: "overlay", color: "#2962FF" },
+  stochastic: { label: "Stochastic", kind: "indicator", color: "#2962FF" },
+  atr: { label: "ATR", kind: "indicator", color: "#d50000" },
+  cci: { label: "CCI", kind: "indicator", color: "#00E676" },
+  williamsR: { label: "Williams %R", kind: "indicator", color: "#FFEB3B" },
+  roc: { label: "ROC", kind: "indicator", color: "#2196F3" },
+  obv: { label: "OBV", kind: "indicator", color: "#FF5722" },
+  ichimoku: { label: "Ichimoku", kind: "overlay", color: "#2962FF" },
+  stochRsi: { label: "Stochastic RSI", kind: "indicator", color: "#00BCD4" },
+  bbWidth: { label: "BB Width", kind: "indicator", color: "#FF6D00" },
+  bbPercentB: { label: "BB %B", kind: "indicator", color: "#2962FF" },
+};
+
+const getSmaColor = (period: number, index: number): string => {
+  const fallback = ["#45c3a1", "#f06467", "#FF9F04"][index] ?? "#45c3a1";
+  return SMA_COLORS_BY_PERIOD[period] ?? fallback;
+};
+
+const getEmaColor = (period: number, index: number): string => {
+  const fallback = ["#9C27B0", "#E91E63"][index] ?? "#9C27B0";
+  return EMA_COLORS_BY_PERIOD[period] ?? fallback;
+};
+
+const buildObjectTreeItems = ({
+  chartConfig,
+  chartAppearance,
+  advancedIndicators,
+  isMainChartVisible,
+  activeTool,
+  hiddenObjectIds,
+  comparisonSymbols,
+}: {
+  chartConfig: ChartState;
+  chartAppearance: ChartAppearance;
+  advancedIndicators: AdvancedIndicatorsState;
+  isMainChartVisible: boolean;
+  activeTool: string | null;
+  hiddenObjectIds: Record<string, boolean>;
+  comparisonSymbols: string[];
+}): ObjectTreeItem[] => {
+  const items: ObjectTreeItem[] = [
+    {
+      id: "main-series",
+      label: chartConfig.symbol || "Main series",
+      kind: "series",
+      visible: isMainChartVisible && !hiddenObjectIds["main-series"],
+      color: "#26a69a",
+      removable: false
+    },
+  ];
+
+  // [TENOR 2026 HDR] Inject Comparison Symbols
+  comparisonSymbols.forEach((symbol, idx) => {
+    const id = getCompareSeriesId(symbol);
+    items.push({
+      id,
+      label: `${symbol}`,
+      kind: "series",
+      visible: !hiddenObjectIds[id],
+      color: getCompareSeriesColor(idx),
+      removable: true
+    });
+  });
+
+  if (activeTool) {
+    const id = `active-tool-${activeTool}`;
+    items.push({
+      id,
+      label: `Outil actif: ${TOOL_LABELS[activeTool] ?? activeTool}`,
+      kind: "tool",
+      visible: !hiddenObjectIds[id],
+      color: "#facc15",
+      removable: false
+    });
+  }
+
+  if (chartConfig.indicators.volume || chartAppearance.showVolume) {
+    items.push({
+      id: "volume",
+      label: "Volume",
+      kind: "volume",
+      visible: chartAppearance.showVolume && !hiddenObjectIds.volume,
+      color: VOLUME_COLOR,
+      removable: false
+    });
+  }
+
+  chartConfig.indicators.activeSma.forEach((period, index) => {
+    const id = `sma-${period}`;
+    items.push({
+      id,
+      label: `SMA ${period}`,
+      kind: "overlay",
+      visible: chartConfig.indicators.sma && !hiddenObjectIds[id],
+      color: getSmaColor(period, index),
+      removable: true
+    });
+  });
+
+  chartConfig.indicators.activeEma.forEach((period, index) => {
+    const id = `ema-${period}`;
+    items.push({
+      id,
+      label: `EMA ${period}`,
+      kind: "overlay",
+      visible: chartConfig.indicators.ema && !hiddenObjectIds[id],
+      color: getEmaColor(period, index),
+      removable: true
+    });
+  });
+
+  Object.entries(ADVANCED_INDICATOR_LABELS).forEach(([key, meta]) => {
+    if (advancedIndicators[key as keyof AdvancedIndicatorsState]) {
+      items.push({
+        id: key,
+        label: meta.label,
+        kind: meta.kind,
+        visible: !hiddenObjectIds[key],
+        color: meta.color,
+        removable: true
+      });
+    }
+  });
+
+  return items;
+};
 
 // ============================================================================
 // PROPS
@@ -132,12 +289,17 @@ interface ObjectTreePanelProps {
   updateDrawing: (id: string, patch: Partial<Drawing>) => void;
   deleteDrawing: (id: string) => void;
   handleClone: () => void;
-  handleVisualOrder: (dir: "front" | "back") => void;
-  reorderDrawing: (id: string, dir: "front" | "back") => void;
+  handleVisualOrder: (dir: "front" | "back" | "forward" | "backward") => void;
   dataWindow: DataWindowCandleValues | null;
   symbolDisplay?: string;
   isMainChartVisible: boolean;
   setIsMainChartVisible: (val: boolean) => void;
+  chartConfig: ChartState;
+  chartAppearance: ChartAppearance;
+  advancedIndicators: AdvancedIndicatorsState;
+  activeTool: string | null;
+  hiddenObjectIds: Record<string, boolean>;
+  setHiddenObjectIds: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 // ============================================================================
@@ -230,7 +392,6 @@ const DrawingRow: React.FC<DrawingRowProps> = ({
       >
         <i className={`bi ${drawing.hidden ? "bi-eye-slash" : "bi-eye"}`} />
       </button>
-
       <button
         id={`obj-tree-lock-${drawing.id}`}
         type="button"
@@ -244,7 +405,6 @@ const DrawingRow: React.FC<DrawingRowProps> = ({
       >
         <i className={`bi ${drawing.locked ? "bi-lock-fill" : "bi-unlock"}`} />
       </button>
-
       <button
         id={`obj-tree-del-${drawing.id}`}
         type="button"
@@ -267,6 +427,68 @@ const DrawingRow: React.FC<DrawingRowProps> = ({
     </div>
   );
 };
+
+const ObjectTreeItemRow: React.FC<{
+  item: ObjectTreeItem;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onVisibilityToggle?: (item: ObjectTreeItem) => void;
+  onMainVisibilityToggle: () => void;
+  onRemove?: (item: ObjectTreeItem) => void;
+}> = ({ item, isSelected, onSelect, onVisibilityToggle, onMainVisibilityToggle, onRemove }) => (
+  <div
+    role="row"
+    aria-selected={isSelected}
+    onClick={() => onSelect(item.id)}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "7px 14px",
+      borderBottom: TV.divider,
+      background: isSelected ? "rgba(41, 98, 255, 0.12)" : "transparent",
+      borderLeft: isSelected ? "3px solid #2962ff" : "3px solid transparent",
+      cursor: "pointer",
+      userSelect: "none",
+    }}
+  >
+    <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color, flexShrink: 0 }} />
+    <span style={{ flex: 1, color: item.visible ? TV.tabText : TV.tabMuted, fontSize: 12, fontWeight: item.kind === "series" ? 700 : 500 }}>
+      {item.label}
+    </span>
+    <span style={{ color: TV.tabMuted, fontSize: 10, textTransform: "uppercase" }}>{item.kind}</span>
+
+    <button
+      type="button"
+      aria-label={item.visible ? "Masquer" : "Afficher"}
+      title={item.visible ? "Masquer" : "Afficher"}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (item.id === "main-series") {
+          onMainVisibilityToggle();
+          return;
+        }
+        onVisibilityToggle?.(item);
+      }}
+      style={{ ...iconBtnStyle, opacity: 1, cursor: "pointer" }}
+    >
+      <i className={`bi ${item.visible ? "bi-eye" : "bi-eye-slash"}`} />
+    </button>
+
+    <button
+      type="button"
+      aria-label="Supprimer"
+      title={item.removable ? "Supprimer du graphique" : "Non supprimable depuis cette ligne"}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (item.removable) onRemove?.(item);
+      }}
+      style={{ ...iconBtnStyle, opacity: item.removable ? 1 : 0.35, cursor: item.removable ? "pointer" : "default" }}
+    >
+      <i className="bi bi-trash" />
+    </button>
+  </div>
+);
 
 const iconBtnStyle: React.CSSProperties = {
   border: "none",
@@ -361,31 +583,38 @@ const DataWindowTab: React.FC<{ data: DataWindowCandleValues | null }> = ({ data
         <span style={{ fontSize: 12, color: TV.labelColor }}>Open</span>
         <span id="dw-open" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.open)}</span>
       </div>
-      
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
         <span style={{ fontSize: 12, color: TV.labelColor }}>High</span>
         <span id="dw-high" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.high)}</span>
       </div>
-      
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
         <span style={{ fontSize: 12, color: TV.labelColor }}>Low</span>
         <span id="dw-low" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.low)}</span>
       </div>
-      
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
         <span style={{ fontSize: 12, color: TV.labelColor }}>Close</span>
         <span id="dw-close" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{fmtPrice(data.close)}</span>
       </div>
-      
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
         <span style={{ fontSize: 12, color: TV.labelColor }}>Change</span>
         <span id="dw-change" style={{ fontSize: 12, fontWeight: 600, color: valueColor }}>{`${data.change >= 0 ? "+" : ""}${fmtPrice(data.change)}`}</span>
       </div>
-      
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}>
         <span style={{ fontSize: 12, color: TV.labelColor }}>Volume</span>
         <span id="dw-volume" style={{ fontSize: 12, fontWeight: 600, color: TV.valueColor }}>{fmtVol(data.volume)}</span>
       </div>
+
+      {/* [TENOR 2026 HDR] 5 Static DOM Slots for Comparison Series (Zero-Lag) */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={`comp-slot-${i}`}
+          id={`dw-comp-row-${i}`}
+          style={{ display: "none", justifyContent: "space-between", alignItems: "center", padding: "5px 14px", borderBottom: TV.divider }}
+        >
+          <span id={`dw-comp-symbol-${i}`} style={{ fontSize: 12, color: TV.labelColor, fontWeight: 600 }}></span>
+          <span id={`dw-comp-val-${i}`} style={{ fontSize: 12, fontWeight: 600 }}></span>
+        </div>
+      ))}
     </div>
   );
 };
@@ -404,14 +633,25 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   deleteDrawing,
   handleClone,
   handleVisualOrder,
-  reorderDrawing,
   dataWindow,
   symbolDisplay = "BOAB · BRVM, 1D",
   isMainChartVisible,
   setIsMainChartVisible,
+  chartConfig,
+  chartAppearance,
+  advancedIndicators,
+  activeTool,
+  hiddenObjectIds,
+  setHiddenObjectIds,
 }) => {
+  const dispatch = useDispatch();
+  
+  // [TENOR 2026] Smart Component: Read comparison symbols directly from Redux
+  const comparisonSymbols = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSymbols);
+
   const [activeMenu, setActiveMenu] = useState<"zorder" | "layouts" | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
   // [TENOR 2026] Inline UI States (Replacing native dialogs)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -439,6 +679,50 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     [updateDrawing]
   );
 
+  const patchChartIndicators = useCallback((patch: Partial<ChartState["indicators"]>) => {
+    dispatch(setChartConfig({ indicators: { ...chartConfig.indicators, ...patch } }));
+  }, [chartConfig.indicators, dispatch]);
+
+  const handleObjectItemVisibilityToggle = useCallback((item: ObjectTreeItem) => {
+    if (item.id === "volume") {
+      dispatch(setChartAppearance({ showVolume: !chartAppearance.showVolume }));
+      return;
+    }
+    setHiddenObjectIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
+  }, [chartAppearance.showVolume, dispatch, setHiddenObjectIds]);
+
+  const handleObjectItemRemove = useCallback((item: ObjectTreeItem) => {
+    if (item.id === "volume") {
+      showError("Le volume se masque avec l'icone oeil; il ne se supprime pas depuis l'arbre.");
+      return;
+    }
+    
+    // [TENOR 2026] Handle Comparison Symbol Removal
+    if (item.id.startsWith("compare-")) {
+      const symbol = item.id.replace("compare-", "");
+      dispatch(removeComparisonSymbol(symbol));
+      return;
+    }
+
+    if (item.id.startsWith("sma-")) {
+      const period = Number(item.id.slice(4));
+      const next = chartConfig.indicators.activeSma.filter((p) => p !== period);
+      patchChartIndicators({ activeSma: next, sma: next.length > 0 ? chartConfig.indicators.sma : false });
+      return;
+    }
+    if (item.id.startsWith("ema-")) {
+      const period = Number(item.id.slice(4));
+      const next = chartConfig.indicators.activeEma.filter((p) => p !== period);
+      patchChartIndicators({ activeEma: next, ema: next.length > 0 ? chartConfig.indicators.ema : false });
+      return;
+    }
+    if (item.id in advancedIndicators) {
+      dispatch(setAdvancedIndicators({ [item.id]: false } as Partial<AdvancedIndicatorsState>));
+      return;
+    }
+    showError("Cet objet ne peut pas etre supprime depuis cette ligne.");
+  }, [advancedIndicators, chartConfig.indicators.activeEma, chartConfig.indicators.activeSma, chartConfig.indicators.ema, chartConfig.indicators.sma, dispatch, patchChartIndicators, showError]);
+
   const handleLockToggle = useCallback(
     (id: string, locked: boolean) => updateDrawing(id, { locked }),
     [updateDrawing]
@@ -446,12 +730,43 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   const handleGroupCreateClick = useCallback(() => {
     if (!selectedDrawingId) {
-      showError("Sélectionnez un dessin d'abord pour créer un groupe.");
+      showError(selectedObjectId ? "Les groupes s'appliquent uniquement aux dessins poses." : "Selectionnez un dessin pose pour creer un groupe.");
       return;
     }
     setIsCreatingGroup(true);
     setActiveMenu(null);
-  }, [selectedDrawingId, showError]);
+  }, [selectedDrawingId, selectedObjectId, showError]);
+
+  const handleDrawingSelect = useCallback((id: string) => {
+    setSelectedObjectId(null);
+    setSelectedDrawingId(id);
+  }, [setSelectedDrawingId]);
+
+  const handleCloneClick = useCallback(() => {
+    if (!selectedDrawingId) {
+      showError(selectedObjectId ? "La duplication s'applique uniquement aux dessins poses." : "Selectionnez un dessin pose a dupliquer.");
+      return;
+    }
+    handleClone();
+  }, [handleClone, selectedDrawingId, selectedObjectId, showError]);
+
+  const handleZOrderMenuClick = useCallback(() => {
+    if (!selectedDrawingId) {
+      showError(selectedObjectId ? "L'ordre visuel s'applique uniquement aux dessins poses; les indicateurs suivent le renderer." : "Selectionnez un dessin pose avant de changer l'ordre visuel.");
+      setActiveMenu(null);
+      return;
+    }
+    setActiveMenu(activeMenu === "zorder" ? null : "zorder");
+  }, [activeMenu, selectedDrawingId, selectedObjectId, showError]);
+
+  const handleZOrderClick = useCallback((dir: "front" | "back" | "forward" | "backward") => {
+    if (!selectedDrawingId) {
+      showError(selectedObjectId ? "L'ordre visuel s'applique uniquement aux dessins poses; les indicateurs suivent le renderer." : "Selectionnez un dessin pose avant de changer l'ordre visuel.");
+      return;
+    }
+    handleVisualOrder(dir);
+    setActiveMenu(null);
+  }, [handleVisualOrder, selectedDrawingId, selectedObjectId, showError]);
 
   const confirmGroupCreate = useCallback(() => {
     if (newGroupName.trim() && selectedDrawingId) {
@@ -466,29 +781,53 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   };
 
   const globalHideAll = () => {
+    if (drawings.length === 0) {
+      showError("Aucun dessin a masquer.");
+      setActiveMenu(null);
+      return;
+    }
     drawings.forEach(d => updateDrawing(d.id, { hidden: true }));
     setActiveMenu(null);
   };
 
   const globalShowAll = () => {
+    if (drawings.length === 0) {
+      showError("Aucun dessin a afficher.");
+      setActiveMenu(null);
+      return;
+    }
     drawings.forEach(d => updateDrawing(d.id, { hidden: false }));
     setActiveMenu(null);
   };
 
   const globalLockAll = () => {
+    if (drawings.length === 0) {
+      showError("Aucun dessin a verrouiller.");
+      setActiveMenu(null);
+      return;
+    }
     drawings.forEach(d => updateDrawing(d.id, { locked: true }));
     setActiveMenu(null);
   };
 
   const globalUnlockAll = () => {
+    if (drawings.length === 0) {
+      showError("Aucun dessin a deverrouiller.");
+      setActiveMenu(null);
+      return;
+    }
     drawings.forEach(d => updateDrawing(d.id, { locked: false }));
     setActiveMenu(null);
   };
 
   const handleDeleteAllClick = useCallback(() => {
+    if (drawings.length === 0) {
+      showError("Aucun dessin à supprimer.");
+      return;
+    }
     setIsConfirmingDelete(true);
     setActiveMenu(null);
-  }, []);
+  }, [drawings.length, showError]);
 
   const confirmDeleteAll = useCallback(() => {
     drawings.forEach(d => deleteDrawing(d.id));
@@ -509,6 +848,18 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       ungroupedDrawings.push(d);
     }
   });
+
+  const objectTreeItems = buildObjectTreeItems({
+    chartConfig,
+    chartAppearance,
+    advancedIndicators,
+    isMainChartVisible,
+    activeTool,
+    hiddenObjectIds,
+    comparisonSymbols,
+  });
+
+  const selectedObject = objectTreeItems.find((item) => item.id === selectedObjectId) ?? null;
 
   return (
     <div
@@ -579,29 +930,56 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             {/* TV Object Tree Toolbar */}
             <div style={{ display: "flex", padding: "4px 14px 10px 14px", borderBottom: TV.divider, gap: "10px", alignItems: "center", flexShrink: 0, position: "relative" }}>
               <IconButton icon="bi bi-folder-plus" title="Create a group of drawings" onClick={handleGroupCreateClick} />
-              <IconButton icon="bi bi-copy" title="Clone selected" onClick={handleClone} />
-              <IconButton icon="bi bi-arrow-down-up" title="Visual order" onClick={() => setActiveMenu(activeMenu === "zorder" ? null : "zorder")} active={activeMenu === "zorder"} />
+              <IconButton icon="bi bi-copy" title="Clone selected" onClick={handleCloneClick} />
+              <IconButton icon="bi bi-arrow-down-up" title="Visual order" onClick={handleZOrderMenuClick} active={activeMenu === "zorder"} />
               <div style={{ flex: 1 }}></div>
-              <IconButton icon="bi bi-diagram-3" title="Manage layouts drawings" onClick={() => setActiveMenu(activeMenu === "layouts" ? null : "layouts")} active={activeMenu === "layouts"} />
+              <IconButton icon="bi bi-diagram-3" title="Manage drawings and selected object" onClick={() => setActiveMenu(activeMenu === "layouts" ? null : "layouts")} active={activeMenu === "layouts"} />
 
               {/* Popups Layout (Z-Order) */}
               {activeMenu === "zorder" && (
-                <div style={{ position: "absolute", top: "40px", left: "60px", background: "#1e222d", border: TV.border, borderRadius: 4, zIndex: 2000, padding: 4, boxShadow: "0 8px 16px rgba(0,0,0,0.4)", minWidth: 140 }}>
-                  <button onClick={() => { reorderDrawing(selectedDrawingId!, "front"); handleVisualOrder("front"); }} style={menuItemStyle}><i className="bi bi-layer-forward" /> Bring to Front</button>
-                  <button onClick={() => { reorderDrawing(selectedDrawingId!, "back"); handleVisualOrder("back"); }} style={menuItemStyle}><i className="bi bi-layer-backward" /> Send to Back</button>
+                <div style={{ position: "absolute", top: "40px", left: "60px", background: "#1e222d", border: TV.border, borderRadius: 4, zIndex: 2000, padding: 4, boxShadow: "0 8px 16px rgba(0,0,0,0.4)", minWidth: 170 }}>
+                  <button onClick={() => handleZOrderClick("forward")} style={menuItemStyle}><i className="bi bi-layer-forward" /> Bring Forward</button>
+                  <button onClick={() => handleZOrderClick("backward")} style={menuItemStyle}><i className="bi bi-layer-backward" /> Send Backward</button>
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
+                  <button onClick={() => handleZOrderClick("front")} style={menuItemStyle}><i className="bi bi-front" /> Bring to Front</button>
+                  <button onClick={() => handleZOrderClick("back")} style={menuItemStyle}><i className="bi bi-back" /> Send to Back</button>
                 </div>
               )}
 
               {/* Popups Layout (Global Actions) */}
               {activeMenu === "layouts" && (
                 <div style={{ position: "absolute", top: "40px", right: "14px", background: "#1e222d", border: TV.border, borderRadius: 4, zIndex: 2000, padding: 4, boxShadow: "0 8px 16px rgba(0,0,0,0.4)", minWidth: 160 }}>
-                  <button onClick={globalHideAll} style={menuItemStyle}><i className="bi bi-eye-slash" /> Hide all</button>
-                  <button onClick={globalShowAll} style={menuItemStyle}><i className="bi bi-eye" /> Show all</button>
+                  {selectedObject && (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleObjectItemVisibilityToggle(selectedObject);
+                          setActiveMenu(null);
+                        }}
+                        style={menuItemStyle}
+                      >
+                        <i className={`bi ${selectedObject.visible ? "bi-eye-slash" : "bi-eye"}`} />
+                        {selectedObject.visible ? "Hide selected object" : "Show selected object"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleObjectItemRemove(selectedObject);
+                          setActiveMenu(null);
+                        }}
+                        style={{ ...menuItemStyle, color: selectedObject.removable ? "#f23645" : TV.tabMuted }}
+                      >
+                        <i className="bi bi-trash" /> Remove selected object
+                      </button>
+                      <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
+                    </>
+                  )}
+                  <button onClick={globalHideAll} style={menuItemStyle}><i className="bi bi-eye-slash" /> Hide all drawings</button>
+                  <button onClick={globalShowAll} style={menuItemStyle}><i className="bi bi-eye" /> Show all drawings</button>
                   <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
-                  <button onClick={globalLockAll} style={menuItemStyle}><i className="bi bi-lock-fill" /> Lock all</button>
-                  <button onClick={globalUnlockAll} style={menuItemStyle}><i className="bi bi-unlock" /> Unlock all</button>
+                  <button onClick={globalLockAll} style={menuItemStyle}><i className="bi bi-lock-fill" /> Lock all drawings</button>
+                  <button onClick={globalUnlockAll} style={menuItemStyle}><i className="bi bi-unlock" /> Unlock all drawings</button>
                   <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
-                  <button onClick={handleDeleteAllClick} style={{ ...menuItemStyle, color: "#f23645" }}><i className="bi bi-trash" /> Delete all</button>
+                  <button onClick={handleDeleteAllClick} style={{ ...menuItemStyle, color: "#f23645" }}><i className="bi bi-trash" /> Delete all drawings</button>
                 </div>
               )}
             </div>
@@ -662,6 +1040,25 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               />
             </div>
 
+            {objectTreeItems.length > 0 && (
+              <div role="rowgroup" aria-label="Objets du graphique" style={{ borderBottom: TV.divider }}>
+                {objectTreeItems.map((item) => (
+                  <ObjectTreeItemRow
+                    key={item.id}
+                    item={item}
+                    isSelected={selectedObjectId === item.id}
+                    onSelect={(id) => {
+                      setSelectedObjectId(id);
+                      setSelectedDrawingId(null);
+                    }}
+                    onVisibilityToggle={handleObjectItemVisibilityToggle}
+                    onMainVisibilityToggle={() => setIsMainChartVisible(!isMainChartVisible)}
+                    onRemove={handleObjectItemRemove}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Drawings List with Groups */}
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
               {drawings.length === 0 ? (
@@ -689,7 +1086,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                             drawing={drawing}
                             index={idx}
                             isSelected={drawing.id === selectedDrawingId}
-                            onSelect={setSelectedDrawingId}
+                            onSelect={handleDrawingSelect}
                             onVisibilityToggle={handleVisibilityToggle}
                             onLockToggle={handleLockToggle}
                             onDelete={deleteDrawing}
@@ -708,7 +1105,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         drawing={drawing}
                         index={originalIndex}
                         isSelected={drawing.id === selectedDrawingId}
-                        onSelect={setSelectedDrawingId}
+                        onSelect={handleDrawingSelect}
                         onVisibilityToggle={handleVisibilityToggle}
                         onLockToggle={handleLockToggle}
                         onDelete={deleteDrawing}
@@ -728,11 +1125,21 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 };
 
 const menuItemStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: "10px", width: "100%",
-  padding: "8px 12px", background: "transparent", border: "none",
-  color: "#d1d4dc", fontSize: "12px", textAlign: "left",
-  cursor: "pointer", transition: "background 0.1s", borderRadius: 4
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  width: "100%",
+  padding: "8px 12px",
+  background: "transparent",
+  border: "none",
+  color: "#d1d4dc",
+  fontSize: "12px",
+  textAlign: "left",
+  cursor: "pointer",
+  transition: "background 0.1s",
+  borderRadius: 4
 };
 
 export default ObjectTreePanel;
+
 // --- EOF ---

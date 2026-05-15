@@ -273,9 +273,9 @@ export const TickerSelectorModal: React.FC = () => {
       <style>{`
         .tsm-overlay {
           position: fixed; inset: 0; z-index: 99999;
-          background: rgba(5, 18, 31, 0.58); backdrop-filter: blur(4px);
+          background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
           display: flex; align-items: flex-start; justify-content: center;
-          padding-top: 8vh; animation: tsmFadeIn 0.2s ease-out;
+          padding-top: 13vh; animation: tsmFadeIn 0.2s ease-out;
         }
         .tsm-modal {
           width: 100%; max-width: 640px; background: rgba(16, 42, 67, 0.98);

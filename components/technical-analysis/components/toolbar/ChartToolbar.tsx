@@ -18,6 +18,7 @@ import {
   setDataMode,
 } from "../../store/technicalAnalysisSlice";
 import { useTechnicalAnalysisActions } from "../../hooks/useTechnicalAnalysisActions";
+import { LayoutSetupControl } from "./LayoutSetupControl";
 
 const ANONYMOUS_PSEUDOS = [
   "Trader_700",
@@ -317,6 +318,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             >
               <i className="bi bi-save"></i>
             </button>
+            <LayoutSetupControl />
             <button
               className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary")}
               title="Historique des analyses"

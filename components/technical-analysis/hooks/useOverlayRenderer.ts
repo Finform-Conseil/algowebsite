@@ -3,7 +3,7 @@ import type { ECharts } from "echarts/core";
 import DOMPurify from "dompurify";
 import { Drawing } from "../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { useMasterRenderLoop } from "./useMasterRenderLoop";
+import { useMasterRenderLoop, type RenderFrameMeta } from "./useMasterRenderLoop";
 
 const MAIN_GRID_LEFT = 15;
 
@@ -167,7 +167,7 @@ export const useOverlayRenderer = ({
   // ============================================================================
   // RENDER LOOP (Orchestrated by MasterRenderLoop)
   // ============================================================================
-  const render = useCallback((_time: number) => {
+  const render = useCallback((_time: number, meta: RenderFrameMeta) => {
     // [TENOR 2026 SRE] O(1) Polling for Drag Mutations
     // `toolbarOffsetRef` is mutated outside React's lifecycle during drag.
     // We poll it here to wake up the RAF loop if the user is dragging the toolbar.
@@ -303,6 +303,11 @@ export const useOverlayRenderer = ({
 
     // --- 3. Update Drawing Tooltip (Direct DOM) ---
     if (drawingTooltipRef.current) {
+      if (meta.isDegraded) {
+        drawingTooltipRef.current.style.display = "none";
+        return;
+      }
+
       //[TENOR 2026 FIX] HIDE generic tooltip for Position tools, Chart Patterns, AND Forecasting tools (Sector, Ghost Feed, etc.)
       // This prevents the "Tooltip Schism" where the DOM tooltip intercepts mouse events and breaks the Canvas hit-test.
       const isPattern = (drawing.type.includes("_pattern") && drawing.type !== "bar_pattern") || drawing.type === "head_and_shoulders";
@@ -461,7 +466,7 @@ export const useOverlayRenderer = ({
   // ============================================================================
   // 3. MASTER RENDER LOOP SUBSCRIPTION
   // ============================================================================
-  useMasterRenderLoop(render);
+  useMasterRenderLoop(render, "drawing-overlay-dom");
 };
 
 // --- EOF ---

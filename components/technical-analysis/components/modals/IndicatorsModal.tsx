@@ -31,6 +31,7 @@ import {
   SettingsCheckbox,
   SettingsSelectInput
 } from "../common/SettingsField";
+import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 
 interface IndicatorsModalProps {
   isOpen: boolean;
@@ -67,6 +68,44 @@ type CompositeIndicatorSpec = {
   wiredId?: keyof AdvancedIndicatorsState | string;
   hasSettings?: boolean; // [TENOR 2026 HDR] Enables the settings gear icon
 };
+
+const MAX_BOTTOM_INDICATORS = 5;
+const BOTTOM_PANEL_INDICATORS = [
+  "rsi",
+  "macd",
+  "stochastic",
+  "stochRsi",
+  "atr",
+  "cci",
+  "williamsR",
+  "roc",
+  "obv",
+  "bbWidth",
+  "bbPercentB",
+] satisfies Array<keyof AdvancedIndicatorsState>;
+
+const countActiveBottomIndicators = (indicators: AdvancedIndicatorsState) =>
+  BOTTOM_PANEL_INDICATORS.reduce((total, key) => total + (indicators[key] ? 1 : 0), 0);
+
+const isAdvancedIndicatorKey = (id: string): id is keyof AdvancedIndicatorsState =>
+  id in {
+    rsi: true,
+    macd: true,
+    bollinger: true,
+    stochastic: true,
+    atr: true,
+    cci: true,
+    williamsR: true,
+    roc: true,
+    obv: true,
+    ichimoku: true,
+    stochRsi: true,
+    bbWidth: true,
+    bbPercentB: true,
+  };
+
+const isBottomPanelIndicatorKey = (id: string): id is typeof BOTTOM_PANEL_INDICATORS[number] =>
+  BOTTOM_PANEL_INDICATORS.includes(id as typeof BOTTOM_PANEL_INDICATORS[number]);
 
 const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
   {
@@ -303,11 +342,13 @@ const IndicatorCard = React.memo(({
   ind,
   isActive,
   isWired,
+  canToggle,
   onToggle
 }: {
   ind: BackendIndicatorItem;
   isActive: boolean;
   isWired: boolean;
+  canToggle: (id: string) => boolean;
   onToggle: (id: string) => void;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
@@ -320,7 +361,9 @@ const IndicatorCard = React.memo(({
 
   const handleClick = () => {
     if (isWired && ind.wiredId) {
-      setOptimisticActive(!optimisticActive);
+      const nextActive = !optimisticActive;
+      if (!canToggle(ind.wiredId as string)) return;
+      setOptimisticActive(nextActive);
       setTimeout(() => {
         onToggle(ind.wiredId as string);
       }, 16);
@@ -461,6 +504,7 @@ const CompositeIndicatorCard = React.memo(({
   items,
   isActive,
   isWired,
+  canToggle,
   onToggle,
   children
 }: {
@@ -468,6 +512,7 @@ const CompositeIndicatorCard = React.memo(({
   items: BackendIndicatorItem[];
   isActive: boolean;
   isWired: boolean;
+  canToggle: (id: string) => boolean;
   onToggle: (id: string) => void;
   children?: React.ReactNode;
 }) => {
@@ -482,7 +527,9 @@ const CompositeIndicatorCard = React.memo(({
 
   const handleClick = () => {
     if (isWired && spec.wiredId) {
-      setOptimisticActive(!optimisticActive);
+      const nextActive = !optimisticActive;
+      if (!canToggle(spec.wiredId as string)) return;
+      setOptimisticActive(nextActive);
       setTimeout(() => {
         onToggle(spec.wiredId as string);
       }, 16);
@@ -586,6 +633,7 @@ CompositeIndicatorCard.displayName = "CompositeIndicatorCard";
 
 export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
+  const { addNotification } = useGlobalNotification();
   const advancedIndicators = useSelector(selectAdvancedIndicators, shallowEqual);
   const chartIndicators = useSelector((state: RootState) => selectChartConfig(state).indicators, shallowEqual);
   const indicatorPeriods = useSelector(selectIndicatorPeriods, shallowEqual);
@@ -1386,38 +1434,71 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     );
   }, [chartIndicators, dispatch]);
 
+  const warnBottomIndicatorLimit = useCallback(() => {
+    addNotification({
+      title: "Limite d'indicateurs atteinte",
+      message: `Maximum ${MAX_BOTTOM_INDICATORS} indicateurs sous le volume. Retirez un indicateur existant avant d'en ajouter un autre.`,
+      type: "warning",
+      iconType: "faExclamationTriangle",
+      duration: 4500,
+    });
+  }, [addNotification]);
+
+  const canActivateBottomIndicator = useCallback((id: string) => {
+    const normalizedId = id.startsWith("rsi_") ? "rsi" : id;
+    if (!isBottomPanelIndicatorKey(normalizedId)) return true;
+
+    if (advancedIndicators[normalizedId]) return true;
+    const canActivate = countActiveBottomIndicators(advancedIndicators) < MAX_BOTTOM_INDICATORS;
+    if (!canActivate) warnBottomIndicatorLimit();
+    return canActivate;
+  }, [advancedIndicators, warnBottomIndicatorLimit]);
+
   // [TENOR 2026 SRE] RSI MULTI-PERIOD ROUTING
   const handleToggleAdvanced = useCallback((id: string) => {
     if (id === "rsi_9") {
       if (advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 9) {
         dispatch(setAdvancedIndicators({ rsi: false }));
       } else {
+        if (!canActivateBottomIndicator(id)) {
+          return false;
+        }
         dispatch(setIndicatorPeriods({ rsiPeriod: 9 }));
         dispatch(setAdvancedIndicators({ rsi: true }));
       }
-      return;
+      return true;
     }
     if (id === "rsi_14") {
       if (advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 14) {
         dispatch(setAdvancedIndicators({ rsi: false }));
       } else {
+        if (!canActivateBottomIndicator(id)) {
+          return false;
+        }
         dispatch(setIndicatorPeriods({ rsiPeriod: 14 }));
         dispatch(setAdvancedIndicators({ rsi: true }));
       }
-      return;
+      return true;
     }
     if (id === "rsi_25") {
       if (advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 25) {
         dispatch(setAdvancedIndicators({ rsi: false }));
       } else {
+        if (!canActivateBottomIndicator(id)) {
+          return false;
+        }
         dispatch(setIndicatorPeriods({ rsiPeriod: 25 }));
         dispatch(setAdvancedIndicators({ rsi: true }));
       }
-      return;
+      return true;
     }
 
+    if (!canActivateBottomIndicator(id)) {
+      return false;
+    }
     dispatch(toggleAdvancedIndicator(id as keyof AdvancedIndicatorsState));
-  }, [dispatch, advancedIndicators.rsi, indicatorPeriods.rsiPeriod]);
+    return true;
+  }, [canActivateBottomIndicator, dispatch, advancedIndicators.rsi, indicatorPeriods.rsiPeriod]);
 
   const isIndicatorActive = useCallback((id: string) => {
     if (id === "rsi_9") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 9;
@@ -1425,8 +1506,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     if (id === "rsi_25") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 25;
 
     // [TENOR 2026 FIX] SCAR-DATA-BINDING: Safe dynamic read for injected keys like stochRsi
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return !!(advancedIndicators as any)[id];
+    return isAdvancedIndicatorKey(id) ? advancedIndicators[id] : false;
   }, [advancedIndicators, indicatorPeriods.rsiPeriod]);
 
   const getIndicatorSemanticGroup = useCallback((name: string) => {
@@ -1462,6 +1542,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
               items={section.items.filter((item) => spec.outputKeys.includes(item.key))}
               isActive={!!spec.wiredId && isIndicatorActive(spec.wiredId as string)}
               isWired={!!spec.wiredId}
+              canToggle={canActivateBottomIndicator}
               onToggle={handleToggleAdvanced}
             >
               {/* [TENOR 2026 HDR] Inject Bollinger Settings Panel if applicable */}
@@ -1476,6 +1557,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
                   ind={item}
                   isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
                   isWired={!!item.wiredId}
+                  canToggle={canActivateBottomIndicator}
                   onToggle={handleToggleAdvanced}
                 />
               ))}
@@ -1494,6 +1576,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
               ind={item}
               isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
               isWired={!!item.wiredId}
+              canToggle={canActivateBottomIndicator}
               onToggle={handleToggleAdvanced}
             />
           ))}
@@ -1525,6 +1608,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
                 ind={item}
                 isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
                 isWired={!!item.wiredId}
+                canToggle={canActivateBottomIndicator}
                 onToggle={handleToggleAdvanced}
               />
             ))}
@@ -1532,7 +1616,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         ))}
       </div>
     );
-  }, [getIndicatorSemanticGroup, handleToggleAdvanced, isIndicatorActive]);
+  }, [canActivateBottomIndicator, getIndicatorSemanticGroup, handleToggleAdvanced, isIndicatorActive]);
 
   return (
     <BaseModal
@@ -1645,6 +1729,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
                         ind={item}
                         isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
                         isWired={!!item.wiredId}
+                        canToggle={canActivateBottomIndicator}
                         onToggle={handleToggleAdvanced}
                       />
                     ))}

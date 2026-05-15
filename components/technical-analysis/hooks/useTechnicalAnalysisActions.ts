@@ -6,6 +6,7 @@ import DOMPurify from "dompurify";
 import {
   setTimeframe,
   setChartConfig,
+  hydrateMultiChartLayout,
   setModalOpen,
   selectChartConfig,
   selectAdvancedIndicators,
@@ -45,6 +46,7 @@ export const useTechnicalAnalysisActions = (
         chartType: chartConfig.chartType,
         indicators: chartConfig.indicators,
         advancedIndicators: advancedIndicators,
+        multiChartLayout: uiState.multiChartLayout,
         timeRange: uiState.selectedTimeRange,
         savedAt: new Date().toISOString(),
       };
@@ -94,7 +96,7 @@ export const useTechnicalAnalysisActions = (
         iconType: "faTimesCircle",
       });
     }
-  }, [chartConfig, advancedIndicators, uiState.selectedTimeRange, addNotification]);
+  }, [chartConfig, advancedIndicators, uiState.selectedTimeRange, uiState.multiChartLayout, addNotification]);
 
   const handleOpenLoadModal = useCallback(async () => {
     try {
@@ -152,6 +154,10 @@ export const useTechnicalAnalysisActions = (
 
     if (config.timeRange) {
       dispatch(setTimeframe(config.timeRange));
+    }
+
+    if (config.multiChartLayout) {
+      dispatch(hydrateMultiChartLayout(config.multiChartLayout));
     }
 
     dispatch(setModalOpen({ modal: "loadAnalysis", isOpen: false }));
