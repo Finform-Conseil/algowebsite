@@ -184,7 +184,7 @@ function getLatestCloseData(chart: EChartsInstance): { x: number; y: number, pri
 
 function getMainGridRect(chart: EChartsInstance): { x: number; y: number; width: number; height: number } | null {
   try {
-    const model = (chart as EChartsWithModel).getModel?.();
+    const model = (chart as unknown as EChartsWithModel).getModel?.();
     if (!model) return null;
     const grid = model.getComponent("grid");
     return grid?.coordinateSystem?.getRect() ?? null;

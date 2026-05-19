@@ -11,6 +11,7 @@ Every future LLM or engineer working in `components/technical-analysis` must tre
 - Visual polish must never outrank truth, provenance, and auditability.
 - Do not invent local catalogues, color systems, mappings, financial formulas, or data normalizers when a shared source already exists.
 - If a value cannot be proven, label it as unverified or refuse to render it as authoritative.
+- Always check for and use dynamic async API calls to the real `/api/market-data/` endpoints instead of using or fabricating local simulation data.
 
 Before changing any chart, compare, indicator, alert, data window, broker, or market-data code, ask first:
 

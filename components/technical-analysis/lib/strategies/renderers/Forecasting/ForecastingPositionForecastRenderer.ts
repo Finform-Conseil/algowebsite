@@ -160,7 +160,7 @@ function evaluateOutcome(
             const seriesList  = Array.isArray(option.series) ? (option.series as SeriesOptionLite[]) : [];
             const series      = seriesList[0];
             const lastBar     = series?.data?.[series.data.length - 1];
-            const currentPrice: number = Array.isArray(lastBar) ? lastBar[1] : lastBar;
+            const currentPrice = Array.isArray(lastBar) ? lastBar[1] : lastBar;
             if (typeof currentPrice === "number") {
                 result = isBullish
                     ? (currentPrice >= target    ? "success" : "failure")

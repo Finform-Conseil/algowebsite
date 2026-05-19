@@ -8,9 +8,7 @@ import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy
 import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { distancePointToSegment } from "./ForecastingUtils";
-import type { ECharts } from "echarts";
-
-type EChartsInstance = ECharts;
+import type { EChartsInstance } from "../../../types/echarts";
 
 const C_HANDLE = "#2962ff";
 

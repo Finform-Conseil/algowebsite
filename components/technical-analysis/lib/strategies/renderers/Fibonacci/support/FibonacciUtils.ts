@@ -2,6 +2,8 @@ import { Drawing } from "../../../../../config/TechnicalAnalysisTypes";
 import type { EChartsInstance } from "../../../../types/echarts";
 import { getSafeGridRect } from "../../../../../hooks/useChartViewport";
 
+export type { EChartsInstance };
+
 export function getEnabledFibLevels(drawing: Drawing) {
   if (!drawing.fibProps) return [];
   return [...drawing.fibProps.levels]

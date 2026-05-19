@@ -39,6 +39,17 @@ export interface TradingViewTimeAxisControls {
  */
 export const TimeAxisRegistry = new WeakMap<ECharts, TradingViewTimeAxisControls>();
 
+const isViewportChartUsable = (chart: ECharts | null): chart is ECharts => {
+  if (!chart) return false;
+  try {
+    if (chart.isDisposed()) return false;
+    const dom = chart.getDom();
+    return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
+  } catch {
+    return false;
+  }
+};
+
 /**
  * [TENOR 2026 SRE FIX] Adaptateur sécurisé pour récupérer les dimensions de la grille.
  * Éradication totale de `(chart as any).getModel?.()`.
@@ -200,6 +211,7 @@ export interface UseChartViewportProps {
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; }>;
   updateCursorPriceAxisBadge: (x: number, y: number) => void;
   updateLastPriceAxisBadge: () => void;
+  interactionScopeKey?: string;
 }
 
 export const useChartViewport = ({
@@ -209,6 +221,7 @@ export const useChartViewport = ({
   lastZoomRangeRef,
   updateCursorPriceAxisBadge,
   updateLastPriceAxisBadge,
+  interactionScopeKey,
 }: UseChartViewportProps) => {
   const viewportStateRef = useRef({
     startIdx: 0,
@@ -361,17 +374,31 @@ export const useChartViewport = ({
 
   // DOM Event Listeners
   useEffect(() => {
-    const containerEl = getChartContainer()?.parentElement;
-    const chart = chartInstanceRef.current;
-    if (!containerEl || !chart) return;
+    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
+    // getChartContainer() is now getLayersStack() — the stable gp-chart-layers-stack div.
+    // We no longer call .parentElement because the caller (useEChartsRenderer) passes the
+    // correct container directly. This fixes the bug where in multi-chart mode
+    // stockChartRef.parentElement was a transient grid cell, not the stable layers stack.
+    const containerEl = getChartContainer();
+    if (!containerEl) return;
 
     // [TENOR 2026 SRE FIX] Enforce touch-action none to prevent native browser scrolling/zooming
     containerEl.style.touchAction = 'none';
 
     const wheelListenerOptions: AddEventListenerOptions = { passive: false, capture: true };
+    let registeredChart: ECharts | null = null;
+    let registryFrameId: number | null = null;
+    let registryAttempts = 0;
+    const maxRegistryAttempts = 12;
+
+    const getLiveChart = (): ECharts | null => {
+      const chart = chartInstanceRef.current;
+      return isViewportChartUsable(chart) ? chart : null;
+    };
 
     const applyExternalTimeZoom = (direction: "in" | "out") => {
-      if (chart.isDisposed() || chartData.length === 0) return;
+      const chart = getLiveChart();
+      if (!chart || chartData.length === 0) return;
       const state = viewportStateRef.current;
       const totalBars = chartData.length;
       const syntheticDeltaY = direction === "in" ? -120 : 120;
@@ -392,7 +419,8 @@ export const useChartViewport = ({
     };
 
     const applyExternalTimePan = (direction: "left" | "right") => {
-      if (chart.isDisposed() || chartData.length === 0) return;
+      const chart = getLiveChart();
+      if (!chart || chartData.length === 0) return;
       const state = viewportStateRef.current;
       const totalBars = chartData.length;
       const visibleCount = state.endIdx - state.startIdx;
@@ -412,7 +440,8 @@ export const useChartViewport = ({
     };
 
     const resetExternalTimeViewport = () => {
-      if (chart.isDisposed() || chartData.length === 0) return;
+      const chart = getLiveChart();
+      if (!chart || chartData.length === 0) return;
       const totalBars = chartData.length;
       const span = Math.min(Math.max(TV_MIN_VISIBLE_BARS, TV_RESET_VISIBLE_BARS), Math.max(1, totalBars - 1));
       const state = viewportStateRef.current;
@@ -425,14 +454,34 @@ export const useChartViewport = ({
       applyViewport();
     };
 
-    // Register controls in the WeakMap
-    TimeAxisRegistry.set(chart, {
-      zoomIn: () => applyExternalTimeZoom("in"),
-      zoomOut: () => applyExternalTimeZoom("out"),
-      panLeft: () => applyExternalTimePan("left"),
-      panRight: () => applyExternalTimePan("right"),
-      reset: resetExternalTimeViewport,
-    });
+    const registerTimeAxisControls = () => {
+      const chart = getLiveChart();
+      if (!chart) return;
+      if (registeredChart && registeredChart !== chart) {
+        TimeAxisRegistry.delete(registeredChart);
+      }
+      registeredChart = chart;
+      TimeAxisRegistry.set(chart, {
+        zoomIn: () => applyExternalTimeZoom("in"),
+        zoomOut: () => applyExternalTimeZoom("out"),
+        panLeft: () => applyExternalTimePan("left"),
+        panRight: () => applyExternalTimePan("right"),
+        reset: resetExternalTimeViewport,
+      });
+    };
+
+    const scheduleTimeAxisRegistry = () => {
+      registryFrameId = requestAnimationFrame(() => {
+        registryFrameId = null;
+        registerTimeAxisControls();
+        if (!registeredChart && registryAttempts < maxRegistryAttempts) {
+          registryAttempts++;
+          scheduleTimeAxisRegistry();
+        }
+      });
+    };
+
+    scheduleTimeAxisRegistry();
 
     const onWheel = (event: WheelEvent) => {
       const cursor = (event.target as HTMLElement)?.style?.cursor;
@@ -446,7 +495,8 @@ export const useChartViewport = ({
       }
 
       event.preventDefault();
-      if (chart.isDisposed() || chartData.length === 0) return;
+      const chart = getLiveChart();
+      if (!chart || chartData.length === 0) return;
 
       const rect = containerEl.getBoundingClientRect();
       const mouseX = event.clientX - rect.left;
@@ -513,7 +563,7 @@ export const useChartViewport = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
-      if (chart.isDisposed()) return;
+      if (!getLiveChart()) return;
 
       const state = viewportStateRef.current;
       state.activePointers.set(event.pointerId, event);
@@ -532,6 +582,11 @@ export const useChartViewport = ({
       const target = event.target as HTMLElement;
       if (target) {
         if (target.closest('.gp-price-axis-action-menu') || target.closest('.gp-price-axis-cursor-action')) {
+          return;
+        }
+        const drawingCanvas = target.closest('.gp-drawing-canvas') as HTMLCanvasElement | null;
+        const drawingInteraction = drawingCanvas?.dataset.drawingInteraction;
+        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser') {
           return;
         }
         if (target.tagName === 'CANVAS') {
@@ -588,7 +643,8 @@ export const useChartViewport = ({
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (chart.isDisposed() || chartData.length === 0) return;
+      const chart = getLiveChart();
+      if (!chart || chartData.length === 0) return;
 
       const state = viewportStateRef.current;
       lastCursorClientPointRef.current = { x: event.clientX, y: event.clientY };
@@ -718,11 +774,16 @@ export const useChartViewport = ({
     };
 
     const onDoubleClick = (event: MouseEvent | PointerEvent) => {
-      if (chart.isDisposed()) return;
+      if (!getLiveChart()) return;
       const target = event.target as HTMLElement;
 
       if (target) {
         if (target.closest('.gp-price-axis-action-menu') || target.closest('.gp-price-axis-cursor-action')) {
+          return;
+        }
+        const drawingCanvas = target.closest('.gp-drawing-canvas') as HTMLCanvasElement | null;
+        const drawingInteraction = drawingCanvas?.dataset.drawingInteraction;
+        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser') {
           return;
         }
         if (target.tagName === 'CANVAS') {
@@ -759,7 +820,8 @@ export const useChartViewport = ({
     window.addEventListener("pointerout", onPointerUp);
 
     return () => {
-      TimeAxisRegistry.delete(chart);
+      if (registryFrameId !== null) cancelAnimationFrame(registryFrameId);
+      if (registeredChart) TimeAxisRegistry.delete(registeredChart);
       containerEl.removeEventListener("wheel", onWheel, wheelListenerOptions);
       containerEl.removeEventListener("pointerdown", onPointerDown);
       containerEl.removeEventListener("dblclick", onDoubleClick);
@@ -769,7 +831,7 @@ export const useChartViewport = ({
       window.removeEventListener("pointercancel", onPointerUp);
       window.removeEventListener("pointerout", onPointerUp);
     };
-  }, [chartData, chartInstanceRef, getChartContainer, applyViewport, updateCursorPriceAxisBadge]);
+  }, [chartData, chartInstanceRef, getChartContainer, interactionScopeKey, applyViewport, updateCursorPriceAxisBadge]);
 
   const resetManualYViewport = useCallback(() => {
     viewportStateRef.current.isYManual = false;

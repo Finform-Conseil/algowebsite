@@ -13,6 +13,7 @@ import {
   ChartState,
   AdvancedIndicatorsState,
   Alert,
+  Order,
   IndicatorPeriods,
   ChartAppearance,
   UiState,
@@ -28,10 +29,34 @@ import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import {
   createDefaultMultiChartLayout,
   createPresetLayout,
+  getLayoutDefinition,
+  hasCollapsedLayoutSymbols,
+  isDenseMultiChartLayout,
   MULTI_CHART_PRESETS,
   reconcileMultiChartLayout,
 } from "../config/multiChartLayout";
 import type { RootState } from "@/core/infrastructure/store";
+
+const forcePrimaryLayoutChartActive = (layout: MultiChartLayoutState): MultiChartLayoutState => {
+  const primaryChartId = layout.charts[0]?.chartId ?? layout.activeChartId;
+  return {
+    ...layout,
+    activeChartId: primaryChartId,
+    charts: layout.charts.map((chart, index) => ({ ...chart, isActive: index === 0 })),
+  };
+};
+
+const applyPrimaryLayoutSymbol = (layout: MultiChartLayoutState, symbol: string): void => {
+  const normalized = symbol.trim().toUpperCase();
+  const primaryChartId = layout.charts[0]?.chartId;
+  if (!normalized || !primaryChartId) return;
+
+  layout.activeChartId = primaryChartId;
+  layout.charts.forEach((chart, index) => {
+    if (index === 0 || layout.sync.symbol) chart.symbol = normalized;
+    chart.isActive = chart.chartId === primaryChartId;
+  });
+};
 
 // ============================================================================
 // INITIAL STATE
@@ -129,8 +154,11 @@ const initialState: TechnicalAnalysisState = {
     },
     isLockedAll: false,
     areDrawingsHidden: false,
+    prefilledAlertPrice: undefined,
+    prefilledAlertCondition: undefined,
   },
   alerts: [],
+  orders: [],
   marketData: {}, // [TENOR 2026] Cache initialized
   marketSnapshots: {}, // [TENOR 2026] Snapshots cache initialized
 };
@@ -145,14 +173,9 @@ export const technicalAnalysisSlice = createSlice({
   reducers: {
     // --- CHART CONFIG REDUCERS ---
     setSymbol: (state, action: PayloadAction<string>) => {
-      state.chartConfig.symbol = action.payload;
       const normalized = action.payload.trim().toUpperCase();
-      const layout = state.ui.multiChartLayout;
-      layout.charts.forEach((chart) => {
-        if (layout.sync.symbol || chart.chartId === layout.activeChartId) {
-          chart.symbol = normalized;
-        }
-      });
+      state.chartConfig.symbol = normalized || action.payload;
+      applyPrimaryLayoutSymbol(state.ui.multiChartLayout, normalized);
     },
     setTimeframe: (state, action: PayloadAction<string>) => {
       state.chartConfig.timeframe = action.payload;
@@ -175,7 +198,11 @@ export const technicalAnalysisSlice = createSlice({
     // to prevent nested objects from being overwritten and to satisfy TypeScript's Partial<T> strictness.
     setChartConfig: (state, action: PayloadAction<Partial<ChartState>>) => {
       const { symbol, timeframe, chartType, indicators } = action.payload;
-      if (symbol !== undefined) state.chartConfig.symbol = symbol;
+      if (symbol !== undefined) {
+        const normalized = symbol.trim().toUpperCase();
+        state.chartConfig.symbol = normalized || symbol;
+        applyPrimaryLayoutSymbol(state.ui.multiChartLayout, normalized);
+      }
       if (timeframe !== undefined) state.chartConfig.timeframe = timeframe;
       if (chartType !== undefined) state.chartConfig.chartType = chartType;
 
@@ -425,15 +452,48 @@ export const technicalAnalysisSlice = createSlice({
       state.ui.comparisonSymbols = [];
     },
     setMultiChartLayout: (state, action: PayloadAction<MultiChartLayoutId>) => {
-      state.ui.multiChartLayout = reconcileMultiChartLayout(
+      const nextLayout = reconcileMultiChartLayout(
         state.ui.multiChartLayout,
         action.payload,
         state.chartConfig.symbol,
         state.ui.comparisonSymbols
       );
+      state.ui.multiChartLayout = isDenseMultiChartLayout(action.payload)
+        ? forcePrimaryLayoutChartActive({ ...nextLayout, sync: { ...nextLayout.sync, symbol: false, crosshair: false } })
+        : { ...nextLayout, sync: { ...nextLayout.sync, crosshair: false } };
     },
     setMultiChartSync: (state, action: PayloadAction<{ key: MultiChartSyncKey; value: boolean }>) => {
+      if (action.payload.key === "crosshair") {
+        state.ui.multiChartLayout.sync.crosshair = false;
+        return;
+      }
+
+      if (action.payload.key === "symbol" && action.payload.value) {
+        const activeLayout = getLayoutDefinition(state.ui.multiChartLayout.layoutId);
+        if (activeLayout.chartCount >= 8) return;
+      }
+
       state.ui.multiChartLayout.sync[action.payload.key] = action.payload.value;
+
+      // [TENOR 2026 HDR] RETROACTIVE SYMBOL & INTERVAL SYNC
+      // Immediately synchronizes all layout cells when the respective sync setting is turned ON.
+      if (action.payload.value) {
+        const activeChart = state.ui.multiChartLayout.charts.find(
+          (c) => c.chartId === state.ui.multiChartLayout.activeChartId
+        );
+
+        if (action.payload.key === "symbol") {
+          const targetSymbol = activeChart ? activeChart.symbol : state.chartConfig.symbol;
+          state.ui.multiChartLayout.charts.forEach((c) => {
+            c.symbol = targetSymbol;
+          });
+        } else if (action.payload.key === "interval") {
+          const targetInterval = activeChart ? activeChart.interval : state.chartConfig.timeframe;
+          state.ui.multiChartLayout.charts.forEach((c) => {
+            c.interval = targetInterval;
+          });
+        }
+      }
     },
     setActiveLayoutChart: (state, action: PayloadAction<string>) => {
       const target = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === action.payload);
@@ -477,15 +537,25 @@ export const technicalAnalysisSlice = createSlice({
       }
     },
     hydrateMultiChartLayout: (state, action: PayloadAction<MultiChartLayoutState>) => {
+      const isDenseLayout = isDenseMultiChartLayout(action.payload.layoutId);
+      const primarySymbol = isDenseLayout
+        ? state.chartConfig.symbol
+        : action.payload.charts[0]?.symbol || state.chartConfig.symbol;
       const hydrated = reconcileMultiChartLayout(
         action.payload,
         action.payload.layoutId,
-        action.payload.charts[0]?.symbol || state.chartConfig.symbol,
+        primarySymbol,
         state.ui.comparisonSymbols
       );
+      const normalizedHydrated = isDenseLayout ? forcePrimaryLayoutChartActive(hydrated) : hydrated;
       state.ui.multiChartLayout = {
-        ...hydrated,
-        sync: { ...state.ui.multiChartLayout.sync, ...action.payload.sync },
+        ...normalizedHydrated,
+        sync: {
+          ...state.ui.multiChartLayout.sync,
+          ...action.payload.sync,
+          crosshair: false,
+          ...(isDenseLayout || hasCollapsedLayoutSymbols(action.payload) ? { symbol: false } : {}),
+        },
       };
     },
     resetMultiChartLayout: (state) => {
@@ -549,6 +619,35 @@ export const technicalAnalysisSlice = createSlice({
         alert.active = false;
       }
     },
+    setPrefilledAlert: (
+      state,
+      action: PayloadAction<{ price: number; condition: "GREATER_THAN" | "LESS_THAN" } | null>
+    ) => {
+      if (action.payload === null) {
+        state.ui.prefilledAlertPrice = undefined;
+        state.ui.prefilledAlertCondition = undefined;
+      } else {
+        state.ui.prefilledAlertPrice = action.payload.price;
+        state.ui.prefilledAlertCondition = action.payload.condition;
+      }
+    },
+
+    // --- ORDERS REDUCERS ---
+    addOrder: (state, action: PayloadAction<Order>) => {
+      state.orders.push(action.payload);
+    },
+    cancelOrder: (state, action: PayloadAction<string>) => {
+      const order = state.orders.find((o) => o.id === action.payload);
+      if (order) {
+        order.status = "cancelled";
+      }
+    },
+    updateOrder: (state, action: PayloadAction<Order>) => {
+      const index = state.orders.findIndex((o) => o.id === action.payload.id);
+      if (index !== -1) {
+        state.orders[index] = action.payload;
+      }
+    },
 
     // --- MARKET DATA REDUCERS ---
     updateMarketData: (state, action: PayloadAction<{ symbol: string; data: ChartDataPoint[] }>) => {
@@ -610,6 +709,10 @@ export const {
   removeAlert,
   updateAlert,
   deactivateAlert,
+  setPrefilledAlert,
+  addOrder,
+  cancelOrder,
+  updateOrder,
   updateMarketData,
   updateMarketSnapshot,
 } = technicalAnalysisSlice.actions;
@@ -627,6 +730,7 @@ export const selectChartAppearance = (state: RootState) => state.technicalAnalys
 export const selectUiState = (state: RootState): UiState => state.technicalAnalysis.ui;
 export const selectModals = (state: RootState) => state.technicalAnalysis.ui.modals;
 export const selectAlerts = (state: RootState) => state.technicalAnalysis.alerts;
+export const selectOrders = (state: RootState) => state.technicalAnalysis.orders;
 export const selectDataMode = (state: RootState): "mock" | "real" => state.technicalAnalysis.ui.dataMode || "real";
 export const selectMarketData = (state: RootState) => state.technicalAnalysis.marketData;
 export const selectMarketSnapshots = (state: RootState) => state.technicalAnalysis.marketSnapshots;

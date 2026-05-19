@@ -14,11 +14,6 @@ export interface MultiChartLayoutDefinition {
   description: string;
 }
 
-export interface PlannedLayoutDefinition {
-  chartCount: number;
-  name: string;
-}
-
 export interface MultiChartPreset {
   id: string;
   name: string;
@@ -33,7 +28,7 @@ export const MULTI_CHART_STORAGE_KEY = "technical-analysis.multiChartLayout.v1";
 export const DEFAULT_MULTI_CHART_SYNC: MultiChartLayoutSync = {
   symbol: false,
   interval: true,
-  crosshair: true,
+  crosshair: false,
   time: true,
   dateRange: true,
 };
@@ -87,13 +82,38 @@ export const MULTI_CHART_LAYOUTS: MultiChartLayoutDefinition[] = [
     cssClass: "layout-six-grid",
     description: "Mini-terminal BRVM 3 par 2",
   },
-];
-
-export const PLANNED_MULTI_CHART_LAYOUTS: PlannedLayoutDefinition[] = [
-  { chartCount: 8, name: "8 graphiques" },
-  { chartCount: 9, name: "9 graphiques" },
-  { chartCount: 12, name: "12 graphiques" },
-  { chartCount: 16, name: "16 graphiques" },
+  {
+    id: "eight_grid",
+    name: "8 graphiques 4x2",
+    shortName: "8",
+    chartCount: 8,
+    cssClass: "layout-eight-grid",
+    description: "Terminal multi-actifs 4 par 2",
+  },
+  {
+    id: "nine_grid",
+    name: "9 graphiques 3x3",
+    shortName: "9",
+    chartCount: 9,
+    cssClass: "layout-nine-grid",
+    description: "Matrice multi-actifs 3 par 3",
+  },
+  {
+    id: "twelve_grid",
+    name: "12 graphiques 4x3",
+    shortName: "12",
+    chartCount: 12,
+    cssClass: "layout-twelve-grid",
+    description: "Mur de surveillance BRVM 4 par 3",
+  },
+  {
+    id: "sixteen_grid",
+    name: "16 graphiques 4x4",
+    shortName: "16",
+    chartCount: 16,
+    cssClass: "layout-sixteen-grid",
+    description: "Mur de surveillance maximal 4 par 4",
+  },
 ];
 
 export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
@@ -101,7 +121,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     id: "multi_timeframe",
     name: "Analyse multi-timeframe",
     layoutId: "three_focus_right",
-    sync: { symbol: true, interval: false, crosshair: true, time: true, dateRange: true },
+    sync: { symbol: true, interval: false, crosshair: false, time: true, dateRange: true },
     symbols: [],
     intervals: ["1D", "1W", "1M"],
   },
@@ -131,12 +151,50 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
   },
 ];
 
-const FALLBACK_LAYOUT_SYMBOLS = ["BRVMC", "SNTS", "BOAC", "SGBC", "ETIT", "SPHC"];
+const FALLBACK_LAYOUT_SYMBOLS = [
+  "BRVMC",
+  "SNTS",
+  "BOAC",
+  "SGBC",
+  "ETIT",
+  "SPHC",
+  "PALC",
+  "SIVC",
+  "ORGT",
+  "CIEC",
+  "CABC",
+  "NEIC",
+  "UNXC",
+  "SHEC",
+  "BICC",
+  "CFAC",
+];
 
 export const getLayoutDefinition = (layoutId: MultiChartLayoutId): MultiChartLayoutDefinition =>
   MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId) ?? MULTI_CHART_LAYOUTS[0];
 
 export const normalizeLayoutSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+
+export const isDenseMultiChartLayout = (layoutId: MultiChartLayoutId): boolean =>
+  getLayoutDefinition(layoutId).chartCount >= 8;
+
+export const hasCollapsedLayoutSymbols = (layout: MultiChartLayoutState): boolean => {
+  if (!isDenseMultiChartLayout(layout.layoutId)) return false;
+  const symbols = new Set(layout.charts.map((chart) => normalizeLayoutSymbol(chart.symbol)).filter(Boolean));
+  return layout.charts.length > 1 && symbols.size <= 1;
+};
+
+const getUniqueLayoutSymbols = (cells: MultiChartLayoutCell[]): string[] =>
+  Array.from(new Set(cells.map((cell) => normalizeLayoutSymbol(cell.symbol)).filter(Boolean)));
+
+const buildSecondarySymbolCandidates = (primary: string, comparisonSymbols: string[]): string[] =>
+  Array.from(
+    new Set(
+      [...comparisonSymbols, ...FALLBACK_LAYOUT_SYMBOLS]
+        .map((symbol) => normalizeLayoutSymbol(symbol))
+        .filter((symbol) => symbol && symbol !== primary)
+    )
+  );
 
 export const createLayoutCells = (
   layoutId: MultiChartLayoutId,
@@ -148,9 +206,9 @@ export const createLayoutCells = (
 ): MultiChartLayoutCell[] => {
   const definition = getLayoutDefinition(layoutId);
   const primary = normalizeLayoutSymbol(primarySymbol) || "BOAB";
-  const candidates = [...(presetSymbols ?? []), ...comparisonSymbols, ...FALLBACK_LAYOUT_SYMBOLS]
-    .map((symbol) => normalizeLayoutSymbol(symbol || primary))
-    .filter(Boolean);
+  const candidates = buildSecondarySymbolCandidates(primary, comparisonSymbols);
+  const previousSymbols = getUniqueLayoutSymbols(previousCells);
+  const shouldPreservePreviousSymbols = !presetSymbols && !(definition.chartCount > 1 && previousCells.length > 1 && previousSymbols.length <= 1);
 
   return Array.from({ length: definition.chartCount }, (_, index) => {
     const existing = previousCells[index];
@@ -158,7 +216,7 @@ export const createLayoutCells = (
     const symbol = presetSymbols ? normalizeLayoutSymbol(presetSymbol || primary) : index === 0 ? primary : candidates[index - 1] ?? primary;
     return {
       chartId: existing?.chartId ?? `chart_${index + 1}`,
-      symbol: existing?.symbol && !presetSymbols ? existing.symbol : symbol,
+      symbol: index > 0 && existing?.symbol && shouldPreservePreviousSymbols ? existing.symbol : symbol,
       exchange: "BRVM",
       interval: intervals?.[index] ?? existing?.interval ?? "1D",
       indicators: existing?.indicators ?? (index === 0 ? ["volume", "sma"] : ["volume"]),
@@ -201,6 +259,7 @@ export const reconcileMultiChartLayout = (
     layoutId,
     name: definition.name,
     isEnabled: definition.chartCount > 1,
+    sync: isDenseMultiChartLayout(layoutId) ? { ...current.sync, symbol: false, crosshair: false } : { ...current.sync, crosshair: false },
     charts: charts.map((chart) => ({ ...chart, isActive: chart.chartId === activeChartId })),
     activeChartId,
   };

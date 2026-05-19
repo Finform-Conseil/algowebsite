@@ -1,9 +1,7 @@
 import { Drawing, DrawingHelpers, BarPatternMode } from "../../../../config/TechnicalAnalysisTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { distancePointToSegment } from "./ForecastingUtils";
-import type { ECharts } from "echarts";
-
-type EChartsInstance = ECharts;
+import type { EChartsInstance } from "../../../types/echarts";
 type SeriesOptionLite = { type?: string };
 
 /**
@@ -16,7 +14,7 @@ type SeriesOptionLite = { type?: string };
 export const renderForecastingBarPattern = (
   pts: { x: number; y: number }[],
   drawing: Drawing,
-  chart: ECharts,
+  chart: EChartsInstance,
   isSelected: boolean,
   h: DrawingHelpers
 ): void => {

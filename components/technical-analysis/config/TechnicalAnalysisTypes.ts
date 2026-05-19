@@ -781,7 +781,11 @@ export type MultiChartLayoutId =
   | "two_vertical"
   | "three_focus_right"
   | "four_grid"
-  | "six_grid";
+  | "six_grid"
+  | "eight_grid"
+  | "nine_grid"
+  | "twelve_grid"
+  | "sixteen_grid";
 
 export type MultiChartSyncKey = "symbol" | "interval" | "crosshair" | "time" | "dateRange";
 
@@ -917,6 +921,19 @@ export interface UiState {
   };
   isLockedAll: boolean;
   areDrawingsHidden: boolean;
+  prefilledAlertPrice?: number;
+  prefilledAlertCondition?: "GREATER_THAN" | "LESS_THAN";
+}
+
+export interface Order {
+  id: string;
+  symbol: string;
+  side: "buy" | "sell";
+  orderType: "limit" | "stop" | "market";
+  triggerPrice: number;
+  qty: number;
+  status: "active" | "filled" | "cancelled";
+  createdAt: string;
 }
 
 export interface TechnicalAnalysisState {
@@ -927,6 +944,7 @@ export interface TechnicalAnalysisState {
   chartAppearance: ChartAppearance;
   ui: UiState;
   alerts: Alert[];
+  orders: Order[];
   marketData: Record<string, ChartDataPoint[]>;
   marketSnapshots: Record<string, LiveSnapshot>;
 }

@@ -5,14 +5,15 @@ import clsx from "clsx";
 import { useDispatch, useSelector } from "react-redux";
 import type { MultiChartLayoutId, MultiChartSyncKey } from "../../config/TechnicalAnalysisTypes";
 import {
+  hasCollapsedLayoutSymbols,
   MULTI_CHART_LAYOUTS,
   MULTI_CHART_PRESETS,
   MULTI_CHART_STORAGE_KEY,
-  PLANNED_MULTI_CHART_LAYOUTS,
 } from "../../config/multiChartLayout";
 import {
   applyMultiChartPreset,
   hydrateMultiChartLayout,
+  selectChartConfig,
   selectUiState,
   setMultiChartLayout,
   setMultiChartSync,
@@ -21,17 +22,13 @@ import {
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
   { key: "symbol", label: "Symbol", title: "Synchronise le symbole entre tous les graphiques" },
   { key: "interval", label: "Interval", title: "Synchronise le timeframe entre tous les graphiques" },
-  { key: "crosshair", label: "Crosshair", title: "Synchronise le curseur par date entre les graphiques" },
   { key: "time", label: "Time", title: "Synchronise le zoom et le scroll temporel" },
   { key: "dateRange", label: "Date range", title: "Synchronise les plages 1M, YTD, 1Y, Tout" },
 ];
 
-const LayoutGlyph: React.FC<{ layoutId?: MultiChartLayoutId; cells?: number; disabled?: boolean }> = ({
-  layoutId = "single",
-  cells,
-  disabled = false,
-}) => {
-  const count = cells ?? MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId)?.chartCount ?? 1;
+const LayoutGlyph: React.FC<{ layoutId?: MultiChartLayoutId; disabled?: boolean }> = ({ layoutId = "single", disabled = false }) => {
+  const count = MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId)?.chartCount ?? 1;
+
   return (
     <span className={clsx("gp-layout-glyph", `gp-layout-glyph--${layoutId}`, disabled && "is-disabled")}>
       {Array.from({ length: count }, (_, index) => (
@@ -44,6 +41,7 @@ const LayoutGlyph: React.FC<{ layoutId?: MultiChartLayoutId; cells?: number; dis
 export const LayoutSetupControl: React.FC = () => {
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
+  const chartConfig = useSelector(selectChartConfig);
   const layoutState = uiState.multiChartLayout;
   const [isOpen, setIsOpen] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, right: 0 });
@@ -73,6 +71,19 @@ export const LayoutSetupControl: React.FC = () => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(MULTI_CHART_STORAGE_KEY, JSON.stringify(layoutState));
   }, [layoutState]);
+
+  useEffect(() => {
+    if (!hasCollapsedLayoutSymbols(layoutState)) return;
+    dispatch(setMultiChartLayout(layoutState.layoutId));
+  }, [dispatch, layoutState]);
+
+  useEffect(() => {
+    if (activeLayout.chartCount < 8) return;
+    const primarySymbol = chartConfig.symbol.trim().toUpperCase();
+    const firstLayoutSymbol = layoutState.charts[0]?.symbol.trim().toUpperCase();
+    if (!primarySymbol || firstLayoutSymbol === primarySymbol) return;
+    dispatch(setMultiChartLayout(layoutState.layoutId));
+  }, [activeLayout.chartCount, chartConfig.symbol, dispatch, layoutState.charts, layoutState.layoutId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -129,17 +140,10 @@ export const LayoutSetupControl: React.FC = () => {
               >
                 <span className="gp-layout-option__count">{layout.shortName}</span>
                 <LayoutGlyph layoutId={layout.id} />
-                <span>{layout.name}</span>
+                <span className="gp-layout-option__label">{layout.name}</span>
               </button>
             ))}
 
-            {PLANNED_MULTI_CHART_LAYOUTS.map((layout) => (
-              <button key={layout.chartCount} className="gp-layout-option is-disabled" disabled title="Planifié après validation performance">
-                <span className="gp-layout-option__count">{layout.chartCount}</span>
-                <LayoutGlyph cells={Math.min(layout.chartCount, 16)} disabled />
-                <span>{layout.name} · planifié</span>
-              </button>
-            ))}
           </div>
 
           <div className="gp-layout-popover__section-title">Presets BRVM</div>
@@ -151,22 +155,32 @@ export const LayoutSetupControl: React.FC = () => {
             ))}
           </div>
 
-          <div className="gp-layout-popover__section-title">Sync in layout</div>
-          <div className="gp-layout-sync-list">
-            {SYNC_OPTIONS.map((option) => (
-              <label key={option.key} className="gp-layout-sync-row" title={option.title}>
-                <span>
-                  {option.label}
-                  <i className="bi bi-info-circle" aria-hidden="true" />
-                </span>
-                <input
-                  type="checkbox"
-                  checked={layoutState.sync[option.key]}
-                  onChange={(event) => dispatch(setMultiChartSync({ key: option.key, value: event.target.checked }))}
-                />
-              </label>
-            ))}
-          </div>
+          {activeLayout.chartCount > 1 && (
+            <>
+              <div className="gp-layout-popover__section-title">Sync in layout</div>
+              <div className="gp-layout-sync-list">
+                {SYNC_OPTIONS.map((option) => (
+                  <label
+                    key={option.key}
+                    className={clsx("gp-layout-sync-row", option.key === "symbol" && activeLayout.chartCount >= 8 && "is-disabled")}
+                    title={option.key === "symbol" && activeLayout.chartCount >= 8 ? "Indisponible en mur de marché: ce mode doit conserver des symboles distincts" : option.title}
+                  >
+                    <span className="gp-layout-sync-label">
+                      {option.label}
+                      <i className="bi bi-info-circle" aria-hidden="true" />
+                    </span>
+                    <input
+                      className="gp-layout-sync-toggle"
+                      type="checkbox"
+                      disabled={option.key === "symbol" && activeLayout.chartCount >= 8}
+                      checked={option.key === "symbol" && activeLayout.chartCount >= 8 ? false : layoutState.sync[option.key]}
+                      onChange={(event) => dispatch(setMultiChartSync({ key: option.key, value: event.target.checked }))}
+                    />
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

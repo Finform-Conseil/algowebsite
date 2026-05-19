@@ -41,7 +41,7 @@ export class GannStrategy implements IDrawingStrategy {
         }
     }
 
-    hitTest(mx: number, my: number, drawing: Drawing, chartInstance: ECharts, threshold: number): HitTestResult {
+    hitTest(mx: number, my: number, drawing: Drawing, chartInstance: EChartsInstance, threshold: number): HitTestResult {
         // [SNIPER V5.0] Fidelity Fix: Do NOT filter points, preserve indices for handles
         const points = drawing.points.map(p => {
             const pixel = chartInstance.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);

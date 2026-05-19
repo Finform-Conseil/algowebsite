@@ -6,7 +6,8 @@ import {
     addAlert,
     setModalOpen,
     selectChartConfig,
-    selectUiState
+    selectUiState,
+    setPrefilledAlert
 } from "../../store/technicalAnalysisSlice";
 import { Alert } from "../../config/TechnicalAnalysisTypes";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
@@ -44,10 +45,15 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
     if (isOpen !== prevIsOpen) {
         setPrevIsOpen(isOpen);
         if (isOpen) {
-            setValue("");
-            setCondition("GREATER_THAN");
+            setValue(uiState.prefilledAlertPrice !== undefined ? String(uiState.prefilledAlertPrice) : "");
+            setCondition(uiState.prefilledAlertCondition ?? "GREATER_THAN");
         }
     }
+
+    const handleClose = () => {
+        dispatch(setPrefilledAlert(null));
+        onClose();
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,6 +70,7 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
 
         // Dispatch to Redux
         dispatch(addAlert(newAlert));
+        dispatch(setPrefilledAlert(null));
         dispatch(setModalOpen({ modal: "alerts", isOpen: false }));
 
         // Trigger UI Notification
@@ -78,13 +85,22 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
     return (
         <BaseModal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={handleClose}
             title="Créer une Alerte"
             icon={<i className="bi bi-bell-fill me-2"></i>}
             maxWidth="600px"
-            hideFooter
+            footer={
+                <div className="d-flex justify-content-end gap-2 w-100">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={handleClose}>
+                        Annuler
+                    </button>
+                    <button type="submit" form="alerts-form" className={clsx("btn btn-sm", btnStyle)}>
+                        <i className="bi bi-bell me-2"></i> Créer l&apos;alerte
+                    </button>
+                </div>
+            }
         >
-            <form onSubmit={handleSubmit}>
+            <form id="alerts-form" onSubmit={handleSubmit}>
                 <div className="mb-3">
                     <label className="form-label text-white">Symbole</label>
                     <input
@@ -159,15 +175,6 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
                             Notification Push
                         </label>
                     </div>
-                </div>
-
-                <div className="d-flex justify-content-end gap-2 mt-4">
-                    <button type="button" className="btn btn-secondary" onClick={onClose}>
-                        Annuler
-                    </button>
-                    <button type="submit" className={clsx("btn", btnStyle)}>
-                        <i className="bi bi-bell me-2"></i> Créer l&apos;alerte
-                    </button>
                 </div>
             </form>
         </BaseModal>

@@ -1,5 +1,5 @@
 // src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/DrawingRenderer.ts
-import { AllToolType, Drawing, DrawingHelpers, DrawingPoint, DrawingStyle, HitTestResult } from "../config/TechnicalAnalysisTypes";
+import { AllToolType, Drawing, DrawingHelpers, DrawingPoint, DrawingStyle, HitTestResult, Alert, Order } from "../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "./Indicators/TechnicalIndicators";
 import { drawingStrategyRegistry } from "./strategies/DrawingStrategyRegistry";
 import type { EChartsType } from "echarts/core";
@@ -51,6 +51,32 @@ export class DrawingRenderer {
     };
   }
 
+  private static isChartRenderable(chart: EChartsType | null): chart is EChartsType {
+    if (!chart) return false;
+    try {
+      if (chart.isDisposed()) return false;
+      const dom = chart.getDom();
+      return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
+    } catch {
+      return false;
+    }
+  }
+
+  private static safeConvertToPixel(
+    chart: EChartsType,
+    point: [string | number, number]
+  ): [number, number] | null {
+    try {
+      const pos = chart.convertToPixel({ seriesIndex: 0 }, point);
+      if (!Array.isArray(pos) || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
+        return null;
+      }
+      return [pos[0], pos[1]];
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Main render loop - clears canvas and draws all items
    * [TENOR 2026] Optimized for Zero-Allocation
@@ -63,9 +89,11 @@ export class DrawingRenderer {
     _activeTool: AllToolType = null,
     selectedDrawingId: string | null = null,
     gridRect: { x: number; y: number; width: number; height: number } | null = null,
-    chartData: ChartDataPoint[] = []
+    chartData: ChartDataPoint[] = [],
+    alerts: Alert[] = [],
+    orders: Order[] = []
   ) {
-    if (!chart || chart.isDisposed()) return;
+    if (!DrawingRenderer.isChartRenderable(chart)) return;
 
     const dpr = window.devicePixelRatio || 1;
 
@@ -93,6 +121,7 @@ export class DrawingRenderer {
     for (let i = 0; i < drawings.length; i++) {
       const drawing = drawings[i];
       if (drawing.hidden) continue;
+      if (!DrawingRenderer.isChartRenderable(chart)) return;
       try {
         this.drawItem(drawing, chart, false, null, drawing.id === selectedDrawingId, chartData);
       } catch (err) {
@@ -100,8 +129,14 @@ export class DrawingRenderer {
       }
     }
 
+    // [ALERTS & ORDERS] Draw active alerts & active orders on grid
+    if (gridRect) {
+      this.drawAlertsAndOrders(chart, gridRect, chartData, alerts, orders);
+    }
+
     // 4. Render current drawing in progress (preview mode)
     if (currentDrawing) {
+      if (!DrawingRenderer.isChartRenderable(chart)) return;
       try {
         this.drawItem(currentDrawing, chart, true, mousePos, true, chartData);
       } catch (err) {
@@ -149,11 +184,17 @@ export class DrawingRenderer {
     chart: EChartsType,
     seriesIndex: number = 0
   ): DrawingPoint | null {
-    if (!chart || chart.isDisposed()) return null;
-    const point = chart.convertFromPixel({ seriesIndex }, [pos.x, pos.y]);
-    if (point && point.length >= 2) {
-      this.virtualDataPointPool.time = point[0] as string | number;
-      this.virtualDataPointPool.value = point[1] as number;
+    if (!DrawingRenderer.isChartRenderable(chart)) return null;
+    let point: unknown;
+    try {
+      point = chart.convertFromPixel({ seriesIndex }, [pos.x, pos.y]);
+    } catch {
+      return null;
+    }
+    if (Array.isArray(point) && point.length >= 2) {
+      const coordinates = point as unknown[];
+      this.virtualDataPointPool.time = coordinates[0] as string | number;
+      this.virtualDataPointPool.value = coordinates[1] as number;
       return this.virtualDataPointPool;
     }
     return null;
@@ -193,6 +234,7 @@ export class DrawingRenderer {
   ) {
     const { points, style, type } = drawing;
     if (points.length < 1 && !mousePos) return;
+    if (!DrawingRenderer.isChartRenderable(chart)) return;
 
     // [TENOR 2026 SRE] Zero-Allocation Buffer Reset
     // Mutating length to 0 clears the array without reallocating memory.
@@ -203,7 +245,7 @@ export class DrawingRenderer {
     // Convert points to pixels using the Object Pool
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
-      const pos = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
+      const pos = DrawingRenderer.safeConvertToPixel(chart, [p.time, p.value]);
       if (pos) {
         // Retrieve or expand pool
         let pooledPt = this.pointPool[validCount];
@@ -407,6 +449,122 @@ export class DrawingRenderer {
       this.ctx.textBaseline = baseline;
       this.ctx.fillText(sanitizedText, 0, offsetY);
     }
+    this.ctx.restore();
+  }
+
+  private drawAlertsAndOrders(
+    chart: EChartsType,
+    gridRect: { x: number; y: number; width: number; height: number },
+    chartData: ChartDataPoint[],
+    alerts: Alert[],
+    orders: Order[]
+  ) {
+    if (chartData.length === 0) return;
+    const refTime = chartData[chartData.length - 1].time;
+
+    this.ctx.save();
+
+    // --- DRAW ACTIVE ALERTS ---
+    for (let i = 0; i < alerts.length; i++) {
+      const alert = alerts[i];
+      if (!alert.active) continue;
+
+      const pos = DrawingRenderer.safeConvertToPixel(chart, [refTime, alert.value]);
+      if (!pos) continue;
+
+      const y = pos[1];
+      if (y < gridRect.y || y > gridRect.y + gridRect.height) continue;
+
+      // Draw dashed orange line
+      this.ctx.strokeStyle = "#ff9800";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([6, 4]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(gridRect.x, y);
+      this.ctx.lineTo(gridRect.x + gridRect.width, y);
+      this.ctx.stroke();
+
+      // Draw label
+      this.ctx.setLineDash([]);
+      const labelText = `🔔 ALERTE: ${alert.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      this.ctx.font = "bold 11px Inter, sans-serif";
+      const textWidth = this.ctx.measureText(labelText).width;
+
+      // Draw background pill
+      this.ctx.fillStyle = "#1e1e2d";
+      this.ctx.strokeStyle = "#ff9800";
+      this.ctx.lineWidth = 1;
+
+      const rx = gridRect.x + gridRect.width - textWidth - 20;
+      const ry = y - 10;
+      const rw = textWidth + 12;
+      const rh = 20;
+
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) this.ctx.roundRect(rx, ry, rw, rh, 4);
+      else this.ctx.rect(rx, ry, rw, rh);
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      // Draw text
+      this.ctx.fillStyle = "#ff9800";
+      this.ctx.textAlign = "left";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(labelText, rx + 6, ry + rh / 2);
+    }
+
+    // --- DRAW ACTIVE ORDERS ---
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      if (order.status !== "active") continue;
+
+      const pos = DrawingRenderer.safeConvertToPixel(chart, [refTime, order.triggerPrice]);
+      if (!pos) continue;
+
+      const y = pos[1];
+      if (y < gridRect.y || y > gridRect.y + gridRect.height) continue;
+
+      const isBuy = order.side === "buy";
+      const color = isBuy ? "#00da3c" : "#ec0000";
+
+      // Draw solid/dashed color line
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([4, 2]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(gridRect.x, y);
+      this.ctx.lineTo(gridRect.x + gridRect.width, y);
+      this.ctx.stroke();
+
+      // Draw label
+      this.ctx.setLineDash([]);
+      const labelText = `${order.side.toUpperCase()} ${order.orderType.toUpperCase()} - ${order.qty} Qty @ ${order.triggerPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      this.ctx.font = "bold 11px Inter, sans-serif";
+      const textWidth = this.ctx.measureText(labelText).width;
+
+      // Draw background pill
+      this.ctx.fillStyle = "#1e1e2d";
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 1;
+
+      const rx = gridRect.x + 10;
+      const ry = y - 10;
+      const rw = textWidth + 12;
+      const rh = 20;
+
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) this.ctx.roundRect(rx, ry, rw, rh, 4);
+      else this.ctx.rect(rx, ry, rw, rh);
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      // Draw text
+      this.ctx.fillStyle = color;
+      this.ctx.textAlign = "left";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(labelText, rx + 6, ry + rh / 2);
+    }
+
     this.ctx.restore();
   }
 }

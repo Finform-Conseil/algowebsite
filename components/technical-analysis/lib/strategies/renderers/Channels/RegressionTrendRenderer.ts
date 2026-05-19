@@ -1,9 +1,7 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
 import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
 import { calculateLinearRegression } from "../../../math/geometry";
-import type { ECharts } from "echarts";
-
-type EChartsInstance = ECharts;
+import type { EChartsInstance } from "../../../types/echarts";
 
 export function renderRegressionTrend(
     pts: { x: number; y: number }[],

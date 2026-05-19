@@ -49,11 +49,68 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
   currencyPos,
   setCurrencyPos,
 }: CurrencySelectorProps) {
-  const filteredCurrencies = AFRICAN_CURRENCIES.filter(
-    (currency) =>
-      currency.code.toLowerCase().includes(currencyQuery.toLowerCase()) ||
-      currency.name.toLowerCase().includes(currencyQuery.toLowerCase()),
+  const [isClientMounted, setIsClientMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
+  const filteredCurrencies = React.useMemo(
+    () =>
+      AFRICAN_CURRENCIES.filter(
+        (currency) =>
+          currency.code.toLowerCase().includes(currencyQuery.toLowerCase()) ||
+          currency.name.toLowerCase().includes(currencyQuery.toLowerCase()),
+      ),
+    [currencyQuery],
   );
+
+  const currencyDropdown = isClientMounted && isCurrencyOpen
+    ? createPortal(
+        <div
+          className="gp-currency-dropdown-portal"
+          style={{ top: currencyPos.top, left: currencyPos.left }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="gp-currency-header">Currencies</div>
+          <div className="gp-currency-search">
+            <i className="bi bi-search" style={{ color: "#787b86", fontSize: "12px" }}></i>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search"
+              value={currencyQuery}
+              onChange={(e) => setCurrencyQuery(e.target.value)}
+            />
+          </div>
+          <div className="gp-currency-list gp-custom-scrollbar">
+            {filteredCurrencies.map((currency) => (
+              <div
+                key={currency.code}
+                className={clsx("gp-currency-item", selectedCurrency === currency.code && "active")}
+                onClick={() => {
+                  setSelectedCurrency(currency.code);
+                  setIsCurrencyOpen(false);
+                  setCurrencyQuery("");
+                }}
+              >
+                <span className="gp-currency-flag">{currency.flag}</span>
+                <div className="gp-currency-info">
+                  <span className="gp-currency-code">{currency.code}</span>
+                  <span className="gp-currency-name">{currency.name}</span>
+                </div>
+              </div>
+            ))}
+            {filteredCurrencies.length === 0 && (
+              <div style={{ padding: "16px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>
+                No currencies found
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
     <>
@@ -72,52 +129,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
         <span>{selectedCurrency}</span>
         <i className="bi bi-chevron-down" style={{ fontSize: "10px", marginTop: "2px" }}></i>
       </div>
-      {isCurrencyOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="gp-currency-dropdown-portal"
-            style={{ top: currencyPos.top, left: currencyPos.left }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="gp-currency-header">Currencies</div>
-            <div className="gp-currency-search">
-              <i className="bi bi-search" style={{ color: "#787b86", fontSize: "12px" }}></i>
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search"
-                value={currencyQuery}
-                onChange={(e) => setCurrencyQuery(e.target.value)}
-              />
-            </div>
-            <div className="gp-currency-list gp-custom-scrollbar">
-              {filteredCurrencies.map((currency) => (
-                <div
-                  key={currency.code}
-                  className={clsx("gp-currency-item", selectedCurrency === currency.code && "active")}
-                  onClick={() => {
-                    setSelectedCurrency(currency.code);
-                    setIsCurrencyOpen(false);
-                    setCurrencyQuery("");
-                  }}
-                >
-                  <span className="gp-currency-flag">{currency.flag}</span>
-                  <div className="gp-currency-info">
-                    <span className="gp-currency-code">{currency.code}</span>
-                    <span className="gp-currency-name">{currency.name}</span>
-                  </div>
-                </div>
-              ))}
-              {filteredCurrencies.length === 0 && (
-                <div style={{ padding: "16px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>
-                  No currencies found
-                </div>
-              )}
-            </div>
-          </div>,
-          document.body,
-        )}
+      {currencyDropdown}
     </>
   );
 });

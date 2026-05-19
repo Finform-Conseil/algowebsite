@@ -5,6 +5,8 @@ import * as echarts from "echarts";
 import { GaugeChart, BarChart, LineChart } from "echarts/charts";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { useDispatch } from "react-redux";
+import { setModalOpen, setSearchMode } from "../../store/technicalAnalysisSlice";
 import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
 import { getVolatilityTermStructure, getVolatilitySkew } from "@/shared/utils/volatility-engine";
@@ -43,6 +45,7 @@ interface TechnicalAnalysisSidebarProps {
   overlayContent?: React.ReactNode;
   isObjectTreeOpen?: boolean;
   onToggleObjectTree?: () => void;
+  openTickerSelector?: () => void;
 }
 
 interface BRVMFundamentals {
@@ -61,11 +64,21 @@ interface BRVMNewsItem {
   link: string;
 }
 
+type IncomeViewMode = "annual" | "quarterly";
+
 const FALLBACK_NEWS_ITEM: BRVMNewsItem = {
   title: "BRVM : Forte croissance des volumes en ce debut d'annee 2026",
   date: "aujourd'hui",
   link: "#",
 };
+
+interface BRVMIndexData {
+  symbol: string;
+  name: string;
+  price: number;
+  variation: string;
+  timestamp: string;
+}
 
 export const TechnicalAnalysisSidebar: React.FC<
   TechnicalAnalysisSidebarProps
@@ -91,6 +104,7 @@ export const TechnicalAnalysisSidebar: React.FC<
   overlayContent,
   isObjectTreeOpen,
   onToggleObjectTree,
+  openTickerSelector,
 }) => {
   // [TENOR 2026] Register ECharts components
   try {
@@ -113,7 +127,23 @@ export const TechnicalAnalysisSidebar: React.FC<
   const [prevMode, setPrevMode] = useState(dataMode);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
-  const [incomeViewMode, setIncomeViewMode] = useState<'annual' | 'quarterly'>('annual');
+  const [incomeViewMode, setIncomeViewMode] = useState<IncomeViewMode>("annual");
+  const [isIndicesOpen, setIsIndicesOpen] = useState(false);
+  const [indicesData, setIndicesData] = useState<Record<string, BRVMIndexData> | null>(null);
+  const [indicesError, setIndicesError] = useState<string | null>(null);
+  const [isIndicesLoading, setIsIndicesLoading] = useState(false);
+
+  const dispatch = useDispatch();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [watchlistSettings, setWatchlistSettings] = useState({
+    showLast: true,
+    showChange: true,
+    showChangePercent: true,
+    showVolume: true,
+    showLogo: true,
+    showSymbol: false,
+    showName: true,
+  });
 
   const lastFetchRef = useRef<number>(0);
 
@@ -127,6 +157,26 @@ export const TechnicalAnalysisSidebar: React.FC<
   // [TENOR 2026] HIGHEST YTM BONDS STATE
   const [topBonds, setTopBonds] = useState<{ name: string; maturityDate: string; ytm: number }[]>([]);
   const [bondsLoading, setBondsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isIndicesOpen) return;
+    setIsIndicesLoading(true);
+    setIndicesError(null);
+    fetch("/api/market-data/indices")
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        setIndicesData(data);
+        setIsIndicesLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching indices:", err);
+        setIndicesError(err instanceof Error ? err.message : "Erreur réseau");
+        setIsIndicesLoading(false);
+      });
+  }, [isIndicesOpen]);
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -1212,13 +1262,169 @@ export const TechnicalAnalysisSidebar: React.FC<
         <div className={clsx("gp-sidebar-content", "gp-sidebar-content")}>
           <div className={"gp-sidebar-section"}>
             <div className={clsx("gp-sidebar-header", "head", "pt-1 py-1")}>
-              <span className={"gp-sidebar-title"}>
-                {" "}Liste de surveillance{" "}<i className="bi bi-chevron-down" style={{ fontSize: "0.6em", verticalAlign: "middle" }}></i>
+              <span
+                className={"gp-sidebar-title"}
+                style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => setIsIndicesOpen(prev => !prev)}
+              >
+                {" "}Liste de surveillance{" "}
+                <i
+                  className={clsx("bi", isIndicesOpen ? "bi-chevron-up" : "bi-chevron-down")}
+                  style={{
+                    fontSize: "0.6em",
+                    verticalAlign: "middle",
+                    display: "inline-block",
+                    transition: "transform 0.2s ease",
+                  }}
+                ></i>
               </span>
-              <div className={"gp-sidebar-actions"}>
-                <button className={clsx("btn", "hover-lift", "hover-lift")} title="Ajouter à la liste"><i className="bi bi-plus"></i></button>
-                <button className={clsx("btn", "hover-lift", "hover-lift")} title="Créer une liste"><i className="bi bi-pie-chart"></i></button>
-                <button className={clsx("btn", "hover-lift", "hover-lift")} title="Plus d'options"><i className="bi bi-three-dots"></i></button>
+              <div className={"gp-sidebar-actions"} style={{ position: "relative" }}>
+                <button
+                  className={clsx("btn", "hover-lift")}
+                  title="Add symbol"
+                  onClick={() => {
+                    dispatch(setSearchMode("replace"));
+                    dispatch(setModalOpen({ modal: "search", isOpen: true }));
+                  }}
+                >
+                  <i className="bi bi-plus"></i>
+                </button>
+                <button
+                  className={clsx("btn", "hover-lift")}
+                  title="Advanced view"
+                  onClick={() => {
+                    openTickerSelector && openTickerSelector();
+                  }}
+                >
+                  <i className="bi bi-pie-chart"></i>
+                </button>
+                <button
+                  className={clsx("btn", "hover-lift")}
+                  title="Settings"
+                  onClick={() => setIsSettingsOpen(prev => !prev)}
+                >
+                  <i className="bi bi-three-dots"></i>
+                </button>
+
+                {isSettingsOpen && (
+                  <div className="gp-watchlist-settings-dropdown">
+                    <div className="dropdown-section">
+                      <div className="dropdown-section-title">Customize Columns</div>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showLast}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showLast: e.target.checked }))}
+                        />
+                        <span>Last</span>
+                      </label>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showChange}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showChange: e.target.checked }))}
+                        />
+                        <span>Change</span>
+                      </label>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showChangePercent}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showChangePercent: e.target.checked }))}
+                        />
+                        <span>Change %</span>
+                      </label>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showVolume}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showVolume: e.target.checked }))}
+                        />
+                        <span>Volume</span>
+                      </label>
+                    </div>
+                    <div className="dropdown-divider" />
+                    <div className="dropdown-section">
+                      <div className="dropdown-section-title">Symbol Display</div>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showLogo}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showLogo: e.target.checked }))}
+                        />
+                        <span>Logo</span>
+                      </label>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showSymbol}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showSymbol: e.target.checked }))}
+                        />
+                        <span>Symbol</span>
+                      </label>
+                      <label className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={watchlistSettings.showName}
+                          onChange={(e) => setWatchlistSettings(prev => ({ ...prev, showName: e.target.checked }))}
+                        />
+                        <span>Name</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Collapsible BRVM Indices panel */}
+            <div className={clsx("gp-indices-panel", isIndicesOpen && "gp-indices-panel-open")}>
+              <div className="gp-indices-table">
+                <div className="gp-indices-table-header">
+                  <span className="col-name">Name</span>
+                  <span className="col-last">Last</span>
+                  <span className="col-chg-pct">Chg%</span>
+                </div>
+                <div className="gp-indices-table-section-title">
+                  <i className="bi bi-chevron-down me-1" style={{ fontSize: '0.8em' }}></i> INDICES
+                </div>
+
+                {isIndicesLoading ? (
+                  <div className="d-flex flex-column gap-2 p-2">
+                    <div className="is-loading-skeleton" style={{ height: "24px", borderRadius: "4px" }} />
+                    <div className="is-loading-skeleton" style={{ height: "24px", borderRadius: "4px" }} />
+                    <div className="is-loading-skeleton" style={{ height: "24px", borderRadius: "4px" }} />
+                  </div>
+                ) : indicesError ? (
+                  <div className="text-warning text-center py-2 px-1" style={{ fontSize: '10px' }}>
+                    <i className="bi bi-exclamation-triangle-fill me-1"></i> Données non vérifiées ({indicesError})
+                  </div>
+                ) : !indicesData || Object.keys(indicesData).length === 0 ? (
+                  <div className="text-warning text-center py-2 px-1" style={{ fontSize: '10px' }}>
+                    <i className="bi bi-exclamation-triangle-fill me-1"></i> Données non vérifiées (indisponibles)
+                  </div>
+                ) : (
+                  [
+                    { key: "BRVMC", label: "BRVM Composite", icon: "C", iconClass: "icon-c" },
+                    { key: "BRVM30", label: "BRVM 30", icon: "30", iconClass: "icon-30" },
+                    { key: "BRVMPR", label: "BRVM Prestige", icon: "P", iconClass: "icon-p" }
+                  ].map((idx) => {
+                    const data = indicesData[idx.key];
+                    if (!data) return null;
+                    const isPositive = !data.variation.startsWith("-");
+                    return (
+                      <div key={idx.key} className="gp-indices-row">
+                        <div className="gp-indices-cell-name">
+                          <span className={clsx("gp-indices-icon", idx.iconClass)}>{idx.icon}</span>
+                          <span className="gp-indices-ticker" title={data.name || idx.label}>{idx.label}</span>
+                        </div>
+                        <span className="gp-indices-cell-last">{data.price.toFixed(2).replace(".", ",")}</span>
+                        <span className={clsx("gp-indices-cell-chg-pct", isPositive ? "text-success" : "text-danger")}>
+                          {data.variation}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -1236,21 +1442,25 @@ export const TechnicalAnalysisSidebar: React.FC<
               ) : (
                 <>
                   <div className={"gp-brand-header-v3"}>
-                    <div className={"gp-logo-v3"}>
-                      {security.logoUrl ? (
-                        <Image src={security.logoUrl} alt={security.ticker} width={32} height={32} style={{ objectFit: 'contain' }} />
-                      ) : (
-                        <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '50%', fontSize: '12px', fontWeight: 'bold', color: '#f1f5f9' }}>
-                          {security.ticker.substring(0, 2)}
+                    {watchlistSettings.showLogo && (
+                      <div className={"gp-logo-v3"}>
+                        {security.logoUrl ? (
+                          <Image src={security.logoUrl} alt={security.ticker} width={32} height={32} style={{ objectFit: 'contain' }} />
+                        ) : (
+                          <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '50%', fontSize: '12px', fontWeight: 'bold', color: '#f1f5f9' }}>
+                            {security.ticker.substring(0, 2)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className={"gp-ticker-meta-v3"}>
+                      {watchlistSettings.showSymbol && (
+                        <div className={"gp-ticker-row-v3"}>
+                          <span className={"gp-ticker-symbol-v3"}>{security.ticker}</span>
                         </div>
                       )}
-                    </div>
-                    <div className={"gp-ticker-meta-v3"}>
-                      <div className={"gp-ticker-row-v3"}>
-                        <span className={"gp-ticker-symbol-v3"}>{security.ticker}</span>
-                      </div>
                       <div className={"gp-company-info-v3"}>
-                        <div className={"gp-company-name-v3"}>{security.name}</div>
+                        {watchlistSettings.showName && <div className={"gp-company-name-v3"}>{security.name}</div>}
                         <span className={"gp-exchange-badge-v3"}> • BRVM</span>
                       </div>
                     </div>
@@ -1259,12 +1469,22 @@ export const TechnicalAnalysisSidebar: React.FC<
                   <div className={"gp-price-block-v3"}>
                     <div className={"gp-main-price-container"}>
                       <div className={"gp-price-row-primary"}>
-                        <span className={"gp-main-price-v3"}>{livePrice.toFixed(2).replace(".", ",")}</span>
-                        <span className={"gp-currency-label-v3"}>{security.currency || "XOF"}</span>
-                        <div className={"gp-price-change-row-v3"} style={{ color: isMarketPositive ? '#22ab94' : '#f23645' }}>
-                          <span>{isMarketPositive ? "+" : ""}{liveChange.toFixed(2).replace(".", ",")}</span>
-                          <span>({isMarketPositive ? "+" : ""}{liveChangePercent.toFixed(2)}%)</span>
-                        </div>
+                        {watchlistSettings.showLast && (
+                          <>
+                            <span className={"gp-main-price-v3"}>{livePrice.toFixed(2).replace(".", ",")}</span>
+                            <span className={"gp-currency-label-v3"}>{security.currency || "XOF"}</span>
+                          </>
+                        )}
+                        {(watchlistSettings.showChange || watchlistSettings.showChangePercent) && (
+                          <div className={"gp-price-change-row-v3"} style={{ color: isMarketPositive ? '#22ab94' : '#f23645' }}>
+                            {watchlistSettings.showChange && (
+                              <span>{isMarketPositive ? "+" : ""}{liveChange.toFixed(2).replace(".", ",")}</span>
+                            )}
+                            {watchlistSettings.showChangePercent && (
+                              <span>({isMarketPositive ? "+" : ""}{liveChangePercent.toFixed(2)}%)</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className={"price-timestamp-v3"}>Last update at {lastUpdate ? new Date(lastUpdate).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })} GMT+1</div>
                     </div>
@@ -1274,8 +1494,12 @@ export const TechnicalAnalysisSidebar: React.FC<
                     <div className="d-flex align-items-center gap-2">
                       <div className={"status-indicator-dot"} />
                       <span className={"status-text"}>Market open</span>
-                      <span className={"status-separator"}>•</span>
-                      <span className={"status-volume"}>Volume: {liveVolume?.toLocaleString("fr-FR") || "0"}</span>
+                      {watchlistSettings.showVolume && (
+                        <>
+                          <span className={"status-separator"}>•</span>
+                          <span className={"status-volume"}>Volume: {liveVolume?.toLocaleString("fr-FR") || "0"}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 

@@ -10,7 +10,14 @@ import {
   BollingerSettings,
 } from "../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { useChartViewport, TV_Y_AXIS_WIDTH, TV_X_AXIS_HEIGHT, MAIN_GRID_LEFT, clamp, getSafeGridRect } from "./useChartViewport";
+import {
+  useChartViewport,
+  TV_Y_AXIS_WIDTH,
+  TV_X_AXIS_HEIGHT,
+  MAIN_GRID_LEFT,
+  clamp,
+  getSafeGridRect
+} from "./useChartViewport";
 import { createIndicatorsWorker } from "../lib/workers/createIndicatorsWorker";
 import { getCompareSeriesColor, getCompareSeriesId } from "../config/compareSeries";
 
@@ -19,6 +26,12 @@ import { getCompareSeriesColor, getCompareSeriesId } from "../config/compareSeri
 // ============================================================================
 export interface UseEChartsRendererProps {
   stockChartRef: RefObject<HTMLDivElement | null>;
+  /** [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
+   * The stable layers-stack container. In multi-chart mode the parent of
+   * stockChartRef becomes a grid cell div instead of this element, so we
+   * receive it explicitly to keep DOM event listeners on the correct node.
+   */
+  layersStackRef?: RefObject<HTMLDivElement | null>;
   chartInstanceRef: MutableRefObject<echarts.ECharts | null>;
   chartData: ChartDataPoint[];
   chartConfig: ChartState;
@@ -49,6 +62,7 @@ const TV_AXIS_ACTION_GAP = 3;
 const TV_CURSOR_BADGE_MIN_WIDTH = 72;
 
 type ChartOptionPart = Record<string, unknown>;
+
 type CustomRenderApi = {
   value: (dimension: number) => unknown;
   coord: (data: unknown[]) => number[];
@@ -91,12 +105,12 @@ const toFiniteNumber = (value: unknown): number | null => {
   return Number.isFinite(numberValue) ? numberValue : null;
 };
 
-const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
 
 const toDayKey = (time: string): string => {
   const trimmed = time.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
-
   const timestamp = Date.parse(trimmed);
   if (!Number.isFinite(timestamp)) return trimmed;
   return new Date(timestamp).toISOString().slice(0, 10);
@@ -105,13 +119,11 @@ const toDayKey = (time: string): string => {
 const buildComparisonPriceLookup = (data: ChartDataPoint[]) => {
   const exact = new Map<string, number>();
   const daily = new Map<string, number>();
-
   data.forEach((point) => {
     if (!Number.isFinite(point.close)) return;
     exact.set(point.time.trim(), point.close);
     daily.set(toDayKey(point.time), point.close);
   });
-
   return { exact, daily };
 };
 
@@ -121,7 +133,6 @@ const resolveComparisonPrice = (
 ): number | null => {
   const exactPrice = lookup.exact.get(time.trim());
   if (Number.isFinite(exactPrice)) return exactPrice as number;
-
   const dailyPrice = lookup.daily.get(toDayKey(time));
   return Number.isFinite(dailyPrice) ? dailyPrice as number : null;
 };
@@ -157,11 +168,9 @@ const buildBandFillData = (upper?: (number | string)[], lower?: (number | string
   if (!upper || !lower) return [];
   const length = Math.min(upper.length, lower.length);
   const fillData: Array<(number | string)[]> = [];
-
   for (let index = 1; index < length; index++) {
     fillData.push([index, upper[index], lower[index], upper[index - 1], lower[index - 1]]);
   }
-
   return fillData;
 };
 
@@ -172,7 +181,8 @@ const renderBandPolygon = (api: CustomRenderApi, fill: string) => {
   const lowerPrevious = toFiniteNumber(api.value(4));
   const xIndex = toFiniteNumber(api.value(0));
 
-  if (upperCurrent === null || lowerCurrent === null || upperPrevious === null || lowerPrevious === null || xIndex === null) return undefined;
+  if (upperCurrent === null || lowerCurrent === null || upperPrevious === null || lowerPrevious === null || xIndex === null)
+    return undefined;
 
   return {
     type: "polygon",
@@ -212,8 +222,11 @@ const buildEChartsOption = ({
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
   const textColor = "#a0aec0";
+
   const isObjectVisible = (id: string) => hiddenObjectIds[id] !== true;
+
   const shouldRenderVolumePanel = (chartConfig.indicators.volume || chartAppearance.showVolume) && isObjectVisible("volume");
+
   const oscillatorPanels = [
     advancedIndicators.rsi && isObjectVisible("rsi") ? "RSI" : null,
     advancedIndicators.macd && isObjectVisible("macd") ? "MACD" : null,
@@ -227,25 +240,27 @@ const buildEChartsOption = ({
     advancedIndicators.bbWidth && isObjectVisible("bbWidth") ? "BB Width" : null,
     advancedIndicators.bbPercentB && isObjectVisible("bbPercentB") ? "BB %B" : null,
   ].filter((panel): panel is string => panel !== null);
+
   const gridLeft = comparisonSeries.length > 0 ? 60 : MAIN_GRID_LEFT;
   const gridRight = TV_Y_AXIS_WIDTH;
   const topMarginPercent = 8;
   const bottomMarginPercent = 5;
+
   const panelCount = (shouldRenderVolumePanel ? 1 : 0) + oscillatorPanels.length;
   const panelSpacingPercent = panelCount > 1 ? 2.5 : 6;
-  const panelHeightPercent =
-    panelCount <= 1
-      ? 20
-      : Math.min(20, Math.max(7, (100 - topMarginPercent - bottomMarginPercent - 35 - panelSpacingPercent * panelCount) / panelCount));
+  const panelHeightPercent = panelCount <= 1 ? 20 : Math.min(20, Math.max(7, (100 - topMarginPercent - bottomMarginPercent - 35 - panelSpacingPercent * panelCount) / panelCount));
   const mainGridHeightPercent = Math.max(
     panelCount <= 1 ? 30 : 35,
     100 - topMarginPercent - bottomMarginPercent - panelCount * (panelHeightPercent + panelSpacingPercent)
   );
+
   let nextPanelTopPercent = topMarginPercent + mainGridHeightPercent + panelSpacingPercent;
+
   const gridOptions: ChartOptionPart[] = [];
   const xAxisOptions: ChartOptionPart[] = [];
   const yAxisOptions: ChartOptionPart[] = [];
   const seriesOptions: ChartOptionPart[] = [];
+
   const getVolumeAxisMax = (value: { max: number }): number => {
     const averageVolume = volumes.reduce((acc, volumePoint) => acc + (Number(volumePoint[1]) || 0), 0) / (volumes.length || 1);
     const fallbackMax = value.max * 1.1 || 100;
@@ -260,6 +275,7 @@ const buildEChartsOption = ({
     height: `${Math.max(30, mainGridHeightPercent)}%`,
     containLabel: false,
   });
+
   xAxisOptions.push({
     id: "main-xaxis",
     type: "category",
@@ -271,6 +287,7 @@ const buildEChartsOption = ({
     min: "dataMin",
     max: "dataMax",
   });
+
   yAxisOptions.push({
     id: "price-yaxis",
     position: "right",
@@ -295,6 +312,7 @@ const buildEChartsOption = ({
   }
 
   const mainSeriesVisible = isMainChartVisible && isObjectVisible("main-series");
+
   seriesOptions.push(
     chartConfig.chartType === "candlestick"
       ? {
@@ -309,7 +327,12 @@ const buildEChartsOption = ({
             borderColor0: downColor,
             opacity: mainSeriesVisible ? 1 : 0,
           },
-          markLine: { symbol: ["none", "none"], animation: false, silent: true, data: [{ yAxis: latestPrice, label: { show: false }, lineStyle: { color: liveColor, type: "dashed", width: 1, opacity: 0.8 } }] },
+          markLine: {
+            symbol: ["none", "none"],
+            animation: false,
+            silent: true,
+            data: [{ yAxis: latestPrice, label: { show: false }, lineStyle: { color: liveColor, type: "dashed", width: 1, opacity: 0.8 } }]
+          },
         }
       : {
           id: "main-series",
@@ -319,7 +342,12 @@ const buildEChartsOption = ({
           showSymbol: false,
           itemStyle: { color: upColor, opacity: mainSeriesVisible ? 1 : 0 },
           lineStyle: { color: upColor, opacity: mainSeriesVisible ? 1 : 0 },
-          markLine: { symbol: ["none", "none"], animation: false, silent: true, data: [{ yAxis: latestPrice, label: { show: false }, lineStyle: { color: liveColor, type: "dashed", width: 1, opacity: 0.8 } }] },
+          markLine: {
+            symbol: ["none", "none"],
+            animation: false,
+            silent: true,
+            data: [{ yAxis: latestPrice, label: { show: false }, lineStyle: { color: liveColor, type: "dashed", width: 1, opacity: 0.8 } }]
+          },
         }
   );
 
@@ -335,7 +363,20 @@ const buildEChartsOption = ({
       height: `${panelHeightPercent}%`,
       containLabel: false,
     });
-    xAxisOptions.push({ id: "volume-xaxis", type: "category", gridIndex: volumeGridIndex, data: dates, boundaryGap: false, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false }, min: "dataMin", max: "dataMax" });
+
+    xAxisOptions.push({
+      id: "volume-xaxis",
+      type: "category",
+      gridIndex: volumeGridIndex,
+      data: dates,
+      boundaryGap: false,
+      axisLabel: { show: false },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      min: "dataMin",
+      max: "dataMax"
+    });
+
     yAxisOptions.push({
       id: "volume-yaxis",
       position: "right",
@@ -348,6 +389,7 @@ const buildEChartsOption = ({
       axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: false } },
       max: getVolumeAxisMax,
     });
+
     seriesOptions.push({
       id: "volume-bar",
       name: "Volume",
@@ -357,16 +399,29 @@ const buildEChartsOption = ({
       data: volumes,
       barWidth: "65%",
       barMinHeight: 3,
-      itemStyle: { color: (params: { value: (number | string)[] }) => Number(params.value[2]) > 0 ? upColor : downColor, opacity: 0.8 },
+      itemStyle: {
+        color: (params: { value: (number | string)[] }) => Number(params.value[2]) > 0 ? upColor : downColor,
+        opacity: 0.8
+      },
       showBackground: true,
       backgroundStyle: { color: "rgba(255, 255, 255, 0.03)" },
     });
+
     nextPanelTopPercent += panelHeightPercent + panelSpacingPercent;
   }
 
   const pushLine = (id: string, name: string, data: (number | string)[] | undefined, color: string) => {
     if (!data || !isObjectVisible(id)) return;
-    seriesOptions.push({ id, name, type: "line", data, showSymbol: false, smooth: true, lineStyle: { opacity: 0.9, width: 1.5, color }, itemStyle: { color } });
+    seriesOptions.push({
+      id,
+      name,
+      type: "line",
+      data,
+      showSymbol: false,
+      smooth: true,
+      lineStyle: { opacity: 0.9, width: 1.5, color },
+      itemStyle: { color }
+    });
   };
 
   if (chartConfig.indicators.sma) {
@@ -377,11 +432,13 @@ const buildEChartsOption = ({
     if (activeSmas.includes(50)) pushLine("sma-50", "SMA 50", indicatorsData.sma50, "#2E93fA");
     if (activeSmas.includes(200)) pushLine("sma-200", "SMA 200", indicatorsData.sma200, "#66DA26");
   }
+
   if (chartConfig.indicators.ema) {
     const activeEmas = chartConfig.indicators.activeEma || [];
     if (activeEmas.includes(5)) pushLine("ema-5", "EMA 5", indicatorsData.ema5, "#9C27B0");
     if (activeEmas.includes(10)) pushLine("ema-10", "EMA 10", indicatorsData.ema10, "#E91E63");
   }
+
   if (advancedIndicators.ichimoku) {
     pushLine("ichimoku-tenkan", "Tenkan", indicatorsData.tenkan, "#2962FF");
     pushLine("ichimoku-kijun", "Kijun", indicatorsData.kijun, "#B71C1C");
@@ -406,6 +463,7 @@ const buildEChartsOption = ({
       });
     }
   }
+
   if (advancedIndicators.bollinger) {
     const showBollingerFill = bollingerSettings.showFill !== false;
     const bollingerFillData = buildBandFillData(indicatorsData.bollUpper, indicatorsData.bollLower);
@@ -435,7 +493,15 @@ const buildEChartsOption = ({
     data: levels.map((level) => ({ yAxis: level })),
   });
 
-  const pushOscillatorLine = (xAxisIndex: number, yAxisIndex: number, id: string, name: string, data: (number | string)[] | undefined, color: string, extra: ChartOptionPart = {}) => {
+  const pushOscillatorLine = (
+    xAxisIndex: number,
+    yAxisIndex: number,
+    id: string,
+    name: string,
+    data: (number | string)[] | undefined,
+    color: string,
+    extra: ChartOptionPart = {}
+  ) => {
     if (!data) return;
     seriesOptions.push({
       id,
@@ -455,11 +521,31 @@ const buildEChartsOption = ({
     const gridIndex = gridOptions.length;
     const xAxisIndex = xAxisOptions.length;
     const yAxisIndex = yAxisOptions.length;
+
     const bounded0to100 = panelName === "RSI" || panelName === "Stoch" || panelName === "StochRSI";
     const boundedWillR = panelName === "Will%R";
 
-    gridOptions.push({ left: gridLeft, right: gridRight, top: `${nextPanelTopPercent}%`, height: `${panelHeightPercent}%`, containLabel: false });
-    xAxisOptions.push({ id: `osc-xaxis-${index}`, type: "category", gridIndex, data: dates, boundaryGap: false, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, min: "dataMin", max: "dataMax" });
+    gridOptions.push({
+      left: gridLeft,
+      right: gridRight,
+      top: `${nextPanelTopPercent}%`,
+      height: `${panelHeightPercent}%`,
+      containLabel: false
+    });
+
+    xAxisOptions.push({
+      id: `osc-xaxis-${index}`,
+      type: "category",
+      gridIndex,
+      data: dates,
+      boundaryGap: false,
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      min: "dataMin",
+      max: "dataMax"
+    });
+
     yAxisOptions.push({
       id: `osc-yaxis-${index}`,
       position: "right",
@@ -521,8 +607,10 @@ const buildEChartsOption = ({
   comparisonSeries.forEach((entry, index) => {
     const id = getCompareSeriesId(entry.symbol);
     if (!isObjectVisible(id)) return;
+
     const color = getCompareSeriesColor(index);
     const normalized = normalizeComparisonValues(entry.data, chartData, comparisonBaselineIndex);
+
     seriesOptions.push({
       id,
       name: entry.symbol,
@@ -562,7 +650,17 @@ const buildEChartsOption = ({
     backgroundColor: "transparent",
     animation: false,
     title: { text: displaySymbol, left: 0, textStyle: { color: textColor, fontSize: 14, fontWeight: "normal" } },
-    legend: { top: 0, left: "center", selectedMode: "multiple", selected: legendSelection, data: legendData, textStyle: { color: textColor }, icon: "roundRect", itemWidth: 15, itemHeight: 10 },
+    legend: {
+      top: 0,
+      left: "center",
+      selectedMode: "multiple",
+      selected: legendSelection,
+      data: legendData,
+      textStyle: { color: textColor },
+      icon: "roundRect",
+      itemWidth: 15,
+      itemHeight: 10
+    },
     tooltip: { show: false },
     axisPointer: { show: false },
     grid: gridOptions,
@@ -583,6 +681,11 @@ const buildEChartsOption = ({
 interface UseChartBadgesProps {
   chartInstanceRef: MutableRefObject<echarts.ECharts | null>;
   getChartContainer: () => HTMLDivElement | null;
+  /** [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
+   * Stable container getter (gp-chart-layers-stack). Used for coordinate
+   * calculations so badge positioning is correct in all layout modes.
+   */
+  getLayersStack: () => HTMLDivElement | null;
   getCursorBadge: () => HTMLDivElement | null;
   getCursorText: () => HTMLSpanElement | null;
   getCursorAction: () => HTMLButtonElement | null;
@@ -595,6 +698,7 @@ interface UseChartBadgesProps {
 const useChartBadges = ({
   chartInstanceRef,
   getChartContainer,
+  getLayersStack,
   getCursorBadge,
   getCursorText,
   getCursorAction,
@@ -649,7 +753,11 @@ const useChartBadges = ({
 
   const updateLastPriceAxisBadge = useCallback(() => {
     const chart = chartInstanceRef.current;
-    const containerEl = getChartContainer()?.parentElement;
+    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
+    // Use getLayersStack() (stable gp-chart-layers-stack) instead of
+    // getChartContainer()?.parentElement which returns the transient grid
+    // cell in multi-chart mode, causing wrong Y-coordinate calculations.
+    const containerEl = getLayersStack();
     const lastBadge = getLastBadge();
     const lastLine = getLastLine();
 
@@ -681,11 +789,16 @@ const useChartBadges = ({
     } catch {
       hideLastPriceAxisBadge();
     }
-  }, [chartInstanceRef, getChartContainer, getMainGridVerticalBounds, hideLastPriceAxisBadge, lastPriceAxisValue, getLastBadge, getLastLine]);
+  }, [chartInstanceRef, getLayersStack, getMainGridVerticalBounds, hideLastPriceAxisBadge, lastPriceAxisValue, getLastBadge, getLastLine]);
 
   const updateCursorPriceAxisBadge = useCallback((clientX: number, clientY: number) => {
     const chart = chartInstanceRef.current;
-    const containerEl = getChartContainer()?.parentElement;
+    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
+    // Use getLayersStack() (stable gp-chart-layers-stack) for coordinate space.
+    // In multi-chart mode getChartContainer()?.parentElement was the grid cell
+    // which has a header row, causing localX/localY to be offset by ~32px and
+    // making isInsideMainChart always false → crosshair never rendered.
+    const containerEl = getLayersStack();
     const cursorBadge = getCursorBadge();
     const cursorText = getCursorText();
     const cursorAction = getCursorAction();
@@ -745,7 +858,7 @@ const useChartBadges = ({
     } catch {
       hideCursorPriceAxisBadge();
     }
-  }, [chartInstanceRef, getCursorAction, getCursorBadge, getCursorText, getMainGridVerticalBounds, hideCursorPriceAxisBadge, getChartContainer, uiState.cursorMode]);
+  }, [chartInstanceRef, getCursorAction, getCursorBadge, getCursorText, getMainGridVerticalBounds, hideCursorPriceAxisBadge, getLayersStack, uiState.cursorMode]);
 
   return { updateCursorPriceAxisBadge, updateLastPriceAxisBadge };
 };
@@ -774,6 +887,7 @@ export const useEChartsRenderer = ({
   isMainChartVisible = true,
   comparisonSeries = [],
   hiddenObjectIds = {},
+  layersStackRef,
 }: UseEChartsRendererProps) => {
   const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
@@ -794,39 +908,57 @@ export const useEChartsRenderer = ({
 
   // [TENOR 2026 FIX] Getter Pattern to hide Ref mutation from ESLint
   const getChartContainer = useCallback(() => stockChartRef.current, [stockChartRef]);
+  // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: Prefer layersStackRef as the
+  // stable event target. In multi-chart mode stockChartRef.parentElement changes to
+  // a grid cell div, so we must use this stable container ref instead.
+  const getLayersStack = useCallback(
+    () => layersStackRef?.current ?? stockChartRef.current?.parentElement as HTMLDivElement | null ?? null,
+    [layersStackRef, stockChartRef]
+  );
   const getCursorBadge = useCallback(() => cursorPriceBadgeRef?.current || null, [cursorPriceBadgeRef]);
   const getCursorText = useCallback(() => cursorPriceTextRef?.current || null, [cursorPriceTextRef]);
   const getCursorAction = useCallback(() => cursorPriceActionRef?.current || null, [cursorPriceActionRef]);
   const getLastBadge = useCallback(() => lastPriceBadgeRef?.current || null, [lastPriceBadgeRef]);
   const getLastLine = useCallback(() => lastPriceLineRef?.current || null, [lastPriceLineRef]);
 
+  useEffect(() => () => {
+    const chart = chartInstanceRef.current;
+    if (chart && !chart.isDisposed()) {
+      chart.dispose();
+    }
+    chartInstanceRef.current = null;
+  }, [chartInstanceRef]);
+
   // ============================================================================
-  // [TENOR 2026 SRE] TIME AXIS DILATION (ICHIMOKU PROJECTION)
+  // [TENOR 2026 SRE] TIME AXIS DILATION (ICHIMOKU & BOLLINGER PROJECTION)
   // Extends the dataset into the future to allow ECharts to render projected lines.
+  // [FIX] SCAR-BOLLINGER-OFFSET: Dynamically calculates max required future offset.
   // ============================================================================
   const extendedChartData = useMemo(() => {
-    if (!advancedIndicators.ichimoku) return chartData;
+    let maxOffset = 0;
+    if (advancedIndicators.ichimoku) {
+      maxOffset = Math.max(maxOffset, 26);
+    }
+    if (advancedIndicators.bollinger && bollingerSettings.offset > 0) {
+      maxOffset = Math.max(maxOffset, bollingerSettings.offset);
+    }
+
+    if (maxOffset === 0) return chartData;
+
     const ext = [...chartData];
     if (ext.length > 0) {
       let currTime = new Date(ext[ext.length - 1].time).getTime();
       const dayMs = 24 * 60 * 60 * 1000;
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0; i < maxOffset; i++) {
         currTime += dayMs;
         const dt = new Date(currTime);
         if (dt.getDay() === 6) currTime += 2 * dayMs; // Skip Saturday
         else if (dt.getDay() === 0) currTime += dayMs; // Skip Sunday
-        ext.push({
-          time: new Date(currTime).toISOString(),
-          open: NaN,
-          high: -Infinity,
-          low: Infinity,
-          close: NaN,
-          volume: 0
-        });
+        ext.push({ time: new Date(currTime).toISOString(), open: NaN, high: -Infinity, low: Infinity, close: NaN, volume: 0 });
       }
     }
     return ext;
-  }, [chartData, advancedIndicators]);
+  }, [chartData, advancedIndicators.ichimoku, advancedIndicators.bollinger, bollingerSettings.offset]);
 
   // ============================================================================
   // [TENOR 2026 SRE] ASYNCHRONOUS MATH PIPELINE (WEB WORKER)
@@ -935,9 +1067,12 @@ export const useEChartsRenderer = ({
   }, [extendedChartData, chartData.length]);
 
   // 2. Badges Engine
+  // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: pass getLayersStack so badge
+  // coordinate math uses the stable container, not the transient grid cell parent.
   const { updateCursorPriceAxisBadge, updateLastPriceAxisBadge } = useChartBadges({
     chartInstanceRef,
     getChartContainer,
+    getLayersStack,
     getCursorBadge,
     getCursorText,
     getCursorAction,
@@ -947,15 +1082,20 @@ export const useEChartsRenderer = ({
     uiState
   });
 
+  const chartInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}`;
+
   // 3. Viewport Engine (Extracted to useChartViewport.ts for SRP)
   // [TENOR 2026] Pass extendedChartData so the user can pan into the future
+  // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: use getLayersStack (stable ref) instead
+  // of getChartContainer so that DOM event listeners bind to the correct container in all layouts.
   const { applyViewport, resetManualYViewport } = useChartViewport({
     chartInstanceRef,
-    getChartContainer,
+    getChartContainer: getLayersStack,
     chartData: extendedChartData,
     lastZoomRangeRef,
     updateCursorPriceAxisBadge,
-    updateLastPriceAxisBadge
+    updateLastPriceAxisBadge,
+    interactionScopeKey: chartInteractionScopeKey
   });
 
   // ============================================================================
@@ -976,6 +1116,7 @@ export const useEChartsRenderer = ({
       }
 
       comparisonBaselineIndexRef.current = startIdx;
+
       const newSeries = comparisonSeries
         .filter((entry) => !hiddenObjectIds[getCompareSeriesId(entry.symbol)])
         .map((entry) => ({
@@ -1000,7 +1141,16 @@ export const useEChartsRenderer = ({
 
   // --- ECHARTS RENDER LOGIC (React Cycle) ---
   useEffect(() => {
-    if (!stockChartRef.current || chartData.length === 0) return;
+    const container = stockChartRef.current;
+    if (!container || chartData.length === 0) return;
+
+    const existingChart = chartInstanceRef.current;
+    if (existingChart?.isDisposed()) {
+      chartInstanceRef.current = null;
+    } else if (existingChart && existingChart.getDom() !== container) {
+      existingChart.dispose();
+      chartInstanceRef.current = null;
+    }
 
     // [TENOR 2026 SRE FIX] Resize Resilience
     let resizeRafId: number;
@@ -1012,6 +1162,7 @@ export const useEChartsRenderer = ({
       } else {
         if (hasSize) setHasSize(false);
       }
+
       resizeRafId = requestAnimationFrame(() => {
         if (isMountedRef.current && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
           chartInstanceRef.current.resize();
@@ -1020,12 +1171,9 @@ export const useEChartsRenderer = ({
       });
     });
 
-    if (stockChartRef.current) {
-      resizeObserver.observe(stockChartRef.current);
-    }
+    resizeObserver.observe(container);
 
     if (!hasSize) {
-      const container = stockChartRef.current;
       if (container.clientWidth > 0 && container.clientHeight > 0) {
         setHasSize(true);
       }
@@ -1035,7 +1183,6 @@ export const useEChartsRenderer = ({
       };
     }
 
-    const container = stockChartRef.current;
     if (!chartInstanceRef.current) {
       chartInstanceRef.current = echarts.init(container);
     }
@@ -1135,6 +1282,11 @@ export const useEChartsRenderer = ({
     lastPriceBadgeRef,
     lastPriceAxisValue,
     uiState.dataMode,
+    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: chartInteractionScopeKey ensures
+    // the effect re-runs when the layout switches (1→4→6 charts), which forces ECharts
+    // to detect the DOM mismatch (getDom() !== container) and re-initialize on the
+    // correct stockChartRef.current node.
+    chartInteractionScopeKey,
     legendSelection,
     applyViewport,
     resetManualYViewport,

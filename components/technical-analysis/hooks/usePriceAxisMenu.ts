@@ -21,9 +21,13 @@ export const formatPriceAxisLabel = (value: number): string => {
  * [TENOR 2026 SRE] usePriceAxisMenu
  * [ADR-006] State Extraction: Encapsulates the Price Axis Action Menu state,
  * positioning logic (ResizeObserver), and click-outside handling.
+ *
+ * @param chartLayersRef - MUST be the same positioned ancestor as gp-price-axis-overlay
+ *   (i.e. gp-chart-layers-stack / refs.layersStackRef). Using gp-chart-container was wrong
+ *   in multi-chart mode because the active cell is offset from the outer container.
  */
 export const usePriceAxisMenu = (
-  fullscreenChartContainerRef: React.RefObject<HTMLDivElement>,
+  chartLayersRef: React.RefObject<HTMLDivElement>,
   cursorPriceActionRef: React.RefObject<HTMLButtonElement>
 ) => {
   const [priceAxisActionMenu, setPriceAxisActionMenu] = useState<PriceAxisActionMenuState>({
@@ -58,7 +62,7 @@ export const usePriceAxisMenu = (
     event.stopPropagation();
     
     const button = event.currentTarget;
-    const containerRect = fullscreenChartContainerRef.current?.getBoundingClientRect();
+    const containerRect = chartLayersRef.current?.getBoundingClientRect();
     const buttonRect = button.getBoundingClientRect();
     
     const priceValue = Number(button.dataset.price ?? "0");
@@ -76,7 +80,7 @@ export const usePriceAxisMenu = (
       left: nextPos.left,
       width: nextPos.width,
     }));
-  }, [computePriceAxisMenuPosition, fullscreenChartContainerRef]);
+  }, [computePriceAxisMenuPosition, chartLayersRef]);
 
   // Click Outside Handler
   useEffect(() => {
@@ -84,7 +88,13 @@ export const usePriceAxisMenu = (
     
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest(".gp-price-axis-action-menu") || target?.closest(".gp-price-axis-cursor-action")) return;
+      if (
+        target?.closest(".gp-price-axis-action-menu") ||
+        target?.closest(".gp-price-axis-menu-portal") ||
+        target?.closest(".gp-price-axis-cursor-action")
+      ) {
+        return;
+      }
       closePriceAxisActionMenu();
     };
     
@@ -98,7 +108,7 @@ export const usePriceAxisMenu = (
     
     const updateMenuPosition = () => {
       const button = cursorPriceActionRef.current;
-      const container = fullscreenChartContainerRef.current;
+      const container = chartLayersRef.current;
       if (!button || !container) return;
       
       const nextPos = computePriceAxisMenuPosition(button.getBoundingClientRect(), container.getBoundingClientRect());
@@ -108,7 +118,7 @@ export const usePriceAxisMenu = (
     updateMenuPosition();
     window.addEventListener("resize", updateMenuPosition);
     
-    const container = fullscreenChartContainerRef.current;
+    const container = chartLayersRef.current;
     const resizeObserver = container ? new ResizeObserver(updateMenuPosition) : null;
     if (container && resizeObserver) resizeObserver.observe(container);
     
@@ -116,7 +126,7 @@ export const usePriceAxisMenu = (
       window.removeEventListener("resize", updateMenuPosition);
       resizeObserver?.disconnect();
     };
-  }, [computePriceAxisMenuPosition, priceAxisActionMenu.isOpen, cursorPriceActionRef, fullscreenChartContainerRef]);
+  }, [computePriceAxisMenuPosition, priceAxisActionMenu.isOpen, cursorPriceActionRef, chartLayersRef]);
 
   return { 
     priceAxisActionMenu, 

@@ -5,7 +5,7 @@ import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
 import { distToSegment, angleBetweenPoints } from "../../math/geometry";
 import { LINE_TOOLS, MEASURE_TOOLS } from "../../../config/TechnicalAnalysisConstants";
 import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-import * as echarts from 'echarts';
+import type { EChartsInstance } from "../../types/echarts";
 
 export class LineMeasureStrategy implements IDrawingStrategy {
     supportedTools = [
@@ -27,7 +27,7 @@ export class LineMeasureStrategy implements IDrawingStrategy {
         pts: { x: number; y: number }[],
         dataPoints: DrawingPoint[], // Ignored but required by interface
         drawing: Drawing,
-        chart: echarts.ECharts,                 // Ignored but required by interface
+        chart: EChartsInstance,                 // Ignored but required by interface
         isSelected: boolean,
         h: DrawingHelpers,
         _chartData: ChartDataPoint[]

@@ -9,10 +9,25 @@ import { BRVM_NAME_TO_TICKER } from "@/shared/utils/brvm-mapping";
 
 type DataMode = "mock" | "real";
 type ErrorWithStatus = Error & { status?: number };
+export type ComparisonLoadStatus = "idle" | "loading" | "loaded" | "empty" | "failed";
+export type ComparisonLoadState = Record<string, ComparisonLoadStatus>;
+
+const COMPARISON_FETCH_TIMEOUT_MS = 30000;
+const COMPARISON_NO_DATA_GRACE_MS = 1500;
 
 const resolveBRVMDatasetTicker = (symbol: string): string => {
   const normalizedSymbol = symbol.trim().toUpperCase();
   return BRVM_NAME_TO_TICKER[normalizedSymbol] ?? normalizedSymbol;
+};
+
+const normalizeComparisonSymbols = (symbols: string[]): string[] =>
+  Array.from(new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)));
+
+const areComparisonLoadStatesEqual = (left: ComparisonLoadState, right: ComparisonLoadState): boolean => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => left[key] === right[key]);
 };
 
 // --- CSV PARSER HELPER ---
@@ -728,50 +743,99 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
   const dispatch = useDispatch();
   const marketDataCache = useSelector(selectMarketData);
   const inflightFetches = useRef<Set<string>>(new Set());
+  const marketDataCacheRef = useRef(marketDataCache);
+  const [loadState, setLoadState] = useState<ComparisonLoadState>({});
+  const safeSymbolKey = useMemo(() => normalizeComparisonSymbols(comparisonSymbols).join("|"), [comparisonSymbols]);
+  const safeSymbols = useMemo(() => (safeSymbolKey ? safeSymbolKey.split("|") : []), [safeSymbolKey]);
 
   useEffect(() => {
-    if (comparisonSymbols.length === 0) return;
-    const safeSymbols = comparisonSymbols.slice(0, 5);
-    let cancelled = false;
+    marketDataCacheRef.current = marketDataCache;
+  }, [marketDataCache]);
 
-    safeSymbols.forEach(symbol => {
-      const upperSymbol = symbol.trim().toUpperCase();
-      if (!upperSymbol) return;
-      if (marketDataCache[upperSymbol] && marketDataCache[upperSymbol].length > 0) return;
+  useEffect(() => {
+    setLoadState((current) => {
+      const next: ComparisonLoadState = {};
+      safeSymbols.forEach((symbol) => {
+        next[symbol] = marketDataCache[symbol]?.length > 0 ? "loaded" : current[symbol] ?? "idle";
+      });
+      return areComparisonLoadStatesEqual(current, next) ? current : next;
+    });
+  }, [marketDataCache, safeSymbols]);
+
+  useEffect(() => {
+    if (safeSymbols.length === 0) return;
+    let isActive = true;
+    const settleTimers: ReturnType<typeof setTimeout>[] = [];
+    const safeSymbolSet = new Set(safeSymbols);
+
+    const setSymbolStatus = (symbol: string, status: ComparisonLoadStatus) => {
+      if (!isActive || !safeSymbolSet.has(symbol)) return;
+      setLoadState((current) => (current[symbol] === status ? current : { ...current, [symbol]: status }));
+    };
+
+    const settleSymbolStatus = (symbol: string, status: ComparisonLoadStatus, startedAt: number) => {
+      const remainingGraceMs = Math.max(0, COMPARISON_NO_DATA_GRACE_MS - (Date.now() - startedAt));
+      if (remainingGraceMs === 0 || status === "loaded") {
+        setSymbolStatus(symbol, status);
+        return;
+      }
+
+      const timerId = setTimeout(() => setSymbolStatus(symbol, status), remainingGraceMs);
+      settleTimers.push(timerId);
+    };
+
+    safeSymbols.forEach((upperSymbol) => {
+      if (marketDataCacheRef.current[upperSymbol] && marketDataCacheRef.current[upperSymbol].length > 0) {
+        setSymbolStatus(upperSymbol, "loaded");
+        return;
+      }
       if (inflightFetches.current.has(upperSymbol)) return;
 
       if (dataMode === "mock") {
         dispatch(updateMarketData({ symbol: upperSymbol, data: GENERATE_INITIAL_DATA(200) }));
+        setSymbolStatus(upperSymbol, "loaded");
         return;
       }
 
       inflightFetches.current.add(upperSymbol);
+      setSymbolStatus(upperSymbol, "loading");
+      const startedAt = Date.now();
       const datasetSymbol = resolveBRVMDatasetTicker(upperSymbol);
       const dailyUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetSymbol}/${datasetSymbol}.daily.csv`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), COMPARISON_FETCH_TIMEOUT_MS);
 
-      fetch(dailyUrl, { cache: "no-store" })
+      fetch(dailyUrl, { cache: "no-store", signal: controller.signal })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status} for ${upperSymbol}`);
           return response.text();
         })
         .then((csvText) => {
-          if (cancelled) return;
+          if (!isActive) return;
           const parsedDaily = parseBRVMCSV(csvText);
           if (parsedDaily.length > 0) {
             dispatch(updateMarketData({ symbol: upperSymbol, data: parsedDaily }));
+            settleSymbolStatus(upperSymbol, "loaded", startedAt);
+          } else {
+            settleSymbolStatus(upperSymbol, "empty", startedAt);
           }
         })
         .catch((error) => {
           console.warn(`[ComparisonManager] Unable to load ${upperSymbol}`, error);
+          settleSymbolStatus(upperSymbol, "failed", startedAt);
         })
         .finally(() => {
+          clearTimeout(timeoutId);
           inflightFetches.current.delete(upperSymbol);
         });
     });
 
     return () => {
-      cancelled = true;
+      isActive = false;
+      settleTimers.forEach((timerId) => clearTimeout(timerId));
     };
-  }, [comparisonSymbols, dataMode, dispatch, marketDataCache]);
+  }, [safeSymbols, dataMode, dispatch]);
+
+  return loadState;
 };
 // --- EOF ---

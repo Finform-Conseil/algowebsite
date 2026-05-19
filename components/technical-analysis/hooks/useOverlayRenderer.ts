@@ -7,6 +7,32 @@ import { useMasterRenderLoop, type RenderFrameMeta } from "./useMasterRenderLoop
 
 const MAIN_GRID_LEFT = 15;
 
+const isOverlayChartUsable = (chart: ECharts | null): chart is ECharts => {
+  if (!chart) return false;
+  try {
+    if (chart.isDisposed()) return false;
+    const dom = chart.getDom();
+    return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
+  } catch {
+    return false;
+  }
+};
+
+const safeOverlayConvertToPixel = (
+  chart: ECharts,
+  point: [string | number, number]
+): [number, number] | null => {
+  try {
+    const pos = chart.convertToPixel({ seriesIndex: 0 }, point);
+    if (!Array.isArray(pos) || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
+      return null;
+    }
+    return [pos[0], pos[1]];
+  } catch {
+    return null;
+  }
+};
+
 interface UseOverlayRendererProps {
   selectedDrawingId: string | null;
   drawings: Drawing[];
@@ -17,6 +43,7 @@ interface UseOverlayRendererProps {
   gridRect: { x: number; y: number; width: number; height: number } | null;
   toolbarOffsetRef: MutableRefObject<{ x: number; y: number }>;
   chartData: ChartDataPoint[];
+  interactionScopeKey?: string;
 }
 
 /**
@@ -53,6 +80,7 @@ export const useOverlayRenderer = ({
   gridRect,
   toolbarOffsetRef,
   chartData,
+  interactionScopeKey,
 }: UseOverlayRendererProps) => {
   // --- STABLE REFS for hot-path reading ---
   const drawingsRef = useRef<Drawing[]>(drawings);
@@ -96,6 +124,11 @@ export const useOverlayRenderer = ({
     isDirtyRef.current = true;
   }, [chartData]);
 
+  useEffect(() => {
+    isChartStableRef.current = true;
+    isDirtyRef.current = true;
+  }, [interactionScopeKey]);
+
   // [TENOR 2026 FIX] SCAR-PERF-03: Asynchronous Canvas Size Tracking
   useLayoutEffect(() => {
     const canvas = drawingCanvasRef.current;
@@ -120,12 +153,12 @@ export const useOverlayRenderer = ({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [drawingCanvasRef]);
+  }, [drawingCanvasRef, interactionScopeKey]);
 
   // [TENOR 2026 FIX] SCAR-149: ECharts Event Listeners for Hard Sync
   useEffect(() => {
     const chart = chartInstanceRef.current;
-    if (!chart) return;
+    if (!isOverlayChartUsable(chart)) return;
 
     const handleChartUnstable = () => {
       isChartStableRef.current = false;
@@ -152,17 +185,27 @@ export const useOverlayRenderer = ({
       }
     };
 
-    chart.on('datazoom', handleChartUnstable);
-    chart.on('restore', handleChartUnstable);
-    chart.on('finished', handleChartStable);
+    try {
+      chart.on('datazoom', handleChartUnstable);
+      chart.on('restore', handleChartUnstable);
+      chart.on('finished', handleChartStable);
+    } catch {
+      return;
+    }
 
     return () => {
-      chart.off('datazoom', handleChartUnstable);
-      chart.off('restore', handleChartUnstable);
-      chart.off('finished', handleChartStable);
+      try {
+        if (!chart.isDisposed()) {
+          chart.off('datazoom', handleChartUnstable);
+          chart.off('restore', handleChartUnstable);
+          chart.off('finished', handleChartStable);
+        }
+      } catch {
+        // ECharts may be disposed between React cleanup scheduling and execution.
+      }
       if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
     };
-  }, [chartInstanceRef, drawingToolbarRef, drawingTooltipRef]);
+  }, [chartInstanceRef, drawingToolbarRef, drawingTooltipRef, interactionScopeKey]);
 
   // ============================================================================
   // RENDER LOOP (Orchestrated by MasterRenderLoop)
@@ -205,7 +248,7 @@ export const useOverlayRenderer = ({
     const currentGridRect = gridRectRef.current;
     const canvasSize = canvasSizeRef.current;
 
-    if (!currentSelectedId || !chart || chart.isDisposed() || !currentDrawings.length || !canvas) {
+    if (!currentSelectedId || !isOverlayChartUsable(chart) || !currentDrawings.length || !canvas) {
       if (drawingToolbarRef.current) drawingToolbarRef.current.style.display = "none";
       if (drawingTooltipRef.current) drawingTooltipRef.current.style.display = "none";
       return;
@@ -221,10 +264,7 @@ export const useOverlayRenderer = ({
     // --- 1. Position Floating Toolbar & Tooltip ---
     const pixels = drawing.points
       .map((p) => {
-        const pos = chart.convertToPixel({ seriesIndex: 0 }, [
-          p.time,
-          p.value,
-        ]);
+        const pos = safeOverlayConvertToPixel(chart, [p.time, p.value]);
         return pos ? { x: pos[0], y: pos[1] } : null;
       })
       .filter(Boolean) as { x: number; y: number }[];

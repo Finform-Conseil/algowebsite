@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, RefObject } from "react";
 import { useSelector } from "react-redux";
 import DOMPurify from "dompurify";
-import { selectUiState } from "../store/technicalAnalysisSlice";
-import { Drawing, DrawingPoint, DrawingStyle, AllToolType, UiState } from "../config/TechnicalAnalysisTypes";
+import { selectUiState, selectAlerts, selectOrders } from "../store/technicalAnalysisSlice";
+import { Drawing, DrawingPoint, DrawingStyle, AllToolType, UiState, Alert, Order } from "../config/TechnicalAnalysisTypes";
 import { DrawingRenderer } from "../lib/DrawingRenderer";
 import { MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS } from "../config/TechnicalAnalysisConstants";
 import type { EChartsType } from "echarts/core";
@@ -10,9 +10,81 @@ import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { z } from "zod";
 
 const MAIN_GRID_LEFT = 15;
+const TV_Y_AXIS_WIDTH = 84;
+const TV_X_AXIS_HEIGHT = 28;
+const EMPTY_ALERTS: Alert[] = [];
+const EMPTY_ORDERS: Order[] = [];
 
 const isChartTimeValue = (value: unknown): value is string | number =>
   typeof value === "string" || typeof value === "number";
+
+const isChartUsable = (chart: EChartsType | null): chart is EChartsType => {
+  if (!chart) return false;
+  try {
+    if (chart.isDisposed()) return false;
+    const dom = chart.getDom();
+    return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
+  } catch {
+    return false;
+  }
+};
+
+const safeConvertToPixel = (
+  chart: EChartsType,
+  point: [string | number, number],
+  seriesIndex: number = 0
+): [number, number] | null => {
+  try {
+    const pix = chart.convertToPixel({ seriesIndex }, point);
+    if (!Array.isArray(pix) || !Number.isFinite(pix[0]) || !Number.isFinite(pix[1])) {
+      return null;
+    }
+    return [pix[0], pix[1]];
+  } catch {
+    return null;
+  }
+};
+
+const safeConvertFromPixel = (
+  chart: EChartsType,
+  point: [number, number],
+  seriesIndex: number = 0
+): [string | number, number] | null => {
+  try {
+    const coordinates = chart.convertFromPixel({ seriesIndex }, point);
+    if (!Array.isArray(coordinates) || coordinates.length < 2 || !Number.isFinite(Number(coordinates[1]))) {
+      return null;
+    }
+    if (!isChartTimeValue(coordinates[0])) return null;
+    return [coordinates[0], Number(coordinates[1])];
+  } catch {
+    return null;
+  }
+};
+
+const getInteractiveGridRect = (chart: EChartsType): { x: number; y: number; width: number; height: number } => {
+  const width = chart.getWidth();
+  const height = chart.getHeight();
+  const top = Math.max(30, height * 0.08);
+  const bottom = Math.max(top + 10, height - TV_X_AXIS_HEIGHT);
+  const right = Math.max(MAIN_GRID_LEFT + 10, width - TV_Y_AXIS_WIDTH);
+
+  return {
+    x: MAIN_GRID_LEFT,
+    y: top,
+    width: right - MAIN_GRID_LEFT,
+    height: bottom - top,
+  };
+};
+
+const isInsideGridRect = (
+  point: { x: number; y: number },
+  gridRect: { x: number; y: number; width: number; height: number }
+): boolean =>
+  point.x >= gridRect.x &&
+  point.x <= gridRect.x + gridRect.width &&
+  point.y >= gridRect.y &&
+  point.y <= gridRect.y + gridRect.height;
 
 // ============================================================================
 // [TENOR 2026 SRE] SPATIAL HASH GRID (O(1) HIT-TEST ENGINE)
@@ -34,6 +106,7 @@ class SpatialHashGrid {
   public build(drawings: Drawing[], chart: EChartsType) {
     this.cells.clear();
     this.infiniteDrawings = [];
+    if (!isChartUsable(chart)) return;
 
     for (let i = 0; i < drawings.length; i++) {
       const d = drawings[i];
@@ -56,8 +129,8 @@ class SpatialHashGrid {
       let hasValidPoints = false;
 
       for (const p of d.points) {
-        const pix = chart.convertToPixel({ seriesIndex: 0 }, [p.time, p.value]);
-        if (pix && Number.isFinite(pix[0]) && Number.isFinite(pix[1])) {
+        const pix = safeConvertToPixel(chart, [p.time, p.value]);
+        if (pix) {
           minX = Math.min(minX, pix[0]);
           maxX = Math.max(maxX, pix[0]);
           minY = Math.min(minY, pix[1]);
@@ -312,6 +385,7 @@ export const useDrawingManager = ({
   chartData,
 }: UseDrawingManagerProps) => {
   const uiState = useSelector(selectUiState) as UiState;
+  const drawingInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}`;
 
   // --- State ---
   const [activeTool, setActiveTool] = useState<AllToolType>(null);
@@ -327,6 +401,11 @@ export const useDrawingManager = ({
     isDirtyRef.current = true;
   }, []);
 
+  const selectedAlerts = useSelector(selectAlerts);
+  const selectedOrders = useSelector(selectOrders);
+  const alerts = selectedAlerts ?? EMPTY_ALERTS;
+  const orders = selectedOrders ?? EMPTY_ORDERS;
+
   // ============================================================================
   // [TENOR 2026 SRE] SYNCHRONOUS REF MUTATION (Stale Closure Fix)
   // Replaced useEffect with useLayoutEffect to guarantee synchronous updates
@@ -335,11 +414,13 @@ export const useDrawingManager = ({
   const cursorModeRef = useRef<string>(uiState.cursorMode as string);
   const activeToolRef = useRef<AllToolType>(activeTool);
   const drawingsRef = useRef<Drawing[]>(drawings);
+  const alertsRef = useRef<Alert[]>(alerts);
+  const ordersRef = useRef<Order[]>(orders);
   const currentDrawingRef = useRef<Drawing | null>(null);
   const isDrawingRef = useRef(false);
   const clickCountRef = useRef(0);
-  const prevContextRef = useRef({ tool: activeTool, mode: uiState.cursorMode });
-  
+  const prevContextRef = useRef({ tool: activeTool, mode: uiState.cursorMode, scope: drawingInteractionScopeKey });
+
   // [TENOR 2026] Spatial Hash Grid Instance
   const spatialGridRef = useRef<SpatialHashGrid>(new SpatialHashGrid());
 
@@ -347,20 +428,30 @@ export const useDrawingManager = ({
     cursorModeRef.current = uiState.cursorMode as string;
     activeToolRef.current = activeTool;
     drawingsRef.current = drawings;
-    
-    if (prevContextRef.current.tool !== activeTool || prevContextRef.current.mode !== uiState.cursorMode) {
+
+    if (alertsRef.current !== alerts || ordersRef.current !== orders) {
+      alertsRef.current = alerts;
+      ordersRef.current = orders;
+      markDirty();
+    }
+
+    if (
+      prevContextRef.current.tool !== activeTool ||
+      prevContextRef.current.mode !== uiState.cursorMode ||
+      prevContextRef.current.scope !== drawingInteractionScopeKey
+    ) {
       isDrawingRef.current = false;
       currentDrawingRef.current = null;
       clickCountRef.current = 0;
-      prevContextRef.current = { tool: activeTool, mode: uiState.cursorMode };
+      prevContextRef.current = { tool: activeTool, mode: uiState.cursorMode, scope: drawingInteractionScopeKey };
       markDirty();
     }
-  }, [activeTool, uiState.cursorMode, drawings, markDirty]);
+  }, [activeTool, uiState.cursorMode, drawingInteractionScopeKey, drawings, alerts, orders, markDirty]);
 
   useEffect(() => {
     setCurrentDrawing(null);
     markDirty();
-  }, [activeTool, uiState.cursorMode, markDirty]);
+  }, [activeTool, uiState.cursorMode, drawingInteractionScopeKey, markDirty]);
 
   // --- High-Performance Refs ---
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
@@ -639,39 +730,91 @@ export const useDrawingManager = ({
   const gridRectRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const [gridRect, setGridRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const rendererRef = useRef<DrawingRenderer | null>(null);
+  const rendererCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // --- Initialize Renderer ---
   useEffect(() => {
-    if (drawingCanvasRef.current) {
-      const ctx = drawingCanvasRef.current.getContext("2d");
-      if (ctx) {
-        rendererRef.current = new DrawingRenderer(ctx);
-      }
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) {
+      rendererRef.current = null;
+      rendererCanvasRef.current = null;
+      return;
     }
-  }, [drawingCanvasRef]);
+
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      rendererRef.current = new DrawingRenderer(ctx);
+      rendererCanvasRef.current = canvas;
+      markDirty();
+    }
+  }, [drawingCanvasRef, drawingInteractionScopeKey, markDirty]);
 
   // --- Render Loop (Zero-Lag Engine with CPU Shield) ---
   useEffect(() => {
     let animationFrameId: number;
-    const initialChart = chartInstanceRef.current;
 
-    if (initialChart) {
-      const handleFinished = () => {
-        chartSyncRef.current++;
+    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-LISTENER-RACE:
+    // The old approach captured `initialChart = chartInstanceRef.current` ONCE at
+    // effect-run time. When the layout switches (1→4→6 charts), `useEChartsRenderer`
+    // disposes the old chart and calls echarts.init() in its OWN useEffect. Both
+    // effects run after React commits, but their ORDER is not guaranteed.
+    // If THIS effect runs first, `chartInstanceRef.current` is null, so
+    // `isChartUsable(initialChart)` = false and ZRender listeners (finished, click,
+    // datazoom, restore) are NEVER bound to the new chart instance.
+    // FIX: track `attachedToChart` and re-bind inside the RAF whenever the instance
+    // changes, ensuring binding even if the chart is created 200ms after this effect.
+    let attachedToChart: EChartsType | null = null;
+
+    const handleFinished = () => {
+      chartSyncRef.current++;
+      markDirty();
+    };
+    const handleBgClick = () => {
+      if (!activeToolRef.current && !isDrawingRef.current) {
+        setSelectedDrawingId(null);
         markDirty();
-      };
-      const handleBgClick = () => {
-        if (!activeToolRef.current && !isDrawingRef.current) {
-          setSelectedDrawingId(null);
-          markDirty();
+      }
+    };
+
+    const detachFromChart = (chart: EChartsType) => {
+      try {
+        if (!chart.isDisposed()) {
+          chart.off("datazoom", markDirty);
+          chart.off("restore", markDirty);
+          chart.off("finished", handleFinished);
+          chart.getZr().off("click", handleBgClick);
         }
-      };
-      initialChart.on("finished", handleFinished);
-      initialChart.getZr().on("click", handleBgClick);
-      
-      // [TENOR 2026 SRE] ECharts events that require re-rendering
-      initialChart.on("datazoom", markDirty);
-      initialChart.on("restore", markDirty);
+      } catch {
+        // Chart may have been disposed externally; ignore.
+      }
+    };
+
+    const tryAttachListeners = (chart: EChartsType): boolean => {
+      if (attachedToChart === chart) return true; // already bound, no-op
+
+      // Detach from previous instance before binding to the new one.
+      if (attachedToChart !== null) {
+        detachFromChart(attachedToChart);
+        attachedToChart = null;
+      }
+
+      try {
+        chart.on("finished", handleFinished);
+        chart.getZr().on("click", handleBgClick);
+        chart.on("datazoom", markDirty);
+        chart.on("restore", markDirty);
+        attachedToChart = chart;
+        return true;
+      } catch {
+        // Race: chart disposed between isChartUsable check and .on() call.
+        return false;
+      }
+    };
+
+    // Eager attempt: bind immediately if the chart is already ready.
+    const initialChart = chartInstanceRef.current;
+    if (isChartUsable(initialChart)) {
+      tryAttachListeners(initialChart);
     }
 
     const renderLoop = () => {
@@ -686,7 +829,34 @@ export const useDrawingManager = ({
       isDirtyRef.current = false;
       const chart = chartInstanceRef.current;
 
-      if (drawingCanvasRef.current && rendererRef.current && chart) {
+      if (!isChartUsable(chart)) {
+        chartSyncRef.current = 0;
+        animationFrameId = requestAnimationFrame(renderLoop);
+        return;
+      }
+
+      // [TENOR 2026 SRE FIX] SCAR-MULTICHART-LISTENER-RACE (adaptive rebind):
+      // If the chart instance changed since we last attached listeners
+      // (new layout → new echarts.init()), rebind immediately on this RAF tick.
+      // This is the recovery path for the race condition: effect ran before init.
+      if (chart !== attachedToChart) {
+        tryAttachListeners(chart);
+        markDirty(); // Force one more frame to reflect the new instance state.
+      }
+
+      if (
+        drawingCanvasRef.current &&
+        (!rendererRef.current || rendererCanvasRef.current !== drawingCanvasRef.current)
+      ) {
+        const ctx = drawingCanvasRef.current.getContext("2d");
+        if (ctx) {
+          rendererRef.current = new DrawingRenderer(ctx);
+          rendererCanvasRef.current = drawingCanvasRef.current;
+          markDirty();
+        }
+      }
+
+      if (drawingCanvasRef.current && rendererRef.current) {
         const dpr = window.devicePixelRatio || 1;
         const rect = drawingCanvasRef.current.getBoundingClientRect();
 
@@ -744,7 +914,9 @@ export const useDrawingManager = ({
             activeToolRef.current,
             selectedIdRef.current,
             gridRectRef.current,
-            chartDataRef.current
+            chartDataRef.current,
+            alertsRef.current,
+            ordersRef.current
           );
           
           // [TENOR 2026 SRE] Rebuild Spatial Hash Grid after render if dirty
@@ -763,23 +935,33 @@ export const useDrawingManager = ({
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      if (initialChart && !initialChart.isDisposed()) {
-        initialChart.off("datazoom", markDirty);
-        initialChart.off("restore", markDirty);
+      // [TENOR 2026 SRE FIX] SCAR-MULTICHART-LISTENER-RACE:
+      // Always detach from whichever chart we were bound to at cleanup time,
+      // not from a stale `initialChart` closure variable.
+      if (attachedToChart !== null) {
+        detachFromChart(attachedToChart);
       }
     };
-  }, [drawingCanvasRef, chartInstanceRef, markDirty]);
+  }, [drawingCanvasRef, chartInstanceRef, drawingInteractionScopeKey, markDirty]);
+
 
   // --- Coordinate Conversion ---
   const getChartCoordinates = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): DrawingPoint | null => {
-    if (!chartInstanceRef.current || chartInstanceRef.current.isDisposed() || !drawingCanvasRef.current) return null;
-    const rect = drawingCanvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (!isChartUsable(chartInstanceRef.current) || !drawingCanvasRef.current) return null;
     const chart = chartInstanceRef.current;
-    const option = chart.getOption();
+    const chartRect = chart.getDom().getBoundingClientRect();
+    const x = e.clientX - chartRect.left;
+    const y = e.clientY - chartRect.top;
+    if (x < 0 || y < 0 || x > chartRect.width || y > chartRect.height) return null;
+    if (!isInsideGridRect({ x, y }, getInteractiveGridRect(chart))) return null;
     const priceSeriesIndex = getPriceSeriesIndex(chart);
-    const point = chart.convertFromPixel({ seriesIndex: priceSeriesIndex }, [x, y]);
+    let option: ReturnType<EChartsType["getOption"]>;
+    try {
+      option = chart.getOption();
+    } catch {
+      return null;
+    }
+    const point = safeConvertFromPixel(chart, [x, y], priceSeriesIndex);
 
     if (point && point.length >= 2) {
       let time = point[0] as string | number;
@@ -884,27 +1066,34 @@ export const useDrawingManager = ({
   // --- Pointer Down Handler ---
   // [TENOR 2026 SRE FIX] SCAR-TOUCH-01: PointerEvents fully unified.
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch' && e.cancelable) {
-      e.preventDefault();
-    }
+    const claimDrawingPointerEvent = () => {
+      if (e.pointerType === 'touch' && e.cancelable) {
+        e.preventDefault();
+      }
+      e.stopPropagation();
+      if (e.nativeEvent && typeof e.nativeEvent.stopPropagation === 'function') {
+        e.nativeEvent.stopPropagation();
+      }
+      if (drawingCanvasRef.current && e.pointerId !== undefined) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
+      }
+    };
+
     if (e.button === 2) {
+      claimDrawingPointerEvent();
       cancelDrawingSession(true);
       e.preventDefault();
-      e.stopPropagation();
       return;
     }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-    if (drawingCanvasRef.current && e.pointerId !== undefined) {
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {}
-    }
-
-    if (!chartInstanceRef.current || chartInstanceRef.current.isDisposed()) return;
+    if (!isChartUsable(chartInstanceRef.current)) return;
 
     const now = Date.now();
-    if (now - lastTapRef.current < 300) {
+    if (isDrawingRef.current && currentDrawingRef.current && now - lastTapRef.current < 300) {
+      claimDrawingPointerEvent();
       handleDoubleClick();
       lastTapRef.current = 0;
       return;
@@ -917,13 +1106,6 @@ export const useDrawingManager = ({
 
     const currentActiveTool = activeToolRef.current;
     const mode = cursorModeRef.current;
-
-    if (mode !== 'magic') {
-      e.stopPropagation();
-      if (e.nativeEvent && typeof e.nativeEvent.stopPropagation === 'function') {
-        e.nativeEvent.stopPropagation();
-      }
-    }
 
     if (mode === 'magic') {
       setSelectedDrawingId(null);
@@ -942,6 +1124,7 @@ export const useDrawingManager = ({
         const result = rendererRef.current.hitTest(mx, my, d, chartInstanceRef.current, HIT_THRESHOLD);
         
         if (result.isHit) {
+          claimDrawingPointerEvent();
           if (mode === 'eraser') {
             deleteDrawing(d.id);
             return;
@@ -976,6 +1159,7 @@ export const useDrawingManager = ({
     }
 
     if (mode === 'eraser') {
+      claimDrawingPointerEvent();
       setSelectedDrawingId(null);
       markDirty();
       return;
@@ -989,6 +1173,7 @@ export const useDrawingManager = ({
 
     const coords = getChartCoordinates(e);
     if (!coords) return;
+    claimDrawingPointerEvent();
 
     if (SINGLE_CLICK_TOOLS.includes(currentActiveTool)) {
       const newDrawing: Drawing = {
@@ -1488,15 +1673,15 @@ export const useDrawingManager = ({
           const p1 = updatedPoints[1];
           const p2 = updatedPoints[2];
           const chart = chartInstanceRef.current;
-          if (chart) {
+          if (isChartUsable(chart)) {
             const priceIdx = getPriceSeriesIndex(chart);
-            const p0Pix = chart.convertToPixel({ seriesIndex: priceIdx }, [p0.time, p0.value]);
-            const p1Pix = chart.convertToPixel({ seriesIndex: priceIdx }, [p1.time, p1.value]);
-            const p2Pix = chart.convertToPixel({ seriesIndex: priceIdx }, [p2.time, p2.value]);
+            const p0Pix = safeConvertToPixel(chart, [p0.time, p0.value], priceIdx);
+            const p1Pix = safeConvertToPixel(chart, [p1.time, p1.value], priceIdx);
+            const p2Pix = safeConvertToPixel(chart, [p2.time, p2.value], priceIdx);
             if (p0Pix && p1Pix && p2Pix) {
               const radius = Math.hypot(p1Pix[0] - p0Pix[0], p1Pix[1] - p0Pix[1]);
               const angle2 = Math.atan2(p2Pix[1] - p0Pix[1], p2Pix[0] - p0Pix[0]);
-              const constP2 = chart.convertFromPixel({ seriesIndex: priceIdx }, [p0Pix[0] + radius * Math.cos(angle2), p0Pix[1] + radius * Math.sin(angle2)]);
+              const constP2 = safeConvertFromPixel(chart, [p0Pix[0] + radius * Math.cos(angle2), p0Pix[1] + radius * Math.sin(angle2)], priceIdx);
               if (constP2) updatedPoints[2] = { time: constP2[0], value: constP2[1] };
             }
           }
@@ -1533,7 +1718,8 @@ export const useDrawingManager = ({
     mousePosRef.current = { x: mx, y: my };
     markDirty();
 
-    if (isDraggingRef.current && dragTargetRef.current && chartInstanceRef.current) {
+    const dragChart = chartInstanceRef.current;
+    if (isDraggingRef.current && dragTargetRef.current && isChartUsable(dragChart)) {
       const { drawingId, type, pointIndex, initialPoints, mouseStart } = dragTargetRef.current;
       const dx = mx - mouseStart.x;
       const dy = my - mouseStart.y;
@@ -1543,12 +1729,12 @@ export const useDrawingManager = ({
       let newPoints = [...d.points];
 
       if (type === 'shape') {
-        const priceIdx = getPriceSeriesIndex(chartInstanceRef.current!);
+        const priceIdx = getPriceSeriesIndex(dragChart);
         newPoints = initialPoints.map(p => {
-          const startPix = chartInstanceRef.current?.convertToPixel({ seriesIndex: priceIdx }, [p.time, p.value]);
+          const startPix = safeConvertToPixel(dragChart, [p.time, p.value], priceIdx);
           if (!startPix) return p;
-          const newPix = [startPix[0] + dx, startPix[1] + dy];
-          const newCoords = chartInstanceRef.current?.convertFromPixel({ seriesIndex: priceIdx }, newPix);
+          const newPix: [number, number] = [startPix[0] + dx, startPix[1] + dy];
+          const newCoords = safeConvertFromPixel(dragChart, newPix, priceIdx);
           if (!newCoords) return p;
           const rawTime = newCoords[0];
           let finalTime: string | number = rawTime;
@@ -1560,33 +1746,33 @@ export const useDrawingManager = ({
           return { time: finalTime, value: newCoords[1] as number };
         });
       } else if (type === 'point') {
-        const chart = chartInstanceRef.current!;
+        const chart = dragChart;
         const priceIdx = getPriceSeriesIndex(chart);
-        const currentCoords = chart.convertFromPixel({ seriesIndex: priceIdx }, [mx, my]);
+        const currentCoords = safeConvertFromPixel(chart, [mx, my], priceIdx);
         if (currentCoords) {
           if (d.type === 'sector') {
             const p0 = d.points[0];
-            const p0Pix = chart.convertToPixel({ seriesIndex: priceIdx }, [p0.time, p0.value]);
+            const p0Pix = safeConvertToPixel(chart, [p0.time, p0.value], priceIdx);
             if (p0Pix) {
               if (pointIndex === 0) {
                 newPoints[0] = { time: currentCoords[0], value: currentCoords[1] };
               } else if (pointIndex === 1 && d.points.length >= 3) {
                 const rad = Math.hypot(mx - p0Pix[0], my - p0Pix[1]);
-                const p2 = d.points[2], p2Pix = chart.convertToPixel({ seriesIndex: priceIdx }, [p2.time, p2.value]);
+                const p2 = d.points[2], p2Pix = safeConvertToPixel(chart, [p2.time, p2.value], priceIdx);
                 newPoints[1] = { time: currentCoords[0], value: currentCoords[1] };
                 if (p2Pix) {
                   const a2 = Math.atan2(p2Pix[1] - p0Pix[1], p2Pix[0] - p0Pix[0]);
-                  const cP2 = chart.convertFromPixel({ seriesIndex: priceIdx }, [p0Pix[0] + rad * Math.cos(a2), p0Pix[1] + rad * Math.sin(a2)]);
+                  const cP2 = safeConvertFromPixel(chart, [p0Pix[0] + rad * Math.cos(a2), p0Pix[1] + rad * Math.sin(a2)], priceIdx);
                   if (cP2) newPoints[2] = { time: cP2[0], value: cP2[1] };
                 }
               } else if (pointIndex === 2 && d.points.length >= 3) {
                 const rad = Math.hypot(mx - p0Pix[0], my - p0Pix[1]);
-                const p1 = d.points[1], p1Pix = chart.convertToPixel({ seriesIndex: priceIdx }, [p1.time, p1.value]);
+                const p1 = d.points[1], p1Pix = safeConvertToPixel(chart, [p1.time, p1.value], priceIdx);
                 if (p1Pix) {
                   const a1 = Math.atan2(p1Pix[1] - p0Pix[1], p1Pix[0] - p0Pix[0]);
                   const angle = Math.atan2(my - p0Pix[1], mx - p0Pix[0]);
-                  const cP1 = chart.convertFromPixel({ seriesIndex: priceIdx }, [p0Pix[0] + rad * Math.cos(a1), p0Pix[1] + Math.sin(a1)]);
-                  const cP2 = chart.convertFromPixel({ seriesIndex: priceIdx }, [p0Pix[0] + rad * Math.cos(angle), p0Pix[1] + rad * Math.sin(angle)]);
+                  const cP1 = safeConvertFromPixel(chart, [p0Pix[0] + rad * Math.cos(a1), p0Pix[1] + Math.sin(a1)], priceIdx);
+                  const cP2 = safeConvertFromPixel(chart, [p0Pix[0] + rad * Math.cos(angle), p0Pix[1] + rad * Math.sin(angle)], priceIdx);
                   if (cP1) newPoints[1] = { time: cP1[0], value: cP1[1] };
                   if (cP2) newPoints[2] = { time: cP2[0], value: cP2[1] };
                 }
@@ -1604,8 +1790,8 @@ export const useDrawingManager = ({
           }
         }
       } else if (type === 'position_zone' && dragTargetRef.current?.positionZone) {
-        const priceIdx = getPriceSeriesIndex(chartInstanceRef.current!);
-        const cur = chartInstanceRef.current!.convertFromPixel({ seriesIndex: priceIdx }, [mx, my]);
+        const priceIdx = getPriceSeriesIndex(dragChart);
+        const cur = safeConvertFromPixel(dragChart, [mx, my], priceIdx);
         if (cur) {
           const entryVal = d.points[0].value;
           const off = Math.abs(cur[1] - entryVal);
@@ -1640,12 +1826,13 @@ export const useDrawingManager = ({
     let cursor = "default";
     let hoveringInt = false;
 
-    if (drawingsRef.current.length > 0 && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
+    const hoverChart = chartInstanceRef.current;
+    if (drawingsRef.current.length > 0 && isChartUsable(hoverChart)) {
       // [TENOR 2026 SRE] SPATIAL HASH GRID HIT-TEST (O(1) Lookup)
       const candidates = spatialGridRef.current.query(mx, my);
       
       for (let i = 0; i < candidates.length; i++) {
-        const hit = rendererRef.current?.hitTest(mx, my, candidates[i], chartInstanceRef.current, 15);
+        const hit = rendererRef.current?.hitTest(mx, my, candidates[i], hoverChart, 15);
         if (hit?.isHit) {
           hoveringInt = true;
           cursor = hit.hitType === "point" ? "grab" : "move";

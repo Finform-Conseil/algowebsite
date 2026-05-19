@@ -107,7 +107,7 @@ export class ChartPatternsStrategy implements IDrawingStrategy {
         mx: number,
         my: number,
         drawing: Drawing,
-        chart: ECharts,
+        chart: EChartsInstance,
         threshold: number
     ): HitTestResult {
         const pixelPoints = drawing.points

@@ -1,9 +1,7 @@
 import { Drawing } from "../../../../../config/TechnicalAnalysisTypes";
 import { DrawingHelpers } from "../../../interfaces/IDrawingStrategy";
 import { calculatePositionStats } from "../../../../math/geometry";
-import type { ECharts } from "echarts";
-
-export type EChartsInstance = ECharts;
+export type { EChartsInstance } from "../../../../types/echarts";
 
 export function renderPositionStats(
     x: number,
