@@ -9,20 +9,28 @@
 // [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE: Added inline settings panel and separated derived oscillators.
 // ================================================================================
 
-import React, { useCallback, useMemo, useState, useDeferredValue, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useDeferredValue, useEffect, useRef } from "react";
 import { shallowEqual, useDispatch, useSelector } from "react-redux";
+import { Check, Eye, EyeOff } from "lucide-react";
 import { BaseModal } from "../common/BaseModal";
-import { AdvancedIndicatorsState, BollingerSettings } from "../../config/TechnicalAnalysisTypes";
+import { AdvancedIndicatorsState, BollingerSettings, MovingAverageTrendSignalId, PriceVsEmaMetricId, PriceVsSmaMetricId } from "../../config/TechnicalAnalysisTypes";
 import {
   selectAdvancedIndicators,
   selectChartConfig,
   selectIndicatorPeriods,
   selectBollingerSettings,
+  selectMarketData,
+  selectMarketSnapshots,
   toggleAdvancedIndicator,
   setChartConfig,
   setIndicatorPeriods,
   setAdvancedIndicators,
-  setBollingerSettings
+  setBollingerSettings,
+  setMovingAverageTrendSignal,
+  setMovingAverageTrendSignals,
+  setMovingAverageTrendSignalSourceAverages,
+  setPriceVsSmaMetric,
+  setPriceVsEmaMetric
 } from "../../store/technicalAnalysisSlice";
 import type { RootState } from "@/core/infrastructure/store";
 import {
@@ -32,6 +40,42 @@ import {
   SettingsSelectInput
 } from "../common/SettingsField";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
+import {
+  MOVING_AVERAGE_TREND_SIGNAL_SPECS,
+  buildSelectableEmaDefinitions,
+  buildSelectableSmaDefinitions,
+  normalizeMovingAverageTrendSignals,
+  normalizeMovingAveragePeriods
+} from "../../config/movingAverageSeries";
+import {
+  PRICE_VS_SMA_METRIC_SPECS,
+  normalizePriceVsSmaMetrics,
+} from "../../config/priceVsSmaMetrics";
+import {
+  PRICE_VS_EMA_METRIC_SPECS,
+  normalizePriceVsEmaMetrics,
+} from "../../config/priceVsEmaMetrics";
+import {
+  ADVANCED_MOVING_AVERAGE_SPECS,
+  isAdvancedMovingAverageActive,
+  toggleAdvancedMovingAverage,
+  type AdvancedMovingAverageActivationState,
+  type AdvancedMovingAverageId,
+  type AdvancedMovingAverageSpec,
+} from "../../config/advancedMovingAverageSeries";
+import {
+  calculateMovingAverageTrendSignals,
+  type MovingAverageTrendSignalResult,
+  type MovingAverageTrendState
+} from "../../lib/Indicators/movingAverageTrendSignals";
+import {
+  calculatePriceVsSmaMetrics,
+  type PriceVsSmaMetricResult,
+} from "../../lib/Indicators/priceVsSmaMetrics";
+import {
+  calculatePriceVsEmaMetrics,
+  type PriceVsEmaMetricResult,
+} from "../../lib/Indicators/priceVsEmaMetrics";
 
 interface IndicatorsModalProps {
   isOpen: boolean;
@@ -77,15 +121,73 @@ const BOTTOM_PANEL_INDICATORS = [
   "stochRsi",
   "atr",
   "cci",
+  "cci14",
+  "cci20",
+  "mfi14",
   "williamsR",
+  "williamsR14",
   "roc",
+  "roc10",
+  "roc20",
+  "momentum10",
+  "momentum20",
+  "cmo14",
+  "dymi",
+  "ultimateOsc",
+  "dpo20",
+  "tsi",
+  "awesomeOsc",
+  "acOsc",
+  "rvi",
+  "fisherTransform",
+  "elderBullBear",
+  "coppock",
+  "ppo",
+  "apo",
+  "adx",
+  "aroon",
+  "aroonOsc",
+  "vortex",
+  "trix",
+  "stc",
+  "massIndex",
   "obv",
   "bbWidth",
   "bbPercentB",
 ] satisfies Array<keyof AdvancedIndicatorsState>;
 
+const isCciMomentumKey = (id: string): id is "cci" | "cci14" | "cci20" =>
+  id === "cci" || id === "cci14" || id === "cci20";
+
+const hasActiveCciMomentumPanel = (indicators: AdvancedIndicatorsState): boolean =>
+  indicators.cci || indicators.cci14 || indicators.cci20;
+
+const isWilliamsRKey = (id: string): id is "williamsR" | "williamsR14" =>
+  id === "williamsR" || id === "williamsR14";
+
+const hasActiveWilliamsRPanel = (indicators: AdvancedIndicatorsState): boolean =>
+  indicators.williamsR || indicators.williamsR14;
+
+const isRocMomentumKey = (id: string): id is "roc" | "roc10" | "roc20" =>
+  id === "roc" || id === "roc10" || id === "roc20";
+
+const hasActiveRocMomentumPanel = (indicators: AdvancedIndicatorsState): boolean =>
+  indicators.roc || indicators.roc10 || indicators.roc20;
+
+const isRawMomentumKey = (id: string): id is "momentum10" | "momentum20" =>
+  id === "momentum10" || id === "momentum20";
+
+const hasActiveRawMomentumPanel = (indicators: AdvancedIndicatorsState): boolean =>
+  indicators.momentum10 || indicators.momentum20;
+
 const countActiveBottomIndicators = (indicators: AdvancedIndicatorsState) =>
-  BOTTOM_PANEL_INDICATORS.reduce((total, key) => total + (indicators[key] ? 1 : 0), 0);
+  BOTTOM_PANEL_INDICATORS.reduce((total, key) => {
+    if (isCciMomentumKey(key) || isWilliamsRKey(key) || isRocMomentumKey(key) || isRawMomentumKey(key)) return total;
+    return total + (indicators[key] ? 1 : 0);
+  }, (hasActiveCciMomentumPanel(indicators) ? 1 : 0)
+    + (hasActiveWilliamsRPanel(indicators) ? 1 : 0)
+    + (hasActiveRocMomentumPanel(indicators) ? 1 : 0)
+    + (hasActiveRawMomentumPanel(indicators) ? 1 : 0));
 
 const isAdvancedIndicatorKey = (id: string): id is keyof AdvancedIndicatorsState =>
   id in {
@@ -95,8 +197,38 @@ const isAdvancedIndicatorKey = (id: string): id is keyof AdvancedIndicatorsState
     stochastic: true,
     atr: true,
     cci: true,
+    cci14: true,
+    cci20: true,
+    mfi14: true,
     williamsR: true,
+    williamsR14: true,
     roc: true,
+    roc10: true,
+    roc20: true,
+    momentum10: true,
+    momentum20: true,
+    cmo14: true,
+    dymi: true,
+    ultimateOsc: true,
+    dpo20: true,
+    tsi: true,
+    awesomeOsc: true,
+    acOsc: true,
+    rvi: true,
+    fisherTransform: true,
+    elderBullBear: true,
+    coppock: true,
+    ppo: true,
+    apo: true,
+    adx: true,
+    aroon: true,
+    aroonOsc: true,
+    supertrend: true,
+    vortex: true,
+    trix: true,
+    stc: true,
+    massIndex: true,
+    parabolicSar: true,
     obv: true,
     ichimoku: true,
     stochRsi: true,
@@ -140,9 +272,10 @@ const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
   },
   {
     id: "adx",
-    title: "ADX",
+    title: "ADX / DMI",
     desc: "Force de tendance, +DI et -DI",
     outputKeys: ["adx", "adx_plus_di", "adx_minus_di", "adx_trend_strength"],
+    wiredId: "adx",
   },
   {
     id: "stochastic",
@@ -163,42 +296,63 @@ const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
     title: "TSI",
     desc: "True Strength Index et ligne signal",
     outputKeys: ["tsi", "tsi_signal"],
+    wiredId: "tsi",
+  },
+  {
+    id: "ppo",
+    title: "PPO",
+    desc: "MACD normalisé (%) + signal/hist.",
+    outputKeys: ["macd_ppo", "macd_ppo_signal", "macd_ppo_histogram"],
+    wiredId: "ppo",
+  },
+  {
+    id: "parabolic-sar",
+    title: "Parabolic SAR",
+    desc: "Points SAR et signal de retournement",
+    outputKeys: ["parabolic_sar", "parabolic_sar_signal"],
+    wiredId: "parabolicSar",
   },
   {
     id: "rvi",
     title: "RVI",
     desc: "Relative Vigor Index et ligne signal",
     outputKeys: ["rvi", "rvi_signal"],
+    wiredId: "rvi",
   },
   {
     id: "fisher-transform",
     title: "Fisher Transform",
     desc: "Fisher et ligne signal",
     outputKeys: ["fisher_transform", "fisher_transform_signal"],
+    wiredId: "fisherTransform",
   },
   {
     id: "elder-ray",
     title: "Elder Bull/Bear Power",
     desc: "Pression acheteuse et vendeuse",
     outputKeys: ["elder_bull_power", "elder_bear_power"],
+    wiredId: "elderBullBear",
   },
   {
     id: "aroon",
     title: "Aroon",
     desc: "Récence des plus hauts et plus bas",
     outputKeys: ["aroon_up", "aroon_down"],
+    wiredId: "aroon",
   },
   {
     id: "supertrend",
     title: "Supertrend",
     desc: "Ligne et signal de régime",
     outputKeys: ["supertrend", "supertrend_signal"],
+    wiredId: "supertrend",
   },
   {
     id: "vortex",
     title: "Vortex Indicator",
     desc: "VI+ et VI-",
     outputKeys: ["vortex_plus", "vortex_minus"],
+    wiredId: "vortex",
   },
   {
     id: "kst",
@@ -420,6 +574,405 @@ const IndicatorCard = React.memo(({
 });
 IndicatorCard.displayName = "IndicatorCard";
 
+const formatSignalNumber = (value: number | null, fractionDigits = 2): string => {
+  if (value === null || !Number.isFinite(value)) return "N/D";
+  return value.toLocaleString("fr-FR", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+};
+
+const formatSignalPercent = (value: number | null): string => {
+  if (value === null || !Number.isFinite(value)) return "N/D";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+};
+
+const TREND_STATE_META: Record<MovingAverageTrendState, { label: string; color: string; background: string }> = {
+  above: { label: "Au-dessus", color: "#00e676", background: "rgba(0, 230, 118, 0.14)" },
+  below: { label: "En dessous", color: "#ff3b5f", background: "rgba(255, 59, 95, 0.14)" },
+  neutral: { label: "Neutre", color: "#facc15", background: "rgba(250, 204, 21, 0.14)" },
+  unknown: { label: "N/D", color: "#94a3b8", background: "rgba(148, 163, 184, 0.14)" },
+};
+
+const resolveAverageStateLabel = (state: MovingAverageTrendState, shortLabel: string): string => {
+  if (state === "above") return `Close > ${shortLabel}`;
+  if (state === "below") return `Close < ${shortLabel}`;
+  if (state === "neutral") return "Neutre";
+  return "N/D";
+};
+
+const MovingAverageTrendSignalCard = React.memo(({
+  result,
+  isActive,
+  sourceLinesEnabled,
+  onToggle,
+}: {
+  result: MovingAverageTrendSignalResult;
+  isActive: boolean;
+  sourceLinesEnabled: boolean;
+  onToggle: (id: MovingAverageTrendSignalId, active: boolean) => void;
+}) => {
+  const meta = TREND_STATE_META[result.state];
+  const [optimisticActive, setOptimisticActive] = useState(isActive);
+  const optimisticActiveRef = useRef(isActive);
+
+  useEffect(() => {
+    optimisticActiveRef.current = isActive;
+    setOptimisticActive(isActive);
+  }, [isActive]);
+
+  const handleToggle = useCallback(() => {
+    const nextActive = !optimisticActiveRef.current;
+    optimisticActiveRef.current = nextActive;
+    setOptimisticActive(nextActive);
+    globalThis.setTimeout(() => onToggle(result.spec.id, nextActive), 16);
+  }, [onToggle, result.spec.id]);
+
+  const sourceLineStatus = sourceLinesEnabled && optimisticActive
+    ? "ligne visible"
+    : optimisticActive
+      ? "signal seul"
+      : "signal inactif";
+  const distanceLabel = result.distancePercent === null ? "N/D" : formatSignalPercent(result.distancePercent);
+  const metricLine = result.distancePercent === null
+    ? "Distance N/D"
+    : `Distance ${distanceLabel} vs ${result.spec.shortLabel}`;
+  const sourceLine = `Close ${formatSignalNumber(result.close)} · ${result.spec.shortLabel} ${formatSignalNumber(result.average)}`;
+  const statusLabel = result.distancePercent === null
+    ? "N/D"
+    : result.isConfirmedBar
+      ? "CONFIRMÉ"
+      : "LIVE";
+  const statusColor = result.distancePercent === null
+    ? "#94a3b8"
+    : result.isConfirmedBar
+      ? "#00e676"
+      : "#facc15";
+  const stateLabel = resolveAverageStateLabel(result.state, result.spec.shortLabel);
+  const detailsLabel = [
+    result.spec.description,
+    metricLine,
+    sourceLine,
+    `${statusLabel} · ${result.qualityLabel} · ${sourceLineStatus}`,
+    `${result.availableBars}/${result.requiredBars} bougies`,
+    result.reason,
+  ].join("\n");
+
+  return (
+    <button
+      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel}`}
+      aria-pressed={optimisticActive}
+      className={`gp-ma-trend-output-card ${optimisticActive ? "active" : ""} is-${result.state}`}
+      onClick={handleToggle}
+      title={detailsLabel}
+      type="button"
+    >
+      <span className="gp-composite-indicator-check gp-ma-trend-output-check" aria-hidden="true">
+        {optimisticActive && <Check size={13} strokeWidth={3.4} />}
+      </span>
+      <span className="gp-ma-trend-output-copy">
+        <span className="gp-ma-trend-output-head">
+          <span className="gp-ma-trend-output-title">
+            <strong>{result.spec.label}</strong>
+          </span>
+          <span className="gp-ma-trend-state gp-ma-trend-output-state" style={{ color: meta.color, background: meta.background, borderColor: `${meta.color}33` }}>
+            {stateLabel}
+          </span>
+        </span>
+        <small className="gp-ma-trend-output-horizon">{result.spec.horizon}</small>
+        <span className="gp-ma-trend-output-value-row">
+          <span className="gp-ma-trend-output-value" style={{ color: meta.color }}>
+            {distanceLabel}
+          </span>
+          <span className="gp-ma-trend-output-status" style={{ color: statusColor }}>
+            {statusLabel}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+});
+MovingAverageTrendSignalCard.displayName = "MovingAverageTrendSignalCard";
+
+const MovingAverageTrendSourceToggle = React.memo(({
+  checked,
+  activeCount,
+  onToggle,
+}: {
+  checked: boolean;
+  activeCount: number;
+  onToggle: (checked: boolean) => void;
+}) => {
+  const Icon = checked ? Eye : EyeOff;
+  const plural = activeCount > 1 ? "s" : "";
+  const helperText = checked
+    ? `${activeCount} ligne${plural} source${plural} synchronisée${plural}`
+    : "Option de rendu: les signaux restent indépendants.";
+
+  return (
+    <button
+      aria-pressed={checked}
+      className={`gp-ma-source-toggle ${checked ? "is-active" : ""}`}
+      onClick={() => onToggle(!checked)}
+      type="button"
+    >
+      <span className="gp-ma-source-toggle-icon gp-composite-indicator-check" aria-hidden="true">
+        <Icon size={16} strokeWidth={2.4} />
+      </span>
+      <span className="gp-ma-source-toggle-copy">
+        <strong>Afficher les lignes sources activées</strong>
+        <small>{helperText}</small>
+      </span>
+      <span className="gp-ma-source-toggle-switch" aria-hidden="true">
+        <span />
+      </span>
+    </button>
+  );
+});
+MovingAverageTrendSourceToggle.displayName = "MovingAverageTrendSourceToggle";
+
+const PriceVsSmaMetricCard = React.memo(({
+  result,
+  isActive,
+  onToggle,
+}: {
+  result: PriceVsSmaMetricResult;
+  isActive: boolean;
+  onToggle: (id: PriceVsSmaMetricId, active: boolean) => void;
+}) => {
+  const meta = TREND_STATE_META[result.state];
+  const [optimisticActive, setOptimisticActive] = useState(isActive);
+  const optimisticActiveRef = useRef(isActive);
+
+  useEffect(() => {
+    optimisticActiveRef.current = isActive;
+    setOptimisticActive(isActive);
+  }, [isActive]);
+
+  const handleToggle = useCallback(() => {
+    const nextActive = !optimisticActiveRef.current;
+    optimisticActiveRef.current = nextActive;
+    setOptimisticActive(nextActive);
+    globalThis.setTimeout(() => onToggle(result.spec.id, nextActive), 16);
+  }, [onToggle, result.spec.id]);
+
+  const distanceLabel = result.distancePercent === null ? "N/D" : formatSignalPercent(result.distancePercent);
+  const metricLine = result.distancePercent === null
+    ? "Distance N/D"
+    : `Distance ${distanceLabel} vs ${result.spec.shortLabel}`;
+  const sourceLine = `Close ${formatSignalNumber(result.close)} · ${result.spec.shortLabel} ${formatSignalNumber(result.sma)}`;
+  const statusLabel = result.distancePercent === null
+    ? "N/D"
+    : result.isConfirmedBar
+      ? "CONFIRMÉ"
+      : "LIVE";
+  const statusColor = result.distancePercent === null
+    ? "#94a3b8"
+    : result.isConfirmedBar
+      ? "#00e676"
+      : "#facc15";
+  const stateLabel = resolveAverageStateLabel(result.state, result.spec.shortLabel);
+  const detailsLabel = [
+    result.spec.description,
+    metricLine,
+    sourceLine,
+    `${result.availableBars}/${result.requiredBars} bougies`,
+    result.qualityLabel,
+    result.reason,
+  ].join("\n");
+
+  return (
+    <button
+      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel}, ${result.qualityLabel}`}
+      aria-pressed={optimisticActive}
+      className={`gp-price-vs-sma-card ${optimisticActive ? "active" : ""} is-${result.state}`}
+      onClick={handleToggle}
+      title={detailsLabel}
+      type="button"
+    >
+      <span className="gp-composite-indicator-check gp-price-vs-sma-check" aria-hidden="true">
+        {optimisticActive && <Check size={13} strokeWidth={3.4} />}
+      </span>
+      <span className="gp-price-vs-sma-copy">
+        <span className="gp-price-vs-sma-head">
+          <strong>{result.spec.label}</strong>
+          <span className="gp-ma-trend-state gp-price-vs-sma-state" style={{ color: meta.color, background: meta.background, borderColor: `${meta.color}33` }}>
+            {stateLabel}
+          </span>
+        </span>
+        <small>{result.spec.horizon}</small>
+        <span className="gp-price-vs-sma-value-row">
+          <span className="gp-price-vs-sma-value" style={{ color: meta.color }}>
+            {distanceLabel}
+          </span>
+          <span className="gp-price-vs-sma-status" style={{ color: statusColor }}>
+            {statusLabel}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+});
+PriceVsSmaMetricCard.displayName = "PriceVsSmaMetricCard";
+
+const PriceVsEmaMetricCard = React.memo(({
+  result,
+  isActive,
+  onToggle,
+}: {
+  result: PriceVsEmaMetricResult;
+  isActive: boolean;
+  onToggle: (id: PriceVsEmaMetricId, active: boolean) => void;
+}) => {
+  const meta = TREND_STATE_META[result.state];
+  const [optimisticActive, setOptimisticActive] = useState(isActive);
+  const optimisticActiveRef = useRef(isActive);
+
+  useEffect(() => {
+    optimisticActiveRef.current = isActive;
+    setOptimisticActive(isActive);
+  }, [isActive]);
+
+  const handleToggle = useCallback(() => {
+    const nextActive = !optimisticActiveRef.current;
+    optimisticActiveRef.current = nextActive;
+    setOptimisticActive(nextActive);
+    globalThis.setTimeout(() => onToggle(result.spec.id, nextActive), 16);
+  }, [onToggle, result.spec.id]);
+
+  const distanceLabel = result.distancePercent === null ? "N/D" : formatSignalPercent(result.distancePercent);
+  const metricLine = result.distancePercent === null
+    ? "Distance N/D"
+    : `Distance ${distanceLabel} vs ${result.spec.shortLabel}`;
+  const sourceLine = `Close ${formatSignalNumber(result.close)} · ${result.spec.shortLabel} ${formatSignalNumber(result.ema)}`;
+  const statusLabel = result.distancePercent === null
+    ? "N/D"
+    : result.isConfirmedBar
+      ? "CONFIRMÉ"
+      : "LIVE";
+  const statusColor = result.distancePercent === null
+    ? "#94a3b8"
+    : result.isConfirmedBar
+      ? "#00e676"
+      : "#facc15";
+  const stateLabel = resolveAverageStateLabel(result.state, result.spec.shortLabel);
+  const detailsLabel = [
+    result.spec.description,
+    metricLine,
+    sourceLine,
+    `${result.availableBars}/${result.requiredBars} bougies`,
+    result.qualityLabel,
+    result.reason,
+  ].join("\n");
+
+  return (
+    <button
+      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel}, ${result.qualityLabel}`}
+      aria-pressed={optimisticActive}
+      className={`gp-price-vs-sma-card gp-price-vs-ema-card ${optimisticActive ? "active" : ""} is-${result.state}`}
+      onClick={handleToggle}
+      title={detailsLabel}
+      type="button"
+    >
+      <span className="gp-composite-indicator-check gp-price-vs-sma-check" aria-hidden="true">
+        {optimisticActive && <Check size={13} strokeWidth={3.4} />}
+      </span>
+      <span className="gp-price-vs-sma-copy">
+        <span className="gp-price-vs-sma-head">
+          <strong>{result.spec.label}</strong>
+          <span className="gp-ma-trend-state gp-price-vs-sma-state" style={{ color: meta.color, background: meta.background, borderColor: `${meta.color}33` }}>
+            {stateLabel}
+          </span>
+        </span>
+        <small>{result.spec.horizon}</small>
+        <span className="gp-price-vs-sma-value-row">
+          <span className="gp-price-vs-sma-value" style={{ color: meta.color }}>
+            {distanceLabel}
+          </span>
+          <span className="gp-price-vs-sma-status" style={{ color: statusColor }}>
+            {statusLabel}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+});
+PriceVsEmaMetricCard.displayName = "PriceVsEmaMetricCard";
+
+const AdvancedMovingAverageCard = React.memo(({
+  spec,
+  isActive,
+  availableBars,
+  onToggle,
+}: {
+  spec: AdvancedMovingAverageSpec;
+  isActive: boolean;
+  availableBars: number;
+  onToggle: (id: AdvancedMovingAverageId, active: boolean) => void;
+}) => {
+  const [optimisticActive, setOptimisticActive] = useState(isActive);
+  const optimisticActiveRef = useRef(isActive);
+
+  useEffect(() => {
+    optimisticActiveRef.current = isActive;
+    setOptimisticActive(isActive);
+  }, [isActive]);
+
+  const handleToggle = useCallback(() => {
+    const nextActive = !optimisticActiveRef.current;
+    optimisticActiveRef.current = nextActive;
+    setOptimisticActive(nextActive);
+    globalThis.setTimeout(() => onToggle(spec.id, nextActive), 16);
+  }, [onToggle, spec.id]);
+
+  const isReady = availableBars >= spec.requiredBars;
+  const statusLabel = isReady ? "LIVE" : "N/D";
+  const statusColor = isReady ? "#facc15" : "#94a3b8";
+  const visibleSourceLabel = spec.family === "vwma" ? "Src: Close x Vol" : "Src: Close";
+  const sourceLabel = spec.family === "vwma" ? "Price source: Close · Weight: Volume" : "Price source: Close";
+  const detailsLabel = [
+    spec.description,
+    sourceLabel,
+    `Rendu: ligne overlay sur le graphique prix`,
+    `Lookback strict: ${spec.requiredBars} bougies`,
+    `${availableBars}/${spec.requiredBars} bougies disponibles`,
+  ].join("\n");
+
+  return (
+    <button
+      aria-label={`${spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${spec.horizon}, ${statusLabel}`}
+      aria-pressed={optimisticActive}
+      className={`gp-advanced-ma-card ${optimisticActive ? "active" : ""} is-${spec.family}`}
+      onClick={handleToggle}
+      title={detailsLabel}
+      type="button"
+    >
+      <span className="gp-composite-indicator-check gp-advanced-ma-check" aria-hidden="true">
+        {optimisticActive && <Check size={13} strokeWidth={3.4} />}
+      </span>
+      <span className="gp-advanced-ma-copy">
+        <span className="gp-advanced-ma-head">
+          <strong>{spec.label}</strong>
+          <span className="gp-advanced-ma-badge" style={{ color: spec.color, borderColor: `${spec.color}55`, background: `${spec.color}18` }}>
+            {spec.shortLabel}
+          </span>
+        </span>
+        <small>{spec.horizon}</small>
+        <span className="gp-advanced-ma-value-row">
+          <span className="gp-advanced-ma-source" style={{ color: spec.color }}>
+            {visibleSourceLabel}
+          </span>
+          <span className="gp-advanced-ma-status" style={{ color: statusColor }}>
+            {statusLabel}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+});
+AdvancedMovingAverageCard.displayName = "AdvancedMovingAverageCard";
+
 // ============================================================================
 // [TENOR 2026 HDR] BOLLINGER SETTINGS PANEL
 // ============================================================================
@@ -635,38 +1188,96 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
   const advancedIndicators = useSelector(selectAdvancedIndicators, shallowEqual);
-  const chartIndicators = useSelector((state: RootState) => selectChartConfig(state).indicators, shallowEqual);
+  const chartConfig = useSelector(selectChartConfig, shallowEqual);
+  const chartIndicators = chartConfig.indicators;
+  const advancedMovingAverages = useMemo<AdvancedMovingAverageActivationState>(() => ({
+    activeWma: chartIndicators.activeWma ?? [],
+    activeDema: chartIndicators.activeDema ?? [],
+    activeTema: chartIndicators.activeTema ?? [],
+    activeHma: chartIndicators.activeHma ?? [],
+    activeZlema: chartIndicators.activeZlema ?? [],
+    activeAlma: chartIndicators.activeAlma ?? [],
+    activeSmma: chartIndicators.activeSmma ?? [],
+    activeKama: chartIndicators.activeKama ?? [],
+    activeVwma: chartIndicators.activeVwma ?? [],
+  }), [
+    chartIndicators.activeAlma,
+    chartIndicators.activeDema,
+    chartIndicators.activeHma,
+    chartIndicators.activeKama,
+    chartIndicators.activeSmma,
+    chartIndicators.activeTema,
+    chartIndicators.activeVwma,
+    chartIndicators.activeWma,
+    chartIndicators.activeZlema
+  ]);
   const indicatorPeriods = useSelector(selectIndicatorPeriods, shallowEqual);
+  const rawMovingAverageTrendSignals = useSelector((state: RootState) => state.technicalAnalysis.ui.movingAverageTrendSignals, shallowEqual);
+  const movingAverageTrendSignals = useMemo(
+    () => normalizeMovingAverageTrendSignals(rawMovingAverageTrendSignals),
+    [rawMovingAverageTrendSignals],
+  );
+  const rawPriceVsSmaMetrics = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsSmaMetrics, shallowEqual);
+  const priceVsSmaMetrics = useMemo(
+    () => normalizePriceVsSmaMetrics(rawPriceVsSmaMetrics),
+    [rawPriceVsSmaMetrics],
+  );
+  const rawPriceVsEmaMetrics = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsEmaMetrics, shallowEqual);
+  const priceVsEmaMetrics = useMemo(
+    () => normalizePriceVsEmaMetrics(rawPriceVsEmaMetrics),
+    [rawPriceVsEmaMetrics],
+  );
+  const currentSymbol = (chartConfig.symbol || "BOAB").trim().toUpperCase();
+  const currentChartData = useSelector((state: RootState) => selectMarketData(state)[currentSymbol] ?? []);
+  const currentLiveSnapshot = useSelector((state: RootState) => selectMarketSnapshots(state)[currentSymbol] ?? null);
 
   const [indicatorSearch, setIndicatorSearch] = useState("");
   const deferredSearch = useDeferredValue(indicatorSearch);
 
-  const smaIndicators = useMemo(() => [
-    { key: "sma_5", period: indicatorPeriods.sma1, label: `SMA ${indicatorPeriods.sma1}`, color: "#45c3a1" },
-    { key: "sma_10", period: indicatorPeriods.sma2, label: `SMA ${indicatorPeriods.sma2}`, color: "#f06467" },
-    { key: "sma_20", period: indicatorPeriods.sma3, label: `SMA ${indicatorPeriods.sma3}`, color: "#FF9F04" },
-    { key: "sma_100", period: 100, label: "SMA 100", color: "#7dd3fc" },
-    { key: "sma_150", period: 150, label: "SMA 150", color: "#a78bfa" },
-    { key: "sma_50", period: 50, label: "SMA 50", color: "#2E93fA" },
-    { key: "sma_200", period: 200, label: "SMA 200", color: "#66DA26" },
-  ], [indicatorPeriods.sma1, indicatorPeriods.sma2, indicatorPeriods.sma3]);
+  const smaIndicators = useMemo(
+    () => buildSelectableSmaDefinitions(indicatorPeriods).map((definition) => ({
+      key: definition.id,
+      period: definition.period,
+      label: definition.label,
+      color: definition.color,
+    })),
+    [indicatorPeriods]
+  );
 
-  const emaIndicators = useMemo(() => [
-    { key: "ema_5", period: 5, label: "EMA 5", color: "#9C27B0" },
-    { key: "ema_9", period: 9, label: "EMA 9", color: "#c026d3" },
-    { key: "ema_12", period: 12, label: "EMA 12", color: "#f43f5e" },
-    { key: "ema_20", period: 20, label: "EMA 20", color: "#fb7185" },
-    { key: "ema_26", period: 26, label: "EMA 26", color: "#f97316" },
-    { key: "ema_50", period: 50, label: "EMA 50", color: "#facc15" },
-    { key: "ema_100", period: 100, label: "EMA 100", color: "#84cc16" },
-    { key: "ema_200", period: 200, label: "EMA 200", color: "#22c55e" },
-  ], []);
+  const emaIndicators = useMemo(
+    () => buildSelectableEmaDefinitions().map((definition) => ({
+      key: definition.id,
+      period: definition.period,
+      label: definition.label,
+      color: definition.color,
+    })),
+    []
+  );
 
-  const movingAverageTrendIndicators = useMemo<BackendIndicatorItem[]>(() => [
-    { key: "is_above_sma50", name: "Prix > SMA 50", desc: "État au-dessus SMA 50" },
-    { key: "is_above_sma200", name: "Prix > SMA 200", desc: "État au-dessus SMA 200" },
-    { key: "is_above_ema20", name: "Prix > EMA 20", desc: "État au-dessus EMA 20" },
-  ], []);
+  const movingAverageTrendSignalResults = useMemo(
+    () => calculateMovingAverageTrendSignals(currentChartData, currentLiveSnapshot),
+    [currentChartData, currentLiveSnapshot],
+  );
+  const movingAverageTrendSignalResultById = useMemo(
+    () => new Map(movingAverageTrendSignalResults.map((result) => [result.spec.id, result])),
+    [movingAverageTrendSignalResults],
+  );
+  const priceVsSmaMetricResults = useMemo(
+    () => calculatePriceVsSmaMetrics(currentChartData, currentLiveSnapshot, chartConfig.timeframe),
+    [chartConfig.timeframe, currentChartData, currentLiveSnapshot],
+  );
+  const priceVsSmaMetricResultById = useMemo(
+    () => new Map(priceVsSmaMetricResults.map((result) => [result.spec.id, result])),
+    [priceVsSmaMetricResults],
+  );
+  const priceVsEmaMetricResults = useMemo(
+    () => calculatePriceVsEmaMetrics(currentChartData, currentLiveSnapshot, chartConfig.timeframe),
+    [chartConfig.timeframe, currentChartData, currentLiveSnapshot],
+  );
+  const priceVsEmaMetricResultById = useMemo(
+    () => new Map(priceVsEmaMetricResults.map((result) => [result.spec.id, result])),
+    [priceVsEmaMetricResults],
+  );
 
   const backendIndicatorGroups = useMemo<BackendIndicatorGroup[]>(() => [
     {
@@ -757,56 +1368,56 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         {
           title: "Momentum prix",
           items: [
-            { key: "cci_14", name: "CCI 14", desc: "Commodity Channel Index", wiredId: "cci" },
-            { key: "cci_20", name: "CCI 20", desc: "CCI période 20" },
+            { key: "cci_14", name: "CCI 14", desc: "Plus réactif · HLC3", wiredId: "cci14" },
+            { key: "cci_20", name: "CCI 20", desc: "Plus lissé · HLC3", wiredId: "cci20" },
           ],
         },
         {
           title: "Momentum prix + volume",
           items: [
-            { key: "mfi_14", name: "MFI 14", desc: "Money Flow Index" },
+            { key: "mfi_14", name: "MFI 14", desc: "Pression achat/vente · Volume", wiredId: "mfi14" },
           ],
         },
         {
           title: "Oscillateur borné",
           items: [
-            { key: "williams_r", name: "Williams %R", desc: "Surachat / survente", wiredId: "williamsR" },
+            { key: "williams_r_14", name: "Williams %R 14", desc: "Surachat / survente · 0 à -100", wiredId: "williamsR14" },
           ],
         },
         {
           title: "Variation en pourcentage",
           items: [
-            { key: "roc_10", name: "ROC 10", desc: "Rate of Change", wiredId: "roc" },
-            { key: "roc_20", name: "ROC 20", desc: "Rate of Change long" },
+            { key: "roc_10", name: "ROC 10", desc: "Variation court terme en %", wiredId: "roc10" },
+            { key: "roc_20", name: "ROC 20", desc: "Variation longue en %", wiredId: "roc20" },
           ],
         },
         {
           title: "Momentum brut",
           items: [
-            { key: "momentum_10", name: "Momentum 10", desc: "Momentum court terme" },
-            { key: "momentum_20", name: "Momentum 20", desc: "Momentum long terme" },
+            { key: "momentum_10", name: "Momentum 10", desc: "Close - Close[10]", wiredId: "momentum10" },
+            { key: "momentum_20", name: "Momentum 20", desc: "Close - Close[20]", wiredId: "momentum20" },
           ],
         },
         {
           title: "Momentum pur",
           rowGrouping: "name-prefix",
           items: [
-            { key: "cmo_14", name: "CMO 14", desc: "Chande Momentum Oscillator" },
-            { key: "dymi", name: "DYMI", desc: "Dynamic Momentum Index" },
-            { key: "ultimate_osc", name: "Ultimate Osc", desc: "Ultimate Oscillator" },
+            { key: "cmo_14", name: "CMO 14", desc: "Chande · -100 à +100", wiredId: "cmo14" },
+            { key: "dymi", name: "DYMI", desc: "RSI dynamique · Volatilité", wiredId: "dymi" },
+            { key: "ultimate_osc", name: "Ultimate Osc", desc: "Pression achat 7 / 14 / 28", wiredId: "ultimateOsc" },
           ],
         },
         {
           title: "Cycle / Detrending",
           items: [
-            { key: "dpo_20", name: "DPO 20", desc: "Detrended Price Oscillator" },
+            { key: "dpo_20", name: "DPO 20", desc: "Cycle détrendé · shift -11", wiredId: "dpo20" },
           ],
         },
         {
           title: "Force + signal",
           rowGrouping: "name-prefix",
           items: [
-            { key: "tsi", name: "TSI", desc: "True Strength Index" },
+            { key: "tsi", name: "TSI", desc: "True Strength Index et ligne signal" },
             { key: "tsi_signal", name: "TSI Signal", desc: "Signal TSI" },
           ],
         },
@@ -814,8 +1425,8 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
           title: "Bill Williams",
           rowGrouping: "name-prefix",
           items: [
-            { key: "awesome_osc", name: "Awesome Osc", desc: "Awesome Oscillator" },
-            { key: "ac_osc", name: "AC Osc", desc: "Acceleration/Deceleration" },
+            { key: "awesome_osc", name: "Awesome Osc", desc: "SMA5(HL2) - SMA34(HL2)", wiredId: "awesomeOsc" },
+            { key: "ac_osc", name: "AC Osc", desc: "AO - SMA5(AO)", wiredId: "acOsc" },
           ],
         },
         {
@@ -826,9 +1437,9 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
             { key: "rvi_signal", name: "RVI Signal", desc: "Signal RVI" },
             { key: "fisher_transform", name: "Fisher", desc: "Fisher Transform" },
             { key: "fisher_transform_signal", name: "Fisher Signal", desc: "Signal Fisher" },
-            { key: "coppock_curve", name: "Coppock", desc: "Coppock Curve" },
-            { key: "elder_bull_power", name: "Elder Bull", desc: "Bull Power" },
-            { key: "elder_bear_power", name: "Elder Bear", desc: "Bear Power" },
+            { key: "elder_bull_power", name: "Elder Bull", desc: "High - EMA13" },
+            { key: "elder_bear_power", name: "Elder Bear", desc: "Low - EMA13" },
+            { key: "coppock_curve", name: "Coppock", desc: "WMA10(ROC11 + ROC14)", wiredId: "coppock" },
           ],
         },
       ],
@@ -841,7 +1452,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
           title: "Convergence / Divergence",
           rowGrouping: "name-prefix",
           items: [
-            { key: "macd_line", name: "MACD Line", desc: "Ligne MACD", wiredId: "macd" },
+            { key: "macd_line", name: "MACD Line", desc: "EMA12 - EMA26", wiredId: "macd" },
             { key: "macd_signal", name: "MACD Signal", desc: "Signal MACD" },
             { key: "macd_histogram", name: "MACD Histogram", desc: "Histogramme MACD" },
           ],
@@ -849,8 +1460,10 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         {
           title: "Oscillateurs dérivés",
           items: [
-            { key: "macd_ppo", name: "PPO", desc: "Percentage Price Oscillator" },
-            { key: "macd_apo", name: "APO", desc: "Absolute Price Oscillator" },
+            { key: "macd_ppo", name: "PPO Line", desc: "MACD normalisé %" },
+            { key: "macd_ppo_signal", name: "PPO Signal", desc: "EMA9 du PPO" },
+            { key: "macd_ppo_histogram", name: "PPO Histogram", desc: "PPO - Signal" },
+            { key: "macd_apo", name: "APO", desc: "MACD Line absolue", wiredId: "apo" },
           ],
         },
         {
@@ -878,10 +1491,10 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
           title: "ADX / Directional",
           rowGrouping: "name-prefix",
           items: [
-            { key: "adx", name: "ADX", desc: "Average Directional Index" },
-            { key: "adx_plus_di", name: "+DI", desc: "Directional Indicator positif" },
-            { key: "adx_minus_di", name: "-DI", desc: "Directional Indicator négatif" },
-            { key: "adx_trend_strength", name: "Trend Strength", desc: "Force de tendance" },
+            { key: "adx", name: "ADX", desc: "Force de tendance · Wilder 14" },
+            { key: "adx_plus_di", name: "+DI", desc: "Direction haussière" },
+            { key: "adx_minus_di", name: "-DI", desc: "Direction baissière" },
+            { key: "adx_trend_strength", name: "Trend Strength", desc: "Badge dérivé ADX" },
           ],
         },
         {
@@ -895,14 +1508,14 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         {
           title: "Aroon Oscillator",
           items: [
-            { key: "aroon_oscillator", name: "Aroon Osc", desc: "Oscillateur Aroon" },
+            { key: "aroon_oscillator", name: "Aroon Osc", desc: "Aroon Up - Aroon Down", wiredId: "aroonOsc" },
           ],
         },
         {
           title: "Overlay de tendance",
           rowGrouping: "name-prefix",
           items: [
-            { key: "supertrend", name: "Supertrend", desc: "Suivi de tendance" },
+            { key: "supertrend", name: "Supertrend", desc: "Overlay ATR 10 × 3" },
             { key: "supertrend_signal", name: "Supertrend Signal", desc: "Signal Supertrend" },
           ],
         },
@@ -917,9 +1530,9 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         {
           title: "Oscillateurs de tendance",
           items: [
-            { key: "trix", name: "TRIX", desc: "Triple exponential oscillator" },
-            { key: "stc", name: "STC", desc: "Schaff Trend Cycle" },
-            { key: "mass_index", name: "Mass Index", desc: "Mass Index" },
+            { key: "trix", name: "TRIX", desc: "Triple EMA ROC %", wiredId: "trix" },
+            { key: "stc", name: "STC", desc: "Schaff Trend Cycle", wiredId: "stc" },
+            { key: "mass_index", name: "Mass Index", desc: "Range expansion", wiredId: "massIndex" },
           ],
         },
         {
@@ -1377,12 +1990,20 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
   );
 
   const filteredMovingAverageTrendIndicators = useMemo(
-    () => movingAverageTrendIndicators.filter((item) =>
+    () => MOVING_AVERAGE_TREND_SIGNAL_SPECS.filter((item) =>
       matchesIndicatorSearch(
-        item.key, item.name, item.desc, "tendance moyenne mobile", "prix au-dessus moyenne mobile", "sma", "ema"
+        item.id,
+        item.label,
+        item.horizon,
+        item.description,
+        item.interpretation,
+        "tendance moyenne mobile",
+        "prix au-dessus moyenne mobile",
+        "sma",
+        "ema"
       )
     ),
-    [matchesIndicatorSearch, movingAverageTrendIndicators]
+    [matchesIndicatorSearch]
   );
 
   const filteredBackendIndicatorGroups = useMemo(
@@ -1416,23 +2037,92 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
   const visibleIndicatorCount = visibleMovingAverageCount + visibleBackendIndicatorCount;
   const hasVisibleMovingAverages = visibleMovingAverageCount > 0;
   const hasVisibleIndicators = visibleIndicatorCount > 0;
+  const activeTrendSignalCount = MOVING_AVERAGE_TREND_SIGNAL_SPECS.filter(
+    (spec) => movingAverageTrendSignals.active[spec.id]
+  ).length;
+  const areAllTrendSignalsActive = activeTrendSignalCount === MOVING_AVERAGE_TREND_SIGNAL_SPECS.length;
 
   // --- HANDLERS ---
   const handleToggleMA = useCallback((type: "sma" | "ema", period: number) => {
     const activeArray = type === "sma" ? chartIndicators.activeSma : chartIndicators.activeEma;
     const safeArray = activeArray || [];
     const newArray = safeArray.includes(period) ? safeArray.filter((p) => p !== period) : [...safeArray, period];
+    const normalizedArray = normalizeMovingAveragePeriods(newArray);
 
     dispatch(
       setChartConfig({
         indicators: {
           ...chartIndicators,
-          [type === "sma" ? "activeSma" : "activeEma"]: newArray,
-          [type]: newArray.length > 0 ? true : chartIndicators[type],
+          [type === "sma" ? "activeSma" : "activeEma"]: normalizedArray,
+          [type]: normalizedArray.length > 0 ? true : chartIndicators[type],
         },
       })
     );
   }, [chartIndicators, dispatch]);
+
+  const handleToggleMovingAverageTrendSignal = useCallback((id: MovingAverageTrendSignalId, active: boolean) => {
+    dispatch(setMovingAverageTrendSignal({ id, active }));
+    if (active || !movingAverageTrendSignals.showSourceAverages) return;
+
+    const hasRemainingActiveSignal = MOVING_AVERAGE_TREND_SIGNAL_SPECS.some(
+      (spec) => spec.id !== id && movingAverageTrendSignals.active[spec.id],
+    );
+    if (!hasRemainingActiveSignal) dispatch(setMovingAverageTrendSignalSourceAverages(false));
+  }, [dispatch, movingAverageTrendSignals.active, movingAverageTrendSignals.showSourceAverages]);
+
+  const handleToggleAllMovingAverageTrendSignals = useCallback(() => {
+    const shouldActivate = MOVING_AVERAGE_TREND_SIGNAL_SPECS.some((spec) => !movingAverageTrendSignals.active[spec.id]);
+    const patch = MOVING_AVERAGE_TREND_SIGNAL_SPECS.reduce<Partial<Record<MovingAverageTrendSignalId, boolean>>>(
+      (acc, spec) => {
+        acc[spec.id] = shouldActivate;
+        return acc;
+      },
+      {},
+    );
+
+    dispatch(setMovingAverageTrendSignals(patch));
+    if (!shouldActivate) dispatch(setMovingAverageTrendSignalSourceAverages(false));
+  }, [dispatch, movingAverageTrendSignals.active]);
+
+  const handleToggleTrendSignalSourceLines = useCallback((checked: boolean) => {
+    if (checked && activeTrendSignalCount === 0) {
+      const patch = MOVING_AVERAGE_TREND_SIGNAL_SPECS.reduce<Partial<Record<MovingAverageTrendSignalId, boolean>>>(
+        (acc, spec) => {
+          acc[spec.id] = true;
+          return acc;
+        },
+        {},
+      );
+      dispatch(setMovingAverageTrendSignals(patch));
+    }
+    dispatch(setMovingAverageTrendSignalSourceAverages(checked));
+  }, [activeTrendSignalCount, dispatch]);
+
+  const handleTogglePriceVsSmaMetric = useCallback((id: PriceVsSmaMetricId, active: boolean) => {
+    dispatch(setPriceVsSmaMetric({ id, active }));
+  }, [dispatch]);
+
+  const handleTogglePriceVsEmaMetric = useCallback((id: PriceVsEmaMetricId, active: boolean) => {
+    dispatch(setPriceVsEmaMetric({ id, active }));
+  }, [dispatch]);
+
+  const handleToggleAdvancedMovingAverage = useCallback((id: AdvancedMovingAverageId, active: boolean) => {
+    const next = toggleAdvancedMovingAverage(advancedMovingAverages, id, active);
+    dispatch(setChartConfig({
+      indicators: {
+        ...chartIndicators,
+        activeWma: next.activeWma,
+        activeDema: next.activeDema,
+        activeTema: next.activeTema,
+        activeHma: next.activeHma,
+        activeZlema: next.activeZlema,
+        activeAlma: next.activeAlma,
+        activeSmma: next.activeSmma,
+        activeKama: next.activeKama,
+        activeVwma: next.activeVwma,
+      },
+    }));
+  }, [advancedMovingAverages, chartIndicators, dispatch]);
 
   const warnBottomIndicatorLimit = useCallback(() => {
     addNotification({
@@ -1449,6 +2139,10 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
     if (!isBottomPanelIndicatorKey(normalizedId)) return true;
 
     if (advancedIndicators[normalizedId]) return true;
+    if (isCciMomentumKey(normalizedId) && hasActiveCciMomentumPanel(advancedIndicators)) return true;
+    if (isWilliamsRKey(normalizedId) && hasActiveWilliamsRPanel(advancedIndicators)) return true;
+    if (isRocMomentumKey(normalizedId) && hasActiveRocMomentumPanel(advancedIndicators)) return true;
+    if (isRawMomentumKey(normalizedId) && hasActiveRawMomentumPanel(advancedIndicators)) return true;
     const canActivate = countActiveBottomIndicators(advancedIndicators) < MAX_BOTTOM_INDICATORS;
     if (!canActivate) warnBottomIndicatorLimit();
     return canActivate;
@@ -1492,18 +2186,65 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
       }
       return true;
     }
+    if (id === "cci20") {
+      if (advancedIndicators.cci20 || advancedIndicators.cci) {
+        dispatch(setAdvancedIndicators({ cci: false, cci20: false }));
+      } else {
+        if (!canActivateBottomIndicator(id)) {
+          return false;
+        }
+        dispatch(setAdvancedIndicators({ cci: false, cci20: true }));
+      }
+      return true;
+    }
+    if (id === "williamsR14") {
+      if (advancedIndicators.williamsR14 || advancedIndicators.williamsR) {
+        dispatch(setAdvancedIndicators({ williamsR: false, williamsR14: false }));
+      } else {
+        if (!canActivateBottomIndicator(id)) {
+          return false;
+        }
+        dispatch(setAdvancedIndicators({ williamsR: false, williamsR14: true }));
+      }
+      return true;
+    }
+    if (id === "roc10") {
+      if (advancedIndicators.roc10 || advancedIndicators.roc) {
+        dispatch(setAdvancedIndicators({ roc: false, roc10: false }));
+      } else {
+        if (!canActivateBottomIndicator(id)) {
+          return false;
+        }
+        dispatch(setAdvancedIndicators({ roc: false, roc10: true }));
+      }
+      return true;
+    }
 
     if (!canActivateBottomIndicator(id)) {
       return false;
     }
     dispatch(toggleAdvancedIndicator(id as keyof AdvancedIndicatorsState));
     return true;
-  }, [canActivateBottomIndicator, dispatch, advancedIndicators.rsi, indicatorPeriods.rsiPeriod]);
+  }, [
+    advancedIndicators.cci,
+    advancedIndicators.cci20,
+    advancedIndicators.rsi,
+    advancedIndicators.roc,
+    advancedIndicators.roc10,
+    advancedIndicators.williamsR,
+    advancedIndicators.williamsR14,
+    canActivateBottomIndicator,
+    dispatch,
+    indicatorPeriods.rsiPeriod,
+  ]);
 
   const isIndicatorActive = useCallback((id: string) => {
     if (id === "rsi_9") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 9;
     if (id === "rsi_14") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 14;
     if (id === "rsi_25") return advancedIndicators.rsi && indicatorPeriods.rsiPeriod === 25;
+    if (id === "cci20") return advancedIndicators.cci20 || advancedIndicators.cci;
+    if (id === "williamsR14") return advancedIndicators.williamsR14 || advancedIndicators.williamsR;
+    if (id === "roc10") return advancedIndicators.roc10 || advancedIndicators.roc;
 
     // [TENOR 2026 FIX] SCAR-DATA-BINDING: Safe dynamic read for injected keys like stochRsi
     return isAdvancedIndicatorKey(id) ? advancedIndicators[id] : false;
@@ -1525,6 +2266,79 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
   }, []);
 
   const renderIndicatorSectionItems = useCallback((section: BackendIndicatorSection) => {
+    if (section.title === "Prix vs SMA") {
+      const visibleKeys = new Set(section.items.map((item) => item.key));
+      const visibleResults = PRICE_VS_SMA_METRIC_SPECS
+        .filter((spec) => visibleKeys.has(spec.id))
+        .map((spec) => priceVsSmaMetricResultById.get(spec.id))
+        .filter((result): result is PriceVsSmaMetricResult => result !== undefined);
+
+      return (
+        <div className="gp-price-vs-sma-section">
+          <div className="gp-price-vs-sma-grid">
+            {visibleResults.map((result) => (
+              <PriceVsSmaMetricCard
+                key={result.spec.id}
+                result={result}
+                isActive={priceVsSmaMetrics.active[result.spec.id]}
+                onToggle={handleTogglePriceVsSmaMetric}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (section.title === "Prix vs EMA") {
+      const visibleKeys = new Set(section.items.map((item) => item.key));
+      const visibleResults = PRICE_VS_EMA_METRIC_SPECS
+        .filter((spec) => visibleKeys.has(spec.id))
+        .map((spec) => priceVsEmaMetricResultById.get(spec.id))
+        .filter((result): result is PriceVsEmaMetricResult => result !== undefined);
+
+      return (
+        <div className="gp-price-vs-sma-section gp-price-vs-ema-section">
+          <div className="gp-price-vs-ema-grid">
+            {visibleResults.map((result) => (
+              <PriceVsEmaMetricCard
+                key={result.spec.id}
+                result={result}
+                isActive={priceVsEmaMetrics.active[result.spec.id]}
+                onToggle={handleTogglePriceVsEmaMetric}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (
+      section.title === "WMA / DEMA / TEMA" ||
+      section.title === "Réduction du retard" ||
+      section.title === "Lissage avancé" ||
+      section.title === "Adaptative" ||
+      section.title === "Pondérée volume"
+    ) {
+      const visibleKeys = new Set(section.items.map((item) => item.key));
+      const visibleSpecs = ADVANCED_MOVING_AVERAGE_SPECS.filter((spec) => visibleKeys.has(spec.id));
+
+      return (
+        <div className="gp-advanced-ma-section">
+          <div className="gp-advanced-ma-grid">
+            {visibleSpecs.map((spec) => (
+              <AdvancedMovingAverageCard
+                key={spec.id}
+                spec={spec}
+                isActive={isAdvancedMovingAverageActive(advancedMovingAverages, spec.id)}
+                availableBars={currentChartData.length}
+                onToggle={handleToggleAdvancedMovingAverage}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     const sectionCompositeSpecs = compositeIndicatorSpecs.filter((spec) =>
       spec.outputKeys.some((key) => section.items.some((item) => item.key === key))
     );
@@ -1616,7 +2430,21 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
         ))}
       </div>
     );
-  }, [canActivateBottomIndicator, getIndicatorSemanticGroup, handleToggleAdvanced, isIndicatorActive]);
+  }, [
+    canActivateBottomIndicator,
+    getIndicatorSemanticGroup,
+    handleToggleAdvanced,
+    handleToggleAdvancedMovingAverage,
+    handleTogglePriceVsEmaMetric,
+    handleTogglePriceVsSmaMetric,
+    isIndicatorActive,
+    advancedMovingAverages,
+    currentChartData.length,
+    priceVsEmaMetricResultById,
+    priceVsEmaMetrics.active,
+    priceVsSmaMetricResultById,
+    priceVsSmaMetrics.active,
+  ]);
 
   return (
     <BaseModal
@@ -1629,6 +2457,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
       secondaryLabel="Fermer"
       maxWidth="750px"
       className="gp-indicators-modal"
+      overlayClassName="gp-indicators-modal-overlay"
     >
       {/* [TENOR 2026 SRE] CSS CONTAINMENT FOR NATIVE SCROLL */}
       <div style={{ contain: 'content', transform: 'translateZ(0)', WebkitFontSmoothing: 'antialiased' }}>
@@ -1718,21 +2547,52 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({ isOpen, onClos
 
               {filteredMovingAverageTrendIndicators.length > 0 && (
                 <div className="gp-ma-group gp-ma-group-trend mt-3">
-                  <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
-                    <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Tendance moyenne mobile</span>
-                    <strong style={{ color: "#f8fafc", fontSize: "12px" }}>Prix vs Moyennes</strong>
+                  <div className="gp-ma-trend-header">
+                    <span className="gp-ma-group-kicker">Tendance moyenne mobile</span>
+                    <strong>Signaux</strong>
                   </div>
-                  <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0 mt-2">
-                    {filteredMovingAverageTrendIndicators.map((item) => (
-                      <IndicatorCard
-                        key={item.key}
-                        ind={item}
-                        isActive={!!item.wiredId && isIndicatorActive(item.wiredId as string)}
-                        isWired={!!item.wiredId}
-                        canToggle={canActivateBottomIndicator}
-                        onToggle={handleToggleAdvanced}
-                      />
-                    ))}
+                  <div className={`gp-composite-indicator gp-ma-trend-composite ${areAllTrendSignalsActive ? "active" : ""}`}>
+                    <div className="gp-ma-trend-parent-row">
+                      <div className="gp-composite-indicator-parent gp-ma-trend-parent">
+                        <span className="gp-composite-indicator-check gp-ma-trend-parent-check" aria-hidden="true">
+                          {areAllTrendSignalsActive && <Check size={13} strokeWidth={3.4} />}
+                        </span>
+                        <span className="gp-composite-indicator-copy gp-ma-trend-parent-copy">
+                          <strong>Prix vs Moyennes</strong>
+                          <small>État du prix par rapport aux moyennes de référence de la timeframe courante.</small>
+                        </span>
+                      </div>
+                      <button
+                        className={`gp-ma-trend-bulk-btn ${areAllTrendSignalsActive ? "is-active" : ""}`}
+                        onClick={handleToggleAllMovingAverageTrendSignals}
+                        type="button"
+                      >
+                        {areAllTrendSignalsActive ? "Tout désactiver" : "Tout activer"}
+                      </button>
+                    </div>
+                    <div className="gp-ma-trend-children">
+                      {filteredMovingAverageTrendIndicators.map((spec) => {
+                        const result = movingAverageTrendSignalResultById.get(spec.id);
+                        if (!result) return null;
+
+                        return (
+                          <MovingAverageTrendSignalCard
+                            key={spec.id}
+                            result={result}
+                            isActive={movingAverageTrendSignals.active[spec.id]}
+                            sourceLinesEnabled={movingAverageTrendSignals.showSourceAverages}
+                            onToggle={handleToggleMovingAverageTrendSignal}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="gp-ma-trend-secondary-row">
+                    <MovingAverageTrendSourceToggle
+                      activeCount={activeTrendSignalCount}
+                      checked={movingAverageTrendSignals.showSourceAverages}
+                      onToggle={handleToggleTrendSignalSourceLines}
+                    />
                   </div>
                 </div>
               )}

@@ -4,6 +4,7 @@ import type {
   MultiChartLayoutState,
   MultiChartLayoutSync,
 } from "./TechnicalAnalysisTypes";
+import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 
 export interface MultiChartLayoutDefinition {
   id: MultiChartLayoutId;
@@ -27,10 +28,10 @@ export const MULTI_CHART_STORAGE_KEY = "technical-analysis.multiChartLayout.v1";
 
 export const DEFAULT_MULTI_CHART_SYNC: MultiChartLayoutSync = {
   symbol: false,
-  interval: true,
+  interval: false,
   crosshair: false,
-  time: true,
-  dateRange: true,
+  time: false,
+  dateRange: false,
 };
 
 export const MULTI_CHART_LAYOUTS: MultiChartLayoutDefinition[] = [
@@ -121,7 +122,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     id: "multi_timeframe",
     name: "Analyse multi-timeframe",
     layoutId: "three_focus_right",
-    sync: { symbol: true, interval: false, crosshair: false, time: true, dateRange: true },
+    sync: { symbol: true, interval: false, crosshair: true, time: true, dateRange: true },
     symbols: [],
     intervals: ["1D", "1W", "1M"],
   },
@@ -129,7 +130,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     id: "symbol_vs_market",
     name: "Titre vs marché",
     layoutId: "two_horizontal",
-    sync: DEFAULT_MULTI_CHART_SYNC,
+    sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
     symbols: ["", "BRVMC"],
     intervals: ["1D", "1D"],
   },
@@ -137,7 +138,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     id: "sector_compare",
     name: "Comparaison secteur",
     layoutId: "four_grid",
-    sync: DEFAULT_MULTI_CHART_SYNC,
+    sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
     symbols: ["", "BOAC", "SGBC", "BRVMC"],
     intervals: ["1D", "1D", "1D", "1D"],
   },
@@ -145,7 +146,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     id: "market_monitor",
     name: "Market Monitor",
     layoutId: "six_grid",
-    sync: DEFAULT_MULTI_CHART_SYNC,
+    sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
     symbols: ["BRVMC", "SNTS", "BOAC", "SGBC", "ETIT", "SPHC"],
     intervals: ["1D", "1D", "1D", "1D", "1D", "1D"],
   },
@@ -174,6 +175,69 @@ export const getLayoutDefinition = (layoutId: MultiChartLayoutId): MultiChartLay
   MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId) ?? MULTI_CHART_LAYOUTS[0];
 
 export const normalizeLayoutSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+
+export const resolveSectorCompareSymbols = (primarySymbol: string): string[] => {
+  const primary = normalizeLayoutSymbol(primarySymbol) || "BOAB";
+  const security = BRVM_SECURITIES.find((s) => s.ticker === primary);
+  if (!security) return [primary, "BOAC", "SGBC", "BRVMC"];
+
+  const sector = security.sector;
+  if (sector === "Market Indices" || sector === "Delisted" || sector === "Other") {
+    // Fallback par défaut sur les banques majeures et l'indice composite
+    return [primary, "BOAC", "SGBC", "BRVMC"];
+  }
+
+  // Trouver les homologues du même secteur
+  const peers = BRVM_SECURITIES.filter(
+    (s) => s.sector === sector && s.ticker !== primary && s.status !== "delisted"
+  );
+
+  // Trier par capitalisation décroissante pour prendre les leaders
+  peers.sort((a, b) => b.marketCap - a.marketCap);
+
+  const result: string[] = [primary];
+  if (peers[0]) result.push(peers[0].ticker);
+  if (peers[1]) result.push(peers[1].ticker);
+
+  // Compléter avec des fallbacks robustes si secteur trop étroit
+  if (result.length < 2) result.push("BOAC");
+  if (result.length < 3) result.push("SGBC");
+
+  // Ajouter l'indice benchmark BRVMC
+  result.push("BRVMC");
+
+  return result;
+};
+
+export const resolveMarketMonitorSymbols = (): string[] => {
+  const sectors: Array<"Telecom" | "Banking" | "Energy" | "Industry" | "Distribution"> = [
+    "Telecom",
+    "Banking",
+    "Energy",
+    "Industry",
+    "Distribution",
+  ];
+
+  const result: string[] = ["BRVMC"];
+
+  sectors.forEach((sector) => {
+    const topStock = BRVM_SECURITIES
+      .filter((s) => s.sector === sector && s.status !== "delisted")
+      .sort((a, b) => b.marketCap - a.marketCap)[0];
+
+    if (topStock) {
+      result.push(topStock.ticker);
+    } else {
+      if (sector === "Telecom") result.push("SNTS");
+      else if (sector === "Banking") result.push("SGBC");
+      else if (sector === "Energy") result.push("TTLC");
+      else if (sector === "Industry") result.push("PALC");
+      else if (sector === "Distribution") result.push("CFAC");
+    }
+  });
+
+  return result;
+};
 
 export const isDenseMultiChartLayout = (layoutId: MultiChartLayoutId): boolean =>
   getLayoutDefinition(layoutId).chartCount >= 8;
@@ -259,7 +323,9 @@ export const reconcileMultiChartLayout = (
     layoutId,
     name: definition.name,
     isEnabled: definition.chartCount > 1,
-    sync: isDenseMultiChartLayout(layoutId) ? { ...current.sync, symbol: false, crosshair: false } : { ...current.sync, crosshair: false },
+    sync: isDenseMultiChartLayout(layoutId)
+      ? { ...current.sync, symbol: false, crosshair: false }
+      : { ...current.sync },
     charts: charts.map((chart) => ({ ...chart, isActive: chart.chartId === activeChartId })),
     activeChartId,
   };
@@ -267,7 +333,13 @@ export const reconcileMultiChartLayout = (
 
 export const createPresetLayout = (preset: MultiChartPreset, primarySymbol: string): MultiChartLayoutState => {
   const definition = getLayoutDefinition(preset.layoutId);
-  const symbols = preset.symbols.map((symbol) => symbol || primarySymbol);
+  const symbols = preset.id === "sector_compare"
+    ? resolveSectorCompareSymbols(primarySymbol)
+    : preset.id === "market_monitor"
+      ? resolveMarketMonitorSymbols()
+      : preset.symbols.length > 0
+        ? preset.symbols.map((symbol) => symbol || primarySymbol)
+        : Array(definition.chartCount).fill(primarySymbol);
   const charts = createLayoutCells(preset.layoutId, primarySymbol, [], [], preset.intervals, symbols);
   return {
     layoutId: preset.layoutId,

@@ -17,4 +17,8 @@ Before changing any chart, compare, indicator, alert, data window, broker, or ma
 
 > Can a user put money behind this value, and can we prove it is true?
 
+> la doctrine de ce projet veut cohérence et preuve !!!
+
+> {Franchement, cette mini-controverse était saine : elle a forcé à vérifier la convention réelle au lieu de coder “à l’instinct”. C’est exactement le genre de garde-fou qu’il faut sur une surface financière.}
+
 If the answer is not clearly yes, the work is incomplete.

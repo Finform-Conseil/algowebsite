@@ -14,7 +14,7 @@
  * 
  * ACTIVATION :
  * - Seulement si mode === "real" (jamais en DEMO/SANDBOX)
- * - Seulement pendant les heures de marché BRVM (09:00-15:30 UTC)
+ * - Seulement pendant les heures de marché BRVM régulières
  * - Seulement pour les timeframes intraday : 1m, 5m, 15m, 1H, 4H
  * 
  * RETOUR :
@@ -25,6 +25,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
+import { getBrvmMarketStatus } from "../../utils/brvmMarketSession";
 
 // Timeframes qui déclenchent ce hook
 const INTRADAY_TIMEFRAMES = new Set(["1m", "5m", "15m", "1H", "4H"]);
@@ -34,16 +35,8 @@ const COLLECT_INTERVAL_MS = 60 * 1000; // 1 minute
 // Fréquence de lecture des bougies agrégées
 const FETCH_INTERVAL_MS = 60 * 1000; // 1 minute
 
-// Heures de marché BRVM en UTC
-const MARKET_OPEN_UTC_HOUR = 9; // 09:00 UTC
-const MARKET_CLOSE_UTC_HOUR = 15; // 15:00 UTC (fermeture stricte)
-
 function isMarketOpen(): boolean {
-    const now = new Date();
-    const day = now.getUTCDay(); // 0=dim, 6=sam
-    if (day === 0 || day === 6) return false;
-    const hour = now.getUTCHours();
-    return hour >= MARKET_OPEN_UTC_HOUR && hour < MARKET_CLOSE_UTC_HOUR;
+    return getBrvmMarketStatus().isOpen;
 }
 
 interface UseIntradayDataOptions {

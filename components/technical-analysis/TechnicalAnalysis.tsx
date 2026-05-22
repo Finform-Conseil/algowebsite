@@ -28,12 +28,14 @@ import {
   AxisPointerComponent,
   TitleComponent,
   LegendComponent,
+  MarkPointComponent,
   TimelineComponent,
 } from "echarts/components";
 import clsx from "clsx";
 
 // Contexts & UI (Imports Absolus pour garantir la résolution)
 import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 
 
 // Redux
@@ -48,15 +50,25 @@ import {
   removeComparisonSymbol,
   clearComparisonSymbols,
   setActiveLayoutChart,
+  setEditChartTarget,
   setTimeRange,
   setModalOpen,
   setPrefilledAlert,
   selectBollingerSettings,
+  setSymbol,
+  updateLayoutChart,
 } from "@/components/technical-analysis/store/technicalAnalysisSlice";
 import type { RootState } from "@/core/infrastructure/store";
 
 import toolbarConfig from "@/components/technical-analysis/toolbar-config-antigravity.json";
-import { getCompareSeriesColor } from "@/components/technical-analysis/config/compareSeries";
+import {
+  getCompareSeriesColor,
+  normalizeCompareSymbol,
+  resolveCompareSeriesSettings,
+} from "@/components/technical-analysis/config/compareSeries";
+import { normalizeMovingAverageTrendSignals } from "@/components/technical-analysis/config/movingAverageSeries";
+import { normalizePriceVsSmaMetrics } from "@/components/technical-analysis/config/priceVsSmaMetrics";
+import { normalizePriceVsEmaMetrics } from "@/components/technical-analysis/config/priceVsEmaMetrics";
 import { Drawing, ToolbarConfig, DisplaySecurity } from "@/components/technical-analysis/config/TechnicalAnalysisTypes";
 
 // Extracted Components
@@ -84,9 +96,11 @@ import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObj
 import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/TimeAxisControls/TimeAxisControls";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
 import { ObjectTreePanel } from "@/components/technical-analysis/components/modals/ObjectTreePanel";
+import { CompareSeriesSettingsModal } from "@/components/technical-analysis/components/modals/CompareSeriesSettingsModal";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { usePriceAxisMenu, formatPriceAxisLabel } from "@/components/technical-analysis/hooks/usePriceAxisMenu";
 import { BrokerContext, ChartRefsContext, ChartStateContext, CurrencyContext, DrawingContext, MarketDataContext, TechnicalAnalysisProviderTree } from "./context/TechnicalAnalysisProviders";
+import { getBrvmPriceAxisCountdown } from "./utils/brvmMarketSession";
 
 // Register ECharts modules
 echarts.use([
@@ -101,6 +115,7 @@ echarts.use([
   AxisPointerComponent,
   TitleComponent,
   LegendComponent,
+  MarkPointComponent,
   TimelineComponent,
   PieChart,
 ]);
@@ -177,11 +192,42 @@ const MemoizedTradeHUD = React.memo(({ convertedLivePrice, setIsBrokerModalOpen 
 });
 MemoizedTradeHUD.displayName = "MemoizedTradeHUD";
 
-const formatPriceAxisTimeLabel = (value?: string | number | null): string => {
-  if (!value) return "--:--:--";
+const isDailyOrHigherTimeframe = (timeframe?: string | null): boolean => {
+  const value = timeframe?.trim();
+  if (!value) return true;
+
+  const unit = value.slice(-1);
+  if (unit === "m" || unit === "s" || unit === "h" || unit === "H") return false;
+  return unit === "D" || unit === "d" || unit === "W" || unit === "w" || unit === "M" || unit === "Y" || unit === "y";
+};
+
+const formatPriceAxisTimeLabel = (
+  value?: string | number | null,
+  options: { timeframe?: string | null } = {}
+): string => {
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "--:--:--";
+  if (Number.isNaN(date.getTime())) return "—";
+
+  if (isDailyOrHigherTimeframe(options.timeframe)) {
+    return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  }
+
   return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+};
+
+const formatPriceAxisFreshnessLabel = (value?: string | number | null): string | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const createUiId = (): string => {
@@ -336,8 +382,50 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
     refs.cursorPriceActionRef
   );
 
+  const [priceAxisClockNow, setPriceAxisClockNow] = useState<number | null>(null);
 
-  const lastPriceTimeLabel = useMemo(() => formatPriceAxisTimeLabel(lastCandleTime), [lastCandleTime]);
+  useEffect(() => {
+    const syncClock = () => setPriceAxisClockNow(Date.now());
+    const intervalId = window.setInterval(syncClock, 1000);
+    document.addEventListener("visibilitychange", syncClock);
+    syncClock();
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", syncClock);
+    };
+  }, []);
+
+  const lastPriceTimeSource = lastCandleTime ?? activeLiveSnapshot?.lastUpdate;
+  const priceAxisCountdown = useMemo(
+    () => priceAxisClockNow === null ? null : getBrvmPriceAxisCountdown(chartConfig.timeframe, priceAxisClockNow),
+    [chartConfig.timeframe, priceAxisClockNow]
+  );
+  const lastPriceTimeLabel = useMemo(
+    () => priceAxisClockNow === null ? "--:--:--" : priceAxisCountdown?.label ?? formatPriceAxisTimeLabel(lastPriceTimeSource, {
+      timeframe: chartConfig.timeframe,
+    }),
+    [chartConfig.timeframe, lastPriceTimeSource, priceAxisClockNow, priceAxisCountdown?.label]
+  );
+  const lastPriceAccessibleLabel = useMemo(() => {
+    const updateLabel = formatPriceAxisFreshnessLabel(activeLiveSnapshot?.lastUpdate);
+    const parts = [
+      `${chartState.displaySymbolName}`,
+      `dernier prix ${formatPriceAxisLabel(convertedLastCandleClose)}`,
+      priceAxisClockNow === null
+        ? "horloge marché en initialisation"
+        : priceAxisCountdown ? `${priceAxisCountdown.accessibilityLabel} ${lastPriceTimeLabel}` : `bougie ${lastPriceTimeLabel}`,
+    ];
+    if (updateLabel) parts.push(`dernière donnée reçue ${updateLabel}`);
+    return parts.join(", ");
+  }, [
+    activeLiveSnapshot?.lastUpdate,
+    chartState.displaySymbolName,
+    convertedLastCandleClose,
+    lastPriceTimeLabel,
+    priceAxisClockNow,
+    priceAxisCountdown,
+  ]);
 
   const handlePriceAxisAction = useCallback(
     (actionId: PriceAxisActionId) => {
@@ -429,6 +517,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
       displaySymbolName={chartState.displaySymbolName}
       convertedLivePrice={convertedLastCandleClose}
       lastPriceTimeLabel={lastPriceTimeLabel}
+      lastPriceAccessibleLabel={lastPriceAccessibleLabel}
       isLastPricePositive={isLastPricePositive}
       cursorPriceBadgeRef={refs.cursorPriceBadgeRef}
       cursorPriceTextRef={refs.cursorPriceTextRef}
@@ -458,8 +547,60 @@ const ChartUI: React.FC = () => {
   const currencyState = useContext(CurrencyContext)!;
   const brokerState = useContext(BrokerContext);
 
-  const { openModal: openTickerSelector, selectedTicker: primaryTicker } = useTickerSelector();
+  const { openModal: openTickerSelector, selectedTicker: primaryTicker, setSelectedTicker } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
+
+  // ============================================================================
+  // [TENOR 2026] BIDIRECTIONAL TICKER & REDUX SYNC ENGINE (LOOP-FREE SHIELD)
+  // ============================================================================
+  const reduxSymbol = useSelector((state: RootState) => state.technicalAnalysis.chartConfig.symbol);
+  const activeChartId = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout.activeChartId);
+
+  const prevReduxSymbol = React.useRef<string>("");
+  const prevContextSymbol = React.useRef<string>("");
+
+  useEffect(() => {
+    const contextSymbol = primaryTicker?.ticker || "";
+
+    // On mount, initialize the refs to avoid initial synchronization noise
+    if (!prevReduxSymbol.current && !prevContextSymbol.current) {
+      prevReduxSymbol.current = reduxSymbol;
+      prevContextSymbol.current = contextSymbol;
+      return;
+    }
+
+    const reduxChanged = reduxSymbol !== prevReduxSymbol.current;
+    const contextChanged = contextSymbol !== prevContextSymbol.current;
+
+    if (reduxChanged && reduxSymbol) {
+      // Redux is the initiator (e.g. user clicked a secondary chart cell or preset)
+      prevReduxSymbol.current = reduxSymbol;
+      if (reduxSymbol !== contextSymbol) {
+        prevContextSymbol.current = reduxSymbol; // speculative sync to prevent feedback loop
+        const targetSec = BRVM_SECURITIES.find((s) => s.ticker === reduxSymbol);
+        if (targetSec) {
+          setSelectedTicker(targetSec);
+        }
+      }
+    } else if (contextChanged && contextSymbol) {
+      // Context is the initiator (e.g. user searched a ticker in the search modal)
+      prevContextSymbol.current = contextSymbol;
+      if (contextSymbol !== reduxSymbol) {
+        prevReduxSymbol.current = contextSymbol; // speculative sync to prevent feedback loop
+        if (activeChartId) {
+          dispatch(updateLayoutChart({ chartId: activeChartId, symbol: contextSymbol }));
+        } else {
+          dispatch(setSymbol(contextSymbol));
+        }
+      }
+    }
+
+    // Always balance refs when they are fully synced
+    if (reduxSymbol === contextSymbol) {
+      prevReduxSymbol.current = reduxSymbol;
+      prevContextSymbol.current = contextSymbol;
+    }
+  }, [reduxSymbol, primaryTicker, activeChartId, dispatch, setSelectedTicker]);
 
   const {
     activeTool,
@@ -492,6 +633,27 @@ const ChartUI: React.FC = () => {
   const isZenMode = useSelector((state: RootState) => state.technicalAnalysis.ui.isZenMode);
   const cursorMode = useSelector((state: RootState) => state.technicalAnalysis.ui.cursorMode);
   const comparisonSymbols = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSymbols, shallowEqual);
+  const comparisonSettings = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSettings, shallowEqual);
+  const movingAverageTrendSignals = useSelector(
+    (state: RootState) => state.technicalAnalysis.ui.movingAverageTrendSignals,
+    shallowEqual,
+  );
+  const priceVsSmaMetrics = useSelector(
+    (state: RootState) => state.technicalAnalysis.ui.priceVsSmaMetrics,
+    shallowEqual,
+  );
+  const normalizedPriceVsSmaMetrics = useMemo(
+    () => normalizePriceVsSmaMetrics(priceVsSmaMetrics),
+    [priceVsSmaMetrics],
+  );
+  const priceVsEmaMetrics = useSelector(
+    (state: RootState) => state.technicalAnalysis.ui.priceVsEmaMetrics,
+    shallowEqual,
+  );
+  const normalizedPriceVsEmaMetrics = useMemo(
+    () => normalizePriceVsEmaMetrics(priceVsEmaMetrics),
+    [priceVsEmaMetrics],
+  );
   const multiChartLayout = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout, shallowEqual);
   const comparisonMarketData = useSelector(selectMarketData, shallowEqual);
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
@@ -499,6 +661,7 @@ const ChartUI: React.FC = () => {
   const dataMode = useSelector(selectDataMode);
 
   const [showReplayFullText, setShowReplayFullText] = useState(false);
+  const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
 
   const { handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions(marketData.setChartData);
 
@@ -689,6 +852,20 @@ const ChartUI: React.FC = () => {
 
   const comparisonLoadState = useComparisonManager(dataRequestSymbols, dataMode);
 
+  const mergedMarketData = useMemo(() => {
+    return {
+      ...comparisonMarketData,
+      [chartConfig.symbol]: chartState.displayChartData,
+    };
+  }, [comparisonMarketData, chartConfig.symbol, chartState.displayChartData]);
+
+  const mergedLoadState = useMemo(() => {
+    return {
+      ...comparisonLoadState,
+      [chartConfig.symbol]: "loaded" as const,
+    };
+  }, [comparisonLoadState, chartConfig.symbol]);
+
   const {
     activeToolbarPopup,
     setActiveToolbarPopup,
@@ -736,6 +913,10 @@ const ChartUI: React.FC = () => {
       isCapturing: false,
       dataMode,
       comparisonSymbols,
+      comparisonSettings,
+      movingAverageTrendSignals: normalizeMovingAverageTrendSignals(movingAverageTrendSignals),
+      priceVsSmaMetrics: normalizedPriceVsSmaMetrics,
+      priceVsEmaMetrics: normalizedPriceVsEmaMetrics,
       multiChartLayout,
       searchMode: "replace" as const,
       modals: {} as any,
@@ -743,23 +924,75 @@ const ChartUI: React.FC = () => {
       isLockedAll: false,
       areDrawingsHidden: false,
     }),
-    [isZenMode, cursorMode, selectedTimeRange, dataMode, comparisonSymbols, multiChartLayout, replayState]
+    [
+      isZenMode,
+      cursorMode,
+      selectedTimeRange,
+      dataMode,
+      comparisonSymbols,
+      comparisonSettings,
+      movingAverageTrendSignals,
+      normalizedPriceVsSmaMetrics,
+      normalizedPriceVsEmaMetrics,
+      multiChartLayout,
+      replayState,
+    ]
   );
 
   const comparisonSeries = useMemo(
     () =>
       (comparisonSymbols || [])
-        .map((symbol) => ({ symbol, data: comparisonMarketData[symbol] ?? [] }))
+        .map((symbol, index) => ({
+          symbol,
+          data: comparisonMarketData[symbol] ?? [],
+          settings: resolveCompareSeriesSettings(symbol, index, comparisonSettings),
+        }))
         .filter((entry) => entry.symbol.length > 0 && entry.data.length > 0),
-    [comparisonMarketData, comparisonSymbols]
+    [comparisonMarketData, comparisonSettings, comparisonSymbols]
   );
 
   const chartInteractionScopeKey = `${multiChartLayout.layoutId}:${multiChartLayout.activeChartId}`;
 
   const [hiddenObjectIds, setHiddenObjectIds] = useState<Record<string, boolean>>({});
 
+  const openCompareSettings = useCallback((symbol: string) => {
+    const normalized = normalizeCompareSymbol(symbol);
+    if (normalized) setCompareSettingsSymbol(normalized);
+  }, []);
+
+  const closeCompareSettings = useCallback(() => {
+    setCompareSettingsSymbol(null);
+  }, []);
+
+  useEffect(() => {
+    if (compareSettingsSymbol && !comparisonSymbols.includes(compareSettingsSymbol)) {
+      setCompareSettingsSymbol(null);
+    }
+  }, [compareSettingsSymbol, comparisonSymbols]);
+
+  const compareSettingsIndex = compareSettingsSymbol ? comparisonSymbols.indexOf(compareSettingsSymbol) : -1;
+  const compareSettingsFallbackColor = getCompareSeriesColor(compareSettingsIndex >= 0 ? compareSettingsIndex : 0);
+  const selectedCompareSettings = compareSettingsSymbol
+    ? resolveCompareSeriesSettings(
+        compareSettingsSymbol,
+        compareSettingsIndex >= 0 ? compareSettingsIndex : 0,
+        comparisonSettings,
+      )
+    : undefined;
+
   const handleActivateLayoutChart = useCallback(
     (chartId: string) => dispatch(setActiveLayoutChart(chartId)),
+    [dispatch]
+  );
+
+  // [SCAR-MULTICHART-HEADER-CONTAMINATION FIX]
+  // Utilisé UNIQUEMENT quand l'utilisateur clique le HEADER d'un chart secondaire pour changer son ticker.
+  // Contrairement à handleActivateLayoutChart (setActiveLayoutChart qui écrit chartConfig.symbol),
+  // handleEditLayoutChart utilise setEditChartTarget qui UNIQUEMENT route activeChartId —
+  // sans écraser chartConfig.symbol, donc le moteur de sync bidirectionnel ne propage pas
+  // le symbole du chart secondaire vers le TickerSelectorContext (plus de contamination BOABF→BOAB).
+  const handleEditLayoutChart = useCallback(
+    (chartId: string) => dispatch(setEditChartTarget(chartId)),
     [dispatch]
   );
 
@@ -872,6 +1105,7 @@ const ChartUI: React.FC = () => {
     lastPriceAxisValue: lightweightLastPrice,
     isMainChartVisible: chartState.isMainChartVisible,
     comparisonSeries,
+    onCompareSeriesSettingsRequest: openCompareSettings,
     hiddenObjectIds,
   });
 
@@ -916,6 +1150,43 @@ const ChartUI: React.FC = () => {
     if (!refs.mainContainerRef.current) return;
     animate(refs.mainContainerRef.current, { opacity: [0.95, 1] }, { duration: 0.15, ease: "easeOut" });
   }, [refs.mainContainerRef]);
+
+  useLayoutEffect(() => {
+    const root = refs.mainContainerRef.current;
+    const chartFrame = refs.chartViewWrapperRef.current;
+    if (!root || !chartFrame) return;
+
+    let rafId = 0;
+    const syncModalBounds = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const rect = chartFrame.getBoundingClientRect();
+        root.style.setProperty("--gp-chart-modal-top", `${Math.max(0, rect.top)}px`);
+        root.style.setProperty("--gp-chart-modal-bottom", `${Math.max(0, window.innerHeight - rect.bottom)}px`);
+      });
+    };
+
+    syncModalBounds();
+    const resizeObserver = new ResizeObserver(syncModalBounds);
+    resizeObserver.observe(root);
+    resizeObserver.observe(chartFrame);
+    window.addEventListener("resize", syncModalBounds);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", syncModalBounds);
+      root.style.removeProperty("--gp-chart-modal-top");
+      root.style.removeProperty("--gp-chart-modal-bottom");
+    };
+  }, [
+    refs.mainContainerRef,
+    refs.chartViewWrapperRef,
+    comparisonSymbols.length,
+    isObjectTreeOpen,
+    isZenMode,
+    multiChartLayout.layoutId,
+  ]);
 
   useLayoutEffect(() => {
     const sidebar = refs.sidebarRef.current;
@@ -1013,48 +1284,48 @@ const ChartUI: React.FC = () => {
           />
 
           {comparisonSymbols.length > 0 && (
-            <div className="d-flex align-items-center gap-2 px-3 py-1" style={{ background: "rgba(11,24,39,0.55)" }}>
-              <span style={{ color: "#9aa4b2", fontSize: "12px" }}>Compare %</span>
+            <div className="gp-compare-strip">
+              <span className="gp-compare-strip__label">Compare %</span>
               {comparisonSymbols.map((symbol, index) => {
-                const compareColor = getCompareSeriesColor(index);
+                const compareSettings = resolveCompareSeriesSettings(symbol, index, comparisonSettings);
+                const compareColor = compareSettings.color;
                 return (
-                <button
-                  key={symbol}
-                  className="btn btn-sm"
-                  onClick={() => dispatch(removeComparisonSymbol(symbol))}
-                  title={`Retirer ${symbol}`}
-                  style={{
-                    alignItems: "center",
-                    background: `${compareColor}1f`,
-                    border: `1px solid ${compareColor}`,
-                    borderRadius: "6px",
-                    color: "#ffffff",
-                    display: "inline-flex",
-                    fontWeight: 700,
-                    gap: "6px",
-                    minHeight: "32px",
-                    padding: "4px 12px",
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      background: compareColor,
-                      borderRadius: "3px",
-                      display: "inline-block",
-                      height: "10px",
-                      width: "10px",
-                    }}
-                  />
-                  {symbol} ×
-                </button>
+                  <div
+                    key={symbol}
+                    className="gp-compare-strip__chip"
+                    style={{ "--compare-color": compareColor } as React.CSSProperties}
+                  >
+                    <button
+                      type="button"
+                      className="gp-compare-strip__open"
+                      onClick={() => openCompareSettings(symbol)}
+                      title={`Modifier ${symbol}`}
+                    >
+                      <span className="gp-compare-strip__swatch" aria-hidden="true" />
+                      <span className="gp-compare-strip__symbol">{symbol}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="gp-compare-strip__remove"
+                      aria-label={`Retirer ${symbol}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        dispatch(removeComparisonSymbol(symbol));
+                      }}
+                    >
+                      <i className="bi bi-x" aria-hidden="true" />
+                    </button>
+                  </div>
                 );
               })}
               <button
-                className="btn btn-sm btn-outline-warning"
+                type="button"
+                className="gp-compare-strip__clear"
                 onClick={() => dispatch(clearComparisonSymbols())}
                 title="Effacer toutes les comparaisons"
+                aria-label="Effacer toutes les comparaisons"
               >
+                <i className="bi bi-trash3" aria-hidden="true" />
                 Clear
               </button>
             </div>
@@ -1094,14 +1365,17 @@ const ChartUI: React.FC = () => {
 
                   <MultiChartLayoutGrid
                     layout={multiChartLayout}
-                    marketData={comparisonMarketData}
-                    dataLoadState={comparisonLoadState}
+                    marketData={mergedMarketData}
+                    dataLoadState={mergedLoadState}
                     dataMode={dataMode}
                     activeChartInstanceRef={refs.chartInstanceRef}
                     activeChartData={chartState.displayChartData}
                     activeSymbol={chartConfig.symbol}
                     activeInterval={chartConfig.timeframe}
+                    chartAppearance={chartAppearance}
                     onActivateChart={handleActivateLayoutChart}
+                    onEditChart={handleEditLayoutChart}
+                    openTickerSelector={openTickerSelector}
                   >
                     <div
                       key={chartInteractionScopeKey}
@@ -1348,6 +1622,14 @@ const ChartUI: React.FC = () => {
         updateDrawing={updateDrawing}
         startReplay={marketData.startReplay}
         setChartData={marketData.setChartData}
+      />
+      <CompareSeriesSettingsModal
+        isOpen={Boolean(compareSettingsSymbol)}
+        symbol={compareSettingsSymbol}
+        primarySymbol={chartConfig.symbol || chartState.displaySymbolName}
+        fallbackColor={compareSettingsFallbackColor}
+        settings={selectedCompareSettings}
+        onClose={closeCompareSettings}
       />
     </div>
   );

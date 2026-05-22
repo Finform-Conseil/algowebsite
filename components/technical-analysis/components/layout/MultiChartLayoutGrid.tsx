@@ -1,22 +1,57 @@
 "use client";
 
-import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import * as echarts from "echarts/core";
-import type { EChartsCoreOption } from "echarts/core";
-import type { MultiChartLayoutCell, MultiChartLayoutState } from "../../config/TechnicalAnalysisTypes";
+import type { ChartAppearance, MultiChartLayoutCell, MultiChartLayoutState } from "../../config/TechnicalAnalysisTypes";
 import { getLayoutDefinition } from "../../config/multiChartLayout";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../lib/types/echarts";
-import type { ComparisonLoadState, ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
+import type { ComparisonLoadState } from "../../hooks/MarketData/useMarketData";
 import {
-  MULTI_CHART_MINI_DATA_ZOOM_ID,
   useMultiChartSync,
   type MultiChartSyncPeer,
 } from "../../hooks/useMultiChartSync";
+import { FullPeerChart } from "./FullPeerChart";
+import {
+  MiniChartCanvas,
+  ActiveChartPreview,
+  SecondaryChartCell,
+  type MiniChartRenderMode,
+} from "./MiniChartCanvas";
 
-const MINI_CHART_POINTS = 120;
-type MiniChartRenderMode = "sparkline" | "ohlcv";
+interface OhlcState {
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  change: string;
+  changePercent: string;
+  volume: string;
+  time: string;
+}
+
+const initialOhlc = (): OhlcState => ({
+  open: "--",
+  high: "--",
+  low: "--",
+  close: "--",
+  change: "--",
+  changePercent: "--",
+  volume: "--",
+  time: "",
+});
+
+const formatPrice = (val: number): string =>
+  val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const formatVolume = (val: number): string => {
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
+  return val.toString();
+};
+
+const getBullBearColor = (close: number, open: number): string =>
+  close >= open ? "#00e676" : "#ff1744";
 
 interface MultiChartLayoutGridProps {
   layout: MultiChartLayoutState;
@@ -27,455 +62,27 @@ interface MultiChartLayoutGridProps {
   activeChartData: ChartDataPoint[];
   activeSymbol: string;
   activeInterval: string;
+  chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">;
   children: ReactNode;
   onActivateChart: (chartId: string) => void;
+  /** [SCAR-MULTICHART-HEADER-CONTAMINATION FIX]
+   * Appelé quand l'utilisateur clique le HEADER d'un chart secondaire pour éditer son ticker.
+   * Utilise setEditChartTarget (routing-only) plutôt que setActiveLayoutChart (activation complète),
+   * ce qui évite d'écraser chartConfig.symbol et de contaminer le TickerSelectorContext.
+   */
+  onEditChart: (chartId: string) => void;
+  openTickerSelector: () => void;
 }
 
-const formatDate = (value: string): string => {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return value || "No date";
-  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(timestamp);
-};
-
-const getSeriesStats = (data: ChartDataPoint[]) => {
-  if (data.length === 0) return null;
-  const first = data.find((point) => Number.isFinite(point.close) && point.close > 0);
-  const last = [...data].reverse().find((point) => Number.isFinite(point.close) && point.close > 0);
-  if (!first || !last) return null;
-  const changePercent = first.close === 0 ? 0 : ((last.close - first.close) / first.close) * 100;
-  const lastTimestamp = Date.parse(last.time);
-  const staleDays = Number.isFinite(lastTimestamp) ? (Date.now() - lastTimestamp) / 86_400_000 : Infinity;
-
-  return {
-    first,
-    last,
-    changePercent,
-    isStale: staleDays > 10,
-  };
-};
-
 const getMiniChartSeries = (data: ChartDataPoint[]): ChartDataPoint[] =>
-  data
-    .slice(-MINI_CHART_POINTS)
-    .filter(
-      (point) =>
-        Number.isFinite(point.open) &&
-        Number.isFinite(point.high) &&
-        Number.isFinite(point.low) &&
-        Number.isFinite(point.close) &&
-        point.close > 0
-    );
-
-const formatCompactNumber = (value: number): string =>
-  value.toLocaleString("fr-FR", { maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2 });
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (char) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "\"": "&quot;",
-      "'": "&#39;",
-    };
-    return entities[char];
-  });
-
-const buildMiniSparklineOption = (data: ChartDataPoint[], color: string): EChartsCoreOption => {
-  const series = getMiniChartSeries(data);
-  return {
-    animation: false,
-    grid: { left: 4, right: 4, top: 8, bottom: 4 },
-    tooltip: { trigger: "axis", showContent: false, axisPointer: { type: "line" } },
-    axisPointer: {
-      show: true,
-      snap: true,
-      triggerTooltip: false,
-      lineStyle: { color: "rgba(148, 163, 184, 0.85)", width: 1 },
-      label: { show: false },
-    },
-    xAxis: { id: "mini-time-x", type: "category", data: series.map((point) => point.time), show: false, boundaryGap: false },
-    yAxis: { id: "mini-price-y", type: "value", show: false, scale: true },
-    dataZoom: [
-      {
-        id: MULTI_CHART_MINI_DATA_ZOOM_ID,
-        type: "inside",
-        xAxisIndex: 0,
-        filterMode: "filter",
-        zoomOnMouseWheel: false,
-        moveOnMouseMove: false,
-        start: 0,
-        end: 100,
-      },
-    ],
-    series: [
-      {
-        id: "mini-close-series",
-        type: "line",
-        data: series.map((point) => point.close),
-        showSymbol: false,
-        silent: true,
-        lineStyle: { color, width: 1.8 },
-        areaStyle: { color: `${color}1f` },
-      },
-    ],
-  };
-};
-
-const buildMiniOhlcvTooltip = (point: ChartDataPoint): string => {
-  const range = point.high - point.low;
-  const body = Math.abs(point.close - point.open);
-  const isPositive = point.close >= point.open;
-  const closeColor = isPositive ? "#22c55e" : "#ef4444";
-  const row = (label: string, value: string, color = "#e5eefc") => `
-    <span style="display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;align-items:center;height:18px;">
-      <span style="color:#94a3b8;font-weight:800;">${label}</span>
-      <span style="color:${color};font-weight:900;text-align:right;">${escapeHtml(value)}</span>
-    </span>`;
-
-  return `
-    <div style="min-width:236px;padding:8px 10px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:11px;line-height:1;font-variant-numeric:tabular-nums;">
-      <div style="margin-bottom:6px;color:#bfdbfe;font-weight:800;">${escapeHtml(formatDate(point.time))}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <span style="display:grid;">
-          ${row("O", formatCompactNumber(point.open))}
-          ${row("H", formatCompactNumber(point.high))}
-          ${row("L", formatCompactNumber(point.low))}
-          ${row("C", formatCompactNumber(point.close), closeColor)}
-          ${row("V", `${formatCompactNumber(point.volume / 1000)}k`)}
-        </span>
-        <span style="display:grid;">
-          ${row("R", formatCompactNumber(range), "#fb923c")}
-          ${row("B", formatCompactNumber(body), "#fb923c")}
-          ${row("UW", formatCompactNumber(point.high - Math.max(point.open, point.close)), "#fb923c")}
-          ${row("DW", formatCompactNumber(Math.min(point.open, point.close) - point.low), "#fb923c")}
-        </span>
-      </div>
-    </div>`;
-};
-
-const resolveTooltipPoint = (series: ChartDataPoint[], params: unknown): ChartDataPoint | null => {
-  const records = Array.isArray(params) ? params : [params];
-  const record = records.find((entry): entry is { dataIndex?: unknown } => entry !== null && typeof entry === "object");
-  const dataIndex = typeof record?.dataIndex === "number" ? record.dataIndex : null;
-  return dataIndex !== null ? series[dataIndex] ?? null : null;
-};
-
-const buildMiniOhlcvOption = (data: ChartDataPoint[]): EChartsCoreOption => {
-  const series = getMiniChartSeries(data);
-  const dates = series.map((point) => point.time);
-  const values = series.map((point) => [point.open, point.close, point.low, point.high]);
-  const volumes = series.map((point, index) => [index, point.volume, point.close >= point.open ? 1 : -1]);
-  const upColor = "#00e676";
-  const downColor = "#ff1744";
-  const axisColor = "#94a3b8";
-
-  return {
-    animation: false,
-    grid: [
-      { id: "mini-price-grid", left: 8, right: 42, top: 8, height: "62%", containLabel: false },
-      { id: "mini-volume-grid", left: 8, right: 42, bottom: 18, height: "18%", containLabel: false },
-    ],
-    tooltip: {
-      trigger: "axis",
-      confine: true,
-      renderMode: "html",
-      backgroundColor: "rgb(8, 13, 32)",
-      borderColor: "rgba(96, 165, 250, 0.45)",
-      borderWidth: 1,
-      padding: 0,
-      textStyle: { color: "#e5eefc" },
-      axisPointer: { type: "cross", snap: true, label: { show: false } },
-      formatter: (params: unknown) => {
-        const point = resolveTooltipPoint(series, params);
-        return point ? buildMiniOhlcvTooltip(point) : "";
-      },
-    },
-    axisPointer: {
-      link: [{ xAxisIndex: [0, 1] }],
-      triggerTooltip: true,
-      lineStyle: { color: "rgba(148, 163, 184, 0.72)", width: 1, type: "dashed" },
-      label: { show: false },
-    },
-    xAxis: [
-      {
-        id: "mini-time-x",
-        type: "category",
-        gridIndex: 0,
-        data: dates,
-        show: false,
-        boundaryGap: true,
-        min: "dataMin",
-        max: "dataMax",
-      },
-      {
-        id: "mini-volume-time-x",
-        type: "category",
-        gridIndex: 1,
-        data: dates,
-        boundaryGap: true,
-        min: "dataMin",
-        max: "dataMax",
-        axisLine: { show: true, lineStyle: { color: "rgba(148, 163, 184, 0.38)" } },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: {
-          color: axisColor,
-          fontSize: 10,
-          hideOverlap: true,
-          formatter: (value: string) => {
-            const timestamp = Date.parse(value);
-            if (!Number.isFinite(timestamp)) return "";
-            return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" }).format(timestamp);
-          },
-        },
-      },
-    ],
-    yAxis: [
-      {
-        id: "mini-price-y",
-        type: "value",
-        position: "right",
-        scale: true,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: true, lineStyle: { color: "rgba(42, 46, 57, 0.5)", type: "dashed" } },
-        axisLabel: { color: axisColor, fontSize: 10, formatter: (value: number) => formatCompactNumber(value) },
-      },
-      {
-        id: "mini-volume-y",
-        type: "value",
-        gridIndex: 1,
-        scale: true,
-        show: false,
-        max: (value: { max: number }) => Math.max(1, value.max * 1.18),
-      },
-    ],
-    dataZoom: [
-      {
-        id: MULTI_CHART_MINI_DATA_ZOOM_ID,
-        type: "inside",
-        xAxisIndex: [0, 1],
-        filterMode: "filter",
-        zoomOnMouseWheel: false,
-        moveOnMouseMove: false,
-        start: 0,
-        end: 100,
-      },
-    ],
-    series: [
-      {
-        id: "mini-ohlcv-series",
-        name: "OHLC",
-        type: "candlestick",
-        data: values,
-        itemStyle: { color: upColor, color0: downColor, borderColor: upColor, borderColor0: downColor },
-      },
-      {
-        id: "mini-volume-bar",
-        name: "Volume",
-        type: "bar",
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        data: volumes,
-        barWidth: "58%",
-        barMinHeight: 2,
-        itemStyle: { color: (params: { value: (number | string)[] }) => Number(params.value[2]) >= 0 ? upColor : downColor, opacity: 0.82 },
-        showBackground: true,
-        backgroundStyle: { color: "rgba(255, 255, 255, 0.025)" },
-      },
-    ],
-  };
-};
-
-const buildMiniChartOption = (
-  data: ChartDataPoint[],
-  color: string,
-  renderMode: MiniChartRenderMode
-): EChartsCoreOption =>
-  renderMode === "ohlcv" ? buildMiniOhlcvOption(data) : buildMiniSparklineOption(data, color);
-
-const MiniChartCanvas: React.FC<{
-  chartId: string;
-  data: ChartDataPoint[];
-  color: string;
-  renderMode: MiniChartRenderMode;
-  onChartReady: (chartId: string, chart: EChartsInstance) => void;
-  onChartDispose: (chartId: string) => void;
-}> = ({ chartId, data, color, renderMode, onChartReady, onChartDispose }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstanceRef = useRef<EChartsInstance | null>(null);
-
-  useEffect(() => () => {
-    const chart = chartInstanceRef.current;
-    if (chart && !chart.isDisposed()) chart.dispose();
-    chartInstanceRef.current = null;
-    onChartDispose(chartId);
-  }, [chartId, onChartDispose]);
-
-  useEffect(() => {
-    const series = getMiniChartSeries(data);
-    if (series.length < 2) {
-      const chart = chartInstanceRef.current;
-      if (chart && !chart.isDisposed()) chart.dispose();
-      chartInstanceRef.current = null;
-      onChartDispose(chartId);
-      return;
-    }
-
-    const element = chartRef.current;
-    if (!element) return;
-
-    let chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) {
-      chart = echarts.init(element, undefined, { renderer: "canvas" });
-      chartInstanceRef.current = chart;
-      onChartReady(chartId, chart);
-    }
-
-    chartInstanceRef.current = chart;
-    chart.setOption(buildMiniChartOption(data, color, renderMode), true, true);
-
-    const chartInstance = chart;
-    const frameId = window.requestAnimationFrame(() => chartInstance.resize());
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => chartInstance.resize()) : null;
-    resizeObserver?.observe(element);
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      resizeObserver?.disconnect();
-    };
-  }, [chartId, data, color, renderMode, onChartDispose, onChartReady]);
-
-  return <div ref={chartRef} className={clsx("gp-multi-chart-cell__echart", renderMode === "ohlcv" && "is-interactive")} />;
-};
-
-const noopChartReady = () => {};
-const noopChartDispose = () => {};
-
-const ActiveChartPreview: React.FC<{
-  cell: MultiChartLayoutCell;
-  data: ChartDataPoint[];
-  dataMode: "mock" | "real";
-  displaySymbol: string;
-}> = ({ cell, data, dataMode, displaySymbol }) => {
-  const stats = useMemo(() => getSeriesStats(data), [data]);
-  const isPositive = (stats?.changePercent ?? 0) >= 0;
-  const chartColor = isPositive ? "#22c55e" : "#ef4444";
-
-  if (stats) {
-    return (
-      <div className="gp-multi-chart-cell__active-preview">
-        <MiniChartCanvas
-          chartId={`${cell.chartId}-active-preview`}
-          data={data}
-          color={chartColor}
-          renderMode="sparkline"
-          onChartReady={noopChartReady}
-          onChartDispose={noopChartDispose}
-        />
-        <span className="gp-multi-chart-cell__metrics">
-          <strong>{stats.last.close.toLocaleString("fr-FR")}</strong>
-          <em className={isPositive ? "is-positive" : "is-negative"}>
-            {isPositive ? "+" : ""}
-            {stats.changePercent.toFixed(2)}%
-          </em>
-        </span>
-        <span className={clsx("gp-multi-chart-cell__audit", stats.isStale && "is-warning")}>
-          {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatDate(stats.last.time)}
-        </span>
-      </div>
-    );
-  }
-
-  if (dataMode === "real") {
-    return (
-      <span className="gp-multi-chart-cell__loading" aria-live="polite">
-        <span className="gp-mini-data-spinner" aria-hidden="true" />
-        <strong>Loading data</strong>
-        <em>{displaySymbol}</em>
-      </span>
-    );
-  }
-
-  return (
-    <span className="gp-multi-chart-cell__empty">
-      <i className="bi bi-exclamation-triangle" aria-hidden="true" />
-      No data
-    </span>
+  data.filter(
+    (point) =>
+      Number.isFinite(point.open) &&
+      Number.isFinite(point.high) &&
+      Number.isFinite(point.low) &&
+      Number.isFinite(point.close) &&
+      point.close > 0
   );
-};
-
-const SecondaryChartCell: React.FC<{
-  cell: MultiChartLayoutCell;
-  data: ChartDataPoint[];
-  loadStatus: ComparisonLoadStatus;
-  dataMode: "mock" | "real";
-  renderMode: MiniChartRenderMode;
-  onActivate: () => void;
-  onChartReady: (chartId: string, chart: EChartsInstance) => void;
-  onChartDispose: (chartId: string) => void;
-}> = ({ cell, data, loadStatus, dataMode, renderMode, onActivate, onChartReady, onChartDispose }) => {
-  const stats = useMemo(() => getSeriesStats(data), [data]);
-  const isPositive = (stats?.changePercent ?? 0) >= 0;
-  const chartColor = isPositive ? "#22c55e" : "#ef4444";
-  const isWaitingForData = !stats && dataMode === "real" && (loadStatus === "idle" || loadStatus === "loading");
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    onActivate();
-  };
-
-  return (
-    <div
-      className={clsx("gp-multi-chart-cell gp-multi-chart-cell--secondary", renderMode === "ohlcv" && "is-full-ohlcv")}
-      onClick={onActivate}
-      onKeyDown={handleKeyDown}
-      role="button"
-      tabIndex={0}
-      title={`Activer ${cell.symbol}`}
-    >
-      <span className="gp-multi-chart-cell__header">
-        <strong>{cell.symbol}</strong>
-        <span>{cell.interval}</span>
-      </span>
-
-      {stats ? (
-        <>
-          <MiniChartCanvas
-            chartId={cell.chartId}
-            data={data}
-            color={chartColor}
-            renderMode={renderMode}
-            onChartReady={onChartReady}
-            onChartDispose={onChartDispose}
-          />
-          <span className="gp-multi-chart-cell__metrics">
-            <strong>{stats.last.close.toLocaleString("fr-FR")}</strong>
-            <em className={isPositive ? "is-positive" : "is-negative"}>
-              {isPositive ? "+" : ""}
-              {stats.changePercent.toFixed(2)}%
-            </em>
-          </span>
-          <span className={clsx("gp-multi-chart-cell__audit", stats.isStale && "is-warning")}>
-            {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatDate(stats.last.time)}
-          </span>
-        </>
-      ) : isWaitingForData ? (
-        <span className="gp-multi-chart-cell__loading" aria-live="polite">
-          <span className="gp-mini-data-spinner" aria-hidden="true" />
-          <strong>Loading data</strong>
-          <em>{cell.symbol}</em>
-        </span>
-      ) : (
-        <span className="gp-multi-chart-cell__empty">
-          <i className="bi bi-exclamation-triangle" aria-hidden="true" />
-          No data
-        </span>
-      )}
-    </div>
-  );
-};
 
 export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   layout,
@@ -486,13 +93,126 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   activeChartData,
   activeSymbol,
   activeInterval,
+  chartAppearance,
   children,
   onActivateChart,
+  onEditChart,
+  openTickerSelector,
 }) => {
   const definition = getLayoutDefinition(layout.layoutId);
   const usesActivePreview = definition.chartCount >= 8;
+  const usesFullPeerChart = definition.chartCount <= 6;
   const secondaryRenderMode: MiniChartRenderMode = definition.chartCount <= 6 ? "ohlcv" : "sparkline";
   const [secondaryChartsById, setSecondaryChartsById] = useState<Record<string, EChartsInstance>>({});
+
+  // Active chart OHLC dynamic hover state
+  const [activeOhlc, setActiveOhlc] = useState<OhlcState>(initialOhlc());
+  const [activeLastPriceColor, setActiveLastPriceColor] = useState<string>("#94a3b8");
+
+  const activeFilteredData = useMemo(() => {
+    return activeChartData.filter(
+      (p) =>
+        Number.isFinite(p.open) &&
+        Number.isFinite(p.high) &&
+        Number.isFinite(p.low) &&
+        Number.isFinite(p.close) &&
+        p.close > 0
+    );
+  }, [activeChartData]);
+
+  const activeLatestPoint = activeFilteredData[activeFilteredData.length - 1];
+
+  const updateActiveOhlcFromPoint = useCallback((point: ChartDataPoint | undefined) => {
+    if (!point) {
+      setActiveOhlc(initialOhlc());
+      setActiveLastPriceColor("#94a3b8");
+      return;
+    }
+    const change = point.close - point.open;
+    const changePercent = point.open === 0 ? 0 : (change / point.open) * 100;
+    const sign = change >= 0 ? "+" : "";
+
+    setActiveOhlc({
+      open: formatPrice(point.open),
+      high: formatPrice(point.high),
+      low: formatPrice(point.low),
+      close: formatPrice(point.close),
+      change: `${sign}${formatPrice(change)}`,
+      changePercent: `${sign}${changePercent.toFixed(2)}%`,
+      volume: formatVolume(point.volume),
+      time: new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(point.time)),
+    });
+    setActiveLastPriceColor(getBullBearColor(point.close, point.open));
+  }, []);
+
+  // Sync to latest point when it changes (or when hover leaves)
+  useEffect(() => {
+    updateActiveOhlcFromPoint(activeLatestPoint);
+  }, [activeLatestPoint, updateActiveOhlcFromPoint]);
+
+  // High frequency active chart axis pointer interaction listener
+  useEffect(() => {
+    let cancelled = false;
+    let attachFrameId: number | null = null;
+    let detachCrosshair: (() => void) | null = null;
+
+    const onAxisPointerUpdate = (params: any) => {
+      if (!params || !params.axesInfo) return;
+      const xInfo = params.axesInfo.find((info: any) => info.axisDim === "x" || info.axisIndex === 0);
+      if (xInfo && xInfo.value !== undefined) {
+        let targetIndex = -1;
+        if (typeof xInfo.value === "string") {
+          targetIndex = activeFilteredData.findIndex((p) => p.time === xInfo.value);
+        } else if (typeof xInfo.value === "number") {
+          targetIndex = xInfo.value;
+        }
+        if (targetIndex >= 0 && targetIndex < activeFilteredData.length) {
+          updateActiveOhlcFromPoint(activeFilteredData[targetIndex]);
+        }
+      }
+    };
+
+    const onGlobalOut = () => {
+      updateActiveOhlcFromPoint(activeLatestPoint);
+    };
+
+    const attachListeners = () => {
+      if (cancelled) return;
+      const chart = activeChartInstanceRef.current;
+      if (!chart || chart.isDisposed()) {
+        attachFrameId = window.requestAnimationFrame(attachListeners);
+        return;
+      }
+
+      chart.on("updateAxisPointer", onAxisPointerUpdate);
+      chart.on("globalout", onGlobalOut);
+
+      detachCrosshair = () => {
+        if (chart.isDisposed()) return;
+        chart.off("updateAxisPointer", onAxisPointerUpdate);
+        chart.off("globalout", onGlobalOut);
+      };
+    };
+
+    attachListeners();
+
+    return () => {
+      cancelled = true;
+      if (attachFrameId !== null) window.cancelAnimationFrame(attachFrameId);
+      detachCrosshair?.();
+    };
+  }, [
+    activeChartInstanceRef,
+    activeFilteredData,
+    activeLatestPoint,
+    updateActiveOhlcFromPoint,
+    layout.activeChartId,
+  ]);
 
   const handleChartReady = useCallback((chartId: string, chart: EChartsInstance) => {
     setSecondaryChartsById((current) => (current[chartId] === chart ? current : { ...current, [chartId]: chart }));
@@ -507,20 +227,30 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
     });
   }, []);
 
+  const activeBounds = useMemo(() => {
+    if (!activeChartData || activeChartData.length === 0) return undefined;
+    return {
+      start: activeChartData[0].time,
+      end: activeChartData[activeChartData.length - 1].time,
+    };
+  }, [activeChartData]);
+
   const secondaryCharts = useMemo<MultiChartSyncPeer[]>(
-    () =>
-      layout.charts
-        .filter((cell) => cell.chartId !== layout.activeChartId)
-        .map((cell) => {
-          const chart = secondaryChartsById[cell.chartId];
-          if (!chart) return null;
-          return {
-            chartId: cell.chartId,
-            chart,
-            data: getMiniChartSeries(marketData[cell.symbol] ?? []),
-          };
-        })
-        .filter((peer): peer is MultiChartSyncPeer => peer !== null),
+    () => {
+      const result: MultiChartSyncPeer[] = [];
+      for (const cell of layout.charts) {
+        if (cell.chartId === layout.activeChartId) continue;
+        const chart = secondaryChartsById[cell.chartId];
+        if (!chart) continue;
+        result.push({
+          chartId: cell.chartId,
+          chart,
+          data: getMiniChartSeries(marketData[cell.symbol] ?? []),
+          interval: cell.interval,
+        });
+      }
+      return result;
+    },
     [layout.activeChartId, layout.charts, marketData, secondaryChartsById]
   );
 
@@ -535,6 +265,29 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
     return <>{children}</>;
   }
 
+  const handleActiveHeaderClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    openTickerSelector();
+  };
+
+  const handleActiveHeaderKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.stopPropagation();
+      event.preventDefault();
+      openTickerSelector();
+    }
+  };
+
+  const handleSecondaryHeaderClick = (chartId: string) => {
+    // [SCAR-MULTICHART-HEADER-CONTAMINATION FIX]
+    // On utilise onEditChart (setEditChartTarget) et NON onActivateChart (setActiveLayoutChart).
+    // setEditChartTarget route activeChartId vers le chart cible sans écraser chartConfig.symbol,
+    // ce qui empêche le moteur de sync bidirectionnel de contaminer le TickerSelectorContext
+    // avec le symbole du chart secondaire (ex: BOABF ne force plus chart1/BOAB à devenir BOABF).
+    onEditChart(chartId);
+    openTickerSelector();
+  };
+
   return (
     <div className={clsx("gp-multi-chart-grid", definition.cssClass)}>
       {layout.charts.map((cell) => {
@@ -547,14 +300,39 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
               key={cell.chartId}
               className={clsx("gp-multi-chart-cell gp-multi-chart-cell--active", usesActivePreview && "is-preview-mode")}
             >
-              <div className="gp-multi-chart-cell__active-header">
+              <div
+                className="gp-multi-chart-cell__active-header gp-multi-chart-cell--interactive-header"
+                onClick={handleActiveHeaderClick}
+                onKeyDown={handleActiveHeaderKeyDown}
+                role="button"
+                tabIndex={0}
+                aria-label={`Rechercher un titre pour remplacer ${displaySymbol}`}
+              >
                 <strong>{displaySymbol}</strong>
                 <span>{displayInterval}</span>
                 <em>Active</em>
+
+                {activeLatestPoint && (
+                  <div className="gp-peer-chart__ohlc">
+                    <span>O<span className="gp-peer-chart__ohlc-val">{activeOhlc.open}</span></span>
+                    <span>H<span className="gp-peer-chart__ohlc-val">{activeOhlc.high}</span></span>
+                    <span>L<span className="gp-peer-chart__ohlc-val">{activeOhlc.low}</span></span>
+                    <span>C<span className="gp-peer-chart__ohlc-val" style={{ color: activeLastPriceColor }}>{activeOhlc.close}</span></span>
+                    <span style={{ color: activeLastPriceColor }}>{activeOhlc.changePercent}</span>
+                  </div>
+                )}
+
+                <i className="bi bi-search" style={{ marginLeft: "auto", fontSize: "10px", opacity: 0.7 }} aria-hidden="true" />
               </div>
               {usesActivePreview ? (
                 <>
-                  <ActiveChartPreview cell={cell} data={activeChartData} dataMode={dataMode} displaySymbol={displaySymbol} />
+                  <ActiveChartPreview
+                    cell={cell}
+                    data={activeChartData}
+                    dataMode={dataMode}
+                    displaySymbol={displaySymbol}
+                    chartAppearance={chartAppearance}
+                  />
                   <div className="gp-multi-chart-cell__active-surface" aria-hidden="true">
                     {children}
                   </div>
@@ -566,6 +344,24 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
           );
         }
 
+        if (usesFullPeerChart) {
+          return (
+            <FullPeerChart
+              key={cell.chartId}
+              cell={cell}
+              data={marketData[cell.symbol] ?? []}
+              loadStatus={dataLoadState[cell.symbol] ?? "idle"}
+              dataMode={dataMode}
+              chartAppearance={chartAppearance}
+              activeBounds={activeBounds}
+              onActivate={() => onActivateChart(cell.chartId)}
+              onHeaderClick={() => handleSecondaryHeaderClick(cell.chartId)}
+              onChartReady={handleChartReady}
+              onChartDispose={handleChartDispose}
+            />
+          );
+        }
+
         return (
           <SecondaryChartCell
             key={cell.chartId}
@@ -574,7 +370,10 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
             loadStatus={dataLoadState[cell.symbol] ?? "idle"}
             dataMode={dataMode}
             renderMode={secondaryRenderMode}
+            chartAppearance={chartAppearance}
+            activeBounds={activeBounds}
             onActivate={() => onActivateChart(cell.chartId)}
+            onHeaderClick={() => handleSecondaryHeaderClick(cell.chartId)}
             onChartReady={handleChartReady}
             onChartDispose={handleChartDispose}
           />

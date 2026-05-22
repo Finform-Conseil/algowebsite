@@ -5,8 +5,8 @@ import clsx from "clsx";
 import { useDispatch, useSelector } from "react-redux";
 import { SettingsToggle } from "../common/SettingsField";
 import {
-  toggleChartType,
   setModalOpen,
+  setChartType,
   toggleZenMode,
   setAnonyme,
   setSelectedPseudo,
@@ -19,6 +19,13 @@ import {
 } from "../../store/technicalAnalysisSlice";
 import { useTechnicalAnalysisActions } from "../../hooks/useTechnicalAnalysisActions";
 import { LayoutSetupControl } from "./LayoutSetupControl";
+import { FloatingMenu } from "../common/FloatingMenu";
+import {
+  CHART_TYPE_MENU_GROUPS,
+  CHART_TYPE_REGISTRY,
+  normalizeChartType,
+  type ChartType,
+} from "../../lib/chart-types";
 
 const ANONYMOUS_PSEUDOS = [
   "Trader_700",
@@ -30,6 +37,46 @@ const ANONYMOUS_PSEUDOS = [
   "Market_Ninja",
   "Pivot_Master",
 ];
+
+
+const CHART_TYPE_ICON_CLASS: Partial<Record<ChartType, string>> = {
+  line: "bi bi-graph-up",
+  line_with_markers: "bi bi-activity",
+  area: "bi bi-layers",
+  hlc_area: "bi bi-bounding-box",
+  baseline: "bi bi-distribute-vertical",
+  columns: "bi bi-bar-chart",
+  high_low: "bi bi-arrows-vertical",
+  volume_footprint: "bi bi-grid-3x3-gap",
+  time_price_opportunity: "bi bi-fonts",
+  session_volume_profile: "bi bi-bar-chart-steps",
+  kagi: "bi bi-bezier2",
+  point_and_figure: "bi bi-x-octagon",
+};
+
+const renderChartTypeIcon = (chartType: ChartType) => {
+  if (chartType === "step_line") {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="22" height="22" fill="none" aria-hidden="true">
+        <path d="M5 20h5v-5h6v-5h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M5 22.5h18" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity=".35" />
+      </svg>
+    );
+  }
+
+  if (["bars", "candles", "hollow_candles", "volume_candles", "heikin_ashi", "renko", "line_break", "range"].includes(chartType)) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="22" height="22" fill="currentColor" aria-hidden="true">
+        <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z" />
+        <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z" />
+        <path d="M9 8v12h3V8H9zm-.5-1h4a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z" />
+        <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z" />
+      </svg>
+    );
+  }
+
+  return <i className={CHART_TYPE_ICON_CLASS[chartType] ?? "bi bi-graph-up"} aria-hidden="true" />;
+};
 
 interface ChartToolbarProps {
   userInitials: string;
@@ -55,6 +102,23 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const [isPseudoDropdownOpen, setIsPseudoDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const pseudoDropdownButtonRef = useRef<HTMLDivElement>(null);
+  const [isChartTypeMenuOpen, setIsChartTypeMenuOpen] = useState(false);
+  const [chartTypeAnchorRect, setChartTypeAnchorRect] = useState<DOMRect | null>(null);
+  const chartTypeButtonRef = useRef<HTMLButtonElement>(null);
+  const activeChartType = normalizeChartType(chartConfig.chartType);
+  const activeChartTypeEntry = CHART_TYPE_REGISTRY[activeChartType];
+
+  const handleChartTypeMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = chartTypeButtonRef.current?.getBoundingClientRect() ?? null;
+    setChartTypeAnchorRect(rect);
+    setIsChartTypeMenuOpen((current) => !current);
+  };
+
+  const handleChartTypeSelect = (type: ChartType) => {
+    dispatch(setChartType(type));
+    setIsChartTypeMenuOpen(false);
+  };
 
   const handleTogglePseudoDropdown = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -208,21 +272,47 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           <div className={"gp-toolbar-v-divider"}></div>
 
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", chartConfig.chartType === "line" && "active")}
-            title="Type de graphique"
-            onClick={() => dispatch(toggleChartType())}
+            ref={chartTypeButtonRef}
+            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", activeChartType !== "candles" && "active")}
+            title={`Type de graphique: ${activeChartTypeEntry.label}`}
+            aria-haspopup="menu"
+            aria-expanded={isChartTypeMenuOpen}
+            onClick={handleChartTypeMenuToggle}
           >
-            {chartConfig.chartType === "candlestick" ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="22" height="22" fill="currentColor" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z"></path>
-                <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z"></path>
-                <path d="M9 8v12h3V8H9zm-.5-1h4a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z"></path>
-                <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z"></path>
-              </svg>
-            ) : (
-              <i className="bi bi-graph-up"></i>
-            )}
+            {renderChartTypeIcon(activeChartType)}
           </button>
+
+          <FloatingMenu
+            isOpen={isChartTypeMenuOpen}
+            onClose={() => setIsChartTypeMenuOpen(false)}
+            anchorRect={chartTypeAnchorRect}
+            width={292}
+            className="gp-chart-type-menu"
+            zIndex={6000}
+          >
+            {CHART_TYPE_MENU_GROUPS.map((group) => (
+              <div key={group} className="gp-chart-type-menu-group" role="group" aria-label={group}>
+                <div className="gp-chart-type-menu-title">{group}</div>
+                {Object.values(CHART_TYPE_REGISTRY)
+                  .filter((entry) => entry.group === group)
+                  .map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={activeChartType === entry.id}
+                      className={clsx("gp-chart-type-menu-item", activeChartType === entry.id && "active")}
+                      onClick={() => handleChartTypeSelect(entry.id)}
+                    >
+                      <span className="gp-chart-type-menu-icon">{renderChartTypeIcon(entry.id)}</span>
+                      <span className="gp-chart-type-menu-label">{entry.label}</span>
+                      {entry.synthetic && <span className="gp-chart-type-menu-badge">Synthetic</span>}
+                      {entry.approximateWithoutTicks && <span className="gp-chart-type-menu-badge">Intraday</span>}
+                    </button>
+                  ))}
+              </div>
+            ))}
+          </FloatingMenu>
 
           <button
             className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", hasActiveOverlayIndicator && "active")}

@@ -7,10 +7,29 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useDispatch } from "react-redux";
 import { setModalOpen, setSearchMode } from "../../store/technicalAnalysisSlice";
-import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
-import { BRVMSecurity } from "@/core/data/brvm-securities";
+import { ChartDataPoint, calculateRSI, calculateSMA } from "../../lib/Indicators/TechnicalIndicators";
+import {
+  BRVM_DISPLAY_TIME_ZONE_LABEL,
+  formatBrvmDisplayMinute,
+  getBrvmMarketStatus,
+} from "../../utils/brvmMarketSession";
 import { getVolatilityTermStructure, getVolatilitySkew } from "@/shared/utils/volatility-engine";
+import {
+  createEmptyFundamentals,
+  formatAuditDate,
+  formatMillionsFcfa,
+  getLatestFinancialYear,
+  getLatestFundamentalValue,
+  getLatestNumericValue,
+  getLatestSeriesTime,
+  getVerifiedSourceLabel,
+  hasFinancialSeries,
+  isFundamentalsForTicker,
+  normalizeFundamentalsResponse,
+  normalizeTicker,
+} from "./TechnicalAnalysisSidebar.helpers";
 
+import type { AuditTrailItem, BRVMFundamentals, FundamentalsStatus } from "./TechnicalAnalysisSidebar.helpers";
 import type { DisplaySecurity } from "../../config/TechnicalAnalysisTypes";
 
 const DividendHistoryModal = dynamic(
@@ -48,16 +67,6 @@ interface TechnicalAnalysisSidebarProps {
   openTickerSelector?: () => void;
 }
 
-interface BRVMFundamentals {
-  ticker: string;
-  earnings: { year: string; value: number }[];
-  revenues: { year: string; value: number }[];
-  dividends: { year: string; value: number; exDate?: string; payDate?: string }[];
-  description?: string;
-  website?: string;
-  employees?: string;
-}
-
 interface BRVMNewsItem {
   title: string;
   date: string;
@@ -71,6 +80,64 @@ const FALLBACK_NEWS_ITEM: BRVMNewsItem = {
   date: "aujourd'hui",
   link: "#",
 };
+
+const HIDDEN_AUDIT_LABELS = new Set(["Source", "Formule"]);
+
+const SidebarUnavailableState = ({ message }: { message: string }) => (
+  <div
+    className="d-flex align-items-center justify-content-center text-center px-3 py-4"
+    style={{ minHeight: "120px", color: "#94a3b8", fontSize: "11px", lineHeight: 1.45 }}
+  >
+    <span>
+      <i className="bi bi-shield-exclamation me-1" style={{ color: "#f59e0b" }}></i>
+      {message}
+    </span>
+  </div>
+);
+
+const SidebarAuditTrail = ({ items }: { items: AuditTrailItem[] }) => (
+  <div
+    className="d-flex flex-wrap align-items-center"
+    style={{
+      gap: "4px",
+      width: "100%",
+      justifyContent: "center",
+      marginTop: "8px",
+      marginBottom: "10px",
+      paddingTop: "7px",
+      borderTop: "1px solid rgba(42, 46, 57, 0.45)",
+    }}
+  >
+    {items.map((item) => {
+      const color = item.tone === "warning" ? "#f59e0b" : item.tone === "success" ? "#22ab94" : "#94a3b8";
+      const isHiddenAuditItem = HIDDEN_AUDIT_LABELS.has(item.label);
+      return (
+        <span
+          key={`${item.label}-${item.value}`}
+          data-audit-hidden={isHiddenAuditItem ? "true" : undefined}
+          title={`${item.label}: ${item.value}`}
+          style={{
+            display: isHiddenAuditItem ? "none" : "inline-flex",
+            alignItems: "center",
+            gap: "3px",
+            maxWidth: "100%",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            background: "rgba(15, 23, 42, 0.55)",
+            border: "1px solid rgba(148, 163, 184, 0.18)",
+            color,
+            fontSize: "9.5px",
+            lineHeight: 1.25,
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ color: "#64748b", textTransform: "uppercase" }}>{item.label}</span>
+          <span>{item.value}</span>
+        </span>
+      );
+    })}
+  </div>
+);
 
 interface BRVMIndexData {
   symbol: string;
@@ -116,6 +183,7 @@ export const TechnicalAnalysisSidebar: React.FC<
   const displayReturnYTD = liveReturnYTD !== undefined ? liveReturnYTD : security.returnYTD;
   const displayPeRatio = livePeRatio !== undefined ? livePeRatio : security.peRatio;
   const displayMarketCap = liveMarketCap !== undefined ? liveMarketCap : security.marketCap;
+  const normalizedSecurityTicker = normalizeTicker(security.ticker);
 
   // [TENOR 2026] NEWS FEED LOGIC (Carousel + Hover Pause)
   const [news, setNews] = useState<BRVMNewsItem[]>([]);
@@ -123,8 +191,9 @@ export const TechnicalAnalysisSidebar: React.FC<
   const [isHovered, setIsHovered] = useState(false);
 
   const [fundamentals, setFundamentals] = useState<BRVMFundamentals | null>(null);
-  const [prevTicker, setPrevTicker] = useState(security.ticker);
-  const [prevMode, setPrevMode] = useState(dataMode);
+  const [fundamentalsStatus, setFundamentalsStatus] = useState<FundamentalsStatus>(
+    dataMode === "real" ? "loading" : "idle",
+  );
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
   const [incomeViewMode, setIncomeViewMode] = useState<IncomeViewMode>("annual");
@@ -132,6 +201,7 @@ export const TechnicalAnalysisSidebar: React.FC<
   const [indicesData, setIndicesData] = useState<Record<string, BRVMIndexData> | null>(null);
   const [indicesError, setIndicesError] = useState<string | null>(null);
   const [isIndicesLoading, setIsIndicesLoading] = useState(false);
+  const [marketClockNow, setMarketClockNow] = useState<number | null>(null);
 
   const dispatch = useDispatch();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -145,7 +215,8 @@ export const TechnicalAnalysisSidebar: React.FC<
     showName: true,
   });
 
-  const lastFetchRef = useRef<number>(0);
+  const fundamentalsCacheRef = useRef<Map<string, BRVMFundamentals>>(new Map());
+  const fundamentalsRequestIdRef = useRef(0);
 
   const incomeChartRef = useRef<HTMLDivElement | null>(null);
   const seasonalChartRef = useRef<HTMLDivElement | null>(null);
@@ -153,6 +224,25 @@ export const TechnicalAnalysisSidebar: React.FC<
   const analystRatingChartRef = useRef<HTMLDivElement | null>(null);
   const volatilityChartRef = useRef<HTMLDivElement | null>(null);
   const volatilityCurveChartRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const syncMarketClock = () => setMarketClockNow(Date.now());
+    syncMarketClock();
+    const intervalId = window.setInterval(syncMarketClock, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const sidebarMarketStatus = useMemo(
+    () => getBrvmMarketStatus(marketClockNow ?? 0),
+    [marketClockNow],
+  );
+
+  const sidebarLastUpdateLabel = useMemo(() => {
+    if (lastUpdate) return formatBrvmDisplayMinute(new Date(lastUpdate));
+    if (marketClockNow === null) return "--:--";
+    return formatBrvmDisplayMinute(new Date(marketClockNow));
+  }, [lastUpdate, marketClockNow]);
 
   // [TENOR 2026] HIGHEST YTM BONDS STATE
   const [topBonds, setTopBonds] = useState<{ name: string; maturityDate: string; ytm: number }[]>([]);
@@ -209,86 +299,96 @@ export const TechnicalAnalysisSidebar: React.FC<
     [news],
   );
 
-  // [TENOR 2026] ADJUST STATE DURING RENDER (Official React Pattern for prop sync)
-  const normTicker = (security.ticker || "").trim().toUpperCase();
-  const normPrevTicker = (prevTicker || "").trim().toUpperCase();
-  if (normTicker !== normPrevTicker || dataMode !== prevMode) {
-    setPrevTicker(security.ticker);
-    setPrevMode(dataMode);
-    setFundamentals(null);
-  }
-
   // [TENOR 2026] CONSOLIDATED VALIDATION
-  let validFundamentals = (fundamentals && (fundamentals.ticker || "").trim().toUpperCase() === (security.ticker || "").trim().toUpperCase()) ? fundamentals : null;
-
-  // [TENOR 2026] FINAL HDR HAMMER: ECOC RESCUE (Multi-year + Guaranteed Profile)
-  if (!validFundamentals && (security.ticker || "").trim().toUpperCase() === 'ECOC') {
-    validFundamentals = {
-      ticker: 'ECOC',
-      description: "Ecobank Côte d'Ivoire est une filiale du groupe Ecobank Transnational Incorporated (ETI), acteur majeur du secteur bancaire panafricain. Elle propose une large gamme de produits et services financiers dédiés aux particuliers, aux PME, ainsi qu'aux grandes entreprises et institutions. Acteur incontournable du financement de l'économie ivoirienne, la banque s'appuie sur un vaste réseau d'agences et des plateformes digitales innovantes.",
-      website: "http://www.ecobank.com",
-      employees: "700+",
-      earnings: [
-        {year: '2022', value: 82000},
-        {year: '2023', value: 86000},
-        {year: '2024', value: 89000}
-      ],
-      revenues: [
-        {year: '2022', value: 115000},
-        {year: '2023', value: 121000},
-        {year: '2024', value: 125000}
-      ],
-      dividends: [
-        {year: '2022', value: 580},
-        {year: '2023', value: 600},
-        {year: '2024', value: 612}
-      ]
-    } satisfies BRVMFundamentals;
-  }
+  const validFundamentals = isFundamentalsForTicker(fundamentals, normalizedSecurityTicker) ? fundamentals : null;
+  const isFundamentalsPending = dataMode === "real" && normalizedSecurityTicker.length > 0 && !validFundamentals;
+  const isFundamentalsLoading = isFundamentalsPending || fundamentalsStatus === "loading";
+  const isFundamentalsPanelLoading = Boolean(isLoading || isFundamentalsLoading);
+  const hasVerifiedFinancials = dataMode !== "real" || hasFinancialSeries(validFundamentals);
+  const hasVerifiedEarnings = dataMode !== "real" || Boolean(validFundamentals?.earnings.length);
+  const hasVerifiedDividends = dataMode !== "real" || Boolean(validFundamentals?.dividends.length);
+  const canRenderIncomeStatement = hasVerifiedFinancials && (dataMode !== "real" || incomeViewMode === "annual");
+  const latestRevenueT12M = getLatestFundamentalValue(validFundamentals?.revenues);
+  const catalogRevenueT12M = dataMode !== "real" && Number.isFinite(security.revenueT12M)
+    ? `${security.revenueT12M.toFixed(2).replace(".", ",")} %`
+    : "N/D";
+  const displayRevenueT12M = latestRevenueT12M !== null
+    ? formatMillionsFcfa(latestRevenueT12M)
+    : catalogRevenueT12M;
+  const latestSeriesTime = getLatestSeriesTime(chartData);
+  const marketAuditDate = formatAuditDate(lastUpdate || latestSeriesTime);
+  const fundamentalsAuditYear = getLatestFinancialYear(validFundamentals);
+  const auditCurrency = security.currency || "XOF";
+  const marketDataSource = dataMode === "real" ? "BRVM real API" : "Mock dataset";
+  const fundamentalsSource = dataMode === "real"
+    ? `/api/brvm-fundamentals -> ${getVerifiedSourceLabel(validFundamentals?.source)}`
+    : "Mock/catalog";
+  const auditTone = dataMode === "real" ? "success" : "warning";
 
   // [TENOR 2026] FETCH REAL FUNDAMENTALS
   useEffect(() => {
-    if (dataMode !== "real") return;
+    const ticker = normalizeTicker(security.ticker);
+
+    setIsDescriptionExpanded(false);
+
+    if (dataMode !== "real" || ticker.length === 0) {
+      fundamentalsRequestIdRef.current += 1;
+      setFundamentals(null);
+      setFundamentalsStatus("idle");
+      return;
+    }
+
+    const cachedFundamentals = fundamentalsCacheRef.current.get(ticker);
+    if (cachedFundamentals) {
+      setFundamentals(cachedFundamentals);
+      setFundamentalsStatus("ready");
+      return;
+    }
+
+    const requestId = fundamentalsRequestIdRef.current + 1;
+    fundamentalsRequestIdRef.current = requestId;
+    const controller = new AbortController();
+
+    setFundamentals(null);
+    setFundamentalsStatus("loading");
+
     const fetchFundamentals = async () => {
-      const now = Date.now();
-      if (now - lastFetchRef.current < 5000) {
-        console.warn(`[HDR-UI] Debounce active for ${security.ticker}. Using existing data.`);
-        return;
-      }
       try {
-        lastFetchRef.current = now;
         const cacheBuster = `&_t=${Date.now()}`;
-        const res = await fetch(`/api/market-data/brvm-fundamentals?ticker=${security.ticker?.trim()}${cacheBuster}`);
-        const data = await res.json();
-        if (data && (data.description || Array.isArray(data.earnings) || Array.isArray(data.dividends))) {
-          console.warn(`[HDR-UI] ✅ Successfully received fundamentals for ${security.ticker}. DescLen=${data.description?.length || 0}`);
-          setFundamentals(data);
-        } else {
-          console.warn(`[HDR-UI] No data found for ${security.ticker}`);
-          setFundamentals({
-            ticker: security.ticker?.trim(),
-            description: data?.description || "",
-            website: data?.website || "",
-            employees: data?.employees || "N/A",
-            earnings: [],
-            revenues: [],
-            dividends: []
-          });
-        }
-      } catch (e) {
-        console.error("[HDR-UI] Failed to fetch fundamentals", e);
-        setFundamentals({
-          ticker: security.ticker?.trim(),
-          description: "",
-          website: "",
-          employees: "N/A",
-          earnings: [],
-          revenues: [],
-          dividends: []
+        const res = await fetch(`/api/market-data/brvm-fundamentals?ticker=${encodeURIComponent(ticker)}${cacheBuster}`, {
+          cache: "no-store",
+          signal: controller.signal,
         });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
+
+        const data = await res.json();
+        const normalized = normalizeFundamentalsResponse(data, ticker);
+
+        if (normalizeTicker(normalized.ticker) !== ticker) {
+          throw new Error(`Ticker mismatch: requested ${ticker}, received ${normalized.ticker || "empty"}`);
+        }
+
+        if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
+
+        fundamentalsCacheRef.current.set(ticker, normalized);
+        setFundamentals(normalized);
+        setFundamentalsStatus("ready");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
+
+        console.error(`[HDR-UI] Failed to fetch fundamentals for ${ticker}`, error);
+        setFundamentals(createEmptyFundamentals(ticker));
+        setFundamentalsStatus("error");
       }
     };
+
     fetchFundamentals();
+
+    return () => controller.abort();
   }, [security.ticker, dataMode]);
 
   useEffect(() => {
@@ -344,8 +444,7 @@ export const TechnicalAnalysisSidebar: React.FC<
         if (validFundamentals?.earnings && validFundamentals.earnings.length > 0) {
           const matchingEarning = validFundamentals.earnings.find(e => e.year === lastDiv.year);
           if (lastDiv.value && matchingEarning?.value && matchingEarning.value > 0) {
-            payoutRatio = (lastDiv.value / (matchingEarning.value / (security.marketCap && livePrice > 0 ? security.marketCap / livePrice : 1))) * 100;
-            if (ticker.trim().toUpperCase() === 'ECOC') payoutRatio = 65.5;
+            payoutRatio = (lastDiv.value / (matchingEarning.value / (displayMarketCap && livePrice > 0 ? displayMarketCap / livePrice : 1))) * 100;
             payoutRatio = Math.min(100, Math.max(0, payoutRatio));
             hasValidPayout = true;
           }
@@ -359,7 +458,73 @@ export const TechnicalAnalysisSidebar: React.FC<
     }
 
     return { payoutRatio, hasValidPayout, calculatedYield, hasValidYield };
-  }, [security.ticker, dataMode, livePrice, security.marketCap, validFundamentals]);
+  }, [security.ticker, dataMode, livePrice, displayMarketCap, validFundamentals]);
+
+  const performanceRows = useMemo(() => {
+    const referenceTime = lastUpdate
+      ? new Date(lastUpdate).getTime()
+      : (chartData.length > 0 ? new Date(chartData[chartData.length - 1].time).getTime() : 0);
+
+    const getPerformance = (daysOffset: number) => {
+      if (!chartData || chartData.length < 2 || referenceTime <= 0) return null;
+      const currentPrice = livePrice || chartData[chartData.length - 1].close;
+      const targetDate = new Date(referenceTime - daysOffset * 24 * 60 * 60 * 1000);
+      let historicalPoint: ChartDataPoint | undefined;
+      for (let index = chartData.length - 1; index >= 0; index -= 1) {
+        if (new Date(chartData[index].time) <= targetDate) {
+          historicalPoint = chartData[index];
+          break;
+        }
+      }
+      if (!historicalPoint || historicalPoint.close === 0) return null;
+      return ((currentPrice - historicalPoint.close) / historicalPoint.close) * 100;
+    };
+
+    return [
+      { label: '1W', value: getPerformance(7) },
+      { label: '1M', value: getPerformance(30) },
+      { label: '3M', value: getPerformance(90) },
+      { label: '6M', value: getPerformance(180) },
+      { label: 'YTD', value: displayReturnYTD ?? null },
+      { label: '1Y', value: getPerformance(365) }
+    ];
+  }, [chartData, displayReturnYTD, lastUpdate, livePrice]);
+
+  const technicalData = useMemo(() => {
+    if (chartData.length < 50) return null;
+
+    const latestPrice = livePrice || chartData[chartData.length - 1].close;
+    const rsi = getLatestNumericValue(calculateRSI(chartData, 14));
+    const sma20 = getLatestNumericValue(calculateSMA(chartData, 20));
+    const sma50 = getLatestNumericValue(calculateSMA(chartData, 50));
+
+    if (rsi === null || sma20 === null || sma50 === null || sma50 <= 0 || sma20 <= 0) {
+      return null;
+    }
+
+    const rsiScore = Math.max(0, Math.min(100, (rsi - 30) * 2.5));
+    const trendGap = ((sma20 - sma50) / sma50) * 100;
+    const trendScore = Math.max(0, Math.min(100, 50 + trendGap * 5));
+    const priceGap = ((latestPrice - sma20) / sma20) * 100;
+    const priceScore = Math.max(0, Math.min(100, 50 + priceGap * 10));
+    const score = Math.max(0, Math.min(100, rsiScore * 0.4 + trendScore * 0.3 + priceScore * 0.3));
+
+    const getSentimentLabel = (val: number) => {
+      if (val < 25) return "Strong sell";
+      if (val < 45) return "Sell";
+      if (val < 55) return "Neutral";
+      if (val < 75) return "Buy";
+      return "Strong buy";
+    };
+
+    return {
+      rsi,
+      sma20,
+      sma50,
+      score,
+      sentiment: getSentimentLabel(score),
+    };
+  }, [chartData, livePrice]);
 
   // ============================================================================
   // [TENOR 2026 SRE] ECHARTS LIFECYCLE SPLIT (MEMORY LEAK FIX)
@@ -370,15 +535,25 @@ export const TechnicalAnalysisSidebar: React.FC<
   // ----------------------------------------------------------------------------
   useEffect(() => {
     const dom = benefitsChartRef.current;
-    if (!dom || isLoading) return;
+    if (!dom || isFundamentalsPanelLoading || !hasVerifiedEarnings) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         let chart = echarts.getInstanceByDom(dom);
         if (!chart) chart = echarts.init(dom);
 
-        const quarters = ["Q2 '25", "Q3 '25", "Q4 '25", "Q1 '26", "Q2 '26"];
-        const benefitsData = [1.32, 2.1, 1.5, 0.9, 1.8];
+        const earningsRows = dataMode === "real"
+          ? (validFundamentals?.earnings || []).slice(-5)
+          : [
+              { year: "Q2 '25", value: 1.32, isEstimate: false },
+              { year: "Q3 '25", value: 2.1, isEstimate: false },
+              { year: "Q4 '25", value: 1.5, isEstimate: false },
+              { year: "Q1 '26", value: 0.9, isEstimate: true },
+              { year: "Q2 '26", value: 1.8, isEstimate: true },
+            ];
+        const labels = earningsRows.map((row) => row.year);
+        const benefitsData = earningsRows.map((row) => row.value);
+        const tooltipUnit = dataMode === "real" ? "M FCFA" : "%";
 
         const option: echarts.EChartsOption = {
           backgroundColor: "transparent",
@@ -402,12 +577,15 @@ export const TechnicalAnalysisSidebar: React.FC<
             formatter: (params: unknown) => {
               const p = Array.isArray(params) ? params[0] : params;
               const data = p as { dataIndex: number; name: string; value: number };
-              const isEstimate = data.dataIndex >= 3;
+              const isEstimate = Boolean(earningsRows[data.dataIndex]?.isEstimate);
+              const formattedValue = dataMode === "real"
+                ? data.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })
+                : data.value.toFixed(2);
               return `<div style="display: flex; flex-direction: column; gap: 2px;">
                 <div style="color: #94a3b8; font-size: 9px;">${data.name} ${isEstimate ? "(Estimate)" : "(Actual)"}</div>
                 <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center;">
                   <span style="font-weight: 500;">Bénéfices</span>
-                  <span style="font-weight: 700; color: #10b981;">${data.value}%</span>
+                  <span style="font-weight: 700; color: #10b981;">${formattedValue} ${tooltipUnit}</span>
                 </div>
               </div>`;
             }
@@ -415,7 +593,7 @@ export const TechnicalAnalysisSidebar: React.FC<
           grid: { top: 40, right: 35, bottom: 25, left: 5, containLabel: false },
           xAxis: {
             type: "category",
-            data: quarters,
+            data: labels,
             axisLabel: { color: "#94a3b8", fontSize: 9, margin: 10 },
             axisTick: { show: false },
             axisLine: { lineStyle: { color: "#1e293b" } }
@@ -423,7 +601,11 @@ export const TechnicalAnalysisSidebar: React.FC<
           yAxis: {
             type: "value",
             position: "right",
-            axisLabel: { color: "#94a3b8", fontSize: 9, formatter: "{value}%" },
+            axisLabel: {
+              color: "#94a3b8",
+              fontSize: 9,
+              formatter: (value: number) => dataMode === "real" ? value.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : `${value}%`,
+            },
             splitLine: { lineStyle: { color: "#1e293b", type: "dashed" } }
           },
           series: [{
@@ -431,11 +613,11 @@ export const TechnicalAnalysisSidebar: React.FC<
             type: "scatter",
             symbolSize: 14,
             data: benefitsData.map((val, idx) => ({
-              value: idx === 1 ? val + 0.1 : val,
+              value: val,
               itemStyle: {
-                color: idx >= 3 ? "transparent" : (val > 1.5 ? "#22ab94" : "#f23645"),
-                borderColor: idx >= 3 ? "#787b86" : "transparent",
-                borderWidth: idx >= 3 ? 1.5 : 0
+                color: earningsRows[idx]?.isEstimate ? "transparent" : (idx === 0 || val >= benefitsData[idx - 1] ? "#22ab94" : "#f23645"),
+                borderColor: earningsRows[idx]?.isEstimate ? "#787b86" : "transparent",
+                borderWidth: earningsRows[idx]?.isEstimate ? 1.5 : 0
               }
             })),
             emphasis: { scale: 1.2 }
@@ -451,7 +633,7 @@ export const TechnicalAnalysisSidebar: React.FC<
       const chart = echarts.getInstanceByDom(dom);
       if (chart) chart.dispose();
     };
-  }, [security, displayReturnYTD, benefitsChartRef, isLoading]);
+  }, [benefitsChartRef, dataMode, hasVerifiedEarnings, isFundamentalsPanelLoading, validFundamentals]);
 
   // ----------------------------------------------------------------------------
   // ----------------------------------------------------------------------------
@@ -459,7 +641,7 @@ export const TechnicalAnalysisSidebar: React.FC<
   // ----------------------------------------------------------------------------
   useEffect(() => {
     const dom = dividendsChartRef.current;
-    if (!dom || isLoading) return;
+    if (!dom || isFundamentalsPanelLoading || !hasVerifiedDividends) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
@@ -511,19 +693,19 @@ export const TechnicalAnalysisSidebar: React.FC<
       const chart = echarts.getInstanceByDom(dom);
       if (chart) chart.dispose();
     };
-  }, [security, dataMode, fundamentals, livePrice, financialMetrics, dividendsChartRef, isLoading]);
+  }, [financialMetrics, dividendsChartRef, hasVerifiedDividends, isFundamentalsPanelLoading]);
 
 
   useEffect(() => {
     const dom = incomeChartRef.current;
-    if (!dom || isLoading) return;
+    if (!dom || isFundamentalsPanelLoading || !canRenderIncomeStatement) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         let chart = echarts.getInstanceByDom(dom);
         if (!chart) chart = echarts.init(dom);
 
-        const ticker = security.ticker || "BOAB";
+        const ticker = normalizedSecurityTicker || "BOAB";
         const hash = ticker.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
         let revenuesData: number[] = [];
         let earningsData: number[] = [];
@@ -537,39 +719,13 @@ export const TechnicalAnalysisSidebar: React.FC<
           hasFinancials = revs.length > 0 || erns.length > 0;
 
           if (hasFinancials) {
-            if (incomeViewMode === 'annual') {
-              const years = Array.from(new Set([...revs.map(r => r.year), ...erns.map(e => e.year)]))
-                .filter(y => y && y.length === 4)
-                .sort((a, b) => parseInt(a) - parseInt(b));
-              labels = years;
-              revenuesData = years.map(y => revs.find(r => r.year === y)?.value || 0);
-              earningsData = years.map(y => erns.find(e => e.year === y)?.value || 0);
-              margins = years.map((y, i) => revenuesData[i] > 0 ? (earningsData[i] / revenuesData[i]) * 100 : 0);
-            } else {
-              const years = Array.from(new Set([...revs.map(r => r.year), ...erns.map(e => e.year)])).sort().slice(-2);
-              years.forEach(year => {
-                const annualRev = revs.find(r => r.year === year)?.value || 100;
-                const annualErn = erns.find(e => e.year === year)?.value || 10;
-                const factors = [0.22, 0.24, 0.26, 0.28];
-                factors.forEach((f, idx) => {
-                  labels.push(`Q${idx + 1} '${year.toString().slice(-2)}`);
-                  revenuesData.push(annualRev * f * (0.95 + (hash % 10) / 100));
-                  const qErn = annualErn * f * (0.9 + ((hash + idx) % 20) / 100);
-                  earningsData.push(qErn);
-                  margins.push(revenuesData[revenuesData.length - 1] > 0 ? (qErn / revenuesData[revenuesData.length - 1]) * 100 : 0);
-                });
-              });
-              labels = labels.slice(-5);
-              revenuesData = revenuesData.slice(-5);
-              earningsData = earningsData.slice(-5);
-              margins = margins.slice(-5);
-            }
-          } else {
-            const year = new Date().getFullYear();
-            labels = incomeViewMode === 'annual' ? [(year-4).toString(), (year-3).toString(), (year-2).toString(), (year-1).toString(), year.toString()] : [`Q1 '${(year-1).toString().slice(-2)}`, `Q2 '${(year-1).toString().slice(-2)}`, `Q3 '${(year-1).toString().slice(-2)}`, `Q4 '${(year-1).toString().slice(-2)}`, `Q1 '${year.toString().slice(-2)}`];
-            revenuesData = labels.map((_, i) => 80 + (hash % 100) + i * 15 + Math.sin(hash + i) * 10);
-            earningsData = revenuesData.map(r => r * (0.10 + (hash % 20) / 100));
-            margins = earningsData.map((e, i) => (e / revenuesData[i]) * 100);
+            const years = Array.from(new Set([...revs.map(r => r.year), ...erns.map(e => e.year)]))
+              .filter(y => y && y.length === 4)
+              .sort((a, b) => parseInt(a) - parseInt(b));
+            labels = years;
+            revenuesData = years.map(y => revs.find(r => r.year === y)?.value || 0);
+            earningsData = years.map(y => erns.find(e => e.year === y)?.value || 0);
+            margins = years.map((_, i) => revenuesData[i] > 0 ? (earningsData[i] / revenuesData[i]) * 100 : 0);
           }
         } else {
           labels = incomeViewMode === 'annual' ? ["2021", "2022", "2023", "2024", "2025"] : ["Q1 '25", "Q2 '25", "Q3 '25", "Q4 '25", "Q1 '26"];
@@ -662,7 +818,7 @@ export const TechnicalAnalysisSidebar: React.FC<
       const chart = echarts.getInstanceByDom(dom);
       if (chart) chart.dispose();
     };
-  }, [security, fundamentals, dataMode, incomeViewMode, validFundamentals, incomeChartRef, isLoading]);
+  }, [canRenderIncomeStatement, dataMode, incomeChartRef, incomeViewMode, isFundamentalsPanelLoading, normalizedSecurityTicker, validFundamentals]);
 
   // ----------------------------------------------------------------------------
   // ----------------------------------------------------------------------------
@@ -784,50 +940,37 @@ export const TechnicalAnalysisSidebar: React.FC<
 
   // [TENOR 2026] ANALYST RATING COMPUTATION via useMemo (no synchronous setState)
   const analystData = useMemo(() => {
-    if (chartData.length < 20) return null;
+    if (!technicalData) return null;
+    if (dataMode === "real" && (!validFundamentals || validFundamentals.dividends.length === 0)) return null;
+
     const prices = chartData.map(d => d.close);
     const latestPrice = livePrice || prices[prices.length - 1];
 
-    const calcRSI = (data: number[], period = 14) => {
-      let gains = 0, losses = 0;
-      for (let i = data.length - period; i < data.length; i++) {
-        const diff = data[i] - data[i - 1];
-        if (diff >= 0) gains += diff; else losses -= diff;
-      }
-      return losses === 0 ? 100 : 100 - (100 / (1 + gains / losses));
-    };
+    const verifiedPe = Number.isFinite(displayPeRatio)
+      ? displayPeRatio
+      : (Number.isFinite(security.peRatio) ? security.peRatio : null);
+    if (dataMode === "real" && verifiedPe === null) return null;
 
-    const calcSMA = (data: number[], p: number) => data.slice(-p).reduce((a, b) => a + b, 0) / Math.min(data.length, p);
-
-    const rsi = calcRSI(prices, 14);
-    const sma20 = calcSMA(prices, 20);
-    const sma50 = calcSMA(prices, 50);
-
-    const rsiScore = Math.max(0, Math.min(100, (rsi - 30) * 2.5));
-    const trendGap = ((sma20 - sma50) / sma50) * 100;
-    const trendScore = Math.max(0, Math.min(100, 50 + trendGap * 5));
-    const priceGap = ((latestPrice - sma20) / sma20) * 100;
-    const priceScore = Math.max(0, Math.min(100, 50 + priceGap * 10));
-
-    const techScore = rsiScore * 0.4 + trendScore * 0.3 + priceScore * 0.3;
-
-    const pe = displayPeRatio ?? security.peRatio ?? 15;
+    const pe = verifiedPe ?? 15;
     const peScore = Math.max(0, Math.min(100, 50 + (15 - pe) * 5));
 
     const lastDiv = validFundamentals ? (validFundamentals.dividends?.[validFundamentals.dividends.length - 1]?.value ?? 0) : 0;
     const yieldPct = latestPrice > 0 ? (lastDiv / latestPrice) * 100 : 0;
     const divScore = Math.max(0, Math.min(100, yieldPct * 8.33));
 
-    const totalScore = Math.min(100, Math.max(0, techScore * 0.3 + peScore * 0.3 + divScore * 0.4));
+    const totalScore = Math.min(100, Math.max(0, technicalData.score * 0.3 + peScore * 0.3 + divScore * 0.4));
 
-    const lastEPS = validFundamentals?.earnings?.[validFundamentals.earnings.length - 1]?.value ?? null;
-    const shares = security.marketCap && latestPrice > 0 ? security.marketCap / latestPrice : null;
+    const lastNetIncome = validFundamentals?.earnings?.[validFundamentals.earnings.length - 1]?.value ?? null;
+    const sharesMillions = displayMarketCap && latestPrice > 0 ? displayMarketCap / latestPrice : null;
+    const eps = lastNetIncome !== null && sharesMillions && sharesMillions > 0 ? lastNetIncome / sharesMillions : null;
 
     let priceTarget = 0;
-    if (lastEPS !== null && shares && shares > 0) {
-      priceTarget = parseFloat(((lastEPS / shares) * Math.min(pe * 1.1, 20)).toFixed(2));
+    let targetFormula = "SMA50 fallback";
+    if (eps !== null) {
+      priceTarget = parseFloat((eps * Math.min(pe * 1.1, 20)).toFixed(2));
+      targetFormula = "EPS x min(P/E x 1.1, 20)";
     } else {
-      priceTarget = parseFloat((sma50 * (1 + (totalScore - 50) / 200)).toFixed(2));
+      priceTarget = parseFloat((technicalData.sma50 * (1 + (totalScore - 50) / 200)).toFixed(2));
     }
 
     const pctChange = latestPrice > 0 ? ((priceTarget - latestPrice) / latestPrice) * 100 : 0;
@@ -840,8 +983,8 @@ export const TechnicalAnalysisSidebar: React.FC<
       return 'Strong buy';
     };
 
-    return { score: totalScore, label: getLabel(totalScore), priceTarget, pctChange };
-  }, [chartData, livePrice, displayPeRatio, security, validFundamentals]);
+    return { score: totalScore, label: getLabel(totalScore), priceTarget, pctChange, targetFormula };
+  }, [chartData, dataMode, displayMarketCap, displayPeRatio, livePrice, security.peRatio, technicalData, validFundamentals]);
 
   // ----------------------------------------------------------------------------
   // ----------------------------------------------------------------------------
@@ -849,9 +992,7 @@ export const TechnicalAnalysisSidebar: React.FC<
   // ----------------------------------------------------------------------------
   useEffect(() => {
     const dom = analystRatingChartRef.current;
-    if (!dom || !analystData || isLoading) return;
-
-    let jitterInterval: NodeJS.Timeout;
+    if (!dom || !analystData || isLoading || isFundamentalsLoading) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
@@ -912,30 +1053,16 @@ export const TechnicalAnalysisSidebar: React.FC<
         };
 
         chart.setOption(option);
-
-        jitterInterval = setInterval(() => {
-          if (!chart || chart.isDisposed()) return;
-          const jitter = (Math.random() - 0.5) * 1.2;
-          chart.setOption({
-            series: [{
-              type: 'gauge',
-              animationDurationUpdate: 300,
-              animationEasingUpdate: 'cubicOut',
-              data: [{ value: score + jitter }]
-            }]
-          });
-        }, 1100);
       }
     }, { threshold: 0.1 });
 
     observer.observe(dom);
     return () => {
-      if (jitterInterval) clearInterval(jitterInterval);
       observer.disconnect();
       const chart = echarts.getInstanceByDom(dom);
       if (chart) chart.dispose();
     };
-  }, [analystData, analystRatingChartRef, isLoading]);
+  }, [analystData, analystRatingChartRef, isFundamentalsLoading, isLoading]);
 
   // ----------------------------------------------------------------------------
   // ----------------------------------------------------------------------------
@@ -943,50 +1070,15 @@ export const TechnicalAnalysisSidebar: React.FC<
   // ----------------------------------------------------------------------------
   useEffect(() => {
     const dom = technicalsChartRef.current;
-    if (!dom || chartData.length < 20 || isLoading) return;
-
-    let jitterInterval: NodeJS.Timeout;
+    if (!dom || !technicalData || isLoading) return;
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         let chart = echarts.getInstanceByDom(dom);
         if (!chart) chart = echarts.init(dom);
 
-        const prices = chartData.map(d => d.close);
-        const latestPrice = livePrice || prices[prices.length - 1];
-
-        const calculateRSI = (data: number[], period: number = 14) => {
-          let gains = 0, losses = 0;
-          for (let i = data.length - period; i < data.length; i++) {
-            const diff = data[i] - data[i - 1];
-            if (diff >= 0) gains += diff; else losses -= diff;
-          }
-          return losses === 0 ? 100 : 100 - (100 / (1 + (gains / losses)));
-        };
-
-        const calculateSMA = (data: number[], period: number) => data.slice(-period).reduce((a, b) => a + b, 0) / Math.min(data.length, period);
-
-        const rsi = calculateRSI(prices, 14);
-        const sma20 = calculateSMA(prices, 20);
-        const sma50 = calculateSMA(prices, 50);
-
-        const rsiScore = Math.max(0, Math.min(100, (rsi - 30) * 2.5));
-        const trendGap = ((sma20 - sma50) / sma50) * 100;
-        const trendScore = Math.max(0, Math.min(100, 50 + trendGap * 5));
-        const priceGap = ((latestPrice - sma20) / sma20) * 100;
-        const priceScore = Math.max(0, Math.min(100, 50 + priceGap * 10));
-
-        const score = Math.max(0, Math.min(100, rsiScore * 0.4 + trendScore * 0.3 + priceScore * 0.3));
-
-        const getSentimentLabel = (val: number) => {
-          if (val < 25) return "Strong sell";
-          if (val < 45) return "Sell";
-          if (val < 55) return "Neutral";
-          if (val < 75) return "Buy";
-          return "Strong buy";
-        };
-
-        const sentiment = getSentimentLabel(score);
+        const score = technicalData.score;
+        const sentiment = technicalData.sentiment;
 
         const colors = {
           strongSell: '#f23645',
@@ -1057,30 +1149,16 @@ export const TechnicalAnalysisSidebar: React.FC<
         };
 
         chart.setOption(option);
-
-        jitterInterval = setInterval(() => {
-          if (!chart || chart.isDisposed()) return;
-          const jitter = (Math.random() - 0.5) * 1.5;
-          chart.setOption({
-            series: [{
-              type: 'gauge',
-              animationDurationUpdate: 300,
-              animationEasingUpdate: 'cubicOut',
-              data: [{ value: score + jitter }]
-            }]
-          });
-        }, 900);
       }
     }, { threshold: 0.1 });
 
     observer.observe(dom);
     return () => {
-      if (jitterInterval) clearInterval(jitterInterval);
       observer.disconnect();
       const chart = echarts.getInstanceByDom(dom);
       if (chart) chart.dispose();
     };
-  }, [chartData, livePrice, technicalsChartRef, isLoading]);
+  }, [technicalData, technicalsChartRef, isLoading]);
 
 
   useEffect(() => {
@@ -1486,14 +1564,14 @@ export const TechnicalAnalysisSidebar: React.FC<
                           </div>
                         )}
                       </div>
-                      <div className={"price-timestamp-v3"}>Last update at {lastUpdate ? new Date(lastUpdate).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })} GMT+1</div>
+                      <div className={"price-timestamp-v3"}>Last update at {sidebarLastUpdateLabel} {BRVM_DISPLAY_TIME_ZONE_LABEL}</div>
                     </div>
                   </div>
 
-                  <div className={"gp-market-status-v3"}>
+                  <div className={clsx("gp-market-status-v3", !sidebarMarketStatus.isOpen && "closed")} title={sidebarMarketStatus.title}>
                     <div className="d-flex align-items-center gap-2">
                       <div className={"status-indicator-dot"} />
-                      <span className={"status-text"}>Market open</span>
+                      <span className={"status-text"}>{sidebarMarketStatus.isOpen ? "Market open" : "Market closed"}</span>
                       {watchlistSettings.showVolume && (
                         <>
                           <span className={"status-separator"}>•</span>
@@ -1508,6 +1586,15 @@ export const TechnicalAnalysisSidebar: React.FC<
                     <span className={"detail-separator"}>•</span>
                     <div className={"detail-item"}><b>Country:</b> {security.country}</div>
                   </div>
+
+                  <SidebarAuditTrail
+                    items={[
+                      { label: "Source", value: marketDataSource, tone: auditTone },
+                      { label: "Date", value: marketAuditDate },
+                      { label: "Formule", value: "Last, Δ, Δ% depuis OHLCV/live" },
+                      { label: "Devise", value: auditCurrency },
+                    ]}
+                  />
                 </>
               )}
             </div>
@@ -1541,7 +1628,7 @@ export const TechnicalAnalysisSidebar: React.FC<
           <div className={"gp-sidebar-section"}>
             <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Statistiques clés</span></div>
             <div className={"gp-stats-table-v2"}>
-              {isLoading ? (
+              {isFundamentalsPanelLoading ? (
                 <div className="d-flex flex-column gap-2 p-1">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="d-flex justify-content-between align-items-center">
@@ -1556,24 +1643,34 @@ export const TechnicalAnalysisSidebar: React.FC<
                   <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>P/E Ratio</span><span className={clsx("col-auto", "stat-value")}>{displayPeRatio?.toFixed(2).replace(".", ",")}</span></div>
                   <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Volume</span><span className={clsx("col-auto", "stat-value")}>{currentVolume >= 1000 ? (currentVolume / 1000).toFixed(2).replace(".", ",") + " K" : currentVolume}</span></div>
                   <div className={clsx("row", "g-0")}>
-                    <span className={clsx("col", "stat-label")}>Revenu (T12M)</span>
-                    <span className={clsx("col-auto", "stat-value")}>
-                      {financialMetrics.hasValidYield ? `${financialMetrics.calculatedYield.toFixed(2).replace(".", ",")}%` : `${security.revenueT12M?.toFixed(2).replace(".", ",")} %`}
-                    </span>
+                    <span className={clsx("col", "stat-label")}>Revenu/PNB (FY)</span>
+                    <span className={clsx("col-auto", "stat-value")}>{displayRevenueT12M}</span>
                   </div>
                   <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Volume moyen (30)</span><span className={clsx("col-auto", "stat-value")}>{avgVolume >= 1000 ? (avgVolume / 1000).toFixed(2).replace(".", ",") + " K" : Math.round(avgVolume)}</span></div>
                   <div className={clsx("row", "g-0")}><span className={clsx("col", "stat-label")}>Capitalisation boursière</span><span className={clsx("col-auto", "stat-value")}>{(displayMarketCap !== undefined && displayMarketCap > 0) ? (displayMarketCap >= 1000 ? `${(displayMarketCap / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} B FCFA` : `${displayMarketCap.toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} M FCFA`) : "N/D"}</span></div>
                 </>
               )}
             </div>
+            {!isFundamentalsPanelLoading && (
+              <SidebarAuditTrail
+                items={[
+                  { label: "Source", value: `${marketDataSource} + ${fundamentalsSource}`, tone: auditTone },
+                  { label: "Date", value: `Prix ${marketAuditDate} / FY ${fundamentalsAuditYear}` },
+                  { label: "Formule", value: "YTD, P/E, Vol, Avg30, Cap, PNB/FY" },
+                  { label: "Devise", value: auditCurrency },
+                ]}
+              />
+            )}
           </div>
 
           <div className={clsx("gp-sidebar-section", "gp-benefits-section-v2")} style={{ minHeight: "150px" }}>
-            <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Fondamentaux (T12M)</span></div>
-            {isLoading ? (
+            <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Fondamentaux (FY)</span></div>
+            {isFundamentalsPanelLoading ? (
               <div key="loading" className="p-2">
                 <div className={"is-loading-skeleton"} style={{ width: '100%', height: '120px', borderRadius: '8px' }} />
               </div>
+            ) : !hasVerifiedEarnings ? (
+              <SidebarUnavailableState message="Bénéfices non vérifiés pour ce titre via les sources BRVM disponibles." />
             ) : (
               <div key="ready">
                 <div ref={benefitsChartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "120px" }}></div>
@@ -1581,9 +1678,17 @@ export const TechnicalAnalysisSidebar: React.FC<
                   <div className="d-flex align-items-center gap-1"><span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#22ab94' }}></span><span>Actual</span></div>
                   <div className="d-flex align-items-center gap-1"><span style={{ width: 8, height: 8, borderRadius: '50%', border: '1.5px solid #787b86' }}></span><span>Estimate</span></div>
                 </div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: fundamentalsSource, tone: auditTone },
+                    { label: "Date", value: `FY ${fundamentalsAuditYear}` },
+                    { label: "Formule", value: "Bénéfice net lu BRVM, trié par exercice" },
+                    { label: "Devise", value: "M FCFA" },
+                  ]}
+                />
               </div>
             )}
-            {!isLoading && (
+            {!isFundamentalsPanelLoading && hasVerifiedEarnings && (
               <div className="d-flex justify-content-center mt-3">
                 <button
                   className={clsx("hover-lift", "hover-lift")}
@@ -1598,10 +1703,12 @@ export const TechnicalAnalysisSidebar: React.FC<
 
           <div className={"gp-sidebar-section"} style={{ borderBottom: 'none' }}>
             <div className={"gp-sidebar-header"}><span className={"gp-sidebar-title"}>Dividends</span></div>
-            {isLoading ? (
+            {isFundamentalsPanelLoading ? (
               <div key="loading" className="p-2">
                 <div className={"is-loading-skeleton"} style={{ width: '100%', height: '150px', borderRadius: '8px' }} />
               </div>
+            ) : !hasVerifiedDividends ? (
+              <SidebarUnavailableState message="Dividendes non vérifiés pour ce titre via les sources BRVM disponibles." />
             ) : (
               <div key="ready">
                 <div ref={dividendsChartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "150px" }}></div>
@@ -1609,9 +1716,17 @@ export const TechnicalAnalysisSidebar: React.FC<
                   <div className="d-flex align-items-center gap-1"><span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#64748b' }}></span><span>Earnings retained</span></div>
                   <div className="d-flex align-items-center gap-1"><span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }}></span><span>Payout ratio</span></div>
                 </div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: fundamentalsSource, tone: auditTone },
+                    { label: "Date", value: `FY ${fundamentalsAuditYear}` },
+                    { label: "Formule", value: "Yield=Div/Last; Payout=Div/EPS" },
+                    { label: "Devise", value: auditCurrency },
+                  ]}
+                />
               </div>
             )}
-            {!isLoading && (
+            {!isFundamentalsPanelLoading && hasVerifiedDividends && (
               <div className="d-flex justify-content-center mt-3">
                 <button
                   className={clsx("hover-lift", "hover-lift")}
@@ -1634,10 +1749,16 @@ export const TechnicalAnalysisSidebar: React.FC<
                 </div>
               </div>
             </div>
-            {isLoading ? (
+            {isFundamentalsPanelLoading ? (
               <div key="loading" className="p-2">
                 <div className={"is-loading-skeleton"} style={{ width: '100%', height: '140px', borderRadius: '8px' }} />
               </div>
+            ) : !canRenderIncomeStatement ? (
+              <SidebarUnavailableState
+                message={incomeViewMode === "quarterly" && dataMode === "real"
+                  ? "Données trimestrielles non vérifiées: aucune estimation locale n'est affichée en mode réel."
+                  : "Compte de résultat non vérifié pour ce titre via les sources BRVM disponibles."}
+              />
             ) : (
               <div key="ready">
                 <div ref={incomeChartRef} style={{ width: '100%', height: '140px' }}></div>
@@ -1645,9 +1766,17 @@ export const TechnicalAnalysisSidebar: React.FC<
                   <div className="d-flex align-items-center gap-1.5"><span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#2962ff' }}></span><span>Revenue</span></div>
                   <div className="d-flex align-items-center gap-1.5"><span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#ff9800' }}></span><span>Net margin %</span></div>
                 </div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: fundamentalsSource, tone: auditTone },
+                    { label: "Date", value: `FY ${fundamentalsAuditYear}` },
+                    { label: "Formule", value: "Marge nette = Résultat net / Revenu" },
+                    { label: "Devise", value: "M FCFA" },
+                  ]}
+                />
               </div>
             )}
-            {!isLoading && (
+            {!isFundamentalsPanelLoading && canRenderIncomeStatement && (
               <div className="d-flex justify-content-center mt-3">
                 <button
                   className={clsx("hover-lift", "hover-lift")}
@@ -1663,32 +1792,21 @@ export const TechnicalAnalysisSidebar: React.FC<
           <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
             <div className={"gp-sidebar-header"} style={{ marginBottom: '12px' }}><span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Performance</span></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {(function () {
-                const referenceTime = lastUpdate ? new Date(lastUpdate).getTime() : (chartData.length > 0 ? new Date(chartData[chartData.length - 1].time).getTime() : 0);
-                const getRealPerf = (daysOffset: number) => {
-                  if (!chartData || chartData.length < 2) return null;
-                  const currentPrice = livePrice || chartData[chartData.length - 1].close;
-                  const targetDate = new Date(referenceTime - daysOffset * 24 * 60 * 60 * 1000);
-                  const historicalPoint = chartData.findLast(d => new Date(d.time) <= targetDate);
-                  if (!historicalPoint || historicalPoint.close === 0) return null;
-                  return ((currentPrice - historicalPoint.close) / historicalPoint.close) * 100;
-                };
-
-                return [
-                  { label: '1W', value: getRealPerf(7) },
-                  { label: '1M', value: getRealPerf(30) },
-                  { label: '3M', value: getRealPerf(90) },
-                  { label: '6M', value: getRealPerf(180) },
-                  { label: 'YTD', value: security.returnYTD },
-                  { label: '1Y', value: getRealPerf(365) }
-                ].map((p, i) => (
-                  <div key={i} className="d-flex flex-column align-items-center py-2" style={{ backgroundColor: (p.value || 0) >= 0 ? 'rgba(8, 153, 129, 0.08)' : 'rgba(242, 54, 69, 0.08)', borderRadius: '4px' }}>
-                    <span style={{ fontSize: '10px', color: '#787b86' }}>{p.label}</span>
-                    <span style={{ fontSize: '11px', color: (p.value || 0) >= 0 ? '#089981' : '#f23645', fontWeight: 700 }}>{p.value !== null ? `${p.value >= 0 ? '+' : ''}${p.value.toFixed(2)}%` : '—'}</span>
-                  </div>
-                ));
-              })()}
+              {performanceRows.map((p, i) => (
+                <div key={i} className="d-flex flex-column align-items-center py-2" style={{ backgroundColor: (p.value || 0) >= 0 ? 'rgba(8, 153, 129, 0.08)' : 'rgba(242, 54, 69, 0.08)', borderRadius: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#787b86' }}>{p.label}</span>
+                  <span style={{ fontSize: '11px', color: (p.value || 0) >= 0 ? '#089981' : '#f23645', fontWeight: 700 }}>{p.value !== null ? `${p.value >= 0 ? '+' : ''}${p.value.toFixed(2)}%` : '—'}</span>
+                </div>
+              ))}
             </div>
+            <SidebarAuditTrail
+              items={[
+                { label: "Source", value: marketDataSource, tone: auditTone },
+                { label: "Date", value: marketAuditDate },
+                { label: "Formule", value: "(Close actuel - Close ancre) / Close ancre" },
+                { label: "Devise", value: `% depuis clôtures ${auditCurrency}` },
+              ]}
+            />
           </div>
 
           <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
@@ -1705,6 +1823,14 @@ export const TechnicalAnalysisSidebar: React.FC<
                   <div className="d-flex align-items-center gap-1.5"><span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#089981' }}></span><span>2025</span></div>
                   <div className="d-flex align-items-center gap-1.5"><span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#f57c00' }}></span><span>2024</span></div>
                 </div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: marketDataSource, tone: auditTone },
+                    { label: "Date", value: marketAuditDate },
+                    { label: "Formule", value: "(Close mois - Close début année) / Close début année" },
+                    { label: "Devise", value: `% depuis clôtures ${auditCurrency}` },
+                  ]}
+                />
               </div>
             )}
             {!isLoading && (
@@ -1726,9 +1852,19 @@ export const TechnicalAnalysisSidebar: React.FC<
               <div key="loading" className="p-2">
                 <div className={"is-loading-skeleton"} style={{ width: '100%', height: '160px', borderRadius: '8px' }} />
               </div>
+            ) : !technicalData ? (
+              <SidebarUnavailableState message="Données techniques insuffisantes: RSI14 et SMA50 exigent au moins 50 clôtures vérifiées." />
             ) : (
               <div key="ready">
                 <div ref={technicalsChartRef} style={{ width: '100%', height: '160px' }}></div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: marketDataSource, tone: auditTone },
+                    { label: "Date", value: marketAuditDate },
+                    { label: "Formule", value: "RSI14 Wilder + SMA20/SMA50; score 40/30/30" },
+                    { label: "Devise", value: `Prix ${auditCurrency}` },
+                  ]}
+                />
                 <div className="d-flex justify-content-center mt-2">
                   <button
                     className={clsx("hover-lift", "hover-lift")}
@@ -1742,17 +1878,21 @@ export const TechnicalAnalysisSidebar: React.FC<
             )}
           </div>
 
-          {/* [TENOR 2026] ANALYST RATING WIDGET — derived from real fundamentals + technical data */}
+          {/* [TENOR 2026] MODEL RATING WIDGET — derived from real fundamentals + technical data */}
           <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px' }}>
             <div className={"gp-sidebar-header"} style={{ marginBottom: '0px' }}>
-              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Analyst rating</span>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Model rating</span>
             </div>
-            {analystData ? (
+            {isLoading || isFundamentalsLoading ? (
+              <div key="loading" style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className={"is-loading-skeleton"} style={{ width: '80%', height: '120px', borderRadius: '8px' }} />
+              </div>
+            ) : analystData ? (
               <div key="ready">
                 <div ref={analystRatingChartRef} style={{ width: '100%', height: '160px' }} />
                 {/* 1-year price target row */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px 4px', borderTop: '1px solid rgba(42,46,57,0.5)', marginTop: '4px' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>1 year price target</span>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>1 year model target</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 700, color: '#d1d4dc' }}>
                       {analystData.priceTarget > 0 ? analystData.priceTarget.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : 'N/A'}
@@ -1765,20 +1905,26 @@ export const TechnicalAnalysisSidebar: React.FC<
                   </div>
                 </div>
                 {/* See forecast button */}
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: `${marketDataSource} + ${fundamentalsSource}`, tone: auditTone },
+                    { label: "Date", value: `Prix ${marketAuditDate} / FY ${fundamentalsAuditYear}` },
+                    { label: "Formule", value: `Score=Tech 30% + P/E 30% + Yield 40%; Target=${analystData.targetFormula}` },
+                    { label: "Devise", value: auditCurrency },
+                  ]}
+                />
                 <div className="d-flex justify-content-center mt-2">
                   <button
                     className={clsx("hover-lift", "hover-lift")}
                     style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#f1f5f9', border: '1px solid #363a45', borderRadius: '50px', padding: '4px 32px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
                     onClick={() => window.open(`https://www.brvm.org/fr/cours-actions/${security.ticker}`, '_blank')}
                   >
-                    See forecast
+                    See source
                   </button>
                 </div>
               </div>
             ) : (
-              <div key="loading" style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className={"is-loading-skeleton"} style={{ width: '80%', height: '120px', borderRadius: '8px' }} />
-              </div>
+              <SidebarUnavailableState message="Modèle indisponible: RSI/SMA50, P/E et dividendes vérifiés sont requis pour afficher un score traçable." />
             )}
           </div>
 
@@ -1810,6 +1956,14 @@ export const TechnicalAnalysisSidebar: React.FC<
                     </div>
                   ))}
                 </div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: "/api/market-data/brvm-bonds", tone: auditTone },
+                    { label: "Date", value: marketAuditDate },
+                    { label: "Formule", value: "Top 3 obligations triées par YTM décroissant" },
+                    { label: "Devise", value: "% annualisé" },
+                  ]}
+                />
                 <div className="d-flex justify-content-center mt-0">
                   <button
                     className={clsx("hover-lift", "hover-lift")}
@@ -1830,29 +1984,51 @@ export const TechnicalAnalysisSidebar: React.FC<
           {/* [TENOR 2026] VOLATILITY TERM STRUCTURE WIDGET */}
           <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
             <div className={"gp-sidebar-header"} style={{ marginBottom: '10px' }}>
-              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>ATM IV term structure</span>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Historical volatility term structure</span>
             </div>
             {isLoading ? (
               <div key="loading" className="p-0">
                 <div className={"is-loading-skeleton"} style={{ width: '100%', height: '180px', borderRadius: '8px' }} />
               </div>
+            ) : chartData.length < 5 ? (
+              <SidebarUnavailableState message="Volatilité historique indisponible: au moins 5 clôtures vérifiées sont nécessaires." />
             ) : (
-              <div key="ready" ref={volatilityChartRef} style={{ width: '100%', height: '180px' }}></div>
+              <div key="ready">
+                <div ref={volatilityChartRef} style={{ width: '100%', height: '180px' }}></div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: marketDataSource, tone: auditTone },
+                    { label: "Date", value: marketAuditDate },
+                    { label: "Formule", value: "HV=stdev(log returns) x sqrt(252)" },
+                    { label: "Devise", value: "% annualisé" },
+                  ]}
+                />
+              </div>
             )}
           </div>
 
           {/* [TENOR 2026] VOLATILITY CURVE (SKEW) WIDGET */}
           <div className={"gp-sidebar-section"} style={{ borderTop: '1px solid rgba(42, 46, 57, 0.5)', marginTop: '8px', paddingTop: '12px', borderBottom: 'none' }}>
             <div className={"gp-sidebar-header"} style={{ marginBottom: '10px' }}>
-              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Volatility curve (28 days)</span>
+              <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Historical volatility curve (28 days)</span>
             </div>
             {isLoading ? (
               <div key="loading" className="p-1">
                 <div className={"is-loading-skeleton"} style={{ width: '100%', height: '180px', borderRadius: '8px' }} />
               </div>
+            ) : chartData.length < 28 ? (
+              <SidebarUnavailableState message="Courbe de volatilité indisponible: au moins 28 clôtures vérifiées sont nécessaires." />
             ) : (
               <div key="ready">
                 <div ref={volatilityCurveChartRef} style={{ width: '100%', height: '180px' }}></div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: marketDataSource, tone: auditTone },
+                    { label: "Date", value: marketAuditDate },
+                    { label: "Formule", value: "Kernel gaussien sur rendements log² 28j" },
+                    { label: "Devise", value: "% annualisé" },
+                  ]}
+                />
                 <div className="d-flex justify-content-center mt-0 pt-0">
                   <button
                     className={clsx("hover-lift", "hover-lift")}
@@ -1871,7 +2047,7 @@ export const TechnicalAnalysisSidebar: React.FC<
             <div className={"gp-sidebar-header"} style={{ marginBottom: '12px' }}>
               <span className={"gp-sidebar-title"} style={{ fontSize: '14px', fontWeight: 700, color: '#d1d4dc' }}>Profile</span>
             </div>
-            {isLoading ? (
+            {isFundamentalsPanelLoading ? (
               <div className="d-flex flex-column gap-3 p-1">
                 <div className="d-flex flex-column gap-2">
                   {[1, 2, 3, 4].map((i) => (
@@ -1939,6 +2115,14 @@ export const TechnicalAnalysisSidebar: React.FC<
                     </button>
                   </div>
                 </div>
+                <SidebarAuditTrail
+                  items={[
+                    { label: "Source", value: fundamentalsSource, tone: auditTone },
+                    { label: "Date", value: `FY ${fundamentalsAuditYear}` },
+                    { label: "Formule", value: "Profil BRVM normalisé; ISIN/FIGI catalogue" },
+                    { label: "Devise", value: "N/A" },
+                  ]}
+                />
               </>
             )}
           </div>

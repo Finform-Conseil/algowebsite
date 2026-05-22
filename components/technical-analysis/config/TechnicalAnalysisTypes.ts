@@ -1,6 +1,8 @@
+import type { ChartType } from "../lib/chart-types";
 // [TENOR 2026] Imports for caching
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
+import type { CompareSeriesSettingsMap } from "./compareSeries";
 
 // ============================================================================
 // CORE DRAWING TYPES
@@ -681,13 +683,22 @@ export interface LiveSnapshot {
 export interface ChartState {
   symbol: string;
   timeframe: string;
-  chartType: "candlestick" | "line";
+  chartType: ChartType;
   indicators: {
     sma: boolean;
     ema: boolean;
     volume: boolean;
     activeSma: number[];
     activeEma: number[];
+    activeWma: number[];
+    activeDema: number[];
+    activeTema: number[];
+    activeHma: number[];
+    activeZlema: number[];
+    activeAlma: number[];
+    activeSmma: number[];
+    activeKama: number[];
+    activeVwma: number[];
   };
 }
 
@@ -725,8 +736,38 @@ export interface AdvancedIndicatorsState {
   stochastic: boolean;
   atr: boolean;
   cci: boolean;
+  cci14: boolean;
+  cci20: boolean;
+  mfi14: boolean;
   williamsR: boolean;
+  williamsR14: boolean;
   roc: boolean;
+  roc10: boolean;
+  roc20: boolean;
+  momentum10: boolean;
+  momentum20: boolean;
+  cmo14: boolean;
+  dymi: boolean;
+  ultimateOsc: boolean;
+  dpo20: boolean;
+  tsi: boolean;
+  awesomeOsc: boolean;
+  acOsc: boolean;
+  rvi: boolean;
+  fisherTransform: boolean;
+  elderBullBear: boolean;
+  coppock: boolean;
+  ppo: boolean;
+  apo: boolean;
+  parabolicSar: boolean;
+  adx: boolean;
+  aroon: boolean;
+  aroonOsc: boolean;
+  supertrend: boolean;
+  vortex: boolean;
+  trix: boolean;
+  stc: boolean;
+  massIndex: boolean;
   obv: boolean;
   ichimoku: boolean;
   stochRsi: boolean;
@@ -825,6 +866,15 @@ export interface SavedAnalysisIndicators {
   volume: boolean;
   activeSma?: number[];
   activeEma?: number[];
+  activeWma?: number[];
+  activeDema?: number[];
+  activeTema?: number[];
+  activeHma?: number[];
+  activeZlema?: number[];
+  activeAlma?: number[];
+  activeSmma?: number[];
+  activeKama?: number[];
+  activeVwma?: number[];
 }
 
 export interface SavedAnalysisAdvancedIndicators {
@@ -834,8 +884,30 @@ export interface SavedAnalysisAdvancedIndicators {
   stochastic: boolean;
   atr: boolean;
   cci: boolean;
+  cci14?: boolean;
+  cci20?: boolean;
+  mfi14?: boolean;
   williamsR?: boolean;
+  williamsR14?: boolean;
   roc?: boolean;
+  roc10?: boolean;
+  roc20?: boolean;
+  momentum10?: boolean;
+  momentum20?: boolean;
+  cmo14?: boolean;
+  dymi?: boolean;
+  ultimateOsc?: boolean;
+  dpo20?: boolean;
+  tsi?: boolean;
+  awesomeOsc?: boolean;
+  acOsc?: boolean;
+  rvi?: boolean;
+  fisherTransform?: boolean;
+  elderBullBear?: boolean;
+  coppock?: boolean;
+  ppo?: boolean;
+  apo?: boolean;
+  parabolicSar?: boolean;
   obv?: boolean;
   ichimoku?: boolean;
   stochRsi?: boolean;
@@ -882,12 +954,51 @@ export interface IndicatorPeriods {
   [key: string]: number;
 }
 
+export type VolumeColorMode = "candle-body" | "session-change";
+
 export interface ChartAppearance {
   showGrid: boolean;
   upColor: string;
   downColor: string;
   backgroundColor: string;
   showVolume: boolean;
+  volumeColorMode: VolumeColorMode;
+}
+
+export type MovingAverageTrendSignalId =
+  | "is_above_ema20"
+  | "is_above_sma50"
+  | "is_above_sma200";
+
+export interface MovingAverageTrendSignalsState {
+  active: Record<MovingAverageTrendSignalId, boolean>;
+  showSourceAverages: boolean;
+}
+
+export type PriceVsSmaMetricId =
+  | "price_vs_sma20_pct"
+  | "price_vs_sma50_pct"
+  | "price_vs_sma150_pct"
+  | "price_vs_sma200_pct";
+
+export type PriceVsEmaMetricId =
+  | "price_vs_ema20_pct"
+  | "price_vs_ema50_pct"
+  | "price_vs_ema200_pct";
+
+export type PriceVsMovingAverageMetricState = "above" | "below" | "neutral" | "unknown";
+export type PriceVsMovingAverageQualityTone = "success" | "warning" | "danger" | "muted";
+export type PriceVsSmaMetricState = PriceVsMovingAverageMetricState;
+export type PriceVsSmaQualityTone = PriceVsMovingAverageQualityTone;
+export type PriceVsEmaMetricState = PriceVsMovingAverageMetricState;
+export type PriceVsEmaQualityTone = PriceVsMovingAverageQualityTone;
+
+export interface PriceVsSmaMetricsState {
+  active: Record<PriceVsSmaMetricId, boolean>;
+}
+
+export interface PriceVsEmaMetricsState {
+  active: Record<PriceVsEmaMetricId, boolean>;
 }
 
 export interface UiState {
@@ -900,6 +1011,10 @@ export interface UiState {
   isCapturing: boolean;
   dataMode: "mock" | "real";
   comparisonSymbols: string[];
+  comparisonSettings: CompareSeriesSettingsMap;
+  movingAverageTrendSignals: MovingAverageTrendSignalsState;
+  priceVsSmaMetrics: PriceVsSmaMetricsState;
+  priceVsEmaMetrics: PriceVsEmaMetricsState;
   multiChartLayout: MultiChartLayoutState;
   searchMode: "replace" | "compare";
   modals: {

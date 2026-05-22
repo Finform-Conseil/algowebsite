@@ -60,8 +60,23 @@ const parseBRVMCSV = (csvText: string): ChartDataPoint[] => {
       return parseFloat(sanitized) || 0;
     };
 
+    let timeStr = dateIdx !== -1 && cols[dateIdx] ? cols[dateIdx].trim() : new Date().toISOString();
+
+    // [TENOR 2026] Fix Date parsing for DD/MM/YYYY
+    if (timeStr.includes('/')) {
+      const parts = timeStr.split('/');
+      if (parts.length === 3) {
+        // Assume DD/MM/YYYY if the first part > 12, or just force it for consistency if year is last
+        if (parts[2].length === 4) {
+          timeStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        } else if (parts[0].length === 4) {
+          timeStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      }
+    }
+
     data.push({
-      time: dateIdx !== -1 && cols[dateIdx] ? cols[dateIdx].trim() : new Date().toISOString(),
+      time: timeStr,
       open: cleanNum(cols[openIdx]),
       high: cleanNum(cols[highIdx]),
       low: cleanNum(cols[lowIdx]),
@@ -157,7 +172,7 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
   // --- STATE ---
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [showReplayFullText, setShowReplayFullText] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(mode === "real");
 
   // --- STABLE REFS ---
   const replayOriginalData = useRef<ChartDataPoint[]>([]);
@@ -764,12 +779,10 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
 
   useEffect(() => {
     if (safeSymbols.length === 0) return;
-    let isActive = true;
-    const settleTimers: ReturnType<typeof setTimeout>[] = [];
     const safeSymbolSet = new Set(safeSymbols);
 
     const setSymbolStatus = (symbol: string, status: ComparisonLoadStatus) => {
-      if (!isActive || !safeSymbolSet.has(symbol)) return;
+      if (!safeSymbolSet.has(symbol)) return;
       setLoadState((current) => (current[symbol] === status ? current : { ...current, [symbol]: status }));
     };
 
@@ -780,8 +793,7 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
         return;
       }
 
-      const timerId = setTimeout(() => setSymbolStatus(symbol, status), remainingGraceMs);
-      settleTimers.push(timerId);
+      setTimeout(() => setSymbolStatus(symbol, status), remainingGraceMs);
     };
 
     safeSymbols.forEach((upperSymbol) => {
@@ -811,7 +823,6 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
           return response.text();
         })
         .then((csvText) => {
-          if (!isActive) return;
           const parsedDaily = parseBRVMCSV(csvText);
           if (parsedDaily.length > 0) {
             dispatch(updateMarketData({ symbol: upperSymbol, data: parsedDaily }));
@@ -829,11 +840,6 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
           inflightFetches.current.delete(upperSymbol);
         });
     });
-
-    return () => {
-      isActive = false;
-      settleTimers.forEach((timerId) => clearTimeout(timerId));
-    };
   }, [safeSymbols, dataMode, dispatch]);
 
   return loadState;

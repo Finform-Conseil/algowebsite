@@ -19,18 +19,53 @@ import {
   ChartDataPoint,
   calculateSMA,
   calculateEMA,
+  calculateWMA,
+  calculateDEMA,
+  calculateTEMA,
+  calculateHMA,
+  calculateZLEMA,
+  calculateALMA,
+  calculateSMMA,
+  calculateKAMA,
+  calculateVWMA,
   calculateRSI,
   calculateMACD,
+  calculatePPO,
+  calculateAPO,
+  calculateParabolicSAR,
+  calculateADX,
+  calculateAroon,
+  calculateAroonOscillator,
+  calculateSupertrend,
+  calculateVortex,
+  calculateTRIX,
+  calculateSTC,
+  calculateMassIndex,
   calculateBollinger,
   calculateStochastic,
   calculateStochasticRSI,
   calculateATR,
   calculateCCI,
+  calculateMFI,
   calculateWilliamsR,
   calculateROC,
+  calculateMomentum,
+  calculateCMO,
+  calculateDYMI,
+  calculateUltimateOscillator,
+  calculateDPO,
+  calculateTSI,
+  calculateAwesomeOscillator,
+  calculateAcceleratorOscillator,
+  calculateRVI,
+  calculateFisherTransform,
+  calculateElderBullBearPower,
+  calculateCoppockCurve,
   calculateOBV,
   calculateIchimoku,
 } from "../Indicators/TechnicalIndicators";
+import { getEmaSeriesDataKey, getSmaSeriesDataKey, normalizeMovingAveragePeriods } from "../../config/movingAverageSeries";
+import { getAdvancedMovingAverageDataKey } from "../../config/advancedMovingAverageSeries";
 
 // Constants for binary protocol
 const FIELDS_PER_CANDLE = 6; // timestamp, open, high, low, close, volume
@@ -83,31 +118,75 @@ self.onmessage = (e: MessageEvent) => {
 
     // --- SMA ---
     if (indicators.sma) {
-      if (indicators.activeSma.includes(indicatorPeriods.sma1)) {
-        results.sma1 = toFloatArray(calculateSMA(chartData, indicatorPeriods.sma1));
-      }
-      if (indicators.activeSma.includes(indicatorPeriods.sma2)) {
-        results.sma2 = toFloatArray(calculateSMA(chartData, indicatorPeriods.sma2));
-      }
-      if (indicators.activeSma.includes(indicatorPeriods.sma3)) {
-        results.sma3 = toFloatArray(calculateSMA(chartData, indicatorPeriods.sma3));
-      }
-      if (indicators.activeSma.includes(50)) {
-        results.sma50 = toFloatArray(calculateSMA(chartData, 50));
-      }
-      if (indicators.activeSma.includes(200)) {
-        results.sma200 = toFloatArray(calculateSMA(chartData, 200));
+      const activeSmaPeriods = normalizeMovingAveragePeriods(indicators.activeSma);
+      for (let index = 0; index < activeSmaPeriods.length; index++) {
+        const period = activeSmaPeriods[index];
+        results[getSmaSeriesDataKey(period)] = toFloatArray(calculateSMA(chartData, period));
       }
     }
 
     // --- EMA ---
     if (indicators.ema) {
-      if (indicators.activeEma.includes(5)) {
-        results.ema5 = toFloatArray(calculateEMA(chartData, 5));
+      const activeEmaPeriods = normalizeMovingAveragePeriods(indicators.activeEma);
+      for (let index = 0; index < activeEmaPeriods.length; index++) {
+        const period = activeEmaPeriods[index];
+        results[getEmaSeriesDataKey(period)] = toFloatArray(calculateEMA(chartData, period));
       }
-      if (indicators.activeEma.includes(10)) {
-        results.ema10 = toFloatArray(calculateEMA(chartData, 10));
-      }
+    }
+
+    // --- Advanced Moving Averages ---
+    const activeWmaPeriods = normalizeMovingAveragePeriods(indicators.activeWma);
+    for (let index = 0; index < activeWmaPeriods.length; index++) {
+      const period = activeWmaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("wma", period)] = toFloatArray(calculateWMA(chartData, period));
+    }
+
+    const activeDemaPeriods = normalizeMovingAveragePeriods(indicators.activeDema);
+    for (let index = 0; index < activeDemaPeriods.length; index++) {
+      const period = activeDemaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("dema", period)] = toFloatArray(calculateDEMA(chartData, period));
+    }
+
+    const activeTemaPeriods = normalizeMovingAveragePeriods(indicators.activeTema);
+    for (let index = 0; index < activeTemaPeriods.length; index++) {
+      const period = activeTemaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("tema", period)] = toFloatArray(calculateTEMA(chartData, period));
+    }
+
+    const activeHmaPeriods = normalizeMovingAveragePeriods(indicators.activeHma);
+    for (let index = 0; index < activeHmaPeriods.length; index++) {
+      const period = activeHmaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("hma", period)] = toFloatArray(calculateHMA(chartData, period));
+    }
+
+    const activeZlemaPeriods = normalizeMovingAveragePeriods(indicators.activeZlema);
+    for (let index = 0; index < activeZlemaPeriods.length; index++) {
+      const period = activeZlemaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("zlema", period)] = toFloatArray(calculateZLEMA(chartData, period));
+    }
+
+    const activeAlmaPeriods = normalizeMovingAveragePeriods(indicators.activeAlma);
+    for (let index = 0; index < activeAlmaPeriods.length; index++) {
+      const period = activeAlmaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("alma", period)] = toFloatArray(calculateALMA(chartData, period));
+    }
+
+    const activeSmmaPeriods = normalizeMovingAveragePeriods(indicators.activeSmma);
+    for (let index = 0; index < activeSmmaPeriods.length; index++) {
+      const period = activeSmmaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("smma", period)] = toFloatArray(calculateSMMA(chartData, period));
+    }
+
+    const activeKamaPeriods = normalizeMovingAveragePeriods(indicators.activeKama);
+    for (let index = 0; index < activeKamaPeriods.length; index++) {
+      const period = activeKamaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("kama", period)] = toFloatArray(calculateKAMA(chartData, period));
+    }
+
+    const activeVwmaPeriods = normalizeMovingAveragePeriods(indicators.activeVwma);
+    for (let index = 0; index < activeVwmaPeriods.length; index++) {
+      const period = activeVwmaPeriods[index];
+      results[getAdvancedMovingAverageDataKey("vwma", period)] = toFloatArray(calculateVWMA(chartData, period));
     }
 
     // --- Advanced Indicators ---
@@ -120,6 +199,65 @@ self.onmessage = (e: MessageEvent) => {
       results.macdLine = toFloatArray(macd.macdLine);
       results.macdSignal = toFloatArray(macd.signalLine);
       results.macdHist = toFloatArray(macd.histogram);
+    }
+
+    if (advancedIndicators.ppo) {
+      const ppo = calculatePPO(chartData);
+      results.ppo = toFloatArray(ppo.ppoLine);
+      results.ppoSignal = toFloatArray(ppo.signalLine);
+      results.ppoHistogram = toFloatArray(ppo.histogram);
+    }
+
+    if (advancedIndicators.apo) {
+      results.apo = toFloatArray(calculateAPO(chartData));
+    }
+
+    if (advancedIndicators.parabolicSar) {
+      const sar = calculateParabolicSAR(chartData);
+      results.parabolicSar = toFloatArray(sar.sar);
+      results.parabolicSarSignal = toFloatArray(sar.signal);
+    }
+
+    if (advancedIndicators.adx) {
+      const adx = calculateADX(chartData, 14);
+      results.adx14 = toFloatArray(adx.adx);
+      results.plusDI14 = toFloatArray(adx.plusDI);
+      results.minusDI14 = toFloatArray(adx.minusDI);
+      results.adxTrendStrength = toFloatArray(adx.trendStrength);
+    }
+
+    if (advancedIndicators.aroon) {
+      const aroon = calculateAroon(chartData, 14);
+      results.aroonUp14 = toFloatArray(aroon.up);
+      results.aroonDown14 = toFloatArray(aroon.down);
+    }
+
+    if (advancedIndicators.aroonOsc) {
+      results.aroonOsc14 = toFloatArray(calculateAroonOscillator(chartData, 14));
+    }
+
+    if (advancedIndicators.supertrend) {
+      const supertrend = calculateSupertrend(chartData, 10, 3);
+      results.supertrend = toFloatArray(supertrend.supertrend);
+      results.supertrendSignal = toFloatArray(supertrend.signal);
+    }
+
+    if (advancedIndicators.vortex) {
+      const vortex = calculateVortex(chartData, 14);
+      results.vortexPlus14 = toFloatArray(vortex.plus);
+      results.vortexMinus14 = toFloatArray(vortex.minus);
+    }
+
+    if (advancedIndicators.trix) {
+      results.trix18 = toFloatArray(calculateTRIX(chartData, 18));
+    }
+
+    if (advancedIndicators.stc) {
+      results.stc = toFloatArray(calculateSTC(chartData));
+    }
+
+    if (advancedIndicators.massIndex) {
+      results.massIndex = toFloatArray(calculateMassIndex(chartData));
     }
 
     // [TENOR 2026 HDR] BOLLINGER BANDS
@@ -172,16 +310,88 @@ self.onmessage = (e: MessageEvent) => {
       results.atr = toFloatArray(calculateATR(chartData));
     }
 
-    if (advancedIndicators.cci) {
-      results.cci = toFloatArray(calculateCCI(chartData));
+    if (advancedIndicators.cci14) {
+      results.cci14 = toFloatArray(calculateCCI(chartData, 14));
     }
 
-    if (advancedIndicators.williamsR) {
-      results.williamsR = toFloatArray(calculateWilliamsR(chartData));
+    if (advancedIndicators.cci20 || advancedIndicators.cci) {
+      results.cci20 = toFloatArray(calculateCCI(chartData, 20));
     }
 
-    if (advancedIndicators.roc) {
-      results.roc = toFloatArray(calculateROC(chartData));
+    if (advancedIndicators.mfi14) {
+      results.mfi14 = toFloatArray(calculateMFI(chartData, 14));
+    }
+
+    if (advancedIndicators.williamsR14 || advancedIndicators.williamsR) {
+      results.williamsR14 = toFloatArray(calculateWilliamsR(chartData, 14));
+    }
+
+    if (advancedIndicators.roc10 || advancedIndicators.roc) {
+      results.roc10 = toFloatArray(calculateROC(chartData, 10));
+    }
+
+    if (advancedIndicators.roc20) {
+      results.roc20 = toFloatArray(calculateROC(chartData, 20));
+    }
+
+    if (advancedIndicators.momentum10) {
+      results.momentum10 = toFloatArray(calculateMomentum(chartData, 10));
+    }
+
+    if (advancedIndicators.momentum20) {
+      results.momentum20 = toFloatArray(calculateMomentum(chartData, 20));
+    }
+
+    if (advancedIndicators.cmo14) {
+      results.cmo14 = toFloatArray(calculateCMO(chartData, 14));
+    }
+
+    if (advancedIndicators.dymi) {
+      results.dymi = toFloatArray(calculateDYMI(chartData));
+    }
+
+    if (advancedIndicators.ultimateOsc) {
+      results.ultimateOsc = toFloatArray(calculateUltimateOscillator(chartData));
+    }
+
+    if (advancedIndicators.dpo20) {
+      results.dpo20 = toFloatArray(calculateDPO(chartData, 20));
+    }
+
+    if (advancedIndicators.tsi) {
+      const tsi = calculateTSI(chartData);
+      results.tsi = toFloatArray(tsi.tsi);
+      results.tsiSignal = toFloatArray(tsi.signalLine);
+    }
+
+    if (advancedIndicators.awesomeOsc) {
+      results.awesomeOsc = toFloatArray(calculateAwesomeOscillator(chartData));
+    }
+
+    if (advancedIndicators.acOsc) {
+      results.acOsc = toFloatArray(calculateAcceleratorOscillator(chartData));
+    }
+
+    if (advancedIndicators.rvi) {
+      const rvi = calculateRVI(chartData);
+      results.rvi = toFloatArray(rvi.rvi);
+      results.rviSignal = toFloatArray(rvi.signalLine);
+    }
+
+    if (advancedIndicators.fisherTransform) {
+      const fisher = calculateFisherTransform(chartData);
+      results.fisher = toFloatArray(fisher.fisher);
+      results.fisherSignal = toFloatArray(fisher.signalLine);
+    }
+
+    if (advancedIndicators.elderBullBear) {
+      const elder = calculateElderBullBearPower(chartData);
+      results.elderBull = toFloatArray(elder.bull);
+      results.elderBear = toFloatArray(elder.bear);
+    }
+
+    if (advancedIndicators.coppock) {
+      results.coppock = toFloatArray(calculateCoppockCurve(chartData));
     }
 
     if (advancedIndicators.obv) {

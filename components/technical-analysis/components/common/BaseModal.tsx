@@ -10,6 +10,7 @@ interface BaseModalProps {
   maxWidth?: string;
   footer?: ReactNode;
   className?: string;
+  overlayClassName?: string;
   showCloseButton?: boolean;
   // [TENOR 2026 SRE FIX] SCAR-TS2322: Removed redundant '| null' from RefObject generic.
   // React.RefObject<T> is already defined as { readonly current: T | null }.
@@ -43,6 +44,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   maxWidth = "500px",
   footer,
   className,
+  overlayClassName,
   showCloseButton = true,
   overlayRef,
   contentRef,
@@ -117,7 +119,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   return (
     <div
       ref={overlayRef}
-      className={"gp-modal-overlay"}
+      className={clsx("gp-modal-overlay", overlayClassName)}
       onClick={onClose}
       // [TENOR 2026] A11y: Overlay should not be focusable, it's just a backdrop
       aria-hidden="true"

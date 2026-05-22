@@ -22,6 +22,7 @@ import {
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
   { key: "symbol", label: "Symbol", title: "Synchronise le symbole entre tous les graphiques" },
   { key: "interval", label: "Interval", title: "Synchronise le timeframe entre tous les graphiques" },
+  { key: "crosshair", label: "Curseur", title: "Synchronise le curseur en croix entre tous les graphiques" },
   { key: "time", label: "Time", title: "Synchronise le zoom et le scroll temporel" },
   { key: "dateRange", label: "Date range", title: "Synchronise les plages 1M, YTD, 1Y, Tout" },
 ];

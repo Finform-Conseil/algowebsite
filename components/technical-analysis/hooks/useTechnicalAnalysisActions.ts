@@ -1,11 +1,13 @@
 "use client";
 
+import { normalizeChartType } from "../lib/chart-types";
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import DOMPurify from "dompurify";
 import {
   setTimeframe,
   setChartConfig,
+  setAdvancedIndicators,
   hydrateMultiChartLayout,
   setModalOpen,
   selectChartConfig,
@@ -140,16 +142,64 @@ export const useTechnicalAnalysisActions = (
 
   const handleLoadAnalysis = useCallback((analysis: SavedAnalysis) => {
     const config = analysis.config;
+    const savedAdvancedIndicators = config.advancedIndicators ?? {};
     
     dispatch(setChartConfig({
       symbol: config.symbol,
       timeframe: config.timeframe,
-      chartType: config.chartType as "line" | "candlestick",
+      chartType: normalizeChartType(config.chartType),
       indicators: {
         ...config.indicators,
         activeSma: config.indicators.activeSma ?? [],
         activeEma: config.indicators.activeEma ?? [],
+        activeWma: config.indicators.activeWma ?? [],
+        activeDema: config.indicators.activeDema ?? [],
+        activeTema: config.indicators.activeTema ?? [],
+        activeHma: config.indicators.activeHma ?? [],
+        activeZlema: config.indicators.activeZlema ?? [],
+        activeAlma: config.indicators.activeAlma ?? [],
+        activeSmma: config.indicators.activeSmma ?? [],
+        activeKama: config.indicators.activeKama ?? [],
+        activeVwma: config.indicators.activeVwma ?? [],
       },
+    }));
+
+    dispatch(setAdvancedIndicators({
+      rsi: savedAdvancedIndicators.rsi ?? false,
+      macd: savedAdvancedIndicators.macd ?? false,
+      bollinger: savedAdvancedIndicators.bollinger ?? false,
+      stochastic: savedAdvancedIndicators.stochastic ?? false,
+      atr: savedAdvancedIndicators.atr ?? false,
+      cci: false,
+      cci14: savedAdvancedIndicators.cci14 ?? false,
+      cci20: savedAdvancedIndicators.cci20 ?? savedAdvancedIndicators.cci ?? false,
+      mfi14: savedAdvancedIndicators.mfi14 ?? false,
+      williamsR: false,
+      williamsR14: savedAdvancedIndicators.williamsR14 ?? savedAdvancedIndicators.williamsR ?? false,
+      roc: false,
+      roc10: savedAdvancedIndicators.roc10 ?? savedAdvancedIndicators.roc ?? false,
+      roc20: savedAdvancedIndicators.roc20 ?? false,
+      momentum10: savedAdvancedIndicators.momentum10 ?? false,
+      momentum20: savedAdvancedIndicators.momentum20 ?? false,
+      cmo14: savedAdvancedIndicators.cmo14 ?? false,
+      dymi: savedAdvancedIndicators.dymi ?? false,
+      ultimateOsc: savedAdvancedIndicators.ultimateOsc ?? false,
+      dpo20: savedAdvancedIndicators.dpo20 ?? false,
+      tsi: savedAdvancedIndicators.tsi ?? false,
+      awesomeOsc: savedAdvancedIndicators.awesomeOsc ?? false,
+      acOsc: savedAdvancedIndicators.acOsc ?? false,
+      rvi: savedAdvancedIndicators.rvi ?? false,
+      fisherTransform: savedAdvancedIndicators.fisherTransform ?? false,
+      elderBullBear: savedAdvancedIndicators.elderBullBear ?? false,
+      coppock: savedAdvancedIndicators.coppock ?? false,
+      ppo: savedAdvancedIndicators.ppo ?? false,
+      apo: savedAdvancedIndicators.apo ?? false,
+      parabolicSar: savedAdvancedIndicators.parabolicSar ?? false,
+      obv: savedAdvancedIndicators.obv ?? false,
+      ichimoku: savedAdvancedIndicators.ichimoku ?? false,
+      stochRsi: savedAdvancedIndicators.stochRsi ?? false,
+      bbWidth: savedAdvancedIndicators.bbWidth ?? false,
+      bbPercentB: savedAdvancedIndicators.bbPercentB ?? false,
     }));
 
     if (config.timeRange) {

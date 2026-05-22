@@ -1,193 +1,561 @@
-# 📚 Architecture des Données de Marché Algoway
-# Document de Référence Complet — RÉVISION VÉRITÉ SRE/HDR — TENOR 2026
+# Architecture des Donnees de Marche - Technical Analysis
 
-> **Ce document répond à une question fondamentale :**
-> *Comment Algoway affiche-t-il un graphique BRVM à jour, sachant que les sources publiques sont limitées, asynchrones, et parfois instables ?*
-> 
-> **L'ARCHITECTURE "CERVEAU & MUSCLES" :**
-> - **MUSCLES (Fredysessie/GitHub) :** Fournit l'historique massif (CSV journaliers).
-> - **CERVEAU (Algoway Backend / Redis Upstash) :** Gère le temps réel, le crowdsourcing distribué, et l'intraday minute par minute avec une résilience de niveau institutionnel.
+Revision verifiee le 2026-05-20.
 
----
+Ce document decrit le flux reel utilise par la page
+`/equity/technical-analysis`, notamment la zone du graphique principal et la
+sidebar droite. Il est ecrit pour qu'un autre LLM, un backend engineer ou un
+fournisseur de donnees puisse comprendre exactement ce qui existe, ce qui est
+simule, et ce qui manque.
 
-## PARTIE 1 — LE PROBLÈME DE BASE (La distinction cruciale)
+## 1. Synthese Operationnelle
 
-### 1.1 Le "Mensonge" de la Doc Fredysessie (`brvm-data-public`)
-La documentation officielle de Fredysessie affirme que les données sont mises à jour **toutes les 15 minutes**. En réalité, après analyse des commits et des fichiers réels, voici la **VÉRITÉ** :
+La route `app/equity/technical-analysis/page.tsx` monte le composant client
+`components/technical-analysis/TechnicalAnalysis.tsx`.
 
-- **INDICES (BRVMC, BRVM10, BRVM30) :** ✅ VRAI. Les fichiers CSV des indices reçoivent effectivement une nouvelle ligne toutes les ~15 à 60 minutes. On peut construire des bougies horaires pour les indices.
-- **ACTIONS/TICKERS (SMBC, BOAB, etc.) :** ❌ FAUX. Leurs fichiers `.daily.csv` ne reçoivent qu'**UNE SEULE ligne par jour**, généralement entre 09h54 et 10h15 UTC. Aucune donnée intraday n'est stockée dans ces CSV pour les actions individuelles.
+Le graphique principal utilise aujourd'hui principalement des donnees
+historiques journalieres OHLCV chargees depuis un CSV public GitHub via le
+proxy Next.js. La sidebar droite combine ces memes donnees chart, un snapshot
+live quand il est disponible, des metadonnees statiques locales, et plusieurs
+routes Next.js qui scrappent `brvm.org`.
 
-#### 📊 Tableau Comparatif (Doc Officielle vs Réalité 2026)
+Point critique : le code contient un hook et une route pour l'intraday, mais
+ils ne sont pas branches a la page visible aujourd'hui. La route de collecte
+mentionnee par le hook (`/api/market-data/brvm-collect`) n'existe pas dans le
+projet actuel. Le systeme affiche donc de l'historique de marche et un
+snapshot live, mais pas encore un vrai flux de seance intraday branche au
+chart principal.
 
-| Type de Donnée          | Format | Fréquence (Officiel) | Fréquence (Réel)      | Point d'Accès (URL Pattern)            |
-| :---------------------- | :----- | :------------------- | :-------------------- | :------------------------------------- |
-| **Actions (Tickers)**   | CSV    | 15 minutes           | **1x / jour (matin)** | `.../data/{ticker}/{ticker}.daily.csv` |
-| **Indices (BRVM10...)** | CSV    | 15 minutes           | ✅ ~15-60 minutes      | `.../data/BRVM10/BRVM10.daily.csv`     |
-| **Devises (paires)**    | JSON   | Quotidien            | ✅ Quotidien           | `.../data/currency_data/{code}.json`   |
-| **Archives (Releases)** | ZIP    | Périodique           | ✅ Périodique          | `.../releases`                         |
+Attention : ce constat ne signifie pas qu'il faut automatiquement reconstruire
+une route de collecte maison. Avant de creer une nouvelle "roue" Redis/collect,
+il faut verifier s'il existe deja une API officielle, commerciale, open data ou
+communautaire capable de fournir le flux de seance BRVM. La construction interne
+ne doit venir qu'apres cette verification.
 
-> [!IMPORTANT]
-> C'est cette limitation sur les **Actions (Tickers)** qui a imposé la création du système **Intraday Redis** d'Algoway. Sans lui, le graphique des actions serait "mort" toute la journée après 10h00 UTC.
+## 2. Reponse Courte Aux 6 Questions Data
 
-### 1.2 Pourquoi Algoway ne peut pas se contenter du CSV ?
-Si un utilisateur ouvre Algoway à 14h00 :
-1. Le fichier `SMBC.daily.csv` de Fredysessie contient sa dernière bougie de ce matin à 10h.
-2. Tout ce qui s'est passé entre 10h et 14h (transactions, pics, chutes) est **INVISIBLE** dans le CSV.
-3. Conséquence : Sans Algoway, le graphique s'arrêterait à 10h du matin.
+### 2.1 Source des donnees
 
-### 1.3 La Solution Algoway : Le Système Hybride
-Algoway ne se contente pas de lire des fichiers ; il **construit** sa propre mémoire intraday en combinant 4 sources de données distinctes et une base de données en mémoire (Redis).
+Sources utilisees :
 
----
+1. Historique daily OHLCV :
+   `Fredysessie/brvm-data-public` via
+   `/api/proxy/9/Fredysessie/brvm-data-public/main/data/{TICKER}/{TICKER}.daily.csv`.
 
-## PARTIE 2 — LA TOPOLOGIE DES 8 APIs (L'Écosystème SRE)
+2. Snapshot indicator CSV :
+   `Fredysessie/brvm-data-public` via
+   `/api/proxy/9/Fredysessie/brvm-data-public/main/data/{TICKER}/{TICKER}.indicator.csv`.
 
-Pour soutenir ce système hybride, le dossier `src/app/api/market-data/` contient 8 micro-services Serverless. Chacun a une responsabilité unique et stricte, protégé par un **Circuit Breaker** et un cache **SWR (Stale-While-Revalidate)**.
+3. Scraping BRVM officiel :
+   routes Next.js sous `/api/market-data/*`, principalement `brvm-live`,
+   `brvm-live-capitalisation`, `brvm-fundamentals`, `brvm-news`, `brvm-bonds`
+   et `indices`.
 
-1. **`brvm-live`** : Scrape le prix instantané d'une action. C'est le "Tick" rouge que vous voyez sur l'axe Y du graphique.
-2. **`brvm-collect`** : Le collecteur silencieux. Reçoit le prix live du client et l'écrit dans Redis via un pipeline atomique (`HSET`).
-3. **`brvm-intraday`** : Le lecteur. Lit Redis (`HGETALL`), trie les minutes chronologiquement, et fabrique les bougies OHLCV (1m, 5m, 15m).
-4. **`brvm-fundamentals`** : Scrape les données financières (P/E, Revenus, Dividendes) et le profil de l'entreprise.
-5. **`brvm-bonds`** : Scrape le marché obligataire pour extraire les obligations au plus haut rendement (YTM).
-6. **`brvm-news`** : Scrape les dernières actualités de la BRVM.
-7. **`brvm-live-capitalisation`** : Scrape les données macro (Capitalisation globale, nombre de titres).
-8. **`indices`** : Scrape la performance des indices majeurs (BRVMC, BRVM30, BRVMPR).
+4. Metadonnees statiques internes :
+   `core/data/brvm-securities.ts` pour le nom, secteur, pays, logo, P/E,
+   rendement YTD, revenu T12M, market cap fallback, ISIN et FIGI.
 
----
+Pas de fichier Excel ou PDF directement branche sur cet ecran. Pas de base
+interne pour les bougies daily visibles. Redis/Upstash est prevu pour
+l'intraday, mais le flux n'est pas actif sur la page actuelle.
 
-## PARTIE 3 — LES 4 SOURCES DE DONNÉES (Le Flux de Travail)
+### 2.2 Frequence de mise a jour
 
-À chaque rafraîchissement, le hook `useMarketData` et le système `useIntradayData` orchestrent ces appels :
+| Donnee | Frequence actuelle | Cache / polling |
+| --- | --- | --- |
+| CSV daily action | En pratique une ligne par jour | Fetch initial + polling frontend 5 min |
+| CSV indicator | Selon mise a jour GitHub externe | Fallback si scraper live echoue |
+| Scraper `brvm-live` | A la requete | Cache serveur 15 min, stale 24h |
+| Scraper capitalisation | A la requete | Cache serveur 30 min, stale 24h |
+| News BRVM | A la requete | Frontend 30 min, serveur 1h |
+| Fondamentaux | Au changement de ticker | Cache HTTP 24h |
+| Intraday Redis | Route existe | Non branche, retourne `[]` sans snapshots |
 
-### 3.1 SOURCE 1 : `dailyUrl` (L'Ancre Historique)
-- **Fichier :** `{TICKER}.daily.csv` sur GitHub.
-- **Rôle :** Fournir l'historique de 2015 à hier.
-- **Fréquence :** 1x par jour.
-- **Usage :** C'est la base du graphique (99% des points).
+### 2.3 Type de donnees disponibles
 
-### 3.2 SOURCE 2 : `liveScraperUrl` (Le Radar Temps Réel)
-- **Fichier :** Aucun (Scraping dynamique de `brvm.org` via l'API `brvm-live`).
-- **Rôle :** Donne le prix **exact** à la seconde près et le volume cumulé.
-- **Usage :** Utilisé pour créer la bougie "Live" et alimenter le TickerPanel.
+Donnees disponibles pour le chart principal :
 
-### 3.3 SOURCE 3 : `githubIndicatorUrl` (Le Backup)
-- **Fichier :** `{TICKER}.indicator.csv` sur GitHub.
-- **Rôle :** Contient le prix actuel si le scraper interne d'Algoway échoue (Circuit Breaker ouvert).
-- **Fréquence :** Mis à jour plus souvent que le daily, mais reste dépendant des robots GitHub.
+- `time`
+- `open`
+- `high`
+- `low`
+- `close`
+- `volume`
 
-### 3.4 SOURCE 4 : `brvm-intraday` (La Mémoire Algoway / Redis)
-- **Base de données :** Cluster Upstash Redis (Serverless).
-- **Rôle :** Stocker chaque minute de cotation que Fredysessie ignore.
-- **Usage :** C'est la seule source permettant d'afficher des bougies de 1m, 5m, 15m, 1H.
+Donnees disponibles pour la sidebar :
 
----
+- prix live ou dernier close
+- variation et variation pourcentage
+- volume courant
+- volume moyen 30 periodes
+- capitalisation globale et nombre de titres, si scraper capitalisation OK
+- fondamentaux scrappes : earnings, revenues, dividends, profile, website,
+  employees
+- metadonnees statiques : secteur, pays, P/E, return YTD, revenue T12M,
+  market cap fallback
 
-## PARTIE 4 — COMMENT LES DONNÉES SONT "COUTURÉES" (Data Stitching)
+Donnees non disponibles aujourd'hui sur l'ecran visible :
 
-La fusion se fait en deux étapes dans le composant `TechnicalAnalysis.tsx`.
+- transactions intraday reelles
+- carnet d'ordres
+- bid/ask depth
+- tick-by-tick
+- flux websocket
+- vraies bougies 1m/5m/15m branchees au renderer principal
 
-### 4.1 Étape A : Le Filtrage de Plage (1J → 5Y)
-On prend les données **journalières** (SOURCE 1) et on les filtre selon le bouton cliqué :
-- **1J :** Affiche seulement les 2 derniers jours.
-- **YTD :** Affiche du 1er Janvier à aujourd'hui.
-- **Tout :** Affiche l'historique complet.
+### 2.4 Backend
 
-### 4.2 Étape B : L'Injection Live
-Si le timeframe est journalier, on ajoute à la fin une bougie "artificielle" calculée ainsi :
-- **Open :** Donnée par le scraper (prix d'ouverture du matin).
-- **High/Low :** Plus hauts/bas de la journée en cours via le scraper.
-- **Close :** Le prix actuel (`liveSnapshot.price`).
-- **Volume :** Le volume cumulé de la journée.
+Le backend utilise par cet ecran est Next.js App Router. Les routes Django
+mentionnees dans certains commentaires du proxy ne sont pas le flux effectif
+du chart BRVM visible.
 
-**Pourquoi il n'y a pas de doublon ?**
-Le code compare la date ISO `"2026-03-06"`. Si cette date existe déjà dans le CSV, on **met à jour** la dernière ligne. Si elle n'existe pas, on **ajoute** la ligne.
+Routes Next.js impliquees :
 
----
+- `app/api/proxy/[...path]/route.ts`
+- `app/api/market-data/brvm-live/route.ts`
+- `app/api/market-data/brvm-live-capitalisation/route.ts`
+- `app/api/market-data/brvm-fundamentals/route.ts`
+- `app/api/market-data/brvm-news/route.ts`
+- `app/api/market-data/brvm-bonds/route.ts`
+- `app/api/market-data/indices/route.ts`
+- `app/api/market-data/brvm-intraday/route.ts`
 
-## PARTIE 5 — LE MOTEUR INTRADAY "CROWDSOURCED" (L'Innovation Algoway)
+La route intraday lit Upstash Redis si `UPSTASH_REDIS_REST_URL` et
+`UPSTASH_REDIS_REST_TOKEN` existent. Elle retourne `[]` si Redis est absent,
+vide ou si aucune cle snapshot n'est trouvee.
 
-Comme Fredysessie ne donne pas de bougies intraday pour les actions, Algoway les **fabrique**. Puisque la BRVM ne fournit pas d'API WebSocket, Algoway utilise les navigateurs de ses propres utilisateurs comme des "Workers" distribués.
+### 2.5 Frontend
 
-### 5.1 Collecte (Le Scrapper Silencieux)
-Toutes les minutes, tant que le marché est ouvert (09h00-15h30 UTC), le hook `useIntradayData` :
-1. Interroge le scraper live (`brvm-live`).
-2. Envoie le prix à `/api/market-data/brvm-collect`.
-3. Le serveur écrit ce point `{ts, p, v}` dans **Redis**.
+Le frontend lit directement les routes API Next.js. Il ne lit pas directement
+une API Django pour le chart BRVM actuel.
 
-### 5.2 L'Idempotence (La Magie SRE)
-Si 100 utilisateurs regardent l'action `BOAB` en même temps, ils envoient tous le prix à Redis. Mais Redis utilise un **HASH** où la clé est la minute exacte (ex: `10:05`). Les 100 requêtes écrasent la même clé avec la même valeur. **Zéro duplication. Zéro surcharge. Complexité O(1).**
+Les bougies daily sont deja donnees par le CSV source puis parsees cote
+frontend par `parseBRVMCSV()`. ECharts recoit ensuite :
 
-### 5.3 Agrégation (OHLCV à la volée)
-Quand tu cliques sur "5m" ou "15m" :
-1. L'API `/api/market-data/brvm-intraday` lit le Hash Redis de la journée (`HGETALL`).
-2. Elle **trie** les minutes chronologiquement (car les clés d'un Hash ne sont pas ordonnées).
-3. Elle groupe les points par paquets (buckets) de 5 ou 15 minutes.
-4. Elle calcule :
-   - **Open** : 1er point du bucket.
-   - **High/Low** : Max/Min du bucket.
-   - **Close** : Dernier point du bucket.
-5. **Résultat :** De vraies bougies intraday professionnelles, même si la source d'origine ne les fournit pas.
+- `dates`: axe X
+- `values`: `[open, close, low, high]`
+- `volumes`: `[index, volume, direction]`
 
----
+Les indicateurs techniques sont calcules cote frontend dans un worker via
+`useEChartsRenderer`.
 
-## PARTIE 6 — LA VÉRITÉ SUR LES "FAUSSES BOUGIES" (Continuité Temporelle)
+### 2.6 Exemple de payload actuel
 
-Une question légitime se pose : *"Si le prix ne bouge pas sur le site de la BRVM pendant 10 minutes, pourquoi Algoway dessine-t-il quand même 10 bougies de 1 minute ? Ne crée-t-on pas de la fausse information ?"*
+Dernieres lignes reelles du CSV daily BOAB observees via localhost :
 
-**La Réponse Mathématique (Standard Institutionnel) :**
-Dans un marché illiquide, une absence de transaction **n'est pas** une absence de temps. 
+```csv
+Date,Open,High,Low,Close,Volume
+2026-05-12,9405,9445,9405,9420,11117
+2026-05-13,9420,9420,9405,9410,2844
+2026-05-15,9415,9420,9320,9400,2830
+2026-05-18,9400,9400,9320,9400,4370
+2026-05-19,9400,9400,9365,9400,4953
+```
 
-Si le prix est de 7500 FCFA à 10h00, et qu'aucune transaction n'a lieu jusqu'à 10h15, l'état réel du marché pendant ces 15 minutes est que l'actif vaut toujours 7500 FCFA. 
+Equivalent `ChartDataPoint` apres parsing :
 
-Si nous ne dessinions rien (en sautant de 10h00 à 10h15 sur l'axe X) :
-- Le graphique serait visuellement trompeur (le temps semblerait compressé).
-- **Pire encore :** Les algorithmes mathématiques (Moyennes Mobiles, RSI, Bandes de Bollinger) seraient **corrompus**. Une Moyenne Mobile sur 20 périodes a besoin de 20 unités de temps réelles pour calculer sa valeur. Si on omet les minutes sans transaction, la moyenne calculera son résultat sur le passé lointain au lieu du présent stagnant.
+```json
+{
+  "time": "2026-05-19",
+  "open": 9400,
+  "high": 9400,
+  "low": 9365,
+  "close": 9400,
+  "volume": 4953
+}
+```
 
-**Ce que fait Algoway :**
-Il applique la **Loi de la Continuité des Séries Temporelles**. Pour chaque minute sans nouvelle transaction, Algoway génère une bougie "plate" (un Doji) où :
-`Open = High = Low = Close = 7500` et `Volume = 0`.
-Ce n'est pas une fausse donnée, c'est la représentation exacte de la stagnation du marché. C'est ainsi que fonctionnent les terminaux Bloomberg et TradingView.
+Snapshot indicator BOAB observe :
 
----
+```csv
+Ticker,URL_Ticker,Cours_Actuel,Variation_Cours,Volume_Titres,Volume__,Ouverture,Plus_Haut,Plus_Bas,Cloture_Veille,Beta_1_An,RSI,Capital_Echange,Valorisation
+BOAB,BOAB.bj,9400.0,"0,00%",1906.0,17916400.0,9420.0,9420.0,9400.0,9400.0,0.17,83.2,0.0,381 274 M
+```
 
-## PARTIE 7 — LE SEAMLESS INTRADAY STITCHING (SIS)
+Capitalisation BOAB observee :
 
-Que se passe-t-il à 09h00, à l'ouverture du marché, quand Redis est encore vide pour la journée ? Le graphique serait vide.
+```json
+{
+  "symbol": "BOAB",
+  "name": "BANK OF AFRICA BENIN",
+  "sharesCount": 40561048,
+  "lastPrice": 9415,
+  "floatingMarketCap": 86215.108,
+  "globalMarketCap": 381882.26692,
+  "source": "BRVM_CAPITALIZATION",
+  "cacheStatus": "HIT"
+}
+```
 
-Pour éviter cela, la route `brvm-intraday` implémente le **SIS (Seamless Intraday Stitching)** :
-1. Elle va chercher le dernier cours de clôture de la veille dans les archives CSV de GitHub.
-2. Elle injecte ce prix comme un point de départ artificiel à `08:59:00 UTC`.
-3. Ainsi, la première vraie bougie de la journée (à 09h00) s'ancrera visuellement sur la clôture de la veille, évitant un "gap" visuel perturbant pour l'utilisateur.
+Etat live observe :
 
----
+```json
+{
+  "error": "Ticker BOAB not found"
+}
+```
 
-## PARTIE 8 — CYCLE DE VIE D'UNE JOURNÉE (Exemple SMBC)
+Etat intraday observe :
 
-1. **09:00 UTC :** Ouverture. Le CSV GitHub est à Hier. Algoway commence la collecte Redis pour Aujourd'hui (SIS injecte la clôture de la veille).
-2. **09:30 UTC :** Le graphique 1m montre 30 bougies tirées de notre Hash Redis.
-3. **10:00 UTC :** Fredysessie commit le CSV journalier. Algoway continue d'afficher Redis pour l'intraday, mais met à jour son fond historique.
-4. **15:30 UTC :** Fermeture. La collecte s'arrête. Le Hash Redis contient l'empreinte complète de la journée.
-5. **Le lendemain :** Le CSV de Fredysessie contiendra la bougie officielle de la veille. Notre Hash Redis expire automatiquement après 7 jours (TTL).
+```json
+[]
+```
 
----
+## 3. Cartographie Des Fichiers
 
-## PARTIE 9 — SCHÉMA DE DÉCISION DES DONNÉES
+| Fichier | Role |
+| --- | --- |
+| `app/equity/technical-analysis/page.tsx` | Route client qui rend `TechnicalAnalysis` |
+| `components/technical-analysis/TechnicalAnalysis.tsx` | Orchestration UI chart, sidebar, toolbar, layout |
+| `components/technical-analysis/context/TechnicalAnalysisProviders.tsx` | Initialise ticker, devise, refs chart, market data |
+| `components/technical-analysis/hooks/MarketData/useMarketData.ts` | Charge daily CSV, enrichit snapshot live, expose chartData |
+| `components/technical-analysis/hooks/useEChartsRenderer.ts` | Transforme chartData en series ECharts et calcule indicateurs |
+| `components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar.tsx` | Affiche watchlist, stats, news, fondamentaux, bonds, indices |
+| `components/technical-analysis/hooks/MarketData/useIntradayData.ts` | Hook intraday prevu, non importe par la page actuelle |
+| `app/api/market-data/brvm-intraday/route.ts` | Agregateur Redis prevu pour bougies intraday |
+| `core/data/brvm-securities.ts` | Source statique locale pour les titres BRVM |
+| `shared/utils/resilient-scraper.ts` | Scraping resilient avec cache L1, Redis, SWR et circuit breaker |
+
+## 4. Flux Du Graphique Principal
+
+### 4.1 Initialisation
+
+`TechnicalAnalysisProviderTree` initialise :
+
+- ticker initial : `BOAB`
+- devise initiale : `XOF`
+- mode data Redux par defaut : `real`
+
+`MarketDataProvider` appelle :
+
+```ts
+useMarketData(dataMode, selectedTicker?.ticker)
+```
+
+### 4.2 Chargement daily
+
+Pour un ticker `BOAB`, le hook construit :
+
+```txt
+/api/proxy/9/Fredysessie/brvm-data-public/main/data/BOAB/BOAB.daily.csv
+```
+
+Le CSV est parse par `parseBRVMCSV()` :
+
+- detection du separateur `;` ou `,`
+- detection colonnes date/open/high/low/close/volume
+- support des formats francais `DD/MM/YYYY`
+- conversion des virgules decimales
+- filtrage des points invalides
+- tri chronologique
+
+Le resultat est stocke dans `chartData` et, au chargement initial, dans Redux
+via `updateMarketData({ symbol, data })`.
+
+### 4.3 Enrichissement snapshot
+
+Apres le daily, le hook lance en arriere-plan :
+
+```txt
+/api/market-data/brvm-live?ticker=BOAB
+/api/market-data/brvm-live-capitalisation?ticker=BOAB
+```
+
+Si `brvm-live` echoue ou ne trouve pas le ticker, le hook tente :
+
+```txt
+/api/proxy/9/Fredysessie/brvm-data-public/main/data/BOAB/BOAB.indicator.csv
+```
+
+Le snapshot final est stocke dans Redux via :
+
+```ts
+updateMarketSnapshot({ symbol, snapshot })
+```
+
+### 4.4 Rendering ECharts
+
+`useEChartsRenderer` recoit `chartState.displayChartData`, puis extrait :
+
+```ts
+dates.push(item.time)
+values.push([item.open, item.close, item.low, item.high])
+volumes.push([i, item.volume, item.close > item.open ? 1 : -1])
+```
+
+La serie principale est :
+
+- `candlestick` si `chartConfig.chartType === "candlestick"`
+- `line` sinon
+
+Le panneau volume est une serie `bar` separee.
+
+## 5. Flux De La Sidebar Droite
+
+La sidebar recoit ses props depuis `ConnectedSidebar` dans
+`TechnicalAnalysis.tsx`.
+
+Elle combine :
+
+1. `security`
+   Donnees statiques de `BRVM_SECURITIES`.
+
+2. `chartData`
+   Historique daily du hook `useMarketData`.
+
+3. `liveSnapshot`
+   Snapshot Redux du prix, variation, volume, open/high/low/prevClose et
+   capitalisation enrichie.
+
+4. `fundamentals`
+   Donnees scrappees par `/api/market-data/brvm-fundamentals`.
+
+5. `news`
+   Donnees scrappees par `/api/market-data/brvm-news`.
+
+6. `indices`
+   Donnees scrappees par `/api/market-data/indices`, seulement quand le
+   panneau indices est ouvert.
+
+7. `bonds`
+   Donnees scrappees par `/api/market-data/brvm-bonds`.
+
+La section watchlist de la capture utilise principalement :
+
+- `security.name`
+- `security.logoUrl`
+- `livePrice`
+- `liveChange`
+- `liveChangePercent`
+- `lastUpdate`
+- `liveVolume`
+- `security.sector`
+- `security.country`
+
+La section statistiques cles utilise :
+
+- `displayReturnYTD = liveReturnYTD ?? security.returnYTD`
+- `displayPeRatio = livePeRatio ?? security.peRatio`
+- `currentVolume`
+- `avgVolume`
+- `financialMetrics.calculatedYield` ou `security.revenueT12M`
+- `displayMarketCap = liveMarketCap ?? security.marketCap`
+
+## 6. Backend Next.js Et Scraping
+
+### 6.1 Proxy GitHub / API externe
+
+`/api/proxy/[...path]` lit l'identifiant d'API dans le premier segment de
+chemin. Pour les donnees BRVM GitHub, l'identifiant utilise est `9`, donc
+`API_TARGET_9` doit pointer vers la base externe attendue.
+
+Le proxy ajoute :
+
+- sanitization de chemin
+- rate limit optionnel
+- cache optionnel
+- circuit breaker
+- retry pour GET/HEAD
+- headers securises
+
+### 6.2 Scraper resilient
+
+`fetchWithResilience()` fournit :
+
+- cache L1 memoire 60 secondes
+- cache Redis si disponible
+- stale-while-revalidate
+- circuit breaker pour `brvm.org`
+- timeouts undici
+- fallback stale quand la source BRVM ralentit
+
+Ce mecanisme protege les routes :
+
+- `brvm-live`
+- `brvm-live-capitalisation`
+- `brvm-fundamentals`
+- `brvm-news`
+- `brvm-bonds`
+- `indices`
+
+## 7. Etat Exact De L'Intraday
+
+### 7.1 Ce qui existe
+
+Le projet contient :
+
+- `components/technical-analysis/hooks/MarketData/useIntradayData.ts`
+- `app/api/market-data/brvm-intraday/route.ts`
+
+Le hook prevoyait :
+
+1. collecter toutes les minutes via `brvm-live?ticker=ALL`
+2. poster les snapshots vers `/api/market-data/brvm-collect`
+3. relire les bougies via `/api/market-data/brvm-intraday`
+
+La route `brvm-intraday` sait :
+
+- lire des snapshots Redis
+- filtrer et trier chronologiquement
+- agreger en timeframes `5m`, `15m`, `30m`, `1H`, `4H`
+- retourner des bougies OHLCV synthetiques
+
+### 7.2 Ce qui n'est pas actif
+
+Verification 2026-05-20 :
+
+- aucun import de `useIntradayData` dans `TechnicalAnalysis.tsx`
+- aucune route `app/api/market-data/brvm-collect/route.ts`
+- `/api/market-data/brvm-intraday?ticker=BOAB&timeframe=5m` retourne `[]`
+
+Conclusion : l'intraday est une architecture prevue, pas le flux actif de
+l'ecran visible. Le deficit actuel est bien un manque de flux de seance.
+
+## 8. Ce Qu'il Faut Fournir Pour Un Vrai Flux De Seance
+
+Avant d'implementer une collecte maison, il faut chercher une source existante :
+
+- API officielle BRVM ou endpoint public non documente mais stable
+- fournisseur de donnees de marche couvrant la BRVM
+- dataset open data avec mises a jour de seance
+- API communautaire fiable
+- endpoint Django deja disponible dans un autre service interne
+
+Si une API externe fiable existe, elle est preferable a une collecte
+crowdsourced maison. La route interne `brvm-collect` ne doit etre envisagee que
+si aucune source fiable ne fournit les snapshots ou bougies attendus.
+
+Un fournisseur de donnees ou un autre backend doit fournir au minimum un
+snapshot de seance regulier :
+
+```json
+{
+  "symbol": "BOAB",
+  "timestamp": "2026-05-20T10:05:00Z",
+  "lastPrice": 9400,
+  "open": 9420,
+  "high": 9420,
+  "low": 9400,
+  "prevClose": 9400,
+  "cumulativeVolume": 1906,
+  "valueTraded": 17916400,
+  "sessionStatus": "open"
+}
+```
+
+Avec ce payload, Algoway peut construire des bougies intraday par delta de
+volume :
+
+- `open`: premier `lastPrice` du bucket
+- `high`: maximum du bucket
+- `low`: minimum du bucket
+- `close`: dernier `lastPrice` du bucket
+- `volume`: `cumulativeVolume` courant moins `cumulativeVolume` precedent
+
+Payload ideal pour une bougie deja agregee :
+
+```json
+{
+  "symbol": "BOAB",
+  "timeframe": "5m",
+  "time": "2026-05-20T10:05:00Z",
+  "open": 9400,
+  "high": 9420,
+  "low": 9400,
+  "close": 9415,
+  "volume": 320,
+  "source": "session-feed"
+}
+```
+
+## 9. Schema De Decision Recommande
 
 ```mermaid
 graph TD
-    START[Demande de données] --> CHECK_TF{Timeframe ?}
-    
-    CHECK_TF -- "1m, 5m, 15m, 1H, 4H" --> REAL_MODE{Mode Réel ?}
-    REAL_MODE -- Oui --> FETCH_REDIS[Fetch API /brvm-intraday]
-    FETCH_REDIS --> REDIS[(Upstash Redis HGETALL)]
-    REDIS --> SORT[Tri Chronologique des Clés]
-    SORT --> AGGREGATE[Agrégation OHLCV]
-    AGGREGATE --> GRAPH_INTRA[Affichage Intraday]
-    
-    CHECK_TF -- "1J, YTD, Tout..." --> FETCH_CSV[Fetch GitHub CSV]
-    FETCH_CSV --> FILTER[Filtre par TimeRange]
-    FILTER --> STITCH[Injection du prix Live du Scraper]
-    STITCH --> GRAPH_DAILY[Affichage Journalier]
-    
-    REAL_MODE -- Non/Demo --> MOCK[Génération de données fictives]
+  PAGE["/equity/technical-analysis"] --> PROVIDERS["TechnicalAnalysisProviderTree"]
+  PROVIDERS --> MARKET["useMarketData(mode=real, ticker)"]
+  MARKET --> DAILY["GitHub daily CSV via /api/proxy/9"]
+  DAILY --> PARSE["parseBRVMCSV -> ChartDataPoint[]"]
+  PARSE --> ECHARTS["useEChartsRenderer -> candlestick + volume"]
+  MARKET --> LIVE["/api/market-data/brvm-live"]
+  LIVE --> SNAPSHOT["Redux marketSnapshot"]
+  MARKET --> INDICATOR["indicator.csv fallback"]
+  INDICATOR --> SNAPSHOT
+  MARKET --> CAP["/api/market-data/brvm-live-capitalisation"]
+  CAP --> SNAPSHOT
+  SNAPSHOT --> SIDEBAR["ConnectedSidebar"]
+  PARSE --> SIDEBAR
+  SIDEBAR --> FUND["/api/market-data/brvm-fundamentals"]
+  SIDEBAR --> NEWS["/api/market-data/brvm-news"]
+  SIDEBAR --> BONDS["/api/market-data/brvm-bonds"]
+  SIDEBAR --> INDICES["/api/market-data/indices"]
+  INTRA_HOOK["useIntradayData"] -. "existe mais non branche" .-> INTRA_API["/api/market-data/brvm-intraday"]
+  COLLECT["/api/market-data/brvm-collect"] -. "manquant" .-> REDIS["Upstash Redis snapshots"]
+  REDIS -.-> INTRA_API
+```
+
+## 10. Recommandations D'Integration
+
+### Priorite 1 : rendre l'etat intraday honnete
+
+L'UI ne doit pas laisser croire qu'un flux intraday est actif tant que
+`useIntradayData` n'est pas branche et tant que `brvm-collect` n'existe pas.
+
+### Priorite 2 : chercher d'abord une API existante
+
+Ne pas recreer une infrastructure de collecte si une source fiable existe deja.
+Ordre de decision :
+
+1. Verifier les APIs officielles, commerciales, open data et communautaires BRVM.
+2. Verifier si un backend interne ou Django expose deja les snapshots de seance.
+3. Si une source fiable existe, adapter `useMarketData` ou un nouveau hook pour
+   la consommer directement.
+4. Si aucune source fiable n'existe, alors seulement implementer
+   `/api/market-data/brvm-collect` ou une aggregation Redis equivalente.
+
+### Priorite 3 : brancher les timeframes intraday au renderer
+
+Quand `selectedTimeRange` ou un timeframe chart vaut `1m`, `5m`, `15m`, `1H`
+ou `4H`, le chart doit utiliser `intradayData` au lieu de `chartData` daily.
+
+### Priorite 4 : normaliser les tickers BRVM
+
+`brvm-live?ticker=BOAB` retourne actuellement une erreur, alors que le daily
+CSV et la capitalisation BOAB fonctionnent. Il faut aligner les symboles entre :
+
+- tickers internes (`BOAB`)
+- tickers BRVM officiels avec suffixe eventuel (`BOABC`, etc.)
+- chemins GitHub (`BOAB/BOAB.daily.csv`)
+- mapping `BRVM_NAME_TO_TICKER`
+
+### Priorite 5 : marquer clairement la provenance des chiffres sidebar
+
+Les champs `returnYTD`, `peRatio`, `revenueT12M` et certains fondamentaux
+peuvent venir de donnees statiques ou d'estimations. Chaque valeur exposee a un
+autre LLM devrait avoir une provenance :
+
+```json
+{
+  "value": 18.45,
+  "field": "returnYTD",
+  "source": "core/data/brvm-securities.ts",
+  "freshness": "static"
+}
+```
+
+## 11. Verite Finale
+
+Algoway possede deja une bonne base daily OHLCV, une architecture de scraping
+resiliente, et un squelette intraday. Ce qui manque pour passer d'un historique
+de marche a un vrai flux de seance est d'abord une decision source-of-truth :
+
+1. verifier s'il existe deja une API ou un fournisseur de donnees de seance,
+2. choisir cette source si elle est fiable,
+3. construire une collecte interne seulement si aucune source fiable n'existe,
+4. brancher l'aggregation OHLCV au chart,
+5. normaliser strictement les tickers,
+6. exposer la provenance explicite des metriques sidebar.
+
+Tant que ces cinq points ne sont pas en place, l'ecran doit etre considere
+comme un terminal daily enrichi par snapshot, pas comme un terminal intraday
+professionnel.

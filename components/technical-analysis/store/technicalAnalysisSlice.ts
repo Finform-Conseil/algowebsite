@@ -21,11 +21,15 @@ import {
   CursorModeType,
   LiveSnapshot,
   BollingerSettings,
+  MovingAverageTrendSignalId,
+  PriceVsEmaMetricId,
+  PriceVsSmaMetricId,
   MultiChartLayoutId,
   MultiChartLayoutState,
   MultiChartSyncKey,
 } from "../config/TechnicalAnalysisTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { normalizeChartType, type AnyChartType } from "../lib/chart-types";
 import {
   createDefaultMultiChartLayout,
   createPresetLayout,
@@ -34,7 +38,27 @@ import {
   isDenseMultiChartLayout,
   MULTI_CHART_PRESETS,
   reconcileMultiChartLayout,
+  resolveSectorCompareSymbols,
 } from "../config/multiChartLayout";
+import {
+  createDefaultCompareSeriesSettings,
+  getCompareSeriesColor,
+  normalizeCompareSeriesSettings,
+  normalizeCompareSymbol,
+  type CompareSeriesSettings,
+} from "../config/compareSeries";
+import {
+  createDefaultMovingAverageTrendSignals,
+  normalizeMovingAverageTrendSignals,
+} from "../config/movingAverageSeries";
+import {
+  createDefaultPriceVsSmaMetrics,
+  normalizePriceVsSmaMetrics,
+} from "../config/priceVsSmaMetrics";
+import {
+  createDefaultPriceVsEmaMetrics,
+  normalizePriceVsEmaMetrics,
+} from "../config/priceVsEmaMetrics";
 import type { RootState } from "@/core/infrastructure/store";
 
 const forcePrimaryLayoutChartActive = (layout: MultiChartLayoutState): MultiChartLayoutState => {
@@ -52,8 +76,21 @@ const applyPrimaryLayoutSymbol = (layout: MultiChartLayoutState, symbol: string)
   if (!normalized || !primaryChartId) return;
 
   layout.activeChartId = primaryChartId;
+
+  // [TENOR 2026] Sector Compare Dynamic Real-time Recalculation
+  // Identifie si l'utilisateur est actuellement sur le preset de comparaison secteur
+  const isSectorPreset = layout.name === "Comparaison secteur" || (layout.layoutId === "four_grid" && layout.charts.some(c => c.symbol === "BRVMC"));
+  let sectorSymbols: string[] = [];
+  if (isSectorPreset) {
+    sectorSymbols = resolveSectorCompareSymbols(normalized);
+  }
+
   layout.charts.forEach((chart, index) => {
-    if (index === 0 || layout.sync.symbol) chart.symbol = normalized;
+    if (index === 0 || layout.sync.symbol) {
+      chart.symbol = normalized;
+    } else if (isSectorPreset && sectorSymbols[index]) {
+      chart.symbol = sectorSymbols[index];
+    }
     chart.isActive = chart.chartId === primaryChartId;
   });
 };
@@ -66,7 +103,7 @@ const initialState: TechnicalAnalysisState = {
   chartConfig: {
     symbol: "BOAB", // Default, will be synced with TickerSelectorContext
     timeframe: "1D", // [TENOR 2026 FIX] Changed from "1m" to "1D" for optimal initial load
-    chartType: "candlestick",
+    chartType: "candles",
     indicators: {
       sma: true,
       ema: false,
@@ -74,6 +111,15 @@ const initialState: TechnicalAnalysisState = {
       // [TENOR 2026 FIX] Purged default arrays to ensure a clean, professional chart on first load.
       activeSma: [],
       activeEma: [],
+      activeWma: [],
+      activeDema: [],
+      activeTema: [],
+      activeHma: [],
+      activeZlema: [],
+      activeAlma: [],
+      activeSmma: [],
+      activeKama: [],
+      activeVwma: [],
     },
   },
   advancedIndicators: {
@@ -83,9 +129,39 @@ const initialState: TechnicalAnalysisState = {
     stochastic: false,
     atr: false,
     cci: false,
+    cci14: false,
+    cci20: false,
+    mfi14: false,
     // [TENOR 2026 FEAT] New indicators
     williamsR: false,
+    williamsR14: false,
     roc: false,
+    roc10: false,
+    roc20: false,
+    momentum10: false,
+    momentum20: false,
+    cmo14: false,
+    dymi: false,
+    ultimateOsc: false,
+    dpo20: false,
+    tsi: false,
+    awesomeOsc: false,
+    acOsc: false,
+    rvi: false,
+    fisherTransform: false,
+    elderBullBear: false,
+    coppock: false,
+    ppo: false,
+    apo: false,
+    parabolicSar: false,
+    adx: false,
+    aroon: false,
+    aroonOsc: false,
+    supertrend: false,
+    vortex: false,
+    trix: false,
+    stc: false,
+    massIndex: false,
     obv: false,
     ichimoku: false,
     // [TENOR 2026 SRE FIX] Synchronized with interface
@@ -122,6 +198,7 @@ const initialState: TechnicalAnalysisState = {
     downColor: "#ec0000",
     backgroundColor: "transparent",
     showVolume: true,
+    volumeColorMode: "candle-body",
   },
   ui: {
     isZenMode: false,
@@ -133,6 +210,10 @@ const initialState: TechnicalAnalysisState = {
     isCapturing: false,
     dataMode: "real", // [TENOR 2026] Default to Real (BRVM) as requested by user
     comparisonSymbols: [],
+    comparisonSettings: {},
+    movingAverageTrendSignals: createDefaultMovingAverageTrendSignals(),
+    priceVsSmaMetrics: createDefaultPriceVsSmaMetrics(),
+    priceVsEmaMetrics: createDefaultPriceVsEmaMetrics(),
     multiChartLayout: createDefaultMultiChartLayout("single", "BOAB"),
     searchMode: "replace",
     modals: {
@@ -186,12 +267,12 @@ export const technicalAnalysisSlice = createSlice({
         }
       });
     },
-    setChartType: (state, action: PayloadAction<"candlestick" | "line">) => {
-      state.chartConfig.chartType = action.payload;
+    setChartType: (state, action: PayloadAction<AnyChartType>) => {
+      state.chartConfig.chartType = normalizeChartType(action.payload);
     },
     toggleChartType: (state) => {
       state.chartConfig.chartType =
-        state.chartConfig.chartType === "candlestick" ? "line" : "candlestick";
+        normalizeChartType(state.chartConfig.chartType) === "line" ? "candles" : "line";
     },
     // [TENOR 2026 SRE FIX] Deep Merge & TS2322 Enforcement
     // Replaced shallow merge `{ ...state, ...payload }` with explicit property assignment
@@ -204,7 +285,7 @@ export const technicalAnalysisSlice = createSlice({
         applyPrimaryLayoutSymbol(state.ui.multiChartLayout, normalized);
       }
       if (timeframe !== undefined) state.chartConfig.timeframe = timeframe;
-      if (chartType !== undefined) state.chartConfig.chartType = chartType;
+      if (chartType !== undefined) state.chartConfig.chartType = normalizeChartType(chartType);
 
       if (indicators !== undefined) {
         if (indicators.sma !== undefined) state.chartConfig.indicators.sma = indicators.sma;
@@ -212,6 +293,15 @@ export const technicalAnalysisSlice = createSlice({
         if (indicators.volume !== undefined) state.chartConfig.indicators.volume = indicators.volume;
         if (indicators.activeSma !== undefined) state.chartConfig.indicators.activeSma = indicators.activeSma;
         if (indicators.activeEma !== undefined) state.chartConfig.indicators.activeEma = indicators.activeEma;
+        if (indicators.activeWma !== undefined) state.chartConfig.indicators.activeWma = indicators.activeWma;
+        if (indicators.activeDema !== undefined) state.chartConfig.indicators.activeDema = indicators.activeDema;
+        if (indicators.activeTema !== undefined) state.chartConfig.indicators.activeTema = indicators.activeTema;
+        if (indicators.activeHma !== undefined) state.chartConfig.indicators.activeHma = indicators.activeHma;
+        if (indicators.activeZlema !== undefined) state.chartConfig.indicators.activeZlema = indicators.activeZlema;
+        if (indicators.activeAlma !== undefined) state.chartConfig.indicators.activeAlma = indicators.activeAlma;
+        if (indicators.activeSmma !== undefined) state.chartConfig.indicators.activeSmma = indicators.activeSmma;
+        if (indicators.activeKama !== undefined) state.chartConfig.indicators.activeKama = indicators.activeKama;
+        if (indicators.activeVwma !== undefined) state.chartConfig.indicators.activeVwma = indicators.activeVwma;
       }
     },
 
@@ -220,7 +310,14 @@ export const technicalAnalysisSlice = createSlice({
       state,
       action: PayloadAction<keyof AdvancedIndicatorsState>
     ) => {
-      state.advancedIndicators[action.payload] = !state.advancedIndicators[action.payload];
+      const key = action.payload;
+      state.advancedIndicators[key] = !state.advancedIndicators[key];
+      if (key === "cci20" && state.advancedIndicators.cci20) state.advancedIndicators.cci = false;
+      if (key === "cci" && state.advancedIndicators.cci) state.advancedIndicators.cci20 = false;
+      if (key === "williamsR14" && state.advancedIndicators.williamsR14) state.advancedIndicators.williamsR = false;
+      if (key === "williamsR" && state.advancedIndicators.williamsR) state.advancedIndicators.williamsR14 = false;
+      if (key === "roc10" && state.advancedIndicators.roc10) state.advancedIndicators.roc = false;
+      if (key === "roc" && state.advancedIndicators.roc) state.advancedIndicators.roc10 = false;
     },
     // [TENOR 2026 SRE FIX] Explicit assignment to satisfy TS2322
     setAdvancedIndicators: (
@@ -234,8 +331,44 @@ export const technicalAnalysisSlice = createSlice({
       if (p.stochastic !== undefined) state.advancedIndicators.stochastic = p.stochastic;
       if (p.atr !== undefined) state.advancedIndicators.atr = p.atr;
       if (p.cci !== undefined) state.advancedIndicators.cci = p.cci;
+      if (p.cci14 !== undefined) state.advancedIndicators.cci14 = p.cci14;
+      if (p.cci20 !== undefined) state.advancedIndicators.cci20 = p.cci20;
+      if (p.mfi14 !== undefined) state.advancedIndicators.mfi14 = p.mfi14;
+      if (p.cci) state.advancedIndicators.cci20 = false;
+      if (p.cci20) state.advancedIndicators.cci = false;
       if (p.williamsR !== undefined) state.advancedIndicators.williamsR = p.williamsR;
+      if (p.williamsR14 !== undefined) state.advancedIndicators.williamsR14 = p.williamsR14;
+      if (p.williamsR) state.advancedIndicators.williamsR14 = false;
+      if (p.williamsR14) state.advancedIndicators.williamsR = false;
       if (p.roc !== undefined) state.advancedIndicators.roc = p.roc;
+      if (p.roc10 !== undefined) state.advancedIndicators.roc10 = p.roc10;
+      if (p.roc20 !== undefined) state.advancedIndicators.roc20 = p.roc20;
+      if (p.roc) state.advancedIndicators.roc10 = false;
+      if (p.roc10) state.advancedIndicators.roc = false;
+      if (p.momentum10 !== undefined) state.advancedIndicators.momentum10 = p.momentum10;
+      if (p.momentum20 !== undefined) state.advancedIndicators.momentum20 = p.momentum20;
+      if (p.cmo14 !== undefined) state.advancedIndicators.cmo14 = p.cmo14;
+      if (p.dymi !== undefined) state.advancedIndicators.dymi = p.dymi;
+      if (p.ultimateOsc !== undefined) state.advancedIndicators.ultimateOsc = p.ultimateOsc;
+      if (p.dpo20 !== undefined) state.advancedIndicators.dpo20 = p.dpo20;
+      if (p.tsi !== undefined) state.advancedIndicators.tsi = p.tsi;
+      if (p.awesomeOsc !== undefined) state.advancedIndicators.awesomeOsc = p.awesomeOsc;
+      if (p.acOsc !== undefined) state.advancedIndicators.acOsc = p.acOsc;
+      if (p.rvi !== undefined) state.advancedIndicators.rvi = p.rvi;
+      if (p.fisherTransform !== undefined) state.advancedIndicators.fisherTransform = p.fisherTransform;
+      if (p.elderBullBear !== undefined) state.advancedIndicators.elderBullBear = p.elderBullBear;
+      if (p.coppock !== undefined) state.advancedIndicators.coppock = p.coppock;
+      if (p.ppo !== undefined) state.advancedIndicators.ppo = p.ppo;
+      if (p.apo !== undefined) state.advancedIndicators.apo = p.apo;
+      if (p.parabolicSar !== undefined) state.advancedIndicators.parabolicSar = p.parabolicSar;
+      if (p.adx !== undefined) state.advancedIndicators.adx = p.adx;
+      if (p.aroon !== undefined) state.advancedIndicators.aroon = p.aroon;
+      if (p.aroonOsc !== undefined) state.advancedIndicators.aroonOsc = p.aroonOsc;
+      if (p.supertrend !== undefined) state.advancedIndicators.supertrend = p.supertrend;
+      if (p.vortex !== undefined) state.advancedIndicators.vortex = p.vortex;
+      if (p.trix !== undefined) state.advancedIndicators.trix = p.trix;
+      if (p.stc !== undefined) state.advancedIndicators.stc = p.stc;
+      if (p.massIndex !== undefined) state.advancedIndicators.massIndex = p.massIndex;
       if (p.obv !== undefined) state.advancedIndicators.obv = p.obv;
       if (p.ichimoku !== undefined) state.advancedIndicators.ichimoku = p.ichimoku;
       if (p.stochRsi !== undefined) state.advancedIndicators.stochRsi = p.stochRsi;
@@ -287,6 +420,7 @@ export const technicalAnalysisSlice = createSlice({
       if (p.downColor !== undefined) state.chartAppearance.downColor = p.downColor;
       if (p.backgroundColor !== undefined) state.chartAppearance.backgroundColor = p.backgroundColor;
       if (p.showVolume !== undefined) state.chartAppearance.showVolume = p.showVolume;
+      if (p.volumeColorMode !== undefined) state.chartAppearance.volumeColorMode = p.volumeColorMode;
     },
     resetChartAppearance: (state) => {
       state.chartAppearance = initialState.chartAppearance;
@@ -308,6 +442,15 @@ export const technicalAnalysisSlice = createSlice({
             volume: false,
             activeSma: [5, 10],
             activeEma: [],
+            activeWma: [],
+            activeDema: [],
+            activeTema: [],
+            activeHma: [],
+            activeZlema: [],
+            activeAlma: [],
+            activeSmma: [],
+            activeKama: [],
+            activeVwma: [],
           };
           state.advancedIndicators = {
             rsi: true,
@@ -316,8 +459,38 @@ export const technicalAnalysisSlice = createSlice({
             stochastic: false,
             atr: false,
             cci: false,
+            cci14: false,
+            cci20: false,
+            mfi14: false,
             williamsR: false,
-            roc: true,
+            williamsR14: false,
+            roc: false,
+            roc10: true,
+            roc20: false,
+            momentum10: false,
+            momentum20: false,
+            cmo14: false,
+            dymi: false,
+            ultimateOsc: false,
+            dpo20: false,
+            tsi: false,
+            awesomeOsc: false,
+            acOsc: false,
+            rvi: false,
+            fisherTransform: false,
+            elderBullBear: false,
+            coppock: false,
+            ppo: false,
+            apo: false,
+            parabolicSar: false,
+            adx: false,
+            aroon: false,
+            aroonOsc: false,
+            supertrend: false,
+            vortex: false,
+            trix: false,
+            stc: false,
+            massIndex: false,
             obv: false,
             ichimoku: false,
             stochRsi: false,
@@ -333,6 +506,15 @@ export const technicalAnalysisSlice = createSlice({
             volume: true,
             activeSma: [20, 50],
             activeEma: [],
+            activeWma: [],
+            activeDema: [],
+            activeTema: [],
+            activeHma: [],
+            activeZlema: [],
+            activeAlma: [],
+            activeSmma: [],
+            activeKama: [],
+            activeVwma: [],
           };
           state.advancedIndicators = {
             rsi: false,
@@ -341,8 +523,38 @@ export const technicalAnalysisSlice = createSlice({
             stochastic: true,
             atr: false,
             cci: false,
-            williamsR: true,
+            cci14: false,
+            cci20: false,
+            mfi14: false,
+            williamsR: false,
+            williamsR14: true,
             roc: false,
+            roc10: false,
+            roc20: false,
+            momentum10: false,
+            momentum20: false,
+            cmo14: false,
+            dymi: false,
+            ultimateOsc: false,
+            dpo20: false,
+            tsi: false,
+            awesomeOsc: false,
+            acOsc: false,
+            rvi: false,
+            fisherTransform: false,
+            elderBullBear: false,
+            coppock: false,
+            ppo: false,
+            apo: false,
+            parabolicSar: false,
+            adx: false,
+            aroon: false,
+            aroonOsc: false,
+            supertrend: false,
+            vortex: false,
+            trix: false,
+            stc: false,
+            massIndex: false,
             obv: true,
             ichimoku: false,
             stochRsi: false,
@@ -358,6 +570,15 @@ export const technicalAnalysisSlice = createSlice({
             volume: true,
             activeSma: [],
             activeEma: [5, 10],
+            activeWma: [],
+            activeDema: [],
+            activeTema: [],
+            activeHma: [],
+            activeZlema: [],
+            activeAlma: [],
+            activeSmma: [],
+            activeKama: [],
+            activeVwma: [],
           };
           state.advancedIndicators = {
             rsi: false,
@@ -366,8 +587,38 @@ export const technicalAnalysisSlice = createSlice({
             stochastic: false,
             atr: true,
             cci: false,
+            cci14: false,
+            cci20: false,
+            mfi14: false,
             williamsR: false,
-            roc: true,
+            williamsR14: false,
+            roc: false,
+            roc10: true,
+            roc20: false,
+            momentum10: false,
+            momentum20: false,
+            cmo14: false,
+            dymi: false,
+            ultimateOsc: false,
+            dpo20: false,
+            tsi: false,
+            awesomeOsc: false,
+            acOsc: false,
+            rvi: false,
+            fisherTransform: false,
+            elderBullBear: false,
+            coppock: false,
+            ppo: false,
+            apo: false,
+            parabolicSar: false,
+            adx: false,
+            aroon: false,
+            aroonOsc: false,
+            supertrend: false,
+            vortex: false,
+            trix: false,
+            stc: false,
+            massIndex: false,
             obv: false,
             ichimoku: false,
             stochRsi: false,
@@ -383,6 +634,15 @@ export const technicalAnalysisSlice = createSlice({
             volume: true,
             activeSma: [50, 200],
             activeEma: [],
+            activeWma: [],
+            activeDema: [],
+            activeTema: [],
+            activeHma: [],
+            activeZlema: [],
+            activeAlma: [],
+            activeSmma: [],
+            activeKama: [],
+            activeVwma: [],
           };
           state.advancedIndicators = {
             rsi: false,
@@ -391,8 +651,38 @@ export const technicalAnalysisSlice = createSlice({
             stochastic: false,
             atr: false,
             cci: false,
+            cci14: false,
+            cci20: false,
+            mfi14: false,
             williamsR: false,
+            williamsR14: false,
             roc: false,
+            roc10: false,
+            roc20: false,
+            momentum10: false,
+            momentum20: false,
+            cmo14: false,
+            dymi: false,
+            ultimateOsc: false,
+            dpo20: false,
+            tsi: false,
+            awesomeOsc: false,
+            acOsc: false,
+            rvi: false,
+            fisherTransform: false,
+            elderBullBear: false,
+            coppock: false,
+            ppo: false,
+            apo: false,
+            parabolicSar: false,
+            adx: false,
+            aroon: false,
+            aroonOsc: false,
+            supertrend: false,
+            vortex: false,
+            trix: false,
+            stc: false,
+            massIndex: false,
             obv: true,
             ichimoku: false,
             stochRsi: false,
@@ -436,20 +726,104 @@ export const technicalAnalysisSlice = createSlice({
       state.ui.searchMode = action.payload;
     },
     addComparisonSymbol: (state, action: PayloadAction<string>) => {
-      const normalized = action.payload.trim().toUpperCase();
+      const normalized = normalizeCompareSymbol(action.payload);
       if (!normalized) return;
       if (normalized === state.chartConfig.symbol.trim().toUpperCase()) return;
       if (state.ui.comparisonSymbols.includes(normalized)) return;
       if (state.ui.comparisonSymbols.length >= 5) return;
       
       state.ui.comparisonSymbols.push(normalized);
+      state.ui.comparisonSettings[normalized] = createDefaultCompareSeriesSettings(
+        getCompareSeriesColor(state.ui.comparisonSymbols.length - 1)
+      );
     },
     removeComparisonSymbol: (state, action: PayloadAction<string>) => {
-      const normalized = action.payload.trim().toUpperCase();
+      const normalized = normalizeCompareSymbol(action.payload);
       state.ui.comparisonSymbols = state.ui.comparisonSymbols.filter((s) => s !== normalized);
+      delete state.ui.comparisonSettings[normalized];
     },
     clearComparisonSymbols: (state) => {
       state.ui.comparisonSymbols = [];
+      state.ui.comparisonSettings = {};
+    },
+    setComparisonSeriesSettings: (
+      state,
+      action: PayloadAction<{ symbol: string; settings: CompareSeriesSettings }>
+    ) => {
+      const normalized = normalizeCompareSymbol(action.payload.symbol);
+      if (!normalized || !state.ui.comparisonSymbols.includes(normalized)) return;
+      const index = state.ui.comparisonSymbols.indexOf(normalized);
+      state.ui.comparisonSettings[normalized] = normalizeCompareSeriesSettings(
+        action.payload.settings,
+        getCompareSeriesColor(index)
+      );
+    },
+    resetComparisonSeriesSettings: (state, action: PayloadAction<{ symbol: string; color?: string }>) => {
+      const normalized = normalizeCompareSymbol(action.payload.symbol);
+      if (!normalized || !state.ui.comparisonSymbols.includes(normalized)) return;
+      const index = state.ui.comparisonSymbols.indexOf(normalized);
+      state.ui.comparisonSettings[normalized] = createDefaultCompareSeriesSettings(
+        action.payload.color ?? getCompareSeriesColor(index)
+      );
+    },
+    setMovingAverageTrendSignal: (
+      state,
+      action: PayloadAction<{ id: MovingAverageTrendSignalId; active: boolean }>
+    ) => {
+      const signals = normalizeMovingAverageTrendSignals(state.ui.movingAverageTrendSignals);
+      signals.active[action.payload.id] = action.payload.active;
+      state.ui.movingAverageTrendSignals = signals;
+    },
+    setMovingAverageTrendSignals: (
+      state,
+      action: PayloadAction<Partial<Record<MovingAverageTrendSignalId, boolean>>>
+    ) => {
+      const signals = normalizeMovingAverageTrendSignals(state.ui.movingAverageTrendSignals);
+      Object.entries(action.payload).forEach(([id, active]) => {
+        signals.active[id as MovingAverageTrendSignalId] = active === true;
+      });
+      state.ui.movingAverageTrendSignals = signals;
+    },
+    setMovingAverageTrendSignalSourceAverages: (state, action: PayloadAction<boolean>) => {
+      const signals = normalizeMovingAverageTrendSignals(state.ui.movingAverageTrendSignals);
+      signals.showSourceAverages = action.payload;
+      state.ui.movingAverageTrendSignals = signals;
+    },
+    setPriceVsSmaMetric: (
+      state,
+      action: PayloadAction<{ id: PriceVsSmaMetricId; active: boolean }>
+    ) => {
+      const metrics = normalizePriceVsSmaMetrics(state.ui.priceVsSmaMetrics);
+      metrics.active[action.payload.id] = action.payload.active;
+      state.ui.priceVsSmaMetrics = metrics;
+    },
+    setPriceVsSmaMetrics: (
+      state,
+      action: PayloadAction<Partial<Record<PriceVsSmaMetricId, boolean>>>
+    ) => {
+      const metrics = normalizePriceVsSmaMetrics(state.ui.priceVsSmaMetrics);
+      Object.entries(action.payload).forEach(([id, active]) => {
+        metrics.active[id as PriceVsSmaMetricId] = active === true;
+      });
+      state.ui.priceVsSmaMetrics = metrics;
+    },
+    setPriceVsEmaMetric: (
+      state,
+      action: PayloadAction<{ id: PriceVsEmaMetricId; active: boolean }>
+    ) => {
+      const metrics = normalizePriceVsEmaMetrics(state.ui.priceVsEmaMetrics);
+      metrics.active[action.payload.id] = action.payload.active;
+      state.ui.priceVsEmaMetrics = metrics;
+    },
+    setPriceVsEmaMetrics: (
+      state,
+      action: PayloadAction<Partial<Record<PriceVsEmaMetricId, boolean>>>
+    ) => {
+      const metrics = normalizePriceVsEmaMetrics(state.ui.priceVsEmaMetrics);
+      Object.entries(action.payload).forEach(([id, active]) => {
+        metrics.active[id as PriceVsEmaMetricId] = active === true;
+      });
+      state.ui.priceVsEmaMetrics = metrics;
     },
     setMultiChartLayout: (state, action: PayloadAction<MultiChartLayoutId>) => {
       const nextLayout = reconcileMultiChartLayout(
@@ -460,13 +834,9 @@ export const technicalAnalysisSlice = createSlice({
       );
       state.ui.multiChartLayout = isDenseMultiChartLayout(action.payload)
         ? forcePrimaryLayoutChartActive({ ...nextLayout, sync: { ...nextLayout.sync, symbol: false, crosshair: false } })
-        : { ...nextLayout, sync: { ...nextLayout.sync, crosshair: false } };
+        : nextLayout;
     },
     setMultiChartSync: (state, action: PayloadAction<{ key: MultiChartSyncKey; value: boolean }>) => {
-      if (action.payload.key === "crosshair") {
-        state.ui.multiChartLayout.sync.crosshair = false;
-        return;
-      }
 
       if (action.payload.key === "symbol" && action.payload.value) {
         const activeLayout = getLayoutDefinition(state.ui.multiChartLayout.layoutId);
@@ -505,6 +875,22 @@ export const technicalAnalysisSlice = createSlice({
       });
       state.chartConfig.symbol = target.symbol;
       state.chartConfig.timeframe = target.interval;
+    },
+    // [SCAR-MULTICHART-HEADER-CONTAMINATION FIX]
+    // Séparation critique : cliquer le BODY d'un chart secondaire = activation complète (setActiveLayoutChart).
+    // Cliquer le HEADER d'un chart secondaire pour éditer son ticker = ciblage de routing uniquement.
+    // Cette action change activeChartId (pour que updateLayoutChart sache où envoyer la sélection)
+    // mais NE TOUCHE PAS chartConfig.symbol — le moteur de synchronisation bidirectionnel
+    // dans ChartUI ne voit donc aucun changement de reduxSymbol et n'écrase pas le contexte
+    // TickerSelector avec le symbole du chart secondaire. Résultat : chart1 (BOAB) reste BOAB.
+    setEditChartTarget: (state, action: PayloadAction<string>) => {
+      const target = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === action.payload);
+      if (!target) return;
+      state.ui.multiChartLayout.activeChartId = target.chartId;
+      state.ui.multiChartLayout.charts.forEach((chart) => {
+        chart.isActive = chart.chartId === target.chartId;
+      });
+      // chartConfig.symbol intentionnellement NON modifié — préserve le ticker primaire dans le contexte.
     },
     updateLayoutChart: (
       state,
@@ -551,10 +937,11 @@ export const technicalAnalysisSlice = createSlice({
       state.ui.multiChartLayout = {
         ...normalizedHydrated,
         sync: {
-          ...state.ui.multiChartLayout.sync,
-          ...action.payload.sync,
+          symbol: false,
+          interval: false,
           crosshair: false,
-          ...(isDenseLayout || hasCollapsedLayoutSymbols(action.payload) ? { symbol: false } : {}),
+          time: false,
+          dateRange: false,
         },
       };
     },
@@ -689,9 +1076,19 @@ export const {
   addComparisonSymbol,
   removeComparisonSymbol,
   clearComparisonSymbols,
+  setComparisonSeriesSettings,
+  resetComparisonSeriesSettings,
+  setMovingAverageTrendSignal,
+  setMovingAverageTrendSignals,
+  setMovingAverageTrendSignalSourceAverages,
+  setPriceVsSmaMetric,
+  setPriceVsSmaMetrics,
+  setPriceVsEmaMetric,
+  setPriceVsEmaMetrics,
   setMultiChartLayout,
   setMultiChartSync,
   setActiveLayoutChart,
+  setEditChartTarget,
   updateLayoutChart,
   applyMultiChartPreset,
   hydrateMultiChartLayout,

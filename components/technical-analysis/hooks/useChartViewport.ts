@@ -12,6 +12,7 @@ export const TV_Y_AXIS_WIDTH = 84;
 export const TV_X_AXIS_HEIGHT = 28;
 export const TV_ZOOM_VELOCITY = 0.001;
 export const TV_AUTO_SCALE_PADDING = 0.08; // 8%
+export const TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING = 0.22;
 export const TV_MIN_VISIBLE_BARS = 10;
 export const TV_CURSOR_INFLUENCE = 0.68;
 export const TV_ZOOM_DRIFT_STRENGTH = 0.85;
@@ -85,6 +86,50 @@ export const lerp = (start: number, end: number, weight: number): number =>
 
 export const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
+
+const getLastFiniteCloseInViewport = (
+  data: ChartDataPoint[],
+  startIdx: number,
+  endIdx: number,
+): number | null => {
+  const start = Math.max(0, startIdx);
+  const end = Math.min(data.length - 1, endIdx);
+
+  for (let index = end; index >= start; index--) {
+    const close = data[index]?.close;
+    if (Number.isFinite(close)) return close;
+  }
+
+  return null;
+};
+
+const resolvePriceAxisAutoPadding = ({
+  basePadding,
+  center,
+  hasComparisonEndLabels,
+  priceAxisValue,
+  visibleMin,
+  visibleMax,
+}: {
+  basePadding: number;
+  center: number;
+  hasComparisonEndLabels: boolean;
+  priceAxisValue: number | null;
+  visibleMin: number;
+  visibleMax: number;
+}): { top: number; bottom: number } => {
+  if (!hasComparisonEndLabels) return { top: basePadding, bottom: basePadding };
+
+  const range = visibleMax - visibleMin;
+  const safeRange = range > 0 ? range : Math.max(Math.abs(center), 1);
+  const finitePrice = priceAxisValue ?? center;
+  const priceRatio = range > 0 ? clamp((finitePrice - visibleMin) / range, 0, 1) : 0.5;
+  const dezoomPadding = Math.max(basePadding * 2, safeRange * TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING);
+
+  return priceRatio >= 0.5
+    ? { top: basePadding + dezoomPadding, bottom: basePadding }
+    : { top: basePadding, bottom: basePadding + dezoomPadding };
+};
 
 export const getViewportSpanBounds = (totalBars: number) => {
   const maxSpan = Math.max(1, totalBars - 1);
@@ -212,6 +257,8 @@ export interface UseChartViewportProps {
   updateCursorPriceAxisBadge: (x: number, y: number) => void;
   updateLastPriceAxisBadge: () => void;
   interactionScopeKey?: string;
+  hasComparisonEndLabels?: boolean;
+  lastPriceAxisValue?: number;
 }
 
 export const useChartViewport = ({
@@ -222,6 +269,8 @@ export const useChartViewport = ({
   updateCursorPriceAxisBadge,
   updateLastPriceAxisBadge,
   interactionScopeKey,
+  hasComparisonEndLabels = false,
+  lastPriceAxisValue,
 }: UseChartViewportProps) => {
   const viewportStateRef = useRef({
     startIdx: 0,
@@ -248,6 +297,11 @@ export const useChartViewport = ({
   const applyViewport = useCallback(() => {
     const chart = chartInstanceRef.current;
     if (!chart || chart.isDisposed() || chartData.length === 0) return;
+
+    // [TENOR 2026 SRE] Guard against empty ECharts option state during asset transition/loading.
+    // Prevents "Cannot read properties of undefined (reading 'coordinateSystem')" crash.
+    const option = chart.getOption() as any;
+    if (!option || !option.series || option.series.length === 0 || !option.yAxis) return;
 
     const state = viewportStateRef.current;
     const totalBars = chartData.length;
@@ -277,6 +331,17 @@ export const useChartViewport = ({
     const range = visibleMax - visibleMin;
     const center = (visibleMax + visibleMin) / 2;
     const padding = range === 0 ? visibleMin * TV_AUTO_SCALE_PADDING : range * TV_AUTO_SCALE_PADDING;
+    const priceAxisValue = Number.isFinite(lastPriceAxisValue)
+      ? lastPriceAxisValue as number
+      : getLastFiniteCloseInViewport(chartData, state.startIdx, state.endIdx);
+    const autoPadding = resolvePriceAxisAutoPadding({
+      basePadding: padding,
+      center,
+      hasComparisonEndLabels,
+      priceAxisValue,
+      visibleMin,
+      visibleMax,
+    });
 
     let finalMin, finalMax;
 
@@ -296,12 +361,12 @@ export const useChartViewport = ({
         state.isYManual = false;
         state.yScale = 1.0;
         state.yPan = 0;
-        finalMin = visibleMin - padding;
-        finalMax = visibleMax + padding;
+        finalMin = visibleMin - autoPadding.bottom;
+        finalMax = visibleMax + autoPadding.top;
       }
     } else {
-      finalMin = visibleMin - padding;
-      finalMax = visibleMax + padding;
+      finalMin = visibleMin - autoPadding.bottom;
+      finalMax = visibleMax + autoPadding.top;
     }
 
     chart.setOption({
@@ -324,7 +389,15 @@ export const useChartViewport = ({
         barsFromRightEnd: totalBars - state.endIdx
       };
     }
-  }, [chartData, chartInstanceRef, lastZoomRangeRef, updateCursorPriceAxisBadge, updateLastPriceAxisBadge]);
+  }, [
+    chartData,
+    chartInstanceRef,
+    hasComparisonEndLabels,
+    lastPriceAxisValue,
+    lastZoomRangeRef,
+    updateCursorPriceAxisBadge,
+    updateLastPriceAxisBadge,
+  ]);
 
   // Currency Auto-Scaling Detector
   useEffect(() => {

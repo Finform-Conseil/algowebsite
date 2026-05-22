@@ -21,11 +21,20 @@
  * Les 5 slots statiques pour la DataWindow sont pré-alloués pour le Zero-Lag DOM Mutation.
  */
 
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import type { AdvancedIndicatorsState, ChartAppearance, ChartState, Drawing, ObjectTreePanelTab, DataWindowCandleValues } from "../../config/TechnicalAnalysisTypes";
+import type { AdvancedIndicatorsState, ChartAppearance, ChartState, Drawing, IndicatorPeriods, ObjectTreePanelTab, DataWindowCandleValues } from "../../config/TechnicalAnalysisTypes";
 import { setAdvancedIndicators, setChartAppearance, setChartConfig, removeComparisonSymbol } from "../../store/technicalAnalysisSlice";
-import { getCompareSeriesColor, getCompareSeriesId } from "../../config/compareSeries";
+import { getCompareSeriesId, resolveCompareSeriesSettings, type CompareSeriesSettingsMap } from "../../config/compareSeries";
+import {
+  buildEmaSeriesDefinitions,
+  buildSmaSeriesDefinitions,
+  mergeMovingAveragePeriods,
+  resolveTrendSignalSourceAveragePeriods,
+} from "../../config/movingAverageSeries";
+import { resolvePriceVsSmaSourceAveragePeriods } from "../../config/priceVsSmaMetrics";
+import { resolvePriceVsEmaSourceAveragePeriods } from "../../config/priceVsEmaMetrics";
+import { buildAdvancedMovingAverageSeriesDefinitions } from "../../config/advancedMovingAverageSeries";
 import type { RootState } from "@/core/infrastructure/store";
 
 // ============================================================================
@@ -52,18 +61,6 @@ const TV = {
 } as const;
 
 const VOLUME_COLOR = "#6256d9";
-const SMA_COLORS_BY_PERIOD: Record<number, string> = {
-  5: "#45c3a1",
-  10: "#f06467",
-  20: "#FF9F04",
-  50: "#2E93fA",
-  200: "#66DA26",
-};
-const EMA_COLORS_BY_PERIOD: Record<number, string> = {
-  5: "#9C27B0",
-  10: "#E91E63",
-};
-
 // ============================================================================
 // UTILS
 // ============================================================================
@@ -152,9 +149,39 @@ const ADVANCED_INDICATOR_LABELS: Record<keyof AdvancedIndicatorsState, { label: 
   bollinger: { label: "Bollinger Bands", kind: "overlay", color: "#2962FF" },
   stochastic: { label: "Stochastic", kind: "indicator", color: "#2962FF" },
   atr: { label: "ATR", kind: "indicator", color: "#d50000" },
-  cci: { label: "CCI", kind: "indicator", color: "#00E676" },
-  williamsR: { label: "Williams %R", kind: "indicator", color: "#FFEB3B" },
-  roc: { label: "ROC", kind: "indicator", color: "#2196F3" },
+  cci: { label: "CCI 20", kind: "indicator", color: "#00E676" },
+  cci14: { label: "CCI 14", kind: "indicator", color: "#f59e0b" },
+  cci20: { label: "CCI 20", kind: "indicator", color: "#00E676" },
+  mfi14: { label: "MFI 14", kind: "indicator", color: "#10b981" },
+  williamsR: { label: "Williams %R 14", kind: "indicator", color: "#FFEB3B" },
+  williamsR14: { label: "Williams %R 14", kind: "indicator", color: "#FFEB3B" },
+  roc: { label: "ROC 10", kind: "indicator", color: "#2196F3" },
+  roc10: { label: "ROC 10", kind: "indicator", color: "#2196F3" },
+  roc20: { label: "ROC 20", kind: "indicator", color: "#38BDF8" },
+  momentum10: { label: "Momentum 10", kind: "indicator", color: "#FF2E93" },
+  momentum20: { label: "Momentum 20", kind: "indicator", color: "#F97316" },
+  cmo14: { label: "CMO 14", kind: "indicator", color: "#FB7185" },
+  dymi: { label: "DYMI", kind: "indicator", color: "#A855F7" },
+  ultimateOsc: { label: "Ultimate Osc", kind: "indicator", color: "#F43F5E" },
+  dpo20: { label: "DPO 20", kind: "indicator", color: "#06B6D4" },
+  tsi: { label: "TSI", kind: "indicator", color: "#8B5CF6" },
+  awesomeOsc: { label: "Awesome Osc", kind: "indicator", color: "#26a69a" },
+  acOsc: { label: "AC Osc", kind: "indicator", color: "#26a69a" },
+  rvi: { label: "RVI", kind: "indicator", color: "#22d3ee" },
+  fisherTransform: { label: "Fisher Transform", kind: "indicator", color: "#e879f9" },
+  elderBullBear: { label: "Elder Bull/Bear", kind: "indicator", color: "#f97316" },
+  coppock: { label: "Coppock", kind: "indicator", color: "#84cc16" },
+  ppo: { label: "PPO", kind: "indicator", color: "#38bdf8" },
+  apo: { label: "APO", kind: "indicator", color: "#f97316" },
+  parabolicSar: { label: "Parabolic SAR", kind: "overlay", color: "#facc15" },
+  adx: { label: "ADX", kind: "indicator", color: "#22c55e" },
+  aroon: { label: "Aroon", kind: "indicator", color: "#38bdf8" },
+  aroonOsc: { label: "Aroon Osc", kind: "indicator", color: "#a78bfa" },
+  supertrend: { label: "Supertrend", kind: "overlay", color: "#22c55e" },
+  vortex: { label: "Vortex", kind: "indicator", color: "#38bdf8" },
+  trix: { label: "TRIX", kind: "indicator", color: "#f97316" },
+  stc: { label: "STC", kind: "indicator", color: "#a855f7" },
+  massIndex: { label: "Mass Index", kind: "indicator", color: "#f59e0b" },
   obv: { label: "OBV", kind: "indicator", color: "#FF5722" },
   ichimoku: { label: "Ichimoku", kind: "overlay", color: "#2962FF" },
   stochRsi: { label: "Stochastic RSI", kind: "indicator", color: "#00BCD4" },
@@ -162,33 +189,46 @@ const ADVANCED_INDICATOR_LABELS: Record<keyof AdvancedIndicatorsState, { label: 
   bbPercentB: { label: "BB %B", kind: "indicator", color: "#2962FF" },
 };
 
-const getSmaColor = (period: number, index: number): string => {
-  const fallback = ["#45c3a1", "#f06467", "#FF9F04"][index] ?? "#45c3a1";
-  return SMA_COLORS_BY_PERIOD[period] ?? fallback;
-};
-
-const getEmaColor = (period: number, index: number): string => {
-  const fallback = ["#9C27B0", "#E91E63"][index] ?? "#9C27B0";
-  return EMA_COLORS_BY_PERIOD[period] ?? fallback;
-};
-
 const buildObjectTreeItems = ({
   chartConfig,
+  indicatorPeriods,
   chartAppearance,
   advancedIndicators,
   isMainChartVisible,
   activeTool,
   hiddenObjectIds,
   comparisonSymbols,
+  comparisonSettings,
+  movingAverageTrendSignals,
+  priceVsSmaSourcePeriods,
+  priceVsEmaSourcePeriods,
 }: {
   chartConfig: ChartState;
+  indicatorPeriods: IndicatorPeriods;
   chartAppearance: ChartAppearance;
   advancedIndicators: AdvancedIndicatorsState;
   isMainChartVisible: boolean;
   activeTool: string | null;
   hiddenObjectIds: Record<string, boolean>;
   comparisonSymbols: string[];
+  comparisonSettings: CompareSeriesSettingsMap;
+  movingAverageTrendSignals: { sma: number[]; ema: number[] };
+  priceVsSmaSourcePeriods: number[];
+  priceVsEmaSourcePeriods: number[];
 }): ObjectTreeItem[] => {
+  const activeSmaWithSignalSources = mergeMovingAveragePeriods(
+    chartConfig.indicators.activeSma,
+    movingAverageTrendSignals.sma,
+    priceVsSmaSourcePeriods,
+  );
+  const activeEmaWithSignalSources = mergeMovingAveragePeriods(
+    chartConfig.indicators.activeEma,
+    movingAverageTrendSignals.ema,
+    priceVsEmaSourcePeriods,
+  );
+  const signalSourceSmaPeriods = new Set(mergeMovingAveragePeriods(movingAverageTrendSignals.sma, priceVsSmaSourcePeriods));
+  const signalSourceEmaPeriods = new Set(mergeMovingAveragePeriods(movingAverageTrendSignals.ema, priceVsEmaSourcePeriods));
+
   const items: ObjectTreeItem[] = [
     {
       id: "main-series",
@@ -208,7 +248,7 @@ const buildObjectTreeItems = ({
       label: `${symbol}`,
       kind: "series",
       visible: !hiddenObjectIds[id],
-      color: getCompareSeriesColor(idx),
+      color: resolveCompareSeriesSettings(symbol, idx, comparisonSettings).color,
       removable: true
     });
   });
@@ -236,26 +276,35 @@ const buildObjectTreeItems = ({
     });
   }
 
-  chartConfig.indicators.activeSma.forEach((period, index) => {
-    const id = `sma-${period}`;
+  buildSmaSeriesDefinitions(indicatorPeriods, activeSmaWithSignalSources).forEach((series) => {
     items.push({
-      id,
-      label: `SMA ${period}`,
+      id: series.id,
+      label: series.label,
       kind: "overlay",
-      visible: chartConfig.indicators.sma && !hiddenObjectIds[id],
-      color: getSmaColor(period, index),
+      visible: (chartConfig.indicators.sma || signalSourceSmaPeriods.has(series.period)) && !hiddenObjectIds[series.id],
+      color: series.color,
       removable: true
     });
   });
 
-  chartConfig.indicators.activeEma.forEach((period, index) => {
-    const id = `ema-${period}`;
+  buildEmaSeriesDefinitions(activeEmaWithSignalSources).forEach((series) => {
     items.push({
-      id,
-      label: `EMA ${period}`,
+      id: series.id,
+      label: series.label,
       kind: "overlay",
-      visible: chartConfig.indicators.ema && !hiddenObjectIds[id],
-      color: getEmaColor(period, index),
+      visible: (chartConfig.indicators.ema || signalSourceEmaPeriods.has(series.period)) && !hiddenObjectIds[series.id],
+      color: series.color,
+      removable: true
+    });
+  });
+
+  buildAdvancedMovingAverageSeriesDefinitions(chartConfig.indicators).forEach((series) => {
+    items.push({
+      id: series.seriesId,
+      label: series.label,
+      kind: "overlay",
+      visible: !hiddenObjectIds[series.seriesId],
+      color: series.color,
       removable: true
     });
   });
@@ -272,6 +321,232 @@ const buildObjectTreeItems = ({
       });
     }
   });
+
+  if (advancedIndicators.tsi) {
+    items.push(
+      {
+        id: "tsi-line",
+        label: "TSI",
+        kind: "indicator",
+        visible: !hiddenObjectIds.tsi && !hiddenObjectIds["tsi-line"],
+        color: "#8B5CF6",
+        removable: true,
+      },
+      {
+        id: "tsi-signal",
+        label: "TSI Signal",
+        kind: "indicator",
+        visible: !hiddenObjectIds.tsi && !hiddenObjectIds["tsi-signal"],
+        color: "#F59E0B",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.rvi) {
+    items.push(
+      {
+        id: "rvi-line",
+        label: "RVI",
+        kind: "indicator",
+        visible: !hiddenObjectIds.rvi && !hiddenObjectIds["rvi-line"],
+        color: "#22d3ee",
+        removable: true,
+      },
+      {
+        id: "rvi-signal",
+        label: "RVI Signal",
+        kind: "indicator",
+        visible: !hiddenObjectIds.rvi && !hiddenObjectIds["rvi-signal"],
+        color: "#facc15",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.fisherTransform) {
+    items.push(
+      {
+        id: "fisher-line",
+        label: "Fisher",
+        kind: "indicator",
+        visible: !hiddenObjectIds.fisherTransform && !hiddenObjectIds["fisher-line"],
+        color: "#e879f9",
+        removable: true,
+      },
+      {
+        id: "fisher-signal",
+        label: "Fisher Signal",
+        kind: "indicator",
+        visible: !hiddenObjectIds.fisherTransform && !hiddenObjectIds["fisher-signal"],
+        color: "#f59e0b",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.elderBullBear) {
+    items.push(
+      {
+        id: "elder-bull",
+        label: "Elder Bull",
+        kind: "indicator",
+        visible: !hiddenObjectIds.elderBullBear && !hiddenObjectIds["elder-bull"],
+        color: "#22c55e",
+        removable: true,
+      },
+      {
+        id: "elder-bear",
+        label: "Elder Bear",
+        kind: "indicator",
+        visible: !hiddenObjectIds.elderBullBear && !hiddenObjectIds["elder-bear"],
+        color: "#ef4444",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.ppo) {
+    items.push(
+      {
+        id: "ppo-line",
+        label: "PPO Line",
+        kind: "indicator",
+        visible: !hiddenObjectIds.ppo && !hiddenObjectIds["ppo-line"],
+        color: "#38bdf8",
+        removable: true,
+      },
+      {
+        id: "ppo-signal",
+        label: "PPO Signal",
+        kind: "indicator",
+        visible: !hiddenObjectIds.ppo && !hiddenObjectIds["ppo-signal"],
+        color: "#f59e0b",
+        removable: true,
+      },
+      {
+        id: "ppo-histogram",
+        label: "PPO Histogram",
+        kind: "indicator",
+        visible: !hiddenObjectIds.ppo && !hiddenObjectIds["ppo-histogram"],
+        color: "#22c55e",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.adx) {
+    items.push(
+      {
+        id: "adx-line",
+        label: "ADX",
+        kind: "indicator",
+        visible: !hiddenObjectIds.adx && !hiddenObjectIds["adx-line"],
+        color: "#c084fc",
+        removable: true,
+      },
+      {
+        id: "adx-plus-di",
+        label: "+DI",
+        kind: "indicator",
+        visible: !hiddenObjectIds.adx && !hiddenObjectIds["adx-plus-di"],
+        color: "#22c55e",
+        removable: true,
+      },
+      {
+        id: "adx-minus-di",
+        label: "-DI",
+        kind: "indicator",
+        visible: !hiddenObjectIds.adx && !hiddenObjectIds["adx-minus-di"],
+        color: "#ef4444",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.aroon) {
+    items.push(
+      {
+        id: "aroon-up",
+        label: "Aroon Up",
+        kind: "indicator",
+        visible: !hiddenObjectIds.aroon && !hiddenObjectIds["aroon-up"],
+        color: "#22c55e",
+        removable: true,
+      },
+      {
+        id: "aroon-down",
+        label: "Aroon Down",
+        kind: "indicator",
+        visible: !hiddenObjectIds.aroon && !hiddenObjectIds["aroon-down"],
+        color: "#ef4444",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.supertrend) {
+    items.push(
+      {
+        id: "supertrend-line",
+        label: "Supertrend",
+        kind: "overlay",
+        visible: !hiddenObjectIds.supertrend && !hiddenObjectIds["supertrend-line"],
+        color: "#22c55e",
+        removable: true,
+      },
+      {
+        id: "supertrend-signal",
+        label: "Supertrend Signal",
+        kind: "indicator",
+        visible: !hiddenObjectIds.supertrend && !hiddenObjectIds["supertrend-signal"],
+        color: "#facc15",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.vortex) {
+    items.push(
+      {
+        id: "vortex-plus",
+        label: "Vortex +",
+        kind: "indicator",
+        visible: !hiddenObjectIds.vortex && !hiddenObjectIds["vortex-plus"],
+        color: "#22c55e",
+        removable: true,
+      },
+      {
+        id: "vortex-minus",
+        label: "Vortex -",
+        kind: "indicator",
+        visible: !hiddenObjectIds.vortex && !hiddenObjectIds["vortex-minus"],
+        color: "#ef4444",
+        removable: true,
+      },
+    );
+  }
+
+  if (advancedIndicators.parabolicSar) {
+    items.push(
+      {
+        id: "parabolic-sar",
+        label: "SAR",
+        kind: "overlay",
+        visible: !hiddenObjectIds.parabolicSar && !hiddenObjectIds["parabolic-sar"],
+        color: "#facc15",
+        removable: true,
+      },
+      {
+        id: "parabolic-sar-signal",
+        label: "SAR Signal",
+        kind: "indicator",
+        visible: !hiddenObjectIds.parabolicSar && !hiddenObjectIds["parabolic-sar-signal"],
+        color: "#22c55e",
+        removable: true,
+      },
+    );
+  }
 
   return items;
 };
@@ -648,6 +923,23 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   
   // [TENOR 2026] Smart Component: Read comparison symbols directly from Redux
   const comparisonSymbols = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSymbols);
+  const comparisonSettings = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSettings);
+  const movingAverageTrendSignalState = useSelector((state: RootState) => state.technicalAnalysis.ui.movingAverageTrendSignals);
+  const priceVsSmaMetricState = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsSmaMetrics);
+  const priceVsEmaMetricState = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsEmaMetrics);
+  const indicatorPeriods = useSelector((state: RootState) => state.technicalAnalysis.indicatorPeriods);
+  const movingAverageTrendSignals = useMemo(
+    () => resolveTrendSignalSourceAveragePeriods(movingAverageTrendSignalState),
+    [movingAverageTrendSignalState],
+  );
+  const priceVsSmaSourcePeriods = useMemo(
+    () => resolvePriceVsSmaSourceAveragePeriods(priceVsSmaMetricState),
+    [priceVsSmaMetricState],
+  );
+  const priceVsEmaSourcePeriods = useMemo(
+    () => resolvePriceVsEmaSourceAveragePeriods(priceVsEmaMetricState),
+    [priceVsEmaMetricState],
+  );
 
   const [activeMenu, setActiveMenu] = useState<"zorder" | "layouts" | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -716,12 +1008,75 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       patchChartIndicators({ activeEma: next, ema: next.length > 0 ? chartConfig.indicators.ema : false });
       return;
     }
+    if (item.id.startsWith("wma-")) {
+      const period = Number(item.id.slice(4));
+      patchChartIndicators({ activeWma: chartConfig.indicators.activeWma.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("dema-")) {
+      const period = Number(item.id.slice(5));
+      patchChartIndicators({ activeDema: chartConfig.indicators.activeDema.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("tema-")) {
+      const period = Number(item.id.slice(5));
+      patchChartIndicators({ activeTema: chartConfig.indicators.activeTema.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("hma-")) {
+      const period = Number(item.id.slice(4));
+      patchChartIndicators({ activeHma: chartConfig.indicators.activeHma.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("zlema-")) {
+      const period = Number(item.id.slice(6));
+      patchChartIndicators({ activeZlema: chartConfig.indicators.activeZlema.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("alma-")) {
+      const period = Number(item.id.slice(5));
+      patchChartIndicators({ activeAlma: chartConfig.indicators.activeAlma.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("smma-")) {
+      const period = Number(item.id.slice(5));
+      patchChartIndicators({ activeSmma: chartConfig.indicators.activeSmma.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("kama-")) {
+      const period = Number(item.id.slice(5));
+      patchChartIndicators({ activeKama: chartConfig.indicators.activeKama.filter((p) => p !== period) });
+      return;
+    }
+    if (item.id.startsWith("vwma-")) {
+      const period = Number(item.id.slice(5));
+      patchChartIndicators({ activeVwma: chartConfig.indicators.activeVwma.filter((p) => p !== period) });
+      return;
+    }
     if (item.id in advancedIndicators) {
       dispatch(setAdvancedIndicators({ [item.id]: false } as Partial<AdvancedIndicatorsState>));
       return;
     }
     showError("Cet objet ne peut pas etre supprime depuis cette ligne.");
-  }, [advancedIndicators, chartConfig.indicators.activeEma, chartConfig.indicators.activeSma, chartConfig.indicators.ema, chartConfig.indicators.sma, dispatch, patchChartIndicators, showError]);
+  }, [
+    advancedIndicators,
+    chartConfig.indicators.activeAlma,
+    chartConfig.indicators.activeDema,
+    chartConfig.indicators.activeEma,
+    chartConfig.indicators.activeHma,
+    chartConfig.indicators.activeKama,
+    chartConfig.indicators.activeSmma,
+    chartConfig.indicators.activeSma,
+    chartConfig.indicators.activeTema,
+    chartConfig.indicators.activeVwma,
+    chartConfig.indicators.activeWma,
+    chartConfig.indicators.activeZlema,
+    chartConfig.indicators.ema,
+    chartConfig.indicators.sma,
+    dispatch,
+    patchChartIndicators,
+    showError
+  ]);
 
   const handleLockToggle = useCallback(
     (id: string, locked: boolean) => updateDrawing(id, { locked }),
@@ -851,12 +1206,17 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   const objectTreeItems = buildObjectTreeItems({
     chartConfig,
+    indicatorPeriods,
     chartAppearance,
     advancedIndicators,
     isMainChartVisible,
     activeTool,
     hiddenObjectIds,
     comparisonSymbols,
+    comparisonSettings,
+    movingAverageTrendSignals,
+    priceVsSmaSourcePeriods,
+    priceVsEmaSourcePeriods,
   });
 
   const selectedObject = objectTreeItems.find((item) => item.id === selectedObjectId) ?? null;

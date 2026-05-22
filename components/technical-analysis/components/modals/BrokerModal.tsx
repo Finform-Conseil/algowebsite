@@ -63,8 +63,6 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
   orderIntent,
   setOrderIntent,
 }: BrokerModalProps) {
-  if (!isBrokerModalOpen || typeof document === "undefined") return null;
-
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
 
@@ -389,6 +387,8 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
   const orderHeading = orderIntent
     ? `${orderIntent.side.toUpperCase()} ${orderIntent.symbol} @ ${orderIntent.triggerLabel} ${orderIntent.orderType}`
     : "";
+
+  if (!isBrokerModalOpen || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="gp-broker-overlay" onClick={resetModal}>

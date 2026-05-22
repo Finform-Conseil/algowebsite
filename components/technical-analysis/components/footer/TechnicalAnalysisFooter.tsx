@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
 import clsx from "clsx";
+import {
+    BRVM_DISPLAY_TIME_ZONE_LABEL,
+    formatBrvmDisplayClock,
+    getBrvmMarketStatus,
+} from "../../utils/brvmMarketSession";
 
 interface TechnicalAnalysisFooterProps {
     chartFooterRef: React.Ref<HTMLDivElement>;
@@ -16,13 +21,19 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
 }) => {
     // [TENOR 2026] Hydration Guard: The clock must only render on the client
     const [time, setTime] = useState<string>("");
+    const [marketStatus, setMarketStatus] = useState(() => getBrvmMarketStatus(0));
 
     useEffect(() => {
-        // Initial set to avoid 1s delay
-        setTime(new Date().toLocaleTimeString());
+        const syncMarketClock = () => {
+            const now = Date.now();
+            setTime(formatBrvmDisplayClock(new Date(now)));
+            setMarketStatus(getBrvmMarketStatus(now));
+        };
+
+        syncMarketClock();
 
         const timer = setInterval(() => {
-            setTime(new Date().toLocaleTimeString());
+            syncMarketClock();
         }, 1000);
 
         return () => clearInterval(timer);
@@ -82,13 +93,13 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
             </div>
             <div className={"gp-timestamp"}>
                 <div
-                    className={"gp-market-status"}
-                    title="Marché simulé en temps réel"
+                    className={clsx("gp-market-status", !marketStatus.isOpen && "closed")}
+                    title={marketStatus.title}
                 >
-                    <div className={"gp-live-dot"}></div> Live
+                    <div className={"gp-live-dot"}></div> {marketStatus.label}
                 </div>
                 <span className="ms-3">
-                    {time || "--:--:--"} (UTC)
+                    {time || "--:--:--"} {BRVM_DISPLAY_TIME_ZONE_LABEL}
                 </span>
                 <div
                     className={clsx("gp-toolbar-v-divider", "mx-2")}

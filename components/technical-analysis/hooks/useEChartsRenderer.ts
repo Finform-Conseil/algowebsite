@@ -9,7 +9,7 @@ import {
   UiState,
   BollingerSettings,
 } from "../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { calculateAcceleratorOscillator, calculateADX, calculateALMA, calculateAPO, calculateAroon, calculateAroonOscillator, calculateAwesomeOscillator, calculateCCI, calculateCMO, calculateCoppockCurve, calculateDEMA, calculateDPO, calculateDYMI, calculateElderBullBearPower, calculateEMA, calculateFisherTransform, calculateHMA, calculateKAMA, calculateMACD, calculateMFI, calculateMassIndex, calculateMomentum, calculatePPO, calculateParabolicSAR, calculateROC, calculateRVI, calculateSMA, calculateSMMA, calculateSTC, calculateSupertrend, calculateTEMA, calculateTRIX, calculateTSI, calculateUltimateOscillator, calculateVWMA, calculateVortex, calculateWilliamsR, calculateWMA, calculateZLEMA, ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import {
   useChartViewport,
   TV_Y_AXIS_WIDTH,
@@ -19,7 +19,33 @@ import {
   getSafeGridRect
 } from "./useChartViewport";
 import { createIndicatorsWorker } from "../lib/workers/createIndicatorsWorker";
-import { getCompareSeriesColor, getCompareSeriesId } from "../config/compareSeries";
+import {
+  getCompareSeriesColor,
+  getCompareSeriesId,
+  isCompareSeriesVisibleForTimeframe,
+  normalizeCompareSymbol,
+  type CompareSeriesPriceSource,
+  type CompareSeriesSettings,
+} from "../config/compareSeries";
+import {
+  buildDirectionalOhlcvSeries,
+  type DirectionalVolumeDataPoint,
+} from "../lib/chart/directionalOhlcv";
+import {
+  buildEmaSeriesDefinitions,
+  buildSmaSeriesDefinitions,
+  mergeMovingAveragePeriods,
+  resolveTrendSignalSourceAveragePeriods,
+} from "../config/movingAverageSeries";
+import { resolvePriceVsSmaSourceAveragePeriods } from "../config/priceVsSmaMetrics";
+import { resolvePriceVsEmaSourceAveragePeriods } from "../config/priceVsEmaMetrics";
+import {
+  buildAdvancedMovingAverageSeriesDefinitions,
+  type AdvancedMovingAverageFamily,
+} from "../config/advancedMovingAverageSeries";
+import {
+  buildChartTypeSeries,
+} from "../lib/chart-types/renderers/buildEChartsOption";
 
 // ============================================================================
 // [TENOR 2026 FIX] SCAR-TS-01: Exported Interface to fix TS 2304
@@ -49,7 +75,8 @@ export interface UseEChartsRendererProps {
   lastPriceLineRef?: RefObject<HTMLDivElement | null>;
   lastPriceAxisValue?: number;
   isMainChartVisible?: boolean;
-  comparisonSeries?: Array<{ symbol: string; data: ChartDataPoint[] }>;
+  comparisonSeries?: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
+  onCompareSeriesSettingsRequest?: (symbol: string) => void;
   hasLiveStitchedCandle?: boolean;
   hiddenObjectIds?: Record<string, boolean>;
 }
@@ -69,10 +96,13 @@ type CustomRenderApi = {
   style: (style: Record<string, unknown>) => Record<string, unknown>;
 };
 
+interface LineRenderOptions {
+  showPointMarkers?: boolean;
+}
+
 interface ChartBuilderContext {
   dates: string[];
-  values: number[][];
-  volumes: (number | string)[][];
+  volumes: DirectionalVolumeDataPoint[];
   chartData: ChartDataPoint[];
   extendedChartData: ChartDataPoint[];
   chartConfig: ChartState;
@@ -83,7 +113,7 @@ interface ChartBuilderContext {
   uiState: UiState;
   displaySymbol: string;
   indicatorsData: Record<string, (number | string)[]>;
-  comparisonSeries: Array<{ symbol: string; data: ChartDataPoint[] }>;
+  comparisonSeries: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
   hiddenObjectIds: Record<string, boolean>;
   latestPrice: number;
   liveColor: string;
@@ -116,13 +146,22 @@ const toDayKey = (time: string): string => {
   return new Date(timestamp).toISOString().slice(0, 10);
 };
 
-const buildComparisonPriceLookup = (data: ChartDataPoint[]) => {
+const getComparisonPointPrice = (
+  point: ChartDataPoint,
+  priceSource: CompareSeriesPriceSource,
+): number => point[priceSource];
+
+const buildComparisonPriceLookup = (
+  data: ChartDataPoint[],
+  priceSource: CompareSeriesPriceSource,
+) => {
   const exact = new Map<string, number>();
   const daily = new Map<string, number>();
   data.forEach((point) => {
-    if (!Number.isFinite(point.close)) return;
-    exact.set(point.time.trim(), point.close);
-    daily.set(toDayKey(point.time), point.close);
+    const price = getComparisonPointPrice(point, priceSource);
+    if (!Number.isFinite(price)) return;
+    exact.set(point.time.trim(), price);
+    daily.set(toDayKey(point.time), price);
   });
   return { exact, daily };
 };
@@ -140,9 +179,10 @@ const resolveComparisonPrice = (
 const normalizeComparisonValues = (
   data: ChartDataPoint[],
   mainData: ChartDataPoint[],
-  startIndex: number
+  startIndex: number,
+  priceSource: CompareSeriesPriceSource,
 ): Array<number | null> => {
-  const lookup = buildComparisonPriceLookup(data);
+  const lookup = buildComparisonPriceLookup(data, priceSource);
   let basePrice: number | null = null;
 
   for (let index = Math.max(0, startIndex); index < mainData.length; index++) {
@@ -157,11 +197,92 @@ const normalizeComparisonValues = (
   });
 };
 
-const formatCompareEndLabel = (symbol: string, value: unknown): string => {
+const getCompareLabelSymbolBackground = (color: string): string => {
+  const match = color.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return color;
+
+  const value = Number.parseInt(match[1], 16);
+  const red = Math.round(((value >> 16) & 255) * 0.86);
+  const green = Math.round(((value >> 8) & 255) * 0.86);
+  const blue = Math.round((value & 255) * 0.86);
+
+  return `rgb(${red}, ${green}, ${blue})`;
+};
+
+const formatCompareEndValueLabel = (value: unknown): string => {
   const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return symbol;
+  if (!Number.isFinite(numericValue)) return "";
   const sign = numericValue > 0 ? "+" : "";
-  return `${symbol} ${sign}${numericValue.toFixed(2)}%`;
+  return `${sign}${numericValue.toFixed(2)}%`;
+};
+
+const formatCompareSymbolLabel = (symbol: string): string =>
+  normalizeCompareSymbol(symbol).replace(/[{}|]/g, "");
+
+const getLastFiniteSeriesValue = (values: Array<number | string> | undefined): number | null => {
+  if (!values) return null;
+  for (let index = values.length - 1; index >= 0; index--) {
+    const value = toFiniteNumber(values[index]);
+    if (value !== null) return value;
+  }
+  return null;
+};
+
+const formatAdxTrendStrength = (adx: number | null): string | null => {
+  if (adx === null) return null;
+  if (adx < 20) return "None";
+  if (adx < 25) return "Weak";
+  if (adx < 50) return "Moderate";
+  if (adx < 75) return "Strong";
+  return "Very strong";
+};
+
+const getLastFiniteComparisonPoint = (
+  dates: string[],
+  normalized: Array<number | null>,
+): { date: string; value: number } | null => {
+  const lastIndex = Math.min(dates.length, normalized.length) - 1;
+
+  for (let index = lastIndex; index >= 0; index--) {
+    const value = normalized[index];
+    if (isFiniteNumber(value)) return { date: dates[index], value };
+  }
+
+  return null;
+};
+
+const buildCompareSymbolMarkPoint = (
+  symbol: string,
+  color: string,
+  dates: string[],
+  normalized: Array<number | null>,
+): ChartOptionPart | undefined => {
+  const label = formatCompareSymbolLabel(symbol);
+  const lastPoint = getLastFiniteComparisonPoint(dates, normalized);
+  if (!label || !lastPoint) return undefined;
+
+  return {
+    animation: false,
+    silent: false,
+    symbol: "rect",
+    symbolSize: 1,
+    data: [{
+      coord: [lastPoint.date, lastPoint.value],
+      label: {
+        show: true,
+        formatter: label,
+        position: "left",
+        distance: 0,
+        color: "#ffffff",
+        backgroundColor: getCompareLabelSymbolBackground(color),
+        borderRadius: [1, 0, 0, 1],
+        padding: [2, 4],
+        fontSize: 11,
+        fontWeight: 700,
+      },
+      itemStyle: { color: "transparent" },
+    }],
+  };
 };
 
 const buildBandFillData = (upper?: (number | string)[], lower?: (number | string)[]): Array<(number | string)[]> => {
@@ -200,7 +321,6 @@ const renderBandPolygon = (api: CustomRenderApi, fill: string) => {
 
 const buildEChartsOption = ({
   dates,
-  values,
   volumes,
   chartData,
   chartConfig,
@@ -224,24 +344,105 @@ const buildEChartsOption = ({
   const textColor = "#a0aec0";
 
   const isObjectVisible = (id: string) => hiddenObjectIds[id] !== true;
+  const isCci20Active = advancedIndicators.cci20 || advancedIndicators.cci;
+  const hasVisibleCciPanel = (advancedIndicators.cci14 && isObjectVisible("cci14"))
+    || (advancedIndicators.cci20 && isObjectVisible("cci20"))
+    || (advancedIndicators.cci && isObjectVisible("cci"));
+  const hasVisibleWilliamsRPanel = (advancedIndicators.williamsR14 && isObjectVisible("williamsR14"))
+    || (advancedIndicators.williamsR && isObjectVisible("williamsR"));
+  const hasVisibleRocPanel = (advancedIndicators.roc10 && isObjectVisible("roc10"))
+    || (advancedIndicators.roc20 && isObjectVisible("roc20"))
+    || (advancedIndicators.roc && isObjectVisible("roc"));
+  const hasVisibleRawMomentumPanel = (advancedIndicators.momentum10 && isObjectVisible("momentum10"))
+    || (advancedIndicators.momentum20 && isObjectVisible("momentum20"));
+  const hasVisibleTsiPanel = advancedIndicators.tsi
+    && isObjectVisible("tsi")
+    && (isObjectVisible("tsi-line") || isObjectVisible("tsi-signal"));
+  const hasVisibleRviPanel = advancedIndicators.rvi
+    && isObjectVisible("rvi")
+    && (isObjectVisible("rvi-line") || isObjectVisible("rvi-signal"));
+  const hasVisibleFisherPanel = advancedIndicators.fisherTransform
+    && isObjectVisible("fisherTransform")
+    && (isObjectVisible("fisher-line") || isObjectVisible("fisher-signal"));
+  const hasVisibleElderPanel = advancedIndicators.elderBullBear
+    && isObjectVisible("elderBullBear")
+    && (isObjectVisible("elder-bull") || isObjectVisible("elder-bear"));
+  const hasVisiblePpoPanel = advancedIndicators.ppo
+    && isObjectVisible("ppo")
+    && (isObjectVisible("ppo-line") || isObjectVisible("ppo-signal") || isObjectVisible("ppo-histogram"));
+  const hasVisibleAdxPanel = advancedIndicators.adx
+    && isObjectVisible("adx")
+    && (isObjectVisible("adx-line") || isObjectVisible("adx-plus-di") || isObjectVisible("adx-minus-di"));
+  const hasVisibleAroonPanel = advancedIndicators.aroon
+    && isObjectVisible("aroon")
+    && (isObjectVisible("aroon-up") || isObjectVisible("aroon-down"));
+  const hasVisibleSupertrendOverlay = advancedIndicators.supertrend
+    && isObjectVisible("supertrend")
+    && (isObjectVisible("supertrend-line") || isObjectVisible("supertrend-signal"));
+  const hasVisibleVortexPanel = advancedIndicators.vortex
+    && isObjectVisible("vortex")
+    && (isObjectVisible("vortex-plus") || isObjectVisible("vortex-minus"));
+  const visibleComparisonSeries = comparisonSeries
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => {
+      const id = getCompareSeriesId(entry.symbol);
+      return isObjectVisible(id) && isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe);
+    });
+  const hasVisibleComparisonSeries = visibleComparisonSeries.length > 0;
 
-  const shouldRenderVolumePanel = (chartConfig.indicators.volume || chartAppearance.showVolume) && isObjectVisible("volume");
+  const mainSeriesVisible = isMainChartVisible && isObjectVisible("main-series");
+  const chartTypePlan = buildChartTypeSeries({
+    chartType: chartConfig.chartType,
+    chartData,
+    baseDates: dates,
+    displaySymbol,
+    palette: { upColor, downColor, textColor, liveColor },
+    latestPrice,
+    visible: mainSeriesVisible,
+  });
+  const renderDates = chartTypePlan.dates;
+  const mainSeriesData = chartTypePlan.series.find((series) => series.id === "main-series")?.data;
+  const renderedMainSeriesPointCount = Array.isArray(mainSeriesData) ? mainSeriesData.length : chartData.length;
+
+  const shouldRenderVolumePanel = (chartConfig.indicators.volume || chartAppearance.showVolume) && isObjectVisible("volume") && !chartTypePlan.synthetic;
 
   const oscillatorPanels = [
     advancedIndicators.rsi && isObjectVisible("rsi") ? "RSI" : null,
     advancedIndicators.macd && isObjectVisible("macd") ? "MACD" : null,
+    hasVisiblePpoPanel ? "PPO" : null,
+    advancedIndicators.apo && isObjectVisible("apo") ? "APO" : null,
+    hasVisibleAdxPanel ? "ADX" : null,
+    hasVisibleAroonPanel ? "Aroon" : null,
+    advancedIndicators.aroonOsc && isObjectVisible("aroonOsc") ? "Aroon Osc" : null,
+    hasVisibleVortexPanel ? "Vortex" : null,
+    advancedIndicators.trix && isObjectVisible("trix") ? "TRIX" : null,
+    advancedIndicators.stc && isObjectVisible("stc") ? "STC" : null,
+    advancedIndicators.massIndex && isObjectVisible("massIndex") ? "Mass Index" : null,
     advancedIndicators.stochastic && isObjectVisible("stochastic") ? "Stoch" : null,
     advancedIndicators.atr && isObjectVisible("atr") ? "ATR" : null,
-    advancedIndicators.cci && isObjectVisible("cci") ? "CCI" : null,
-    advancedIndicators.williamsR && isObjectVisible("williamsR") ? "Will%R" : null,
-    advancedIndicators.roc && isObjectVisible("roc") ? "ROC" : null,
+    hasVisibleCciPanel ? "CCI" : null,
+    advancedIndicators.mfi14 && isObjectVisible("mfi14") ? "MFI" : null,
+    hasVisibleWilliamsRPanel ? "Will%R" : null,
+    hasVisibleRocPanel ? "ROC" : null,
+    hasVisibleRawMomentumPanel ? "Momentum" : null,
+    advancedIndicators.cmo14 && isObjectVisible("cmo14") ? "CMO" : null,
+    advancedIndicators.dymi && isObjectVisible("dymi") ? "DYMI" : null,
+    advancedIndicators.ultimateOsc && isObjectVisible("ultimateOsc") ? "Ultimate" : null,
+    advancedIndicators.dpo20 && isObjectVisible("dpo20") ? "DPO" : null,
+    hasVisibleTsiPanel ? "TSI" : null,
+    advancedIndicators.awesomeOsc && isObjectVisible("awesomeOsc") ? "AO" : null,
+    advancedIndicators.acOsc && isObjectVisible("acOsc") ? "AC" : null,
+    hasVisibleRviPanel ? "RVI" : null,
+    hasVisibleFisherPanel ? "Fisher" : null,
+    hasVisibleElderPanel ? "Elder" : null,
+    advancedIndicators.coppock && isObjectVisible("coppock") ? "Coppock" : null,
     advancedIndicators.obv && isObjectVisible("obv") ? "OBV" : null,
     advancedIndicators.stochRsi && isObjectVisible("stochRsi") ? "StochRSI" : null,
     advancedIndicators.bbWidth && isObjectVisible("bbWidth") ? "BB Width" : null,
     advancedIndicators.bbPercentB && isObjectVisible("bbPercentB") ? "BB %B" : null,
   ].filter((panel): panel is string => panel !== null);
 
-  const gridLeft = comparisonSeries.length > 0 ? 60 : MAIN_GRID_LEFT;
+  const gridLeft = hasVisibleComparisonSeries ? 60 : MAIN_GRID_LEFT;
   const gridRight = TV_Y_AXIS_WIDTH;
   const topMarginPercent = 8;
   const bottomMarginPercent = 5;
@@ -260,6 +461,7 @@ const buildEChartsOption = ({
   const xAxisOptions: ChartOptionPart[] = [];
   const yAxisOptions: ChartOptionPart[] = [];
   const seriesOptions: ChartOptionPart[] = [];
+  const graphicOptions: ChartOptionPart[] = [];
 
   const getVolumeAxisMax = (value: { max: number }): number => {
     const averageVolume = volumes.reduce((acc, volumePoint) => acc + (Number(volumePoint[1]) || 0), 0) / (volumes.length || 1);
@@ -279,7 +481,7 @@ const buildEChartsOption = ({
   xAxisOptions.push({
     id: "main-xaxis",
     type: "category",
-    data: dates,
+    data: renderDates,
     boundaryGap: false,
     axisLine: { onZero: false, lineStyle: { color: textColor } },
     axisLabel: { color: textColor, hideOverlap: true },
@@ -299,7 +501,7 @@ const buildEChartsOption = ({
     axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: false } },
   });
 
-  if (comparisonSeries.length > 0) {
+  if (hasVisibleComparisonSeries) {
     yAxisOptions.push({
       id: "compare-yaxis",
       position: "left",
@@ -311,45 +513,7 @@ const buildEChartsOption = ({
     });
   }
 
-  const mainSeriesVisible = isMainChartVisible && isObjectVisible("main-series");
-
-  seriesOptions.push(
-    chartConfig.chartType === "candlestick"
-      ? {
-          id: "main-series",
-          name: displaySymbol,
-          type: "candlestick",
-          data: values,
-          itemStyle: {
-            color: upColor,
-            color0: downColor,
-            borderColor: upColor,
-            borderColor0: downColor,
-            opacity: mainSeriesVisible ? 1 : 0,
-          },
-          markLine: {
-            symbol: ["none", "none"],
-            animation: false,
-            silent: true,
-            data: [{ yAxis: latestPrice, label: { show: false }, lineStyle: { color: liveColor, type: "dashed", width: 1, opacity: 0.8 } }]
-          },
-        }
-      : {
-          id: "main-series",
-          name: displaySymbol,
-          type: "line",
-          data: chartData.map((item) => item.close),
-          showSymbol: false,
-          itemStyle: { color: upColor, opacity: mainSeriesVisible ? 1 : 0 },
-          lineStyle: { color: upColor, opacity: mainSeriesVisible ? 1 : 0 },
-          markLine: {
-            symbol: ["none", "none"],
-            animation: false,
-            silent: true,
-            data: [{ yAxis: latestPrice, label: { show: false }, lineStyle: { color: liveColor, type: "dashed", width: 1, opacity: 0.8 } }]
-          },
-        }
-  );
+  seriesOptions.push(...chartTypePlan.series);
 
   if (shouldRenderVolumePanel) {
     const volumeGridIndex = gridOptions.length;
@@ -368,7 +532,7 @@ const buildEChartsOption = ({
       id: "volume-xaxis",
       type: "category",
       gridIndex: volumeGridIndex,
-      data: dates,
+      data: renderDates,
       boundaryGap: false,
       axisLabel: { show: false },
       axisTick: { show: false },
@@ -410,34 +574,96 @@ const buildEChartsOption = ({
     nextPanelTopPercent += panelHeightPercent + panelSpacingPercent;
   }
 
-  const pushLine = (id: string, name: string, data: (number | string)[] | undefined, color: string) => {
+  const pushLine = (
+    id: string,
+    name: string,
+    data: (number | string)[] | undefined,
+    color: string,
+    options: LineRenderOptions = {},
+  ) => {
     if (!data || !isObjectVisible(id)) return;
+    const showPointMarkers = options.showPointMarkers === true;
+    const pointMarkerOptions = showPointMarkers
+      ? { showSymbol: true, symbol: "circle", symbolSize: 4, emphasis: { scale: 1.35 } }
+      : { showSymbol: false };
+
     seriesOptions.push({
       id,
       name,
       type: "line",
       data,
-      showSymbol: false,
-      smooth: true,
+      ...pointMarkerOptions,
+      smooth: false,
       lineStyle: { opacity: 0.9, width: 1.5, color },
-      itemStyle: { color }
+      itemStyle: { color },
     });
   };
 
+  const getMovingAverageLineData = (
+    family: "sma" | "ema",
+    dataKey: string,
+    period: number,
+  ): (number | string)[] => {
+    const workerData = indicatorsData[dataKey];
+    if (workerData) return workerData;
+
+    return family === "sma"
+      ? calculateSMA(chartData, period)
+      : calculateEMA(chartData, period);
+  };
+
+  const getAdvancedMovingAverageLineData = (
+    family: AdvancedMovingAverageFamily,
+    dataKey: string,
+    period: number,
+  ): (number | string)[] => {
+    const workerData = indicatorsData[dataKey];
+    if (workerData) return workerData;
+
+    if (family === "wma") return calculateWMA(chartData, period);
+    if (family === "dema") return calculateDEMA(chartData, period);
+    if (family === "tema") return calculateTEMA(chartData, period);
+    if (family === "hma") return calculateHMA(chartData, period);
+    if (family === "zlema") return calculateZLEMA(chartData, period);
+    if (family === "alma") return calculateALMA(chartData, period);
+    if (family === "smma") return calculateSMMA(chartData, period);
+    if (family === "kama") return calculateKAMA(chartData, period);
+    return calculateVWMA(chartData, period);
+  };
+
   if (chartConfig.indicators.sma) {
-    const activeSmas = chartConfig.indicators.activeSma || [];
-    if (activeSmas.includes(indicatorPeriods.sma1)) pushLine(`sma-${indicatorPeriods.sma1}`, `SMA ${indicatorPeriods.sma1}`, indicatorsData.sma1, "#45c3a1");
-    if (activeSmas.includes(indicatorPeriods.sma2)) pushLine(`sma-${indicatorPeriods.sma2}`, `SMA ${indicatorPeriods.sma2}`, indicatorsData.sma2, "#f06467");
-    if (activeSmas.includes(indicatorPeriods.sma3)) pushLine(`sma-${indicatorPeriods.sma3}`, `SMA ${indicatorPeriods.sma3}`, indicatorsData.sma3, "#FF9F04");
-    if (activeSmas.includes(50)) pushLine("sma-50", "SMA 50", indicatorsData.sma50, "#2E93fA");
-    if (activeSmas.includes(200)) pushLine("sma-200", "SMA 200", indicatorsData.sma200, "#66DA26");
+    buildSmaSeriesDefinitions(indicatorPeriods, chartConfig.indicators.activeSma).forEach((series) => {
+      pushLine(
+        series.id,
+        series.label,
+        getMovingAverageLineData("sma", series.dataKey, series.period),
+        series.color,
+        { showPointMarkers: true },
+      );
+    });
   }
 
   if (chartConfig.indicators.ema) {
-    const activeEmas = chartConfig.indicators.activeEma || [];
-    if (activeEmas.includes(5)) pushLine("ema-5", "EMA 5", indicatorsData.ema5, "#9C27B0");
-    if (activeEmas.includes(10)) pushLine("ema-10", "EMA 10", indicatorsData.ema10, "#E91E63");
+    buildEmaSeriesDefinitions(chartConfig.indicators.activeEma).forEach((series) => {
+      pushLine(
+        series.id,
+        series.label,
+        getMovingAverageLineData("ema", series.dataKey, series.period),
+        series.color,
+        { showPointMarkers: true },
+      );
+    });
   }
+
+  buildAdvancedMovingAverageSeriesDefinitions(chartConfig.indicators).forEach((series) => {
+    pushLine(
+      series.seriesId,
+      series.label,
+      getAdvancedMovingAverageLineData(series.family, series.dataKey, series.period),
+      series.color,
+      { showPointMarkers: true },
+    );
+  });
 
   if (advancedIndicators.ichimoku) {
     pushLine("ichimoku-tenkan", "Tenkan", indicatorsData.tenkan, "#2962FF");
@@ -485,6 +711,155 @@ const buildEChartsOption = ({
     pushLine("boll-lower", "BB Lower", indicatorsData.bollLower, bollingerSettings.lowerColor);
   }
 
+  if (advancedIndicators.parabolicSar && isObjectVisible("parabolicSar")) {
+    const fallbackSar = indicatorsData.parabolicSar && indicatorsData.parabolicSarSignal
+      ? null
+      : calculateParabolicSAR(chartData);
+    const sarSeries = indicatorsData.parabolicSar ?? fallbackSar?.sar ?? [];
+    const sarSignal = indicatorsData.parabolicSarSignal ?? fallbackSar?.signal ?? [];
+    const renderedSarPointCount = Math.min(renderDates.length, chartData.length, renderedMainSeriesPointCount);
+
+    if (isObjectVisible("parabolic-sar")) {
+      seriesOptions.push({
+        id: "parabolic-sar",
+        name: "SAR",
+        type: "scatter",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: Array.from({ length: renderedSarPointCount }, (_unused, index) => {
+          const value = sarSeries[index];
+          const price = toFiniteNumber(value);
+          if (price === null) return null;
+          const date = renderDates[index];
+          if (!date) return null;
+          const direction = toFiniteNumber(sarSignal[index]);
+          return {
+            value: [date, price],
+            itemStyle: { color: direction !== null && direction < 0 ? downColor : upColor },
+          };
+        }),
+        symbol: "circle",
+        symbolSize: 5,
+        z: 24,
+      });
+    }
+
+    if (isObjectVisible("parabolic-sar-signal")) {
+      seriesOptions.push({
+        id: "parabolic-sar-signal",
+        name: "SAR Signal",
+        type: "scatter",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: Array.from({ length: renderedSarPointCount }, (_unused, index) => {
+          const value = sarSignal[index];
+          const direction = toFiniteNumber(value);
+          const previousDirection = index > 0 ? toFiniteNumber(sarSignal[index - 1]) : null;
+          if (direction === null || previousDirection === null || direction === previousDirection) return null;
+          const price = direction > 0
+            ? toFiniteNumber(chartData[index]?.low)
+            : toFiniteNumber(chartData[index]?.high);
+          if (price === null) return null;
+          const date = renderDates[index];
+          if (!date) return null;
+          return {
+            value: [date, price],
+            itemStyle: { color: direction > 0 ? upColor : downColor },
+          };
+        }),
+        symbol: "diamond",
+        symbolSize: 9,
+        z: 25,
+      });
+    }
+  }
+
+  if (hasVisibleSupertrendOverlay) {
+    const fallbackSupertrend = indicatorsData.supertrend && indicatorsData.supertrendSignal
+      ? null
+      : calculateSupertrend(chartData, 10, 3);
+    const supertrendSeries = indicatorsData.supertrend ?? fallbackSupertrend?.supertrend ?? [];
+    const supertrendSignal = indicatorsData.supertrendSignal ?? fallbackSupertrend?.signal ?? [];
+    const renderedSupertrendPointCount = Math.min(
+      renderDates.length,
+      chartData.length,
+      renderedMainSeriesPointCount,
+      supertrendSeries.length,
+      supertrendSignal.length,
+    );
+
+    if (isObjectVisible("supertrend-line")) {
+      const buildSupertrendLineData = (expectedDirection: 1 | -1) =>
+        Array.from({ length: renderedSupertrendPointCount }, (_unused, index) => {
+          const date = renderDates[index];
+          const price = toFiniteNumber(supertrendSeries[index]);
+          const direction = toFiniteNumber(supertrendSignal[index]);
+          if (!date || price === null || direction !== expectedDirection) return [date, null];
+          return [date, price];
+        });
+      const upTrendData = buildSupertrendLineData(1);
+      const downTrendData = buildSupertrendLineData(-1);
+
+      seriesOptions.push(
+        {
+          id: "supertrend-line-up",
+          name: "Supertrend",
+          type: "line",
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          data: upTrendData,
+          showSymbol: false,
+          connectNulls: false,
+          lineStyle: { width: 1.6, color: upColor, opacity: 0.95 },
+          itemStyle: { color: upColor },
+          z: 23,
+        },
+        {
+          id: "supertrend-line-down",
+          name: "Supertrend",
+          type: "line",
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          data: downTrendData,
+          showSymbol: false,
+          connectNulls: false,
+          lineStyle: { width: 1.6, color: downColor, opacity: 0.95 },
+          itemStyle: { color: downColor },
+          z: 23,
+        },
+      );
+    }
+
+    if (isObjectVisible("supertrend-signal")) {
+      seriesOptions.push({
+        id: "supertrend-signal",
+        name: "Supertrend Signal",
+        type: "scatter",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: Array.from({ length: renderedSupertrendPointCount }, (_unused, index) => {
+          const direction = toFiniteNumber(supertrendSignal[index]);
+          const previousDirection = index > 0 ? toFiniteNumber(supertrendSignal[index - 1]) : null;
+          if (direction === null || previousDirection === null || direction === previousDirection) return null;
+          const trendPrice = toFiniteNumber(supertrendSeries[index]);
+          const fallbackPrice = direction > 0
+            ? toFiniteNumber(chartData[index]?.low)
+            : toFiniteNumber(chartData[index]?.high);
+          const price = trendPrice ?? fallbackPrice;
+          const date = renderDates[index];
+          if (price === null || !date) return null;
+          return {
+            value: [date, price],
+            itemStyle: { color: direction > 0 ? upColor : downColor },
+          };
+        }),
+        symbol: "diamond",
+        symbolSize: 8,
+        z: 26,
+      });
+    }
+  }
+
   const oscillatorGuide = (levels: number[]) => ({
     silent: true,
     symbol: ["none", "none"],
@@ -492,6 +867,41 @@ const buildEChartsOption = ({
     lineStyle: { color: "rgba(120, 123, 134, 0.5)", type: "dashed", width: 1 },
     data: levels.map((level) => ({ yAxis: level })),
   });
+
+  const buildDeltaHistogramData = (data: (number | string)[] | undefined) => {
+    let previousValue: number | null = null;
+    return (data ?? []).map((value, index) => {
+      const currentValue = typeof value === "number" && Number.isFinite(value) ? value : null;
+      const isRising = currentValue !== null && previousValue !== null
+        ? currentValue >= previousValue
+        : true;
+      if (currentValue !== null) previousValue = currentValue;
+
+      return {
+        value: [index, currentValue],
+        itemStyle: { color: isRising ? upColor : downColor },
+      };
+    });
+  };
+
+  const pushDeltaHistogram = (
+    xAxisIndex: number,
+    yAxisIndex: number,
+    id: string,
+    name: string,
+    data: (number | string)[] | undefined,
+  ) => {
+    seriesOptions.push({
+      id,
+      name,
+      type: "bar",
+      xAxisIndex,
+      yAxisIndex,
+      data: buildDeltaHistogramData(data),
+      barWidth: "62%",
+      markLine: oscillatorGuide([0]),
+    });
+  };
 
   const pushOscillatorLine = (
     xAxisIndex: number,
@@ -517,13 +927,30 @@ const buildEChartsOption = ({
     });
   };
 
+  const addPanelNote = (text: string) => {
+    graphicOptions.push({
+      type: "text",
+      left: gridLeft + 8,
+      top: `${nextPanelTopPercent + 0.35}%`,
+      silent: true,
+      z: 80,
+      style: {
+        text,
+        fill: "rgba(160, 174, 192, 0.72)",
+        font: "600 10px Inter, system-ui, sans-serif",
+      },
+    });
+  };
+
   oscillatorPanels.forEach((panelName, index) => {
     const gridIndex = gridOptions.length;
     const xAxisIndex = xAxisOptions.length;
     const yAxisIndex = yAxisOptions.length;
 
-    const bounded0to100 = panelName === "RSI" || panelName === "Stoch" || panelName === "StochRSI";
+    const bounded0to100 = panelName === "RSI" || panelName === "Stoch" || panelName === "StochRSI" || panelName === "MFI" || panelName === "DYMI" || panelName === "Ultimate" || panelName === "ADX" || panelName === "Aroon" || panelName === "STC";
     const boundedWillR = panelName === "Will%R";
+    const boundedCmo = panelName === "CMO";
+    const boundedAroonOsc = panelName === "Aroon Osc";
 
     gridOptions.push({
       left: gridLeft,
@@ -537,7 +964,7 @@ const buildEChartsOption = ({
       id: `osc-xaxis-${index}`,
       type: "category",
       gridIndex,
-      data: dates,
+      data: renderDates,
       boundaryGap: false,
       axisTick: { show: false },
       splitLine: { show: false },
@@ -554,29 +981,205 @@ const buildEChartsOption = ({
       axisTick: { show: false },
       splitLine: { show: chartAppearance.showGrid, lineStyle: { color: "rgba(42, 46, 57, 0.5)", type: "dashed" } },
       axisLabel: { color: textColor, fontSize: 10 },
-      scale: !(bounded0to100 || boundedWillR),
-      min: bounded0to100 ? 0 : boundedWillR ? -100 : undefined,
-      max: bounded0to100 ? 100 : boundedWillR ? 0 : undefined,
+      scale: !(bounded0to100 || boundedWillR || boundedCmo || boundedAroonOsc),
+      min: bounded0to100 ? 0 : boundedWillR || boundedCmo || boundedAroonOsc ? -100 : undefined,
+      max: bounded0to100 ? 100 : boundedWillR ? 0 : boundedCmo || boundedAroonOsc ? 100 : undefined,
       axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: true } },
     });
+
+    if (panelName === "PPO") addPanelNote("PPO = MACD normalized %");
+    if (panelName === "APO") addPanelNote("APO = MACD Line absolute");
 
     if (panelName === "RSI") {
       pushOscillatorLine(xAxisIndex, yAxisIndex, "rsi-series", "RSI", indicatorsData.rsi, "#7E57C2", {
         markArea: { silent: true, itemStyle: { color: "rgba(126, 87, 194, 0.08)" }, data: [[{ yAxis: 30 }, { yAxis: 70 }]] },
         markLine: oscillatorGuide([70, 30, 50]),
       });
-    } else if (panelName === "MACD" && indicatorsData.macdLine) {
+    } else if (panelName === "MACD") {
+      const fallbackMacd = indicatorsData.macdLine && indicatorsData.macdSignal && indicatorsData.macdHist ? null : calculateMACD(chartData);
       seriesOptions.push({
         id: "macd-hist",
-        name: "MACD",
+        name: "MACD Histogram",
         type: "bar",
         xAxisIndex,
         yAxisIndex,
-        data: indicatorsData.macdHist?.map((value, i) => [i, value]) ?? [],
+        data: (indicatorsData.macdHist ?? fallbackMacd?.histogram ?? []).map((value, i) => [i, value]),
         itemStyle: { color: (params: { value: (number | string)[] }) => Number(params.value[1]) > 0 ? upColor : downColor },
       });
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-line", "MACD Line", indicatorsData.macdLine, "#ffffff");
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-signal", "Signal", indicatorsData.macdSignal, "#FF9F04");
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-line", "MACD Line", indicatorsData.macdLine ?? fallbackMacd?.macdLine ?? [], "#ffffff");
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-signal", "MACD Signal", indicatorsData.macdSignal ?? fallbackMacd?.signalLine ?? [], "#FF9F04");
+    } else if (panelName === "PPO") {
+      const fallbackPpo = indicatorsData.ppo && indicatorsData.ppoSignal && indicatorsData.ppoHistogram ? null : calculatePPO(chartData);
+      if (isObjectVisible("ppo-histogram")) {
+        seriesOptions.push({
+          id: "ppo-histogram",
+          name: "PPO Histogram",
+          type: "bar",
+          xAxisIndex,
+          yAxisIndex,
+          data: (indicatorsData.ppoHistogram ?? fallbackPpo?.histogram ?? []).map((value, dataIndex) => [dataIndex, value]),
+          itemStyle: { color: (params: { value: (number | string)[] }) => Number(params.value[1]) > 0 ? upColor : downColor },
+          markLine: oscillatorGuide([0]),
+        });
+      }
+      if (isObjectVisible("ppo-line")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "ppo-line",
+          "PPO Line",
+          indicatorsData.ppo ?? fallbackPpo?.ppoLine ?? [],
+          "#38bdf8",
+        );
+      }
+      if (isObjectVisible("ppo-signal")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "ppo-signal",
+          "PPO Signal",
+          indicatorsData.ppoSignal ?? fallbackPpo?.signalLine ?? [],
+          "#f59e0b",
+        );
+      }
+    } else if (panelName === "APO") {
+      pushOscillatorLine(
+        xAxisIndex,
+        yAxisIndex,
+        "apo-series",
+        "APO",
+        indicatorsData.apo ?? calculateAPO(chartData),
+        "#f97316",
+        { markLine: oscillatorGuide([0]) },
+      );
+    } else if (panelName === "ADX") {
+      const fallbackAdx = indicatorsData.adx14 && indicatorsData.plusDI14 && indicatorsData.minusDI14 ? null : calculateADX(chartData, 14);
+      const adxLine = indicatorsData.adx14 ?? fallbackAdx?.adx ?? [];
+      const trendStrength = formatAdxTrendStrength(getLastFiniteSeriesValue(adxLine));
+      if (trendStrength) addPanelNote(`Trend Strength: ${trendStrength}`);
+
+      if (isObjectVisible("adx-line")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "adx-line",
+          "ADX",
+          adxLine,
+          "#c084fc",
+          { markLine: oscillatorGuide([50, 25, 20]) },
+        );
+      }
+      if (isObjectVisible("adx-plus-di")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "adx-plus-di",
+          "+DI",
+          indicatorsData.plusDI14 ?? fallbackAdx?.plusDI ?? [],
+          "#22c55e",
+        );
+      }
+      if (isObjectVisible("adx-minus-di")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "adx-minus-di",
+          "-DI",
+          indicatorsData.minusDI14 ?? fallbackAdx?.minusDI ?? [],
+          "#ef4444",
+        );
+      }
+    } else if (panelName === "Aroon") {
+      const fallbackAroon = indicatorsData.aroonUp14 && indicatorsData.aroonDown14 ? null : calculateAroon(chartData, 14);
+      if (isObjectVisible("aroon-up")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "aroon-up",
+          "Aroon Up",
+          indicatorsData.aroonUp14 ?? fallbackAroon?.up ?? [],
+          "#22c55e",
+          { markLine: oscillatorGuide([70, 50, 30]) },
+        );
+      }
+      if (isObjectVisible("aroon-down")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "aroon-down",
+          "Aroon Down",
+          indicatorsData.aroonDown14 ?? fallbackAroon?.down ?? [],
+          "#ef4444",
+        );
+      }
+    } else if (panelName === "Aroon Osc") {
+      pushOscillatorLine(
+        xAxisIndex,
+        yAxisIndex,
+        "aroon-osc-series",
+        "Aroon Osc",
+        indicatorsData.aroonOsc14 ?? calculateAroonOscillator(chartData, 14),
+        "#38bdf8",
+        { markLine: oscillatorGuide([90, 0, -90]) },
+      );
+    } else if (panelName === "Vortex") {
+      const fallbackVortex = indicatorsData.vortexPlus14 && indicatorsData.vortexMinus14
+        ? null
+        : calculateVortex(chartData, 14);
+      if (isObjectVisible("vortex-plus")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "vortex-plus",
+          "Vortex +",
+          indicatorsData.vortexPlus14 ?? fallbackVortex?.plus ?? [],
+          "#22c55e",
+          { markLine: oscillatorGuide([1]) },
+        );
+      }
+      if (isObjectVisible("vortex-minus")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "vortex-minus",
+          "Vortex -",
+          indicatorsData.vortexMinus14 ?? fallbackVortex?.minus ?? [],
+          "#ef4444",
+        );
+      }
+    } else if (panelName === "TRIX") {
+      pushOscillatorLine(
+        xAxisIndex,
+        yAxisIndex,
+        "trix-series",
+        "TRIX",
+        indicatorsData.trix18 ?? calculateTRIX(chartData, 18),
+        "#a78bfa",
+        { markLine: oscillatorGuide([0]) },
+      );
+    } else if (panelName === "STC") {
+      pushOscillatorLine(
+        xAxisIndex,
+        yAxisIndex,
+        "stc-series",
+        "STC",
+        indicatorsData.stc ?? calculateSTC(chartData),
+        "#06b6d4",
+        {
+          markArea: { silent: true, itemStyle: { color: "rgba(6, 182, 212, 0.08)" }, data: [[{ yAxis: 25 }, { yAxis: 75 }]] },
+          markLine: oscillatorGuide([75, 50, 25]),
+        },
+      );
+    } else if (panelName === "Mass Index") {
+      pushOscillatorLine(
+        xAxisIndex,
+        yAxisIndex,
+        "mass-index-series",
+        "Mass Index",
+        indicatorsData.massIndex ?? calculateMassIndex(chartData),
+        "#f59e0b",
+        { markLine: oscillatorGuide([27, 26.5]) },
+      );
     } else if (panelName === "Stoch") {
       pushOscillatorLine(xAxisIndex, yAxisIndex, "stoch-k", "%K", indicatorsData.stochK, "#2962FF", {
         markArea: { silent: true, itemStyle: { color: "rgba(33, 150, 243, 0.08)" }, data: [[{ yAxis: 20 }, { yAxis: 80 }]] },
@@ -590,66 +1193,324 @@ const buildEChartsOption = ({
       });
       pushOscillatorLine(xAxisIndex, yAxisIndex, "stochrsi-d", "StochRSI %D", indicatorsData.stochRsiD, "#FF6D00");
     } else if (panelName === "ATR") pushOscillatorLine(xAxisIndex, yAxisIndex, "atr-series", "ATR", indicatorsData.atr, "#d50000");
-    else if (panelName === "CCI") pushOscillatorLine(xAxisIndex, yAxisIndex, "cci-series", "CCI", indicatorsData.cci, "#00E676");
+    else if (panelName === "CCI") {
+      let guideAttached = false;
+      const nextCciGuide = () => {
+        if (guideAttached) return {};
+        guideAttached = true;
+        return { markLine: oscillatorGuide([100, 0, -100]) };
+      };
+
+      if (advancedIndicators.cci14 && isObjectVisible("cci14")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "cci14-series",
+          "CCI 14",
+          indicatorsData.cci14 ?? calculateCCI(chartData, 14),
+          "#f59e0b",
+          nextCciGuide(),
+        );
+      }
+      if (isCci20Active && (advancedIndicators.cci ? isObjectVisible("cci") : isObjectVisible("cci20"))) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "cci20-series",
+          "CCI 20",
+          indicatorsData.cci20 ?? indicatorsData.cci ?? calculateCCI(chartData, 20),
+          "#00E676",
+          nextCciGuide(),
+        );
+      }
+    } else if (panelName === "MFI") {
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "mfi14-series", "MFI 14", indicatorsData.mfi14 ?? calculateMFI(chartData, 14), "#10b981", {
+        markArea: { silent: true, itemStyle: { color: "rgba(16, 185, 129, 0.08)" }, data: [[{ yAxis: 20 }, { yAxis: 80 }]] },
+        markLine: oscillatorGuide([80, 50, 20]),
+      });
+    }
     else if (panelName === "Will%R") {
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "willr-series", "Williams %R", indicatorsData.williamsR, "#FFEB3B", {
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "willr14-series", "Williams %R 14", indicatorsData.williamsR14 ?? indicatorsData.williamsR ?? calculateWilliamsR(chartData, 14), "#FFEB3B", {
         markArea: { silent: true, itemStyle: { color: "rgba(255, 235, 59, 0.08)" }, data: [[{ yAxis: -80 }, { yAxis: -20 }]] },
         markLine: oscillatorGuide([-20, -80, -50]),
       });
-    } else if (panelName === "ROC") pushOscillatorLine(xAxisIndex, yAxisIndex, "roc-series", "ROC", indicatorsData.roc, "#2196F3", { markLine: oscillatorGuide([0]) });
-    else if (panelName === "OBV") pushOscillatorLine(xAxisIndex, yAxisIndex, "obv-series", "OBV", indicatorsData.obv, "#FF5722");
+    } else if (panelName === "ROC") {
+      let guideAttached = false;
+      const nextRocGuide = () => {
+        if (guideAttached) return {};
+        guideAttached = true;
+        return { markLine: oscillatorGuide([0]) };
+      };
+      const isRoc10Active = advancedIndicators.roc10 || advancedIndicators.roc;
+      const isRoc10Visible = (advancedIndicators.roc10 && isObjectVisible("roc10"))
+        || (advancedIndicators.roc && isObjectVisible("roc"));
+      if (isRoc10Active && isRoc10Visible) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "roc10-series",
+          "ROC 10",
+          indicatorsData.roc10 ?? indicatorsData.roc ?? calculateROC(chartData, 10),
+          "#2196F3",
+          nextRocGuide(),
+        );
+      }
+      if (advancedIndicators.roc20 && isObjectVisible("roc20")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "roc20-series",
+          "ROC 20",
+          indicatorsData.roc20 ?? calculateROC(chartData, 20),
+          "#38BDF8",
+          nextRocGuide(),
+        );
+      }
+    } else if (panelName === "Momentum") {
+      let guideAttached = false;
+      const nextMomentumGuide = () => {
+        if (guideAttached) return {};
+        guideAttached = true;
+        return { markLine: oscillatorGuide([0]) };
+      };
+      if (advancedIndicators.momentum10 && isObjectVisible("momentum10")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "momentum10-series",
+          "Momentum 10",
+          indicatorsData.momentum10 ?? calculateMomentum(chartData, 10),
+          "#FF2E93",
+          nextMomentumGuide(),
+        );
+      }
+      if (advancedIndicators.momentum20 && isObjectVisible("momentum20")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "momentum20-series",
+          "Momentum 20",
+          indicatorsData.momentum20 ?? calculateMomentum(chartData, 20),
+          "#F97316",
+          nextMomentumGuide(),
+        );
+      }
+    } else if (panelName === "CMO") {
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "cmo14-series", "CMO 14", indicatorsData.cmo14 ?? calculateCMO(chartData, 14), "#FB7185", {
+        markLine: oscillatorGuide([50, 0, -50]),
+      });
+    } else if (panelName === "DYMI") {
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "dymi-series", "DYMI", indicatorsData.dymi ?? calculateDYMI(chartData), "#A855F7", {
+        markLine: oscillatorGuide([70, 50, 30]),
+      });
+    } else if (panelName === "Ultimate") {
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "ultimate-osc-series", "Ultimate Osc", indicatorsData.ultimateOsc ?? calculateUltimateOscillator(chartData), "#F43F5E", {
+        markLine: oscillatorGuide([70, 50, 30]),
+      });
+    } else if (panelName === "DPO") {
+      pushOscillatorLine(xAxisIndex, yAxisIndex, "dpo20-series", "DPO 20", indicatorsData.dpo20 ?? calculateDPO(chartData, 20), "#06B6D4", {
+        markLine: oscillatorGuide([0]),
+      });
+    } else if (panelName === "TSI") {
+      const fallbackTsi = indicatorsData.tsi && indicatorsData.tsiSignal ? null : calculateTSI(chartData);
+      if (isObjectVisible("tsi-line")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "tsi-line",
+          "TSI",
+          indicatorsData.tsi ?? fallbackTsi?.tsi ?? [],
+          "#8B5CF6",
+          { markLine: oscillatorGuide([0]) },
+        );
+      }
+      if (isObjectVisible("tsi-signal")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "tsi-signal",
+          "TSI Signal",
+          indicatorsData.tsiSignal ?? fallbackTsi?.signalLine ?? [],
+          "#F59E0B",
+        );
+      }
+    } else if (panelName === "AO") {
+      pushDeltaHistogram(
+        xAxisIndex,
+        yAxisIndex,
+        "awesome-osc-series",
+        "Awesome Osc",
+        indicatorsData.awesomeOsc ?? calculateAwesomeOscillator(chartData),
+      );
+    } else if (panelName === "AC") {
+      pushDeltaHistogram(
+        xAxisIndex,
+        yAxisIndex,
+        "ac-osc-series",
+        "AC Osc",
+        indicatorsData.acOsc ?? calculateAcceleratorOscillator(chartData),
+      );
+    } else if (panelName === "RVI") {
+      const fallbackRvi = indicatorsData.rvi && indicatorsData.rviSignal ? null : calculateRVI(chartData);
+      if (isObjectVisible("rvi-line")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "rvi-line",
+          "RVI",
+          indicatorsData.rvi ?? fallbackRvi?.rvi ?? [],
+          "#22d3ee",
+          { markLine: oscillatorGuide([0]) },
+        );
+      }
+      if (isObjectVisible("rvi-signal")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "rvi-signal",
+          "RVI Signal",
+          indicatorsData.rviSignal ?? fallbackRvi?.signalLine ?? [],
+          "#facc15",
+        );
+      }
+    } else if (panelName === "Fisher") {
+      const fallbackFisher = indicatorsData.fisher && indicatorsData.fisherSignal ? null : calculateFisherTransform(chartData);
+      if (isObjectVisible("fisher-line")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "fisher-line",
+          "Fisher",
+          indicatorsData.fisher ?? fallbackFisher?.fisher ?? [],
+          "#e879f9",
+          { markLine: oscillatorGuide([0]) },
+        );
+      }
+      if (isObjectVisible("fisher-signal")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "fisher-signal",
+          "Fisher Signal",
+          indicatorsData.fisherSignal ?? fallbackFisher?.signalLine ?? [],
+          "#f59e0b",
+        );
+      }
+    } else if (panelName === "Elder") {
+      const fallbackElder = indicatorsData.elderBull && indicatorsData.elderBear ? null : calculateElderBullBearPower(chartData);
+      if (isObjectVisible("elder-bull")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "elder-bull",
+          "Elder Bull",
+          indicatorsData.elderBull ?? fallbackElder?.bull ?? [],
+          "#22c55e",
+          { markLine: oscillatorGuide([0]) },
+        );
+      }
+      if (isObjectVisible("elder-bear")) {
+        pushOscillatorLine(
+          xAxisIndex,
+          yAxisIndex,
+          "elder-bear",
+          "Elder Bear",
+          indicatorsData.elderBear ?? fallbackElder?.bear ?? [],
+          "#ef4444",
+        );
+      }
+    } else if (panelName === "Coppock") {
+      pushOscillatorLine(
+        xAxisIndex,
+        yAxisIndex,
+        "coppock-series",
+        "Coppock",
+        indicatorsData.coppock ?? calculateCoppockCurve(chartData),
+        "#84cc16",
+        { markLine: oscillatorGuide([0]) },
+      );
+    } else if (panelName === "OBV") pushOscillatorLine(xAxisIndex, yAxisIndex, "obv-series", "OBV", indicatorsData.obv, "#FF5722");
     else if (panelName === "BB Width") pushOscillatorLine(xAxisIndex, yAxisIndex, "bb-width-series", "BB Width", indicatorsData.bbWidth, "#FF6D00");
     else if (panelName === "BB %B") pushOscillatorLine(xAxisIndex, yAxisIndex, "bb-percentb-series", "BB %B", indicatorsData.bbPercentB, "#2962FF", { markLine: oscillatorGuide([1, 0.8, 0.5, 0.2, 0]) });
 
     nextPanelTopPercent += panelHeightPercent + panelSpacingPercent;
   });
 
-  comparisonSeries.forEach((entry, index) => {
+  visibleComparisonSeries.forEach(({ entry, index }) => {
     const id = getCompareSeriesId(entry.symbol);
-    if (!isObjectVisible(id)) return;
 
-    const color = getCompareSeriesColor(index);
-    const normalized = normalizeComparisonValues(entry.data, chartData, comparisonBaselineIndex);
+    const color = entry.settings.color || getCompareSeriesColor(index);
+    const normalized = normalizeComparisonValues(
+      entry.data,
+      chartData,
+      comparisonBaselineIndex,
+      entry.settings.priceSource,
+    );
+    const symbolMarkPoint = buildCompareSymbolMarkPoint(entry.symbol, color, dates, normalized);
+    const lastPoint = getLastFiniteComparisonPoint(dates, normalized);
 
     seriesOptions.push({
       id,
       name: entry.symbol,
       type: "line",
       xAxisIndex: 0,
-      yAxisIndex: comparisonSeries.length > 0 ? 1 : 0,
+      yAxisIndex: hasVisibleComparisonSeries ? 1 : 0,
       data: normalized,
       showSymbol: false,
       connectNulls: true,
       smooth: true,
       z: 30,
-      lineStyle: { width: 2, color, opacity: 0.98 },
+      lineStyle: {
+        width: entry.settings.lineWidth,
+        type: entry.settings.lineStyle,
+        color,
+        opacity: 0.98,
+      },
       itemStyle: { color },
+      ...(entry.settings.showPriceLine && lastPoint
+        ? {
+            markLine: {
+              symbol: ["none", "none"],
+              animation: false,
+              silent: true,
+              label: { show: false },
+              lineStyle: { color, type: "dashed", width: 1, opacity: 0.85 },
+              data: [{ yAxis: lastPoint.value }],
+            },
+          }
+        : {}),
       endLabel: {
         show: true,
-        formatter: (params: { value?: unknown }) => formatCompareEndLabel(entry.symbol, params.value),
-        color: "#061320",
+        formatter: (params: { value?: unknown }) => formatCompareEndValueLabel(params.value),
+        color: "#ffffff",
         backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1,
-        borderRadius: 2,
-        padding: [2, 5],
-        distance: 8,
+        borderWidth: 0,
+        borderRadius: [0, 1, 1, 0],
+        padding: [2, 4],
+        distance: 4,
         fontSize: 11,
         fontWeight: 700,
       },
       labelLayout: { moveOverlap: "shiftY" },
+      ...(symbolMarkPoint ? { markPoint: symbolMarkPoint } : {}),
     });
   });
 
-  const legendData = seriesOptions
-    .filter((series) => series.id !== "main-series")
-    .map((series) => series.name)
-    .filter((name): name is string => typeof name === "string");
+  const legendData = Array.from(new Set(
+    seriesOptions
+      .filter((series) => series.id !== "main-series")
+      .map((series) => series.name)
+      .filter((name): name is string => typeof name === "string"),
+  ));
 
   return {
     backgroundColor: "transparent",
     animation: false,
-    title: { text: displaySymbol, left: 0, textStyle: { color: textColor, fontSize: 14, fontWeight: "normal" } },
+    title: {
+      text: displaySymbol,
+      left: 0,
+      textStyle: { color: textColor, fontSize: 14, fontWeight: "normal" },
+    },
     legend: {
       top: 0,
       left: "center",
@@ -666,6 +1527,7 @@ const buildEChartsOption = ({
     grid: gridOptions,
     xAxis: xAxisOptions,
     yAxis: yAxisOptions,
+    graphic: graphicOptions,
     dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: false, filterMode: "filter" }],
     series: seriesOptions,
   };
@@ -886,6 +1748,7 @@ export const useEChartsRenderer = ({
   lastPriceAxisValue,
   isMainChartVisible = true,
   comparisonSeries = [],
+  onCompareSeriesSettingsRequest,
   hiddenObjectIds = {},
   layersStackRef,
 }: UseEChartsRendererProps) => {
@@ -920,6 +1783,53 @@ export const useEChartsRenderer = ({
   const getCursorAction = useCallback(() => cursorPriceActionRef?.current || null, [cursorPriceActionRef]);
   const getLastBadge = useCallback(() => lastPriceBadgeRef?.current || null, [lastPriceBadgeRef]);
   const getLastLine = useCallback(() => lastPriceLineRef?.current || null, [lastPriceLineRef]);
+  const hasVisibleComparisonEndLabels = useMemo(
+    () => comparisonSeries.some((entry) => (
+      !hiddenObjectIds[getCompareSeriesId(entry.symbol)] &&
+      isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe)
+    )),
+    [chartConfig.timeframe, comparisonSeries, hiddenObjectIds],
+  );
+  const visibleCompareSymbolLookup = useMemo(
+    () => new Map(comparisonSeries.map((entry) => [normalizeCompareSymbol(entry.symbol), entry.symbol])),
+    [comparisonSeries],
+  );
+  const trendSignalSourceAveragePeriods = useMemo(
+    () => resolveTrendSignalSourceAveragePeriods(uiState.movingAverageTrendSignals),
+    [uiState.movingAverageTrendSignals],
+  );
+  const priceVsSmaSourceAveragePeriods = useMemo(
+    () => resolvePriceVsSmaSourceAveragePeriods(uiState.priceVsSmaMetrics),
+    [uiState.priceVsSmaMetrics],
+  );
+  const priceVsEmaSourceAveragePeriods = useMemo(
+    () => resolvePriceVsEmaSourceAveragePeriods(uiState.priceVsEmaMetrics),
+    [uiState.priceVsEmaMetrics],
+  );
+  const effectiveChartIndicators = useMemo(() => {
+    const activeSma = mergeMovingAveragePeriods(
+      chartConfig.indicators.activeSma,
+      trendSignalSourceAveragePeriods.sma,
+      priceVsSmaSourceAveragePeriods,
+    );
+    const activeEma = mergeMovingAveragePeriods(
+      chartConfig.indicators.activeEma,
+      trendSignalSourceAveragePeriods.ema,
+      priceVsEmaSourceAveragePeriods,
+    );
+
+    return {
+      ...chartConfig.indicators,
+      sma: chartConfig.indicators.sma || trendSignalSourceAveragePeriods.sma.length > 0 || priceVsSmaSourceAveragePeriods.length > 0,
+      ema: chartConfig.indicators.ema || trendSignalSourceAveragePeriods.ema.length > 0 || priceVsEmaSourceAveragePeriods.length > 0,
+      activeSma,
+      activeEma,
+    };
+  }, [chartConfig.indicators, priceVsEmaSourceAveragePeriods, priceVsSmaSourceAveragePeriods, trendSignalSourceAveragePeriods]);
+  const effectiveChartConfig = useMemo(() => ({
+    ...chartConfig,
+    indicators: effectiveChartIndicators,
+  }), [chartConfig, effectiveChartIndicators]);
 
   useEffect(() => () => {
     const chart = chartInstanceRef.current;
@@ -1036,35 +1946,36 @@ export const useEChartsRenderer = ({
       buffer,
       length: chartData.length,
       config: {
-        indicators: chartConfig.indicators,
+        indicators: effectiveChartIndicators,
         advancedIndicators,
         indicatorPeriods,
         bollingerSettings
       }
     }, [buffer]); // Transfer ownership of the buffer
 
-  }, [chartData, chartConfig.indicators, advancedIndicators, indicatorPeriods, bollingerSettings]);
+  }, [chartData, effectiveChartIndicators, advancedIndicators, indicatorPeriods, bollingerSettings]);
 
   // ============================================================================
   // [TENOR 2026 SRE] O(N) DATA EXTRACTION (Uses extendedChartData for X-Axis)
   // ============================================================================
-  const { dates, values, volumes } = useMemo(() => {
-    const d: string[] = [];
-    const v: number[][] = [];
-    const vol: (number | string)[][] = [];
-    const len = extendedChartData.length;
+  const { dates, volumes } = useMemo(() => {
+    const directionalSeries = buildDirectionalOhlcvSeries(chartData, {
+      upColor: chartAppearance.upColor,
+      downColor: chartAppearance.downColor,
+      volumeColorMode: chartAppearance.volumeColorMode,
+    });
 
-    for (let i = 0; i < len; i++) {
-      const item = extendedChartData[i];
-      d.push(item.time);
-      // Only push valid candles to values and volumes (ignore future ghost candles)
-      if (i < chartData.length) {
-        v.push([item.open, item.close, item.low, item.high]);
-        vol.push([i, item.volume, item.close > item.open ? 1 : -1]);
-      }
-    }
-    return { dates: d, values: v, volumes: vol };
-  }, [extendedChartData, chartData.length]);
+    return {
+      dates: extendedChartData.map((item) => item.time),
+      volumes: directionalSeries.volumes,
+    };
+  }, [
+    chartAppearance.downColor,
+    chartAppearance.upColor,
+    chartAppearance.volumeColorMode,
+    chartData,
+    extendedChartData,
+  ]);
 
   // 2. Badges Engine
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: pass getLayersStack so badge
@@ -1095,7 +2006,9 @@ export const useEChartsRenderer = ({
     lastZoomRangeRef,
     updateCursorPriceAxisBadge,
     updateLastPriceAxisBadge,
-    interactionScopeKey: chartInteractionScopeKey
+    interactionScopeKey: chartInteractionScopeKey,
+    hasComparisonEndLabels: hasVisibleComparisonEndLabels,
+    lastPriceAxisValue,
   });
 
   // ============================================================================
@@ -1118,10 +2031,13 @@ export const useEChartsRenderer = ({
       comparisonBaselineIndexRef.current = startIdx;
 
       const newSeries = comparisonSeries
-        .filter((entry) => !hiddenObjectIds[getCompareSeriesId(entry.symbol)])
+        .filter((entry) => (
+          !hiddenObjectIds[getCompareSeriesId(entry.symbol)] &&
+          isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe)
+        ))
         .map((entry) => ({
           id: getCompareSeriesId(entry.symbol),
-          data: normalizeComparisonValues(entry.data, chartData, startIdx),
+          data: normalizeComparisonValues(entry.data, chartData, startIdx, entry.settings.priceSource),
         }));
 
       // Update only the series data without triggering a full re-render or datazoom event
@@ -1129,7 +2045,7 @@ export const useEChartsRenderer = ({
     } catch (e) {
       console.warn("[SRE] Failed to update comparison baselines", e);
     }
-  }, [comparisonSeries, chartInstanceRef, hiddenObjectIds, chartData]);
+  }, [chartConfig.timeframe, comparisonSeries, chartInstanceRef, hiddenObjectIds, chartData]);
 
   const scheduleComparisonBaselines = useCallback(() => {
     if (comparisonSeries.length === 0 || comparisonBaselineRafRef.current !== null) return;
@@ -1200,11 +2116,10 @@ export const useEChartsRenderer = ({
     // ============================================================================
     const builderContext: ChartBuilderContext = {
       dates,
-      values,
       volumes,
       chartData,
       extendedChartData,
-      chartConfig,
+      chartConfig: effectiveChartConfig,
       advancedIndicators,
       indicatorPeriods,
       bollingerSettings,
@@ -1238,11 +2153,31 @@ export const useEChartsRenderer = ({
     const handleLegendChange = (params: any) => {
       if (!isMountedRef.current) return;
       const nextSelection = { ...(params.selected || {}) };
+      const normalizedName = typeof params.name === "string" ? normalizeCompareSymbol(params.name) : "";
+      const compareSymbol = visibleCompareSymbolLookup.get(normalizedName);
+      if (compareSymbol) {
+        nextSelection[params.name] = true;
+        onCompareSeriesSettingsRequest?.(compareSymbol);
+      }
       legendSelectionRef.current = nextSelection;
       setLegendSelection(nextSelection);
     };
 
+    const handleCompareSeriesClick = (params: any) => {
+      if (!isMountedRef.current) return;
+      const seriesId = typeof params.seriesId === "string" ? params.seriesId : "";
+      const seriesName = typeof params.seriesName === "string" ? params.seriesName : "";
+      const isCompareSeries = seriesId.startsWith("compare-") || visibleCompareSymbolLookup.has(normalizeCompareSymbol(seriesName));
+      if (!isCompareSeries) return;
+      const normalizedName = seriesId.startsWith("compare-")
+        ? seriesId.slice("compare-".length)
+        : normalizeCompareSymbol(seriesName);
+      const compareSymbol = visibleCompareSymbolLookup.get(normalizedName);
+      if (compareSymbol) onCompareSeriesSettingsRequest?.(compareSymbol);
+    };
+
     chart.on('legendselectchanged', handleLegendChange);
+    chart.on('click', handleCompareSeriesClick);
     chart.on('datazoom', scheduleComparisonBaselines);
     chart.on('restore', scheduleComparisonBaselines);
 
@@ -1255,6 +2190,7 @@ export const useEChartsRenderer = ({
       }
       if (chart && !chart.isDisposed()) {
         chart.off('legendselectchanged', handleLegendChange);
+        chart.off('click', handleCompareSeriesClick);
         chart.off('datazoom', scheduleComparisonBaselines);
         chart.off('restore', scheduleComparisonBaselines);
       }
@@ -1263,6 +2199,8 @@ export const useEChartsRenderer = ({
   }, [
     chartData,
     chartConfig,
+    effectiveChartConfig,
+    effectiveChartIndicators,
     advancedIndicators,
     uiState,
     uiState.replay.isActive,
@@ -1296,11 +2234,12 @@ export const useEChartsRenderer = ({
     comparisonSeries,
     hasSize,
     dates,
-    values,
     volumes,
     extendedChartData,
     hiddenObjectIds,
-    scheduleComparisonBaselines
+    scheduleComparisonBaselines,
+    visibleCompareSymbolLookup,
+    onCompareSeriesSettingsRequest
   ]);
 
   return { indicatorsData };

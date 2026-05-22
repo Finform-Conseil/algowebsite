@@ -5,6 +5,7 @@ import {
     SettingsColorInput,
     SettingsCheckbox,
     SettingsToggle,
+    SettingsSelectInput,
 } from "../common/SettingsField";
 import { BaseModal } from "../common/BaseModal";
 import { ModalTabs } from "../common/ModalTabs";
@@ -45,6 +46,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     const indicatorPeriods = useSelector(selectIndicatorPeriods);
     const chartAppearance = useSelector(selectChartAppearance);
     const isAnonyme = useSelector(selectUiState).isAnonyme;
+    const volumeColorMode = chartAppearance.volumeColorMode ?? "candle-body";
 
     // --- Handlers ---
     const handleConfirm = () => {
@@ -140,6 +142,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             checked={chartAppearance.showVolume}
                             onChange={(checked: boolean) =>
                                 dispatch(setChartAppearance({ ...chartAppearance, showVolume: checked }))
+                            }
+                        />
+                        <SettingsSelectInput
+                            label="Couleur Volume"
+                            value={volumeColorMode}
+                            width="178px"
+                            options={[
+                                { value: "candle-body", label: "Corps bougie" },
+                                { value: "session-change", label: "Variation session" },
+                            ]}
+                            onChange={(value: string) =>
+                                dispatch(setChartAppearance({
+                                    ...chartAppearance,
+                                    volumeColorMode: value === "session-change" ? "session-change" : "candle-body",
+                                }))
                             }
                         />
                         <SettingsToggle
