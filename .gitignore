@@ -38,7 +38,17 @@ next-env.d.ts
 .netlify
 
 # AI Agent
-.agent
+.agent/*
+!.agent/rules/
+.agent/rules/*
+!.agent/rules/scribe.md
+!.agent/workflow/
+.agent/workflow/*
+!.agent/workflow/scribe/
+!.agent/workflow/scribe/**
+.agent/workflow/scribe/**/__pycache__/
+.agent/workflow/scribe/**/*.pyc
+.agent/workflow/scribe/**/*.pyo
 
 
 
@@ -53,3 +63,5 @@ graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/.graphify_uncached.txt
 graphify-out/needs_update
+# SCRIBE local runtime
+scribe-out/

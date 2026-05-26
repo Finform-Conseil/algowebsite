@@ -1,9 +1,8 @@
 schema_version: "TENOR_SCRIBE_v3.2"
 meta_project:
-  project_name: "quantum-ledger"
-  stack: "Node.js / Next.js"
-  initialized_at: "2026-05-26T12:44:03.188671Z"
-  last_update: "2026-05-26T13:49:47+01:00"
+  project_name: "{{PROJECT_NAME}}"
+  stack: "{{STACK}}"
+  initialized_at: "{{TIMESTAMP}}"
   scribe_version: "3.2-local-causal-retrieval"
   graphify_graph: "graphify-out/graph.json"
 tiers:
@@ -33,8 +32,8 @@ invariants:
     l0_abstract: "Version host product source by default; keep graphify-out and scribe-out out of commits unless explicitly requested."
 patterns:
   - id: "PAT-GRAPH-001"
-    date: "2026-05-26"
-    schema_patch_date: "2026-05-26"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
     tier: "hot"
     status: "ACTIVE"
     titre: "Graphify and SCRIBE separation"
@@ -47,8 +46,8 @@ patterns:
     liens_causaux:
       source: "JOURNAL-000"
   - id: "PAT-GIT-001"
-    date: "2026-05-26"
-    schema_patch_date: "2026-05-26"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
     tier: "hot"
     status: "ACTIVE"
     titre: "Agent artifact versioning boundary"
@@ -60,23 +59,9 @@ patterns:
       observable: "graphify-out and scribe-out are generated local state, while AGENT-MEMOIRE_PROJECT_STATUS.scribe is optional shared causal memory."
     liens_causaux:
       source: "JOURNAL-000"
-  - id: "PAT-EOM-VOLUME-PROFILE-COMPOSITE-CONTRACT-001"
-    date: "2026-05-26"
-    schema_patch_date: "2026-05-26"
-    tier: "hot"
-    status: "ACTIVE"
-    titre: "EOM independent, Volume Profile composite with data-quality honesty"
-    l0_abstract: "Keep EOM as a separate zero-line oscillator, while Volume Profile toggles rows plus POC/VAH/VAL together and must disclose daily OHLCV approximation when intraday/trades are unavailable."
-    scope: "technical-analysis-indicators"
-    evidence:
-      type: "OBSERVED"
-      source: "JOURNAL-001"
-      observable: "The requested feature required mixing a separate pane oscillator with a price-overlay composite profile without letting either alter unrelated chart scales."
-    liens_causaux:
-      source: "JOURNAL-001"
 journal:
   - id: "JOURNAL-000"
-    date: "2026-05-26"
+    date: "{{DATE}}"
     mode: "STANDARD"
     agent_type: "unknown"
     surface: ""
@@ -87,18 +72,6 @@ journal:
     multi_agent_context:
       surface: ""
       other_agents_active: []
-  - id: "JOURNAL-001"
-    date: "2026-05-26"
-    mode: "CRITICAL"
-    agent_type: "codex"
-    surface: "technical-analysis-volume"
-    hot_entries_consulted: ["PAT-GRAPH-001", "PAT-GIT-001"]
-    l0_abstract: "EOM and Volume Profile contract implemented."
-    pourquoi: "EOM was kept independent because its scaled price-volume unit belongs in a separate zero-baseline pane. Volume Profile was treated as a composite because POC, VAH, and VAL are inseparable outputs of one profile calculation; with daily OHLCV only, the UI must disclose approximation to avoid overstating market microstructure precision."
-    scribe_delta: "PAT-EOM-VOLUME-PROFILE-COMPOSITE-CONTRACT-001 | JOURNAL-001"
-    multi_agent_context:
-      surface: "technical-analysis-volume"
-      other_agents_active: []
 metrics:
   sessions_total: 1
   scars_total: 0
@@ -107,7 +80,7 @@ metrics:
   bugs_prevenus_par_vaccin: 0
   complexite_moyenne: 0.0
   mode_distribution:
-    CRITICAL: 1
+    CRITICAL: 0
     STANDARD: 1
     QUICK: 0
   dette_p0_p1_courante: 0
@@ -117,5 +90,5 @@ metrics:
   torvalds_items_traites: 0
   taux_completion_prod_moyenne: 0.0
   delta_feuille_vs_prod_moyen: 0.0
-  graphify_queries_total: 1
-  tokens_saved_via_graphify: 49000
+  graphify_queries_total: 0
+  tokens_saved_via_graphify: 0
