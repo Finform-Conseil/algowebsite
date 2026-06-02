@@ -63,5 +63,9 @@ graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/.graphify_uncached.txt
 graphify-out/needs_update
+
 # SCRIBE local runtime
 scribe-out/
+
+# Local rollback snapshots
+_Rollback/

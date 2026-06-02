@@ -86,6 +86,11 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     const drType = dr.type;
     const drawingStyle = (dr.style || {}) as DrawingStyle;
     const posProps = (dr.positionProps || {}) as NonNullable<Drawing["positionProps"]>;
+    const hasQuickOptionsPopup =
+        drType === "gann_square" ||
+        drType === "gann_square_fixed" ||
+        drType === "gann_box" ||
+        drType === "anchored_volume_profile";
 
     // [TENOR 2026] All style tokens flattened to avoid ReferenceError with Bundler/Optimizers
     const lineColor = drawingStyle.color || "#2962FF";
@@ -98,6 +103,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
 
     const isActive = activeToolbarPopup === buttonId || (buttonId === "text" && activeToolbarPopup === "text_color");
     const isLocked = dr.locked;
+    const buttonTitle = buttonId === "visibility" ? (dr.hidden ? "Afficher" : "Masquer") : def.title;
 
 
 
@@ -136,6 +142,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 break;
             case "toggleLock":
                 handleLockToggle();
+                break;
+            case "toggleVisibility":
+                handleHide();
                 break;
             case "deleteDrawing":
                 deleteDrawing(dr.id);
@@ -231,7 +240,12 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
         );
     }
 
-    const iconClass = buttonId === "lock" && isLocked ? def.iconLocked : def.icon;
+    const iconClass =
+        buttonId === "lock" && isLocked
+            ? def.iconLocked
+            : buttonId === "visibility" && dr.hidden
+                ? "bi-eye-slash"
+                : def.icon;
 
     return (
         <div key={buttonId} style={{ position: "relative" }}>
@@ -241,7 +255,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 className={clsx(
                     "gp-toolbar-btn",
                     "btn btn-link d-flex align-items-center justify-content-center",
-                    isActive && "active",
+                    (isActive || (buttonId === "visibility" && dr.hidden)) && "active",
                 )}
                 style={{
                     width: "32px", // [TENOR 2026] Slightly wider for TV padding
@@ -252,7 +266,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                     outline: "none",
                     color: "#d1d4dc", // [TENOR 2026] TV Gray for Dark Theme
                 }}
-                title={def.title}
+                title={buttonTitle}
             >
                 {buttonId === "thickness" || buttonId === "line_style" || buttonId === "line" ? (
                     <div className="d-flex align-items-center justify-content-center px-1 gap-1" style={{ minWidth: "40px" }}>
@@ -1138,7 +1152,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 </div>
             )}
 
-            {isActive && buttonId === "quick_options" && (drType === "gann_square" || drType === "gann_square_fixed" || drType === "gann_box") && (
+            {isActive && buttonId === "quick_options" && hasQuickOptionsPopup && (
                 <div
                     onMouseDown={(e) => e.stopPropagation()}
                     style={{

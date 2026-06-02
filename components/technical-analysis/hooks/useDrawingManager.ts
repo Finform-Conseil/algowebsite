@@ -15,6 +15,23 @@ const TV_X_AXIS_HEIGHT = 28;
 const EMPTY_ALERTS: Alert[] = [];
 const EMPTY_ORDERS: Order[] = [];
 
+const createDefaultAnchoredVolumeProfileProps = (): NonNullable<Drawing["anchoredVolumeProfileProps"]> => ({
+  layout: "Number of Rows",
+  rowSize: 24,
+  volume: "Up/Down",
+  valueAreaVolume: 70,
+  upColor: "rgba(0, 188, 212, 0.4)",
+  downColor: "rgba(233, 30, 99, 0.4)",
+  vaUpColor: "rgba(0, 188, 212, 0.8)",
+  vaDownColor: "rgba(233, 30, 99, 0.8)",
+  pocColor: "#000000",
+  width: 40,
+  placement: "Left",
+  showLabels: true,
+  showPOC: true,
+  showValueArea: true,
+});
+
 const isChartTimeValue = (value: unknown): value is string | number =>
   typeof value === "string" || typeof value === "number";
 
@@ -1215,20 +1232,7 @@ export const useDrawingManager = ({
       }
 
       if (newDrawing.type === "anchored_volume_profile") {
-        newDrawing.anchoredVolumeProfileProps = {
-          layout: "Number of Rows",
-          rowSize: 24,
-          volume: "Up/Down",
-          valueAreaVolume: 70,
-          upColor: "rgba(0, 188, 212, 0.4)",
-          downColor: "rgba(233, 30, 99, 0.4)",
-          vaUpColor: "rgba(0, 188, 212, 0.8)",
-          vaDownColor: "rgba(233, 30, 99, 0.8)",
-          pocColor: "#000000",
-          width: 40,
-          placement: "Left",
-          showLabels: true
-        };
+        newDrawing.anchoredVolumeProfileProps = createDefaultAnchoredVolumeProfileProps();
       }
 
       completeDrawingSession(newDrawing);
@@ -1430,6 +1434,10 @@ export const useDrawingManager = ({
             flipped: false,
             opacity: 1,
           };
+        }
+
+        if (newDrawing.type === "anchored_volume_profile") {
+          newDrawing.anchoredVolumeProfileProps = createDefaultAnchoredVolumeProfileProps();
         }
 
         if (newDrawing.type === "fib_time_zone") {
