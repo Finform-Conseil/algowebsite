@@ -1,4 +1,4 @@
-import { Drawing } from "../../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../../config/drawing/drawingModelTypes";
 import { DrawingHelpers } from "../../../interfaces/IDrawingStrategy";
 import { calculatePositionStats } from "../../../../math/geometry";
 export type { EChartsInstance } from "../../../../types/echarts";

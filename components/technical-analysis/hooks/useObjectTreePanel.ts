@@ -23,7 +23,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { EChartsType } from "echarts/core";
 import type { RefObject } from "react";
-import type { ObjectTreePanelTab, DataWindowCandleValues } from "../config/TechnicalAnalysisTypes";
+import type { ObjectTreePanelTab, DataWindowCandleValues } from "../config/object-tree/objectTreeTypes";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 
 // ============================================================================

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -204,10 +204,10 @@ export default function AdvancedTable({ data, onSelectRows, selectedRows, onComp
   });
 
   // Mettre à jour les lignes sélectionnées
-  useMemo(() => {
+  useEffect(() => {
     const selected = table.getSelectedRowModel().rows.map((row) => row.original);
     onSelectRows(selected);
-  }, [rowSelection, table, onSelectRows]);
+  }, [table, onSelectRows]);
 
   return (
     <div className="advanced-table-container">

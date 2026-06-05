@@ -1,5 +1,6 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { calculateLinearRegression } from "../../../math/geometry";
 import type { EChartsInstance } from "../../../types/echarts";
 
@@ -28,7 +29,7 @@ export function renderRegressionTrend(
 
     if (!dataPoints[0]) return;
 
-    // [TENOR 2026 FIX] SCAR-196: dataPoints[0].time is an ISO string, NOT a numeric index.
+    // SCAR-196: dataPoints[0].time is an ISO string, NOT a numeric index.
     // Number("2026-01-01T...") = NaN → Math.round(NaN) = NaN → slice empty → nothing renders.
     // Resolution strategy: look up the time string in xAxisDates first (O(n) but only 2 lookups).
     // Fallback to Number() only for already-numeric times (future-compat).

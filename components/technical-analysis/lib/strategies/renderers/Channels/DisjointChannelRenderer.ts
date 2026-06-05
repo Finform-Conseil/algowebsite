@@ -1,5 +1,5 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing } from "../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { distToSegment } from "../../../math/geometry";
 
 export function renderDisjointChannel(

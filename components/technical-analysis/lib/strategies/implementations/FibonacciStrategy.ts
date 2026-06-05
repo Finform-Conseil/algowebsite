@@ -1,9 +1,9 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/FibonacciStrategy.ts
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-import { FIB_PURE_TOOLS } from "../../../config/TechnicalAnalysisConstants";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import { FIB_PURE_TOOLS } from "../../../config/drawing/drawingConstants";
 import { distanceBetweenPoints } from "../../math/geometry";
 import { EChartsInstance } from "../renderers/Fibonacci/support/FibonacciUtils";
 

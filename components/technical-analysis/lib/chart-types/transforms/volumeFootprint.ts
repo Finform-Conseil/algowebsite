@@ -12,6 +12,11 @@ import type {
 } from "../domain/types";
 import { makeSourceMap } from "../domain/types";
 import { hasIntradayGranularity, hasUsableVolume } from "../domain/validateBars";
+import {
+  limitRecentBars,
+  makePerformanceBudgetWarning,
+  MAX_HEAVY_CHART_SOURCE_BARS,
+} from "./priceBasedUtils";
 import { resolvePocIndex, resolveValueAreaIndexes } from "./valueArea";
 
 export interface VolumeFootprintSettings {
@@ -50,15 +55,52 @@ export const transformVolumeFootprint = (
     warnings.push({ code: "INTRABAR_MISSING", severity: "info" as const, message: "Footprint uses OHLCV approximation because tick/intrabar feed is unavailable." });
   }
 
-  const candles = input.bars.map((bar, index) => buildFootprintCandle(input, bar, index, settings));
+  const sourceBars = limitRecentBars(input.bars, MAX_HEAVY_CHART_SOURCE_BARS);
+  if (sourceBars.length < input.bars.length) {
+    warnings.push(makePerformanceBudgetWarning("Volume Footprint", MAX_HEAVY_CHART_SOURCE_BARS));
+  }
+
+  const scopedInput: ChartTransformInput = { ...input, bars: sourceBars };
+  const intrabarBuckets = buildIntrabarBuckets(input.intrabars, sourceBars);
+  const candles = sourceBars.map((bar, index) => buildFootprintCandle(
+    scopedInput,
+    bar,
+    settings,
+    sourceBars[index - 1],
+    intrabarBuckets[index],
+  ));
+
   return { kind: "footprint", synthetic: false, approximate: !input.ticks?.length, warnings, candles };
+};
+
+const buildIntrabarBuckets = (
+  intrabars: IntrabarBar[] | undefined,
+  bars: NormalizedRawBar[],
+): IntrabarBar[][] => {
+  const buckets = bars.map((): IntrabarBar[] => []);
+  if (!intrabars?.length || bars.length === 0) return buckets;
+
+  let barIndex = 0;
+  intrabars.forEach((intrabar) => {
+    while (barIndex < bars.length - 1 && intrabar.time > bars[barIndex].time) {
+      barIndex += 1;
+    }
+
+    const previousTime = bars[barIndex - 1]?.time ?? Number.NEGATIVE_INFINITY;
+    if (intrabar.time > previousTime && intrabar.time <= bars[barIndex].time) {
+      buckets[barIndex].push(intrabar);
+    }
+  });
+
+  return buckets;
 };
 
 const buildFootprintCandle = (
   input: ChartTransformInput,
   bar: NormalizedRawBar,
-  index: number,
   settings: VolumeFootprintSettings,
+  previousBar: NormalizedRawBar | undefined,
+  intrabarsForBar: IntrabarBar[] | undefined,
 ): FootprintCandle => {
   const tickSize = resolveTickSize(input.symbolMeta);
   const rowSize = resolveFootprintRowSize(bar, tickSize, settings.ticksPerRow);
@@ -74,9 +116,10 @@ const buildFootprintCandle = (
     sellImbalance: false,
   }));
 
-  const ticks = input.ticks?.filter((tick) => tick.time >= bar.time && tick.time <= bar.time);
+  const previousTime = previousBar?.time ?? Number.NEGATIVE_INFINITY;
+  const ticks = input.ticks?.filter((tick) => tick.time > previousTime && tick.time <= bar.time);
   if (ticks?.length) distributeTicks(levels, ticks);
-  else distributeApproximateIntrabars(levels, input.intrabars, bar, input.bars[index - 1]);
+  else distributeApproximateIntrabars(levels, intrabarsForBar, bar, previousBar);
 
   finalizeFootprintLevels(levels, settings);
   const buyVolume = levels.reduce((sum, level) => sum + level.buyVolume, 0);

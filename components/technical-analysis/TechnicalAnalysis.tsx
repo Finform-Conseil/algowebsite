@@ -7,30 +7,12 @@ import React, {
   useCallback,
   useState,
   useDeferredValue,
-  useContext,
 } from "react";
 import dynamic from "next/dynamic";
-import { useDispatch, useSelector, shallowEqual } from "react-redux";
-import { animate } from "framer-motion";
-import * as echarts from "echarts/core";
-import { CanvasRenderer } from "echarts/renderers";
 import {
-  CandlestickChart,
-  LineChart,
-  BarChart,
-  ScatterChart,
-  PieChart,
-} from "echarts/charts";
-import {
-  GridComponent,
-  TooltipComponent,
-  DataZoomComponent,
-  AxisPointerComponent,
-  TitleComponent,
-  LegendComponent,
-  MarkPointComponent,
-  TimelineComponent,
-} from "echarts/components";
+  useDispatch,
+  useSelector,
+  shallowEqual } from "react-redux";
 import clsx from "clsx";
 
 // Contexts & UI (Imports Absolus pour garantir la résolution)
@@ -40,13 +22,6 @@ import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 
 // Redux
 import {
-  selectChartConfig,
-  selectAdvancedIndicators,
-  selectIndicatorPeriods,
-  selectChartAppearance,
-  selectDataMode,
-  selectMarketData,
-  selectMarketSnapshots,
   removeComparisonSymbol,
   clearComparisonSymbols,
   setActiveLayoutChart,
@@ -54,86 +29,86 @@ import {
   setTimeRange,
   setModalOpen,
   setPrefilledAlert,
-  selectBollingerSettings,
   setSymbol,
   updateLayoutChart,
 } from "@/components/technical-analysis/store/technicalAnalysisSlice";
+import {
+  selectChartConfig,
+  selectAdvancedIndicators,
+  selectIndicatorPeriods,
+  selectChartAppearance,
+  selectDataMode,
+  selectModals,
+  selectMarketData,
+  selectMarketSnapshots,
+  selectBollingerSettings,
+} from "@/components/technical-analysis/store/selectors";
 import type { RootState } from "@/core/infrastructure/store";
+import type { EChartsInstance } from "@/components/technical-analysis/lib/types/echarts";
 
 import toolbarConfig from "@/components/technical-analysis/toolbar-config-antigravity.json";
 import {
   getCompareSeriesColor,
   normalizeCompareSymbol,
   resolveCompareSeriesSettings,
-} from "@/components/technical-analysis/config/compareSeries";
-import { normalizeMovingAverageTrendSignals } from "@/components/technical-analysis/config/movingAverageSeries";
-import { normalizePriceVsSmaMetrics } from "@/components/technical-analysis/config/priceVsSmaMetrics";
-import { normalizePriceVsEmaMetrics } from "@/components/technical-analysis/config/priceVsEmaMetrics";
-import { Drawing, ToolbarConfig, DisplaySecurity } from "@/components/technical-analysis/config/TechnicalAnalysisTypes";
+} from "@/components/technical-analysis/config/compare-series/compareSeries";
+import { normalizeMovingAverageTrendSignals } from "@/components/technical-analysis/config/indicators/movingAverageSeries";
+import { normalizePriceVsSmaMetrics } from "@/components/technical-analysis/config/indicators/priceVsSmaMetrics";
+import { normalizePriceVsEmaMetrics } from "@/components/technical-analysis/config/indicators/priceVsEmaMetrics";
+import { revealHiddenObjectIds, type IndicatorObjectId } from "@/components/technical-analysis/config/object-tree/indicatorObjectVisibility";
+import type { Drawing } from "./config/drawing/drawingModelTypes";
+import type { ToolbarConfig } from "./config/drawing/drawingToolbarTypes";
+import type { DisplaySecurity } from "./config/market/marketSnapshotTypes";
 
 // Extracted Components
 import { ChartToolbar } from "@/components/technical-analysis/components/toolbar/ChartToolbar";
-import TechnicalAnalysisSidebar from "@/components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar";
 import { TechnicalAnalysisFooter } from "@/components/technical-analysis/components/footer/TechnicalAnalysisFooter";
-import { MemoizedCurrencySelector } from "@/components/technical-analysis/components/common/CurrencySelector";
-import { BrokerModalProps } from "@/components/technical-analysis/components/modals/BrokerModal";
-import { ModalOrchestrator } from "@/components/technical-analysis/components/modals/ModalOrchestrator";
-import { ToolbarButton } from "@/components/technical-analysis/components/toolbar/ToolbarButton";
+import { MemoizedCurrencySelector } from "@/components/technical-analysis/components/market/CurrencySelector";
+import type { BrokerModalProps } from "@/components/technical-analysis/components/modals/broker/BrokerModal";
+import type { ModalOrchestratorProps } from "@/components/technical-analysis/components/modals/orchestration/ModalOrchestrator";
+import type { ObjectTreePanelProps } from "@/components/technical-analysis/components/panels/object-tree/ObjectTreePanel";
+import type { CompareSeriesSettingsModalProps } from "@/components/technical-analysis/components/modals/compare/CompareSeriesSettingsModal";
+import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/time-axis/TimeAxisControls";
+import TechnicalAnalysisSidebar, { type TechnicalAnalysisSidebarProps } from "@/components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar";
+import { ToolbarButton } from "@/components/technical-analysis/components/toolbar/floating/ToolbarButton";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
 import { MultiChartLayoutGrid } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
 
 // Hooks & Libs
 import { useDrawingManager } from "@/components/technical-analysis/hooks/useDrawingManager";
-import { useOverlayRenderer } from "@/components/technical-analysis/hooks/useOverlayRenderer";
 import { useLiveMetrics, useComparisonManager } from "@/components/technical-analysis/hooks/MarketData/useMarketData";
-import { useEChartsRenderer } from "@/components/technical-analysis/hooks/useEChartsRenderer";
 import { useTechnicalAnalysisActions } from "@/components/technical-analysis/hooks/useTechnicalAnalysisActions";
 import { useToolbarHandlers } from "@/components/technical-analysis/hooks/useToolbarHandlers";
-import { useCursorRenderer } from "@/components/technical-analysis/hooks/useCursorRenderer";
 import { useAlertMonitor } from "@/components/technical-analysis/hooks/useAlertMonitor";
 import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFloatingToolbar";
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
-import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/TimeAxisControls/TimeAxisControls";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
-import { ObjectTreePanel } from "@/components/technical-analysis/components/modals/ObjectTreePanel";
-import { CompareSeriesSettingsModal } from "@/components/technical-analysis/components/modals/CompareSeriesSettingsModal";
+import { ChartRenderEngine } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { usePriceAxisMenu, formatPriceAxisLabel } from "@/components/technical-analysis/hooks/usePriceAxisMenu";
-import { BrokerContext, ChartRefsContext, ChartStateContext, CurrencyContext, DrawingContext, MarketDataContext, TechnicalAnalysisProviderTree } from "./context/TechnicalAnalysisProviders";
+import {
+  TechnicalAnalysisProviderTree,
+  useBrokerContext,
+  useChartRefsContext,
+  useChartStateContext,
+  useCurrencyContext,
+  useDrawingContext,
+  useMarketDataContext,
+} from "./context/TechnicalAnalysisProviders";
 import { getBrvmPriceAxisCountdown } from "./utils/brvmMarketSession";
-
-// Register ECharts modules
-echarts.use([
-  CanvasRenderer,
-  CandlestickChart,
-  LineChart,
-  BarChart,
-  ScatterChart,
-  GridComponent,
-  TooltipComponent,
-  DataZoomComponent,
-  AxisPointerComponent,
-  TitleComponent,
-  LegendComponent,
-  MarkPointComponent,
-  TimelineComponent,
-  PieChart,
-]);
 
 // ============================================================================
 // [TENOR 2026 SRE] STRICT MEMOIZATION SHIELD
 // ============================================================================
 const MemoizedChartToolbar = React.memo(ChartToolbar);
-const MemoizedSidebar = React.memo(TechnicalAnalysisSidebar);
 const MemoizedFooter = React.memo(TechnicalAnalysisFooter);
-const MemoizedModalOrchestrator = React.memo(ModalOrchestrator);
 
 // ============================================================================
 // DYNAMIC IMPORTS & STATIC COMPONENTS
 // ============================================================================
 
 const MemoizedBrokerModal = dynamic<BrokerModalProps>(
-  () => import("@/components/technical-analysis/components/modals/BrokerModal").then((m) => m.MemoizedBrokerModal),
+  () => import("@/components/technical-analysis/components/modals/broker/BrokerModal").then((m) => m.MemoizedBrokerModal),
   { ssr: false, loading: () => null }
 );
 
@@ -141,6 +116,26 @@ const TickerSelectorModal = dynamic(
   () => import("@/components/design-system/commons/TickerSelectorModal").then((m) => m.TickerSelectorModal),
   { ssr: false, loading: () => null }
 );
+
+const MemoizedSidebar = React.memo(TechnicalAnalysisSidebar);
+
+const LazyModalOrchestrator = dynamic<ModalOrchestratorProps>(
+  () => import("@/components/technical-analysis/components/modals/orchestration/ModalOrchestrator").then((m) => m.ModalOrchestrator),
+  { ssr: false, loading: () => null }
+);
+
+const LazyObjectTreePanel = dynamic<ObjectTreePanelProps>(
+  () => import("@/components/technical-analysis/components/panels/object-tree/ObjectTreePanel").then((m) => m.ObjectTreePanel),
+  { ssr: false, loading: () => null }
+);
+
+const LazyCompareSeriesSettingsModal = dynamic<CompareSeriesSettingsModalProps>(
+  () => import("@/components/technical-analysis/components/modals/compare/CompareSeriesSettingsModal").then((m) => m.CompareSeriesSettingsModal),
+  { ssr: false, loading: () => null }
+);
+
+const MemoizedModalOrchestrator = React.memo(LazyModalOrchestrator);
+
 
 const MemoizedPremiumLoader = React.memo(() => (
   <div
@@ -171,20 +166,31 @@ MemoizedPremiumLoader.displayName = "MemoizedPremiumLoader";
 
 interface TradeHUDProps {
   convertedLivePrice: number;
+  isCurrencyRateUnavailable: boolean;
   setIsBrokerModalOpen: (val: boolean) => void;
 }
 
-const MemoizedTradeHUD = React.memo(({ convertedLivePrice, setIsBrokerModalOpen }: TradeHUDProps) => {
+const MemoizedTradeHUD = React.memo(({ convertedLivePrice, isCurrencyRateUnavailable, setIsBrokerModalOpen }: TradeHUDProps) => {
   const spread = convertedLivePrice > 1000 ? 1 : 0.01;
+  const priceLabel = isCurrencyRateUnavailable
+    ? "Rate unavailable"
+    : convertedLivePrice.toLocaleString("fr-FR", { minimumFractionDigits: 2 });
+  const buyLabel = isCurrencyRateUnavailable
+    ? "Rate unavailable"
+    : (convertedLivePrice + spread).toLocaleString("fr-FR", { minimumFractionDigits: 2 });
+  const handleBrokerClick = () => {
+    if (!isCurrencyRateUnavailable) setIsBrokerModalOpen(true);
+  };
+
   return (
     <div className="gp-trade-btn-container">
-      <div className="gp-trade-btn sell" onClick={() => setIsBrokerModalOpen(true)}>
-        <span className="price">{convertedLivePrice.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
+      <div className={clsx("gp-trade-btn sell", isCurrencyRateUnavailable && "disabled")} onClick={handleBrokerClick} aria-disabled={isCurrencyRateUnavailable}>
+        <span className="price">{priceLabel}</span>
         <span className="label">SELL</span>
       </div>
-      <div className="gp-trade-spread">{spread}</div>
-      <div className="gp-trade-btn buy" onClick={() => setIsBrokerModalOpen(true)}>
-        <span className="price">{(convertedLivePrice + spread).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
+      <div className="gp-trade-spread">{isCurrencyRateUnavailable ? "--" : spread}</div>
+      <div className={clsx("gp-trade-btn buy", isCurrencyRateUnavailable && "disabled")} onClick={handleBrokerClick} aria-disabled={isCurrencyRateUnavailable}>
+        <span className="price">{buyLabel}</span>
         <span className="label">BUY</span>
       </div>
     </div>
@@ -199,6 +205,14 @@ const isDailyOrHigherTimeframe = (timeframe?: string | null): boolean => {
   const unit = value.slice(-1);
   if (unit === "m" || unit === "s" || unit === "h" || unit === "H") return false;
   return unit === "D" || unit === "d" || unit === "W" || unit === "w" || unit === "M" || unit === "Y" || unit === "y";
+};
+
+const getPriceAxisClockIntervalMs = (): number => 1_000;
+
+const getLayoutViewportHeight = (): number => {
+  const height = document.documentElement?.clientHeight || window.innerHeight;
+
+  return Number.isFinite(height) && height > 0 ? height : window.innerHeight;
 };
 
 const formatPriceAxisTimeLabel = (
@@ -240,9 +254,9 @@ const createUiId = (): string => {
 // ============================================================================
 
 const ConnectedTradeHUD = React.memo(() => {
-  const marketData = useContext(MarketDataContext)!;
-  const chartState = useContext(ChartStateContext)!;
-  const brokerState = useContext(BrokerContext)!;
+  const marketData = useMarketDataContext();
+  const chartState = useChartStateContext();
+  const brokerState = useBrokerContext();
 
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
   const allMarketData = useSelector(selectMarketData, shallowEqual);
@@ -268,16 +282,20 @@ const ConnectedTradeHUD = React.memo(() => {
     chartState.effectiveRate
   );
 
-  return <MemoizedTradeHUD convertedLivePrice={convertedLivePrice} setIsBrokerModalOpen={brokerState.setIsBrokerModalOpen} />;
+  return (
+    <MemoizedTradeHUD
+      convertedLivePrice={convertedLivePrice}
+      isCurrencyRateUnavailable={chartState.isCurrencyRateUnavailable}
+      setIsBrokerModalOpen={brokerState.setIsBrokerModalOpen}
+    />
+  );
 });
 ConnectedTradeHUD.displayName = "ConnectedTradeHUD";
 
 const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, overlayContent, openTickerSelector }: any) => {
-  const marketData = useContext(MarketDataContext)!;
-  const chartState = useContext(ChartStateContext)!;
-  const refs = useContext(ChartRefsContext)!;
-  const currencyState = useContext(CurrencyContext)!;
-
+  const marketData = useMarketDataContext();
+  const chartState = useChartStateContext();
+  const refs = useChartRefsContext();
   const dataMode = useSelector(selectDataMode);
 
   const liveSnapshot = useSelector((state: RootState) => selectMarketSnapshots(state)[chartState.security.ticker]);
@@ -291,9 +309,9 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, ove
   const displaySecurity = useMemo<DisplaySecurity>(
     () => ({
       ...chartState.security,
-      currency: currencyState?.selectedCurrency || "XOF",
+      currency: chartState.currencyDisplayLabel,
     }),
-    [chartState.security, currencyState?.selectedCurrency]
+    [chartState.security, chartState.currencyDisplayLabel]
   );
 
   const deferredChartData = useDeferredValue(marketData.chartData);
@@ -308,6 +326,8 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, ove
       liveChange={convertedLiveChange}
       liveChangePercent={liveChangePercent}
       lastUpdate={liveSnapshot?.lastUpdate}
+      marketSourceLabel={liveSnapshot?.sourceLabel}
+      marketSourceStatus={liveSnapshot?.sourceStatus}
       liveVolume={liveSnapshot?.volume || marketData.currentVolume}
       liveMarketCap={liveSnapshot?.marketCap}
       liveReturnYTD={liveSnapshot?.returnYTD}
@@ -328,11 +348,11 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, ove
 ConnectedSidebar.displayName = "ConnectedSidebar";
 
 const ConnectedPriceAxisOverlay = React.memo(() => {
-  const marketData = useContext(MarketDataContext)!;
-  const chartState = useContext(ChartStateContext)!;
-  const refs = useContext(ChartRefsContext)!;
-  const drawingManager = useContext(DrawingContext)!;
-  const brokerState = useContext(BrokerContext);
+  const marketData = useMarketDataContext();
+  const chartState = useChartStateContext();
+  const refs = useChartRefsContext();
+  const drawingManager = useDrawingContext();
+  const brokerState = useBrokerContext();
 
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
@@ -386,7 +406,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
 
   useEffect(() => {
     const syncClock = () => setPriceAxisClockNow(Date.now());
-    const intervalId = window.setInterval(syncClock, 1000);
+    const intervalId = window.setInterval(syncClock, getPriceAxisClockIntervalMs());
     document.addEventListener("visibilitychange", syncClock);
     syncClock();
 
@@ -407,11 +427,15 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
     }),
     [chartConfig.timeframe, lastPriceTimeSource, priceAxisClockNow, priceAxisCountdown?.label]
   );
+  const lastPriceDisplayLabel = chartState.isCurrencyRateUnavailable
+    ? "Rate unavailable"
+    : formatPriceAxisLabel(convertedLastCandleClose);
+
   const lastPriceAccessibleLabel = useMemo(() => {
     const updateLabel = formatPriceAxisFreshnessLabel(activeLiveSnapshot?.lastUpdate);
     const parts = [
       `${chartState.displaySymbolName}`,
-      `dernier prix ${formatPriceAxisLabel(convertedLastCandleClose)}`,
+      `dernier prix ${lastPriceDisplayLabel}`,
       priceAxisClockNow === null
         ? "horloge marché en initialisation"
         : priceAxisCountdown ? `${priceAxisCountdown.accessibilityLabel} ${lastPriceTimeLabel}` : `bougie ${lastPriceTimeLabel}`,
@@ -421,7 +445,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
   }, [
     activeLiveSnapshot?.lastUpdate,
     chartState.displaySymbolName,
-    convertedLastCandleClose,
+    lastPriceDisplayLabel,
     lastPriceTimeLabel,
     priceAxisClockNow,
     priceAxisCountdown,
@@ -515,7 +539,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
   return (
     <PriceAxisOverlay
       displaySymbolName={chartState.displaySymbolName}
-      convertedLivePrice={convertedLastCandleClose}
+      lastPriceDisplayLabel={lastPriceDisplayLabel}
       lastPriceTimeLabel={lastPriceTimeLabel}
       lastPriceAccessibleLabel={lastPriceAccessibleLabel}
       isLastPricePositive={isLastPricePositive}
@@ -525,7 +549,6 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
       lastPriceBadgeRef={refs.lastPriceBadgeRef}
       lastPriceLineRef={refs.lastPriceLineRef}
       priceAxisActionMenu={priceAxisActionMenu}
-      formatPriceAxisLabel={formatPriceAxisLabel}
       handleAxisPriceActionButtonClick={handleAxisPriceActionButtonClick}
       handlePriceAxisAction={handlePriceAxisAction}
     />
@@ -539,13 +562,13 @@ ConnectedPriceAxisOverlay.displayName = "ConnectedPriceAxisOverlay";
 
 const ChartUI: React.FC = () => {
   const dispatch = useDispatch();
-  
-  const refs = useContext(ChartRefsContext)!;
-  const marketData = useContext(MarketDataContext)!;
-  const chartState = useContext(ChartStateContext)!;
-  const drawingManager = useContext(DrawingContext)!;
-  const currencyState = useContext(CurrencyContext)!;
-  const brokerState = useContext(BrokerContext);
+
+  const refs = useChartRefsContext();
+  const marketData = useMarketDataContext();
+  const chartState = useChartStateContext();
+  const drawingManager = useDrawingContext();
+  const currencyState = useCurrencyContext();
+  const brokerState = useBrokerContext();
 
   const { openModal: openTickerSelector, selectedTicker: primaryTicker, setSelectedTicker } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
@@ -659,11 +682,13 @@ const ChartUI: React.FC = () => {
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
   const replayState = useSelector((state: RootState) => state.technicalAnalysis.ui.replay, shallowEqual);
   const dataMode = useSelector(selectDataMode);
+  const modals = useSelector(selectModals, shallowEqual);
+  const shouldMountModalOrchestrator = Object.values(modals).some(Boolean);
 
   const [showReplayFullText, setShowReplayFullText] = useState(false);
   const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
 
-  const { handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions(marketData.setChartData);
+  const { handleTimeframeChange, handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions(marketData.setChartData);
 
   // ============================================================================
   // [TENOR 2026] KEYBOARD SHORTCUTS ENGINE
@@ -830,7 +855,7 @@ const ChartUI: React.FC = () => {
     setActiveTab: setObjectTreeTab,
     dataWindow,
   } = useObjectTreePanel({
-    chartInstanceRef: refs.chartInstanceRef as React.RefObject<echarts.ECharts | null>,
+    chartInstanceRef: refs.chartInstanceRef as React.RefObject<EChartsInstance | null>,
     chartData: chartState.displayChartData,
   });
 
@@ -955,6 +980,10 @@ const ChartUI: React.FC = () => {
 
   const [hiddenObjectIds, setHiddenObjectIds] = useState<Record<string, boolean>>({});
 
+  const revealIndicatorObjectIds = useCallback((objectIds: readonly IndicatorObjectId[]) => {
+    setHiddenObjectIds((currentHiddenObjectIds) => revealHiddenObjectIds(currentHiddenObjectIds, objectIds));
+  }, []);
+
   const openCompareSettings = useCallback((symbol: string) => {
     const normalized = normalizeCompareSymbol(symbol);
     if (normalized) setCompareSettingsSymbol(normalized);
@@ -1064,6 +1093,8 @@ const ChartUI: React.FC = () => {
     }));
   }, [activeFilteredChartData, chartState.effectiveRate]);
 
+  const shouldShowPrimaryChartLoader = chartState.globalIsLoading || activeDisplayChartData.length === 0;
+
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-BADGE-STALE-DATA:
   // When a secondary chart is active (e.g. SGBC), chartState.displayChartData still has BOAB's data.
   // Use comparisonMarketData[chartConfig.symbol] (pre-loaded when the cell was secondary) so that
@@ -1082,55 +1113,6 @@ const ChartUI: React.FC = () => {
   }, [comparisonMarketData, chartConfig.symbol, chartState.displayChartData, primaryTicker?.ticker]);
   const lightweightLastPrice = lastCandle ? lastCandle.close : 0;
 
-  // [TENOR 2026 FIX] Centralized Render Hooks
-  useEChartsRenderer({
-    stockChartRef: refs.stockChartRef,
-    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: pass stable layers-stack ref
-    layersStackRef: refs.layersStackRef as React.RefObject<HTMLDivElement | null>,
-    chartInstanceRef: refs.chartInstanceRef,
-    chartData: activeDisplayChartData,
-    chartConfig,
-    advancedIndicators,
-    indicatorPeriods,
-    bollingerSettings,
-    chartAppearance,
-    uiState: uiStateProxy,
-    displaySymbol: activeSymbol || chartState.displaySymbolName,
-    lastZoomRangeRef: refs.lastZoomRangeRef,
-    cursorPriceBadgeRef: refs.cursorPriceBadgeRef,
-    cursorPriceTextRef: refs.cursorPriceTextRef,
-    cursorPriceActionRef: refs.cursorPriceActionRef,
-    lastPriceBadgeRef: refs.lastPriceBadgeRef,
-    lastPriceLineRef: refs.lastPriceLineRef,
-    lastPriceAxisValue: lightweightLastPrice,
-    isMainChartVisible: chartState.isMainChartVisible,
-    comparisonSeries,
-    onCompareSeriesSettingsRequest: openCompareSettings,
-    hiddenObjectIds,
-  });
-
-  useOverlayRenderer({
-    selectedDrawingId,
-    drawings,
-    chartInstanceRef: refs.chartInstanceRef,
-    drawingCanvasRef: refs.drawingCanvasRef,
-    drawingToolbarRef: refs.drawingToolbarRef,
-    drawingTooltipRef: refs.drawingTooltipRef,
-    gridRect,
-    toolbarOffsetRef,
-    chartData: activeDisplayChartData,
-    interactionScopeKey: chartInteractionScopeKey,
-  });
-
-  useCursorRenderer({
-    canvasRef: refs.cursorCanvasRef,
-    containerRef: refs.layersStackRef,
-    mode: cursorMode,
-    chartRef: refs.chartInstanceRef as React.RefObject<echarts.ECharts>,
-    chartData: activeDisplayChartData,
-    interactionScopeKey: chartInteractionScopeKey,
-  });
-
   const setIsDrawingSettingsModalOpen = useCallback(
     (val: boolean) => dispatch(setModalOpen({ modal: "drawingSettings", isOpen: val })),
     [dispatch]
@@ -1147,8 +1129,14 @@ const ChartUI: React.FC = () => {
   );
 
   useLayoutEffect(() => {
-    if (!refs.mainContainerRef.current) return;
-    animate(refs.mainContainerRef.current, { opacity: [0.95, 1] }, { duration: 0.15, ease: "easeOut" });
+    const root = refs.mainContainerRef.current;
+    if (!root) return;
+
+    if (typeof root.animate === "function") {
+      root.animate([{ opacity: 0.95 }, { opacity: 1 }], { duration: 150, easing: "ease-out" });
+    } else {
+      root.style.opacity = "1";
+    }
   }, [refs.mainContainerRef]);
 
   useLayoutEffect(() => {
@@ -1162,7 +1150,7 @@ const ChartUI: React.FC = () => {
       rafId = requestAnimationFrame(() => {
         const rect = chartFrame.getBoundingClientRect();
         root.style.setProperty("--gp-chart-modal-top", `${Math.max(0, rect.top)}px`);
-        root.style.setProperty("--gp-chart-modal-bottom", `${Math.max(0, window.innerHeight - rect.bottom)}px`);
+        root.style.setProperty("--gp-chart-modal-bottom", `${Math.max(0, getLayoutViewportHeight() - rect.bottom)}px`);
       });
     };
 
@@ -1192,8 +1180,15 @@ const ChartUI: React.FC = () => {
     const sidebar = refs.sidebarRef.current;
     if (isObjectTreeOpen && sidebar && sidebar.classList.contains("sidebar-closed")) {
       sidebar.style.visibility = "visible";
-      animate(sidebar, { opacity: 1, x: "0%" }, { duration: 0.2, ease: "easeOut" });
       sidebar.classList.remove("sidebar-closed");
+      if (typeof sidebar.animate === "function") {
+        sidebar.animate(
+          [{ opacity: 0, transform: "translateX(100%)" }, { opacity: 1, transform: "translateX(0)" }],
+          { duration: 200, easing: "ease-out" }
+        );
+      }
+      sidebar.style.opacity = "1";
+      sidebar.style.transform = "translateX(0)";
     }
   }, [isObjectTreeOpen, refs.sidebarRef]);
 
@@ -1224,17 +1219,22 @@ const ChartUI: React.FC = () => {
   const handleSidebarBackdropClick = useCallback(() => {
     const sidebar = refs.sidebarRef.current;
     if (sidebar) {
-      animate(
-        sidebar,
-        { opacity: 0, x: "100%" },
-        {
-          duration: 0.2,
-          ease: "easeIn",
-          onComplete: () => {
-            sidebar.style.visibility = "hidden";
-          },
-        }
-      );
+      const hideSidebar = () => {
+        sidebar.style.visibility = "hidden";
+        sidebar.style.opacity = "";
+        sidebar.style.transform = "";
+      };
+
+      if (typeof sidebar.animate === "function") {
+        const animation = sidebar.animate(
+          [{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: "translateX(100%)" }],
+          { duration: 200, easing: "ease-in" }
+        );
+        animation.onfinish = hideSidebar;
+      } else {
+        hideSidebar();
+      }
+
       sidebar.classList.add("sidebar-closed");
       updateSidebarState();
     }
@@ -1272,8 +1272,16 @@ const ChartUI: React.FC = () => {
     };
   }, [updateSidebarState, refs]);
 
+  const drawingInteractionMode = activeTool ? "tool" : cursorMode === "eraser" ? "eraser" : cursorMode === "magic" ? "magic" : drawings.length > 0 ? "selection" : "inactive";
+  const isCustomCursorMode = cursorMode === "dot" || cursorMode === "demonstration" || cursorMode === "magic" || cursorMode === "eraser";
+  const shouldEnableDrawingCanvasPointerEvents = Boolean(activeTool || cursorMode === "eraser" || (drawings.length > 0 && cursorMode !== "magic"));
+  const drawingCanvasCursor = activeTool ? "crosshair" : isCustomCursorMode ? "none" : cursorMode.startsWith("cross") ? "crosshair" : "default";
+
   return (
-    <div ref={refs.mainContainerRef} className={clsx("technical-analysis-root", isZenMode && "is-zen-mode")}>
+    <div
+      ref={refs.mainContainerRef}
+      className={clsx("technical-analysis-root", isZenMode && "is-zen-mode")}
+    >
       <div className={"gp-global-wrapper"}>
         <div className={clsx("page-content-wrapper", "mt-1")}>
           <MemoizedChartToolbar
@@ -1281,6 +1289,9 @@ const ChartUI: React.FC = () => {
             displaySymbol={chartState.displaySymbolName}
             openTickerSelector={openTickerSelector}
             stopReplay={marketData.stopReplay}
+            onTimeframeChange={handleTimeframeChange}
+            onSaveAnalysis={handleSaveAnalysis}
+            onOpenLoadModal={handleOpenLoadModal}
           />
 
           {comparisonSymbols.length > 0 && (
@@ -1341,6 +1352,7 @@ const ChartUI: React.FC = () => {
                 mainContainerRef={refs.mainContainerRef as React.RefObject<HTMLDivElement>}
                 verticalToolbarRef={refs.verticalToolbarRef}
                 handleClearAllDrawings={handleClearAllDrawings}
+                isLoading={chartState.globalIsLoading || marketData.isLoading}
               />
 
               <div ref={refs.chartViewWrapperRef} className={"gp-chart-view-wrapper"}>
@@ -1390,25 +1402,74 @@ const ChartUI: React.FC = () => {
                         style={{ width: "100%", height: "100%", touchAction: "none" }}
                       ></div>
 
+                      <ChartRenderEngine
+                        chart={{
+                          stockChartRef: refs.stockChartRef,
+                          layersStackRef: refs.layersStackRef as React.RefObject<HTMLDivElement | null>,
+                          chartInstanceRef: refs.chartInstanceRef,
+                          chartData: activeDisplayChartData,
+                          chartConfig,
+                          advancedIndicators,
+                          indicatorPeriods,
+                          bollingerSettings,
+                          chartAppearance,
+                          uiState: uiStateProxy,
+                          displaySymbol: activeSymbol || chartState.displaySymbolName,
+                          lastZoomRangeRef: refs.lastZoomRangeRef,
+                          cursorPriceBadgeRef: refs.cursorPriceBadgeRef,
+                          cursorPriceTextRef: refs.cursorPriceTextRef,
+                          cursorPriceActionRef: refs.cursorPriceActionRef,
+                          lastPriceBadgeRef: refs.lastPriceBadgeRef,
+                          lastPriceLineRef: refs.lastPriceLineRef,
+                          lastPriceAxisValue: lightweightLastPrice,
+                          isMainChartVisible: chartState.isMainChartVisible,
+                          comparisonSeries,
+                          onCompareSeriesSettingsRequest: openCompareSettings,
+                          hiddenObjectIds,
+                        }}
+                        overlay={{
+                          selectedDrawingId,
+                          drawings,
+                          chartInstanceRef: refs.chartInstanceRef,
+                          drawingCanvasRef: refs.drawingCanvasRef,
+                          drawingToolbarRef: refs.drawingToolbarRef,
+                          drawingTooltipRef: refs.drawingTooltipRef,
+                          gridRect,
+                          toolbarOffsetRef,
+                          chartData: activeDisplayChartData,
+                          interactionScopeKey: chartInteractionScopeKey,
+                        }}
+                        cursor={{
+                          canvasRef: refs.cursorCanvasRef,
+                          containerRef: refs.layersStackRef,
+                          eventSourceRef: refs.drawingCanvasRef,
+                          mode: cursorMode,
+                          suspendForDrawing: Boolean(activeTool),
+                          chartRef: refs.chartInstanceRef as React.RefObject<EChartsInstance>,
+                          chartData: activeDisplayChartData,
+                          interactionScopeKey: chartInteractionScopeKey,
+                        }}
+                      />
+
                       <canvas
                         ref={refs.cursorCanvasRef}
                         className={"gp-cursor-canvas"}
-                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 10 }}
+                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 80 }}
                       />
 
                       <canvas
                         ref={refs.drawingCanvasRef}
                         className={"gp-cursor-canvas gp-drawing-canvas"}
-                        data-drawing-interaction={activeTool ? "tool" : cursorMode === "eraser" ? "eraser" : drawings.length > 0 ? "selection" : "inactive"}
+                        data-drawing-interaction={drawingInteractionMode}
                         style={{
                           position: "absolute",
                           top: 0,
                           left: 0,
                           width: "100%",
                           height: "100%",
-                          pointerEvents: activeTool || drawings.length > 0 ? "auto" : "none",
+                          pointerEvents: shouldEnableDrawingCanvasPointerEvents ? "auto" : "none",
                           zIndex: 50,
-                          cursor: activeTool ? "crosshair" : "default",
+                          cursor: drawingCanvasCursor,
                           touchAction: "none",
                         }}
                         onPointerDown={handlePointerDown}
@@ -1434,7 +1495,7 @@ const ChartUI: React.FC = () => {
                       setCurrencyPos={currencyState.setCurrencyPos}
                     />
 
-                    {brokerState && (
+                    {brokerState?.isBrokerModalOpen && (
                       <MemoizedBrokerModal
                         isBrokerModalOpen={brokerState.isBrokerModalOpen}
                         setIsBrokerModalOpen={brokerState.setIsBrokerModalOpen}
@@ -1451,7 +1512,7 @@ const ChartUI: React.FC = () => {
 
                     <TimeAxisControls chartInstanceRef={refs.chartInstanceRef} />
 
-                    {chartState.globalIsLoading && <MemoizedPremiumLoader />}
+                    {shouldShowPrimaryChartLoader && <MemoizedPremiumLoader />}
 
                     <div
                       className="gp-drawing-overlay-shield"
@@ -1491,7 +1552,7 @@ const ChartUI: React.FC = () => {
                         }}
                       >
                         {selectedDrawing?.type &&
-                          (toolbarConfig as unknown as ToolbarConfig).drawings[selectedDrawing.type]?.toolbar.map(
+                          (toolbarConfig as ToolbarConfig).drawings[selectedDrawing.type]?.toolbar.map(
                             (btnId: string) => (
                               <ToolbarButton
                                 key={btnId}
@@ -1522,13 +1583,11 @@ const ChartUI: React.FC = () => {
                                 newTemplateName={newTemplateName}
                                 setNewTemplateName={setNewTemplateName}
                                 setIsDrawingSettingsModalOpen={setIsDrawingSettingsModalOpen}
-                                setActiveDrawingSettingsTab={() => {}}
                                 setIsAlertModalOpen={setIsAlertModalOpen}
-                                setActiveAlertTab={() => {}}
                                 handleLockToggle={handleLockToggle}
                                 handleClone={handleClone}
                                 handleVisualOrder={handleVisualOrder}
-                                toolbarConfig={toolbarConfig as unknown as ToolbarConfig}
+                                toolbarConfig={toolbarConfig as ToolbarConfig}
                               />
                             )
                           )}
@@ -1569,38 +1628,38 @@ const ChartUI: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ position: "relative", display: "flex", flexShrink: 0 }}>
+            <div className="gp-sidebar-shell">
               <ConnectedSidebar
-                isObjectTreeOpen={isObjectTreeOpen}
-                onToggleObjectTree={toggleObjectTree}
-                openTickerSelector={openTickerSelector}
-                overlayContent={
-                  isObjectTreeOpen ? (
-                    <ObjectTreePanel
-                      isOpen={isObjectTreeOpen}
-                      activeTab={objectTreeTab}
-                      setActiveTab={setObjectTreeTab}
-                      drawings={drawings}
-                      selectedDrawingId={selectedDrawingId}
-                      setSelectedDrawingId={setSelectedDrawingId}
-                      updateDrawing={updateDrawing}
-                      deleteDrawing={deleteDrawing}
-                      handleClone={handleClone}
-                      handleVisualOrder={handleVisualOrder}
-                      dataWindow={dataWindow}
-                      symbolDisplay={`${chartState.displaySymbolName} · BRVM, 1D`}
-                      isMainChartVisible={chartState.isMainChartVisible}
-                      setIsMainChartVisible={chartState.setIsMainChartVisible}
-                      chartConfig={chartConfig}
-                      chartAppearance={chartAppearance}
-                      advancedIndicators={advancedIndicators}
-                      activeTool={activeTool}
-                      hiddenObjectIds={hiddenObjectIds}
-                      setHiddenObjectIds={setHiddenObjectIds}
-                    />
-                  ) : null
-                }
-              />
+                  isObjectTreeOpen={isObjectTreeOpen}
+                  onToggleObjectTree={toggleObjectTree}
+                  openTickerSelector={openTickerSelector}
+                  overlayContent={
+                    isObjectTreeOpen ? (
+                      <LazyObjectTreePanel
+                        isOpen={isObjectTreeOpen}
+                        activeTab={objectTreeTab}
+                        setActiveTab={setObjectTreeTab}
+                        drawings={drawings}
+                        selectedDrawingId={selectedDrawingId}
+                        setSelectedDrawingId={setSelectedDrawingId}
+                        updateDrawing={updateDrawing}
+                        deleteDrawing={deleteDrawing}
+                        handleClone={handleClone}
+                        handleVisualOrder={handleVisualOrder}
+                        dataWindow={dataWindow}
+                        symbolDisplay={`${chartState.displaySymbolName} · BRVM, 1D`}
+                        isMainChartVisible={chartState.isMainChartVisible}
+                        setIsMainChartVisible={chartState.setIsMainChartVisible}
+                        chartConfig={chartConfig}
+                        chartAppearance={chartAppearance}
+                        advancedIndicators={advancedIndicators}
+                        activeTool={activeTool}
+                        hiddenObjectIds={hiddenObjectIds}
+                        setHiddenObjectIds={setHiddenObjectIds}
+                      />
+                    ) : null
+                  }
+                />
             </div>
           </div>
         </div>
@@ -1617,20 +1676,25 @@ const ChartUI: React.FC = () => {
         </button>
       </div>
 
-      <MemoizedModalOrchestrator
-        dr={selectedDrawing}
-        updateDrawing={updateDrawing}
-        startReplay={marketData.startReplay}
-        setChartData={marketData.setChartData}
-      />
-      <CompareSeriesSettingsModal
-        isOpen={Boolean(compareSettingsSymbol)}
-        symbol={compareSettingsSymbol}
-        primarySymbol={chartConfig.symbol || chartState.displaySymbolName}
-        fallbackColor={compareSettingsFallbackColor}
-        settings={selectedCompareSettings}
-        onClose={closeCompareSettings}
-      />
+      {shouldMountModalOrchestrator && (
+        <MemoizedModalOrchestrator
+          dr={selectedDrawing}
+          updateDrawing={updateDrawing}
+          startReplay={marketData.startReplay}
+          setChartData={marketData.setChartData}
+          onRevealObjectIds={revealIndicatorObjectIds}
+        />
+      )}
+      {compareSettingsSymbol && (
+        <LazyCompareSeriesSettingsModal
+          isOpen={Boolean(compareSettingsSymbol)}
+          symbol={compareSettingsSymbol}
+          primarySymbol={chartConfig.symbol || chartState.displaySymbolName}
+          fallbackColor={compareSettingsFallbackColor}
+          settings={selectedCompareSettings}
+          onClose={closeCompareSettings}
+        />
+      )}
     </div>
   );
 };

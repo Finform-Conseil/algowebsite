@@ -1,31 +1,59 @@
 import { useEffect, useRef, MutableRefObject, useCallback } from "react";
 import type { ECharts } from "echarts/core";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { isPriceAxisInteractiveTarget } from "./priceAxisInteractiveTargets";
+import {
+  MAIN_GRID_LEFT,
+  TV_MIN_VISIBLE_BARS,
+  TV_RESET_VISIBLE_BARS,
+  TV_X_AXIS_HEIGHT,
+  TV_Y_AXIS_WIDTH,
+  TV_ZOOM_VELOCITY,
+  computeDirectionalZoomViewport,
+  computeHorizontalPanViewport,
+  normalizeWheelDeltaPx,
+  resolveInitialViewportWindow,
+  resolveTimeDataZoomAxisIndexes,
+} from "./viewport/viewportMath";
+import { resolveAutoViewportPriceRange } from "./viewport/viewportPriceRange";
+import {
+  buildOffscreenPriceLevelGraphics,
+  getSafeGridRect,
+  type PriceLevelViewportMarker,
+} from "./viewport/viewportGraphics";
 
-export type ViewportWindow = { startIdx: number; endIdx: number };
+export type { ViewportWindow, ZoomRangeSnapshot } from "./viewport/viewportMath";
+export {
+  MAIN_GRID_LEFT,
+  TV_AUTO_SCALE_PADDING,
+  TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING,
+  TV_CURSOR_INFLUENCE,
+  TV_INITIAL_VISIBLE_BARS,
+  TV_MIN_VISIBLE_BARS,
+  TV_PAN_DRIFT_DAMPING,
+  TV_RESET_VISIBLE_BARS,
+  TV_X_AXIS_HEIGHT,
+  TV_Y_AXIS_WIDTH,
+  TV_ZOOM_DRIFT_BASE_RATIO,
+  TV_ZOOM_DRIFT_STRENGTH,
+  TV_ZOOM_VELOCITY,
+  clamp,
+  clampViewportWindow,
+  computeDirectionalZoomViewport,
+  computeHorizontalPanViewport,
+  normalizeWheelDeltaPx,
+  resolveInitialViewportWindow,
+  resolveTimeDataZoomAxisIndexes,
+} from "./viewport/viewportMath";
+export { resolveAutoViewportPriceRange } from "./viewport/viewportPriceRange";
+export {
+  buildOffscreenPriceLevelGraphics,
+  getSafeGridRect,
+  type PriceLevelViewportMarker,
+} from "./viewport/viewportGraphics";
 
-// ============================================================================
-// [TENOR 2026 HDR] CONSTANTES PHYSIQUES TRADINGVIEW
-// Exportées pour être réutilisées par le renderer principal et les badges
-// ============================================================================
-export const TV_Y_AXIS_WIDTH = 84;
-export const TV_X_AXIS_HEIGHT = 28;
-export const TV_ZOOM_VELOCITY = 0.001;
-export const TV_AUTO_SCALE_PADDING = 0.08; // 8%
-export const TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING = 0.22;
-export const TV_MIN_VISIBLE_BARS = 10;
-export const TV_CURSOR_INFLUENCE = 0.68;
-export const TV_ZOOM_DRIFT_STRENGTH = 0.85;
-export const TV_ZOOM_DRIFT_BASE_RATIO = 0.015;
-export const TV_PAN_DRIFT_DAMPING = 0.85;
-export const TV_RESET_VISIBLE_BARS = 120;
-export const MAIN_GRID_LEFT = 15;
-
-// ============================================================================
-// [TENOR 2026 SRE] REGISTRY & ADAPTERS (API DECOUPLING)
-// SCAR-API-01: Eradicated direct mutation of ECharts instance (__tvTimeAxisControls).
-// SCAR-API-02: Eradicated internal getModel() calls. Pure DOM math applied.
-// ============================================================================
+export type ChartMutationScheduler = (key: string, mutation: (chart: ECharts) => void) => void;
+type ViewportApplyMode = "queued" | "immediate";
 
 export interface TradingViewTimeAxisControls {
   zoomIn: () => void;
@@ -35,9 +63,6 @@ export interface TradingViewTimeAxisControls {
   reset: () => void;
 }
 
-/**
- * Registry O(1) GC-Safe pour stocker les contrôles sans muter l'instance ECharts.
- */
 export const TimeAxisRegistry = new WeakMap<ECharts, TradingViewTimeAxisControls>();
 
 const isViewportChartUsable = (chart: ECharts | null): chart is ECharts => {
@@ -50,200 +75,6 @@ const isViewportChartUsable = (chart: ECharts | null): chart is ECharts => {
     return false;
   }
 };
-
-/**
- * [TENOR 2026 SRE FIX] Adaptateur sécurisé pour récupérer les dimensions de la grille.
- * Éradication totale de `(chart as any).getModel?.()`.
- * Utilise exclusivement les mathématiques du DOM et les constantes physiques TradingView.
- * Immunise l'application contre les Breaking Changes d'ECharts v6+.
- */
-export const getSafeGridRect = (_chart: ECharts | null, container: HTMLElement | null) => {
-  const defaultFallback = { x: MAIN_GRID_LEFT, y: 30, width: 800, height: 600 };
-  if (!container) return defaultFallback;
-
-  const rect = container.getBoundingClientRect();
-  
-  // Calcul basé sur les constantes TV injectées dans la configuration ECharts
-  const safeTop = Math.max(30, rect.height * 0.08);
-  const safeBottom = rect.height - TV_X_AXIS_HEIGHT;
-  const safeLeft = MAIN_GRID_LEFT;
-  const safeRight = rect.width - TV_Y_AXIS_WIDTH;
-
-  return {
-    x: safeLeft,
-    y: safeTop,
-    width: Math.max(10, safeRight - safeLeft),
-    height: Math.max(10, safeBottom - safeTop)
-  };
-};
-
-// ============================================================================
-// MATH & GEOMETRY HELPERS
-// ============================================================================
-
-export const lerp = (start: number, end: number, weight: number): number =>
-  start + ((end - start) * weight);
-
-export const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value));
-
-const getLastFiniteCloseInViewport = (
-  data: ChartDataPoint[],
-  startIdx: number,
-  endIdx: number,
-): number | null => {
-  const start = Math.max(0, startIdx);
-  const end = Math.min(data.length - 1, endIdx);
-
-  for (let index = end; index >= start; index--) {
-    const close = data[index]?.close;
-    if (Number.isFinite(close)) return close;
-  }
-
-  return null;
-};
-
-const resolvePriceAxisAutoPadding = ({
-  basePadding,
-  center,
-  hasComparisonEndLabels,
-  priceAxisValue,
-  visibleMin,
-  visibleMax,
-}: {
-  basePadding: number;
-  center: number;
-  hasComparisonEndLabels: boolean;
-  priceAxisValue: number | null;
-  visibleMin: number;
-  visibleMax: number;
-}): { top: number; bottom: number } => {
-  if (!hasComparisonEndLabels) return { top: basePadding, bottom: basePadding };
-
-  const range = visibleMax - visibleMin;
-  const safeRange = range > 0 ? range : Math.max(Math.abs(center), 1);
-  const finitePrice = priceAxisValue ?? center;
-  const priceRatio = range > 0 ? clamp((finitePrice - visibleMin) / range, 0, 1) : 0.5;
-  const dezoomPadding = Math.max(basePadding * 2, safeRange * TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING);
-
-  return priceRatio >= 0.5
-    ? { top: basePadding + dezoomPadding, bottom: basePadding }
-    : { top: basePadding, bottom: basePadding + dezoomPadding };
-};
-
-export const getViewportSpanBounds = (totalBars: number) => {
-  const maxSpan = Math.max(1, totalBars - 1);
-  const minSpan = Math.min(TV_MIN_VISIBLE_BARS, maxSpan);
-  return { minSpan, maxSpan };
-};
-
-export const clampViewportWindow = (
-  startIdx: number,
-  endIdx: number,
-  totalBars: number,
-): ViewportWindow => {
-  if (totalBars <= 1) {
-    return { startIdx: 0, endIdx: 0 };
-  }
-
-  const { minSpan, maxSpan } = getViewportSpanBounds(totalBars);
-
-  let start = Number.isFinite(startIdx) ? startIdx : 0;
-  let end = Number.isFinite(endIdx) ? endIdx : maxSpan;
-  let span = end - start;
-
-  if (!Number.isFinite(span) || span <= 0) {
-    span = minSpan;
-  }
-
-  span = Math.max(minSpan, Math.min(maxSpan, span));
-
-  if (start < 0) {
-    start = 0;
-    end = span;
-  } else {
-    end = start + span;
-  }
-
-  if (end > maxSpan) {
-    end = maxSpan;
-    start = Math.max(0, end - span);
-  }
-
-  return {
-    startIdx: Math.round(start),
-    endIdx: Math.round(end),
-  };
-};
-
-export const computeDirectionalZoomViewport = ({
-  startIdx,
-  endIdx,
-  totalBars,
-  cursorRatio,
-  zoomFactor,
-  deltaY,
-}: {
-  startIdx: number;
-  endIdx: number;
-  totalBars: number;
-  cursorRatio: number;
-  zoomFactor: number;
-  deltaY: number;
-}): ViewportWindow => {
-  if (totalBars <= 1) {
-    return { startIdx: 0, endIdx: 0 };
-  }
-
-  const { minSpan, maxSpan } = getViewportSpanBounds(totalBars);
-  const normalizedCursorRatio = Math.max(0, Math.min(1, cursorRatio));
-
-  const currentSpan = Math.max(minSpan, Math.min(maxSpan, endIdx - startIdx));
-  const currentCenter = startIdx + (currentSpan / 2);
-  const targetSpan = Math.max(minSpan, Math.min(maxSpan, currentSpan * zoomFactor));
-
-  const focusIdx = startIdx + (normalizedCursorRatio * currentSpan);
-  const centeredStart = currentCenter - (targetSpan / 2);
-  const cursorAnchoredStart = focusIdx - (normalizedCursorRatio * targetSpan);
-
-  const blendedStart = lerp(centeredStart, cursorAnchoredStart, TV_CURSOR_INFLUENCE);
-
-  const zoomDirection = deltaY < 0 ? 1 : deltaY > 0 ? -1 : 0;
-  const changedBars = Math.abs(targetSpan - currentSpan);
-  const directionalWeight = zoomDirection > 0
-    ? 0.45 + (normalizedCursorRatio * 0.55)
-    : 0.45 + ((1 - normalizedCursorRatio) * 0.55);
-
-  const driftMagnitude = Math.max(
-    currentSpan * TV_ZOOM_DRIFT_BASE_RATIO,
-    changedBars * TV_ZOOM_DRIFT_STRENGTH * directionalWeight,
-  );
-
-  const driftedStart = blendedStart + (zoomDirection * driftMagnitude);
-
-  return clampViewportWindow(
-    driftedStart,
-    driftedStart + targetSpan,
-    totalBars,
-  );
-};
-
-export const computeHorizontalPanViewport = ({
-  startIdx,
-  endIdx,
-  totalBars,
-  shift,
-}: {
-  startIdx: number;
-  endIdx: number;
-  totalBars: number;
-  shift: number;
-}): ViewportWindow =>
-  clampViewportWindow(
-    startIdx + (shift * TV_PAN_DRIFT_DAMPING),
-    endIdx + (shift * TV_PAN_DRIFT_DAMPING),
-    totalBars,
-  );
 
 // ============================================================================
 // HOOK: VIEWPORT ENGINE (Absolute Coordinates & DOM Events)
@@ -259,6 +90,8 @@ export interface UseChartViewportProps {
   interactionScopeKey?: string;
   hasComparisonEndLabels?: boolean;
   lastPriceAxisValue?: number;
+  priceLevelMarkers?: PriceLevelViewportMarker[];
+  scheduleChartMutation?: ChartMutationScheduler;
 }
 
 export const useChartViewport = ({
@@ -271,6 +104,8 @@ export const useChartViewport = ({
   interactionScopeKey,
   hasComparisonEndLabels = false,
   lastPriceAxisValue,
+  priceLevelMarkers = [],
+  scheduleChartMutation,
 }: UseChartViewportProps) => {
   const viewportStateRef = useRef({
     startIdx: 0,
@@ -293,8 +128,26 @@ export const useChartViewport = ({
 
   const lastCursorClientPointRef = useRef<{ x: number; y: number } | null>(null);
   const prevDataMaxRef = useRef<number>(0);
+  const previousPriceLevelGraphicIdsRef = useRef<Set<string>>(new Set());
+  const viewportApplyRafRef = useRef<number | null>(null);
+  const viewportApplyModeRef = useRef<ViewportApplyMode>("queued");
 
-  const applyViewport = useCallback(() => {
+  const enqueueChartMutation = useCallback((key: string, mutation: (chart: ECharts) => void, mode: ViewportApplyMode = "queued") => {
+    if (mode === "queued" && scheduleChartMutation) {
+      scheduleChartMutation(key, mutation);
+      return;
+    }
+
+    const chart = chartInstanceRef.current;
+    if (!isViewportChartUsable(chart)) return;
+    try {
+      mutation(chart);
+    } catch (error) {
+      console.warn("[SRE] ECharts viewport mutation failed", error);
+    }
+  }, [chartInstanceRef, scheduleChartMutation]);
+
+  const applyViewport = useCallback((mode: ViewportApplyMode = "queued") => {
     const chart = chartInstanceRef.current;
     if (!chart || chart.isDisposed() || chartData.length === 0) return;
 
@@ -313,40 +166,19 @@ export const useChartViewport = ({
       state.startIdx = Math.max(0, state.endIdx - 10);
     }
 
-    let visibleMin = Infinity;
-    let visibleMax = -Infinity;
-
-    for (let i = state.startIdx; i <= state.endIdx; i++) {
-      if (chartData[i]) {
-        visibleMin = Math.min(visibleMin, chartData[i].low);
-        visibleMax = Math.max(visibleMax, chartData[i].high);
-      }
-    }
-
-    if (visibleMin === Infinity) {
-      visibleMin = 0;
-      visibleMax = 100;
-    }
-
-    const range = visibleMax - visibleMin;
-    const center = (visibleMax + visibleMin) / 2;
-    const padding = range === 0 ? visibleMin * TV_AUTO_SCALE_PADDING : range * TV_AUTO_SCALE_PADDING;
-    const priceAxisValue = Number.isFinite(lastPriceAxisValue)
-      ? lastPriceAxisValue as number
-      : getLastFiniteCloseInViewport(chartData, state.startIdx, state.endIdx);
-    const autoPadding = resolvePriceAxisAutoPadding({
-      basePadding: padding,
-      center,
+    const autoRange = resolveAutoViewportPriceRange({
+      chartData,
+      startIdx: state.startIdx,
+      endIdx: state.endIdx,
       hasComparisonEndLabels,
-      priceAxisValue,
-      visibleMin,
-      visibleMax,
+      lastPriceAxisValue,
     });
-
-    let finalMin, finalMax;
+    const { visibleMin, visibleMax, center, padding } = autoRange;
+    let finalMin = autoRange.min;
+    let finalMax = autoRange.max;
 
     if (state.isYManual) {
-      const scaledRange = (range + padding * 2) * state.yScale;
+      const scaledRange = ((visibleMax - visibleMin) + padding * 2) * state.yScale;
       finalMin = center - (scaledRange / 2) + state.yPan;
       finalMax = center + (scaledRange / 2) + state.yPan;
 
@@ -361,25 +193,41 @@ export const useChartViewport = ({
         state.isYManual = false;
         state.yScale = 1.0;
         state.yPan = 0;
-        finalMin = visibleMin - autoPadding.bottom;
-        finalMax = visibleMax + autoPadding.top;
+        finalMin = autoRange.min;
+        finalMax = autoRange.max;
       }
-    } else {
-      finalMin = visibleMin - autoPadding.bottom;
-      finalMax = visibleMax + autoPadding.top;
     }
 
-    chart.setOption({
-      yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax }],
-      dataZoom: [{ id: 'time-zoom', startValue: state.startIdx, endValue: state.endIdx }]
+    const offscreenPriceLevelGraphics = buildOffscreenPriceLevelGraphics({
+      chart,
+      container: getChartContainer(),
+      markers: priceLevelMarkers,
+      yAxisMin: finalMin,
+      yAxisMax: finalMax,
+      previousGraphicIds: previousPriceLevelGraphicIdsRef.current,
     });
 
-    requestAnimationFrame(() => {
-      updateLastPriceAxisBadge();
-      if (lastCursorClientPointRef.current) {
-        updateCursorPriceAxisBadge(lastCursorClientPointRef.current.x, lastCursorClientPointRef.current.y);
-      }
-    });
+    const viewportOption = {
+      yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax }],
+      dataZoom: [{
+        id: 'time-zoom',
+        xAxisIndex: resolveTimeDataZoomAxisIndexes(option),
+        filterMode: 'none',
+        startValue: state.startIdx,
+        endValue: state.endIdx,
+      }],
+      ...(offscreenPriceLevelGraphics.length > 0 ? { graphic: offscreenPriceLevelGraphics } : {}),
+    };
+
+    enqueueChartMutation("viewport", (targetChart) => {
+      targetChart.setOption(viewportOption, false, true);
+      requestAnimationFrame(() => {
+        updateLastPriceAxisBadge();
+        if (lastCursorClientPointRef.current) {
+          updateCursorPriceAxisBadge(lastCursorClientPointRef.current.x, lastCursorClientPointRef.current.y);
+        }
+      });
+    }, mode);
 
     if (lastZoomRangeRef) {
       lastZoomRangeRef.current = {
@@ -392,12 +240,36 @@ export const useChartViewport = ({
   }, [
     chartData,
     chartInstanceRef,
+    enqueueChartMutation,
+    getChartContainer,
     hasComparisonEndLabels,
     lastPriceAxisValue,
     lastZoomRangeRef,
+    priceLevelMarkers,
     updateCursorPriceAxisBadge,
     updateLastPriceAxisBadge,
   ]);
+
+  const scheduleViewportApply = useCallback((mode: ViewportApplyMode = "queued") => {
+    if (mode === "immediate") {
+      viewportApplyModeRef.current = "immediate";
+    }
+    if (viewportApplyRafRef.current !== null) return;
+
+    viewportApplyRafRef.current = requestAnimationFrame(() => {
+      const applyMode = viewportApplyModeRef.current;
+      viewportApplyModeRef.current = "queued";
+      viewportApplyRafRef.current = null;
+      applyViewport(applyMode);
+    });
+  }, [applyViewport]);
+
+  useEffect(() => () => {
+    if (viewportApplyRafRef.current !== null) {
+      cancelAnimationFrame(viewportApplyRafRef.current);
+      viewportApplyRafRef.current = null;
+    }
+  }, []);
 
   // Currency Auto-Scaling Detector
   useEffect(() => {
@@ -434,9 +306,9 @@ export const useChartViewport = ({
       viewportStateRef.current.endIdx += diff;
       applyViewport();
     } else if (lastLen === 0 || currentLen < lastLen) {
-      const DEFAULT_VISIBLE = 100;
-      viewportStateRef.current.endIdx = currentLen - 1;
-      viewportStateRef.current.startIdx = Math.max(0, currentLen - DEFAULT_VISIBLE);
+      const nextViewport = resolveInitialViewportWindow(currentLen);
+      viewportStateRef.current.startIdx = nextViewport.startIdx;
+      viewportStateRef.current.endIdx = nextViewport.endIdx;
       viewportStateRef.current.yScale = 1.0;
       viewportStateRef.current.yPan = 0;
       viewportStateRef.current.isYManual = false;
@@ -558,16 +430,16 @@ export const useChartViewport = ({
 
     const onWheel = (event: WheelEvent) => {
       const cursor = (event.target as HTMLElement)?.style?.cursor;
-      const target = event.target as HTMLElement | null;
 
       if (cursor === 'move' || cursor === 'grab' || cursor === 'grabbing' || cursor === 'ns-resize') {
         return;
       }
-      if (target?.closest('.gp-price-axis-action-menu') || target?.closest('.gp-price-axis-cursor-action')) {
+      if (isPriceAxisInteractiveTarget(event.target)) {
         return;
       }
 
       event.preventDefault();
+      event.stopPropagation();
       const chart = getLiveChart();
       if (!chart || chartData.length === 0) return;
 
@@ -583,42 +455,38 @@ export const useChartViewport = ({
       const isOnChart = mouseX < gridRightPx && mouseY < gridBottomPx;
 
       const state = viewportStateRef.current;
+      const wheelDeltaY = normalizeWheelDeltaPx(event.deltaY, event.deltaMode);
+      const wheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
 
       if (isOnYAxis) {
-        const zoomFactor = Math.exp(event.deltaY * TV_ZOOM_VELOCITY);
+        const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
         state.yScale *= zoomFactor;
         state.isYManual = true;
-        applyViewport();
+        scheduleViewportApply("immediate");
       } else if (isOnChart || isOnXAxis) {
         const totalBars = chartData.length;
         const visibleCount = state.endIdx - state.startIdx;
 
-        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-          const zoomFactor = Math.exp(event.deltaY * TV_ZOOM_VELOCITY);
+        if (Math.abs(wheelDeltaY) > Math.abs(wheelDeltaX)) {
+          const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
           const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
           const cursorRatio = Math.max(0, Math.min(1, (mouseX - MAIN_GRID_LEFT) / gridWidth));
 
-          let nextViewport = computeDirectionalZoomViewport({
+          const nextViewport = computeDirectionalZoomViewport({
             startIdx: state.startIdx,
             endIdx: state.endIdx,
             totalBars,
             cursorRatio,
             zoomFactor,
-            deltaY: event.deltaY,
+            deltaY: wheelDeltaY,
           });
-
-          const span = Math.max(1, nextViewport.endIdx - nextViewport.startIdx);
-          nextViewport = {
-            startIdx: Math.max(0, (totalBars - 1) - span),
-            endIdx: totalBars - 1,
-          };
 
           state.startIdx = nextViewport.startIdx;
           state.endIdx = nextViewport.endIdx;
-          applyViewport();
+          scheduleViewportApply("immediate");
         } else {
           const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
-          const shift = (event.deltaX / gridWidth) * visibleCount;
+          const shift = (wheelDeltaX / gridWidth) * visibleCount;
 
           const nextViewport = computeHorizontalPanViewport({
             startIdx: state.startIdx,
@@ -629,7 +497,7 @@ export const useChartViewport = ({
 
           state.startIdx = nextViewport.startIdx;
           state.endIdx = nextViewport.endIdx;
-          applyViewport();
+          scheduleViewportApply("immediate");
         }
       }
     };
@@ -654,12 +522,12 @@ export const useChartViewport = ({
 
       const target = event.target as HTMLElement;
       if (target) {
-        if (target.closest('.gp-price-axis-action-menu') || target.closest('.gp-price-axis-cursor-action')) {
+        if (isPriceAxisInteractiveTarget(event.target)) {
           return;
         }
         const drawingCanvas = target.closest('.gp-drawing-canvas') as HTMLCanvasElement | null;
         const drawingInteraction = drawingCanvas?.dataset.drawingInteraction;
-        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser') {
+        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser' || drawingInteraction === 'magic') {
           return;
         }
         if (target.tagName === 'CANVAS') {
@@ -769,7 +637,7 @@ export const useChartViewport = ({
 
         state.startIdx = nextViewport.startIdx;
         state.endIdx = nextViewport.endIdx;
-        applyViewport();
+        scheduleViewportApply("immediate");
 
         state.initialPinchDistance = currentDistance;
         return;
@@ -781,7 +649,7 @@ export const useChartViewport = ({
         const scaleFactor = Math.exp(deltaY * 0.01);
         state.yScale *= scaleFactor;
         state.isYManual = true;
-        applyViewport();
+        scheduleViewportApply("immediate");
       } else if (state.isDraggingChart || state.isDraggingXPan) {
         const deltaX = event.clientX - state.startX;
         state.startX = event.clientX;
@@ -821,7 +689,7 @@ export const useChartViewport = ({
             state.yPan += shiftY;
           }
         }
-        applyViewport();
+        scheduleViewportApply("immediate");
       }
     };
 
@@ -851,12 +719,12 @@ export const useChartViewport = ({
       const target = event.target as HTMLElement;
 
       if (target) {
-        if (target.closest('.gp-price-axis-action-menu') || target.closest('.gp-price-axis-cursor-action')) {
+        if (isPriceAxisInteractiveTarget(event.target)) {
           return;
         }
         const drawingCanvas = target.closest('.gp-drawing-canvas') as HTMLCanvasElement | null;
         const drawingInteraction = drawingCanvas?.dataset.drawingInteraction;
-        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser') {
+        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser' || drawingInteraction === 'magic') {
           return;
         }
         if (target.tagName === 'CANVAS') {
@@ -904,7 +772,15 @@ export const useChartViewport = ({
       window.removeEventListener("pointercancel", onPointerUp);
       window.removeEventListener("pointerout", onPointerUp);
     };
-  }, [chartData, chartInstanceRef, getChartContainer, interactionScopeKey, applyViewport, updateCursorPriceAxisBadge]);
+  }, [
+    chartData,
+    chartInstanceRef,
+    getChartContainer,
+    interactionScopeKey,
+    applyViewport,
+    scheduleViewportApply,
+    updateCursorPriceAxisBadge,
+  ]);
 
   const resetManualYViewport = useCallback(() => {
     viewportStateRef.current.isYManual = false;

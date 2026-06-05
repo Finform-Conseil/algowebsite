@@ -1,5 +1,5 @@
 import type { ChartTypeRenderer, CustomRenderApi } from "./types";
-import { buildLatestPriceMarkLine, getCategoryBandWidth, makeLineShape, makeRectShape } from "./helpers";
+import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeLineShape, makeRectShape } from "./helpers";
 
 export const renderVolumeCandles: ChartTypeRenderer = ({ id, name, result, palette, latestPrice, visible }) => {
   if (result.kind !== "volume_candles") return [];
@@ -8,6 +8,7 @@ export const renderVolumeCandles: ChartTypeRenderer = ({ id, name, result, palet
     id,
     name,
     type: "custom",
+    ...PRICE_CUSTOM_SERIES_BINDING,
     data: result.bars.map((bar, index) => [
       index,
       bar.open,

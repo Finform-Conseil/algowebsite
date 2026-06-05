@@ -1,6 +1,6 @@
 /**
- * [TENOR 2026] Utilities for HDR Forecasting Rendering.
- * Extracted for P27 compliance and cross-renderer reuse.
+ * Utilities for forecasting rendering.
+ * Extracted for P27 sizing and cross-renderer reuse.
  */
 
 export interface RawBar {
@@ -19,7 +19,7 @@ export interface ProfileStats {
 }
 
 /**
- * Deterministic pseudo-random generator to ensure flickering-free stochastics.
+ * Deterministic pseudo-random generator to reduce deterministic jitter in generated stochastics.
  */
 export function pseudoRandom(seed: number): number {
     const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453123;

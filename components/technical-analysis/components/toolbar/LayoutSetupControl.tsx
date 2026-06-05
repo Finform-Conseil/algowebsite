@@ -2,22 +2,27 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { useDispatch, useSelector } from "react-redux";
-import type { MultiChartLayoutId, MultiChartSyncKey } from "../../config/TechnicalAnalysisTypes";
+import {
+  useDispatch,
+  useSelector } from "react-redux";
+import type { MultiChartLayoutId,
+  MultiChartSyncKey } from "../../config/layout/multiChartLayoutTypes";
 import {
   hasCollapsedLayoutSymbols,
   MULTI_CHART_LAYOUTS,
   MULTI_CHART_PRESETS,
   MULTI_CHART_STORAGE_KEY,
-} from "../../config/multiChartLayout";
+  } from "../../config/layout/multiChartLayouts";
 import {
   applyMultiChartPreset,
   hydrateMultiChartLayout,
-  selectChartConfig,
-  selectUiState,
   setMultiChartLayout,
   setMultiChartSync,
 } from "../../store/technicalAnalysisSlice";
+import {
+  selectChartConfig,
+  selectUiState,
+} from "../../store/selectors";
 
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
   { key: "symbol", label: "Symbol", title: "Synchronise le symbole entre tous les graphiques" },

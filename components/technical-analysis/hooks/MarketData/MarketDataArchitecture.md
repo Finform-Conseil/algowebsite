@@ -1,6 +1,6 @@
 # Architecture des Donnees de Marche - Technical Analysis
 
-Revision verifiee le 2026-05-20.
+Revision verifiee le 2026-06-04.
 
 Ce document decrit le flux reel utilise par la page
 `/equity/technical-analysis`, notamment la zone du graphique principal et la
@@ -19,18 +19,9 @@ proxy Next.js. La sidebar droite combine ces memes donnees chart, un snapshot
 live quand il est disponible, des metadonnees statiques locales, et plusieurs
 routes Next.js qui scrappent `brvm.org`.
 
-Point critique : le code contient un hook et une route pour l'intraday, mais
-ils ne sont pas branches a la page visible aujourd'hui. La route de collecte
-mentionnee par le hook (`/api/market-data/brvm-collect`) n'existe pas dans le
-projet actuel. Le systeme affiche donc de l'historique de marche et un
-snapshot live, mais pas encore un vrai flux de seance intraday branche au
-chart principal.
+Decision produit 2026-06-04 : le module intraday BRVM est retire du produit. Il ne doit plus exister de hook de seance, de helper reseau dedie, de route API dediee, de lecture Redis/Upstash de snapshots de seance, ni de mapping applicatif `1m` vers `5m`. Le terminal visible reste un chart daily OHLCV enrichi par snapshot live.
 
-Attention : ce constat ne signifie pas qu'il faut automatiquement reconstruire
-une route de collecte maison. Avant de creer une nouvelle "roue" Redis/collect,
-il faut verifier s'il existe deja une API officielle, commerciale, open data ou
-communautaire capable de fournir le flux de seance BRVM. La construction interne
-ne doit venir qu'apres cette verification.
+Cette decision est volontaire. Une demande future devra ouvrir une nouvelle fonctionnalite avec source-of-truth, contrat API, tests et validation de donnees; les fichiers retires ne doivent pas etre ressuscites par defaut.
 
 ## 2. Reponse Courte Aux 6 Questions Data
 
@@ -56,8 +47,8 @@ Sources utilisees :
    rendement YTD, revenu T12M, market cap fallback, ISIN et FIGI.
 
 Pas de fichier Excel ou PDF directement branche sur cet ecran. Pas de base
-interne pour les bougies daily visibles. Redis/Upstash est prevu pour
-l'intraday, mais le flux n'est pas actif sur la page actuelle.
+interne pour les bougies daily visibles. Pas de source Redis/Upstash intraday
+BRVM dans le flux applicatif.
 
 ### 2.2 Frequence de mise a jour
 
@@ -69,7 +60,6 @@ l'intraday, mais le flux n'est pas actif sur la page actuelle.
 | Scraper capitalisation | A la requete | Cache serveur 30 min, stale 24h |
 | News BRVM | A la requete | Frontend 30 min, serveur 1h |
 | Fondamentaux | Au changement de ticker | Cache HTTP 24h |
-| Intraday Redis | Route existe | Non branche, retourne `[]` sans snapshots |
 
 ### 2.3 Type de donnees disponibles
 
@@ -118,11 +108,7 @@ Routes Next.js impliquees :
 - `app/api/market-data/brvm-news/route.ts`
 - `app/api/market-data/brvm-bonds/route.ts`
 - `app/api/market-data/indices/route.ts`
-- `app/api/market-data/brvm-intraday/route.ts`
 
-La route intraday lit Upstash Redis si `UPSTASH_REDIS_REST_URL` et
-`UPSTASH_REDIS_REST_TOKEN` existent. Elle retourne `[]` si Redis est absent,
-vide ou si aucune cle snapshot n'est trouvee.
 
 ### 2.5 Frontend
 
@@ -195,12 +181,6 @@ Etat live observe :
 }
 ```
 
-Etat intraday observe :
-
-```json
-[]
-```
-
 ## 3. Cartographie Des Fichiers
 
 | Fichier | Role |
@@ -211,8 +191,6 @@ Etat intraday observe :
 | `components/technical-analysis/hooks/MarketData/useMarketData.ts` | Charge daily CSV, enrichit snapshot live, expose chartData |
 | `components/technical-analysis/hooks/useEChartsRenderer.ts` | Transforme chartData en series ECharts et calcule indicateurs |
 | `components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar.tsx` | Affiche watchlist, stats, news, fondamentaux, bonds, indices |
-| `components/technical-analysis/hooks/MarketData/useIntradayData.ts` | Hook intraday prevu, non importe par la page actuelle |
-| `app/api/market-data/brvm-intraday/route.ts` | Agregateur Redis prevu pour bougies intraday |
 | `core/data/brvm-securities.ts` | Source statique locale pour les titres BRVM |
 | `shared/utils/resilient-scraper.ts` | Scraping resilient avec cache L1, Redis, SWR et circuit breaker |
 
@@ -378,97 +356,20 @@ Ce mecanisme protege les routes :
 - `brvm-bonds`
 - `indices`
 
-## 7. Etat Exact De L'Intraday
+## 7. Intraday BRVM Retire
 
-### 7.1 Ce qui existe
+Le projet ne doit plus contenir de surface applicative intraday BRVM.
 
-Le projet contient :
+Effets attendus :
 
-- `components/technical-analysis/hooks/MarketData/useIntradayData.ts`
-- `app/api/market-data/brvm-intraday/route.ts`
+- aucun hook de seance dans les providers ou le chart principal ;
+- aucune route API dediee aux bougies de seance cote App Router ;
+- aucun fallback Redis/Upstash de snapshots de seance ;
+- aucune roadmap locale ne doit demander de brancher des timeframes de seance BRVM.
 
-Le hook prevoyait :
+Les donnees non disponibles restent non disponibles. Le produit ne simule pas de bougies de seance pour combler cette absence.
 
-1. collecter toutes les minutes via `brvm-live?ticker=ALL`
-2. poster les snapshots vers `/api/market-data/brvm-collect`
-3. relire les bougies via `/api/market-data/brvm-intraday`
-
-La route `brvm-intraday` sait :
-
-- lire des snapshots Redis
-- filtrer et trier chronologiquement
-- agreger en timeframes `5m`, `15m`, `30m`, `1H`, `4H`
-- retourner des bougies OHLCV synthetiques
-
-### 7.2 Ce qui n'est pas actif
-
-Verification 2026-05-20 :
-
-- aucun import de `useIntradayData` dans `TechnicalAnalysis.tsx`
-- aucune route `app/api/market-data/brvm-collect/route.ts`
-- `/api/market-data/brvm-intraday?ticker=BOAB&timeframe=5m` retourne `[]`
-
-Conclusion : l'intraday est une architecture prevue, pas le flux actif de
-l'ecran visible. Le deficit actuel est bien un manque de flux de seance.
-
-## 8. Ce Qu'il Faut Fournir Pour Un Vrai Flux De Seance
-
-Avant d'implementer une collecte maison, il faut chercher une source existante :
-
-- API officielle BRVM ou endpoint public non documente mais stable
-- fournisseur de donnees de marche couvrant la BRVM
-- dataset open data avec mises a jour de seance
-- API communautaire fiable
-- endpoint Django deja disponible dans un autre service interne
-
-Si une API externe fiable existe, elle est preferable a une collecte
-crowdsourced maison. La route interne `brvm-collect` ne doit etre envisagee que
-si aucune source fiable ne fournit les snapshots ou bougies attendus.
-
-Un fournisseur de donnees ou un autre backend doit fournir au minimum un
-snapshot de seance regulier :
-
-```json
-{
-  "symbol": "BOAB",
-  "timestamp": "2026-05-20T10:05:00Z",
-  "lastPrice": 9400,
-  "open": 9420,
-  "high": 9420,
-  "low": 9400,
-  "prevClose": 9400,
-  "cumulativeVolume": 1906,
-  "valueTraded": 17916400,
-  "sessionStatus": "open"
-}
-```
-
-Avec ce payload, Algoway peut construire des bougies intraday par delta de
-volume :
-
-- `open`: premier `lastPrice` du bucket
-- `high`: maximum du bucket
-- `low`: minimum du bucket
-- `close`: dernier `lastPrice` du bucket
-- `volume`: `cumulativeVolume` courant moins `cumulativeVolume` precedent
-
-Payload ideal pour une bougie deja agregee :
-
-```json
-{
-  "symbol": "BOAB",
-  "timeframe": "5m",
-  "time": "2026-05-20T10:05:00Z",
-  "open": 9400,
-  "high": 9420,
-  "low": 9400,
-  "close": 9415,
-  "volume": 320,
-  "source": "session-feed"
-}
-```
-
-## 9. Schema De Decision Recommande
+## 8. Schema De Decision Recommande
 
 ```mermaid
 graph TD
@@ -489,73 +390,27 @@ graph TD
   SIDEBAR --> NEWS["/api/market-data/brvm-news"]
   SIDEBAR --> BONDS["/api/market-data/brvm-bonds"]
   SIDEBAR --> INDICES["/api/market-data/indices"]
-  INTRA_HOOK["useIntradayData"] -. "existe mais non branche" .-> INTRA_API["/api/market-data/brvm-intraday"]
-  COLLECT["/api/market-data/brvm-collect"] -. "manquant" .-> REDIS["Upstash Redis snapshots"]
-  REDIS -.-> INTRA_API
 ```
 
-## 10. Recommandations D'Integration
+## 9. Recommandations D Integration
 
-### Priorite 1 : rendre l'etat intraday honnete
+### Priorite 1 : garder MarketData honnete
 
-L'UI ne doit pas laisser croire qu'un flux intraday est actif tant que
-`useIntradayData` n'est pas branche et tant que `brvm-collect` n'existe pas.
+Le contrat public reste daily OHLCV plus snapshot live. Aucune UI, hook ou doc ne doit laisser croire que le produit possede un flux intraday BRVM.
 
-### Priorite 2 : chercher d'abord une API existante
+### Priorite 2 : normaliser les tickers BRVM
 
-Ne pas recreer une infrastructure de collecte si une source fiable existe deja.
-Ordre de decision :
-
-1. Verifier les APIs officielles, commerciales, open data et communautaires BRVM.
-2. Verifier si un backend interne ou Django expose deja les snapshots de seance.
-3. Si une source fiable existe, adapter `useMarketData` ou un nouveau hook pour
-   la consommer directement.
-4. Si aucune source fiable n'existe, alors seulement implementer
-   `/api/market-data/brvm-collect` ou une aggregation Redis equivalente.
-
-### Priorite 3 : brancher les timeframes intraday au renderer
-
-Quand `selectedTimeRange` ou un timeframe chart vaut `1m`, `5m`, `15m`, `1H`
-ou `4H`, le chart doit utiliser `intradayData` au lieu de `chartData` daily.
-
-### Priorite 4 : normaliser les tickers BRVM
-
-`brvm-live?ticker=BOAB` retourne actuellement une erreur, alors que le daily
-CSV et la capitalisation BOAB fonctionnent. Il faut aligner les symboles entre :
+`brvm-live?ticker=BOAB` retourne actuellement une erreur, alors que le daily CSV et la capitalisation BOAB fonctionnent. Il faut aligner les symboles entre :
 
 - tickers internes (`BOAB`)
 - tickers BRVM officiels avec suffixe eventuel (`BOABC`, etc.)
 - chemins GitHub (`BOAB/BOAB.daily.csv`)
 - mapping `BRVM_NAME_TO_TICKER`
 
-### Priorite 5 : marquer clairement la provenance des chiffres sidebar
+### Priorite 3 : marquer clairement la provenance des chiffres sidebar
 
-Les champs `returnYTD`, `peRatio`, `revenueT12M` et certains fondamentaux
-peuvent venir de donnees statiques ou d'estimations. Chaque valeur exposee a un
-autre LLM devrait avoir une provenance :
+Les champs `returnYTD`, `peRatio`, `revenueT12M` et certains fondamentaux peuvent venir de donnees statiques ou d estimations. Chaque valeur exposee a un autre LLM devrait avoir une provenance.
 
-```json
-{
-  "value": 18.45,
-  "field": "returnYTD",
-  "source": "core/data/brvm-securities.ts",
-  "freshness": "static"
-}
-```
+## 10. Verite Finale
 
-## 11. Verite Finale
-
-Algoway possede deja une bonne base daily OHLCV, une architecture de scraping
-resiliente, et un squelette intraday. Ce qui manque pour passer d'un historique
-de marche a un vrai flux de seance est d'abord une decision source-of-truth :
-
-1. verifier s'il existe deja une API ou un fournisseur de donnees de seance,
-2. choisir cette source si elle est fiable,
-3. construire une collecte interne seulement si aucune source fiable n'existe,
-4. brancher l'aggregation OHLCV au chart,
-5. normaliser strictement les tickers,
-6. exposer la provenance explicite des metriques sidebar.
-
-Tant que ces cinq points ne sont pas en place, l'ecran doit etre considere
-comme un terminal daily enrichi par snapshot, pas comme un terminal intraday
-professionnel.
+Algoway possede deja une bonne base daily OHLCV, une architecture de scraping resiliente et un enrichissement live partiel. Il ne possede pas de flux intraday BRVM dans l application active. Toute affirmation contraire dans du code, une doc ou une roadmap doit etre traitee comme un zombie architectural a supprimer.

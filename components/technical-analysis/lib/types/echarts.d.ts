@@ -1,5 +1,5 @@
 /**
- * [TENOR 2026] ECharts Type Extensions.
+ * ECharts Type Extensions.
  * This file provides rigorous typing for ECharts internal models and components.
  * It eliminates the need for 'any' when accessing advanced chart features
  * like grid rectangles and coordinate systems.

@@ -1,4 +1,4 @@
-export * from "./buildEChartsOption";
+export * from "./buildChartTypeSeries";
 export * from "./renderBars";
 export * from "./renderBaseline";
 export * from "./renderCandles";

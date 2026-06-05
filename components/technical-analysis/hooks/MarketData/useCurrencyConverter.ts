@@ -6,12 +6,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+export type CurrencyConversionStatus = "native" | "loading" | "live" | "unavailable";
+
 // [TENOR 2026] In-memory cache to avoid spamming the API during the same session.
 // Persists across component mounts/unmounts.
 const rateCache = new Map<string, number>();
 
 export const useCurrencyConverter = (baseCurrency: string, targetCurrency: string) => {
-  const [exchangeRate, setExchangeRate] = useState<number>(1);
+  const isNativeRate = !baseCurrency || !targetCurrency || baseCurrency === targetCurrency;
+  const [exchangeRate, setExchangeRate] = useState<number | null>(isNativeRate ? 1 : null);
+  const [conversionStatus, setConversionStatus] = useState<CurrencyConversionStatus>(isNativeRate ? "native" : "loading");
   const [isConverting, setIsConverting] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -24,22 +28,40 @@ export const useCurrencyConverter = (baseCurrency: string, targetCurrency: strin
     setPrevCacheKey(cacheKey);
     if (!baseCurrency || !targetCurrency || baseCurrency === targetCurrency) {
       setExchangeRate(1);
+      setConversionStatus("native");
       setIsConverting(false);
     } else if (rateCache.has(cacheKey)) {
       setExchangeRate(rateCache.get(cacheKey)!);
+      setConversionStatus("live");
+      setIsConverting(false);
+    } else {
+      setExchangeRate(null);
+      setConversionStatus("loading");
       setIsConverting(false);
     }
   }
 
   useEffect(() => {
-    // 1. Identical currencies or Cache Hit -> Already handled by render-sync logic
-    if (!baseCurrency || !targetCurrency || baseCurrency === targetCurrency || rateCache.has(cacheKey)) {
+    if (!baseCurrency || !targetCurrency || baseCurrency === targetCurrency) {
+      setExchangeRate(1);
+      setConversionStatus("native");
+      setIsConverting(false);
+      return;
+    }
+
+    const cachedRate = rateCache.get(cacheKey);
+    if (cachedRate !== undefined) {
+      setExchangeRate(cachedRate);
+      setConversionStatus("live");
+      setIsConverting(false);
       return;
     }
 
     // 3. Fetch from Frankfurter API v2 (Triangulation via EUR)
     const fetchRate = async () => {
       setIsConverting(true);
+      setConversionStatus("loading");
+      setExchangeRate(null);
       
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -54,8 +76,8 @@ export const useCurrencyConverter = (baseCurrency: string, targetCurrency: strin
 
         // [TENOR 2026 FIX] SCAR-134: Triangulation Routing
         // Free APIs often reject exotic currencies (like XOF) as the 'base' parameter.
-        // To guarantee 100% success, we ALWAYS use EUR as the base, and request BOTH
-        // the source and target currencies as quotes. Then we calculate the cross rate.
+        // Using EUR as the base improves coverage by requesting BOTH currencies as
+        // quotes, then calculating the cross rate from the live response.
         // Example: XOF -> USD = Rate(EUR->USD) / Rate(EUR->XOF)
         
         let queryQuotes = "";
@@ -94,15 +116,16 @@ export const useCurrencyConverter = (baseCurrency: string, targetCurrency: strin
           const finalRate = rateQuote / rateBase;
           rateCache.set(cacheKey, finalRate);
           setExchangeRate(finalRate);
+          setConversionStatus("live");
         } else {
           throw new Error("Missing currency data in Frankfurter API response");
         }
       } catch (error: unknown) {
         const err = error as Error;
         if (err.name !== 'AbortError') {
-          console.warn(`[CurrencyConverter] Failed to fetch rate for ${baseCurrency}->${targetCurrency}. Falling back to 1:1.`, err);
-          // Fallback to 1:1 to prevent chart collapse (Graceful Degradation)
-          setExchangeRate(1); 
+          console.warn(`[CurrencyConverter] Rate unavailable for ${baseCurrency}->${targetCurrency}.`, err);
+          setExchangeRate(null);
+          setConversionStatus("unavailable");
         }
       } finally {
         if (abortControllerRef.current === controller) {
@@ -120,5 +143,5 @@ export const useCurrencyConverter = (baseCurrency: string, targetCurrency: strin
     };
   }, [baseCurrency, targetCurrency, cacheKey]);
 
-  return { exchangeRate, isConverting };
+  return { exchangeRate, isConverting, conversionStatus };
 };

@@ -1,3 +1,5 @@
+@use '../abstracts/tokens' as *;
+
 .opcvm-detail-page {
   height: $content-height;
   display: flex;

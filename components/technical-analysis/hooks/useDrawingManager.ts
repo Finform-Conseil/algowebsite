@@ -1,273 +1,53 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, RefObject } from "react";
 import { useSelector } from "react-redux";
 import DOMPurify from "dompurify";
-import { selectUiState, selectAlerts, selectOrders } from "../store/technicalAnalysisSlice";
-import { Drawing, DrawingPoint, DrawingStyle, AllToolType, UiState, Alert, Order } from "../config/TechnicalAnalysisTypes";
+import {
+  selectUiState,
+  selectAlerts,
+  selectOrders,
+} from "../store/selectors";
+import type { AllToolType } from "../config/drawing/drawingToolTypes";
+import type { DrawingPoint, DrawingStyle } from "../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
+import type { Alert, Order } from "../config/state/technicalAnalysisStateTypes";
+import type { UiState } from "../config/state/uiStateTypes";
 import { DrawingRenderer } from "../lib/DrawingRenderer";
-import { MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS } from "../config/TechnicalAnalysisConstants";
+import { MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS } from "../config/drawing/drawingConstants";
 import type { EChartsType } from "echarts/core";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { z } from "zod";
+import {
+  EMPTY_ALERTS,
+  EMPTY_ORDERS,
+  MULTI_CLICK_TOOLS,
+  SINGLE_CLICK_TOOLS,
+  TOOL_MAX_CLICKS_REGISTRY,
+  TWO_CLICK_TOOLS,
+  createDefaultAnchoredVolumeProfileProps,
+  validateNamedTemplates,
+  validateToolDefaults,
+} from "./drawing/drawingDefaults";
+import {
+  MAIN_GRID_LEFT,
+  TV_X_AXIS_HEIGHT,
+  TV_Y_AXIS_WIDTH,
+  getInteractiveGridRect,
+  getPriceSeriesIndex,
+  isChartTimeValue,
+  isChartUsable,
+  isInsideGridRect,
+  safeConvertFromPixel,
+  safeConvertToPixel,
+} from "./drawing/drawingCoordinates";
+import { SpatialHashGrid } from "./drawing/drawingSpatialIndex";
+import {
+  DRAWING_CLOUD_PERSISTENCE_STATUS,
+  createDisabledDrawingCloudPersistence,
+  idbGet,
+  idbSet,
+} from "./drawing/drawingPersistence";
 
-const MAIN_GRID_LEFT = 15;
-const TV_Y_AXIS_WIDTH = 84;
-const TV_X_AXIS_HEIGHT = 28;
-const EMPTY_ALERTS: Alert[] = [];
-const EMPTY_ORDERS: Order[] = [];
-
-const createDefaultAnchoredVolumeProfileProps = (): NonNullable<Drawing["anchoredVolumeProfileProps"]> => ({
-  layout: "Number of Rows",
-  rowSize: 24,
-  volume: "Up/Down",
-  valueAreaVolume: 70,
-  upColor: "rgba(0, 188, 212, 0.4)",
-  downColor: "rgba(233, 30, 99, 0.4)",
-  vaUpColor: "rgba(0, 188, 212, 0.8)",
-  vaDownColor: "rgba(233, 30, 99, 0.8)",
-  pocColor: "#000000",
-  width: 40,
-  placement: "Left",
-  showLabels: true,
-  showPOC: true,
-  showValueArea: true,
-});
-
-const isChartTimeValue = (value: unknown): value is string | number =>
-  typeof value === "string" || typeof value === "number";
-
-const isChartUsable = (chart: EChartsType | null): chart is EChartsType => {
-  if (!chart) return false;
-  try {
-    if (chart.isDisposed()) return false;
-    const dom = chart.getDom();
-    return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
-  } catch {
-    return false;
-  }
-};
-
-const safeConvertToPixel = (
-  chart: EChartsType,
-  point: [string | number, number],
-  seriesIndex: number = 0
-): [number, number] | null => {
-  try {
-    const pix = chart.convertToPixel({ seriesIndex }, point);
-    if (!Array.isArray(pix) || !Number.isFinite(pix[0]) || !Number.isFinite(pix[1])) {
-      return null;
-    }
-    return [pix[0], pix[1]];
-  } catch {
-    return null;
-  }
-};
-
-const safeConvertFromPixel = (
-  chart: EChartsType,
-  point: [number, number],
-  seriesIndex: number = 0
-): [string | number, number] | null => {
-  try {
-    const coordinates = chart.convertFromPixel({ seriesIndex }, point);
-    if (!Array.isArray(coordinates) || coordinates.length < 2 || !Number.isFinite(Number(coordinates[1]))) {
-      return null;
-    }
-    if (!isChartTimeValue(coordinates[0])) return null;
-    return [coordinates[0], Number(coordinates[1])];
-  } catch {
-    return null;
-  }
-};
-
-const getInteractiveGridRect = (chart: EChartsType): { x: number; y: number; width: number; height: number } => {
-  const width = chart.getWidth();
-  const height = chart.getHeight();
-  const top = Math.max(30, height * 0.08);
-  const bottom = Math.max(top + 10, height - TV_X_AXIS_HEIGHT);
-  const right = Math.max(MAIN_GRID_LEFT + 10, width - TV_Y_AXIS_WIDTH);
-
-  return {
-    x: MAIN_GRID_LEFT,
-    y: top,
-    width: right - MAIN_GRID_LEFT,
-    height: bottom - top,
-  };
-};
-
-const isInsideGridRect = (
-  point: { x: number; y: number },
-  gridRect: { x: number; y: number; width: number; height: number }
-): boolean =>
-  point.x >= gridRect.x &&
-  point.x <= gridRect.x + gridRect.width &&
-  point.y >= gridRect.y &&
-  point.y <= gridRect.y + gridRect.height;
-
-// ============================================================================
-// [TENOR 2026 SRE] SPATIAL HASH GRID (O(1) HIT-TEST ENGINE)
-// SCAR-PERF-HITTEST: Eradicates O(N*M) brute-force hit testing.
-// Separates finite shapes (AABB) from infinite lines (Rays) to prevent Grid Flooding.
-// ============================================================================
-const CELL_SIZE = 150; // Sweet spot for 1080p/4K screens
-const MAX_CELLS_PER_SHAPE = 100; // OOM Shield against giant polygons
-
-class SpatialHashGrid {
-  private cells: Map<string, { drawing: Drawing; zIndex: number }[]>;
-  private infiniteDrawings: { drawing: Drawing; zIndex: number }[];
-
-  constructor() {
-    this.cells = new Map();
-    this.infiniteDrawings = [];
-  }
-
-  public build(drawings: Drawing[], chart: EChartsType) {
-    this.cells.clear();
-    this.infiniteDrawings = [];
-    if (!isChartUsable(chart)) return;
-
-    for (let i = 0; i < drawings.length; i++) {
-      const d = drawings[i];
-      if (d.hidden) continue;
-
-      // 1. Identify Infinite Tools (Rays, Extended Lines, Pitchforks, Gann Fans)
-      const isInfinite = [
-        "ray", "x_line", "horizontal_line", "vertical_line", "horizontal_ray",
-        "pitchfork", "schiff_pitchfork", "modified_schiff_pitchfork", "inside_pitchfork",
-        "pitchfan", "gann_fan", "regression_trend"
-      ].includes(d.type);
-
-      if (isInfinite) {
-        this.infiniteDrawings.push({ drawing: d, zIndex: i });
-        continue;
-      }
-
-      // 2. Calculate AABB for Finite Tools
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      let hasValidPoints = false;
-
-      for (const p of d.points) {
-        const pix = safeConvertToPixel(chart, [p.time, p.value]);
-        if (pix) {
-          minX = Math.min(minX, pix[0]);
-          maxX = Math.max(maxX, pix[0]);
-          minY = Math.min(minY, pix[1]);
-          maxY = Math.max(maxY, pix[1]);
-          hasValidPoints = true;
-        }
-      }
-
-      if (!hasValidPoints) continue;
-
-      // Add padding for handles and thick lines
-      const padding = 25;
-      minX -= padding; minY -= padding; maxX += padding; maxY += padding;
-
-      const startCol = Math.floor(minX / CELL_SIZE);
-      const endCol = Math.floor(maxX / CELL_SIZE);
-      const startRow = Math.floor(minY / CELL_SIZE);
-      const endRow = Math.floor(maxY / CELL_SIZE);
-
-      const cellsCount = (endCol - startCol + 1) * (endRow - startRow + 1);
-
-      // 3. OOM Shield: If a shape covers too many cells, treat it as infinite
-      if (cellsCount > MAX_CELLS_PER_SHAPE) {
-        this.infiniteDrawings.push({ drawing: d, zIndex: i });
-        continue;
-      }
-
-      // 4. Populate Grid
-      for (let c = startCol; c <= endCol; c++) {
-        for (let r = startRow; r <= endRow; r++) {
-          const key = `${c},${r}`;
-          let cell = this.cells.get(key);
-          if (!cell) {
-            cell = [];
-            this.cells.set(key, cell);
-          }
-          cell.push({ drawing: d, zIndex: i });
-        }
-      }
-    }
-  }
-
-  public query(x: number, y: number): Drawing[] {
-    const col = Math.floor(x / CELL_SIZE);
-    const row = Math.floor(y / CELL_SIZE);
-    const key = `${col},${row}`;
-    
-    const cellDrawings = this.cells.get(key) || [];
-    
-    // Combine infinite drawings and cell drawings
-    const combined = [...this.infiniteDrawings, ...cellDrawings];
-    
-    // Deduplicate by ID and sort by Z-Index descending (Top-most first)
-    const uniqueMap = new Map<string, { drawing: Drawing; zIndex: number }>();
-    for (const item of combined) {
-      uniqueMap.set(item.drawing.id, item);
-    }
-
-    return Array.from(uniqueMap.values())
-      .sort((a, b) => b.zIndex - a.zIndex)
-      .map(item => item.drawing);
-  }
-}
-
-// ============================================================================
-// [TENOR 2026 SRE] INDEXED-DB STORAGE ENGINE (OOM & 5MB LIMIT SHIELD)
-// Exported for reuse in useTechnicalAnalysisActions.ts and useModalOrchestrator.ts
-// ============================================================================
-export const TA_DB_NAME = "AlgowayTA_DB";
-export const TA_STORE_NAME = "ta_store";
-export const TA_DB_VERSION = 1;
-
-export const getTADatabase = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window === "undefined" || !window.indexedDB) {
-      reject(new Error("IndexedDB not supported"));
-      return;
-    }
-    const request = indexedDB.open(TA_DB_NAME, TA_DB_VERSION);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(TA_STORE_NAME)) {
-        db.createObjectStore(TA_STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-export const idbGet = async <T>(key: string): Promise<T | null> => {
-  try {
-    const db = await getTADatabase();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(TA_STORE_NAME, "readonly");
-      const store = tx.objectStore(TA_STORE_NAME);
-      const req = store.get(key);
-      req.onsuccess = () => resolve(req.result as T | null);
-      req.onerror = () => reject(req.error);
-    });
-  } catch (e) {
-    console.warn("[SRE] IndexedDB Get Failed, falling back to null", e);
-    return null;
-  }
-};
-
-export const idbSet = async <T>(key: string, value: T): Promise<void> => {
-  try {
-    const db = await getTADatabase();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(TA_STORE_NAME, "readwrite");
-      const store = tx.objectStore(TA_STORE_NAME);
-      const req = store.put(value, key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch (e) {
-    console.warn("[SRE] IndexedDB Set Failed", e);
-  }
-};
+const saveDrawingToCloudDisabled = createDisabledDrawingCloudPersistence("save");
+const restoreDrawingsFromCloudDisabled = createDisabledDrawingCloudPersistence("restore");
 
 // ============================================================================
 // TYPES
@@ -277,121 +57,6 @@ interface UseDrawingManagerProps {
   drawingCanvasRef: RefObject<HTMLCanvasElement | null>;
   chartData: ChartDataPoint[];
 }
-
-// ============================================================================
-// [TENOR 2026 SRE] LOCALSTORAGE SECURITY SHIELD (ZOD)
-// ============================================================================
-const DrawingStyleSchema = z.object({
-  color: z.string().optional(),
-  lineWidth: z.number().optional(),
-  lineStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
-  lineOpacity: z.number().optional(),
-  fillColor: z.string().optional(),
-  fillOpacity: z.number().optional(),
-  fillEnabled: z.boolean().optional(),
-  borderColor: z.string().optional(),
-  borderEnabled: z.boolean().optional(),
-});
-
-const validateToolDefaults = (data: unknown): Record<string, DrawingStyle> => {
-  if (typeof data !== 'object' || data === null) return {};
-  const result: Record<string, DrawingStyle> = {};
-  for (const [key, value] of Object.entries(data)) {
-    const parsed = DrawingStyleSchema.safeParse(value);
-    if (parsed.success) {
-      result[key] = parsed.data as DrawingStyle;
-    }
-  }
-  return result;
-};
-
-const NamedTemplateItemSchema = z.object({
-  name: z.string(),
-  style: DrawingStyleSchema,
-});
-
-const validateNamedTemplates = (data: unknown): Record<string, { name: string, style: DrawingStyle }[]> => {
-  if (typeof data !== 'object' || data === null) return {};
-  const result: Record<string, { name: string, style: DrawingStyle }[]> = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (Array.isArray(value)) {
-      const validItems: { name: string, style: DrawingStyle }[] = [];
-      for (const item of value) {
-        const parsed = NamedTemplateItemSchema.safeParse(item);
-        if (parsed.success) {
-          validItems.push(parsed.data as { name: string, style: DrawingStyle });
-        }
-      }
-      if (validItems.length > 0) {
-        result[key] = validItems;
-      }
-    }
-  }
-  return result;
-};
-
-// ============================================================================
-// DRY HELPERS & STATE MACHINE REGISTRY (HDR 2026)
-// ============================================================================
-const getPriceSeriesIndex = (chart: EChartsType): number => {
-  const option = chart.getOption();
-  const seriesList = (option.series as Array<{ yAxisIndex?: number; type?: string }>) || [];
-  const idx = seriesList.findIndex((s) => s.yAxisIndex === 0 || s.yAxisIndex === undefined || s.type === "candlestick");
-  return idx !== -1 ? idx : 0;
-};
-
-const SINGLE_CLICK_TOOLS: AllToolType[] = [
-  "horizontal_line", "vertical_line", "crosshair", "arrow_marker",
-  "horizontal_ray", "long_position", "short_position", "anchored_vwap",
-];
-
-const TWO_CLICK_TOOLS: AllToolType[] = [
-  "line", "arrow", "trend_angle", "ray", "x_line", "date_range", "price_range",
-  "date_price_range", "regression_trend", "anchored_volume_profile", "fib_retracement",
-  "fib_time_zone", "fib_speed_resistance_fan", "fib_circles", "fib_spiral",
-  "gann_box", "gann_square", "gann_square_fixed", "gann_fan", "cyclic_lines",
-  "time_cycles", "sine_line", "position_forecast", "bar_pattern", "fib_speed_resistance_arcs"
-];
-
-const MULTI_CLICK_TOOLS: AllToolType[] = [
-  "polyline", "path", "xabcd_pattern", "cypher_pattern", "abcd_pattern",
-  "triangle_pattern", "three_drives_pattern", "head_and_shoulders",
-  "elliott_impulse_wave", "elliott_triangle_wave", "elliott_triple_combo_wave",
-  "elliott_correction_wave", "elliott_double_combo_wave", "projection", "curve",
-  "parallel_channel", "flat_top_bottom", "disjoint_channel", "pitchfork",
-  "schiff_pitchfork", "modified_schiff_pitchfork", "inside_pitchfork", "pitchfan",
-  "trend_based_fib_extension", "fib_channel", "trend_based_fib_time", "fib_wedge",
-  "ghost_feed", "sector",
-];
-
-const TOOL_MAX_CLICKS_REGISTRY: Record<string, number> = {
-  "sector": 3,
-  "xabcd_pattern": 5,
-  "cypher_pattern": 5,
-  "abcd_pattern": 4,
-  "triangle_pattern": 4,
-  "three_drives_pattern": 7,
-  "head_and_shoulders": 7,
-  "elliott_impulse_wave": 6,
-  "elliott_triangle_wave": 5,
-  "elliott_triple_combo_wave": 5,
-  "elliott_correction_wave": 3,
-  "elliott_double_combo_wave": 3,
-  "trend_based_fib_extension": 3,
-  "fib_channel": 3,
-  "trend_based_fib_time": 3,
-  "fib_wedge": 3,
-  "pitchfork": 3,
-  "schiff_pitchfork": 3,
-  "modified_schiff_pitchfork": 3,
-  "inside_pitchfork": 3,
-  "pitchfan": 3,
-  "disjoint_channel": 3,
-  "parallel_channel": 3,
-  "flat_top_bottom": 3,
-  "projection": 3,
-  "curve": 3,
-};
 
 // ============================================================================
 // HOOK
@@ -1124,7 +789,7 @@ export const useDrawingManager = ({
     const currentActiveTool = activeToolRef.current;
     const mode = cursorModeRef.current;
 
-    if (mode === 'magic') {
+    if (mode === 'magic' && !currentActiveTool) {
       setSelectedDrawingId(null);
       markDirty();
       return;
@@ -1142,7 +807,7 @@ export const useDrawingManager = ({
         
         if (result.isHit) {
           claimDrawingPointerEvent();
-          if (mode === 'eraser') {
+          if (mode === 'eraser' && !currentActiveTool) {
             deleteDrawing(d.id);
             return;
           }
@@ -1175,7 +840,7 @@ export const useDrawingManager = ({
       }
     }
 
-    if (mode === 'eraser') {
+    if (mode === 'eraser' && !currentActiveTool) {
       claimDrawingPointerEvent();
       setSelectedDrawingId(null);
       markDirty();
@@ -1826,7 +1491,7 @@ export const useDrawingManager = ({
     }
 
     const mode = cursorModeRef.current;
-    if (mode === 'eraser' || mode === 'magic') {
+    if ((mode === 'eraser' || mode === 'magic') && !activeToolRef.current && !isDrawingRef.current) {
       drawingCanvasRef.current.style.cursor = '';
       return;
     }
@@ -1985,12 +1650,9 @@ export const useDrawingManager = ({
     reorderDrawing,
     undo,
     redo,
-    saveDrawingToCloud: useCallback(async () => {
-      console.warn("Cloud Save not implemented");
-    }, []),
-    restoreDrawingsFromCloud: useCallback(async () => {
-      console.warn("Cloud Restore not implemented");
-    }, []),
+    drawingCloudPersistenceStatus: DRAWING_CLOUD_PERSISTENCE_STATUS,
+    saveDrawingToCloud: saveDrawingToCloudDisabled,
+    restoreDrawingsFromCloud: restoreDrawingsFromCloudDisabled,
     saveAsDefault,
     resetStyle,
     namedTemplates,

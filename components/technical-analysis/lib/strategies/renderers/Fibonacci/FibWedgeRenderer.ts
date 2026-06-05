@@ -1,5 +1,5 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing } from "../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { diagonal, angleBetweenPoints, interpolateWedge } from "../../../math/geometry";
 
 export function renderFibWedge(
@@ -71,7 +71,7 @@ export function renderFibWedge(
         h.ctx.stroke();
         h.ctx.restore();
 
-        // 4. LABELS (HDR 2026 Restoration)
+        // 4. LABELS (Label restoration)
         if (showLabels) {
             const nextVal = idx === sortedLevels.length - 1 ? 0 : sortedLevels[idx + 1].value;
             const midLevel = (l.value + nextVal) / 2;

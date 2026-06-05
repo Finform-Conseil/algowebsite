@@ -1,9 +1,11 @@
 "use client";
 
 import React, { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import clsx from "clsx";
-import type { ChartAppearance, MultiChartLayoutCell, MultiChartLayoutState } from "../../config/TechnicalAnalysisTypes";
-import { getLayoutDefinition } from "../../config/multiChartLayout";
+import type { MultiChartLayoutCell, MultiChartLayoutState } from "../../config/layout/multiChartLayoutTypes";
+import type { ChartAppearance } from "../../config/state/chartStateTypes";
+import { getLayoutDefinition } from "../../config/layout/multiChartLayouts";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../lib/types/echarts";
 import type { ComparisonLoadState } from "../../hooks/MarketData/useMarketData";
@@ -11,47 +13,48 @@ import {
   useMultiChartSync,
   type MultiChartSyncPeer,
 } from "../../hooks/useMultiChartSync";
-import { FullPeerChart } from "./FullPeerChart";
+import type { FullPeerChartProps } from "./FullPeerChart";
+import type { ActiveChartPreviewProps, SecondaryChartCellProps, MiniChartRenderMode } from "./MiniChartCanvas";
 import {
-  MiniChartCanvas,
-  ActiveChartPreview,
-  SecondaryChartCell,
-  type MiniChartRenderMode,
-} from "./MiniChartCanvas";
+  createEmptyLayoutOhlcState,
+  createLayoutOhlcState,
+  getLayoutBullBearColor,
+  getRenderableOhlcvSeries,
+  type LayoutOhlcState,
+} from "./layoutChartData";
 
-interface OhlcState {
-  open: string;
-  high: string;
-  low: string;
-  close: string;
-  change: string;
-  changePercent: string;
-  volume: string;
-  time: string;
-}
+const PeerChartFallback = () => (
+  <div className="gp-multi-chart-cell gp-multi-chart-cell--secondary">
+    <span className="gp-multi-chart-cell__loading" aria-live="polite">
+      <span className="gp-mini-data-spinner" aria-hidden="true" />
+      <strong>Loading chart</strong>
+      <em>BRVM</em>
+    </span>
+  </div>
+);
 
-const initialOhlc = (): OhlcState => ({
-  open: "--",
-  high: "--",
-  low: "--",
-  close: "--",
-  change: "--",
-  changePercent: "--",
-  volume: "--",
-  time: "",
-});
+const ActivePreviewFallback = () => (
+  <span className="gp-multi-chart-cell__loading" aria-live="polite">
+    <span className="gp-mini-data-spinner" aria-hidden="true" />
+    <strong>Loading preview</strong>
+    <em>BRVM</em>
+  </span>
+);
 
-const formatPrice = (val: number): string =>
-  val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const FullPeerChart = dynamic<FullPeerChartProps>(
+  () => import("./FullPeerChart").then((module) => module.FullPeerChart),
+  { ssr: false, loading: PeerChartFallback }
+);
 
-const formatVolume = (val: number): string => {
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
-  return val.toString();
-};
+const ActiveChartPreview = dynamic<ActiveChartPreviewProps>(
+  () => import("./MiniChartCanvas").then((module) => module.ActiveChartPreview),
+  { ssr: false, loading: ActivePreviewFallback }
+);
 
-const getBullBearColor = (close: number, open: number): string =>
-  close >= open ? "#00e676" : "#ff1744";
+const SecondaryChartCell = dynamic<SecondaryChartCellProps>(
+  () => import("./MiniChartCanvas").then((module) => module.SecondaryChartCell),
+  { ssr: false, loading: PeerChartFallback }
+);
 
 interface MultiChartLayoutGridProps {
   layout: MultiChartLayoutState;
@@ -73,16 +76,6 @@ interface MultiChartLayoutGridProps {
   onEditChart: (chartId: string) => void;
   openTickerSelector: () => void;
 }
-
-const getMiniChartSeries = (data: ChartDataPoint[]): ChartDataPoint[] =>
-  data.filter(
-    (point) =>
-      Number.isFinite(point.open) &&
-      Number.isFinite(point.high) &&
-      Number.isFinite(point.low) &&
-      Number.isFinite(point.close) &&
-      point.close > 0
-  );
 
 export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   layout,
@@ -106,48 +99,23 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   const [secondaryChartsById, setSecondaryChartsById] = useState<Record<string, EChartsInstance>>({});
 
   // Active chart OHLC dynamic hover state
-  const [activeOhlc, setActiveOhlc] = useState<OhlcState>(initialOhlc());
+  const [activeOhlc, setActiveOhlc] = useState<LayoutOhlcState>(createEmptyLayoutOhlcState());
   const [activeLastPriceColor, setActiveLastPriceColor] = useState<string>("#94a3b8");
 
   const activeFilteredData = useMemo(() => {
-    return activeChartData.filter(
-      (p) =>
-        Number.isFinite(p.open) &&
-        Number.isFinite(p.high) &&
-        Number.isFinite(p.low) &&
-        Number.isFinite(p.close) &&
-        p.close > 0
-    );
+    return getRenderableOhlcvSeries(activeChartData);
   }, [activeChartData]);
 
   const activeLatestPoint = activeFilteredData[activeFilteredData.length - 1];
 
   const updateActiveOhlcFromPoint = useCallback((point: ChartDataPoint | undefined) => {
     if (!point) {
-      setActiveOhlc(initialOhlc());
+      setActiveOhlc(createEmptyLayoutOhlcState());
       setActiveLastPriceColor("#94a3b8");
       return;
     }
-    const change = point.close - point.open;
-    const changePercent = point.open === 0 ? 0 : (change / point.open) * 100;
-    const sign = change >= 0 ? "+" : "";
-
-    setActiveOhlc({
-      open: formatPrice(point.open),
-      high: formatPrice(point.high),
-      low: formatPrice(point.low),
-      close: formatPrice(point.close),
-      change: `${sign}${formatPrice(change)}`,
-      changePercent: `${sign}${changePercent.toFixed(2)}%`,
-      volume: formatVolume(point.volume),
-      time: new Intl.DateTimeFormat("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(point.time)),
-    });
-    setActiveLastPriceColor(getBullBearColor(point.close, point.open));
+    setActiveOhlc(createLayoutOhlcState(point));
+    setActiveLastPriceColor(getLayoutBullBearColor(point.close, point.open));
   }, []);
 
   // Sync to latest point when it changes (or when hover leaves)
@@ -245,7 +213,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
         result.push({
           chartId: cell.chartId,
           chart,
-          data: getMiniChartSeries(marketData[cell.symbol] ?? []),
+          data: getRenderableOhlcvSeries(marketData[cell.symbol] ?? []),
           interval: cell.interval,
         });
       }

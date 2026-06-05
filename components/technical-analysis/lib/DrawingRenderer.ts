@@ -1,31 +1,33 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/DrawingRenderer.ts
-import { AllToolType, Drawing, DrawingHelpers, DrawingPoint, DrawingStyle, HitTestResult, Alert, Order } from "../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "./Indicators/TechnicalIndicators";
+import type { AllToolType } from "../config/drawing/drawingToolTypes";
+import type { DrawingPoint, DrawingStyle } from "../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
+import type { DrawingHelpers, HitTestResult } from "../config/drawing/drawingInteractionTypes";
+import type { Alert, Order } from "../config/state/technicalAnalysisStateTypes";
+import type { ChartDataPoint } from "./Indicators/TechnicalIndicators";
 import { drawingStrategyRegistry } from "./strategies/DrawingStrategyRegistry";
 import type { EChartsType } from "echarts/core";
 import { sanitizeCanvasText } from "./utils/sanitize";
 
 // ============================================================================
-// DRAWING RENDERER CLASS (HDR 2026 - ZERO-ALLOCATION ENGINE)
+// DRAWING RENDERER CLASS (POOLED CANVAS RENDERER)
 // ============================================================================
 export class DrawingRenderer {
   private ctx: CanvasRenderingContext2D;
 
-  // [TENOR 2026 SRE] OBJECT POOLING & ZERO-ALLOCATION BUFFERS
-  // These buffers eliminate Garbage Collector (GC) stuttering by preventing
-  // object creation during the 60 FPS requestAnimationFrame loop.
+  // Object pooling and reusable buffers.
+  // These buffers reduce avoidable GC pressure during the drawing RAF loop.
   private pointPool: { x: number; y: number }[] = [];
   private pixelBuffer: { x: number; y: number }[] = [];
   private dataBuffer: DrawingPoint[] = [];
   private cachedHelpers: DrawingHelpers;
 
-  // [TENOR 2026 SRE] Zero-Allocation Constants
+  // Reusable constants
   private static readonly NO_HIT: HitTestResult = { isHit: false, hitType: null };
   private static readonly DASH_PATTERN = [10, 5];
   private static readonly DOT_PATTERN = [2, 5];
   private static readonly SOLID_PATTERN: number[] = [];
 
-  // [TENOR 2026 SRE] Reusable objects for preview to avoid GC stutter
+  // Reusable preview objects to reduce avoidable GC pressure
   private previewPixPool = { x: 0, y: 0 };
   private virtualDataPointPool: DrawingPoint = { time: 0, value: 0 };
 
@@ -79,7 +81,7 @@ export class DrawingRenderer {
 
   /**
    * Main render loop - clears canvas and draws all items
-   * [TENOR 2026] Optimized for Zero-Allocation
+   * Uses pooled helpers and reusable buffers where possible.
    */
   public render(
     drawings: Drawing[],
@@ -125,7 +127,7 @@ export class DrawingRenderer {
       try {
         this.drawItem(drawing, chart, false, null, drawing.id === selectedDrawingId, chartData);
       } catch (err) {
-        console.error(`[TENOR SRE] Render Error for tool ${drawing.type}:`, err);
+        console.error(`Drawing render error for tool ${drawing.type}:`, err);
       }
     }
 
@@ -140,7 +142,7 @@ export class DrawingRenderer {
       try {
         this.drawItem(currentDrawing, chart, true, mousePos, true, chartData);
       } catch (err) {
-        console.error(`[TENOR SRE] Preview Render Error:`, err);
+        console.error(`Drawing preview render error:`, err);
       }
     }
 
@@ -236,7 +238,7 @@ export class DrawingRenderer {
     if (points.length < 1 && !mousePos) return;
     if (!DrawingRenderer.isChartRenderable(chart)) return;
 
-    // [TENOR 2026 SRE] Zero-Allocation Buffer Reset
+    // Reusable buffer reset
     // Mutating length to 0 clears the array without reallocating memory.
     this.pixelBuffer.length = 0;
     this.dataBuffer.length = 0;
@@ -262,11 +264,11 @@ export class DrawingRenderer {
       }
     }
 
-    // [VIRTUAL PREVIEW] Zero-Lag Elastic-Band
+    // [VIRTUAL PREVIEW] Low-latency elastic-band preview
     if (isPreview && mousePos) {
       let previewPix = mousePos;
 
-      // [TENOR 2026] Sector HDR Parity: 180° Cap & Radial Isometry (Preview Mode)
+      // Sector preview: keep the radius stable while rotating the pending angle.
       if (type === 'sector' && this.pixelBuffer.length === 2) {
         const p1 = this.pixelBuffer[0]; // Center
         const p2 = this.pixelBuffer[1]; // Radius anchor
@@ -300,7 +302,7 @@ export class DrawingRenderer {
     this.ctx.save();
     this.applyStyle(style, isPreview);
 
-    // [TENOR 2026] StrategyRegistry delegation
+    // StrategyRegistry delegation
     const strategy = drawingStrategyRegistry.getStrategy(type);
     if (strategy) {
       // Pass the shared buffers. Strategies are synchronous and will not store references.
@@ -355,7 +357,7 @@ export class DrawingRenderer {
   }
 
   /**
-   * [TENOR 2026] Security Fix: Applied sanitizeCanvasText to prevent XSS in Canvas.
+   * Sanitizes user text before Canvas and DOM-backed overlay rendering paths.
    */
   private drawTextOnLine(p1: { x: number; y: number }, p2: { x: number; y: number }, drawing: Drawing) {
     const {
@@ -371,7 +373,7 @@ export class DrawingRenderer {
 
     if (!text || drawing.showText === false) return;
 
-    // [SECURITY SUTURE] Neutralize malicious input before rendering
+    // Normalize user-controlled text before rendering
     const sanitizedText = sanitizeCanvasText(text);
 
     this.ctx.save();

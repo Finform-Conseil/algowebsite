@@ -1,8 +1,18 @@
 import type { ChartDataPoint } from "../Indicators/TechnicalIndicators";
-import type { VolumeColorMode } from "../../config/TechnicalAnalysisTypes";
+import type { VolumeColorMode } from "../../config/state/chartStateTypes";
 
 export type CandleDirection = 1 | -1;
 export type DirectionalVolumeDataPoint = [number, number, CandleDirection];
+
+export type DirectionalVolumeBarValue = number | "-" | [string, number | "-"];
+
+export interface DirectionalVolumeBarDataItem {
+  value: DirectionalVolumeBarValue;
+  itemStyle: {
+    color: string;
+    opacity: number;
+  };
+}
 
 export interface DirectionalCandleItemStyle {
   color: string;
@@ -102,11 +112,48 @@ export const buildDirectionalCandlestickData = (
     itemStyle: buildDirectionalCandleStyle(directions[index] ?? DEFAULT_CANDLE_DIRECTION, palette),
   }));
 
+/**
+ * @internal Keep raw direction tuples out of ECharts bar series.
+ * Use buildDirectionalVolumeBarData for rendered volume bars.
+ */
 export const buildDirectionalVolumeData = (
   points: ChartDataPoint[],
   directions: CandleDirection[] = buildCandleDirections(points)
 ): DirectionalVolumeDataPoint[] =>
   points.map((point, index) => [index, point.volume, directions[index] ?? DEFAULT_CANDLE_DIRECTION]);
+
+const buildVolumeBarValue = (
+  index: number,
+  volume: number | "-",
+  dates?: string[],
+): DirectionalVolumeBarValue => {
+  const date = dates?.[index];
+  return date ? [date, volume] : volume;
+};
+
+export const buildDirectionalVolumeBarData = (
+  volumes: DirectionalVolumeDataPoint[],
+  palette: DirectionalOhlcvPalette,
+  opacity: number,
+  pointCount: number = volumes.length,
+  dates?: string[],
+): DirectionalVolumeBarDataItem[] => {
+  const renderedBars: DirectionalVolumeBarDataItem[] = volumes.slice(0, pointCount).map(([_index, volume, direction], index) => ({
+    value: buildVolumeBarValue(index, volume, dates),
+    itemStyle: {
+      color: getCandleDirectionColor(direction, palette.upColor, palette.downColor),
+      opacity,
+    },
+  }));
+
+  return renderedBars.concat(Array.from({ length: Math.max(0, pointCount - volumes.length) }, (_unused, offset) => ({
+    value: buildVolumeBarValue(volumes.length + offset, "-", dates),
+    itemStyle: {
+      color: "rgba(0, 0, 0, 0)",
+      opacity: 0,
+    },
+  })));
+};
 
 export const buildDirectionalOhlcvSeries = (
   points: ChartDataPoint[],

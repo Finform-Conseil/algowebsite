@@ -1,12 +1,9 @@
-import type {
-  LiveSnapshot,
-  PriceVsSmaMetricState,
-  PriceVsSmaQualityTone,
-} from "../../config/TechnicalAnalysisTypes";
+import type { PriceVsSmaMetricState, PriceVsSmaQualityTone } from "../../config/indicators/advancedIndicatorsTypes";
+import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
 import {
   PRICE_VS_SMA_METRIC_SPECS,
   type PriceVsSmaMetricSpec,
-} from "../../config/priceVsSmaMetrics";
+} from "../../config/indicators/priceVsSmaMetrics";
 import type { ChartDataPoint } from "./TechnicalIndicators";
 
 export interface PriceVsSmaMetricResult {

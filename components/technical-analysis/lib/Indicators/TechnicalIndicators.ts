@@ -1,12 +1,10 @@
 // ================================================================================
-// FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/Indicators/TechnicalIndicators.ts
-// [TENOR 2026] Optimized Technical Indicators Library.
-// Performance Warfare Edition: Implements Sliding Window and Incremental Updates.
-// [TENOR 2026 SRE] SCAR-MATH-PRECISION: TradingView Parity for Stochastic & StochRSI.
-// [TENOR 2026 SRE] SCAR-TIME-SHIFTING: Added Ichimoku Cloud with Future/Past Projections.
-// [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE: Added BB Width, BB %B, and enforced ddof=0.
-// [TENOR 2026 FIX] BOLLINGER DEBT RESOLVED: Full support for Source and Offset.
-// Strict NaN propagation ("-") and Zero-Division shields applied.
+// Technical indicators library.
+// Several moving-window implementations are optimized, but not every indicator is incremental.
+// Stochastic, StochRSI, RSI, Bollinger and Ichimoku follow TradingView-compatible formulas
+// for the supported settings implemented in this file.
+// Bollinger supports BB Width, BB %B, source, offset and population standard deviation (ddof=0).
+// Missing/invalid values propagate as "-" where the indicator contract expects it.
 // ================================================================================
 
 export interface ChartDataPoint {
@@ -16,10 +14,182 @@ export interface ChartDataPoint {
   low: number;
   close: number;
   volume: number;
+  tradesCount?: number | null;
+  trades_count?: number | null;
+}
+
+export type VolumeProfileRangeMode = "visible_range" | "fixed_range" | "session" | "last_n_bars";
+export type VolumeProfileCalculationQuality = "trade_based" | "intraday_based" | "daily_approximation" | "unavailable";
+
+export interface VolumeProfileRow {
+  priceLow: number;
+  priceHigh: number;
+  priceMid: number;
+  totalVolume: number;
+  upVolume: number;
+  downVolume: number;
+  isPoc: boolean;
+  isValueArea: boolean;
+}
+
+export interface VolumeProfileResult {
+  rangeStart: string;
+  rangeEnd: string;
+  rangeMode: VolumeProfileRangeMode;
+  rowSize: number;
+  valueAreaPercent: number;
+  rows: VolumeProfileRow[];
+  poc: number | null;
+  vah: number | null;
+  val: number | null;
+  maxVolume: number;
+  totalVolume: number;
+  calculationQuality: VolumeProfileCalculationQuality;
+}
+
+export interface VolumeProfileOptions {
+  rangeMode?: VolumeProfileRangeMode;
+  numberOfRows?: number;
+  rowSize?: number;
+  valueAreaPercent?: number;
+  maxBars?: number;
+}
+
+export interface PivotPointsSeries {
+  pivot: (number | string)[];
+  r1: (number | string)[];
+  r2: (number | string)[];
+  r3: (number | string)[];
+  s1: (number | string)[];
+  s2: (number | string)[];
+  s3: (number | string)[];
+}
+
+export interface MovingAverageCrossSignals {
+  goldenCross: (number | string)[];
+  deathCross: (number | string)[];
+}
+
+export interface VwapSeries {
+  vwap: (number | string)[];
+  priceAboveVwap: (number | string)[];
+  priceBelowVwap: (number | string)[];
+  distance: (number | string)[];
+  distancePct: (number | string)[];
+}
+
+export interface FiftyTwoWeekLevels {
+  high: (number | string)[];
+  low: (number | string)[];
+  newHigh: (number | string)[];
+  newLow: (number | string)[];
+}
+
+export interface HistoricalRecordLevels {
+  ath: (number | string)[];
+  atl: (number | string)[];
+  newAth: (number | string)[];
+  newAtl: (number | string)[];
+}
+
+export interface PriceActionSignalOptions {
+  lookback?: number;
+  tickSize?: number;
+  minBreakTicks?: number;
+  minGapTicks?: number;
+}
+
+export interface PriceActionSignals {
+  resistance: (number | string)[];
+  support: (number | string)[];
+  breakoutResistance: (number | string)[];
+  breakdownSupport: (number | string)[];
+  gapUp: (number | string)[];
+  gapDown: (number | string)[];
+  trueGapUp: (number | string)[];
+  trueGapDown: (number | string)[];
+  gapAbs: (number | string)[];
+  gapPct: (number | string)[];
+  isUpDay: (number | string)[];
+  isDownDay: (number | string)[];
+  upStreak: (number | string)[];
+  downStreak: (number | string)[];
+  insideBar: (number | string)[];
+  outsideBar: (number | string)[];
+}
+
+export type CandlestickPatternMode = "talib_compatible" | "strict_market";
+
+export interface CandlestickPatternOptions {
+  tickSize?: number;
+  mode?: CandlestickPatternMode;
+  bodyShortPeriod?: number;
+  bodyLongPeriod?: number;
+  bodyDojiPeriod?: number;
+  shadowVeryShortPeriod?: number;
+  nearPeriod?: number;
+  trendFilterPeriod?: number;
+  dojiAvgPeriod?: number;
+  dojiFactor?: number;
+  bodyDojiFactor?: number;
+  veryShortShadowAvgPeriod?: number;
+  veryShortShadowFactor?: number;
+  shadowVeryShortFactor?: number;
+  nearAvgPeriod?: number;
+  nearFactor?: number;
+  requireVolumeForPattern?: boolean;
+}
+
+export interface CandlestickPatternSignals {
+  realBody: (number | string)[];
+  highLowRange: (number | string)[];
+  upperShadow: (number | string)[];
+  lowerShadow: (number | string)[];
+  bodyShortAvg: (number | string)[];
+  bodyLongAvg: (number | string)[];
+  bodyDojiMax: (number | string)[];
+  shadowVeryShortMax: (number | string)[];
+  nearTolerance: (number | string)[];
+  avgRange10: (number | string)[];
+  avgRange5: (number | string)[];
+  dojiMaxBody: (number | string)[];
+  veryShortShadowMax: (number | string)[];
+  nearMidTolerance: (number | string)[];
+  uptrend: (number | string)[];
+  downtrend: (number | string)[];
+  doji: (number | string)[];
+  longLeggedDoji: (number | string)[];
+  rickshawMan: (number | string)[];
+  dragonflyDoji: (number | string)[];
+  gravestoneDoji: (number | string)[];
+  tristar: (number | string)[];
+  bullishTristar: (number | string)[];
+  bearishTristar: (number | string)[];
+  hammer: (number | string)[];
+  hangingMan: (number | string)[];
+  takuri: (number | string)[];
+  invertedHammer: (number | string)[];
+  shootingStar: (number | string)[];
+  marubozuBull: (number | string)[];
+  marubozuBear: (number | string)[];
+  spinningTop: (number | string)[];
+  hammerConfirmed: (number | string)[];
+  hangingManConfirmed: (number | string)[];
+  invertedHammerConfirmed: (number | string)[];
+  shootingStarConfirmed: (number | string)[];
+  insufficientHistory: (number | string)[];
+  missingOHLC: (number | string)[];
+  invalidOHLC: (number | string)[];
+  zeroRange: (number | string)[];
+  noTradeSession: (number | string)[];
+  stalePrice: (number | string)[];
+  corporateActionSuspected: (number | string)[];
+  lowReliabilityBecauseIlliquid: (number | string)[];
 }
 
 /**
- * Generates initial mock data for the chart.
+ * Generates synthetic chart data for mock mode and UI-only fallbacks.
+ * This is not BRVM market data and must not be used for real analysis.
  */
 export const generateInitialData = (count: number): ChartDataPoint[] => {
   const data: ChartDataPoint[] = [];
@@ -104,7 +274,45 @@ const toFinitePriceValue = (value: unknown): number | null => {
   return Number.isFinite(numericValue) ? numericValue : null;
 };
 
-const roundIndicatorValue = (value: number): number => parseFloat(value.toFixed(2));
+const toFiniteVolumeValue = (value: unknown): number | null => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : null;
+};
+
+const toFiniteTradeCountValue = (point: ChartDataPoint): number | null => {
+  const rawValue = point.tradesCount ?? point.trades_count;
+  if (rawValue === null || rawValue === undefined) return null;
+  const numericValue = Number(rawValue);
+  return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : null;
+};
+
+const parseBarTimestampMs = (time: string): number | null => {
+  const numericValue = Number(time);
+  if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+
+  const parsedValue = Date.parse(time);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+};
+
+const resolveSessionKey = (time: string): string | null => {
+  const timestampMs = parseBarTimestampMs(time);
+  if (timestampMs === null) return null;
+  return new Date(timestampMs).toISOString().slice(0, 10);
+};
+
+const roundIndicatorValue = (value: number, fractionDigits = 2): number =>
+  parseFloat(value.toFixed(fractionDigits));
+
+const calculateMoneyFlowVolume = (point: ChartDataPoint): { moneyFlowVolume: number; volume: number } | null => {
+  const high = toFinitePriceValue(point.high);
+  const low = toFinitePriceValue(point.low);
+  const close = toFinitePriceValue(point.close);
+  const volume = toFiniteVolumeValue(point.volume);
+  if (high === null || low === null || close === null || volume === null || high < low) return null;
+
+  const moneyFlowMultiplier = high === low ? 0 : (2 * close - high - low) / (high - low);
+  return { moneyFlowVolume: moneyFlowMultiplier * volume, volume };
+};
 
 const calculateEMAFloatSeries = (
   values: Array<number | string | null>,
@@ -446,7 +654,7 @@ export const calculateVWMA = (data: ChartDataPoint[], period: number): (number |
 /**
  * Relative Strength Index (RSI) - Optimized with Wilder's Smoothing (RMA).
  * Complexity: O(n)
- * TradingView Parity: Exact Wilder's RMA implementation.
+ * Uses Wilder RMA smoothing, matching the supported RSI formula.
  */
 export const calculateRSI = (data: ChartDataPoint[], period: number = 14): (number | string)[] => {
   const results: (number | string)[] = new Array(data.length).fill("-");
@@ -675,10 +883,9 @@ export const calculateParabolicSAR = (
 };
 
 /**
- * [TENOR 2026 HDR] Bollinger Bands (TradingView Parity)
+ * Bollinger Bands for the supported TradingView-compatible settings.
  * Optimized with O(n) Sliding Window Variance.
- * Enforces ddof=0 (Population Standard Deviation) to match Pine Script exactly.
- * [FIX] Full support for Source and Offset.
+ * Enforces ddof=0 (population standard deviation) and supports source/offset inputs.
  */
 export const calculateBollinger = (
   data: ChartDataPoint[],
@@ -751,8 +958,7 @@ export const calculateBollinger = (
     updateBands(i, sum, sumSq);
   }
 
-  // [TENOR 2026] Calculate Width and %B based on the SHIFTED bands and CURRENT price
-  // This guarantees mathematical parity with TradingView's oscillator behavior.
+  // Calculate Width and %B from the shifted bands and current close.
   for (let i = 0; i < data.length; i++) {
     const up = upper[i];
     const dn = lower[i];
@@ -773,7 +979,7 @@ export const calculateBollinger = (
 };
 
 /**
- * [TENOR 2026 HDR] Stochastic Oscillator (TradingView Parity)
+ * Stochastic Oscillator for the supported TradingView-compatible settings.
  * Formula:
  * rawK = 100 * (close - lowest(low, periodK)) / (highest(high, periodK) - lowest(low, periodK))
  * %K = SMA(rawK, smoothK)
@@ -840,7 +1046,7 @@ export const calculateStochastic = (
 };
 
 /**
- * [TENOR 2026 HDR] Stochastic RSI (TradingView Parity)
+ * Stochastic RSI for the supported TradingView-compatible settings.
  * Formula:
  * rsi = RSI(close, rsiLength)
  * rawStochRsi = 100 * (rsi - lowest(rsi, stochLength)) / (highest(rsi, stochLength) - lowest(rsi, stochLength))
@@ -921,30 +1127,298 @@ export const calculateStochasticRSI = (
  * Average True Range (ATR).
  */
 export const calculateATR = (data: ChartDataPoint[], period = 14): (number | string)[] => {
+  return calculateTrueRangeRmaSeries(data, period)
+    .map((value) => value === null ? "-" : roundIndicatorValue(value));
+};
+
+export const calculateNATR = (data: ChartDataPoint[], period = 14): (number | string)[] => {
+  const atrSeries = calculateTrueRangeRmaSeries(data, period);
+  return atrSeries.map((atrValue, index) => {
+    const close = toFinitePriceValue(data[index]?.close);
+    if (atrValue === null || close === null || close <= 0) return "-";
+    return roundIndicatorValue((atrValue / close) * 100, 4);
+  });
+};
+
+const calculateRollingExtremeSeries = (
+  data: ChartDataPoint[],
+  period: number,
+  field: "high" | "low",
+  mode: "highest" | "lowest",
+): Array<number | null> => {
+  const results: Array<number | null> = new Array(data.length).fill(null);
+  if (period <= 0 || data.length < period) return results;
+
+  const deque: number[] = [];
+  let invalidCount = 0;
+
+  for (let index = 0; index < data.length; index++) {
+    const incoming = toFinitePriceValue(data[index][field]);
+    if (incoming === null) {
+      invalidCount += 1;
+    } else {
+      while (deque.length > 0) {
+        const queued = toFinitePriceValue(data[deque[deque.length - 1]][field]);
+        if (queued === null) break;
+        const shouldReplace = mode === "highest" ? incoming >= queued : incoming <= queued;
+        if (!shouldReplace) break;
+        deque.pop();
+      }
+      deque.push(index);
+    }
+
+    if (index >= period) {
+      const outgoing = toFinitePriceValue(data[index - period][field]);
+      if (outgoing === null) invalidCount -= 1;
+    }
+
+    while (deque.length > 0 && deque[0] <= index - period) {
+      deque.shift();
+    }
+
+    if (index >= period - 1 && invalidCount === 0 && deque.length > 0) {
+      results[index] = toFinitePriceValue(data[deque[0]][field]);
+    }
+  }
+
+  return results;
+};
+
+export const calculateDonchianChannels = (
+  data: ChartDataPoint[],
+  period = 20,
+): { upper: (number | string)[]; middle: (number | string)[]; lower: (number | string)[] } => {
+  const upper: (number | string)[] = new Array(data.length).fill("-");
+  const middle: (number | string)[] = new Array(data.length).fill("-");
+  const lower: (number | string)[] = new Array(data.length).fill("-");
+  if (period <= 0 || data.length < period) return { upper, middle, lower };
+
+  const highSeries = calculateRollingExtremeSeries(data, period, "high", "highest");
+  const lowSeries = calculateRollingExtremeSeries(data, period, "low", "lowest");
+
+  for (let index = 0; index < data.length; index++) {
+    const high = highSeries[index];
+    const low = lowSeries[index];
+    if (high === null || low === null) continue;
+    upper[index] = roundIndicatorValue(high);
+    middle[index] = roundIndicatorValue((high + low) / 2);
+    lower[index] = roundIndicatorValue(low);
+  }
+
+  return { upper, middle, lower };
+};
+
+export const calculateKeltnerChannels = (
+  data: ChartDataPoint[],
+  length = 20,
+  multiplier = 2,
+  atrLength = 20,
+): { upper: (number | string)[]; middle: (number | string)[]; lower: (number | string)[] } => {
+  const upper: (number | string)[] = new Array(data.length).fill("-");
+  const middle: (number | string)[] = new Array(data.length).fill("-");
+  const lower: (number | string)[] = new Array(data.length).fill("-");
+  if (length <= 0 || atrLength <= 0 || multiplier < 0 || data.length < Math.max(length, atrLength)) {
+    return { upper, middle, lower };
+  }
+
+  const basisSeries = calculateEMAFloatSeries(data.map((point) => point.close), length);
+  const atrSeries = calculateTrueRangeRmaSeries(data, atrLength);
+
+  for (let index = 0; index < data.length; index++) {
+    const basis = basisSeries[index];
+    const atr = atrSeries[index];
+    if (basis === null || atr === null) continue;
+    upper[index] = roundIndicatorValue(basis + multiplier * atr);
+    middle[index] = roundIndicatorValue(basis);
+    lower[index] = roundIndicatorValue(basis - multiplier * atr);
+  }
+
+  return { upper, middle, lower };
+};
+
+const calculateRollingPopulationStdDevSeries = (
+  values: Array<number | string | null>,
+  period: number,
+): Array<number | null> => {
+  const results: Array<number | null> = new Array(values.length).fill(null);
+  if (period <= 0 || values.length < period) return results;
+
+  let sum = 0;
+  let sumSquares = 0;
+  let invalidCount = 0;
+
+  for (let index = 0; index < values.length; index++) {
+    const incoming = toFinitePriceValue(values[index]);
+    if (incoming === null) {
+      invalidCount += 1;
+    } else {
+      sum += incoming;
+      sumSquares += incoming * incoming;
+    }
+
+    if (index >= period) {
+      const outgoing = toFinitePriceValue(values[index - period]);
+      if (outgoing === null) invalidCount -= 1;
+      else {
+        sum -= outgoing;
+        sumSquares -= outgoing * outgoing;
+      }
+    }
+
+    if (index >= period - 1 && invalidCount === 0) {
+      const mean = sum / period;
+      const variance = Math.max(0, sumSquares / period - mean * mean);
+      results[index] = Math.sqrt(variance);
+    }
+  }
+
+  return results;
+};
+
+export const calculateHistoricalVolatility = (
+  data: ChartDataPoint[],
+  period: number,
+  annualizationFactor = 252,
+): (number | string)[] => {
+  const logReturns: Array<number | null> = new Array(data.length).fill(null);
+  if (period <= 0 || annualizationFactor <= 0 || data.length < period + 1) {
+    return new Array(data.length).fill("-");
+  }
+
+  for (let index = 1; index < data.length; index++) {
+    const currentClose = toFinitePriceValue(data[index].close);
+    const previousClose = toFinitePriceValue(data[index - 1].close);
+    if (currentClose === null || previousClose === null || currentClose <= 0 || previousClose <= 0) continue;
+    logReturns[index] = Math.log(currentClose / previousClose);
+  }
+
+  const annualizationScale = Math.sqrt(annualizationFactor) * 100;
+  return calculateRollingPopulationStdDevSeries(logReturns, period)
+    .map((value) => value === null ? "-" : roundIndicatorValue(value * annualizationScale));
+};
+
+export const calculatePriceStdDev = (
+  data: ChartDataPoint[],
+  period = 20,
+): (number | string)[] => {
+  return calculateRollingPopulationStdDevSeries(data.map((point) => point.close), period)
+    .map((value) => value === null ? "-" : roundIndicatorValue(value));
+};
+
+export const calculateChaikinVolatility = (
+  data: ChartDataPoint[],
+  emaLength = 10,
+  rocLength = 10,
+): (number | string)[] => {
   const results: (number | string)[] = new Array(data.length).fill("-");
-  if (data.length <= period) return results;
+  if (emaLength <= 0 || rocLength <= 0 || data.length < emaLength + rocLength) return results;
 
-  const tr: number[] = new Array(data.length).fill(0);
-  for (let i = 1; i < data.length; i++) {
-    tr[i] = Math.max(
-      data[i].high - data[i].low,
-      Math.abs(data[i].high - data[i - 1].close),
-      Math.abs(data[i].low - data[i - 1].close)
-    );
+  const ranges = data.map((point) => {
+    const high = toFinitePriceValue(point.high);
+    const low = toFinitePriceValue(point.low);
+    if (high === null || low === null || high < low) return null;
+    return high - low;
+  });
+  const smoothedRange = calculateEMAFloatSeries(ranges, emaLength);
+
+  for (let index = rocLength; index < data.length; index++) {
+    const current = smoothedRange[index];
+    const previous = smoothedRange[index - rocLength];
+    if (current === null || previous === null || previous === 0) continue;
+    results[index] = roundIndicatorValue(((current - previous) / previous) * 100);
   }
 
-  let sumTr = 0;
-  for (let i = 1; i <= period; i++) {
-    sumTr += tr[i];
-  }
-  let prevAtr = sumTr / period;
-  results[period] = parseFloat(prevAtr.toFixed(2));
+  return results;
+};
 
-  for (let i = period + 1; i < data.length; i++) {
-    const currentAtr = (prevAtr * (period - 1) + tr[i]) / period;
-    results[i] = parseFloat(currentAtr.toFixed(2));
-    prevAtr = currentAtr;
+export const calculateCMF = (
+  data: ChartDataPoint[],
+  period = 20,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (period <= 0 || data.length < period) return results;
+
+  const moneyFlow = data.map(calculateMoneyFlowVolume);
+  let moneyFlowVolumeSum = 0;
+  let volumeSum = 0;
+  let invalidCount = 0;
+
+  for (let index = 0; index < period; index++) {
+    const point = moneyFlow[index];
+    if (point === null) {
+      invalidCount += 1;
+      continue;
+    }
+    moneyFlowVolumeSum += point.moneyFlowVolume;
+    volumeSum += point.volume;
   }
+
+  if (invalidCount === 0 && volumeSum > 0) {
+    results[period - 1] = roundIndicatorValue(moneyFlowVolumeSum / volumeSum, 4);
+  }
+
+  for (let index = period; index < data.length; index++) {
+    const outgoing = moneyFlow[index - period];
+    const incoming = moneyFlow[index];
+
+    if (outgoing === null) {
+      invalidCount -= 1;
+    } else {
+      moneyFlowVolumeSum -= outgoing.moneyFlowVolume;
+      volumeSum -= outgoing.volume;
+    }
+
+    if (incoming === null) {
+      invalidCount += 1;
+    } else {
+      moneyFlowVolumeSum += incoming.moneyFlowVolume;
+      volumeSum += incoming.volume;
+    }
+
+    if (invalidCount === 0 && volumeSum > 0) {
+      results[index] = roundIndicatorValue(moneyFlowVolumeSum / volumeSum, 4);
+    }
+  }
+
+  return results;
+};
+
+export const calculateUlcerIndex = (
+  data: ChartDataPoint[],
+  length = 14,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (length <= 0 || data.length < length) return results;
+
+  for (let index = length - 1; index < data.length; index++) {
+    let highestClose = Number.NEGATIVE_INFINITY;
+    let isValid = true;
+
+    for (let offset = 0; offset < length; offset++) {
+      const close = toFinitePriceValue(data[index - offset].close);
+      if (close === null) {
+        isValid = false;
+        break;
+      }
+      highestClose = Math.max(highestClose, close);
+    }
+
+    if (!isValid || highestClose <= 0) continue;
+
+    let squaredDrawdownSum = 0;
+    for (let offset = 0; offset < length; offset++) {
+      const close = toFinitePriceValue(data[index - offset].close);
+      if (close === null) {
+        isValid = false;
+        break;
+      }
+      const drawdownPct = ((close - highestClose) / highestClose) * 100;
+      squaredDrawdownSum += drawdownPct * drawdownPct;
+    }
+
+    if (isValid) results[index] = roundIndicatorValue(Math.sqrt(squaredDrawdownSum / length));
+  }
+
   return results;
 };
 
@@ -1248,7 +1722,7 @@ export const calculateMFI = (data: ChartDataPoint[], period = 14): (number | str
 };
 
 /**
- * [TENOR 2026 FEAT] Williams %R — Momentum Oscillator.
+ * Williams %R — Momentum Oscillator.
  * Ranges from -100 to 0. Overbought: > -20. Oversold: < -80.
  * Complexity: O(n*period) — acceptable for typical periods (14-28).
  */
@@ -1279,7 +1753,7 @@ export const calculateWilliamsR = (data: ChartDataPoint[], period = 14): (number
 };
 
 /**
- * [TENOR 2026 FEAT] Rate of Change (ROC) — Price Momentum Indicator.
+ * Rate of Change (ROC) — Price Momentum Indicator.
  * ROC = ((Close - Close[period]) / Close[period]) * 100
  * Positive values indicate upward momentum. Complexity: O(n).
  */
@@ -1757,6 +2231,125 @@ export const calculateMassIndex = (
   return results;
 };
 
+const calculateRateOfChangeSeries = (data: ChartDataPoint[], period: number): Array<number | null> => {
+  const results: Array<number | null> = new Array(data.length).fill(null);
+  if (period <= 0 || data.length <= period) return results;
+
+  for (let index = period; index < data.length; index++) {
+    const currentClose = toFinitePriceValue(data[index].close);
+    const previousClose = toFinitePriceValue(data[index - period].close);
+    if (currentClose === null || previousClose === null || previousClose === 0) continue;
+    results[index] = ((currentClose - previousClose) / previousClose) * 100;
+  }
+
+  return results;
+};
+
+export const calculateKST = (
+  data: ChartDataPoint[],
+  rocLengths: ReadonlyArray<number> = [10, 15, 20, 30],
+  smaLengths: ReadonlyArray<number> = [10, 10, 10, 15],
+  signalLength = 9,
+  weights: ReadonlyArray<number> = [1, 2, 3, 4],
+): { kst: (number | string)[]; signalLine: (number | string)[] } => {
+  const kst: (number | string)[] = new Array(data.length).fill("-");
+  const signalLine: (number | string)[] = new Array(data.length).fill("-");
+  if (rocLengths.length !== 4 || smaLengths.length !== 4 || weights.length !== 4 || signalLength <= 0) {
+    return { kst, signalLine };
+  }
+  if ([...rocLengths, ...smaLengths, ...weights].some((value) => value <= 0 || !Number.isFinite(value))) {
+    return { kst, signalLine };
+  }
+
+  const rocSeries = rocLengths.map((period) => calculateRateOfChangeSeries(data, period));
+  const smoothedSeries = rocSeries.map((series, index) => calculateNullableSmaSeries(series, smaLengths[index]));
+  const rawKst: Array<number | null> = new Array(data.length).fill(null);
+
+  for (let index = 0; index < data.length; index++) {
+    let total = 0;
+    let isValid = true;
+    for (let component = 0; component < smoothedSeries.length; component++) {
+      const value = smoothedSeries[component][index];
+      if (value === null || !Number.isFinite(value)) {
+        isValid = false;
+        break;
+      }
+      total += value * weights[component];
+    }
+    if (!isValid) continue;
+    rawKst[index] = total;
+    kst[index] = roundIndicatorValue(total);
+  }
+
+  const rawSignal = calculateNullableSmaSeries(rawKst, signalLength);
+  for (let index = 0; index < rawSignal.length; index++) {
+    const value = rawSignal[index];
+    if (value !== null && Number.isFinite(value)) signalLine[index] = roundIndicatorValue(value);
+  }
+
+  return { kst, signalLine };
+};
+
+const calculateRegressionDenominator = (length: number): number =>
+  length * (length * length - 1) / 12;
+
+export const calculateLinearRegressionIndicator = (
+  data: ChartDataPoint[],
+  length = 100,
+): { value: (number | string)[]; slope: (number | string)[]; slopePct: (number | string)[] } => {
+  const value: (number | string)[] = new Array(data.length).fill("-");
+  const slope: (number | string)[] = new Array(data.length).fill("-");
+  const slopePct: (number | string)[] = new Array(data.length).fill("-");
+  if (length < 2 || data.length < length) return { value, slope, slopePct };
+
+  const denominator = calculateRegressionDenominator(length);
+  if (!Number.isFinite(denominator) || denominator <= 0) return { value, slope, slopePct };
+
+  const closes = data.map((point) => toFinitePriceValue(point.close));
+  const xMean = (length - 1) / 2;
+  let sumY = 0;
+  let sumXY = 0;
+  let invalidCount = 0;
+
+  for (let offset = 0; offset < length; offset++) {
+    const close = closes[offset];
+    if (close === null) invalidCount += 1;
+    else {
+      sumY += close;
+      sumXY += offset * close;
+    }
+  }
+
+  const writeWindow = (index: number) => {
+    if (invalidCount !== 0) return;
+    const slopeValue = (sumXY - xMean * sumY) / denominator;
+    const intercept = sumY / length - slopeValue * xMean;
+    const lineValue = intercept + slopeValue * (length - 1);
+    if (!Number.isFinite(lineValue) || !Number.isFinite(slopeValue)) return;
+    value[index] = roundIndicatorValue(lineValue);
+    slope[index] = roundIndicatorValue(slopeValue, 4);
+    if (lineValue !== 0) slopePct[index] = roundIndicatorValue((slopeValue / lineValue) * 100, 4);
+  };
+
+  writeWindow(length - 1);
+  for (let index = length; index < data.length; index++) {
+    const outgoing = closes[index - length];
+    if (outgoing === null) invalidCount -= 1;
+    else sumY -= outgoing;
+    sumXY -= sumY;
+
+    const incoming = closes[index];
+    if (incoming === null) invalidCount += 1;
+    else {
+      sumY += incoming;
+      sumXY += (length - 1) * incoming;
+    }
+    writeWindow(index);
+  }
+
+  return { value, slope, slopePct };
+};
+
 export const calculateUltimateOscillator = (data: ChartDataPoint[]): (number | string)[] => {
   const results: (number | string)[] = new Array(data.length).fill("-");
   if (data.length < 29) return results;
@@ -2095,31 +2688,1282 @@ export const calculateAcceleratorOscillator = (
 };
 
 /**
- * [TENOR 2026 FEAT] On Balance Volume (OBV) — Volume-Price Confirmation.
+ * On Balance Volume (OBV) — Volume-Price Confirmation.
  * Cumulative volume indicator: adds volume on up-days, subtracts on down-days.
  * Confirms trends when OBV moves in the same direction as price. Complexity: O(n).
  */
 export const calculateOBV = (data: ChartDataPoint[]): (number | string)[] => {
   const results: (number | string)[] = new Array(data.length).fill("-");
-  if (data.length === 0) return results;
+  if (data.length < 2) return results;
 
   let obv = 0;
-  results[0] = 0;
+  let hasActiveSegment = false;
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i].close > data[i - 1].close) {
-      obv += data[i].volume;
-    } else if (data[i].close < data[i - 1].close) {
-      obv -= data[i].volume;
+    const currentClose = toFinitePriceValue(data[i].close);
+    const previousClose = toFinitePriceValue(data[i - 1].close);
+    const volume = toFiniteVolumeValue(data[i].volume);
+    if (currentClose === null || previousClose === null || volume === null) {
+      obv = 0;
+      hasActiveSegment = false;
+      continue;
     }
-    // If close === prevClose, OBV stays unchanged
+
+    if (!hasActiveSegment) {
+      obv = 0;
+      hasActiveSegment = true;
+    }
+
+    if (currentClose > previousClose) {
+      obv += volume;
+    } else if (currentClose < previousClose) {
+      obv -= volume;
+    }
     results[i] = obv;
   }
   return results;
 };
 
+export const calculateADLine = (data: ChartDataPoint[]): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (data.length === 0) return results;
+
+  let adLine = 0;
+  let hasActiveSegment = false;
+
+  for (let index = 0; index < data.length; index++) {
+    const high = toFinitePriceValue(data[index].high);
+    const low = toFinitePriceValue(data[index].low);
+    const close = toFinitePriceValue(data[index].close);
+    const volume = toFiniteVolumeValue(data[index].volume);
+    if (high === null || low === null || close === null || volume === null || high < low) {
+      adLine = 0;
+      hasActiveSegment = false;
+      continue;
+    }
+
+    if (!hasActiveSegment) {
+      adLine = 0;
+      hasActiveSegment = true;
+      results[index] = 0;
+      continue;
+    }
+
+    const moneyFlowMultiplier = high === low
+      ? 0
+      : (2 * close - high - low) / (high - low);
+    adLine += moneyFlowMultiplier * volume;
+    results[index] = roundIndicatorValue(adLine);
+  }
+
+  return results;
+};
+
+const calculateVolumeIndex = (
+  data: ChartDataPoint[],
+  shouldUpdate: (currentVolume: number, previousVolume: number) => boolean,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (data.length === 0) return results;
+
+  let indexValue = 1000;
+  let hasActiveSegment = false;
+  const firstClose = toFinitePriceValue(data[0].close);
+  const firstVolume = toFiniteVolumeValue(data[0].volume);
+
+  if (firstClose !== null && firstClose > 0 && firstVolume !== null) {
+    hasActiveSegment = true;
+    results[0] = indexValue;
+  }
+
+  for (let index = 1; index < data.length; index++) {
+    const currentClose = toFinitePriceValue(data[index].close);
+    const previousClose = toFinitePriceValue(data[index - 1].close);
+    const currentVolume = toFiniteVolumeValue(data[index].volume);
+    const previousVolume = toFiniteVolumeValue(data[index - 1].volume);
+
+    if (
+      currentClose === null
+      || currentClose <= 0
+      || previousClose === null
+      || previousClose <= 0
+      || currentVolume === null
+      || previousVolume === null
+    ) {
+      indexValue = 1000;
+      hasActiveSegment = false;
+      continue;
+    }
+
+    if (!hasActiveSegment) {
+      indexValue = 1000;
+      hasActiveSegment = true;
+    }
+
+    if (shouldUpdate(currentVolume, previousVolume)) {
+      indexValue *= 1 + (currentClose - previousClose) / previousClose;
+    }
+    results[index] = roundIndicatorValue(indexValue);
+  }
+
+  return results;
+};
+
+export const calculateNVI = (data: ChartDataPoint[]): (number | string)[] =>
+  calculateVolumeIndex(data, (currentVolume, previousVolume) => currentVolume < previousVolume);
+
+export const calculatePVI = (data: ChartDataPoint[]): (number | string)[] =>
+  calculateVolumeIndex(data, (currentVolume, previousVolume) => currentVolume > previousVolume);
+
+export const calculateChaikinOscillator = (
+  data: ChartDataPoint[],
+  fastLength = 3,
+  slowLength = 10,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (fastLength <= 0 || slowLength <= 0 || fastLength >= slowLength || data.length < slowLength) return results;
+
+  const adLineSeries: Array<number | null> = new Array(data.length).fill(null);
+  let adLine = 0;
+  let hasActiveSegment = false;
+
+  for (let index = 0; index < data.length; index++) {
+    const moneyFlow = calculateMoneyFlowVolume(data[index]);
+    if (moneyFlow === null) {
+      adLine = 0;
+      hasActiveSegment = false;
+      continue;
+    }
+
+    if (!hasActiveSegment) {
+      adLine = 0;
+      hasActiveSegment = true;
+    }
+
+    adLine += moneyFlow.moneyFlowVolume;
+    adLineSeries[index] = adLine;
+  }
+
+  const fastEma = calculateEMAFloatSeries(adLineSeries, fastLength);
+  const slowEma = calculateEMAFloatSeries(adLineSeries, slowLength);
+  for (let index = 0; index < data.length; index++) {
+    const fast = fastEma[index];
+    const slow = slowEma[index];
+    if (fast === null || slow === null) continue;
+    results[index] = roundIndicatorValue(fast - slow);
+  }
+
+  return results;
+};
+
+export const calculateVolumeOscillator = (
+  data: ChartDataPoint[],
+  fastLength = 5,
+  slowLength = 20,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (fastLength <= 0 || slowLength <= 0 || fastLength >= slowLength || data.length < slowLength) return results;
+
+  const volumeSeries = data.map((point) => toFiniteVolumeValue(point.volume));
+  const fastVolumeAverage = calculateNullableSmaSeries(volumeSeries, fastLength);
+  const slowVolumeAverage = calculateNullableSmaSeries(volumeSeries, slowLength);
+
+  for (let index = 0; index < data.length; index++) {
+    const fastAverage = fastVolumeAverage[index];
+    const slowAverage = slowVolumeAverage[index];
+    if (fastAverage === null || slowAverage === null || slowAverage === 0) continue;
+    results[index] = roundIndicatorValue(((fastAverage - slowAverage) / slowAverage) * 100);
+  }
+
+  return results;
+};
+
+export const calculateVROC = (
+  data: ChartDataPoint[],
+  length = 14,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (length <= 0 || data.length < length + 1) return results;
+
+  for (let index = length; index < data.length; index++) {
+    const currentVolume = toFiniteVolumeValue(data[index].volume);
+    const previousVolume = toFiniteVolumeValue(data[index - length].volume);
+    if (currentVolume === null || previousVolume === null || previousVolume === 0) continue;
+    results[index] = roundIndicatorValue(((currentVolume - previousVolume) / previousVolume) * 100);
+  }
+
+  return results;
+};
+
+export const calculateEOM = (
+  data: ChartDataPoint[],
+  length = 14,
+  divisor = 100_000_000,
+): (number | string)[] => {
+  const results: (number | string)[] = new Array(data.length).fill("-");
+  if (length <= 0 || divisor <= 0 || data.length < length + 1) return results;
+
+  const rawEom: Array<number | null> = new Array(data.length).fill(null);
+  for (let index = 1; index < data.length; index++) {
+    const high = toFinitePriceValue(data[index].high);
+    const low = toFinitePriceValue(data[index].low);
+    const previousHigh = toFinitePriceValue(data[index - 1].high);
+    const previousLow = toFinitePriceValue(data[index - 1].low);
+    const volume = toFiniteVolumeValue(data[index].volume);
+    if (
+      high === null
+      || low === null
+      || previousHigh === null
+      || previousLow === null
+      || volume === null
+      || volume === 0
+      || high <= low
+      || previousHigh < previousLow
+    ) {
+      continue;
+    }
+
+    const midpoint = (high + low) / 2;
+    const previousMidpoint = (previousHigh + previousLow) / 2;
+    const boxRatio = (volume / divisor) / (high - low);
+    if (boxRatio === 0) continue;
+    rawEom[index] = (midpoint - previousMidpoint) / boxRatio;
+  }
+
+  const smoothedEom = calculateNullableSmaSeries(rawEom, length);
+  for (let index = 0; index < data.length; index++) {
+    const value = smoothedEom[index];
+    if (value !== null) results[index] = roundIndicatorValue(value, 4);
+  }
+
+  return results;
+};
+
+export const calculateVolumeProfile = (
+  data: ChartDataPoint[],
+  options: VolumeProfileOptions = {},
+): VolumeProfileResult | null => {
+  const maxBars = Math.max(1, Math.floor(options.maxBars ?? 150));
+  const rangeData = data.slice(Math.max(0, data.length - maxBars));
+  if (rangeData.length === 0) return null;
+
+  const validBars = rangeData.filter((point) => {
+    const high = toFinitePriceValue(point.high);
+    const low = toFinitePriceValue(point.low);
+    const close = toFinitePriceValue(point.close);
+    const volume = toFiniteVolumeValue(point.volume);
+    return high !== null && low !== null && close !== null && volume !== null && volume > 0 && high >= low;
+  });
+  if (validBars.length === 0) return null;
+
+  const priceLow = Math.min(...validBars.map((point) => point.low));
+  const priceHigh = Math.max(...validBars.map((point) => point.high));
+  const totalVolume = validBars.reduce((sum, point) => sum + point.volume, 0);
+  if (!Number.isFinite(priceLow) || !Number.isFinite(priceHigh) || priceHigh <= priceLow || totalVolume <= 0) return null;
+
+  const explicitRowSize = options.rowSize && options.rowSize > 0 ? options.rowSize : null;
+  const requestedRows = Math.max(10, Math.min(150, Math.floor(options.numberOfRows ?? 80)));
+  const rowCount = explicitRowSize
+    ? Math.max(1, Math.min(150, Math.ceil((priceHigh - priceLow) / explicitRowSize)))
+    : requestedRows;
+  const rowSize = explicitRowSize && rowCount < 150 ? explicitRowSize : (priceHigh - priceLow) / rowCount;
+  if (!Number.isFinite(rowSize) || rowSize <= 0) return null;
+
+  const rows: VolumeProfileRow[] = Array.from({ length: rowCount }, (_, index) => {
+    const low = priceLow + index * rowSize;
+    const high = index === rowCount - 1 ? priceHigh : low + rowSize;
+    return {
+      priceLow: roundIndicatorValue(low, 4),
+      priceHigh: roundIndicatorValue(high, 4),
+      priceMid: roundIndicatorValue((low + high) / 2, 4),
+      totalVolume: 0,
+      upVolume: 0,
+      downVolume: 0,
+      isPoc: false,
+      isValueArea: false,
+    };
+  });
+
+  const clampRowIndex = (index: number): number => Math.max(0, Math.min(rowCount - 1, index));
+  for (const point of validBars) {
+    const lowIndex = clampRowIndex(Math.floor((point.low - priceLow) / rowSize));
+    const highIndex = clampRowIndex(Math.floor((point.high - priceLow) / rowSize));
+    const firstIndex = Math.min(lowIndex, highIndex);
+    const lastIndex = Math.max(lowIndex, highIndex);
+    const touchedRows = lastIndex - firstIndex + 1;
+    const volumeShare = point.volume / touchedRows;
+    const open = toFinitePriceValue(point.open) ?? point.close;
+    const isUpBar = point.close >= open;
+
+    for (let rowIndex = firstIndex; rowIndex <= lastIndex; rowIndex++) {
+      rows[rowIndex].totalVolume += volumeShare;
+      if (isUpBar) rows[rowIndex].upVolume += volumeShare;
+      else rows[rowIndex].downVolume += volumeShare;
+    }
+  }
+
+  const maxVolume = Math.max(...rows.map((row) => row.totalVolume));
+  if (!Number.isFinite(maxVolume) || maxVolume <= 0) return null;
+
+  const lastClose = validBars[validBars.length - 1].close;
+  const rangeCenter = (priceLow + priceHigh) / 2;
+  const pocIndex = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.totalVolume === maxVolume)
+    .sort((a, b) => {
+      const closeDistance = Math.abs(a.row.priceMid - lastClose) - Math.abs(b.row.priceMid - lastClose);
+      if (closeDistance !== 0) return closeDistance;
+      const centerDistance = Math.abs(a.row.priceMid - rangeCenter) - Math.abs(b.row.priceMid - rangeCenter);
+      if (centerDistance !== 0) return centerDistance;
+      return a.index - b.index;
+    })[0]?.index;
+  if (pocIndex === undefined) return null;
+
+  rows[pocIndex].isPoc = true;
+  const valueAreaPercent = Math.max(1, Math.min(100, options.valueAreaPercent ?? 70));
+  const targetVolume = totalVolume * (valueAreaPercent / 100);
+  let lowerIndex = pocIndex;
+  let upperIndex = pocIndex;
+  let valueAreaVolume = rows[pocIndex].totalVolume;
+
+  while (valueAreaVolume < targetVolume && (lowerIndex > 0 || upperIndex < rowCount - 1)) {
+    const nextLower = lowerIndex > 0 ? lowerIndex - 1 : null;
+    const nextUpper = upperIndex < rowCount - 1 ? upperIndex + 1 : null;
+    let chosenIndex: number;
+
+    if (nextLower === null) chosenIndex = nextUpper as number;
+    else if (nextUpper === null) chosenIndex = nextLower;
+    else {
+      const lowerVolume = rows[nextLower].totalVolume;
+      const upperVolume = rows[nextUpper].totalVolume;
+      if (upperVolume > lowerVolume) chosenIndex = nextUpper;
+      else if (lowerVolume > upperVolume) chosenIndex = nextLower;
+      else {
+        const lowerDistance = Math.abs(nextLower - pocIndex);
+        const upperDistance = Math.abs(nextUpper - pocIndex);
+        chosenIndex = upperDistance <= lowerDistance ? nextUpper : nextLower;
+      }
+    }
+
+    if (chosenIndex > upperIndex) upperIndex = chosenIndex;
+    if (chosenIndex < lowerIndex) lowerIndex = chosenIndex;
+    valueAreaVolume += rows[chosenIndex].totalVolume;
+  }
+
+  for (let rowIndex = lowerIndex; rowIndex <= upperIndex; rowIndex++) rows[rowIndex].isValueArea = true;
+
+  return {
+    rangeStart: validBars[0].time,
+    rangeEnd: validBars[validBars.length - 1].time,
+    rangeMode: options.rangeMode ?? "last_n_bars",
+    rowSize: roundIndicatorValue(rowSize, 4),
+    valueAreaPercent,
+    rows: rows.map((row) => ({
+      ...row,
+      totalVolume: roundIndicatorValue(row.totalVolume),
+      upVolume: roundIndicatorValue(row.upVolume),
+      downVolume: roundIndicatorValue(row.downVolume),
+    })),
+    poc: rows[pocIndex].priceMid,
+    vah: rows[upperIndex].priceHigh,
+    val: rows[lowerIndex].priceLow,
+    maxVolume: roundIndicatorValue(maxVolume),
+    totalVolume: roundIndicatorValue(totalVolume),
+    calculationQuality: "daily_approximation",
+  };
+};
+
+const createEmptyPivotSeries = (length: number): PivotPointsSeries => ({
+  pivot: new Array(length).fill("-"),
+  r1: new Array(length).fill("-"),
+  r2: new Array(length).fill("-"),
+  r3: new Array(length).fill("-"),
+  s1: new Array(length).fill("-"),
+  s2: new Array(length).fill("-"),
+  s3: new Array(length).fill("-"),
+});
+
+const getPreviousPivotSource = (
+  data: ChartDataPoint[],
+  index: number,
+): { high: number; low: number; close: number } | null => {
+  const previous = data[index - 1];
+  if (!previous) return null;
+
+  const high = toFinitePriceValue(previous.high);
+  const low = toFinitePriceValue(previous.low);
+  const close = toFinitePriceValue(previous.close);
+  if (high === null || low === null || close === null || high < low) return null;
+  return { high, low, close };
+};
+
+export const calculatePivotPointsStandard = (data: ChartDataPoint[]): PivotPointsSeries => {
+  const result = createEmptyPivotSeries(data.length);
+  if (data.length < 2) return result;
+
+  for (let index = 1; index < data.length; index++) {
+    const source = getPreviousPivotSource(data, index);
+    if (!source) continue;
+
+    const pivot = (source.high + source.low + source.close) / 3;
+    const range = source.high - source.low;
+    result.pivot[index] = roundIndicatorValue(pivot, 4);
+    result.r1[index] = roundIndicatorValue(2 * pivot - source.low, 4);
+    result.s1[index] = roundIndicatorValue(2 * pivot - source.high, 4);
+    result.r2[index] = roundIndicatorValue(pivot + range, 4);
+    result.s2[index] = roundIndicatorValue(pivot - range, 4);
+    result.r3[index] = roundIndicatorValue(2 * pivot + source.high - 2 * source.low, 4);
+    result.s3[index] = roundIndicatorValue(2 * pivot - (2 * source.high - source.low), 4);
+  }
+
+  return result;
+};
+
+export const calculatePivotPointsFibonacci = (data: ChartDataPoint[]): PivotPointsSeries => {
+  const result = createEmptyPivotSeries(data.length);
+  if (data.length < 2) return result;
+
+  for (let index = 1; index < data.length; index++) {
+    const source = getPreviousPivotSource(data, index);
+    if (!source) continue;
+
+    const pivot = (source.high + source.low + source.close) / 3;
+    const range = source.high - source.low;
+    result.pivot[index] = roundIndicatorValue(pivot, 4);
+    result.r1[index] = roundIndicatorValue(pivot + 0.382 * range, 4);
+    result.s1[index] = roundIndicatorValue(pivot - 0.382 * range, 4);
+    result.r2[index] = roundIndicatorValue(pivot + 0.618 * range, 4);
+    result.s2[index] = roundIndicatorValue(pivot - 0.618 * range, 4);
+    result.r3[index] = roundIndicatorValue(pivot + range, 4);
+    result.s3[index] = roundIndicatorValue(pivot - range, 4);
+  }
+
+  return result;
+};
+
+export const calculateMovingAverageCrossSignals = (
+  data: ChartDataPoint[],
+  fastLength = 50,
+  slowLength = 200,
+): MovingAverageCrossSignals => {
+  const goldenCross: (number | string)[] = new Array(data.length).fill("-");
+  const deathCross: (number | string)[] = new Array(data.length).fill("-");
+  if (fastLength <= 0 || slowLength <= 0 || fastLength >= slowLength || data.length < slowLength + 1) {
+    return { goldenCross, deathCross };
+  }
+
+  const closeSeries = data.map((point) => toFinitePriceValue(point.close));
+  const fastSma = calculateNullableSmaSeries(closeSeries, fastLength);
+  const slowSma = calculateNullableSmaSeries(closeSeries, slowLength);
+
+  for (let index = 1; index < data.length; index++) {
+    const previousFast = fastSma[index - 1];
+    const previousSlow = slowSma[index - 1];
+    const currentFast = fastSma[index];
+    const currentSlow = slowSma[index];
+    if (
+      previousFast === null
+      || previousSlow === null
+      || currentFast === null
+      || currentSlow === null
+    ) {
+      continue;
+    }
+
+    goldenCross[index] = previousFast <= previousSlow && currentFast > currentSlow ? 1 : 0;
+    deathCross[index] = previousFast >= previousSlow && currentFast < currentSlow ? 1 : 0;
+  }
+
+  return { goldenCross, deathCross };
+};
+
+export const calculateVWAP = (data: ChartDataPoint[]): VwapSeries => {
+  const vwap: (number | string)[] = new Array(data.length).fill("-");
+  const priceAboveVwap: (number | string)[] = new Array(data.length).fill("-");
+  const priceBelowVwap: (number | string)[] = new Array(data.length).fill("-");
+  const distance: (number | string)[] = new Array(data.length).fill("-");
+  const distancePct: (number | string)[] = new Array(data.length).fill("-");
+
+  let activeSession: string | null = null;
+  let cumulativePriceVolume = 0;
+  let cumulativeVolume = 0;
+
+  for (let index = 0; index < data.length; index++) {
+    const point = data[index];
+    const sessionKey = resolveSessionKey(point.time);
+    if (sessionKey === null) {
+      activeSession = null;
+      cumulativePriceVolume = 0;
+      cumulativeVolume = 0;
+      continue;
+    }
+    if (sessionKey !== activeSession) {
+      activeSession = sessionKey;
+      cumulativePriceVolume = 0;
+      cumulativeVolume = 0;
+    }
+
+    const high = toFinitePriceValue(point.high);
+    const low = toFinitePriceValue(point.low);
+    const close = toFinitePriceValue(point.close);
+    const volume = toFiniteVolumeValue(point.volume);
+    if (high === null || low === null || close === null || volume === null || high < low) continue;
+
+    const typicalPrice = (high + low + close) / 3;
+    if (volume > 0) {
+      cumulativePriceVolume += typicalPrice * volume;
+      cumulativeVolume += volume;
+    }
+
+    if (cumulativeVolume <= 0) continue;
+
+    const currentVwap = cumulativePriceVolume / cumulativeVolume;
+    const currentDistance = close - currentVwap;
+    vwap[index] = roundIndicatorValue(currentVwap, 4);
+    priceAboveVwap[index] = close > currentVwap ? 1 : 0;
+    priceBelowVwap[index] = close < currentVwap ? 1 : 0;
+    distance[index] = roundIndicatorValue(currentDistance, 4);
+    distancePct[index] = currentVwap !== 0 ? roundIndicatorValue((currentDistance / currentVwap) * 100, 4) : "-";
+  }
+
+  return { vwap, priceAboveVwap, priceBelowVwap, distance, distancePct };
+};
+
+export const calculateFiftyTwoWeekLevels = (data: ChartDataPoint[]): FiftyTwoWeekLevels => {
+  const high: (number | string)[] = new Array(data.length).fill("-");
+  const low: (number | string)[] = new Array(data.length).fill("-");
+  const newHigh: (number | string)[] = new Array(data.length).fill("-");
+  const newLow: (number | string)[] = new Array(data.length).fill("-");
+  const timestamps = data.map((point) => parseBarTimestampMs(point.time));
+  const highDeque: number[] = [];
+  const lowDeque: number[] = [];
+  let highHead = 0;
+  let lowHead = 0;
+  const windowMs = 364 * 24 * 60 * 60 * 1000;
+
+  for (let index = 0; index < data.length; index++) {
+    const timestamp = timestamps[index];
+    if (timestamp === null) continue;
+
+    const windowStart = timestamp - windowMs;
+    while (highHead < highDeque.length && (timestamps[highDeque[highHead]] ?? Number.NEGATIVE_INFINITY) < windowStart) highHead += 1;
+    while (lowHead < lowDeque.length && (timestamps[lowDeque[lowHead]] ?? Number.NEGATIVE_INFINITY) < windowStart) lowHead += 1;
+
+    const currentHigh = toFinitePriceValue(data[index].high);
+    const currentLow = toFinitePriceValue(data[index].low);
+    const previousHighIndex = highDeque[highHead];
+    const previousLowIndex = lowDeque[lowHead];
+    if (currentHigh !== null && previousHighIndex !== undefined) {
+      const previousHigh = toFinitePriceValue(data[previousHighIndex].high);
+      if (previousHigh !== null) newHigh[index] = currentHigh >= previousHigh ? 1 : 0;
+    }
+    if (currentLow !== null && previousLowIndex !== undefined) {
+      const previousLow = toFinitePriceValue(data[previousLowIndex].low);
+      if (previousLow !== null) newLow[index] = currentLow <= previousLow ? 1 : 0;
+    }
+
+    if (currentHigh !== null) {
+      while (highDeque.length > highHead) {
+        const dequeHigh = toFinitePriceValue(data[highDeque[highDeque.length - 1]].high);
+        if (dequeHigh === null || dequeHigh > currentHigh) break;
+        highDeque.pop();
+      }
+      highDeque.push(index);
+    }
+    if (currentLow !== null) {
+      while (lowDeque.length > lowHead) {
+        const dequeLow = toFinitePriceValue(data[lowDeque[lowDeque.length - 1]].low);
+        if (dequeLow === null || dequeLow < currentLow) break;
+        lowDeque.pop();
+      }
+      lowDeque.push(index);
+    }
+
+    const activeHighIndex = highDeque[highHead];
+    const activeLowIndex = lowDeque[lowHead];
+    const highValue = activeHighIndex !== undefined ? toFinitePriceValue(data[activeHighIndex].high) : null;
+    const lowValue = activeLowIndex !== undefined ? toFinitePriceValue(data[activeLowIndex].low) : null;
+    if (highValue !== null) high[index] = roundIndicatorValue(highValue, 4);
+    if (lowValue !== null) low[index] = roundIndicatorValue(lowValue, 4);
+
+    if (highHead > 512 && highHead * 2 > highDeque.length) {
+      highDeque.splice(0, highHead);
+      highHead = 0;
+    }
+    if (lowHead > 512 && lowHead * 2 > lowDeque.length) {
+      lowDeque.splice(0, lowHead);
+      lowHead = 0;
+    }
+  }
+
+  return { high, low, newHigh, newLow };
+};
+
+export const calculateHistoricalRecordLevels = (data: ChartDataPoint[]): HistoricalRecordLevels => {
+  const ath: (number | string)[] = new Array(data.length).fill("-");
+  const atl: (number | string)[] = new Array(data.length).fill("-");
+  const newAth: (number | string)[] = new Array(data.length).fill("-");
+  const newAtl: (number | string)[] = new Array(data.length).fill("-");
+  let allTimeHigh: number | null = null;
+  let allTimeLow: number | null = null;
+
+  for (let index = 0; index < data.length; index++) {
+    const currentHigh = toFinitePriceValue(data[index].high);
+    const currentLow = toFinitePriceValue(data[index].low);
+
+    if (currentHigh !== null && allTimeHigh !== null) {
+      newAth[index] = currentHigh >= allTimeHigh ? 1 : 0;
+    }
+    if (currentLow !== null && allTimeLow !== null) {
+      newAtl[index] = currentLow <= allTimeLow ? 1 : 0;
+    }
+
+    if (currentHigh !== null) allTimeHigh = allTimeHigh === null ? currentHigh : Math.max(allTimeHigh, currentHigh);
+    if (currentLow !== null) allTimeLow = allTimeLow === null ? currentLow : Math.min(allTimeLow, currentLow);
+
+    if (allTimeHigh !== null) ath[index] = roundIndicatorValue(allTimeHigh, 4);
+    if (allTimeLow !== null) atl[index] = roundIndicatorValue(allTimeLow, 4);
+  }
+
+  return { ath, atl, newAth, newAtl };
+};
+
+const createEmptyPriceActionSignals = (length: number): PriceActionSignals => ({
+  resistance: new Array(length).fill("-"),
+  support: new Array(length).fill("-"),
+  breakoutResistance: new Array(length).fill("-"),
+  breakdownSupport: new Array(length).fill("-"),
+  gapUp: new Array(length).fill("-"),
+  gapDown: new Array(length).fill("-"),
+  trueGapUp: new Array(length).fill("-"),
+  trueGapDown: new Array(length).fill("-"),
+  gapAbs: new Array(length).fill("-"),
+  gapPct: new Array(length).fill("-"),
+  isUpDay: new Array(length).fill("-"),
+  isDownDay: new Array(length).fill("-"),
+  upStreak: new Array(length).fill("-"),
+  downStreak: new Array(length).fill("-"),
+  insideBar: new Array(length).fill("-"),
+  outsideBar: new Array(length).fill("-"),
+});
+
+const getPriceDecimalPlaces = (value: number): number => {
+  const normalized = value.toString().toLowerCase();
+  if (!normalized.includes("e")) {
+    const decimalPart = normalized.split(".")[1];
+    return decimalPart ? decimalPart.length : 0;
+  }
+
+  const fixed = value.toFixed(8).replace(/0+$/, "");
+  const decimalPart = fixed.split(".")[1];
+  return decimalPart ? decimalPart.length : 0;
+};
+
+const inferPriceActionTickSize = (data: ChartDataPoint[]): number => {
+  let maxDecimalPlaces = 0;
+  for (const point of data) {
+    const values = [point.open, point.high, point.low, point.close];
+    for (const value of values) {
+      const price = toFinitePriceValue(value);
+      if (price !== null) maxDecimalPlaces = Math.max(maxDecimalPlaces, getPriceDecimalPlaces(price));
+    }
+  }
+
+  if (maxDecimalPlaces <= 0) return 1;
+  return 1 / 10 ** Math.min(maxDecimalPlaces, 6);
+};
+
+export const calculatePriceActionSignals = (
+  data: ChartDataPoint[],
+  options: PriceActionSignalOptions = {},
+): PriceActionSignals => {
+  const result = createEmptyPriceActionSignals(data.length);
+  if (data.length === 0) return result;
+
+  const lookback = Math.max(1, Math.floor(options.lookback ?? 20));
+  const tickSize = options.tickSize && Number.isFinite(options.tickSize) && options.tickSize > 0
+    ? options.tickSize
+    : inferPriceActionTickSize(data);
+  const minBreakTicks = Math.max(1, Math.floor(options.minBreakTicks ?? 1));
+  const minGapTicks = Math.max(1, Math.floor(options.minGapTicks ?? 1));
+  const openValues = data.map((point) => toFinitePriceValue(point.open));
+  const highValues = data.map((point) => toFinitePriceValue(point.high));
+  const lowValues = data.map((point) => toFinitePriceValue(point.low));
+  const closeValues = data.map((point) => toFinitePriceValue(point.close));
+  const volumeValues = data.map((point) => toFiniteVolumeValue(point.volume));
+  const validBars = data.map((_, index) => {
+    const high = highValues[index];
+    const low = lowValues[index];
+    return openValues[index] !== null
+      && high !== null
+      && low !== null
+      && closeValues[index] !== null
+      && volumeValues[index] !== null
+      && volumeValues[index] > 0
+      && high >= low;
+  });
+  const toTicks = (value: number) => Math.round(value / tickSize);
+  const highDeque: number[] = [];
+  const lowDeque: number[] = [];
+  let highHead = 0;
+  let lowHead = 0;
+  let invalidWindowCount = 0;
+  let upStreak = 0;
+  let downStreak = 0;
+
+  for (let index = 0; index < data.length; index++) {
+    const expiredIndex = index - lookback - 1;
+    if (expiredIndex >= 0 && !validBars[expiredIndex]) invalidWindowCount -= 1;
+    while (highHead < highDeque.length && highDeque[highHead] < index - lookback) highHead += 1;
+    while (lowHead < lowDeque.length && lowDeque[lowHead] < index - lookback) lowHead += 1;
+
+    const currentValid = validBars[index];
+    const previousValid = index > 0 && validBars[index - 1];
+    const close = closeValues[index];
+    const currentHigh = highValues[index];
+    const currentLow = lowValues[index];
+    const currentOpen = openValues[index];
+
+    if (index >= lookback && invalidWindowCount === 0) {
+      const resistanceIndex = highDeque[highHead];
+      const supportIndex = lowDeque[lowHead];
+      const resistance = resistanceIndex !== undefined ? highValues[resistanceIndex] : null;
+      const support = supportIndex !== undefined ? lowValues[supportIndex] : null;
+      if (resistance !== null) result.resistance[index] = roundIndicatorValue(resistance, 4);
+      if (support !== null) result.support[index] = roundIndicatorValue(support, 4);
+      if (currentValid && close !== null && resistance !== null && support !== null) {
+        const closeTicks = toTicks(close);
+        result.breakoutResistance[index] = closeTicks >= toTicks(resistance) + minBreakTicks ? 1 : 0;
+        result.breakdownSupport[index] = closeTicks <= toTicks(support) - minBreakTicks ? 1 : 0;
+      }
+    }
+
+    if (currentValid && previousValid) {
+      const previousClose = closeValues[index - 1];
+      const previousHigh = highValues[index - 1];
+      const previousLow = lowValues[index - 1];
+      if (currentOpen !== null && currentHigh !== null && currentLow !== null && close !== null && previousClose !== null && previousHigh !== null && previousLow !== null) {
+        const openTicks = toTicks(currentOpen);
+        const closeTicks = toTicks(close);
+        const previousCloseTicks = toTicks(previousClose);
+        const highTicks = toTicks(currentHigh);
+        const lowTicks = toTicks(currentLow);
+        const previousHighTicks = toTicks(previousHigh);
+        const previousLowTicks = toTicks(previousLow);
+        const gapAbsValue = currentOpen - previousClose;
+        const isUpDay = closeTicks >= previousCloseTicks + 1;
+        const isDownDay = closeTicks <= previousCloseTicks - 1;
+
+        result.gapAbs[index] = roundIndicatorValue(gapAbsValue, 4);
+        result.gapPct[index] = previousClose > 0 ? roundIndicatorValue((gapAbsValue / previousClose) * 100, 4) : "-";
+        result.gapUp[index] = openTicks >= previousCloseTicks + minGapTicks ? 1 : 0;
+        result.gapDown[index] = openTicks <= previousCloseTicks - minGapTicks ? 1 : 0;
+        result.trueGapUp[index] = lowTicks >= previousHighTicks + minGapTicks ? 1 : 0;
+        result.trueGapDown[index] = highTicks <= previousLowTicks - minGapTicks ? 1 : 0;
+        result.isUpDay[index] = isUpDay ? 1 : 0;
+        result.isDownDay[index] = isDownDay ? 1 : 0;
+        upStreak = isUpDay ? upStreak + 1 : 0;
+        downStreak = isDownDay ? downStreak + 1 : 0;
+        result.upStreak[index] = upStreak;
+        result.downStreak[index] = downStreak;
+        result.insideBar[index] = highTicks <= previousHighTicks && lowTicks >= previousLowTicks ? 1 : 0;
+        result.outsideBar[index] = highTicks >= previousHighTicks
+          && lowTicks <= previousLowTicks
+          && (highTicks > previousHighTicks || lowTicks < previousLowTicks)
+          ? 1
+          : 0;
+      }
+    } else {
+      upStreak = 0;
+      downStreak = 0;
+    }
+
+    if (!currentValid) invalidWindowCount += 1;
+    if (currentValid && currentHigh !== null) {
+      while (highDeque.length > highHead) {
+        const queuedHigh = highValues[highDeque[highDeque.length - 1]];
+        if (queuedHigh === null || queuedHigh > currentHigh) break;
+        highDeque.pop();
+      }
+      highDeque.push(index);
+    }
+    if (currentValid && currentLow !== null) {
+      while (lowDeque.length > lowHead) {
+        const queuedLow = lowValues[lowDeque[lowDeque.length - 1]];
+        if (queuedLow === null || queuedLow < currentLow) break;
+        lowDeque.pop();
+      }
+      lowDeque.push(index);
+    }
+    if (highHead > 512 && highHead * 2 > highDeque.length) {
+      highDeque.splice(0, highHead);
+      highHead = 0;
+    }
+    if (lowHead > 512 && lowHead * 2 > lowDeque.length) {
+      lowDeque.splice(0, lowHead);
+      lowHead = 0;
+    }
+  }
+
+  return result;
+};
+
+
+const createSignalSeries = (length: number, initial: number | string = "-"): (number | string)[] =>
+  new Array(length).fill(initial);
+
+const createEmptyCandlestickPatternSignals = (length: number): CandlestickPatternSignals => ({
+  realBody: createSignalSeries(length),
+  highLowRange: createSignalSeries(length),
+  upperShadow: createSignalSeries(length),
+  lowerShadow: createSignalSeries(length),
+  bodyShortAvg: createSignalSeries(length),
+  bodyLongAvg: createSignalSeries(length),
+  bodyDojiMax: createSignalSeries(length),
+  shadowVeryShortMax: createSignalSeries(length),
+  nearTolerance: createSignalSeries(length),
+  avgRange10: createSignalSeries(length),
+  avgRange5: createSignalSeries(length),
+  dojiMaxBody: createSignalSeries(length),
+  veryShortShadowMax: createSignalSeries(length),
+  nearMidTolerance: createSignalSeries(length),
+  uptrend: createSignalSeries(length),
+  downtrend: createSignalSeries(length),
+  doji: createSignalSeries(length),
+  longLeggedDoji: createSignalSeries(length),
+  rickshawMan: createSignalSeries(length),
+  dragonflyDoji: createSignalSeries(length),
+  gravestoneDoji: createSignalSeries(length),
+  tristar: createSignalSeries(length),
+  bullishTristar: createSignalSeries(length),
+  bearishTristar: createSignalSeries(length),
+  hammer: createSignalSeries(length),
+  hangingMan: createSignalSeries(length),
+  takuri: createSignalSeries(length),
+  invertedHammer: createSignalSeries(length),
+  shootingStar: createSignalSeries(length),
+  marubozuBull: createSignalSeries(length),
+  marubozuBear: createSignalSeries(length),
+  spinningTop: createSignalSeries(length),
+  hammerConfirmed: createSignalSeries(length),
+  hangingManConfirmed: createSignalSeries(length),
+  invertedHammerConfirmed: createSignalSeries(length),
+  shootingStarConfirmed: createSignalSeries(length),
+  insufficientHistory: createSignalSeries(length, 0),
+  missingOHLC: createSignalSeries(length, 0),
+  invalidOHLC: createSignalSeries(length, 0),
+  zeroRange: createSignalSeries(length, 0),
+  noTradeSession: createSignalSeries(length, 0),
+  stalePrice: createSignalSeries(length, 0),
+  corporateActionSuspected: createSignalSeries(length, 0),
+  lowReliabilityBecauseIlliquid: createSignalSeries(length, 0),
+});
+
+type CandlestickMetrics = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  tradesCount: number | null;
+  realBody: number;
+  range: number;
+  upperShadow: number;
+  lowerShadow: number;
+  bodyTop: number;
+  bodyBottom: number;
+};
+
+const normalizeCandlestickPeriod = (value: number | undefined, fallback: number): number =>
+  Math.max(1, Math.floor(value ?? fallback));
+
+const readRollingAverage = (
+  sumPrefix: number[],
+  validPrefix: number[],
+  index: number,
+  period: number,
+): number | null => {
+  if (index < period) return null;
+  const start = index - period;
+  const validCount = validPrefix[index] - validPrefix[start];
+  if (validCount !== period) return null;
+  return (sumPrefix[index] - sumPrefix[start]) / period;
+};
+
+const readTrailingSma = (
+  sumPrefix: number[],
+  validPrefix: number[],
+  endIndex: number,
+  period: number,
+): number | null => {
+  if (endIndex < 0 || endIndex + 1 < period) return null;
+  const start = endIndex + 1 - period;
+  const validCount = validPrefix[endIndex + 1] - validPrefix[start];
+  if (validCount !== period) return null;
+  return (sumPrefix[endIndex + 1] - sumPrefix[start]) / period;
+};
+
+const writeBooleanSignal = (series: (number | string)[], index: number, value: boolean | null): void => {
+  series[index] = value === null ? "-" : value ? 1 : 0;
+};
+
+export const calculateCandlestickPatterns = (
+  data: ChartDataPoint[],
+  options: CandlestickPatternOptions = {},
+): CandlestickPatternSignals => {
+  const result = createEmptyCandlestickPatternSignals(data.length);
+  if (data.length === 0) return result;
+
+  const bodyShortPeriod = normalizeCandlestickPeriod(options.bodyShortPeriod, 10);
+  const bodyLongPeriod = normalizeCandlestickPeriod(options.bodyLongPeriod, 10);
+  const bodyDojiPeriod = normalizeCandlestickPeriod(options.bodyDojiPeriod ?? options.dojiAvgPeriod, 10);
+  const shadowVeryShortPeriod = normalizeCandlestickPeriod(
+    options.shadowVeryShortPeriod ?? options.veryShortShadowAvgPeriod,
+    10,
+  );
+  const nearPeriod = normalizeCandlestickPeriod(options.nearPeriod ?? options.nearAvgPeriod, 5);
+  const trendFilterPeriod = normalizeCandlestickPeriod(options.trendFilterPeriod, 20);
+  const bodyDojiFactor = options.bodyDojiFactor ?? options.dojiFactor ?? 0.10;
+  const shadowVeryShortFactor = options.shadowVeryShortFactor ?? options.veryShortShadowFactor ?? 0.10;
+  const nearFactor = options.nearFactor ?? 0.20;
+  const requireVolumeForPattern = options.requireVolumeForPattern ?? false;
+  const tickSize = options.tickSize && Number.isFinite(options.tickSize) && options.tickSize > 0
+    ? options.tickSize
+    : inferPriceActionTickSize(data);
+  const toTicks = (value: number) => Math.round(value / tickSize);
+  const toPrice = (ticks: number) => ticks * tickSize;
+
+  const metrics: Array<CandlestickMetrics | null> = new Array(data.length).fill(null);
+  const validPrefix = new Array(data.length + 1).fill(0);
+  const bodyPrefix = new Array(data.length + 1).fill(0);
+  const rangePrefix = new Array(data.length + 1).fill(0);
+  const closePrefix = new Array(data.length + 1).fill(0);
+  const volumePrefix = new Array(data.length + 1).fill(0);
+  const bodyTopValues: Array<number | null> = new Array(data.length).fill(null);
+  const bodyBottomValues: Array<number | null> = new Array(data.length).fill(null);
+  const dojiFlags: Array<boolean | null> = new Array(data.length).fill(null);
+  const nearToleranceValues: Array<number | null> = new Array(data.length).fill(null);
+
+  for (let index = 0; index < data.length; index++) {
+    const point = data[index];
+    const open = toFinitePriceValue(point.open);
+    const high = toFinitePriceValue(point.high);
+    const low = toFinitePriceValue(point.low);
+    const close = toFinitePriceValue(point.close);
+    const volume = toFiniteVolumeValue(point.volume);
+    const tradesCount = toFiniteTradeCountValue(point);
+    const missingOHLC = open === null || high === null || low === null || close === null;
+    const invalidOHLC = !missingOHLC && (high < low || open < low || open > high || close < low || close > high);
+    const zeroRange = !missingOHLC && !invalidOHLC && high === low;
+    const hasMissingVolume = volume === null;
+    const noTradeSession = (!hasMissingVolume && volume <= 0) || (tradesCount !== null && tradesCount <= 0);
+    const blockedByVolume = requireVolumeForPattern && (hasMissingVolume || noTradeSession);
+
+    result.missingOHLC[index] = missingOHLC ? 1 : 0;
+    result.invalidOHLC[index] = invalidOHLC ? 1 : 0;
+    result.zeroRange[index] = zeroRange ? 1 : 0;
+    result.noTradeSession[index] = noTradeSession ? 1 : 0;
+
+    if (!missingOHLC && !invalidOHLC && !zeroRange && !blockedByVolume) {
+      const o = toTicks(open);
+      const h = toTicks(high);
+      const l = toTicks(low);
+      const c = toTicks(close);
+      const bodyTop = Math.max(o, c);
+      const bodyBottom = Math.min(o, c);
+      const realBody = Math.abs(c - o) * tickSize;
+      const range = (h - l) * tickSize;
+      const upperShadow = (h - bodyTop) * tickSize;
+      const lowerShadow = (bodyBottom - l) * tickSize;
+      metrics[index] = {
+        open: toPrice(o),
+        high: toPrice(h),
+        low: toPrice(l),
+        close: toPrice(c),
+        volume: volume ?? 0,
+        tradesCount,
+        realBody,
+        range,
+        upperShadow,
+        lowerShadow,
+        bodyTop: toPrice(bodyTop),
+        bodyBottom: toPrice(bodyBottom),
+      };
+      bodyTopValues[index] = toPrice(bodyTop);
+      bodyBottomValues[index] = toPrice(bodyBottom);
+    }
+
+    const current = metrics[index];
+    const valid = current !== null;
+    validPrefix[index + 1] = validPrefix[index] + (valid ? 1 : 0);
+    bodyPrefix[index + 1] = bodyPrefix[index] + (current?.realBody ?? 0);
+    rangePrefix[index + 1] = rangePrefix[index] + (current?.range ?? 0);
+    closePrefix[index + 1] = closePrefix[index] + (current?.close ?? 0);
+    volumePrefix[index + 1] = volumePrefix[index] + (current?.volume ?? 0);
+  }
+
+  const resolveTrend = (index: number): { uptrend: boolean | null; downtrend: boolean | null } => {
+    const previousIndex = index - 1;
+    const slopeAnchorIndex = index - 5;
+    if (previousIndex < 0 || slopeAnchorIndex < 0) return { uptrend: null, downtrend: null };
+    const previous = metrics[previousIndex];
+    const previousSma = readTrailingSma(closePrefix, validPrefix, previousIndex, trendFilterPeriod);
+    const anchorSma = readTrailingSma(closePrefix, validPrefix, slopeAnchorIndex, trendFilterPeriod);
+    if (!previous || previousSma === null || anchorSma === null) return { uptrend: null, downtrend: null };
+    return {
+      uptrend: previous.close > previousSma && previousSma > anchorSma,
+      downtrend: previous.close < previousSma && previousSma < anchorSma,
+    };
+  };
+
+  for (let index = 0; index < data.length; index++) {
+    const current = metrics[index];
+    if (!current) continue;
+
+    const bodyShortAvg = readRollingAverage(bodyPrefix, validPrefix, index, bodyShortPeriod);
+    const bodyLongAvg = readRollingAverage(bodyPrefix, validPrefix, index, bodyLongPeriod);
+    const bodyDojiAvgRange = readRollingAverage(rangePrefix, validPrefix, index, bodyDojiPeriod);
+    const shadowVeryShortAvgRange = readRollingAverage(rangePrefix, validPrefix, index, shadowVeryShortPeriod);
+    const nearAvgRange = readRollingAverage(rangePrefix, validPrefix, index, nearPeriod);
+    const bodyDojiMax = bodyDojiAvgRange === null ? null : bodyDojiFactor * bodyDojiAvgRange;
+    const shadowVeryShortMax = shadowVeryShortAvgRange === null ? null : shadowVeryShortFactor * shadowVeryShortAvgRange;
+    const nearTolerance = nearAvgRange === null ? null : nearFactor * nearAvgRange;
+    const previousVolumeAvg = readRollingAverage(volumePrefix, validPrefix, index, 10);
+    const insufficientHistory = bodyShortAvg === null
+      || bodyLongAvg === null
+      || bodyDojiMax === null
+      || shadowVeryShortMax === null
+      || nearTolerance === null;
+
+    result.realBody[index] = roundIndicatorValue(current.realBody, 4);
+    result.highLowRange[index] = roundIndicatorValue(current.range, 4);
+    result.upperShadow[index] = roundIndicatorValue(current.upperShadow, 4);
+    result.lowerShadow[index] = roundIndicatorValue(current.lowerShadow, 4);
+    if (bodyShortAvg !== null) result.bodyShortAvg[index] = roundIndicatorValue(bodyShortAvg, 4);
+    if (bodyLongAvg !== null) result.bodyLongAvg[index] = roundIndicatorValue(bodyLongAvg, 4);
+    if (bodyDojiMax !== null) {
+      result.bodyDojiMax[index] = roundIndicatorValue(bodyDojiMax, 4);
+      result.dojiMaxBody[index] = roundIndicatorValue(bodyDojiMax, 4);
+    }
+    if (shadowVeryShortMax !== null) {
+      result.shadowVeryShortMax[index] = roundIndicatorValue(shadowVeryShortMax, 4);
+      result.veryShortShadowMax[index] = roundIndicatorValue(shadowVeryShortMax, 4);
+    }
+    if (nearTolerance !== null) {
+      result.nearTolerance[index] = roundIndicatorValue(nearTolerance, 4);
+      result.nearMidTolerance[index] = roundIndicatorValue(nearTolerance, 4);
+      nearToleranceValues[index] = nearTolerance;
+    }
+    if (bodyDojiAvgRange !== null) result.avgRange10[index] = roundIndicatorValue(bodyDojiAvgRange, 4);
+    if (nearAvgRange !== null) result.avgRange5[index] = roundIndicatorValue(nearAvgRange, 4);
+    result.insufficientHistory[index] = insufficientHistory ? 1 : 0;
+    result.lowReliabilityBecauseIlliquid[index] = previousVolumeAvg !== null && current.volume <= Math.max(1, previousVolumeAvg * 0.10) ? 1 : 0;
+
+    const { uptrend, downtrend } = resolveTrend(index);
+    writeBooleanSignal(result.uptrend, index, uptrend);
+    writeBooleanSignal(result.downtrend, index, downtrend);
+
+    if (bodyShortAvg === null || bodyLongAvg === null || bodyDojiMax === null || shadowVeryShortMax === null || nearTolerance === null) {
+      continue;
+    }
+
+    const previous = index > 0 ? metrics[index - 1] : null;
+    const previousNearTolerance = index > 0 ? nearToleranceValues[index - 1] : null;
+    const isDoji = current.realBody <= bodyDojiMax;
+    const longLeggedDoji = isDoji && (current.upperShadow > current.realBody || current.lowerShadow > current.realBody);
+    const midRange = current.low + current.range / 2;
+    const rickshawMan = isDoji
+      && current.upperShadow > current.realBody
+      && current.lowerShadow > current.realBody
+      && current.bodyBottom <= midRange + nearTolerance
+      && current.bodyTop >= midRange - nearTolerance;
+    const dragonflyDoji = isDoji && current.upperShadow < shadowVeryShortMax && current.lowerShadow > shadowVeryShortMax;
+    const gravestoneDoji = isDoji && current.lowerShadow < shadowVeryShortMax && current.upperShadow > shadowVeryShortMax;
+    const hasPreviousNear = previous !== null && previousNearTolerance !== null;
+    const hammerShape = hasPreviousNear
+      && current.realBody < bodyShortAvg
+      && current.lowerShadow > current.realBody
+      && current.upperShadow < shadowVeryShortMax
+      && current.bodyBottom <= previous.low + previousNearTolerance;
+    const hangingManShape = hasPreviousNear
+      && current.realBody < bodyShortAvg
+      && current.lowerShadow > current.realBody
+      && current.upperShadow < shadowVeryShortMax
+      && current.bodyBottom >= previous.high - previousNearTolerance;
+    const takuri = isDoji
+      && current.upperShadow < shadowVeryShortMax
+      && current.lowerShadow > 2 * current.realBody;
+    const invertedHammerShape = previous !== null
+      && current.realBody < bodyShortAvg
+      && current.upperShadow > current.realBody
+      && current.lowerShadow < shadowVeryShortMax
+      && current.bodyTop < previous.bodyBottom;
+    const shootingStarShape = previous !== null
+      && current.realBody < bodyShortAvg
+      && current.upperShadow > current.realBody
+      && current.lowerShadow < shadowVeryShortMax
+      && current.bodyBottom > previous.bodyTop;
+    const marubozu = current.realBody > bodyLongAvg
+      && current.upperShadow < shadowVeryShortMax
+      && current.lowerShadow < shadowVeryShortMax;
+    const marubozuBull = marubozu && current.close > current.open;
+    const marubozuBear = marubozu && current.close < current.open;
+    const spinningTop = current.realBody < bodyShortAvg
+      && current.upperShadow > current.realBody
+      && current.lowerShadow > current.realBody;
+
+    dojiFlags[index] = isDoji;
+    result.doji[index] = isDoji ? 1 : 0;
+    result.longLeggedDoji[index] = longLeggedDoji ? 1 : 0;
+    result.rickshawMan[index] = rickshawMan ? 1 : 0;
+    result.dragonflyDoji[index] = dragonflyDoji ? 1 : 0;
+    result.gravestoneDoji[index] = gravestoneDoji ? 1 : 0;
+    result.hammer[index] = hammerShape ? 100 : 0;
+    result.hangingMan[index] = hangingManShape ? -100 : 0;
+    result.takuri[index] = takuri ? 100 : 0;
+    result.invertedHammer[index] = invertedHammerShape ? 100 : 0;
+    result.shootingStar[index] = shootingStarShape ? -100 : 0;
+    result.marubozuBull[index] = marubozuBull ? 100 : 0;
+    result.marubozuBear[index] = marubozuBear ? -100 : 0;
+    result.spinningTop[index] = spinningTop ? (current.close > current.open ? 100 : current.close < current.open ? -100 : 0) : 0;
+    result.hammerConfirmed[index] = hammerShape ? (downtrend === null ? "-" : downtrend ? 1 : 0) : 0;
+    result.hangingManConfirmed[index] = hangingManShape ? (uptrend === null ? "-" : uptrend ? 1 : 0) : 0;
+    result.invertedHammerConfirmed[index] = invertedHammerShape ? (downtrend === null ? "-" : downtrend ? 1 : 0) : 0;
+    result.shootingStarConfirmed[index] = shootingStarShape ? (uptrend === null ? "-" : uptrend ? 1 : 0) : 0;
+  }
+
+  for (let index = 2; index < data.length; index++) {
+    const dojiA = dojiFlags[index - 2];
+    const dojiB = dojiFlags[index - 1];
+    const dojiC = dojiFlags[index];
+    const bodyTopA = bodyTopValues[index - 2];
+    const bodyTopB = bodyTopValues[index - 1];
+    const bodyTopC = bodyTopValues[index];
+    const bodyBottomA = bodyBottomValues[index - 2];
+    const bodyBottomB = bodyBottomValues[index - 1];
+    const bodyBottomC = bodyBottomValues[index];
+    if (dojiA === null || dojiB === null || dojiC === null || bodyTopA === null || bodyTopB === null || bodyTopC === null || bodyBottomA === null || bodyBottomB === null || bodyBottomC === null) {
+      continue;
+    }
+
+    const tristarBase = dojiA && dojiB && dojiC;
+    const bearishTristar = tristarBase && bodyBottomB > bodyTopA && bodyTopC < bodyTopB;
+    const bullishTristar = tristarBase && bodyTopB < bodyBottomA && bodyBottomC > bodyBottomB;
+    result.bearishTristar[index] = bearishTristar ? 1 : 0;
+    result.bullishTristar[index] = bullishTristar ? 1 : 0;
+    result.tristar[index] = bullishTristar ? 100 : bearishTristar ? -100 : 0;
+  }
+
+  return result;
+};
+
+export const calculateKlingerOscillator = (
+  data: ChartDataPoint[],
+  fastLength = 34,
+  slowLength = 55,
+  signalLength = 13,
+): { oscillator: (number | string)[]; signalLine: (number | string)[] } => {
+  const oscillator: (number | string)[] = new Array(data.length).fill("-");
+  const signalLine: (number | string)[] = new Array(data.length).fill("-");
+  if (fastLength <= 0 || slowLength <= 0 || signalLength <= 0 || fastLength >= slowLength || data.length < slowLength) {
+    return { oscillator, signalLine };
+  }
+
+  const volumeForce: Array<number | null> = new Array(data.length).fill(null);
+  let previousHlc: number | null = null;
+  let previousDm: number | null = null;
+  let previousTrend: number | null = null;
+  let previousCm = 0;
+
+  for (let index = 0; index < data.length; index++) {
+    const high = toFinitePriceValue(data[index].high);
+    const low = toFinitePriceValue(data[index].low);
+    const close = toFinitePriceValue(data[index].close);
+    const volume = toFiniteVolumeValue(data[index].volume);
+    if (high === null || low === null || close === null || volume === null || high < low) {
+      previousHlc = null;
+      previousDm = null;
+      previousTrend = null;
+      previousCm = 0;
+      continue;
+    }
+
+    const hlc = high + low + close;
+    const dm = high - low;
+    if (previousHlc === null || previousDm === null) {
+      previousHlc = hlc;
+      previousDm = dm;
+      previousCm = dm;
+      continue;
+    }
+
+    const trend = hlc > previousHlc ? 1 : -1;
+    const cm = previousTrend !== null && trend === previousTrend
+      ? previousCm + dm
+      : previousDm + dm;
+
+    if (cm !== 0) {
+      volumeForce[index] = volume * (2 * (dm / cm - 1)) * trend * 100;
+    }
+
+    previousHlc = hlc;
+    previousDm = dm;
+    previousTrend = trend;
+    previousCm = cm;
+  }
+
+  const fastEma = calculateEMAFloatSeries(volumeForce, fastLength);
+  const slowEma = calculateEMAFloatSeries(volumeForce, slowLength);
+  const rawOscillator: Array<number | null> = new Array(data.length).fill(null);
+
+  for (let index = 0; index < data.length; index++) {
+    const fast = fastEma[index];
+    const slow = slowEma[index];
+    if (fast === null || slow === null) continue;
+    const value = fast - slow;
+    rawOscillator[index] = value;
+    oscillator[index] = roundIndicatorValue(value);
+  }
+
+  const signal = calculateEMAFloatSeries(rawOscillator, signalLength);
+  for (let index = 0; index < data.length; index++) {
+    const signalValue = signal[index];
+    if (signalValue !== null) signalLine[index] = roundIndicatorValue(signalValue);
+  }
+
+  return { oscillator, signalLine };
+};
+
+export const calculateElderForceIndex = (
+  data: ChartDataPoint[],
+  smoothLength = 13,
+): { raw: (number | string)[]; forceIndex13: (number | string)[] } => {
+  const raw: (number | string)[] = new Array(data.length).fill("-");
+  const rawFloat: Array<number | null> = new Array(data.length).fill(null);
+  const forceIndex13: (number | string)[] = new Array(data.length).fill("-");
+  if (smoothLength <= 0 || data.length < 2) return { raw, forceIndex13 };
+
+  for (let index = 1; index < data.length; index++) {
+    const currentClose = toFinitePriceValue(data[index].close);
+    const previousClose = toFinitePriceValue(data[index - 1].close);
+    const volume = toFiniteVolumeValue(data[index].volume);
+    if (currentClose === null || previousClose === null || volume === null) continue;
+    const value = (currentClose - previousClose) * volume;
+    rawFloat[index] = value;
+    raw[index] = roundIndicatorValue(value);
+  }
+
+  const smoothedForce = calculateEMAFloatSeries(rawFloat, smoothLength);
+  for (let index = 0; index < data.length; index++) {
+    const value = smoothedForce[index];
+    if (value !== null) forceIndex13[index] = roundIndicatorValue(value);
+  }
+
+  return { raw, forceIndex13 };
+};
+
 /**
- * [TENOR 2026 HDR] Ichimoku Cloud (TradingView Parity)
+ * Ichimoku Cloud for the supported TradingView-compatible displacement settings
  * Formula:
  * Tenkan = (Highest(9) + Lowest(9)) / 2
  * Kijun = (Highest(26) + Lowest(26)) / 2

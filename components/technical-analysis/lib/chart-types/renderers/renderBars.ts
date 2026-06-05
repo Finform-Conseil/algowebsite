@@ -1,5 +1,5 @@
 import type { ChartTypeRenderer, CustomRenderApi } from "./types";
-import { buildLatestPriceMarkLine, getCategoryBandWidth, makeLineShape } from "./helpers";
+import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeLineShape } from "./helpers";
 
 export const renderBars: ChartTypeRenderer = ({ id, name, result, palette, latestPrice, visible }) => {
   if (result.kind !== "ohlc") return [];
@@ -8,6 +8,8 @@ export const renderBars: ChartTypeRenderer = ({ id, name, result, palette, lates
     id,
     name,
     type: "custom",
+    ...PRICE_CUSTOM_SERIES_BINDING,
+    encode: { x: 0, y: [1, 2, 3, 4] },
     data: result.bars.map((bar, index) => [
       index,
       bar.open,
@@ -31,6 +33,7 @@ export const renderBars: ChartTypeRenderer = ({ id, name, result, palette, lates
       const yHigh = api.coord([index, high])[1];
       const yLow = api.coord([index, low])[1];
       const yClose = api.coord([index, close])[1];
+      if (![x, yOpen, yHigh, yLow, yClose].every(Number.isFinite)) return undefined;
       const tick = Math.max(3, getCategoryBandWidth(api) * 0.32);
 
       return {

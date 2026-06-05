@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
 import { BRVM_SECURITIES, BRVMSecurity, SECTOR_COLORS } from "@/core/data/brvm-securities";
+import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
 import { useTickerSelector } from "./context/TickerSelectorContext";
 
 // ============================================================================
@@ -93,25 +94,15 @@ const TickerRow = React.memo(({ item, isActive, query, onSelect, onHover }: Tick
     >
       {isActive && <div className="tsm-row-indicator" />}
       
-      <div className="tsm-logo-container">
-        {item.logoUrl ? (
-          <img 
-            src={item.logoUrl} 
-            alt={item.ticker} 
-            className="tsm-logo-img"
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              // Fallback if image fails to load
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement!.classList.add('fallback');
-              e.currentTarget.parentElement!.innerText = item.ticker.substring(0, 2);
-            }}
-          />
-        ) : (
-          <div className="tsm-logo-fallback">{item.ticker.substring(0, 2)}</div>
-        )}
-      </div>
+      <BrvmLogoMark
+        ticker={item.ticker}
+        name={item.name}
+        logoUrl={item.logoUrl}
+        sector={item.sector}
+        status={item.status}
+        size={38}
+        imageSizes="38px"
+      />
 
       <div className="tsm-info">
         <div className="tsm-ticker"><HighlightMatch text={item.ticker} query={query} /></div>
@@ -342,13 +333,6 @@ export const TickerSelectorModal: React.FC = () => {
           position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
           background: var(--gp-accent-gold, #ff9f04); border-radius: 0 4px 4px 0;
         }
-        .tsm-logo-container {
-          width: 36px; height: 36px; border-radius: 50%; background: #ffffff;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0; overflow: hidden; border: 2px solid rgba(255,255,255,0.1);
-        }
-        .tsm-logo-container.fallback { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; font-weight: bold; font-size: 14px; }
-        .tsm-logo-img { width: 24px; height: 24px; object-fit: contain; }
         .tsm-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .tsm-ticker { color: var(--gp-text-primary, #f8f9fa); font-size: 15px; font-weight: 700; font-family: var(--gp-font-family-base, 'Inter', sans-serif); }
         .tsm-name { color: var(--gp-text-secondary, #a0aec0); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

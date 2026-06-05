@@ -8,41 +8,26 @@
 "use client";
 
 import React, { createContext, useMemo, useRef, useContext } from "react";
-import { useSelector, shallowEqual } from "react-redux";
-import * as echarts from "echarts/core";
+import {
+  useSelector,
+  shallowEqual } from "react-redux";
 
 // --- Types & Constants ---
 import type { RootState } from "@/core/infrastructure/store";
-import { BRVM_SECURITIES, type BRVMSecurity } from "@/core/data/brvm-securities";
+import type { EChartsInstance } from "../lib/types/echarts";
+import { BRVM_SECURITIES,
+  type BRVMSecurity } from "@/core/data/brvm-securities";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import type { CurrencyCode } from "../components/common/CurrencySelector";
-import { selectChartConfig, selectDataMode } from "../store/technicalAnalysisSlice";
+import type { CurrencyCode } from "../components/market/CurrencySelector";
+import { selectChartConfig, selectDataMode } from "../store/selectors";
 
 // --- Hooks ---
 import { useBrokerState } from "../hooks/useBrokerState";
 import { useCurrencyState } from "../hooks/useCurrencyState";
 import { useMarketData } from "../hooks/MarketData/useMarketData";
 import { useDrawingManager } from "../hooks/useDrawingManager";
-import { useCurrencyConverter } from "../hooks/MarketData/useCurrencyConverter";
+import { useCurrencyConverter, type CurrencyConversionStatus } from "../hooks/MarketData/useCurrencyConverter";
 import { TickerSelectorModal, TickerSelectorProvider, useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const FALLBACK_RATES: Record<string, number> = {
-  XOF: 655.957,
-  XAF: 655.957,
-  USD: 1.08,
-  EUR: 1,
-  GBP: 0.85,
-  NGN: 1600.5,
-  KES: 130.5,
-  ZAR: 19.5,
-  MAD: 10.8,
-  EGP: 47.2,
-  GHS: 13.5,
-};
 
 // ============================================================================
 // CONTEXT DEFINITIONS & EXPORTS
@@ -59,7 +44,7 @@ export type ChartRefs = {
   layersStackRef: React.RefObject<HTMLDivElement>;
   chartViewWrapperRef: React.RefObject<HTMLDivElement>;
   fullscreenChartContainerRef: React.RefObject<HTMLDivElement>;
-  chartInstanceRef: React.MutableRefObject<echarts.ECharts | null>;
+  chartInstanceRef: React.MutableRefObject<EChartsInstance | null>;
   lastZoomRangeRef: React.MutableRefObject<{ start: number; end: number }>;
   sidebarToggleRef: React.RefObject<HTMLButtonElement>;
   sidebarRef: React.RefObject<HTMLDivElement>;
@@ -85,6 +70,11 @@ export const MarketDataContext = createContext<MarketDataState | null>(null);
 export type ChartStateData = {
   security: BRVMSecurity;
   effectiveRate: number;
+  baseCurrency: string;
+  targetCurrency: string;
+  currencyDisplayLabel: string;
+  conversionStatus: CurrencyConversionStatus;
+  isCurrencyRateUnavailable: boolean;
   displaySymbolName: string;
   userInitials: string;
   globalIsLoading: boolean;
@@ -96,6 +86,48 @@ export const ChartStateContext = createContext<ChartStateData | null>(null);
 
 export type DrawingState = ReturnType<typeof useDrawingManager>;
 export const DrawingContext = createContext<DrawingState | null>(null);
+
+const useRequiredTechnicalAnalysisContext = <T,>(
+  context: React.Context<T | null>,
+  contextName: string,
+  providerName: string
+): T => {
+  const value = useContext(context);
+  if (value === null) {
+    throw new Error(`${contextName} must be used within ${providerName}`);
+  }
+  return value;
+};
+
+export const useBrokerContext = () => useRequiredTechnicalAnalysisContext(BrokerContext, "BrokerContext", "BrokerProvider");
+export const useCurrencyContext = () => useRequiredTechnicalAnalysisContext(CurrencyContext, "CurrencyContext", "CurrencyProvider");
+export const useChartRefsContext = () => useRequiredTechnicalAnalysisContext(ChartRefsContext, "ChartRefsContext", "ChartRefsProvider");
+export const useMarketDataContext = () => useRequiredTechnicalAnalysisContext(MarketDataContext, "MarketDataContext", "MarketDataProvider");
+export const useChartStateContext = () => useRequiredTechnicalAnalysisContext(ChartStateContext, "ChartStateContext", "ChartStateProvider");
+export const useDrawingContext = () => useRequiredTechnicalAnalysisContext(DrawingContext, "DrawingContext", "DrawingProvider");
+
+const getDefaultSecurity = (): BRVMSecurity => {
+  const security = BRVM_SECURITIES.find((item) => item.ticker === "BOAB") ?? BRVM_SECURITIES[0];
+  if (!security) throw new Error("BRVM security catalog cannot be empty");
+  return security;
+};
+
+const normalizeDisplaySymbol = (value: string | undefined, fallback: string): string => {
+  const symbol = value?.trim().toUpperCase();
+  return symbol || fallback;
+};
+
+const buildAnonymousInitials = (pseudo: string): string => {
+  const cleaned = pseudo.trim();
+  if (!cleaned) return "AN";
+
+  const parts = cleaned.split(/[_\s-]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+
+  return cleaned.slice(0, 2).toUpperCase();
+};
 
 // ============================================================================
 // PROVIDER IMPLEMENTATIONS
@@ -115,31 +147,83 @@ const CurrencyProvider: React.FC<{ children: React.ReactNode; initialCurrency: C
 };
 
 const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const refs: ChartRefs = {
-    mainContainerRef: useRef<HTMLDivElement>(null),
-    cursorCanvasRef: useRef<HTMLCanvasElement>(null),
-    drawingCanvasRef: useRef<HTMLCanvasElement>(null),
-    stockChartRef: useRef<HTMLDivElement>(null),
-    layersStackRef: useRef<HTMLDivElement>(null),
-    chartViewWrapperRef: useRef<HTMLDivElement>(null),
-    fullscreenChartContainerRef: useRef<HTMLDivElement>(null),
-    chartInstanceRef: useRef<echarts.ECharts | null>(null),
-    lastZoomRangeRef: useRef({ start: 0, end: 100 }),
-    sidebarToggleRef: useRef<HTMLButtonElement>(null),
-    sidebarRef: useRef<HTMLDivElement>(null),
-    chartFooterRef: useRef<HTMLDivElement>(null),
-    verticalToolbarRef: useRef<HTMLDivElement>(null),
-    sidebarBackdropRef: useRef<HTMLDivElement>(null),
-    benefitsChartRef: useRef<HTMLDivElement>(null),
-    dividendsChartRef: useRef<HTMLDivElement>(null),
-    drawingToolbarRef: useRef<HTMLDivElement>(null),
-    drawingTooltipRef: useRef<HTMLDivElement>(null),
-    cursorPriceBadgeRef: useRef<HTMLDivElement>(null),
-    cursorPriceTextRef: useRef<HTMLSpanElement>(null),
-    cursorPriceActionRef: useRef<HTMLButtonElement>(null),
-    lastPriceBadgeRef: useRef<HTMLDivElement>(null),
-    lastPriceLineRef: useRef<HTMLDivElement>(null),
-  };
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+  const cursorCanvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const stockChartRef = useRef<HTMLDivElement>(null);
+  const layersStackRef = useRef<HTMLDivElement>(null);
+  const chartViewWrapperRef = useRef<HTMLDivElement>(null);
+  const fullscreenChartContainerRef = useRef<HTMLDivElement>(null);
+  const chartInstanceRef = useRef<EChartsInstance | null>(null);
+  const lastZoomRangeRef = useRef({ start: 0, end: 100 });
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const chartFooterRef = useRef<HTMLDivElement>(null);
+  const verticalToolbarRef = useRef<HTMLDivElement>(null);
+  const sidebarBackdropRef = useRef<HTMLDivElement>(null);
+  const benefitsChartRef = useRef<HTMLDivElement>(null);
+  const dividendsChartRef = useRef<HTMLDivElement>(null);
+  const drawingToolbarRef = useRef<HTMLDivElement>(null);
+  const drawingTooltipRef = useRef<HTMLDivElement>(null);
+  const cursorPriceBadgeRef = useRef<HTMLDivElement>(null);
+  const cursorPriceTextRef = useRef<HTMLSpanElement>(null);
+  const cursorPriceActionRef = useRef<HTMLButtonElement>(null);
+  const lastPriceBadgeRef = useRef<HTMLDivElement>(null);
+  const lastPriceLineRef = useRef<HTMLDivElement>(null);
+
+  const refs = useMemo<ChartRefs>(
+    () => ({
+      mainContainerRef,
+      cursorCanvasRef,
+      drawingCanvasRef,
+      stockChartRef,
+      layersStackRef,
+      chartViewWrapperRef,
+      fullscreenChartContainerRef,
+      chartInstanceRef,
+      lastZoomRangeRef,
+      sidebarToggleRef,
+      sidebarRef,
+      chartFooterRef,
+      verticalToolbarRef,
+      sidebarBackdropRef,
+      benefitsChartRef,
+      dividendsChartRef,
+      drawingToolbarRef,
+      drawingTooltipRef,
+      cursorPriceBadgeRef,
+      cursorPriceTextRef,
+      cursorPriceActionRef,
+      lastPriceBadgeRef,
+      lastPriceLineRef,
+    }),
+    [
+      mainContainerRef,
+      cursorCanvasRef,
+      drawingCanvasRef,
+      stockChartRef,
+      layersStackRef,
+      chartViewWrapperRef,
+      fullscreenChartContainerRef,
+      chartInstanceRef,
+      lastZoomRangeRef,
+      sidebarToggleRef,
+      sidebarRef,
+      chartFooterRef,
+      verticalToolbarRef,
+      sidebarBackdropRef,
+      benefitsChartRef,
+      dividendsChartRef,
+      drawingToolbarRef,
+      drawingTooltipRef,
+      cursorPriceBadgeRef,
+      cursorPriceTextRef,
+      cursorPriceActionRef,
+      lastPriceBadgeRef,
+      lastPriceLineRef,
+    ]
+  );
+
   return <ChartRefsContext.Provider value={refs}>{children}</ChartRefsContext.Provider>;
 };
 
@@ -151,36 +235,30 @@ const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const marketDataContext = useContext(MarketDataContext);
-  if (!marketDataContext) throw new Error("ChartStateProvider must be used within MarketDataProvider");
+  const marketDataContext = useMarketDataContext();
   const { chartData, isLoading: marketIsLoading } = marketDataContext;
 
   const { selectedTicker, isLoading: isTickerLoading } = useTickerSelector();
-  const currencyState = useContext(CurrencyContext);
+  const currencyState = useCurrencyContext();
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
   const isAnonyme = useSelector((state: RootState) => state.technicalAnalysis.ui.isAnonyme);
   const selectedPseudo = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedPseudo);
 
-  const security = useMemo(() => {
-    if (!selectedTicker?.ticker) return BRVM_SECURITIES[0];
-    return BRVM_SECURITIES.find((s) => s.ticker === selectedTicker.ticker) || BRVM_SECURITIES[0];
-  }, [selectedTicker]);
+  const security = useMemo(() => selectedTicker ?? getDefaultSecurity(), [selectedTicker]);
 
-  const { exchangeRate, isConverting } = useCurrencyConverter(
-    security.currency || "XOF",
-    currencyState?.selectedCurrency || "XOF"
-  );
+  const baseCurrency = security.currency || "XOF";
+  const targetCurrency = currencyState.selectedCurrency || "XOF";
+  const { exchangeRate, isConverting, conversionStatus } = useCurrencyConverter(baseCurrency, targetCurrency);
+  const isCurrencyRateUnavailable = conversionStatus === "unavailable";
 
   const effectiveRate = useMemo(() => {
-    const base = security.currency || "XOF";
-    const target = currencyState?.selectedCurrency || "XOF";
-    if (base === target) return 1;
-    if (exchangeRate !== 1) return exchangeRate;
-    const rateBase = FALLBACK_RATES[base] || 1;
-    const rateTarget = FALLBACK_RATES[target] || 1;
-    return rateTarget / rateBase;
-  }, [exchangeRate, security.currency, currencyState?.selectedCurrency]);
+    if (baseCurrency === targetCurrency) return 1;
+    if (conversionStatus === "live" && exchangeRate !== null) return exchangeRate;
+    return 1;
+  }, [baseCurrency, targetCurrency, conversionStatus, exchangeRate]);
+
+  const currencyDisplayLabel = isCurrencyRateUnavailable ? "Rate unavailable" : targetCurrency;
 
   // [TENOR 2026 FIX] SCAR-UX-LOADER: Restored marketIsLoading dependency to prevent 2-minute blank chart
   const globalIsLoading = isTickerLoading || isConverting || (marketIsLoading && chartData.length === 0);
@@ -279,14 +357,22 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return result;
   }, [filteredChartData, effectiveRate]);
 
-  const userInitials = "DA";
-  const displaySymbolName = isAnonyme ? selectedPseudo : chartConfig.symbol || selectedTicker?.ticker || "BOAB";
+  const userInitials = useMemo(() => (isAnonyme ? buildAnonymousInitials(selectedPseudo) : "DA"), [isAnonyme, selectedPseudo]);
+  const displaySymbolName = useMemo(
+    () => normalizeDisplaySymbol(chartConfig.symbol || selectedTicker?.ticker || security.ticker, getDefaultSecurity().ticker),
+    [chartConfig.symbol, security.ticker, selectedTicker?.ticker]
+  );
   const [isMainChartVisible, setIsMainChartVisible] = React.useState(true);
 
   const value = useMemo(
     () => ({
       security,
       effectiveRate,
+      baseCurrency,
+      targetCurrency,
+      currencyDisplayLabel,
+      conversionStatus,
+      isCurrencyRateUnavailable,
       globalIsLoading,
       displayChartData,
       userInitials,
@@ -297,6 +383,11 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [
       security,
       effectiveRate,
+      baseCurrency,
+      targetCurrency,
+      currencyDisplayLabel,
+      conversionStatus,
+      isCurrencyRateUnavailable,
       globalIsLoading,
       displayChartData,
       userInitials,
@@ -310,11 +401,8 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 const DrawingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const refsContext = useContext(ChartRefsContext);
-  const chartStateContext = useContext(ChartStateContext);
-
-  if (!refsContext) throw new Error("DrawingProvider must be used within ChartRefsProvider");
-  if (!chartStateContext) throw new Error("DrawingProvider must be used within ChartStateProvider");
+  const refsContext = useChartRefsContext();
+  const chartStateContext = useChartStateContext();
 
   const drawingManager = useDrawingManager({
     chartInstanceRef: refsContext.chartInstanceRef,

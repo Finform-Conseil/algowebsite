@@ -1,11 +1,11 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/renderers/ChartPatterns/support/GeometricPatternUtils.ts
-import { Drawing, DrawingPoint } from "../../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../../config/drawing/drawingModelTypes";
 import { isPointInPolygon, isPointInTriangle } from "../../../../math/geometry";
 import { DrawingHelpers, HitTestResult } from "../../../interfaces/IDrawingStrategy";
 import { fixedRoundRect, isPointNearSegment } from "./BaseRendererUtils";
 
 /**
- * [TENOR 2026 HDR] Hit-Test Géométrique Universel
+ * Geometric hit-test
  * Gère la détection de clic pour tous les Chart Patterns (XABCD, Cypher, Triangles, etc.).
  * Intègre les primitives mathématiques (Winding Number, Barycentre) pour une précision absolue sur les zones pleines.
  * [FIX] SCAR-157 : Fallback du centre de gravité pour les polygones complexes dégénérés.
@@ -72,7 +72,7 @@ export function hitTestGeometric(
 }
 
 /**
- * [TENOR 2026 HDR] Dessine une ligne diagonale pointillée avec une étiquette affichant le ratio de Fibonacci.
+ * Dessine une ligne diagonale pointillée avec une étiquette affichant le ratio de Fibonacci.
  * [FIX] SCAR-ZERO-DIV : Protection absolue contre la division par zéro et la propagation de NaN.
  */
 export function drawDiagonalWithRatio(

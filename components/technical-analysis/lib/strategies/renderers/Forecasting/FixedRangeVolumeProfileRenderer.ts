@@ -1,15 +1,16 @@
-// src/.../FixedRangeVolumeProfileRenderer.ts
-// [TENOR 2026] FRVP HDR GOLD STANDARD V9 — HDR CONSECRATION.
-// SCAR-188-190 COMPLETE. Final resolution for Grid Clipping and Pure-Y Axis.
-// Engineering Excellence: Sub-pixel rendering, Optimized WeakMap Cache,
-// and Strict Grid Enforcement.
-// [TENOR 2026 SRE FIX] SCAR-API-01: ECharts API Decoupling
-// Eradicated the hacky `(chart as EChartsWithModel).getModel?.()`.
-// Now safely delegates to the robust `getSafeGridRect` adapter.
+// Fixed Range Volume Profile renderer for the Canvas overlay.
+// Documents fixes for grid clipping, price-axis conversion and ECharts API access.
+// Uses sub-pixel rendering, a bounded cache,
+// and grid clipping.
+// SCAR-API-01: ECharts API access through adapter
+// Avoids direct getModel access through chart casts.
+// Delegates grid lookup to the `getSafeGridRect` adapter.
 
-import { Drawing, DrawingHelpers, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
+import type { DrawingHelpers } from "../../../../config/drawing/drawingInteractionTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
-import { ChartDataPoint } from "../../../Indicators/TechnicalIndicators";
+import type { ChartDataPoint } from "../../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../../types/echarts";
 import { getSafeGridRect } from "../../../../hooks/useChartViewport";
 
@@ -33,7 +34,7 @@ interface VolumeProfileData {
   rangeLow: number;
 }
 
-// [HDR PERFORMANCE] Stable memoization cache for heavy Temporal ranges
+// Stable memoization cache for repeated temporal ranges
 const profileCache = new Map<string, VolumeProfileData>();
 // Secondary map for instant hit-testing based on the last computed state for an ID
 const latestProfileMap = new Map<string, VolumeProfileData>();
@@ -89,7 +90,7 @@ const getPriceAxisInfo = (chart: EChartsInstance): { yAxisIdx: number; gridIdx: 
 };
 
 /**
- * [TENOR 2026 SRE FIX] SCAR-API-01: ECharts API Decoupling
+ * SCAR-API-01: ECharts API access through adapter
  * Safely delegates to the robust `getSafeGridRect` adapter which includes DOM fallbacks.
  */
 const getGridRect = (chart: EChartsInstance, _gridIdx: number) => {
@@ -97,12 +98,12 @@ const getGridRect = (chart: EChartsInstance, _gridIdx: number) => {
     const dom = chart.getDom() as HTMLElement | null;
     return getSafeGridRect(chart, dom);
   } catch (e) {
-    console.warn("[SRE] FRVP getGridRect delegation failed.", e);
+    console.warn("FRVP getGridRect delegation failed.", e);
     return null;
   }
 };
 
-const calculateVolumeProfileHDR = (
+const calculateVolumeProfileData = (
   chartData: ChartDataPoint[],
   startIndex: number,
   endIndex: number,
@@ -200,7 +201,7 @@ const calculateVolumeProfileHDR = (
 };
 
 /**
- * [TENOR 2026] FRVP HDR MASTERPIECE RENDERER (V9)
+ * Renders a fixed-range volume profile for the selected chart-data range.
  */
 export const renderFixedRangeVolumeProfile = (
   pts: { x: number; y: number }[],
@@ -262,7 +263,7 @@ export const renderFixedRangeVolumeProfile = (
 
   if (startIdx === -1 || endIdx === -1) return;
 
-  // --- HDR PURE-Y CONVERSION ---
+  // --- PRICE-AXIS CONVERSION ---
   const toY = (price: number): number => {
     const py = chart.convertToPixel({ yAxisIndex: yAxisIdx }, price);
     return typeof py === "number" ? Math.round(py) : 0;
@@ -270,13 +271,13 @@ export const renderFixedRangeVolumeProfile = (
 
   const numRows = props.layout === "Number of Rows" ? props.rowSize : 24;
 
-  // [HDR STABILITY KEY] Composite fingerprint: ID + Temporal Range + Config
+  // Composite fingerprint: ID + temporal range + config.
   const cacheKey = `${drawing.id}_${Math.min(startIdx, endIdx)}_${Math.max(startIdx, endIdx)}_${numRows}_${props.valueAreaVolume}`;
 
   let profile: VolumeProfileData | null | undefined = profileCache.get(cacheKey);
 
   if (!profile || drawing.isCreating) {
-    profile = calculateVolumeProfileHDR(chartData, startIdx, endIdx, numRows, props.valueAreaVolume);
+    profile = calculateVolumeProfileData(chartData, startIdx, endIdx, numRows, props.valueAreaVolume);
     if (profile) addToCache(drawing.id, cacheKey, profile);
   }
 
@@ -293,12 +294,12 @@ export const renderFixedRangeVolumeProfile = (
   const pT1 = toY(profile.bins[1].price);
   const rowH = Math.abs(pT0 - pT1);
 
-  // [HDR STABILIZATION] Optimized row height for high-volume ranges
+  // Keep row height bounded for dense ranges.
   const binH = Math.min(120, Math.max(1, rowH - 0.5));
 
   ctx.save();
 
-  // [HDR CLIPPING] Ensuring drawing is strictly confined to the price pane
+  // Confine drawing to the resolved price pane.
   if (gridRect) {
     ctx.beginPath();
     ctx.rect(gridRect.x, gridRect.y, gridRect.width, gridRect.height);
@@ -315,7 +316,7 @@ export const renderFixedRangeVolumeProfile = (
   profile.bins.forEach((bin, i) => {
     const binY = toY(bin.price);
 
-    // [HDR ELASTICITY] Pure floating point calculation for perfectly fluid stretch
+    // Floating-point width keeps stretching continuous while the user drags.
     const upW = (bin.upVolume / profile!.maxVolume) * maxWidth;
     const downW = (bin.downVolume / profile!.maxVolume) * maxWidth;
 
@@ -361,7 +362,7 @@ export const renderFixedRangeVolumeProfile = (
   renderLimit(profile.vahPrice, "VAH");
   renderLimit(profile.valPrice, "VAL");
 
-  // [OBSIDIAN POC] Definitive Point of Control.
+  // Point of Control line.
   const pocY = toY(profile.pocPrice);
   ctx.setLineDash([]);
   ctx.strokeStyle = props.pocColor || "#000000";

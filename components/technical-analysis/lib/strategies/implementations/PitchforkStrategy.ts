@@ -1,10 +1,10 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/PitchforkStrategy.ts
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { PITCHFORK_TOOLS } from "../../../config/TechnicalAnalysisConstants";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import { PITCHFORK_TOOLS } from "../../../config/drawing/drawingConstants";
 import { distToSegment, distanceBetweenPoints, diagonal, calculatePitchforkOrigin } from "../../math/geometry";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../types/echarts";
 
 export class PitchforkStrategy implements IDrawingStrategy {

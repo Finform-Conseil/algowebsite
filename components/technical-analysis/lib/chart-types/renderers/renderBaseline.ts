@@ -1,5 +1,5 @@
 import type { ChartTypeRenderer, CustomRenderApi } from "./types";
-import { buildLatestPriceMarkLine } from "./helpers";
+import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine } from "./helpers";
 
 const BASE_LEVEL_PERCENT = 50;
 
@@ -24,6 +24,7 @@ export const renderBaseline: ChartTypeRenderer = ({ id, name, result, palette, l
     id,
     name,
     type: "custom",
+    ...PRICE_CUSTOM_SERIES_BINDING,
     data,
     renderItem: (_params: unknown, api: CustomRenderApi) => {
       const index = Number(api.value(0));

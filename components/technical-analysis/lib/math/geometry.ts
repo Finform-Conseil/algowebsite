@@ -1,4 +1,3 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/math/geometry.ts
 
 /**
  * Calcule la distance la plus courte entre un point (px, py) et un segment de ligne (x1,y1) -> (x2,y2).
@@ -26,22 +25,22 @@ export const distToSegment = (
 };
 
 /**
- * [TENOR 2026 HDR] Produit vectoriel 2D (Cross Product) pour déterminer de quel côté d'une ligne se trouve un point.
+ * Produit vectoriel 2D (Cross Product) pour déterminer de quel côté d'une ligne se trouve un point.
  * Retourne > 0 si p2 est à gauche de la ligne p0->p1
  * Retourne = 0 si p2 est sur la ligne
  * Retourne < 0 si p2 est à droite de la ligne
  * Note: Sur un Canvas, l'axe Y est inversé (vers le bas), ce qui inverse l'interprétation visuelle gauche/droite,
- * mais la logique topologique reste mathématiquement pure.
+ * mais la logique topologique reste cohérente.
  */
 const isLeft = (p0: { x: number, y: number }, p1: { x: number, y: number }, p2: { x: number, y: number }): number => {
   return ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
 };
 
 /**
- * [TENOR 2026 HDR] Algorithme du Winding Number (Indice d'Enlacement).
+ * Algorithme du Winding Number (Indice d'Enlacement).
  * Remplace l'ancien algorithme de Ray-Casting.
- * Topologiquement robuste pour les polygones complexes, concaves et auto-intersectants (Bowties).
- * Indispensable pour le hit-testing des zones pleines (Fill) des outils de trading avancés.
+ * Adapté pour les polygones complexes, concaves et auto-intersectants (Bowties).
+ * Utile pour le hit-testing des zones pleines (Fill) des outils de trading avancés.
  */
 export const isPointInPolygon = (px: number, py: number, polygon: { x: number, y: number }[]): boolean => {
   if (polygon.length < 3) return false;
@@ -71,8 +70,8 @@ export const isPointInPolygon = (px: number, py: number, polygon: { x: number, y
 };
 
 /**
- * [TENOR 2026 HDR] Coordonnées Barycentriques pour un test de collision ultra-rapide sur les triangles.
- * Complexité O(1), Zéro allocation mémoire.
+ * Coordonnées Barycentriques pour un test de collision simple sur les triangles.
+ * Complexité O(1), sans allocation volontaire.
  * Idéal pour les patterns harmoniques (XABCD, Cypher, Three Drives, etc.).
  */
 export const isPointInTriangle = (px: number, py: number, p1: { x: number, y: number }, p2: { x: number, y: number }, p3: { x: number, y: number }): boolean => {

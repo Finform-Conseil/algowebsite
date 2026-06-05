@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import Link from 'next/link';
 
 type SwapType = 'duration' | 'credit' | 'currency' | 'yield';
@@ -87,7 +87,7 @@ export default function BondSwapPage() {
   };
 
   // Mock swap operations data
-  const allSwapOperations: SwapOperation[] = [
+  const allSwapOperations = useMemo<SwapOperation[]>(() => [
     {
       id: 'SWP-001',
       swapType: 'duration',
@@ -196,10 +196,10 @@ export default function BondSwapPage() {
       status: 'matched',
       createdDate: '2024-12-12',
     },
-  ];
+    ], []);
 
   // Calculate match score for filtering
-  const calculateMatchScore = (swap: SwapOperation): number => {
+  const calculateMatchScore = useCallback((swap: SwapOperation): number => {
     let score = 0;
     
     // Swap type match
@@ -221,7 +221,7 @@ export default function BondSwapPage() {
     if (demandCriteria.isin && swap.demandIsin.includes(demandCriteria.isin)) score += 10;
     
     return score;
-  };
+  }, [demandCriteria, offerDetails, swapInputs.swapType]);
 
   // Filter and sort swap operations
   const filteredSwaps = useMemo(() => {
@@ -235,7 +235,7 @@ export default function BondSwapPage() {
     return swapsWithScores
       .filter(swap => swap.matchScore && swap.matchScore >= 30)
       .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-  }, [showFiltered, swapInputs, offerDetails, demandCriteria]);
+  }, [allSwapOperations, calculateMatchScore, showFiltered]);
 
   const handleSearch = () => {
     setShowFiltered(true);

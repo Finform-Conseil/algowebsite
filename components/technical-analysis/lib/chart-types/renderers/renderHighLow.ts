@@ -1,5 +1,5 @@
 import type { ChartTypeRenderer, CustomRenderApi } from "./types";
-import { buildLatestPriceMarkLine, getCategoryBandWidth, makeRectShape } from "./helpers";
+import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeRectShape } from "./helpers";
 
 export const renderHighLow: ChartTypeRenderer = ({ id, name, result, palette, latestPrice, visible }) => {
   if (result.kind !== "high_low") return [];
@@ -8,6 +8,7 @@ export const renderHighLow: ChartTypeRenderer = ({ id, name, result, palette, la
     id,
     name,
     type: "custom",
+    ...PRICE_CUSTOM_SERIES_BINDING,
     data: result.items.map((item, index) => [index, item.high, item.low]),
     renderItem: (_params: unknown, api: CustomRenderApi) => {
       const index = Number(api.value(0));

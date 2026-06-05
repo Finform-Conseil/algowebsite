@@ -1,5 +1,4 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/DrawingStrategyRegistry.ts
-import { IDrawingStrategy } from "./interfaces/IDrawingStrategy";
+import type { IDrawingStrategy } from "./interfaces/IDrawingStrategy";
 import { LineMeasureStrategy } from "./implementations/LineMeasureStrategy";
 import { FibonacciStrategy } from "./implementations/FibonacciStrategy";
 import { PitchforkStrategy } from "./implementations/PitchforkStrategy";
@@ -10,10 +9,9 @@ import { ChartPatternsStrategy } from "./implementations/ChartPatternsStrategy";
 import { ForecastingStrategy } from "./implementations/ForecastingStrategy";
 
 /**
- * [TENOR 2026 HDR] Strategy Registry - Lazy Initialization Pattern
- * Optimise le Time To Interactive (TTI) en différant l'instanciation des stratégies
- * et la construction de la Map jusqu'au premier besoin réel de rendu ou de hit-test.
- * Éradique l'Eager Loading au démarrage de l'application.
+ * Strategy Registry - lazy instance construction.
+ * Strategy modules are imported eagerly; only strategy instances and the lookup Map
+ * are created on the first render or hit-test request.
  */
 class StrategyRegistry {
   private strategies: Map<string, IDrawingStrategy> | null = null;

@@ -1,8 +1,9 @@
-// ForecastingPositionForecastRenderer.ts — EXACT TV PARITY
-// [TENOR 2026] SCAR-107/108/109 FULLY RESOLVED — TORVALDS /FIX Applied
+// ForecastingPositionForecastRenderer.ts
+// Position-forecast renderer with persistent outcome evaluation and timestamp resolution.
 
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import type { EChartsInstance } from "../../../types/echarts";
 type ForecastOutcome = "success" | "failure" | "pending";

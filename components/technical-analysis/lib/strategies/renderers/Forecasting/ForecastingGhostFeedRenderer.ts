@@ -1,10 +1,12 @@
 /**
- * [TENOR 2026] Forecasting Ghost Feed Renderer
- * High-Fidelity (HDR) Stochastic Engine with O(1) Canvas Batching.
- * Strictly compliant with VAC-150 (Price Stability) and PAT-146 (Performance).
+ * Forecasting Ghost Feed Renderer
+ * Uses deterministic pseudo-random interpolation and batched Canvas paths.
+ * Price stability depends on the supplied anchors and chart conversion data.
  */
 
-import { Drawing, DrawingHelpers, BarPatternProps, HitTestResult } from "../../../../config/TechnicalAnalysisTypes";
+import type { BarPatternProps } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
+import type { DrawingHelpers, HitTestResult } from "../../../../config/drawing/drawingInteractionTypes";
 import {
     asFiniteNumber,
     pseudoRandom,

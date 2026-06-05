@@ -20,7 +20,7 @@ export const makeStore = () => {
         // Redux Toolkit's dev middlewares recursively check every property of every object
         // for serializability and immutability. When dispatching an array of 10,000+ candles,
         // this takes >100ms and freezes the UI thread.
-        // We surgically bypass these checks ONLY for the massive marketData cache.
+        // We surgically bypass these checks ONLY for the massive marketData Redux storage.
         serializableCheck: {
           ignoredActions: [
             'technicalAnalysis/updateMarketData',

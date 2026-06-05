@@ -1,6 +1,6 @@
 import { calculateAtrWilder, getLastFinite, roundToTick } from "../domain/math";
 import { resolveTickSize } from "../domain/tickSize";
-import type { ChartTransformInput } from "../domain/types";
+import type { ChartTransformInput, ChartWarning, NormalizedRawBar } from "../domain/types";
 
 export type PriceBasedSizeMethod = "traditional" | "atr" | "percentage_ltp";
 
@@ -10,6 +10,22 @@ export interface PriceBasedSizeSettings {
   atrLength?: number;
   percentage?: number;
 }
+
+export const MAX_SYNTHETIC_OUTPUT_POINTS = 2_500;
+export const MAX_SYNTHETIC_POINT_FIGURE_BOXES = 5_000;
+export const MAX_HEAVY_CHART_SOURCE_BARS = 360;
+
+const toWarningCode = (label: string): string =>
+  `${label.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_PERFORMANCE_LIMIT`;
+
+export const makePerformanceBudgetWarning = (label: string, limit: number): ChartWarning => ({
+  code: toWarningCode(label),
+  severity: "info",
+  message: `${label} was capped to ${limit.toLocaleString("en-US")} render units to keep chart switching responsive.`,
+});
+
+export const limitRecentBars = (bars: NormalizedRawBar[], maxBars: number): NormalizedRawBar[] =>
+  bars.length > maxBars ? bars.slice(-maxBars) : bars;
 
 export const resolvePriceBasedSize = (
   input: ChartTransformInput,

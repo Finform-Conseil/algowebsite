@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 import { fetchWithResilience, fetchBrvmPage } from '@/shared/utils/resilient-scraper';
 
 /**
@@ -31,17 +32,14 @@ export async function GET(request: NextRequest) {
     const $ = cheerio.load(html);
     
     // [TENOR 2026 FIX] Explicit cast to any[] to satisfy TS strict mode
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = $('table tr').toArray() as any[];
+    const rows = $('table tr').toArray();
 
     // [TENOR 2026] BATCH MODE
     if (ticker === 'ALL') {
       const results: Record<string, unknown> = {};
       
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      rows.forEach((row: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cells = $(row).find('td').toArray() as any[];
+      rows.forEach((row) => {
+        const cells = $(row).find('td').toArray();
         if (cells.length < 7) return;
         
         const sym = $(cells[0]).text().trim().toUpperCase();
@@ -60,10 +58,8 @@ export async function GET(request: NextRequest) {
 
     // [TENOR 2026] SMART TICKER MATCHING
     // La BRVM utilise parfois "SMBC" pour "SMB". On nettoie et on compare.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const row = rows.find((r: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cells = $(r).find('td').toArray() as any[];
+    const row = rows.find((r) => {
+      const cells = $(r).find('td').toArray();
       if (cells.length < 1) return false;
       const firstCell = $(cells[0]).text().trim().toUpperCase();
       // Match exact ou match "TICKERC" (suffixe C commun pour les actions à la BRVM)
@@ -72,20 +68,17 @@ export async function GET(request: NextRequest) {
 
     if (!row) {
       // Tentative de recherche plus large si pas trouvé
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const looseMatch = rows.find((r: any) => $(r).text().toUpperCase().includes(ticker));
+      const looseMatch = rows.find((r) => $(r).text().toUpperCase().includes(ticker));
       if (!looseMatch) {
-        const resp = NextResponse.json({ error: `Ticker ${ticker} not found in capitalization table` }, { status: 404 });
+        const resp = NextResponse.json({ error: "Ticker " + ticker + " not found in capitalization table", found: false, symbol: ticker, source: "BRVM_CAPITALIZATION", timestamp: new Date().toISOString() });
         resp.headers.set('X-Cache-Status', status);
         return resp;
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cells = $(looseMatch).find('td').toArray() as any[];
+      const cells = $(looseMatch).find('td').toArray();
       return processRow(cells, ticker, status, $);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cells = $(row).find('td').toArray() as any[];
+    const cells = $(row).find('td').toArray();
     return processRow(cells, ticker, status, $);
 
   } catch (error) {
@@ -94,16 +87,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function processRow(cells: any[], ticker: string, status: string, $: cheerio.CheerioAPI) {
+function processRow(cells: Element[], ticker: string, status: string, $: cheerio.CheerioAPI) {
   const result = processRowData(cells, ticker, status, $);
   const finalResp = NextResponse.json(result);
   finalResp.headers.set('X-Cache-Status', status);
   return finalResp;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function processRowData(cells: any[], ticker: string, status: string, $: cheerio.CheerioAPI) {
+function processRowData(cells: Element[], ticker: string, status: string, $: cheerio.CheerioAPI) {
   // [0] Code, [1] Nom, [2] Nb Titres, [3] Cours, [4] Cap Flottante, [5] Cap Globale, [6] %
   const rawShares = $(cells[2]).text().trim() || '0';
   const rawPrice = $(cells[3]).text().trim() || '0';

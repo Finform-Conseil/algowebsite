@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "test": "npm run test:candlestick-patterns",
+    "test:candlestick-patterns": "node scripts/test-candlestick-patterns.cjs",
+    "test:technical-analysis-config": "node --test components/technical-analysis/config/__tests__/config-baseline.test.cjs",
+    "test:brvm-logos": "node --test core/data/__tests__/brvm-logo-registry.test.cjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

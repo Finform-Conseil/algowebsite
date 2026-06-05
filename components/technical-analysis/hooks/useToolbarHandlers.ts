@@ -12,13 +12,14 @@
  */
 
 import { useCallback } from "react";
-import { Drawing, DrawingStyle } from "../config/TechnicalAnalysisTypes";
+import type { DrawingStyle } from "../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
 import {
     POSITION_TOOLS,
     FIB_TOOLS_ONE_COLOR,
     PITCHFORK_TOOLS,
     FIB_PURE_TOOLS,
-} from "../config/TechnicalAnalysisConstants";
+} from "../config/drawing/drawingConstants";
 
 interface UseToolbarHandlersProps {
     drawings: Drawing[];

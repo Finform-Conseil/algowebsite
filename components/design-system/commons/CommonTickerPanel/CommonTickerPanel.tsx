@@ -2,6 +2,7 @@
 
 import React, { forwardRef } from "react";
 import clsx from "clsx";
+import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
 import s from "./style.module.css";
 
 // --------------------------------------------------------------------------
@@ -9,8 +10,8 @@ import s from "./style.module.css";
 // --------------------------------------------------------------------------
 
 export interface CommonTickerPanelProps {
-  /** Logo source URL (e.g., /svg/BOA-logo.svg) */
-  brandLogo: string;
+  /** Logo source URL. When absent, the component renders a ticker initials badge. */
+  brandLogo?: string | null;
   /** Ticker name (e.g., BOAB) */
   tickerSymbol: string;
   /** Current price value (formatted string, e.g., "51,51") */
@@ -112,12 +113,13 @@ export const CommonTickerPanel = forwardRef<HTMLDivElement, CommonTickerPanelPro
               style={isLoading ? { backgroundColor: 'rgba(255, 255, 255, 0.03)', boxShadow: 'none', border: 'none' } : undefined}
             >
               {!isLoading && (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={brandLogo} alt="" className={s["ctp-brand-logo-bg"]} aria-hidden="true" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={brandLogo} alt={`Logo of ${tickerSymbol}`} className={s["ctp-brand-logo"]} />
-                </>
+                <BrvmLogoMark
+                  ticker={tickerSymbol}
+                  logoUrl={brandLogo}
+                  size={32}
+                  imageSizes="32px"
+                  showBackdrop
+                />
               )}
             </div>
 

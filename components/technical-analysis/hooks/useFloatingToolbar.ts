@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, RefObject } from "react";
-import { Drawing, DrawingPoint } from "../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
 import type { AppNotification } from "@/components/design-system/layouts/HeaderHome/lib/mock-notifications";
 
 type ToolbarNotification = Omit<AppNotification, "id" | "timestamp" | "isRead">;

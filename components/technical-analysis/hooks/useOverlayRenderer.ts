@@ -1,37 +1,14 @@
 import { useLayoutEffect, useEffect, useRef, RefObject, MutableRefObject, useCallback } from "react";
 import type { ECharts } from "echarts/core";
 import DOMPurify from "dompurify";
-import { Drawing } from "../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { useMasterRenderLoop, type RenderFrameMeta } from "./useMasterRenderLoop";
-
-const MAIN_GRID_LEFT = 15;
-
-const isOverlayChartUsable = (chart: ECharts | null): chart is ECharts => {
-  if (!chart) return false;
-  try {
-    if (chart.isDisposed()) return false;
-    const dom = chart.getDom();
-    return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
-  } catch {
-    return false;
-  }
-};
-
-const safeOverlayConvertToPixel = (
-  chart: ECharts,
-  point: [string | number, number]
-): [number, number] | null => {
-  try {
-    const pos = chart.convertToPixel({ seriesIndex: 0 }, point);
-    if (!Array.isArray(pos) || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
-      return null;
-    }
-    return [pos[0], pos[1]];
-  } catch {
-    return null;
-  }
-};
+import {
+  MAIN_GRID_LEFT,
+  isOverlayChartUsable,
+  safeOverlayConvertToPixel,
+} from "./overlays/overlayCoordinates";
 
 interface UseOverlayRendererProps {
   selectedDrawingId: string | null;

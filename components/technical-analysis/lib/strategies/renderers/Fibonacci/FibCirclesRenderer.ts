@@ -1,5 +1,5 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing } from "../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { diagonal, distanceBetweenPoints } from "../../../math/geometry";
 
 export function renderFibCircles(
@@ -42,7 +42,7 @@ export function renderFibCircles(
                 h.ctx.arc(p1.x, p1.y, prevRadius, 0, Math.PI * 2, true);
             }
             h.ctx.fillStyle = color;
-            // [TENOR 2026] Standard HDR fill calculation
+            // Standard fill calculation
             h.ctx.globalAlpha = (fibCirclesProps.background.fillOpacity ?? 0.2) * (level.fillOpacity ?? 1);
             h.ctx.fill();
             h.ctx.restore();

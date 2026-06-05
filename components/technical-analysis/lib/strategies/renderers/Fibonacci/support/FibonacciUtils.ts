@@ -1,4 +1,4 @@
-import { Drawing } from "../../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../../config/drawing/drawingModelTypes";
 import type { EChartsInstance } from "../../../../types/echarts";
 import { getSafeGridRect } from "../../../../../hooks/useChartViewport";
 
@@ -18,16 +18,16 @@ export function getSortedEnabledLevels(fibProps: NonNullable<Drawing["fibProps"]
 }
 
 /**
- * [TENOR 2026 SRE FIX] SCAR-API-01: ECharts API Decoupling
- * Eradicated the hacky `(chart as EChartsWithModel).getModel?.()`.
- * Now safely delegates to the robust `getSafeGridRect` adapter which includes DOM fallbacks.
+ * SCAR-API-01: ECharts API access through adapter
+ * Avoids direct getModel access through chart casts.
+ * Delegates grid lookup to the `getSafeGridRect` adapter, including DOM fallbacks.
  */
 export function getGridRect(chart: EChartsInstance) {
   try {
     const dom = chart.getDom() as HTMLElement | null;
     return getSafeGridRect(chart, dom);
   } catch (e) {
-    console.warn("[SRE] FibonacciUtils getGridRect delegation failed.", e);
+    console.warn("FibonacciUtils getGridRect delegation failed.", e);
     return null;
   }
 }

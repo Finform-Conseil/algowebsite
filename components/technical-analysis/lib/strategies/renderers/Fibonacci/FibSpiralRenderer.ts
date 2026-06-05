@@ -1,5 +1,5 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing } from "../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { diagonal, angleBetweenPoints, distanceBetweenPoints, calculateFibSpiralRadius } from "../../../math/geometry";
 
 export function renderFibSpiral(

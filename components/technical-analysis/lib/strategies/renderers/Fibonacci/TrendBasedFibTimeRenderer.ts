@@ -1,5 +1,6 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { getGridRect, EChartsInstance } from "./support/FibonacciUtils";
 import { distToSegment } from "../../../math/geometry";
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React from "react";
-import { HorizontalLineIcon } from "../common/ToolIcons";
+import { HorizontalLineIcon } from "../common/icons/drawing/trend";
 
 export type PriceAxisActionId =
   | "alert"
@@ -21,7 +21,7 @@ export interface PriceAxisActionMenuState {
 
 interface PriceAxisOverlayProps {
   displaySymbolName: string;
-  convertedLivePrice: number;
+  lastPriceDisplayLabel: string;
   lastPriceTimeLabel: string;
   lastPriceAccessibleLabel: string;
   isLastPricePositive: boolean;
@@ -31,7 +31,6 @@ interface PriceAxisOverlayProps {
   lastPriceBadgeRef: React.RefObject<HTMLDivElement>;
   lastPriceLineRef: React.RefObject<HTMLDivElement>;
   priceAxisActionMenu: PriceAxisActionMenuState;
-  formatPriceAxisLabel: (value: number) => string;
   handleAxisPriceActionButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   handlePriceAxisAction: (actionId: PriceAxisActionId) => void;
 }
@@ -65,7 +64,7 @@ const getActionLabel = (actionId: PriceAxisActionId, symbol: string, priceLabel:
 
 export const PriceAxisOverlay = ({
   displaySymbolName,
-  convertedLivePrice,
+  lastPriceDisplayLabel,
   lastPriceTimeLabel,
   lastPriceAccessibleLabel,
   isLastPricePositive,
@@ -75,21 +74,26 @@ export const PriceAxisOverlay = ({
   lastPriceBadgeRef,
   lastPriceLineRef,
   priceAxisActionMenu,
-  formatPriceAxisLabel,
   handleAxisPriceActionButtonClick,
   handlePriceAxisAction,
-}: PriceAxisOverlayProps) => (
+}: PriceAxisOverlayProps) => {
+  const compactPriceLabel = lastPriceDisplayLabel === "Rate unavailable"
+    ? "FX N/A"
+    : lastPriceDisplayLabel.replace(/\.00$/, "");
+  const compactTimeLabel = lastPriceTimeLabel;
+
+  return (
   <div className="gp-price-axis-overlay" style={{ position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none" }}>
     <div ref={lastPriceLineRef} className="gp-price-axis-last-line" style={{ display: "none" }} />
-    <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" aria-label={lastPriceAccessibleLabel} style={{ position: "absolute", right: "8px", top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: "74px", padding: "4px 8px", borderRadius: "4px", background: isLastPricePositive ? "#089981" : "#f23645", color: "#ffffff", boxShadow: "0 8px 20px rgba(0, 0, 0, 0.28)", border: "1px solid rgba(255,255,255,0.16)", lineHeight: 1.05, opacity: 0, visibility: "hidden" }}>
-      <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.02em" }}>{displaySymbolName}</span>
-      <span style={{ fontSize: "14px", fontWeight: 800 }}>{formatPriceAxisLabel(convertedLivePrice)}</span>
-      <span style={{ fontSize: "10px", fontWeight: 600, opacity: 0.96 }}>{lastPriceTimeLabel}</span>
+    <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" aria-label={lastPriceAccessibleLabel} style={{ position: "absolute", right: "0px", top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", gap: "1px", width: "80px", maxWidth: "80px", minHeight: "42px", padding: "4px 5px", borderRadius: "3px", background: isLastPricePositive ? "#047857" : "#c91d2e", color: "#ffffff", boxShadow: "0 5px 12px rgba(0, 0, 0, 0.24)", border: "1px solid rgba(255,255,255,0.14)", lineHeight: 1.05, opacity: 0, visibility: "hidden", overflow: "hidden" }}>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "9.5px", fontWeight: 800, letterSpacing: 0 }}>{displaySymbolName}</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "15px", fontWeight: 850 }}>{compactPriceLabel}</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "9px", fontWeight: 700, opacity: 0.98 }}>{compactTimeLabel}</span>
     </div>
     <div ref={cursorPriceBadgeRef} className="gp-price-axis-cursor-badge" style={{ position: "absolute", right: "8px", top: 0, transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", minWidth: "72px", padding: "4px 8px", borderRadius: "4px", background: "#11151c", color: "#ffffff", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 10px 24px rgba(0, 0, 0, 0.3)", fontSize: "12px", fontWeight: 700, opacity: 0, visibility: "hidden" }}>
       <span ref={cursorPriceTextRef}>0.00</span>
     </div>
-    <button ref={cursorPriceActionRef} type="button" className="gp-price-axis-cursor-action" onClick={handleAxisPriceActionButtonClick} style={{ position: "absolute", right: "88px", top: 0, transform: "translateY(-50%)", width: "20px", height: "20px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.16)", background: "linear-gradient(180deg, #141922 0%, #0e131a 100%)", color: "#ffffff", display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 24px rgba(0, 0, 0, 0.34)", pointerEvents: "auto", opacity: 0, visibility: "hidden", padding: 0 }}>
+    <button ref={cursorPriceActionRef} type="button" className="gp-price-axis-cursor-action" aria-label={`Open price actions for ${displaySymbolName}`} title={`Open price actions for ${displaySymbolName}`} onClick={handleAxisPriceActionButtonClick} style={{ position: "absolute", right: "88px", top: 0, transform: "translateY(-50%)", width: "20px", height: "20px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.16)", background: "linear-gradient(180deg, #141922 0%, #0e131a 100%)", color: "#ffffff", display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 24px rgba(0, 0, 0, 0.34)", pointerEvents: "auto", opacity: 0, visibility: "hidden", padding: 0 }}>
       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", fontSize: "14px", fontWeight: 500, lineHeight: 1, transform: "translateY(-1px)" }}>+</span>
     </button>
     {priceAxisActionMenu.isOpen && (
@@ -112,4 +116,5 @@ export const PriceAxisOverlay = ({
       </div>
     )}
   </div>
-);
+  );
+};

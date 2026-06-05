@@ -64,7 +64,7 @@ export default function SectorsHeader({
       setCurrentSlide((prev) => (prev + 1) % subtitles.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [subtitles.length]);
   
   const formatMarketCap = (value: number) => {
     if (value >= 1000) {

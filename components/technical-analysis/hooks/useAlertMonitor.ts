@@ -1,13 +1,16 @@
-import { useEffect, useRef } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import {
-    selectAlerts,
-    selectChartConfig,
-    selectUiState,
-    deactivateAlert,
-} from "../store/technicalAnalysisSlice";
+  useEffect,
+  useRef } from "react";
+import { useDispatch,
+  useSelector } from "react-redux";
+import { deactivateAlert } from "../store/technicalAnalysisSlice";
+import {
+  selectAlerts,
+  selectChartConfig,
+  selectUiState,
+} from "../store/selectors";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { Alert } from "../config/TechnicalAnalysisTypes";
+import type { Alert } from "../config/state/technicalAnalysisStateTypes";
 
 /**
  * [TENOR 2026] useAlertMonitor

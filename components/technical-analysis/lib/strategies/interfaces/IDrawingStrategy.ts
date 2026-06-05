@@ -1,7 +1,7 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/IDrawingStrategy.ts
 
-import { Drawing, DrawingStyle, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { DrawingStyle, DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../types/echarts";
 
 // ============================================================================
@@ -52,8 +52,6 @@ export interface IDrawingStrategy {
     /**
      * Renders the drawing on the canvas.
      * 
-     * [UPDATED] Now accepts chart instance and data points for advanced calculations.
-     *
      * @param pixelPoints - Points already converted to pixel space
      * @param dataPoints - Original data points (Time/Value)
      * @param drawing - The Drawing object (style, config, etc.)

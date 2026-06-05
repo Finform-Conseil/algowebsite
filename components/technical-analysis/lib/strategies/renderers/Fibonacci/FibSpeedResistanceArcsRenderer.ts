@@ -1,10 +1,11 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { EChartsInstance } from "../../../types/echarts";
 
 /**
- * [TENOR 2026 HDR] Fib Speed Resistance Arcs Renderer
- * TradingView Parity: 2-Click Tool (P1 = Anchor, P2 = Target).
+ * Fib Speed Resistance Arcs Renderer
+ * TradingView-inspired 2-click tool (P1 = Anchor, P2 = Target).
  * Arcs are drawn as ellipses based on the bounding box of P1 and P2.
  */
 export function renderFibSpeedResistanceArcs(
@@ -46,7 +47,7 @@ export function renderFibSpeedResistanceArcs(
   // Determine drawing angles based on P2 position relative to P1
   const isRight = p2.x >= p1.x;
   
-  // TradingView Parity: If fullCircles is false, draw half-ellipses facing P2
+  // TradingView-inspired behavior: if fullCircles is false, draw half-ellipses facing P2
   const startAngle = fullCircles ? 0 : (isRight ? -Math.PI / 2 : Math.PI / 2);
   const endAngle = fullCircles ? 2 * Math.PI : (isRight ? Math.PI / 2 : 3 * Math.PI / 2);
 
@@ -118,8 +119,8 @@ export function renderFibSpeedResistanceArcs(
 }
 
 /**
- * [TENOR 2026 HDR] Hit-Test for Fib Speed Resistance Arcs
- * Uses normalized Euclidean distance (Ellipse Equation) for mathematically perfect selection.
+ * Hit-test for Fib Speed Resistance Arcs
+ * Uses normalized Euclidean distance (Ellipse Equation) for ellipse-based selection.
  */
 export function hitTestFibSpeedResistanceArcs(
   mx: number,
@@ -141,7 +142,7 @@ export function hitTestFibSpeedResistanceArcs(
   if (Math.hypot(mx - p2.x, my - p2.y) < handleRadius) return { isHit: true, hitType: 'point', pointIndex: 1 };
 
   // 2. Calculate Base Radii
-  // [SRE FIX] Prevent division by zero if P1 and P2 overlap
+  // Prevent division by zero if P1 and P2 overlap
   const rxBase = Math.max(0.1, Math.abs(p2.x - p1.x));
   const ryBase = Math.max(0.1, Math.abs(p2.y - p1.y));
 

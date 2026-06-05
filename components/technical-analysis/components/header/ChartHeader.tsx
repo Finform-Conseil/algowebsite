@@ -3,7 +3,7 @@
 import React from "react";
 import clsx from "clsx";
 import { useSelector } from "react-redux";
-import { selectUiState } from "../../store/technicalAnalysisSlice";
+import { selectUiState } from "../../store/selectors";
 
 import { NewsSection } from "@/components/design-system/commons/CommonNewsSection/NewsSection";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
@@ -44,7 +44,7 @@ export const ChartHeader: React.FC<ChartHeaderProps> = ({
       <CommonTickerPanel
         isLoading={isLoading}
         infoPanelClassName="gp-info-panel"
-        brandLogo={security.logoUrl || "/svg/BOA-logo.svg"}
+        brandLogo={security.logoUrl}
         tickerSymbol={security.ticker}
         currentPrice={livePrice}
         currency={security.currency || "XOF"}

@@ -1,16 +1,16 @@
 /**
- * [TENOR 2026] Web Worker for Technical Indicators (High-Performance Edition)
- * Uses Transferable Objects (Float64Array) for Zero-Copy memory transfer.
- * Strictly avoids SharedArrayBuffer to prevent Spectre/Meltdown vulnerabilities.
+ * Web Worker for Technical Indicators
+ * Uses Transferable Objects (Float64Array) for one-way buffer transfer.
+ * Avoids SharedArrayBuffer so the worker does not require cross-origin isolation.
  *
- * [TENOR 2026 FIX] Race Condition Prevention (SCAR-162):
- * Implements Correlation ID (messageId) echo to allow the client to discard obsolete responses.
+ * Response correlation:
+ * Echoes messageId so the client can discard obsolete responses.
  *
- * [TENOR 2026 HDR] BOLLINGER BANDS UPGRADE:
+ * Bollinger Bands:
  * Dynamically extracts length, multiplier, source, and offset from bollingerSettings.
  * Conditionally transfers bbWidth and bbPercentB buffers.
  *
- * [TENOR 2026 SRE] DYNAMIC BUFFER SIZING:
+ * Dynamic buffer sizing:
  * `toFloatArray` now dynamically sizes the output buffer to support indicators
  * that project into the future (e.g., Ichimoku Cloud, Bollinger with positive offset).
  */
@@ -41,10 +41,20 @@ import {
   calculateTRIX,
   calculateSTC,
   calculateMassIndex,
+  calculateKST,
+  calculateLinearRegressionIndicator,
   calculateBollinger,
   calculateStochastic,
   calculateStochasticRSI,
   calculateATR,
+  calculateNATR,
+  calculateDonchianChannels,
+  calculateKeltnerChannels,
+  calculateHistoricalVolatility,
+  calculatePriceStdDev,
+  calculateChaikinVolatility,
+  calculateCMF,
+  calculateUlcerIndex,
   calculateCCI,
   calculateMFI,
   calculateWilliamsR,
@@ -62,16 +72,33 @@ import {
   calculateElderBullBearPower,
   calculateCoppockCurve,
   calculateOBV,
+  calculateADLine,
+  calculateNVI,
+  calculatePVI,
+  calculateChaikinOscillator,
+  calculateVolumeOscillator,
+  calculateVROC,
+  calculateKlingerOscillator,
+  calculateElderForceIndex,
+  calculateEOM,
+  calculatePivotPointsStandard,
+  calculatePivotPointsFibonacci,
+  calculateMovingAverageCrossSignals,
+  calculateVWAP,
+  calculateFiftyTwoWeekLevels,
+  calculateHistoricalRecordLevels,
+  calculatePriceActionSignals,
+  calculateCandlestickPatterns,
   calculateIchimoku,
 } from "../Indicators/TechnicalIndicators";
-import { getEmaSeriesDataKey, getSmaSeriesDataKey, normalizeMovingAveragePeriods } from "../../config/movingAverageSeries";
-import { getAdvancedMovingAverageDataKey } from "../../config/advancedMovingAverageSeries";
+import { getEmaSeriesDataKey, getSmaSeriesDataKey, normalizeMovingAveragePeriods } from "../../config/indicators/movingAverageSeries";
+import { getAdvancedMovingAverageDataKey } from "../../config/indicators/advancedMovingAverageSeries";
 
 // Constants for binary protocol
-const FIELDS_PER_CANDLE = 6; // timestamp, open, high, low, close, volume
+const FIELDS_PER_CANDLE = 7; // timestamp, open, high, low, close, volume, tradesCount
 
 self.onmessage = (e: MessageEvent) => {
-  // [TENOR 2026 FIX] Extract messageId safely outside the try block
+  // Extract messageId outside the try block
   // so it can be echoed back even if payload parsing fails.
   const messageId = e.data?.messageId;
 
@@ -83,7 +110,7 @@ self.onmessage = (e: MessageEvent) => {
       throw new Error("Invalid payload: Expected ArrayBuffer and length.");
     }
 
-    // 2. Reconstruct Data (Zero-Copy View)
+    // 2. Reconstruct data from a transferred buffer view.
     const flatData = new Float64Array(buffer);
     const chartData: ChartDataPoint[] = new Array(length);
 
@@ -96,6 +123,7 @@ self.onmessage = (e: MessageEvent) => {
         low: flatData[offset + 3],
         close: flatData[offset + 4],
         volume: flatData[offset + 5],
+        tradesCount: Number.isFinite(flatData[offset + 6]) ? flatData[offset + 6] : null,
       };
     }
 
@@ -104,9 +132,9 @@ self.onmessage = (e: MessageEvent) => {
     const results: Record<string, Float64Array> = {};
     const transferables: ArrayBuffer[] = [];
 
-    // [TENOR 2026 SRE] Helper to convert (number | string)[] to Float64Array
+    // [worker] Helper to convert (number | string)[] to Float64Array
     // Dynamically sizes the buffer based on the input array length to support future projections.
-    const toFloatArray = (arr: (number | string)[]) => {
+    const toFloatArray = (arr: (number | string | null)[]) => {
       const arrLen = arr.length;
       const f64 = new Float64Array(arrLen);
       for (let i = 0; i < arrLen; i++) {
@@ -260,7 +288,20 @@ self.onmessage = (e: MessageEvent) => {
       results.massIndex = toFloatArray(calculateMassIndex(chartData));
     }
 
-    // [TENOR 2026 HDR] BOLLINGER BANDS
+    if (advancedIndicators.kst) {
+      const kst = calculateKST(chartData);
+      results.kst = toFloatArray(kst.kst);
+      results.kstSignal = toFloatArray(kst.signalLine);
+    }
+
+    if (advancedIndicators.linearRegression) {
+      const linearRegression = calculateLinearRegressionIndicator(chartData);
+      results.linearRegValue = toFloatArray(linearRegression.value);
+      results.linearRegSlope = toFloatArray(linearRegression.slope);
+      results.linearRegSlopePct = toFloatArray(linearRegression.slopePct);
+    }
+
+    // BOLLINGER BANDS
     // Calculate if either the main bands OR the derived oscillators are requested
     if (advancedIndicators.bollinger || advancedIndicators.bbWidth || advancedIndicators.bbPercentB) {
       // Extract dynamic settings with safe fallbacks to TradingView defaults
@@ -308,6 +349,64 @@ self.onmessage = (e: MessageEvent) => {
 
     if (advancedIndicators.atr) {
       results.atr = toFloatArray(calculateATR(chartData));
+    }
+
+    if (advancedIndicators.atr20) {
+      results.atr20 = toFloatArray(calculateATR(chartData, 20));
+    }
+
+    if (advancedIndicators.natr14) {
+      results.natr14 = toFloatArray(calculateNATR(chartData, 14));
+    }
+
+    if (advancedIndicators.donchian) {
+      const donchian = calculateDonchianChannels(chartData, 20);
+      results.donchianUpper = toFloatArray(donchian.upper);
+      results.donchianMiddle = toFloatArray(donchian.middle);
+      results.donchianLower = toFloatArray(donchian.lower);
+    }
+
+    if (advancedIndicators.keltner) {
+      const keltner = calculateKeltnerChannels(chartData, 20, 2, 20);
+      results.keltnerUpper = toFloatArray(keltner.upper);
+      results.keltnerMiddle = toFloatArray(keltner.middle);
+      results.keltnerLower = toFloatArray(keltner.lower);
+    }
+
+    if (advancedIndicators.hv10) {
+      results.hv10 = toFloatArray(calculateHistoricalVolatility(chartData, 10));
+    }
+
+    if (advancedIndicators.hv20) {
+      results.hv20 = toFloatArray(calculateHistoricalVolatility(chartData, 20));
+    }
+
+    if (advancedIndicators.hv30) {
+      results.hv30 = toFloatArray(calculateHistoricalVolatility(chartData, 30));
+    }
+
+    if (advancedIndicators.hv60) {
+      results.hv60 = toFloatArray(calculateHistoricalVolatility(chartData, 60));
+    }
+
+    if (advancedIndicators.hv90) {
+      results.hv90 = toFloatArray(calculateHistoricalVolatility(chartData, 90));
+    }
+
+    if (advancedIndicators.hv252) {
+      results.hv252 = toFloatArray(calculateHistoricalVolatility(chartData, 252));
+    }
+
+    if (advancedIndicators.stdDev20) {
+      results.stdDev20 = toFloatArray(calculatePriceStdDev(chartData, 20));
+    }
+
+    if (advancedIndicators.chaikinVol) {
+      results.chaikinVol = toFloatArray(calculateChaikinVolatility(chartData, 10, 10));
+    }
+
+    if (advancedIndicators.ulcerIndex) {
+      results.ulcerIndex = toFloatArray(calculateUlcerIndex(chartData, 14));
     }
 
     if (advancedIndicators.cci14) {
@@ -398,12 +497,208 @@ self.onmessage = (e: MessageEvent) => {
       results.obv = toFloatArray(calculateOBV(chartData));
     }
 
+    if (advancedIndicators.adLine) {
+      results.adLine = toFloatArray(calculateADLine(chartData));
+    }
+
+    if (advancedIndicators.cmf20) {
+      results.cmf20 = toFloatArray(calculateCMF(chartData, 20));
+    }
+
+    if (advancedIndicators.nvi) {
+      results.nvi = toFloatArray(calculateNVI(chartData));
+    }
+
+    if (advancedIndicators.pvi) {
+      results.pvi = toFloatArray(calculatePVI(chartData));
+    }
+
+    if (advancedIndicators.chaikinOsc) {
+      results.chaikinOsc = toFloatArray(calculateChaikinOscillator(chartData, 3, 10));
+    }
+
+    if (advancedIndicators.volumeOsc) {
+      results.volumeOsc = toFloatArray(calculateVolumeOscillator(chartData, 5, 20));
+    }
+
+    if (advancedIndicators.vroc14) {
+      results.vroc14 = toFloatArray(calculateVROC(chartData, 14));
+    }
+
+    if (advancedIndicators.klinger) {
+      const klinger = calculateKlingerOscillator(chartData, 34, 55, 13);
+      results.klingerOsc = toFloatArray(klinger.oscillator);
+      results.klingerSignal = toFloatArray(klinger.signalLine);
+    }
+
+    if (advancedIndicators.elderForceIndex) {
+      const force = calculateElderForceIndex(chartData, 13);
+      results.elderForceRaw = toFloatArray(force.raw);
+      results.forceIndex13 = toFloatArray(force.forceIndex13);
+    }
+
+    if (advancedIndicators.eom14) {
+      results.eom14 = toFloatArray(calculateEOM(chartData, 14, 100_000_000));
+    }
+
+    if (advancedIndicators.pivotPointsStandard) {
+      const pivots = calculatePivotPointsStandard(chartData);
+      results.pivotStandard = toFloatArray(pivots.pivot);
+      results.pivotR1 = toFloatArray(pivots.r1);
+      results.pivotR2 = toFloatArray(pivots.r2);
+      results.pivotR3 = toFloatArray(pivots.r3);
+      results.pivotS1 = toFloatArray(pivots.s1);
+      results.pivotS2 = toFloatArray(pivots.s2);
+      results.pivotS3 = toFloatArray(pivots.s3);
+    }
+
+    if (advancedIndicators.pivotPointsFibonacci) {
+      const pivots = calculatePivotPointsFibonacci(chartData);
+      results.pivotFibP = toFloatArray(pivots.pivot);
+      results.pivotFibR1 = toFloatArray(pivots.r1);
+      results.pivotFibR2 = toFloatArray(pivots.r2);
+      results.pivotFibR3 = toFloatArray(pivots.r3);
+      results.pivotFibS1 = toFloatArray(pivots.s1);
+      results.pivotFibS2 = toFloatArray(pivots.s2);
+      results.pivotFibS3 = toFloatArray(pivots.s3);
+    }
+
+    if (advancedIndicators.movingAverageCrosses) {
+      const crosses = calculateMovingAverageCrossSignals(chartData, 50, 200);
+      results.goldenCross = toFloatArray(crosses.goldenCross);
+      results.deathCross = toFloatArray(crosses.deathCross);
+    }
+
+    if (advancedIndicators.vwap) {
+      const vwap = calculateVWAP(chartData);
+      results.vwap = toFloatArray(vwap.vwap);
+      results.priceAboveVwap = toFloatArray(vwap.priceAboveVwap);
+      results.priceBelowVwap = toFloatArray(vwap.priceBelowVwap);
+      results.vwapDistance = toFloatArray(vwap.distance);
+      results.vwapDistancePct = toFloatArray(vwap.distancePct);
+    }
+
+    if (advancedIndicators.fiftyTwoWeekHigh || advancedIndicators.fiftyTwoWeekLow) {
+      const levels = calculateFiftyTwoWeekLevels(chartData);
+      if (advancedIndicators.fiftyTwoWeekHigh) {
+        results.fiftyTwoWeekHigh = toFloatArray(levels.high);
+        results.newFiftyTwoWeekHigh = toFloatArray(levels.newHigh);
+      }
+      if (advancedIndicators.fiftyTwoWeekLow) {
+        results.fiftyTwoWeekLow = toFloatArray(levels.low);
+        results.newFiftyTwoWeekLow = toFloatArray(levels.newLow);
+      }
+    }
+
+    if (advancedIndicators.ath || advancedIndicators.atl) {
+      const records = calculateHistoricalRecordLevels(chartData);
+      if (advancedIndicators.ath) {
+        results.ath = toFloatArray(records.ath);
+        results.newAth = toFloatArray(records.newAth);
+      }
+      if (advancedIndicators.atl) {
+        results.atl = toFloatArray(records.atl);
+        results.newAtl = toFloatArray(records.newAtl);
+      }
+    }
+
+    const needsPriceActionSignals = advancedIndicators.breakoutResistance
+      || advancedIndicators.breakdownSupport
+      || advancedIndicators.gapUp
+      || advancedIndicators.gapDown
+      || advancedIndicators.trueGapUp
+      || advancedIndicators.trueGapDown
+      || advancedIndicators.gapPct
+      || advancedIndicators.consecutiveUpDays
+      || advancedIndicators.consecutiveDownDays
+      || advancedIndicators.insideBar
+      || advancedIndicators.outsideBar;
+    if (needsPriceActionSignals) {
+      const priceAction = calculatePriceActionSignals(chartData, { lookback: 20, minBreakTicks: 1, minGapTicks: 1 });
+      if (advancedIndicators.breakoutResistance) {
+        results.priceActionResistance = toFloatArray(priceAction.resistance);
+        results.breakoutResistance = toFloatArray(priceAction.breakoutResistance);
+      }
+      if (advancedIndicators.breakdownSupport) {
+        results.priceActionSupport = toFloatArray(priceAction.support);
+        results.breakdownSupport = toFloatArray(priceAction.breakdownSupport);
+      }
+      if (advancedIndicators.gapUp) results.gapUp = toFloatArray(priceAction.gapUp);
+      if (advancedIndicators.gapDown) results.gapDown = toFloatArray(priceAction.gapDown);
+      if (advancedIndicators.trueGapUp) results.trueGapUp = toFloatArray(priceAction.trueGapUp);
+      if (advancedIndicators.trueGapDown) results.trueGapDown = toFloatArray(priceAction.trueGapDown);
+      if (advancedIndicators.gapPct || advancedIndicators.gapUp || advancedIndicators.gapDown || advancedIndicators.trueGapUp || advancedIndicators.trueGapDown) {
+        results.gapAbs = toFloatArray(priceAction.gapAbs);
+        results.gapPct = toFloatArray(priceAction.gapPct);
+      }
+      if (advancedIndicators.consecutiveUpDays) results.upStreak = toFloatArray(priceAction.upStreak);
+      if (advancedIndicators.consecutiveDownDays) results.downStreak = toFloatArray(priceAction.downStreak);
+      if (advancedIndicators.insideBar) results.insideBar = toFloatArray(priceAction.insideBar);
+      if (advancedIndicators.outsideBar) results.outsideBar = toFloatArray(priceAction.outsideBar);
+    }
+
+    const needsCandlestickPatterns = advancedIndicators.doji
+      || advancedIndicators.longLeggedDoji
+      || advancedIndicators.rickshawMan
+      || advancedIndicators.dragonflyDoji
+      || advancedIndicators.gravestoneDoji
+      || advancedIndicators.tristar
+      || advancedIndicators.hammer
+      || advancedIndicators.hangingMan
+      || advancedIndicators.takuri
+      || advancedIndicators.invertedHammer
+      || advancedIndicators.shootingStar
+      || advancedIndicators.marubozuBull
+      || advancedIndicators.marubozuBear
+      || advancedIndicators.spinningTop;
+    if (needsCandlestickPatterns) {
+      const patterns = calculateCandlestickPatterns(chartData, { requireVolumeForPattern: false });
+      if (advancedIndicators.doji) results.doji = toFloatArray(patterns.doji);
+      if (advancedIndicators.longLeggedDoji) results.longLeggedDoji = toFloatArray(patterns.longLeggedDoji);
+      if (advancedIndicators.rickshawMan) results.rickshawMan = toFloatArray(patterns.rickshawMan);
+      if (advancedIndicators.dragonflyDoji) results.dragonflyDoji = toFloatArray(patterns.dragonflyDoji);
+      if (advancedIndicators.gravestoneDoji) results.gravestoneDoji = toFloatArray(patterns.gravestoneDoji);
+      if (advancedIndicators.tristar) {
+        results.tristar = toFloatArray(patterns.tristar);
+        results.bullishTristar = toFloatArray(patterns.bullishTristar);
+        results.bearishTristar = toFloatArray(patterns.bearishTristar);
+      }
+      if (advancedIndicators.hammer) {
+        results.hammer = toFloatArray(patterns.hammer);
+        results.hammerConfirmed = toFloatArray(patterns.hammerConfirmed);
+      }
+      if (advancedIndicators.hangingMan) {
+        results.hangingMan = toFloatArray(patterns.hangingMan);
+        results.hangingManConfirmed = toFloatArray(patterns.hangingManConfirmed);
+      }
+      if (advancedIndicators.takuri) results.takuri = toFloatArray(patterns.takuri);
+      if (advancedIndicators.invertedHammer) {
+        results.invertedHammer = toFloatArray(patterns.invertedHammer);
+        results.invertedHammerConfirmed = toFloatArray(patterns.invertedHammerConfirmed);
+      }
+      if (advancedIndicators.shootingStar) {
+        results.shootingStar = toFloatArray(patterns.shootingStar);
+        results.shootingStarConfirmed = toFloatArray(patterns.shootingStarConfirmed);
+      }
+      if (advancedIndicators.marubozuBull) results.marubozuBull = toFloatArray(patterns.marubozuBull);
+      if (advancedIndicators.marubozuBear) results.marubozuBear = toFloatArray(patterns.marubozuBear);
+      if (advancedIndicators.spinningTop) results.spinningTop = toFloatArray(patterns.spinningTop);
+      results.candlestickInsufficientHistory = toFloatArray(patterns.insufficientHistory);
+      results.candlestickMissingOHLC = toFloatArray(patterns.missingOHLC);
+      results.candlestickInvalidOHLC = toFloatArray(patterns.invalidOHLC);
+      results.candlestickZeroRange = toFloatArray(patterns.zeroRange);
+      results.candlestickNoTradeSession = toFloatArray(patterns.noTradeSession);
+      results.candlestickStalePrice = toFloatArray(patterns.stalePrice);
+      results.candlestickCorporateActionSuspected = toFloatArray(patterns.corporateActionSuspected);
+      results.candlestickLowReliabilityBecauseIlliquid = toFloatArray(patterns.lowReliabilityBecauseIlliquid);
+    }
+
     // 4. Send Results Back (Transferring ownership of all result buffers)
-    // [TENOR 2026 FIX] Echo messageId back to client
+    // Echo messageId back to client
     (self as any).postMessage({ messageId, success: true, results }, transferables);
 
   } catch (error) {
-    // [TENOR 2026 FIX] Echo messageId back even on error
+    // Echo messageId back even on error
     (self as any).postMessage({
       messageId,
       success: false,

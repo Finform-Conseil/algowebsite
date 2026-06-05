@@ -1,5 +1,6 @@
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { EChartsInstance, getGridRect } from "./support/FibonacciUtils";
 
 import { distToSegment } from "../../../math/geometry";
@@ -135,7 +136,7 @@ export function renderFibSpeedResistanceFan(
 
     if (fanProps.fillBackground && sortedRays.length > 1) {
         h.ctx.save();
-        // [TENOR 2026] Normalized HDR fill opacity
+        // Normalized fill opacity
         h.ctx.globalAlpha = (fanProps.fillOpacity ?? 0.15);
         
         for (let i = 0; i < sortedRays.length - 1; i++) {

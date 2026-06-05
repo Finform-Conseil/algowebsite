@@ -1,11 +1,11 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/ChartPatternsStrategy.ts
 
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
 import type { EChartsInstance } from "../../types/echarts";
 
-// ─── UNIT RENDERERS (HDR 2026 - SOLID) ────────────────────────────────────────
+// ─── UNIT RENDERERS (solid) ────────────────────────────────────────
 import { renderXABCD } from "../renderers/ChartPatterns/XABCDPatternRenderer";
 import { renderCypher } from "../renderers/ChartPatterns/CypherPatternRenderer";
 import { renderABCD } from "../renderers/ChartPatterns/ABCDPatternRenderer";
@@ -25,7 +25,7 @@ import { renderTimeCycles, hitTestTimeCycles } from "../renderers/ChartPatterns/
 import { renderSineLine, hitTestSineLine } from "../renderers/ChartPatterns/SineLineRenderer";
 
 /**
- * [HDR 2026] ChartPatternsStrategy — Orchestrator Only
+ * ChartPatternsStrategy — Orchestrator Only
  * This file is a pure Router. All rendering logic lives in /renderers/.
  */
 export class ChartPatternsStrategy implements IDrawingStrategy {

@@ -16,14 +16,13 @@ Toute donnée affichée doit tendre vers la "preuve financière" :
 Réflexe obligatoire avant tout changement : "Est-ce qu'un utilisateur peut mettre de l'argent derrière cette valeur, et peut-on la prouver ?"
 ---
 ## 🏆 1. BATAILLES REMPORTÉES (En production)
-- ✅ **Fusion RAF (SCAR-DOUBLE-RAF)** : Création de `useMasterRenderLoop` pour orchestrer `useCursorRenderer` et `useOverlayRenderer` sur une seule frame VSync. Éradication du micro-stuttering et division par deux de la charge CPU Canvas.
+- ✅ **Fusion RAF partielle (SCAR-DOUBLE-RAF)** : `useMasterRenderLoop` orchestre réellement `useCursorRenderer` et `useOverlayRenderer` sur une frame VSync partagée. Le canvas de dessin conserve une boucle RAF dédiée dans `useDrawingManager`; ne plus vendre ce point comme un RAF unique global.
 - ✅ **Typage Strict Redux (SCAR-TS2322)** : Synchronisation de `AdvancedIndicatorsState` avec le Reducer (`ichimoku`, `stochRsi`, `bbWidth`, `bbPercentB`), éradication des fusions d'état instables via des assignations explicites.
 - ✅ **God Component démantelé** : `TechnicalAnalysis.tsx` purgé. État décentralisé via Redux + hooks spécialisés (`useDrawingManager`, `useFloatingToolbar`, `useAlertMonitor`).
 - ✅ **Moteur Performance (Web Worker)** : Calculs lourds (MACD, RSI, Bollinger, Ichimoku…) déportés dans `indicators.worker.ts`. UI stable à 60 FPS.
 - ✅ **Ichimoku Cloud (Projection)** : Implémentation complète avec nuage (Polygon Fill), projection future (26 périodes), décalage Chikou et parent UI activable depuis `IndicatorsModal.tsx`.
 - ✅ **Bollinger Bands HDR** : Refonte avec calcul de variance glissante (O(n)), settings inline (Période, StdDev, couleurs, visibilité, fill) et oscillateurs dérivés séparés (Width, %B).
 - ✅ **Data Stitching** : `useMarketData.ts` fusionne historique CSV + scraping BRVM temps réel.
-- ✅ **Moteur Intraday Autonome** : `brvm-collect` + `brvm-intraday` génère ses propres bougies (1m, 5m, 15m).
 - ✅ **Suite de dessin complète** : ~40 outils TradingView répliqués (Fibonacci, Gann, Forecasting, Patterns…).
 - ✅ **Architecture Zero-Lag** : Refs + RAF pour performance sans setState à 60Hz (PAT-045, SCAR-042).
 - ✅ **Audit de Lint "Zero-Warning"** : Résolution de 17 problèmes critiques (ERR-01 à ERR-03, warnings de typage `any`, et dépendances `exhaustive-deps`).
@@ -96,8 +95,15 @@ Réflexe obligatoire avant tout changement : "Est-ce qu'un utilisateur peut mett
 ## ⚠️ 5. ANGLES MORTS CONNUS & DETTE TECHNIQUE (Torvalds Speak)
 - **Dette Bollinger Source/Offset :** Les contrôles `Source` et `Offset` ne doivent pas rester décoratifs; ils doivent modifier réellement le calcul ou être masqués temporairement.
 - **Dette de Typage Résiduelle :** Il reste des casts `any` dans `IndicatorsModal.tsx` et `useEChartsRenderer.ts` qui doivent être nettoyés pour atteindre la pureté TypeScript absolue.
-- **Intraday hors marché :** Le moteur `brvm-collect` ne gère pas les jours fériés BRVM → à documenter dans `brvm-intraday`.
+- **Garde-fou MarketData :** ne pas reintroduire de hook, helper ou route intraday BRVM. Le terminal TA reste daily OHLCV plus snapshot live.
 - **Dette Load Testing Client :** Le système sait diagnostiquer les frame drops, mais il manque encore un banc de charge reproductible pour prouver la tenue 60 FPS sur hardware faible.
 - **Dette Financial Proof :** Les valeurs de marché doivent être prouvables dans l'interface; sans provenance visible, formule et warning d'anomalie, un rendu correct peut encore induire une décision financière dangereuse.
+---
+## ✅ RECTIFICATION 2026-06-04 — Intraday BRVM Retiré
+- Le module intraday BRVM a été retire du produit : aucun hook, helper reseau, route API ou lecteur Redis ne doit rester actif.
+- Aucune route de collecte client fantôme ne doit être mentionnée comme existante ou terminée.
+- `useMasterRenderLoop` est le propriétaire RAF de `useCursorRenderer` et `useOverlayRenderer`; `useDrawingManager` garde une boucle canvas dédiée.
+- Prochaine action réaliste : renforcer la preuve de provenance des donnees daily, live et sidebar sans reintroduire un flux de seance.
+
 ---
 *Synchronisé par **Codex TENOR** — Session #47 — 2026-05-15*

@@ -1,8 +1,21 @@
 import { useLayoutEffect, useRef, useCallback, useEffect } from 'react';
-import * as echarts from 'echarts/core';
+import type { EChartsInstance } from '../lib/types/echarts';
 import { useMasterRenderLoop, type RenderFrameMeta } from './useMasterRenderLoop';
+import {
+  clamp,
+  getOverlayScale,
+  resolveChartPixelFromClient,
+} from './overlays/overlayCoordinates';
+import {
+  applyStyle,
+  createCrosshairElement,
+  createDataWindowColumn,
+  hideCrosshairElements,
+  hideTooltipElement,
+  updateCrosshairElements,
+  type CrosshairDomElements,
+} from './overlays/cursorDom';
 
-const MAIN_GRID_LEFT = 15;
 const TOOLTIP_BASE_WIDTH = 240;
 const TOOLTIP_BASE_HEIGHT = 160;
 const TOOLTIP_MIN_SCALE = 0.62;
@@ -28,17 +41,17 @@ export type CandleData = {
 interface UseCursorRendererProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   containerRef: React.RefObject<HTMLElement | null>;
+  eventSourceRef?: React.RefObject<HTMLElement | null>;
   mode: CursorMode;
-  chartRef: React.RefObject<echarts.ECharts>;
+  suspendForDrawing?: boolean;
+  chartRef: React.RefObject<EChartsInstance>;
   chartData: CandleData[];
   interactionScopeKey?: string;
 }
 
 // ============================================================================
-// [TENOR 2026 SRE] MOTEUR PHYSIQUE DE PARTICULES (OBJECT POOL PATTERN)
+// Magic particles use the last pushed canvas physics engine with a bounded object pool.
 // ============================================================================
-// Pour garantir 60 FPS et éviter les saccades du Garbage Collector (GC Stuttering),
-// nous pré-allouons un tableau fixe de particules. Zéro allocation mémoire pendant le rendu.
 const MAX_PARTICLES = 150;
 const GRAVITY = 0.4;
 const EMOJIS = ['💩', '💸', '🌟', '🐎', '🍬', '🎄', '🎉', '⛄', '🎁', '🎯'];
@@ -56,135 +69,6 @@ interface Particle {
   emoji: string;
   size: number;
 }
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value));
-
-const hideTooltipElement = (tooltip: HTMLDivElement | null): void => {
-  if (!tooltip) return;
-  tooltip.style.display = 'none';
-};
-
-const getOverlayScale = (width: number, height: number): number =>
-  clamp(Math.min(width / 900, height / 480), TOOLTIP_MIN_SCALE, 1);
-
-const resolveChartPixelFromClient = (
-  chart: echarts.ECharts,
-  clientX: number,
-  clientY: number
-): [number, number] => {
-  const chartRect = chart.getDom().getBoundingClientRect();
-  return [clientX - chartRect.left, clientY - chartRect.top];
-};
-
-const resolveCanvasPoint = (
-  canvas: HTMLCanvasElement,
-  event: PointerEvent
-): { x: number; y: number; clientX: number; clientY: number } | null => {
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return null;
-
-  const cssX = event.clientX - rect.left;
-  const cssY = event.clientY - rect.top;
-  if (cssX < 0 || cssX > rect.width || cssY < 0 || cssY > rect.height) return null;
-
-  return {
-    x: cssX,
-    y: cssY,
-    clientX: event.clientX,
-    clientY: event.clientY,
-  };
-};
-
-type DataWindowRow = {
-  label: string;
-  value: string;
-  color: string;
-};
-
-type CrosshairDomElements = {
-  vertical: HTMLDivElement;
-  horizontal: HTMLDivElement;
-  dateLabel: HTMLDivElement;
-};
-
-const applyStyle = (element: HTMLElement, styles: Record<string, string>): void => {
-  Object.entries(styles).forEach(([property, value]) => {
-    element.style.setProperty(property, value);
-  });
-};
-
-const createDataWindowColumn = (
-  rows: DataWindowRow[],
-  options: { labelWidth: number; rowHeight: number; labelColor: string; fontSize: number }
-): HTMLDivElement => {
-  const column = document.createElement('div');
-  applyStyle(column, {
-    display: 'grid',
-    gap: '0',
-    'min-width': '0',
-  });
-
-  rows.forEach((item) => {
-    const row = document.createElement('div');
-    applyStyle(row, {
-      display: 'grid',
-      'grid-template-columns': `${options.labelWidth}px minmax(0, 1fr)`,
-      'align-items': 'center',
-      gap: '8px',
-      height: `${options.rowHeight}px`,
-      'min-width': '0',
-    });
-
-    const label = document.createElement('span');
-    label.textContent = item.label;
-    applyStyle(label, {
-      color: options.labelColor,
-      'font-size': `${options.fontSize}px`,
-      'font-weight': '800',
-      'white-space': 'nowrap',
-    });
-
-    const value = document.createElement('span');
-    value.textContent = item.value;
-    applyStyle(value, {
-      color: item.color,
-      'font-size': `${options.fontSize}px`,
-      'font-weight': '900',
-      'letter-spacing': '0',
-      'text-align': 'right',
-      'white-space': 'nowrap',
-      overflow: 'hidden',
-      'text-overflow': 'clip',
-    });
-
-    row.replaceChildren(label, value);
-    column.appendChild(row);
-  });
-
-  return column;
-};
-
-const hideCrosshairElements = (elements: CrosshairDomElements | null): void => {
-  if (!elements) return;
-  elements.vertical.style.display = 'none';
-  elements.horizontal.style.display = 'none';
-  elements.dateLabel.style.display = 'none';
-};
-
-const createCrosshairElement = (className: string): HTMLDivElement => {
-  const element = document.createElement('div');
-  element.className = className;
-  applyStyle(element, {
-    position: 'absolute',
-    display: 'none',
-    'pointer-events': 'none',
-    'box-sizing': 'border-box',
-    'z-index': '22',
-    'will-change': 'transform',
-  });
-  return element;
-};
 
 const formatCursorDateText = (time: string | number): string => {
   const date = new Date(time);
@@ -208,7 +92,7 @@ const fallbackCursorDateText = (): string => {
 };
 
 const resolveCursorDateText = (
-  chart: echarts.ECharts | null,
+  chart: EChartsInstance | null,
   data: CandleData[],
   clientX: number,
   clientY: number
@@ -231,69 +115,53 @@ const resolveCursorDateText = (
   }
 };
 
-const updateCrosshairElements = (
-  elements: CrosshairDomElements | null,
-  options: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    showLines: boolean;
-    showDateLabel: boolean;
-    dateText: string;
-  }
-): void => {
-  if (!elements) return;
-
-  const snappedX = Math.round(options.x);
-  const snappedY = Math.round(options.y);
-
-  if (options.showLines) {
-    elements.vertical.style.display = 'block';
-    elements.vertical.style.transform = `translate3d(${snappedX}px, 0, 0)`;
-    elements.horizontal.style.display = 'block';
-    elements.horizontal.style.transform = `translate3d(0, ${snappedY}px, 0)`;
-  } else {
-    elements.vertical.style.display = 'none';
-    elements.horizontal.style.display = 'none';
-  }
-
-  if (!options.showDateLabel) {
-    elements.dateLabel.style.display = 'none';
-    return;
-  }
-
-  const labelWidth = Math.ceil(options.dateText.length * 7.2 + 18);
-  const labelHeight = 22;
-  const labelLeft = clamp(
-    options.x - labelWidth / 2,
-    MAIN_GRID_LEFT,
-    Math.max(MAIN_GRID_LEFT, options.width - labelWidth)
-  );
-  const labelTop = Math.max(0, options.height - labelHeight);
-
-  elements.dateLabel.textContent = options.dateText;
-  elements.dateLabel.style.display = 'flex';
-  elements.dateLabel.style.width = `${labelWidth}px`;
-  elements.dateLabel.style.height = `${labelHeight}px`;
-  elements.dateLabel.style.transform = `translate3d(${Math.round(labelLeft)}px, ${Math.round(labelTop)}px, 0)`;
-};
-
 /**
  * High-performance cursor renderer hook for TechnicalAnalysis chart.
  * 
  * Renders custom cursor overlays (crosshair, dot, presentation mode, magic wand, eraser) on a canvas layer.
+ * Magic wand particles use bounded canvas physics copied from the last pushed implementation.
  * Uses ResizeObserver for robust canvas sizing and useMasterRenderLoop for smooth rendering.
  * Now supports "Pro" Order Flow style tooltips with visual candles and a Physics Engine.
  */
-export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, chartData, interactionScopeKey }: UseCursorRendererProps) => {
+export const useCursorRenderer = ({
+  canvasRef,
+  containerRef,
+  eventSourceRef,
+  mode,
+  suspendForDrawing = false,
+  chartRef,
+  chartData,
+  interactionScopeKey,
+}: UseCursorRendererProps) => {
   const mouseRef = useRef<{ x: number, y: number, clientX: number, clientY: number } | null>(null);
   const isReadyRef = useRef(false);
   const isDirtyRef = useRef(true);
   const modeRef = useRef<CursorMode>(mode);
+  const suspendForDrawingRef = useRef(Boolean(suspendForDrawing));
+  const pointerGestureActiveRef = useRef(false);
   const chartDataRef = useRef<CandleData[]>(chartData);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const crosshairElementsRef = useRef<CrosshairDomElements | null>(null);
+  const particlesRef = useRef<Particle[]>(
+    Array.from({ length: MAX_PARTICLES }, () => ({
+      active: false,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      angle: 0,
+      vAngle: 0,
+      life: 0,
+      maxLife: 1,
+      emoji: '',
+      size: 12,
+    }))
+  );
+  const particleIndexRef = useRef(0);
+  const canvasRectRef = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
+  const canvasMetricsRef = useRef<{ width: number; height: number; dpr: number } | null>(null);
+  const hasCanvasContentRef = useRef(false);
+  const cursorVisualsVisibleRef = useRef(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -303,14 +171,14 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
     tooltip.className = 'gp-cursor-data-window';
     Object.assign(tooltip.style, {
       position: 'absolute',
-      zIndex: '24',
+      zIndex: '92',
       display: 'none',
       pointerEvents: 'none',
       boxSizing: 'border-box',
-      border: '1px solid rgba(96, 165, 250, 0.26)',
+      border: '1px solid rgba(96, 165, 250, 0.62)',
       borderRadius: '4px',
-      background: 'rgba(8, 13, 32, 0.985)',
-      boxShadow: '0 12px 26px rgba(0, 0, 0, 0.32)',
+      background: 'rgba(14, 38, 70, 0.9)',
+      boxShadow: '0 14px 30px rgba(4, 12, 28, 0.42)',
       color: '#e5eefc',
       fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       fontVariantNumeric: 'tabular-nums',
@@ -321,7 +189,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       textRendering: 'geometricPrecision',
       opacity: '1',
       filter: 'none',
-      backdropFilter: 'none',
+      backdropFilter: 'blur(8px) saturate(1.12)',
     } as Partial<CSSStyleDeclaration>);
 
     container.appendChild(tooltip);
@@ -384,77 +252,138 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
     };
   }, [containerRef, interactionScopeKey]);
 
-  // --- INITIALISATION DE L'OBJECT POOL (Ring Buffer) ---
-  const particlesRef = useRef<Particle[]>(
-    Array.from({ length: MAX_PARTICLES }, () => ({
-      active: false, x: 0, y: 0, vx: 0, vy: 0, angle: 0, vAngle: 0, life: 0, maxLife: 1, emoji: '', size: 12
-    }))
-  );
-  const particleIndexRef = useRef(0);
-
   // --- GESTIONNAIRE D'ÉVÉNEMENTS SOURIS & PARTICULES ---
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || typeof window === 'undefined') return;
 
-    const handlePointerMove = (e: PointerEvent) => {
+    const resolvePoint = (event: PointerEvent) => {
       const canvas = canvasRef.current;
-      mouseRef.current = canvas ? resolveCanvasPoint(canvas, e) : null;
-      isDirtyRef.current = true;
+      if (!canvas) return null;
+
+      let rect = canvasRectRef.current;
+      if (!rect || rect.width <= 0 || rect.height <= 0) {
+        const liveRect = canvas.getBoundingClientRect();
+        rect = { left: liveRect.left, top: liveRect.top, width: liveRect.width, height: liveRect.height };
+        canvasRectRef.current = rect;
+      }
+
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      if (x < 0 || x > rect.width || y < 0 || y > rect.height) return null;
+
+      return { x, y, clientX: event.clientX, clientY: event.clientY };
     };
 
-    const handlePointerLeave = () => {
+    const clearPointerState = () => {
+      if (!mouseRef.current && !hasCanvasContentRef.current && !cursorVisualsVisibleRef.current) return;
       mouseRef.current = null;
+      cursorVisualsVisibleRef.current = false;
       hideTooltipElement(tooltipRef.current);
       hideCrosshairElements(crosshairElementsRef.current);
       isDirtyRef.current = true;
     };
 
-    // [TENOR 2026] Spawn de particules au clic (Mode Magic)
-    const handlePointerDown = (e: PointerEvent) => {
-      if (mode !== 'magic') return;
+    const syncPointerState = (event: PointerEvent) => {
+      const point = resolvePoint(event);
+      if (!point) {
+        clearPointerState();
+        return null;
+      }
 
-      const canvas = canvasRef.current;
-      const point = canvas ? resolveCanvasPoint(canvas, e) : null;
+      const previous = mouseRef.current;
+      mouseRef.current = point;
+      cursorVisualsVisibleRef.current = true;
+      if (modeRef.current !== 'magic' && (!previous || Math.round(previous.x) !== Math.round(point.x) || Math.round(previous.y) !== Math.round(point.y))) {
+        isDirtyRef.current = true;
+      }
+      return point;
+    };
+
+    const spawnMagicParticles = (event: PointerEvent) => {
+      if (suspendForDrawingRef.current) return;
+      const point = syncPointerState(event);
       if (!point) return;
 
-      // Spawn 10 à 20 particules par clic
       const count = Math.floor(10 + Math.random() * 10);
       const particles = particlesRef.current;
 
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < count; i += 1) {
         const idx = particleIndexRef.current;
-        const p = particles[idx];
+        const particle = particles[idx];
 
-        // Réutilisation de l'objet (Zéro allocation)
-        p.active = true;
-        p.x = point.x;
-        p.y = point.y;
-        p.vx = (Math.random() - 0.5) * 10; // Dispersion horizontale
-        p.vy = (Math.random() - 1) * 12 - 2; // Explosion vers le haut
-        p.angle = Math.random() * Math.PI * 2;
-        p.vAngle = (Math.random() - 0.5) * 0.4;
-        p.maxLife = 50 + Math.random() * 40; // Durée de vie en frames
-        p.life = p.maxLife;
-        p.emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-        p.size = 18 + Math.random() * 16;
+        particle.active = true;
+        particle.x = point.x;
+        particle.y = point.y;
+        particle.vx = (Math.random() - 0.5) * 10;
+        particle.vy = (Math.random() - 1) * 12 - 2;
+        particle.angle = Math.random() * Math.PI * 2;
+        particle.vAngle = (Math.random() - 0.5) * 0.4;
+        particle.maxLife = 50 + Math.random() * 40;
+        particle.life = particle.maxLife;
+        particle.emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+        particle.size = 18 + Math.random() * 16;
 
-        // Avance le pointeur du Ring Buffer
         particleIndexRef.current = (idx + 1) % MAX_PARTICLES;
       }
+
       isDirtyRef.current = true;
     };
 
-    container.addEventListener('pointermove', handlePointerMove);
-    container.addEventListener('pointerleave', handlePointerLeave);
-    container.addEventListener('pointerdown', handlePointerDown);
+    const handlePointerMove = (event: PointerEvent) => {
+      if (suspendForDrawingRef.current || (modeRef.current !== 'magic' && (pointerGestureActiveRef.current || event.buttons !== 0))) {
+        pointerGestureActiveRef.current = event.buttons !== 0;
+        clearPointerState();
+        return;
+      }
+
+      if (!syncPointerState(event)) return;
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const point = syncPointerState(event);
+      if (!point) return;
+      pointerGestureActiveRef.current = true;
+      if (suspendForDrawingRef.current) {
+        clearPointerState();
+        return;
+      }
+      if (modeRef.current !== 'magic') {
+        isDirtyRef.current = true;
+        return;
+      }
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      spawnMagicParticles(event);
+    };
+
+    const releasePointerGesture = () => {
+      pointerGestureActiveRef.current = false;
+      isDirtyRef.current = true;
+    };
+
+    const cancelPointerGesture = () => {
+      pointerGestureActiveRef.current = false;
+      clearPointerState();
+    };
+
+    const handleWindowBlur = () => cancelPointerGesture();
+
+    window.addEventListener('pointermove', handlePointerMove, { capture: true });
+    window.addEventListener('pointerdown', handlePointerDown, { capture: true });
+    window.addEventListener('pointerup', releasePointerGesture, { capture: true });
+    window.addEventListener('pointercancel', cancelPointerGesture, { capture: true });
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
-      container.removeEventListener('pointermove', handlePointerMove);
-      container.removeEventListener('pointerleave', handlePointerLeave);
-      container.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove, { capture: true });
+      window.removeEventListener('pointerdown', handlePointerDown, { capture: true });
+      window.removeEventListener('pointerup', releasePointerGesture, { capture: true });
+      window.removeEventListener('pointercancel', cancelPointerGesture, { capture: true });
+      window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [canvasRef, containerRef, mode, interactionScopeKey]); // Re-bind si le mode ou le DOM cible change
+  }, [canvasRef, containerRef, eventSourceRef, interactionScopeKey]);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -462,37 +391,96 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
   }, [mode]);
 
   useEffect(() => {
+    suspendForDrawingRef.current = Boolean(suspendForDrawing);
+    if (suspendForDrawingRef.current) {
+      pointerGestureActiveRef.current = false;
+      mouseRef.current = null;
+      cursorVisualsVisibleRef.current = false;
+      hideTooltipElement(tooltipRef.current);
+      hideCrosshairElements(crosshairElementsRef.current);
+    }
+    isDirtyRef.current = true;
+  }, [suspendForDrawing]);
+
+  useEffect(() => {
     chartDataRef.current = chartData;
     isDirtyRef.current = true;
   }, [chartData]);
 
   useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart || chart.isDisposed()) return;
+    let isActive = true;
+    let attachedChart: EChartsInstance | null = null;
+    let retryRafId: number | null = null;
+    let retryCount = 0;
 
     const markDirty = () => {
       isDirtyRef.current = true;
     };
 
-    chart.on('datazoom', markDirty);
-    chart.on('restore', markDirty);
-    chart.on('finished', markDirty);
+    const clearRetry = () => {
+      if (retryRafId !== null) {
+        cancelAnimationFrame(retryRafId);
+        retryRafId = null;
+      }
+    };
+
+    const detach = () => {
+      if (!attachedChart) return;
+      try {
+        if (!attachedChart.isDisposed()) {
+          attachedChart.off('datazoom', markDirty);
+          attachedChart.off('restore', markDirty);
+          attachedChart.off('finished', markDirty);
+        }
+      } catch {
+        // ECharts may throw while a chart is being disposed during layout remount.
+      } finally {
+        attachedChart = null;
+      }
+    };
+
+    const attach = () => {
+      if (!isActive) return;
+      clearRetry();
+
+      const chart = chartRef.current;
+      try {
+        if (!chart || chart.isDisposed()) {
+          if (retryCount < 12) {
+            retryCount += 1;
+            retryRafId = requestAnimationFrame(attach);
+          }
+          return;
+        }
+
+        if (attachedChart === chart) return;
+        detach();
+        attachedChart = chart;
+        chart.on('datazoom', markDirty);
+        chart.on('restore', markDirty);
+        chart.on('finished', markDirty);
+        markDirty();
+      } catch {
+        if (retryCount < 12) {
+          retryCount += 1;
+          retryRafId = requestAnimationFrame(attach);
+        }
+      }
+    };
+
+    attach();
 
     return () => {
-      if (chart.isDisposed()) return;
-      chart.off('datazoom', markDirty);
-      chart.off('restore', markDirty);
-      chart.off('finished', markDirty);
+      isActive = false;
+      clearRetry();
+      detach();
     };
-  }, [chartRef]);
+  }, [chartRef, interactionScopeKey]);
 
   // ============================================================================
   // 1. CANVAS SIZING & RESIZE OBSERVER
   // ============================================================================
   useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-
     // [TENOR 2026 SRE FIX] SCAR-CURSOR-CANVAS-STALE-BACKINGSTORE:
     // When key={chartInteractionScopeKey} remounts the canvas (layout 1→4→6),
     // canvasRef and containerRef are the same ref OBJECTS — only .current changes.
@@ -503,13 +491,31 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
     // render loop is blocked until syncCanvasSize succeeds on the new canvas/container.
     isReadyRef.current = false;
 
-    if (!canvas || !container) return;
+    let isDisposed = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let retryFrameId: number | null = null;
 
-    // Critical: Canvas internal size must match CSS display size
+    const cancelRetry = () => {
+      if (retryFrameId !== null) {
+        cancelAnimationFrame(retryFrameId);
+        retryFrameId = null;
+      }
+    };
+
+    // Critical: Canvas internal size must match CSS display size.
     const syncCanvasSize = (): boolean => {
+      const canvas = canvasRef.current;
+      const container = containerRef.current;
+
+      if (!canvas || !container) {
+        isReadyRef.current = false;
+        return false;
+      }
+
       const rect = container.getBoundingClientRect();
-      
-      // GUARD: Don't initialize if container hasn't been laid out yet
+      canvasRectRef.current = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+
+      // GUARD: Don't initialize if container hasn't been laid out yet.
       if (rect.width < 10 || rect.height < 10) {
         isReadyRef.current = false;
         return false;
@@ -518,10 +524,11 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       const displayWidth = Math.floor(rect.width);
       const displayHeight = Math.floor(rect.height);
       const dpr = Math.min(MAX_CANVAS_DPR, Math.max(1, window.devicePixelRatio || 1));
+      canvasMetricsRef.current = { width: displayWidth, height: displayHeight, dpr };
       const backingWidth = Math.max(1, Math.round(displayWidth * dpr));
       const backingHeight = Math.max(1, Math.round(displayHeight * dpr));
 
-      // Only resize if dimensions actually changed
+      // Only resize if dimensions actually changed.
       if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
         canvas.width = backingWidth;
         canvas.height = backingHeight;
@@ -529,21 +536,39 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         canvas.style.height = `${displayHeight}px`;
         isDirtyRef.current = true;
       }
-      
+
       isReadyRef.current = true;
       return true;
     };
 
-    syncCanvasSize();
+    const attachWhenReady = () => {
+      if (isDisposed) return;
+      cancelRetry();
 
-    const resizeObserver = new ResizeObserver(() => {
-      syncCanvasSize();
-    });
-    
-    resizeObserver.observe(container);
+      const container = containerRef.current;
+      if (!container || !syncCanvasSize()) {
+        retryFrameId = requestAnimationFrame(attachWhenReady);
+        return;
+      }
+
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(() => {
+        if (!syncCanvasSize()) {
+          retryFrameId = requestAnimationFrame(attachWhenReady);
+        }
+      });
+
+      resizeObserver.observe(container);
+      isDirtyRef.current = true;
+    };
+
+    attachWhenReady();
 
     return () => {
-      resizeObserver.disconnect();
+      isDisposed = true;
+      cancelRetry();
+      resizeObserver?.disconnect();
+      canvasMetricsRef.current = null;
       // Reset ready state so that if the canvas remounts (key change), the render
       // loop is blocked until the new syncCanvasSize runs successfully.
       isReadyRef.current = false;
@@ -554,33 +579,44 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
   // 2. RENDER LOOP (Orchestrated by MasterRenderLoop)
   // ============================================================================
   const render = useCallback((_time: number, _meta: RenderFrameMeta) => {
+    const currentMode = modeRef.current;
+    const particles = particlesRef.current;
+    const hasActiveParticles = particles.some((particle) => particle.active);
+    if (!isDirtyRef.current && currentMode !== 'demonstration' && !hasActiveParticles) {
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx || !isReadyRef.current) return;
 
-    const canvasRect = canvas.getBoundingClientRect();
-    const logicalWidth = Math.max(1, canvasRect.width);
-    const logicalHeight = Math.max(1, canvasRect.height);
-    const dpr = canvas.width / logicalWidth || 1;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const canvasMetrics = canvasMetricsRef.current;
+    if (!canvasMetrics) return;
+    const logicalWidth = Math.max(1, canvasMetrics.width);
+    const logicalHeight = Math.max(1, canvasMetrics.height);
+    ctx.setTransform(canvasMetrics.dpr, 0, 0, canvasMetrics.dpr, 0, 0);
 
-    const particles = particlesRef.current;
-    let hasActiveParticles = false;
-    for (let i = 0; i < particles.length; i++) {
-      if (particles[i].active) {
-        hasActiveParticles = true;
-        break;
+    const shouldSuspendCursorRender = suspendForDrawingRef.current || (pointerGestureActiveRef.current && currentMode !== 'magic');
+    if (shouldSuspendCursorRender) {
+      if (hasCanvasContentRef.current) {
+        ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+        hasCanvasContentRef.current = false;
       }
-    }
-
-    if (!isDirtyRef.current && !hasActiveParticles) {
+      hideTooltipElement(tooltipRef.current);
+      hideCrosshairElements(crosshairElementsRef.current);
+      cursorVisualsVisibleRef.current = false;
+      isDirtyRef.current = false;
       return;
     }
 
     isDirtyRef.current = false;
-    const currentMode = modeRef.current;
     const currentChartData = chartDataRef.current;
+
+    if (currentMode === 'magic') {
+      hideTooltipElement(tooltipRef.current);
+      hideCrosshairElements(crosshairElementsRef.current);
+    }
 
     /**
      * DRAW PRO TOOLTIP (Exocharts Style)
@@ -597,7 +633,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       clientY: number,
       w: number,
       h: number,
-      chart: echarts.ECharts,
+      chart: EChartsInstance,
       data: CandleData[]
     ) => {
       const hideHtmlTooltip = () => hideTooltipElement(tooltipRef.current);
@@ -669,18 +705,9 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         boxX = clamp(boxX, TOOLTIP_EDGE_GAP, Math.max(TOOLTIP_EDGE_GAP, w - compactWidth - TOOLTIP_EDGE_GAP));
         boxY = clamp(boxY, TOOLTIP_EDGE_GAP, Math.max(TOOLTIP_EDGE_GAP, h - compactHeight - TOOLTIP_EDGE_GAP));
 
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-        ctx.strokeStyle = 'rgba(71, 85, 105, 0.9)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, compactWidth, compactHeight, 3);
-        ctx.fill();
-        ctx.stroke();
-
-        const labelColor = '#94a3b8';
-        const valColor = '#f8fafc';
-        const statColor = '#fb923c';
+        const labelColor = '#cbd5e1';
+        const valColor = '#ffffff';
+        const statColor = '#f59e0b';
         const leftRows = [
           { label: 'O', value: dOpen.toFixed(2), color: valColor },
           { label: 'H', value: dHigh.toFixed(2), color: valColor },
@@ -709,10 +736,14 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         tooltip.style.columnGap = isMicroSurface ? '10px' : '16px';
         tooltip.style.rowGap = '0';
         tooltip.style.fontSize = `${fontSize}px`;
-        tooltip.style.background = 'rgb(8, 13, 32)';
-        tooltip.style.borderColor = 'rgba(96, 165, 250, 0.45)';
-        tooltip.style.boxShadow = '0 16px 34px rgba(0, 0, 0, 0.46)';
+        tooltip.style.background = 'rgba(14, 38, 70, 0.9)';
+        tooltip.style.borderColor = 'rgba(96, 165, 250, 0.5)';
+        tooltip.style.boxShadow = '0 14px 30px rgba(4, 12, 28, 0.44)';
         tooltip.style.lineHeight = '1';
+        tooltip.style.zIndex = '92';
+        tooltip.style.opacity = '1';
+        tooltip.style.color = '#f8fafc';
+        tooltip.style.backdropFilter = 'blur(8px) saturate(1.12)';
 
         const columnOptions = {
           labelWidth: isMicroSurface ? 18 : 22,
@@ -747,7 +778,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       hideHtmlTooltip();
 
       // 3. Layout Configuration
-      const scale = getOverlayScale(w, h);
+      const scale = getOverlayScale(w, h, TOOLTIP_MIN_SCALE);
       const boxWidth = TOOLTIP_BASE_WIDTH * scale;
       const boxHeight = TOOLTIP_BASE_HEIGHT * scale;
       const padding = 12 * scale;
@@ -867,37 +898,35 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       });
     };
 
-    ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+    const modeUsesCanvas = currentMode === 'dot' || currentMode === 'demonstration' || currentMode === 'eraser' || currentMode === 'cross-tooltip' || currentMode === 'arrow-tooltip' || currentMode === 'magic' || hasActiveParticles;
+    if (modeUsesCanvas || hasCanvasContentRef.current) {
+      ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+    }
+    hasCanvasContentRef.current = modeUsesCanvas;
 
-    // ============================================================================
-    // [TENOR 2026] MOTEUR PHYSIQUE DES PARTICULES (Indépendant de la souris)
-    // ============================================================================
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      if (!p.active) continue;
+    for (const particle of particles) {
+      if (!particle.active) continue;
 
-      // Intégration d'Euler (Physique)
-      p.vy += GRAVITY;
-      p.x += p.vx;
-      p.y += p.vy;
-      p.angle += p.vAngle;
-      p.life--;
+      const frameStep = Math.max(1, Math.min(3, _meta.delta / 16.7));
+      particle.vy += GRAVITY * frameStep;
+      particle.x += particle.vx * frameStep;
+      particle.y += particle.vy * frameStep;
+      particle.angle += particle.vAngle * frameStep;
+      particle.life -= frameStep;
 
-      if (p.life <= 0) {
-        p.active = false;
+      if (particle.life <= 0) {
+        particle.active = false;
         continue;
       }
 
-      // Rendu de la particule
       ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.angle);
-      // Opacité dégressive pour une disparition en douceur
-      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-      ctx.font = `${p.size}px Arial`;
+      ctx.translate(particle.x, particle.y);
+      ctx.rotate(particle.angle);
+      ctx.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+      ctx.font = particle.size + 'px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(p.emoji, 0, 0);
+      ctx.fillText(particle.emoji, 0, 0);
       ctx.restore();
     }
 
@@ -924,6 +953,10 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         showDateLabel,
         dateText: showDateLabel ? resolveCursorDateText(chart ?? null, currentChartData, clientX, clientY) : '',
       });
+
+      if (currentMode !== 'cross-tooltip' && currentMode !== 'arrow-tooltip') {
+        hideTooltipElement(tooltipRef.current);
+      }
 
       // --- MODE: CROSS & CROSS-TOOLTIP ---
       if (currentMode === 'cross' || currentMode === 'cross-tooltip') {
@@ -965,7 +998,7 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
       // --- MODE: DEMONSTRATION ---
       if (currentMode === 'demonstration') {
         ctx.save();
-        const pulseSize = 15 + Math.sin(Date.now() / 200) * 3;
+        const pulseSize = 15 + Math.sin(_time / 200) * 3;
         ctx.beginPath();
         ctx.fillStyle = 'rgba(41, 182, 246, 0.2)';
         ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
@@ -987,7 +1020,6 @@ export const useCursorRenderer = ({ canvasRef, containerRef, mode, chartRef, cha
         ctx.font = '22px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        // Décalage pour que l'étoile de la baguette soit sur la pointe du curseur natif
         ctx.fillText('🪄', x + 12, y - 12);
         ctx.restore();
       }

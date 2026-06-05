@@ -94,8 +94,7 @@ body {
 ---
 
 ## 5. 🔌 Injection des Données (Le Pipeline ECharts)
-C'est la partie la plus importante. Dans `algoway-front`, le module récupère ses données (Candles) via un flux temps réel. 
-Dans le nouveau projet, si vous n'avez pas de backend "BRVM-Intraday", vous devrez modifier le Hook `useEChartsRenderer.ts` (ou le composant parent) pour **injecter manuellement des données statiques/mocks**.
+Cette partie décrit seulement le format attendu par ECharts. Dans ce projet, le flux officiel du chart BRVM est daily OHLCV via `useMarketData`, puis snapshot live si disponible. Aucun backend intraday BRVM ne doit etre attendu ni simulé pour combler une absence de flux de seance.
 
 *Où chercher :*
 Regardez le fichier `src/.../hooks/useEChartsRenderer.ts`. C'est lui qui alimente le `option.series[0].data` (le graphique K-Line / Bougies japonaises). Vous devez vous assurer que le format attendu est respecté :

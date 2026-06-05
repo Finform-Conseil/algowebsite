@@ -21,10 +21,63 @@ async function getBrvmLiveHTML() {
 
 // --- NATIVE HTML PARSER UTILS (Zero Dependency, Low Memory) ---
 
+function decodeHtmlText(value: string): string {
+    return value
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&quot;/gi, String.fromCharCode(34))
+        .replace(/&#039;/g, String.fromCharCode(39))
+        .replace(/&apos;/gi, String.fromCharCode(39))
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function normalizeTableText(value: string): string {
+    return decodeHtmlText(value)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+
+function extractTables(html: string): string[] {
+    const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
+    const tables: string[] = [];
+    let match;
+    while ((match = tableRegex.exec(html)) !== null) {
+        tables.push(match[0]);
+    }
+    return tables;
+}
+
+function selectCoursActionsTableHtml(html: string): string {
+    let bestTable = '';
+    let bestScore = 0;
+
+    for (const table of extractTables(html)) {
+        const normalized = normalizeTableText(table);
+        let score = 0;
+        if (normalized.includes('SYMBOLE')) score += 3;
+        if (normalized.includes('COURS CLOTURE')) score += 4;
+        if (normalized.includes('COURS VEILLE')) score += 2;
+        if (normalized.includes('COURS OUVERTURE')) score += 2;
+        if (normalized.includes('VOLUME')) score += 1;
+        if (normalized.includes('VARIATION')) score += 1;
+        if (normalized.includes('BOAB')) score += 1;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestTable = table;
+        }
+    }
+
+    return bestScore >= 7 ? bestTable : html;
+}
+
 function extractRows(html: string): string[] {
-    // Extrait le contenu de la balise <tbody> pour éviter les headers si possible
-    const tbodyMatch = /<tbody[^>]*>([\s\S]*?)<\/tbody>/i.exec(html);
-    const searchArea = tbodyMatch ? tbodyMatch[1] : html;
+    const tableHtml = selectCoursActionsTableHtml(html);
+    const tbodyMatch = /<tbody[^>]*>([\s\S]*?)<\/tbody>/i.exec(tableHtml);
+    const searchArea = tbodyMatch ? tbodyMatch[1] : tableHtml;
 
     const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
     const rows: string[] = [];
@@ -40,10 +93,7 @@ function extractCells(rowHtml: string): string[] {
     const cells: string[] = [];
     let match;
     while ((match = cellRegex.exec(rowHtml)) !== null) {
-        // Strip HTML tags and decode basic entities
-        let text = match[1].replace(/<[^>]+>/g, '').trim();
-        text = text.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&');
-        cells.push(text);
+        cells.push(decodeHtmlText(match[1]));
     }
     return cells;
 }
@@ -113,7 +163,7 @@ export async function GET(request: NextRequest) {
             });
 
             if (!relaxedMatchHtml) {
-                const resp = NextResponse.json({ error: `Ticker ${ticker} not found` }, { status: 404 });
+                const resp = NextResponse.json({ error: "Ticker " + ticker + " not found", found: false, symbol: ticker, source: "BRVM_DIRECT", timestamp: new Date().toISOString() });
                 resp.headers.set('X-Cache-Status', status);
                 return resp;
             }

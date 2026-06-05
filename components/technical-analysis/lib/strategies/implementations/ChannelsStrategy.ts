@@ -1,9 +1,9 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/ChannelsStrategy.ts
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-import { CHANNEL_TOOLS } from "../../../config/TechnicalAnalysisConstants";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import { CHANNEL_TOOLS } from "../../../config/drawing/drawingConstants";
 import type { EChartsInstance } from "../../types/echarts";
 
 import { renderParallelChannel, hitTestParallelChannel } from "../renderers/Channels/ParallelChannelRenderer";

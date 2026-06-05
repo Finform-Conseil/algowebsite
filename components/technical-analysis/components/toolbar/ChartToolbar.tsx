@@ -2,8 +2,10 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
-import { useDispatch, useSelector } from "react-redux";
-import { SettingsToggle } from "../common/SettingsField";
+import {
+  useDispatch,
+  useSelector } from "react-redux";
+import { SettingsToggle } from "../common/inputs/SettingsField";
 import {
   setModalOpen,
   setChartType,
@@ -11,78 +13,40 @@ import {
   setAnonyme,
   setSelectedPseudo,
   setSearchMode,
+  setDataMode,
+} from "../../store/technicalAnalysisSlice";
+import {
   selectChartConfig,
   selectAdvancedIndicators,
   selectUiState,
   selectDataMode,
-  setDataMode,
-} from "../../store/technicalAnalysisSlice";
-import { useTechnicalAnalysisActions } from "../../hooks/useTechnicalAnalysisActions";
+} from "../../store/selectors";
 import { LayoutSetupControl } from "./LayoutSetupControl";
-import { FloatingMenu } from "../common/FloatingMenu";
+import { FloatingMenu } from "../common/primitives/FloatingMenu";
 import {
   CHART_TYPE_MENU_GROUPS,
   CHART_TYPE_REGISTRY,
   normalizeChartType,
   type ChartType,
 } from "../../lib/chart-types";
-
-const ANONYMOUS_PSEUDOS = [
-  "Trader_700",
-  "Bull_Runner",
-  "Bear_Hunter",
-  "Alpha_Whale",
-  "Crypto_Ghost",
-  "Shadow_Trader",
-  "Market_Ninja",
-  "Pivot_Master",
-];
-
-
-const CHART_TYPE_ICON_CLASS: Partial<Record<ChartType, string>> = {
-  line: "bi bi-graph-up",
-  line_with_markers: "bi bi-activity",
-  area: "bi bi-layers",
-  hlc_area: "bi bi-bounding-box",
-  baseline: "bi bi-distribute-vertical",
-  columns: "bi bi-bar-chart",
-  high_low: "bi bi-arrows-vertical",
-  volume_footprint: "bi bi-grid-3x3-gap",
-  time_price_opportunity: "bi bi-fonts",
-  session_volume_profile: "bi bi-bar-chart-steps",
-  kagi: "bi bi-bezier2",
-  point_and_figure: "bi bi-x-octagon",
-};
-
-const renderChartTypeIcon = (chartType: ChartType) => {
-  if (chartType === "step_line") {
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="22" height="22" fill="none" aria-hidden="true">
-        <path d="M5 20h5v-5h6v-5h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M5 22.5h18" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity=".35" />
-      </svg>
-    );
-  }
-
-  if (["bars", "candles", "hollow_candles", "volume_candles", "heikin_ashi", "renko", "line_break", "range"].includes(chartType)) {
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="22" height="22" fill="currentColor" aria-hidden="true">
-        <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z" />
-        <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z" />
-        <path d="M9 8v12h3V8H9zm-.5-1h4a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z" />
-        <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z" />
-      </svg>
-    );
-  }
-
-  return <i className={CHART_TYPE_ICON_CLASS[chartType] ?? "bi bi-graph-up"} aria-hidden="true" />;
-};
+import { preloadIndicatorsModal } from "../modals/orchestration/indicatorsModalLoader";
+import { ANONYMOUS_PSEUDOS } from "../../config/ui/anonymousPseudos";
+import { renderChartTypeIcon } from "./chart/chartTypeIcons";
+import {
+  horizontalToolbarClassNames,
+  publishButtonClassNames,
+  toolbarButtonClassNames,
+  toolbarSecondaryButtonClassNames,
+} from "./chart/toolbarClassNames";
 
 interface ChartToolbarProps {
   userInitials: string;
   displaySymbol: string;
   openTickerSelector: () => void;
   stopReplay: () => void;
+  onTimeframeChange: (timeframe: string) => void;
+  onSaveAnalysis: () => void | Promise<void>;
+  onOpenLoadModal: () => void | Promise<void>;
 }
 
 export const ChartToolbar: React.FC<ChartToolbarProps> = ({
@@ -90,18 +54,19 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   displaySymbol,
   openTickerSelector,
   stopReplay,
+  onTimeframeChange,
+  onSaveAnalysis,
+  onOpenLoadModal,
 }) => {
   const dispatch = useDispatch();
-  const { toggleDropdown } = useUserActions();
   const chartConfig = useSelector(selectChartConfig);
   const advancedIndicators = useSelector(selectAdvancedIndicators);
   const uiState = useSelector(selectUiState);
   const dataMode = useSelector(selectDataMode);
-  const { handleTimeframeChange, handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions();
 
   const [isPseudoDropdownOpen, setIsPseudoDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-  const pseudoDropdownButtonRef = useRef<HTMLDivElement>(null);
+  const pseudoDropdownButtonRef = useRef<HTMLButtonElement>(null);
   const [isChartTypeMenuOpen, setIsChartTypeMenuOpen] = useState(false);
   const [chartTypeAnchorRect, setChartTypeAnchorRect] = useState<DOMRect | null>(null);
   const chartTypeButtonRef = useRef<HTMLButtonElement>(null);
@@ -120,21 +85,38 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
     setIsChartTypeMenuOpen(false);
   };
 
-  const handleTogglePseudoDropdown = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openPseudoDropdownFromElement = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+    });
+    setIsPseudoDropdownOpen(true);
+  };
+
+  const togglePseudoDropdownFromElement = (element: HTMLElement) => {
     if (isPseudoDropdownOpen) {
       setIsPseudoDropdownOpen(false);
-    } else {
-      if (pseudoDropdownButtonRef.current) {
-        const rect = pseudoDropdownButtonRef.current.getBoundingClientRect();
-        setDropdownPos({
-          top: rect.bottom,
-          left: rect.left,
-          width: rect.width,
-        });
-      }
-      setIsPseudoDropdownOpen(true);
+      return;
     }
+    openPseudoDropdownFromElement(element);
+  };
+
+  const handleTogglePseudoDropdown = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    togglePseudoDropdownFromElement(e.currentTarget);
+  };
+
+  const handleProfileToggle = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    togglePseudoDropdownFromElement(e.currentTarget);
+  };
+
+  const handleDataModeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    dispatch(setDataMode(dataMode === "real" ? "mock" : "real"));
   };
 
   useEffect(() => {
@@ -144,7 +126,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
     return () => window.removeEventListener("click", handleClickOutside);
   }, [isPseudoDropdownOpen]);
 
-  const safeDisplaySymbol = displaySymbol.trim() || "BOAN";
+  const safeDisplaySymbol = displaySymbol.trim() || "BOAB";
   const hasActiveOverlayIndicator =
     (chartConfig.indicators.sma && chartConfig.indicators.activeSma.length > 0) ||
     (chartConfig.indicators.ema && chartConfig.indicators.activeEma.length > 0) ||
@@ -152,13 +134,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
 
   return (
     <div
-      className={clsx(
-        "gp-horizontal-toolbar",
-        "gp-horizontal-toolbar",
-        "prepare-animation",
-        "gsap-target-toolbar",
-        "animated-element"
-      )}
+      className={clsx(horizontalToolbarClassNames)}
       // [TENOR 2026 SRE] Inline safety styles to prevent Flexbox Overflow
       style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}
     >
@@ -179,7 +155,17 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               justifyContent: "center !important",
               marginLeft: "4px",
             }}
-            onClick={() => toggleDropdown("profile")}
+            role="button"
+            tabIndex={0}
+            aria-haspopup="menu"
+            aria-expanded={isPseudoDropdownOpen}
+            onClick={handleProfileToggle}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                togglePseudoDropdownFromElement(event.currentTarget);
+              }
+            }}
           >
             {userInitials === "DA" ? <i className="bi bi-person-circle" style={{ fontSize: "1.2rem" }}></i> : userInitials}
           </span>
@@ -240,16 +226,16 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         // [TENOR 2026 SRE] flex: 1 1 auto allows it to shrink and grow naturally
         style={{ flex: "1 1 auto", minWidth: "0" }}
       >
-        <span className={clsx("scroll-indicator-h", "scroll-indicator-h--left", "scroll-indicator-h--left")}>
+        <span className={clsx("scroll-indicator-h", "scroll-indicator-h--left")}>
           <i className="bi bi-caret-left-fill"></i>
         </span>
-        <span className={clsx("scroll-indicator-h", "scroll-indicator-h--right", "scroll-indicator-h--right")}>
+        <span className={clsx("scroll-indicator-h", "scroll-indicator-h--right")}>
           <i className="bi bi-caret-right-fill"></i>
         </span>
 
         <div className={"gp-toolbar-scroll-content"}>
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary")}
+            className={clsx(toolbarSecondaryButtonClassNames)}
             title="Plus d'options"
             onClick={() => dispatch(setModalOpen({ modal: "options", isOpen: true }))}
           >
@@ -261,9 +247,9 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           {["1D"].map((tf) => (
             <button
               key={tf}
-              className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", tf === chartConfig.timeframe && "active")}
+              className={clsx(toolbarButtonClassNames, tf === chartConfig.timeframe && "active")}
               title={`Intervalle ${tf}`}
-              onClick={() => handleTimeframeChange(tf)}
+              onClick={() => onTimeframeChange(tf)}
             >
               <span style={{ fontSize: "13px", fontWeight: 600, lineHeight: 1 }}>{tf}</span>
             </button>
@@ -273,7 +259,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
 
           <button
             ref={chartTypeButtonRef}
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", activeChartType !== "candles" && "active")}
+            className={clsx(toolbarButtonClassNames, activeChartType !== "candles" && "active")}
             title={`Type de graphique: ${activeChartTypeEntry.label}`}
             aria-haspopup="menu"
             aria-expanded={isChartTypeMenuOpen}
@@ -306,8 +292,16 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
                     >
                       <span className="gp-chart-type-menu-icon">{renderChartTypeIcon(entry.id)}</span>
                       <span className="gp-chart-type-menu-label">{entry.label}</span>
-                      {entry.synthetic && <span className="gp-chart-type-menu-badge">Synthetic</span>}
-                      {entry.approximateWithoutTicks && <span className="gp-chart-type-menu-badge">Intraday</span>}
+                      {entry.synthetic && (
+                        <span className="gp-chart-type-menu-badge" title="Prix construits, non executables au marche">
+                          Synthétique
+                        </span>
+                      )}
+                      {entry.approximateWithoutTicks && (
+                        <span className="gp-chart-type-menu-badge" title="Approximation sans donnees tick/intrabar completes">
+                          Approx.
+                        </span>
+                      )}
                     </button>
                   ))}
               </div>
@@ -315,15 +309,19 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           </FloatingMenu>
 
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", hasActiveOverlayIndicator && "active")}
+            type="button"
+            className={clsx(toolbarButtonClassNames, hasActiveOverlayIndicator && "active")}
             title="Indicateurs"
+            aria-label="Indicateurs"
+            onFocus={() => { void preloadIndicatorsModal(); }}
+            onPointerEnter={() => { void preloadIndicatorsModal(); }}
             onClick={() => dispatch(setModalOpen({ modal: "indicators", isOpen: true }))}
           >
             <i className="bi bi-activity"></i>
           </button>
 
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift")}
+            className={clsx(toolbarButtonClassNames)}
             title="Modèles d'indicateurs"
             onClick={() => dispatch(setModalOpen({ modal: "templates", isOpen: true }))}
           >
@@ -333,7 +331,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           <div className={"gp-toolbar-v-divider"}></div>
 
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift")}
+            className={clsx(toolbarButtonClassNames)}
             title="Alerte"
             onClick={() => dispatch(setModalOpen({ modal: "alerts", isOpen: true }))}
           >
@@ -341,7 +339,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           </button>
 
           <button
-            className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", uiState.replay.isActive && "active")}
+            className={clsx(toolbarButtonClassNames, uiState.replay.isActive && "active")}
             title={uiState.replay.isActive ? "Mode Replay actif - Cliquez pour arrêter" : "Mode Replay"}
             onClick={uiState.replay.isActive ? stopReplay : () => dispatch(setModalOpen({ modal: "replay", isOpen: true }))}
           >
@@ -357,16 +355,23 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         className="d-flex align-items-center gap-2 flex-shrink-0 flex-nowrap h-100 justify-content-end" 
         style={{ minWidth: "max-content" }}
       >
-        {/* Toggle DEMO/BRVM (Always visible) */}
+        {/* Toggle SIMU/BRVM (Always visible) */}
         <div
           className={`${"gp-ios-toggle"} ${dataMode === "real" ? "is-brvm" : "is-demo"} flex-shrink-0`}
           onClick={() => dispatch(setDataMode(dataMode === "real" ? "mock" : "real"))}
-          title={dataMode === "real" ? "Passer en mode Démo" : "Passer en mode Temps Réel (BRVM)"}
+          title={
+            dataMode === "real"
+              ? "Source actuelle: donnees BRVM verifiees. Cliquer pour passer en simulation locale."
+              : "Source actuelle: simulation locale. Cliquer pour passer aux donnees BRVM verifiees."
+          }
           role="switch"
+          tabIndex={0}
           aria-checked={dataMode === "real"}
+          aria-label={dataMode === "real" ? "Source de donnees BRVM verifiees" : "Source de donnees simulees"}
+          onKeyDown={handleDataModeKeyDown}
         >
           <span className={"gp-ios-toggle-track"}>
-            <span className={"gp-ios-toggle-label-left"}>DEMO</span>
+            <span className={"gp-ios-toggle-label-left"}>SIMU</span>
             <span className={"gp-ios-toggle-knob"} />
             <span className={"gp-ios-toggle-label-right"}>BRVM</span>
           </span>
@@ -384,16 +389,20 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             checked={uiState.isAnonyme}
             onChange={(val) => dispatch(setAnonyme(val))}
           />
-          <div
-            className="p-1 d-flex align-items-center"
+          <button
+            type="button"
+            className="p-1 d-flex align-items-center bg-transparent border-0 text-current"
             ref={pseudoDropdownButtonRef}
             onClick={handleTogglePseudoDropdown}
+            aria-haspopup="menu"
+            aria-expanded={isPseudoDropdownOpen}
+            aria-label="Choisir un pseudonyme"
           >
             <i
               className={clsx("bi bi-chevron-down", uiState.isAnonyme && "text-info", isPseudoDropdownOpen && "rotate-180")}
               style={{ fontSize: "0.8rem", marginTop: "1px", transition: "transform 0.2s ease" }}
             ></i>
-          </div>
+          </button>
         </div>
 
         <div className={clsx("gp-toolbar-v-divider", "flex-shrink-0")}></div>
@@ -402,39 +411,39 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         <div className={clsx("gp-toolbar-scroll-wrapper-right", "flex-shrink-0")}>
           <div className={"gp-toolbar-scroll-content-right"}>
             <button
-              className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary")}
+              className={clsx(toolbarSecondaryButtonClassNames)}
               title="Sauvegarder l'analyse"
-              onClick={handleSaveAnalysis}
+              onClick={() => { void onSaveAnalysis(); }}
             >
               <i className="bi bi-save"></i>
             </button>
             <LayoutSetupControl />
             <button
-              className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary")}
+              className={clsx(toolbarSecondaryButtonClassNames)}
               title="Historique des analyses"
-              onClick={handleOpenLoadModal}
+              onClick={() => { void onOpenLoadModal(); }}
             >
               <i className="bi bi-folder2-open"></i>
             </button>
             <button
-              className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary")}
+              className={clsx(toolbarSecondaryButtonClassNames)}
               title="Paramètres de l'indicateur"
               onClick={() => dispatch(setModalOpen({ modal: "settings", isOpen: true }))}
             >
               <i className="bi bi-nut"></i>
             </button>
             <button
-              className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary", uiState.isZenMode && "active-zen")}
+              className={clsx(toolbarButtonClassNames, "text-secondary", uiState.isZenMode && "active-zen")}
               title={uiState.isZenMode ? "Quitter le mode Zen" : "Mode Zen (Focus)"}
               onClick={() => dispatch(toggleZenMode())}
             >
               <i className={clsx("bi", uiState.isZenMode ? "bi-fullscreen-exit" : "bi-fullscreen")}></i>
             </button>
             <button
-              className={clsx("gp-toolbar-btn", "gp-toolbar-btn", "hover-lift", "hover-lift", "text-secondary", uiState.isCapturing && "opacity-50", "gp-hide-on-small")}
-              title="Prendre une capture"
-              onClick={() => {}}
-              disabled={uiState.isCapturing}
+              className={clsx(toolbarSecondaryButtonClassNames, "opacity-50", "gp-hide-on-small")}
+              title="Capture indisponible pour cette version"
+              aria-label="Capture indisponible pour cette version"
+              disabled
             >
               <i className={clsx("bi", uiState.isCapturing ? "bi-hourglass-split" : "bi-camera")}></i>
             </button>
@@ -443,15 +452,15 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
 
         {/* Publish Button (Hidden on small screens) */}
         <button
-          className={clsx("btn btn-sm rounded-pill flex-shrink-0 d-flex align-items-center justify-content-center", "btn-publish", "btn-publish", "hover-lift", "hover-lift", uiState.isPublishing && "disabled", "gp-hide-on-small")}
+          className={clsx(publishButtonClassNames, uiState.isPublishing && "disabled")}
           style={{ height: "28px", padding: "0 16px" }}
-          onClick={() => {}}
+          onClick={() => dispatch(setModalOpen({ modal: "publish", isOpen: true }))}
           disabled={uiState.isPublishing}
         >
           {uiState.isPublishing ? (
             <>
               <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>{" "}
-              ...
+              Publication
             </>
           ) : (
             "Publier"
@@ -489,13 +498,5 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
     </div>
   );
 };
-
-function useUserActions() {
-  return {
-    toggleDropdown: (id: string) => {
-      console.log(`[TENOR 2026] Toggle dropdown: ${id} (Mock)`);
-    },
-  };
-}
 
 // --- EOF ---

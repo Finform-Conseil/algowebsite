@@ -1,11 +1,11 @@
 /**
  * @file ForecastingLongPositionRenderer.ts
- * @description Renderer Canvas 2D haute fidélité (HDR) pour l'outil "Long Position".
+ * @description Canvas 2D renderer for the "Long Position" tool.
  * 
- * @parity TradingView Parity Features:
+ * @parity TradingView-inspired features:
  * 1. Auto-Clamped Labels: Les labels restent visibles à l'écran même si l'outil déborde.
  * 2. Sub-pixel Rendering: Utilisation de `Math.round(x) + 0.5` pour des lignes 1px nettes.
- * 3. Textes Exacts: Formatage identique aux captures TV ("Target: ... Amount: ...").
+ * 3. Textes: Formatage proche des captures TV ("Target: ... Amount: ...").
  * 4. P&L Latent: Zone vert foncé dynamique basée sur le prix actuel.
  * 
  * @architecture_note 🚨 FIX POUR LE BUG DE DRAG ("Décalé, inégale") 🚨
@@ -17,11 +17,12 @@
  * Option A : Fournir `tpOffset` et `slOffset` dans `positionProps` (différence de prix par rapport à l'entrée).
  * Option B : Utiliser 3 points dans `drawing.points` (0: Entry, 1: TP, 2: SL) pour que le manager les translate tous.
  * 
- * Ce renderer supporte ces deux options dynamiquement pour garantir un corps rigide au drag.
+ * Ce renderer supporte ces deux options pour maintenir un corps rigide au drag quand les donnees sont coherentes.
  */
 
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { distanceBetweenPoints, isPointInRect } from "../../../math/geometry";
 import { renderCustomText } from "../ChartPatterns/support/BaseRendererUtils";
 import type { EChartsInstance, EChartsWithModel } from "../../../types/echarts";
@@ -35,7 +36,7 @@ type XAxisOptionLite = {
   data?: Array<string | number>;
 };
 
-// --- CONSTANTES DE STYLE (TRADINGVIEW EXACT MATCH) ---
+// --- CONSTANTES DE STYLE INSPIREES TRADINGVIEW ---
 const C_PROFIT_FILL_LIVE  = "rgba(8, 153, 129, 0.50)"; // Zone vert foncé (P&L latent)
 const C_PROFIT_BORDER     = "#089981";
 const C_PROFIT_BAR        = "#089981";
@@ -57,7 +58,7 @@ const SQ         = 8; // Taille des ancres carrées
 const CR         = 5; // Rayon des ancres circulaires
 const DEFAULT_W  = 200;
 
-// --- UTILITAIRES DE RENDU HDR ---
+// --- UTILITAIRES DE RENDU ---
 
 /**
  * Aligne les coordonnées sur la grille des pixels pour éviter l'anti-aliasing flou du Canvas.
@@ -212,7 +213,7 @@ function getLatestCloseData(chart: EChartsInstance): { x: number; y: number, pri
     closePrice = Number(last[1]);
     time = xAxisData[xAxisData.length - 1];
   } else {
-    // [TENOR 2026] For non-candle, it's usually [time, value] or [index, value]
+    // For non-candle, it's usually [time, value] or [index, value]
     time = last[0];
     closePrice = Number(last[1]);
   }
@@ -251,7 +252,7 @@ export function renderForecastingLongPosition(
   const entryPrice = dataPoints[0].value;
 
   // --- RÉSOLUTION DU BUG DE DRAG ---
-  // On priorise les offsets ou les points additionnels pour garantir un corps rigide au drag.
+  // On priorise les offsets ou les points additionnels pour maintenir un corps rigide au drag.
   const tpOffset = drawing.tpOffset;
   const slOffset = drawing.slOffset;
 
@@ -434,7 +435,7 @@ export function renderForecastingLongPosition(
       drawCircleHandle(h.ctx, xLeft, entryY);
     }
 
-    // --- RENDU DU TEXTE PERSONNALISÉ (HDR) ---
+    // --- RENDU DU TEXTE PERSONNALISÉ ---
     if (drawing.showText && drawing.text) {
       const pPoints = [
         { x: xLeft, y: Math.min(tpY, slY) },
@@ -466,7 +467,7 @@ export function hitTestForecastingLongPosition(
   const entT = drawing.points[0].time;
   const entP = drawing.points[0].value;
 
-  // Résolution identique au renderer pour garantir la cohérence de la hitbox
+  // Resolution identique au renderer pour garder la hitbox coherente
   const tpOffset = drawing.tpOffset;
   const slOffset = drawing.slOffset;
 

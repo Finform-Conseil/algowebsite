@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 // L'ordre est CRITIQUE : cela permet au reset SCSS global du projet d'écraser le Reboot
 // de Bootstrap (protégeant ainsi le site), tout en rendant les classes Bootstrap disponibles.
 import 'bootstrap/dist/css/bootstrap.min.css';
+import '../styles/vendor/bootstrap-icons.min.css';
 import '../styles/globals.scss';
 import Navbar from '@/components/navigation/Navbar';
 
@@ -20,20 +21,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
-      <head>
-      {/* Google Fonts — Site Global */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,700;1,300&family=Roboto:wght@300;400;500;700&family=DM+Sans:wght@400;500;600;700&family=Mulish:wght@400;600;700&family=Lilita+One&display=swap"
-        rel="stylesheet"
-      />
-      {/* Bootstrap Icons — requis par les composants Technical Analysis */}
-      <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-      />
-      </head>
       <body suppressHydrationWarning>
         <AppProviders>
           <Navbar />

@@ -1,24 +1,39 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { ChartDataPoint, generateInitialData as GENERATE_INITIAL_DATA } from "../../lib/Indicators/TechnicalIndicators";
-import { selectUiState, selectChartConfig, setReplayActive, setReplayPaused, setModalOpen, updateMarketData, updateMarketSnapshot, selectMarketData, selectMarketSnapshots } from "../../store/technicalAnalysisSlice";
-import { LiveSnapshot } from "../../config/TechnicalAnalysisTypes";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo } from "react";
+import { useDispatch,
+  useSelector } from "react-redux";
+import { ChartDataPoint,
+  generateInitialData as GENERATE_INITIAL_DATA } from "../../lib/Indicators/TechnicalIndicators";
+import {
+  setReplayActive,
+  setReplayPaused,
+  setModalOpen,
+  updateMarketData,
+  updateMarketSnapshot,
+} from "../../store/technicalAnalysisSlice";
+import {
+  selectUiState,
+  selectChartConfig,
+  selectMarketData,
+  selectMarketSnapshots,
+} from "../../store/selectors";
+import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
-import { BRVM_NAME_TO_TICKER } from "@/shared/utils/brvm-mapping";
+import { fetchDailyCsvData } from "./marketData.fetchers";
+import { parseIndicatorCSV, resolveBRVMDatasetTicker } from "./marketData.parsers";
+import { REALTIME_ENRICHMENT_TIMEOUT_MS, scheduleRealtimeEnrichment } from "./realtimeEnrichment";
 
 type DataMode = "mock" | "real";
 type ErrorWithStatus = Error & { status?: number };
 export type ComparisonLoadStatus = "idle" | "loading" | "loaded" | "empty" | "failed";
 export type ComparisonLoadState = Record<string, ComparisonLoadStatus>;
 
-const COMPARISON_FETCH_TIMEOUT_MS = 30000;
 const COMPARISON_NO_DATA_GRACE_MS = 1500;
-
-const resolveBRVMDatasetTicker = (symbol: string): string => {
-  const normalizedSymbol = symbol.trim().toUpperCase();
-  return BRVM_NAME_TO_TICKER[normalizedSymbol] ?? normalizedSymbol;
-};
 
 const normalizeComparisonSymbols = (symbols: string[]): string[] =>
   Array.from(new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)));
@@ -30,133 +45,25 @@ const areComparisonLoadStatesEqual = (left: ComparisonLoadState, right: Comparis
   return leftKeys.every((key) => left[key] === right[key]);
 };
 
-// --- CSV PARSER HELPER ---
-const parseBRVMCSV = (csvText: string): ChartDataPoint[] => {
-  const lines = csvText.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
-  // [TENOR 2026] Delimiter Autodetect: BRVM data often uses ';' in French locales.
-  const firstLine = lines[0];
-  const delimiter = firstLine.includes(';') ? ';' : ',';
+const readFiniteNumberField = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-  const headers = firstLine.split(delimiter).map(h => h.trim().toLowerCase());
-  const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('time'));
-  const openIdx = headers.findIndex(h => h.includes('open') || h.includes('ouv'));
-  const highIdx = headers.findIndex(h => h.includes('high') || h.includes('haut'));
-  const lowIdx = headers.findIndex(h => h.includes('low') || h.includes('bas'));
-  const closeIdx = headers.findIndex(h => h.includes('close') || h.includes('clot') || h.includes('cours'));
-  const volIdx = headers.findIndex(h => h.includes('volume') || h.includes('vol'));
+const readStringField = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 
-  const data: ChartDataPoint[] = [];
+const applyCapitalizationFields = (snapshot: LiveSnapshot, capData: unknown): void => {
+  if (!isRecord(capData) || capData.error) return;
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(delimiter);
-    if (cols.length < 5) continue;
+  const marketCap = readFiniteNumberField(capData.globalMarketCap);
+  const sharesCount = readFiniteNumberField(capData.sharesCount);
+  const source = readStringField(capData.source);
 
-    const cleanNum = (val: string) => {
-      if (!val) return 0;
-      // [TENOR 2026] Handle French decimal comma AND potential thousands separators (quotes, spaces)
-      const sanitized = val.replace(/['"\s]/g, '').replace(',', '.');
-      return parseFloat(sanitized) || 0;
-    };
-
-    let timeStr = dateIdx !== -1 && cols[dateIdx] ? cols[dateIdx].trim() : new Date().toISOString();
-
-    // [TENOR 2026] Fix Date parsing for DD/MM/YYYY
-    if (timeStr.includes('/')) {
-      const parts = timeStr.split('/');
-      if (parts.length === 3) {
-        // Assume DD/MM/YYYY if the first part > 12, or just force it for consistency if year is last
-        if (parts[2].length === 4) {
-          timeStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        } else if (parts[0].length === 4) {
-          timeStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-        }
-      }
-    }
-
-    data.push({
-      time: timeStr,
-      open: cleanNum(cols[openIdx]),
-      high: cleanNum(cols[highIdx]),
-      low: cleanNum(cols[lowIdx]),
-      close: cleanNum(cols[closeIdx]),
-      volume: volIdx !== -1 ? Math.round(cleanNum(cols[volIdx])) : 0,
-    });
-  }
-
-  // Filter out any invalid points (NaN or zero prices that would break axis scaling)
-  const filtered = data.filter(d => d.open > 0 && d.close > 0);
-  return filtered.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-};
-
-const parseCSVLine = (line: string): string[] => {
-  const result: string[] = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      result.push(field);
-      field = '';
-    } else {
-      field += ch;
-    }
-  }
-  result.push(field);
-  return result;
-};
-
-const parseIndicatorCSV = (csvText: string): Partial<LiveSnapshot> | null => {
-  const lines = csvText.trim().split(/\r?\n/);
-  if (lines.length < 2) return null;
-
-  const headers = lines[0].split(',').map(h => h.trim());
-  const values = parseCSVLine(lines[1]);
-
-  const getVal = (key: string) => {
-    const idx = headers.findIndex(h => h.toLowerCase() === key.toLowerCase());
-    return idx !== -1 ? (values[idx] || "").trim() : "";
-  };
-
-  const cleanNum = (val: string, currentPrice?: number) => {
-    const cleaned = val.replace(/['"\s]/g, '').replace(',', '.');
-    let num = parseFloat(cleaned) || 0;
-    if (currentPrice && currentPrice > 0 && num > currentPrice * 10) {
-      num /= 100;
-    }
-    return num;
-  };
-
-  const price = cleanNum(getVal("Cours_Actuel"));
-  const prevClose = cleanNum(getVal("Cloture_Veille"), price);
-  const volume = cleanNum(getVal("Volume_Titres") || getVal("Volume"));
-
-  let variationStr = getVal("Variation_Cours") || getVal("Variation (%)");
-  const isZeroVar = !variationStr || variationStr === "0,00" || variationStr === "0,00%" || variationStr === "0.00%";
-
-  if (isZeroVar && price > 0 && prevClose > 0 && Math.abs(price - prevClose) > 0.01) {
-    const calcVar = ((price - prevClose) / prevClose) * 100;
-    variationStr = `${calcVar >= 0 ? '+' : ''}${calcVar.toFixed(2)}%`;
-  }
-
-  // [TENOR 2026 SRE FIX] SCAR-GC-01: Parse variation ONCE at ingestion boundary.
-  const variationNum = parseFloat(variationStr.replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
-
-  return {
-    price: price,
-    variation: variationStr,
-    // @ts-expect-error - Dynamically injected for high-performance UI reads
-    variationNum: variationNum,
-    prevClose: prevClose,
-    open: cleanNum(getVal("Ouverture"), price),
-    high: cleanNum(getVal("Plus_Haut"), price),
-    low: cleanNum(getVal("Plus_Bas"), price),
-    volume: volume,
-    lastUpdate: new Date().toISOString()
-  };
+  if (marketCap !== undefined) snapshot.marketCap = marketCap;
+  if (sharesCount !== undefined) snapshot.sharesCount = sharesCount;
+  if (source) snapshot.capitalizationSource = source;
 };
 
 export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) => {
@@ -180,11 +87,17 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
   const replayTimer = useRef<NodeJS.Timeout | null>(null);
   const collapseTimer = useRef<NodeJS.Timeout | null>(null);
   const pollingTimer = useRef<NodeJS.Timeout | null>(null);
+  const retryTimer = useRef<NodeJS.Timeout | null>(null);
+  const realtimeEnrichmentCancelRef = useRef<(() => void) | null>(null);
+  const realtimeEnrichmentAbortRef = useRef<AbortController | null>(null);
   const addNotificationRef = useRef(addNotification);
   const dispatchRef = useRef(dispatch);
   const symbolRef = useRef(symbol);
   const chartDataRef = useRef(chartData);
+  const chartDataModeRef = useRef<DataMode | null>(null);
   const mockSeedCache = useRef<Record<string, ChartDataPoint[]>>({});
+  const loadedRealSymbolRef = useRef<string | null>(null);
+  const liveDataCacheRef = useRef(liveDataCache);
 
   // [TENOR 2026 SRE] Concurrency & Throttling Guards
   const currentFetchIdRef = useRef(0);
@@ -209,6 +122,10 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
   }, [chartData]);
 
   useEffect(() => {
+    liveDataCacheRef.current = liveDataCache;
+  }, [liveDataCache]);
+
+  useEffect(() => {
     dispatchRef.current = dispatch;
   }, [dispatch]);
 
@@ -223,8 +140,35 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
 
   const patienceTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const clearPatienceTimer = useCallback(() => {
+    if (patienceTimer.current) {
+      clearTimeout(patienceTimer.current);
+      patienceTimer.current = null;
+    }
+  }, []);
+
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
+  }, []);
+
+  const cancelRealtimeEnrichment = useCallback(() => {
+    if (realtimeEnrichmentCancelRef.current) {
+      realtimeEnrichmentCancelRef.current();
+      realtimeEnrichmentCancelRef.current = null;
+    }
+    if (realtimeEnrichmentAbortRef.current) {
+      realtimeEnrichmentAbortRef.current.abort();
+      realtimeEnrichmentAbortRef.current = null;
+    }
+  }, []);
+
   const fetchRealDataRef = useRef(async (ticker: string, isInitialLoad = false) => {
     symbolRef.current = ticker;
+    clearRetryTimer();
+    cancelRealtimeEnrichment();
 
     // [TENOR 2026 SRE FIX] SCAR-NET-02: Fail-Fast if Offline
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -239,43 +183,28 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
     if (isInitialLoad) {
       setIsLoading(true);
       retryCount.current = 0;
-      if (patienceTimer.current) clearTimeout(patienceTimer.current);
+      clearPatienceTimer();
       patienceTimer.current = setTimeout(() => {
         patienceTimer.current = null;
       }, 60000);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-
     try {
       const upperTicker = ticker.toUpperCase();
       const datasetTicker = resolveBRVMDatasetTicker(upperTicker);
-      const dailyUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetTicker}/${datasetTicker}.daily.csv`;
-      const githubIndicatorUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetTicker}/${datasetTicker}.indicator.csv`;
-      const liveScraperUrl = `/api/market-data/brvm-live?ticker=${datasetTicker}`;
-      const capScraperUrl = `/api/market-data/brvm-live-capitalisation?ticker=${datasetTicker}`;
+      const githubIndicatorUrl = "/api/proxy/9/Fredysessie/brvm-data-public/main/data/" + datasetTicker + "/" + datasetTicker + ".indicator.csv";
+      const liveScraperUrl = "/api/market-data/brvm-live?ticker=" + datasetTicker;
+      const capScraperUrl = "/api/market-data/brvm-live-capitalisation?ticker=" + datasetTicker;
 
-      const dailyRes = await fetch(dailyUrl, { cache: "no-store", signal: controller.signal });
-      if (timeoutId) clearTimeout(timeoutId);
-
-      // [TENOR 2026 SRE] Strict Race Condition Guard
-      if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) return;
-
-      if (!dailyRes.ok) {
-        const error: ErrorWithStatus = new Error(`HTTP ${dailyRes.status} for daily data`);
-        error.status = dailyRes.status;
-        throw error;
-      }
-
-      const parsedDaily = parseBRVMCSV(await dailyRes.text());
+      const parsedDaily = await fetchDailyCsvData(datasetTicker);
 
       // [TENOR 2026 SRE] Strict Race Condition Guard
       if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) return;
 
       if (parsedDaily.length > 0) {
+        chartDataModeRef.current = "real";
         applyWindowFirstData(upperTicker, parsedDaily);
-        // [TENOR 2026 SRE] Only dispatch to Redux on initial load to cache the heavy historical data.
+        // [TENOR 2026] Store the initial heavy historical dataset in local Redux storage.
         if (isInitialLoad) {
           dispatchRef.current(updateMarketData({ symbol: upperTicker, data: parsedDaily }));
         }
@@ -288,10 +217,7 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
       }
 
       setIsLoading(false);
-      if (patienceTimer.current) {
-        clearTimeout(patienceTimer.current);
-        patienceTimer.current = null;
-      }
+      clearPatienceTimer();
 
       if (parsedDaily.length > 1) {
         const last = parsedDaily[parsedDaily.length - 1];
@@ -314,6 +240,9 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
               open: last.open,
               high: last.high,
               low: last.low,
+              source: "BRVM_DAILY_CSV",
+              sourceStatus: "derived",
+              sourceLabel: "Daily CSV",
               lastUpdate: new Date().toISOString()
             }
           }));
@@ -322,15 +251,31 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
       }
 
       const bgController = new AbortController();
-      const bgTimeout = setTimeout(() => bgController.abort(), 90000);
+      const bgTimeout = setTimeout(() => bgController.abort(), REALTIME_ENRICHMENT_TIMEOUT_MS);
+      realtimeEnrichmentAbortRef.current = bgController;
+      let cancelScheduledRealtimeEnrichment = () => {};
+      const cancelThisRealtimeEnrichment = () => {
+        cancelScheduledRealtimeEnrichment();
+        clearTimeout(bgTimeout);
+        if (!bgController.signal.aborted) {
+          bgController.abort();
+        }
+        if (realtimeEnrichmentAbortRef.current === bgController) {
+          realtimeEnrichmentAbortRef.current = null;
+        }
+        if (realtimeEnrichmentCancelRef.current === cancelThisRealtimeEnrichment) {
+          realtimeEnrichmentCancelRef.current = null;
+        }
+      };
 
-      (async () => {
-        try {
+      cancelScheduledRealtimeEnrichment = scheduleRealtimeEnrichment(() => {
+        void (async () => {
+          try {
+          if (!isMounted.current || currentFetchIdRef.current !== thisFetchId || bgController.signal.aborted) return;
           const [liveRes, capRes] = await Promise.all([
             fetch(liveScraperUrl, { cache: "no-store", signal: bgController.signal }).catch(() => null),
             fetch(capScraperUrl, { cache: "no-store", signal: bgController.signal }).catch(() => null),
           ]);
-          clearTimeout(bgTimeout);
 
           // [TENOR 2026 SRE] Strict Race Condition Guard
           if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) return;
@@ -355,6 +300,10 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
                 high: liveData.high || 0,
                 low: liveData.low || 0,
                 volume: liveData.volume || 0,
+                tradesCount: liveData.tradesCount ?? liveData.trades_count ?? null,
+                source: typeof liveData.source === "string" ? liveData.source : "BRVM_DIRECT",
+                sourceStatus: "live",
+                sourceLabel: "Live BRVM",
                 lastUpdate: new Date().toISOString()
               };
 
@@ -368,20 +317,17 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
             }
           }
 
-          if (capRes && capRes.ok) {
-            const capData = await capRes.json();
-            if (capData && !capData.error && liveSnapshot) {
-              liveSnapshot.marketCap = capData.globalMarketCap;
-              liveSnapshot.sharesCount = capData.sharesCount;
-            }
+          const capData = capRes && capRes.ok ? await capRes.json() : null;
+          if (liveSnapshot) {
+            applyCapitalizationFields(liveSnapshot, capData);
           }
 
           if (!liveSnapshot) {
-            const indicatorRes = await fetch(githubIndicatorUrl, { cache: "no-store" }).catch(() => null);
+            const indicatorRes = await fetch(githubIndicatorUrl, { cache: "no-store", signal: bgController.signal }).catch(() => null);
             if (indicatorRes && indicatorRes.ok) {
               const snapshotData = parseIndicatorCSV(await indicatorRes.text());
               if (snapshotData) {
-                liveSnapshot = {
+                const fallbackSnapshot: LiveSnapshot = {
                   symbol: upperTicker,
                   price: snapshotData.price || 0,
                   variation: snapshotData.variation || "0.00%",
@@ -392,8 +338,14 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
                   high: snapshotData.high || 0,
                   low: snapshotData.low || 0,
                   volume: snapshotData.volume || 0,
+                  tradesCount: snapshotData.tradesCount ?? snapshotData.trades_count ?? null,
+                  source: "BRVM_INDICATOR_CSV",
+                  sourceStatus: "fallback",
+                  sourceLabel: "Fallback indicator",
                   lastUpdate: new Date().toISOString()
                 };
+                applyCapitalizationFields(fallbackSnapshot, capData);
+                liveSnapshot = fallbackSnapshot;
               }
             }
           }
@@ -406,14 +358,29 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
               lastDispatchedSnapshotStrRef.current = snapSig;
             }
           }
-        } catch (bgErr) {
-          clearTimeout(bgTimeout);
-          console.warn(`[MarketData] Phase 2 background enrichment failed for ${upperTicker}:`, bgErr);
-        }
-      })();
+          } catch (bgErr) {
+            const bgError = bgErr as Error;
+            if (bgError.name !== "AbortError") {
+              console.warn("[MarketData] Phase 2 background enrichment failed for " + upperTicker + ":", bgErr);
+            }
+          } finally {
+            clearTimeout(bgTimeout);
+            if (realtimeEnrichmentAbortRef.current === bgController) {
+              realtimeEnrichmentAbortRef.current = null;
+            }
+            if (realtimeEnrichmentCancelRef.current === cancelThisRealtimeEnrichment) {
+              realtimeEnrichmentCancelRef.current = null;
+            }
+          }
+        })();
+      });
+      realtimeEnrichmentCancelRef.current = cancelThisRealtimeEnrichment;
+
+      if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) {
+        cancelThisRealtimeEnrichment();
+      }
 
     } catch (error: unknown) {
-      if (timeoutId) clearTimeout(timeoutId);
       const err = error as ErrorWithStatus;
       const isAbort = err.name === "AbortError";
       const status = err.status;
@@ -431,7 +398,9 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
           
           console.warn(`[MarketData] Fetch failed. Retrying in ${Math.round(delay)}ms (Attempt ${retryCount.current}/5)`);
 
-          setTimeout(() => {
+          clearRetryTimer();
+          retryTimer.current = setTimeout(() => {
+            retryTimer.current = null;
             if (isMounted.current && currentFetchIdRef.current === thisFetchId) {
               fetchRealDataRef.current(ticker, false);
             }
@@ -524,14 +493,27 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
     };
 
     if (mode === "real") {
-      const cachedLive = liveDataCache[symbol];
-      if (cachedLive && cachedLive.length > 0) {
-        applyWindowFirstData(symbol, cachedLive);
-        setIsLoading(false);
-        fetchRealDataRef.current(symbol, false);
+      const realSymbolKey = symbol.trim().toUpperCase();
+      const cachedLive = liveDataCacheRef.current[realSymbolKey] ?? liveDataCacheRef.current[symbol];
+      const alreadyBootstrapped =
+        chartDataModeRef.current === "real" &&
+        loadedRealSymbolRef.current === realSymbolKey &&
+        chartDataRef.current.length > 0;
+
+      if (!alreadyBootstrapped) {
+        loadedRealSymbolRef.current = realSymbolKey;
+        if (cachedLive && cachedLive.length > 0) {
+          chartDataModeRef.current = "real";
+          applyWindowFirstData(realSymbolKey, cachedLive);
+          setIsLoading(false);
+          fetchRealDataRef.current(realSymbolKey, false);
+        } else {
+          chartDataModeRef.current = null;
+          setChartData([]);
+          fetchRealDataRef.current(realSymbolKey, true);
+        }
       } else {
-        setChartData([]);
-        fetchRealDataRef.current(symbol, true);
+        setIsLoading(false);
       }
 
       if (typeof window !== 'undefined') {
@@ -547,6 +529,8 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
     } else {
       setIsLoading(false);
       stopPolling();
+      loadedRealSymbolRef.current = null;
+      chartDataModeRef.current = "mock";
       const existingSeed = mockSeedCache.current[symbol];
       const initialData = (existingSeed && existingSeed.length > 0) ? existingSeed : GENERATE_INITIAL_DATA(200);
       if (!existingSeed || existingSeed.length === 0) {
@@ -594,6 +578,10 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
     }
 
     return () => {
+      currentFetchIdRef.current += 1;
+      clearRetryTimer();
+      clearPatienceTimer();
+      cancelRealtimeEnrichment();
       stopPolling();
       if (typeof window !== 'undefined') {
         window.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -601,7 +589,7 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
         window.removeEventListener('offline', handleOffline);
       }
     };
-  }, [mode, symbol, applyWindowFirstData, uiState.replay.isActive, liveDataCache]);
+  }, [mode, symbol, applyWindowFirstData, uiState.replay.isActive, clearRetryTimer, clearPatienceTimer, cancelRealtimeEnrichment]);
 
   const startReplay = useCallback(() => {
     replayOriginalData.current = [...chartData];
@@ -758,6 +746,7 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
   const dispatch = useDispatch();
   const marketDataCache = useSelector(selectMarketData);
   const inflightFetches = useRef<Set<string>>(new Set());
+  const comparisonGraceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const marketDataCacheRef = useRef(marketDataCache);
   const [loadState, setLoadState] = useState<ComparisonLoadState>({});
   const safeSymbolKey = useMemo(() => normalizeComparisonSymbols(comparisonSymbols).join("|"), [comparisonSymbols]);
@@ -779,21 +768,41 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
 
   useEffect(() => {
     if (safeSymbols.length === 0) return;
+    let isActive = true;
     const safeSymbolSet = new Set(safeSymbols);
 
+    const clearGraceTimer = (symbol: string) => {
+      const timer = comparisonGraceTimersRef.current.get(symbol);
+      if (!timer) return;
+      clearTimeout(timer);
+      comparisonGraceTimersRef.current.delete(symbol);
+    };
+
+    const clearGraceTimers = () => {
+      comparisonGraceTimersRef.current.forEach((timer) => clearTimeout(timer));
+      comparisonGraceTimersRef.current.clear();
+    };
+
     const setSymbolStatus = (symbol: string, status: ComparisonLoadStatus) => {
-      if (!safeSymbolSet.has(symbol)) return;
+      if (!isActive || !safeSymbolSet.has(symbol)) return;
+      clearGraceTimer(symbol);
       setLoadState((current) => (current[symbol] === status ? current : { ...current, [symbol]: status }));
     };
 
     const settleSymbolStatus = (symbol: string, status: ComparisonLoadStatus, startedAt: number) => {
+      if (!isActive) return;
       const remainingGraceMs = Math.max(0, COMPARISON_NO_DATA_GRACE_MS - (Date.now() - startedAt));
       if (remainingGraceMs === 0 || status === "loaded") {
         setSymbolStatus(symbol, status);
         return;
       }
 
-      setTimeout(() => setSymbolStatus(symbol, status), remainingGraceMs);
+      clearGraceTimer(symbol);
+      const timer = setTimeout(() => {
+        comparisonGraceTimersRef.current.delete(symbol);
+        setSymbolStatus(symbol, status);
+      }, remainingGraceMs);
+      comparisonGraceTimersRef.current.set(symbol, timer);
     };
 
     safeSymbols.forEach((upperSymbol) => {
@@ -813,17 +822,10 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
       setSymbolStatus(upperSymbol, "loading");
       const startedAt = Date.now();
       const datasetSymbol = resolveBRVMDatasetTicker(upperSymbol);
-      const dailyUrl = `/api/proxy/9/Fredysessie/brvm-data-public/main/data/${datasetSymbol}/${datasetSymbol}.daily.csv`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), COMPARISON_FETCH_TIMEOUT_MS);
 
-      fetch(dailyUrl, { cache: "no-store", signal: controller.signal })
-        .then((response) => {
-          if (!response.ok) throw new Error(`HTTP ${response.status} for ${upperSymbol}`);
-          return response.text();
-        })
-        .then((csvText) => {
-          const parsedDaily = parseBRVMCSV(csvText);
+      fetchDailyCsvData(datasetSymbol)
+        .then((parsedDaily) => {
+          if (!isActive) return;
           if (parsedDaily.length > 0) {
             dispatch(updateMarketData({ symbol: upperSymbol, data: parsedDaily }));
             settleSymbolStatus(upperSymbol, "loaded", startedAt);
@@ -832,14 +834,19 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
           }
         })
         .catch((error) => {
+          if (!isActive) return;
           console.warn(`[ComparisonManager] Unable to load ${upperSymbol}`, error);
           settleSymbolStatus(upperSymbol, "failed", startedAt);
         })
         .finally(() => {
-          clearTimeout(timeoutId);
           inflightFetches.current.delete(upperSymbol);
         });
     });
+
+    return () => {
+      isActive = false;
+      clearGraceTimers();
+    };
   }, [safeSymbols, dataMode, dispatch]);
 
   return loadState;

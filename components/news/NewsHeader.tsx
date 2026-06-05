@@ -36,7 +36,7 @@ export default function NewsHeader({ onSearch, onFilterChange }: NewsHeaderProps
       setCurrentSubtitle((prev) => (prev + 1) % subtitles.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [subtitles.length]);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -52,8 +52,12 @@ export default function NewsHeader({ onSearch, onFilterChange }: NewsHeaderProps
   };
 
   useEffect(() => {
-    handleFilterChange();
-  }, [selectedCategory, selectedMarket, selectedPeriod]);
+    onFilterChange({
+      category: selectedCategory,
+      market: selectedMarket,
+      period: selectedPeriod
+    });
+  }, [onFilterChange, selectedCategory, selectedMarket, selectedPeriod]);
 
   return (
     <div className="news-header">

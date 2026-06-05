@@ -1,11 +1,12 @@
 // implementations/ForecastingStrategy.ts
-// [TENOR 2026] ForecastingStrategy — Orchestrateur des 6 outils Forecasting
+// ForecastingStrategy — Orchestrateur des 6 outils Forecasting
 // NE PAS CONFONDRE avec AdvancedToolsStrategy qui gère les outils de même nom en mode legacy.
 // Les 6 outils ici sont ceux de TOOL_CATEGORIES.FORECASTING dans DrawingToolsConfig.tsx.
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import { distanceBetweenPoints, isPointInPolygon, isPointInTriangle } from "../../math/geometry";
 import type { EChartsInstance } from "../../types/echarts";
 
@@ -65,7 +66,7 @@ export class ForecastingStrategy implements IDrawingStrategy {
     h: DrawingHelpers,
     chartData: ChartDataPoint[]
   ): void {
-    // [TENOR 2026] Direct dispatch — no _boxOffset collision hack.
+    // Direct dispatch — no _boxOffset collision hack.
     // Each renderer manages its own layout anchored to the drawing geometry.
     switch (drawing.type) {
       case "long_position":
@@ -102,7 +103,7 @@ export class ForecastingStrategy implements IDrawingStrategy {
     my: number,
     drawing: Drawing,
     chartInstance: EChartsInstance,
-    threshold: number = 8 // [SRE-FIX] Safety baseline for dispatching
+    threshold: number = 8 // Safety baseline for dispatching
   ): HitTestResult {
     const option = chartInstance.getOption();
     const seriesList = (option.series as Array<{ type?: string }>) || [];
@@ -122,12 +123,12 @@ export class ForecastingStrategy implements IDrawingStrategy {
     const fillEnabled = drawing.style?.fillEnabled !== false;
 
     // 1. Détection générique des handles (points de contrôle)
-    // [HDR-SRE-RECOVERY] Réactive la détection du pivot pour tous les outils,
+    // Réactive la détection du pivot pour tous les outils,
     // y compris le 'sector'. Garantit un curseur 'grab' sur P0/P1/P2.
     for (let i = 0; i < points.length; i++) {
       // Position tools: ignorer le point d'entrée (index 0) pour les handles génériques
       if ((type === "long_position" || type === "short_position") && i === 0) continue;
-      if (distanceBetweenPoints(mx, my, points[i].x, points[i].y) < 15) { // 15px pour HDR
+      if (distanceBetweenPoints(mx, my, points[i].x, points[i].y) < 15) { // 15px tolerance
         return { isHit: true, hitType: "point", pointIndex: i };
       }
     }

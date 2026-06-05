@@ -1,12 +1,11 @@
 /**
- * [TENOR 2026] Utility for Canvas Text Sanitization.
- * Prevents XSS injections and visual corruption by escaping HTML characters
- * and limiting string length before rendering to the 2D Canvas context.
- * Adheres to PP-0024 (Security of Rendering).
+ * Utility for drawing-label text normalization.
+ * Escapes HTML-control characters and limits string length before the value
+ * reaches Canvas text calls or DOM-backed overlays.
  */
 
 /**
- * Sanitizes a string for safe rendering on a Canvas context.
+ * Sanitizes a string for display rendering.
  * 
  * @param text - The raw input to be sanitized (casted from unknown).
  * @returns A sanitized and length-limited string.
@@ -17,8 +16,8 @@ export const sanitizeCanvasText = (text: unknown): string => {
     return '';
   }
 
-  // 2. Escape HTML special characters to prevent XSS-like behavior in overlays
-  // and ensure consistent rendering of literal characters.
+  // 2. Escape HTML special characters so labels remain literal text in DOM-backed overlays
+  // and consistent in Canvas labels.
   const escapeMap: Record<string, string> = {
     '<': '&lt;',
     '>': '&gt;',
@@ -29,8 +28,7 @@ export const sanitizeCanvasText = (text: unknown): string => {
 
   const sanitized = text.replace(/[<>"'&]/g, (char) => escapeMap[char] ?? char);
 
-  // 3. Enforce a hard limit on string length to prevent DoS (Denial of Service)
-  // on the rendering engine and maintain UI layout integrity.
+  // 3. Bound label length to avoid pathological layout/rendering cost.
   const MAX_LENGTH = 200;
   
   return sanitized.length > MAX_LENGTH 

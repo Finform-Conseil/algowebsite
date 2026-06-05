@@ -206,8 +206,28 @@ export default function Navbar() {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
+        <label
+          htmlFor="global-market-search"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          Search stocks, bonds, and funds
+        </label>
         <input
-          type="text"
+          id="global-market-search"
+          name="globalMarketSearch"
+          type="search"
+          aria-label="Search stocks, bonds, and funds"
+          autoComplete="off"
           placeholder="Search stocks, bonds, funds..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -217,6 +237,7 @@ export default function Navbar() {
           <button
             type="button"
             className="search-clear"
+            aria-label="Clear global market search"
             onClick={() => setSearchQuery('')}
           >
             ×

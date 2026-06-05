@@ -25,7 +25,7 @@ export default function OPCVMHomePage() {
   const [sortBy, setSortBy] = useState<'rating' | 'performance' | 'score'>('rating');
 
   // Mock OPCVM data
-  const mockOPCVMData: OPCVMData[] = [
+  const mockOPCVMData = useMemo<OPCVMData[]>(() => [
     { id: '1', name: 'NSIA Actions CI', isin: 'CI0001', exchange: 'BRVM', nav: 12500, navChange: 18.3, performance: 18.3, volatility: 12.5, rating: 5 },
     { id: '2', name: 'Coris Obligations', isin: 'BF0002', exchange: 'BRVM', nav: 10850, navChange: 5.8, performance: 5.8, volatility: 3.2, rating: 4 },
     { id: '3', name: 'BOA Monétaire', isin: 'SN0003', exchange: 'BRVM', nav: 10125, navChange: 2.5, performance: 2.5, volatility: 1.1, rating: 3 },
@@ -39,7 +39,7 @@ export default function OPCVMHomePage() {
     { id: '11', name: 'Coronation Equity', isin: 'ZA0011', exchange: 'JSE', nav: 32100, navChange: 16.9, performance: 16.9, volatility: 12.1, rating: 5 },
     { id: '12', name: 'Databank Epack', isin: 'GH0012', exchange: 'GSE', nav: 7800, navChange: 8.7, performance: 8.7, volatility: 6.3, rating: 4 },
     { id: '13', name: 'CDG Obligations', isin: 'MA0013', exchange: 'CSE', nav: 9500, navChange: 3.9, performance: 3.9, volatility: 2.8, rating: 3 },
-  ];
+    ], []);
 
   // Calculate rating based on risk-adjusted performance
   const calculateRatings = (funds: OPCVMData[]) => {
@@ -62,7 +62,7 @@ export default function OPCVMHomePage() {
     });
   };
 
-  const ratedFunds = useMemo(() => calculateRatings(mockOPCVMData), []);
+  const ratedFunds = useMemo(() => calculateRatings(mockOPCVMData), [mockOPCVMData]);
 
   // Group by exchange for map data
   const exchangeData = useMemo(() => {

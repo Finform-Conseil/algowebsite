@@ -6,53 +6,28 @@ import * as echarts from "echarts/core";
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsInstance } from "../../lib/types/echarts";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
-import type { ChartAppearance, MultiChartLayoutCell } from "../../config/TechnicalAnalysisTypes";
+import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
+import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
-import { buildDirectionalOhlcvSeries } from "../../lib/chart/directionalOhlcv";
+import { buildDirectionalOhlcvSeries, buildDirectionalVolumeBarData } from "../../lib/chart/directionalOhlcv";
 import { MULTI_CHART_MINI_DATA_ZOOM_ID } from "../../hooks/useMultiChartSync";
+import {
+  formatLayoutCompactPrice,
+  formatLayoutDate,
+  formatLayoutShortDate,
+  getLayoutSeriesStats,
+  getRenderableOhlcvSeries,
+} from "./layoutChartData";
 
 const MINI_CHART_POINTS = 120;
 export type MiniChartRenderMode = "sparkline" | "ohlcv";
-
-const formatDate = (value: string): string => {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return value || "No date";
-  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(timestamp);
-};
-
-export const getSeriesStats = (data: ChartDataPoint[]) => {
-  if (data.length === 0) return null;
-  const first = data.find((point) => Number.isFinite(point.close) && point.close > 0);
-  const last = [...data].reverse().find((point) => Number.isFinite(point.close) && point.close > 0);
-  if (!first || !last) return null;
-  const changePercent = first.close === 0 ? 0 : ((last.close - first.close) / first.close) * 100;
-  const lastTimestamp = Date.parse(last.time);
-  const staleDays = Number.isFinite(lastTimestamp) ? (Date.now() - lastTimestamp) / 86_400_000 : Infinity;
-
-  return {
-    first,
-    last,
-    changePercent,
-    isStale: staleDays > 10,
-  };
-};
-
-const getMiniChartSeries = (data: ChartDataPoint[]): ChartDataPoint[] =>
-  data.filter(
-    (point) =>
-      Number.isFinite(point.open) &&
-      Number.isFinite(point.high) &&
-      Number.isFinite(point.low) &&
-      Number.isFinite(point.close) &&
-      point.close > 0
-  );
 
 const buildMiniSparklineOption = (
   data: ChartDataPoint[],
   color: string,
   activeBounds?: { start: string; end: string }
 ): EChartsCoreOption => {
-  const series = getMiniChartSeries(data);
+  const series = getRenderableOhlcvSeries(data);
   const defaultStart = activeBounds?.start || (series.length > MINI_CHART_POINTS ? series[series.length - MINI_CHART_POINTS].time : series[0]?.time);
   const defaultEnd = activeBounds?.end || series[series.length - 1]?.time;
 
@@ -101,7 +76,7 @@ const buildMiniOhlcvOption = (
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">,
   activeBounds?: { start: string; end: string }
 ): EChartsCoreOption => {
-  const series = getMiniChartSeries(data);
+  const series = getRenderableOhlcvSeries(data);
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
   const { dates, candles: values, volumes: vols } = buildDirectionalOhlcvSeries(series, {
@@ -136,11 +111,7 @@ const buildMiniOhlcvOption = (
         axisLine: { lineStyle: { color: "#2a3143" } },
         axisTick: { show: false },
         axisLabel: {
-          formatter: (value: string) => {
-            const timestamp = Date.parse(value);
-            if (!Number.isFinite(timestamp)) return "";
-            return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" }).format(timestamp);
-          },
+          formatter: formatLayoutShortDate,
           color: "#94a3b8",
           fontSize: 10,
         },
@@ -162,7 +133,7 @@ const buildMiniOhlcvOption = (
           color: "#94a3b8",
           fontSize: 10,
           fontFamily: "Inter, system-ui, sans-serif",
-          formatter: (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: value >= 100 ? 0 : 2 }),
+          formatter: (value: number) => formatLayoutCompactPrice(value),
         },
       },
       { id: "mini-price-y-vol", type: "value", scale: false, gridIndex: 1, position: "right", splitLine: { show: false }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false } },
@@ -172,7 +143,7 @@ const buildMiniOhlcvOption = (
         id: MULTI_CHART_MINI_DATA_ZOOM_ID,
         type: "inside",
         xAxisIndex: [0, 1],
-        filterMode: "filter",
+        filterMode: "none",
         zoomOnMouseWheel: true,
         moveOnMouseMove: true,
         startValue: defaultStart,
@@ -193,10 +164,9 @@ const buildMiniOhlcvOption = (
         type: "bar",
         xAxisIndex: 1,
         yAxisIndex: 1,
-        data: vols,
+        data: buildDirectionalVolumeBarData(vols, { upColor, downColor }, 0.82, dates.length),
         barWidth: "58%",
         barMinHeight: 2,
-        itemStyle: { color: (params: any) => params.value[2] > 0 ? upColor : downColor, opacity: 0.82 },
       },
     ],
   };
@@ -213,7 +183,7 @@ const buildMiniChartOption = (
     ? buildMiniOhlcvOption(data, color, chartAppearance, activeBounds)
     : buildMiniSparklineOption(data, color, activeBounds);
 
-interface MiniChartCanvasProps {
+export interface MiniChartCanvasProps {
   chartId: string;
   data: ChartDataPoint[];
   color: string;
@@ -245,7 +215,7 @@ export const MiniChartCanvas: React.FC<MiniChartCanvasProps> = ({
   }, [chartId, onChartDispose]);
 
   useEffect(() => {
-    const series = getMiniChartSeries(data);
+    const series = getRenderableOhlcvSeries(data);
     if (series.length < 2) {
       const chart = chartInstanceRef.current;
       if (chart && !chart.isDisposed()) chart.dispose();
@@ -284,14 +254,16 @@ export const MiniChartCanvas: React.FC<MiniChartCanvasProps> = ({
 const noopChartReady = () => {};
 const noopChartDispose = () => {};
 
-export const ActiveChartPreview: React.FC<{
+export interface ActiveChartPreviewProps {
   cell: MultiChartLayoutCell;
   data: ChartDataPoint[];
   dataMode: "mock" | "real";
   displaySymbol: string;
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">;
-}> = ({ cell, data, dataMode, displaySymbol, chartAppearance }) => {
-  const stats = useMemo(() => getSeriesStats(data), [data]);
+}
+
+export const ActiveChartPreview: React.FC<ActiveChartPreviewProps> = ({ cell, data, dataMode, displaySymbol, chartAppearance }) => {
+  const stats = useMemo(() => getLayoutSeriesStats(data), [data]);
   const isPositive = (stats?.changePercent ?? 0) >= 0;
   const chartColor = isPositive ? "#22c55e" : "#ef4444";
 
@@ -308,14 +280,14 @@ export const ActiveChartPreview: React.FC<{
           onChartDispose={noopChartDispose}
         />
         <span className="gp-multi-chart-cell__metrics">
-          <strong>{stats.last.close.toLocaleString("fr-FR")}</strong>
+          <strong>{formatLayoutCompactPrice(stats.last.close)}</strong>
           <em className={isPositive ? "is-positive" : "is-negative"}>
             {isPositive ? "+" : ""}
             {stats.changePercent.toFixed(2)}%
           </em>
         </span>
         <span className={clsx("gp-multi-chart-cell__audit", stats.isStale && "is-warning")}>
-          {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatDate(stats.last.time)}
+          {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatLayoutDate(stats.last.time)}
         </span>
       </div>
     );
@@ -339,7 +311,7 @@ export const ActiveChartPreview: React.FC<{
   );
 };
 
-export const SecondaryChartCell: React.FC<{
+export interface SecondaryChartCellProps {
   cell: MultiChartLayoutCell;
   data: ChartDataPoint[];
   loadStatus: ComparisonLoadStatus;
@@ -351,7 +323,9 @@ export const SecondaryChartCell: React.FC<{
   onHeaderClick: () => void;
   onChartReady: (chartId: string, chart: EChartsInstance) => void;
   onChartDispose: (chartId: string) => void;
-}> = ({
+}
+
+export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
   cell,
   data,
   loadStatus,
@@ -364,7 +338,7 @@ export const SecondaryChartCell: React.FC<{
   onChartReady,
   onChartDispose,
 }) => {
-  const stats = useMemo(() => getSeriesStats(data), [data]);
+  const stats = useMemo(() => getLayoutSeriesStats(data), [data]);
   const isPositive = (stats?.changePercent ?? 0) >= 0;
   const chartColor = isPositive ? "#22c55e" : "#ef4444";
   const isWaitingForData = !stats && dataMode === "real" && (loadStatus === "idle" || loadStatus === "loading");
@@ -423,14 +397,14 @@ export const SecondaryChartCell: React.FC<{
             onChartDispose={onChartDispose}
           />
           <span className="gp-multi-chart-cell__metrics">
-            <strong>{stats.last.close.toLocaleString("fr-FR")}</strong>
+            <strong>{formatLayoutCompactPrice(stats.last.close)}</strong>
             <em className={isPositive ? "is-positive" : "is-negative"}>
               {isPositive ? "+" : ""}
               {stats.changePercent.toFixed(2)}%
             </em>
           </span>
           <span className={clsx("gp-multi-chart-cell__audit", stats.isStale && "is-warning")}>
-            {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatDate(stats.last.time)}
+            {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatLayoutDate(stats.last.time)}
           </span>
         </>
       ) : isWaitingForData ? (

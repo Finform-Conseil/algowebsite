@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import AfricaFIMap from '@/components/fixed-income/AfricaFIMap';
 
@@ -79,7 +79,7 @@ export default function FixedIncomePage() {
   };
   
   // Base data for countries
-  const baseCountryData = {
+  const baseCountryData = useMemo(() => ({
     BJ: { count: 12, basePerformance: 5.4 }, // Bénin
     CI: { count: 45, basePerformance: 12.1 }, // Côte d'Ivoire
     NG: { count: 88, basePerformance: -2.3 }, // Nigeria
@@ -90,7 +90,7 @@ export default function FixedIncomePage() {
     BF: { count: 35, basePerformance: 2.1 }, // Burkina Faso
     CM: { count: 40, basePerformance: 3.5 }, // Cameroun
     GA: { count: 45, basePerformance: 2.2 }, // Gabon
-  };
+  }), []);
 
   // State for dynamic country data
   const [countryData, setCountryData] = useState(() => {
@@ -128,7 +128,7 @@ export default function FixedIncomePage() {
     }, 800);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [baseCountryData]);
 
   // Mock data for market opportunities
   const marketOpportunities: MarketOpportunity[] = [

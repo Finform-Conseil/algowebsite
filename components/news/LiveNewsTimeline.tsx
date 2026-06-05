@@ -135,7 +135,7 @@ export default function LiveNewsTimeline({ articles, onArticleClick, onTickerCli
           const categoryInfo = getCategoryInfo(article.category);
           
           return (
-            <div className={`timeline-item ${viewMode === 'condensed' ? 'condensed' : 'detailed'}`}>
+            <div key={article.id} className={`timeline-item ${viewMode === 'condensed' ? 'condensed' : 'detailed'}`}>
               {/* Timeline Line */}
               <div className="timeline-line">
                 <div 

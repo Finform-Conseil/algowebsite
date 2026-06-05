@@ -1,0 +1,137 @@
+import type { BollingerSettings } from "../indicators/advancedIndicatorsTypes";
+import type { MultiChartLayoutState } from "../layout/multiChartLayoutTypes";
+
+export interface SavedAnalysisIndicators {
+  sma: boolean;
+  ema: boolean;
+  volume: boolean;
+  activeSma?: number[];
+  activeEma?: number[];
+  activeWma?: number[];
+  activeDema?: number[];
+  activeTema?: number[];
+  activeHma?: number[];
+  activeZlema?: number[];
+  activeAlma?: number[];
+  activeSmma?: number[];
+  activeKama?: number[];
+  activeVwma?: number[];
+}
+
+export interface SavedAnalysisAdvancedIndicators {
+  rsi: boolean;
+  macd: boolean;
+  bollinger: boolean;
+  stochastic: boolean;
+  atr: boolean;
+  atr20?: boolean;
+  natr14?: boolean;
+  donchian?: boolean;
+  keltner?: boolean;
+  hv10?: boolean;
+  hv20?: boolean;
+  hv30?: boolean;
+  hv60?: boolean;
+  hv90?: boolean;
+  hv252?: boolean;
+  stdDev20?: boolean;
+  chaikinVol?: boolean;
+  cci: boolean;
+  cci14?: boolean;
+  cci20?: boolean;
+  mfi14?: boolean;
+  williamsR?: boolean;
+  williamsR14?: boolean;
+  roc?: boolean;
+  roc10?: boolean;
+  roc20?: boolean;
+  momentum10?: boolean;
+  momentum20?: boolean;
+  cmo14?: boolean;
+  dymi?: boolean;
+  ultimateOsc?: boolean;
+  dpo20?: boolean;
+  tsi?: boolean;
+  awesomeOsc?: boolean;
+  acOsc?: boolean;
+  rvi?: boolean;
+  fisherTransform?: boolean;
+  elderBullBear?: boolean;
+  coppock?: boolean;
+  ppo?: boolean;
+  apo?: boolean;
+  parabolicSar?: boolean;
+  kst?: boolean;
+  linearRegression?: boolean;
+  ulcerIndex?: boolean;
+  obv?: boolean;
+  adLine?: boolean;
+  cmf20?: boolean;
+  nvi?: boolean;
+  pvi?: boolean;
+  chaikinOsc?: boolean;
+  volumeOsc?: boolean;
+  vroc14?: boolean;
+  klinger?: boolean;
+  elderForceIndex?: boolean;
+  eom14?: boolean;
+  volumeProfile?: boolean;
+  pivotPointsStandard?: boolean;
+  pivotPointsFibonacci?: boolean;
+  movingAverageCrosses?: boolean;
+  vwap?: boolean;
+  fiftyTwoWeekHigh?: boolean;
+  fiftyTwoWeekLow?: boolean;
+  ath?: boolean;
+  atl?: boolean;
+  breakoutResistance?: boolean;
+  breakdownSupport?: boolean;
+  gapUp?: boolean;
+  gapDown?: boolean;
+  trueGapUp?: boolean;
+  trueGapDown?: boolean;
+  gapPct?: boolean;
+  consecutiveUpDays?: boolean;
+  consecutiveDownDays?: boolean;
+  insideBar?: boolean;
+  outsideBar?: boolean;
+  doji?: boolean;
+  longLeggedDoji?: boolean;
+  rickshawMan?: boolean;
+  dragonflyDoji?: boolean;
+  gravestoneDoji?: boolean;
+  tristar?: boolean;
+  hammer?: boolean;
+  hangingMan?: boolean;
+  takuri?: boolean;
+  invertedHammer?: boolean;
+  shootingStar?: boolean;
+  marubozuBull?: boolean;
+  marubozuBear?: boolean;
+  spinningTop?: boolean;
+  ichimoku?: boolean;
+  stochRsi?: boolean;
+  // [TENOR 2026 HDR] Optional for backward compatibility
+  bbWidth?: boolean;
+  bbPercentB?: boolean;
+}
+
+export interface SavedAnalysis {
+  id: string;
+  name: string;
+  config: {
+    symbol: string;
+    timeframe: string;
+    chartType: string;
+    indicators: SavedAnalysisIndicators;
+    advancedIndicators: SavedAnalysisAdvancedIndicators;
+    bollingerSettings?: BollingerSettings; // [TENOR 2026 HDR] Optional for backward compatibility
+    multiChartLayout?: MultiChartLayoutState;
+    timeRange?: string;
+    savedAt: string;
+  };
+}
+
+// ============================================================================
+// GLOBAL CONFIG TYPES
+// ============================================================================

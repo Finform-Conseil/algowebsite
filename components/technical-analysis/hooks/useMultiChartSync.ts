@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { MutableRefObject } from "react";
-import type { MultiChartLayoutState } from "../config/TechnicalAnalysisTypes";
+import type { MultiChartLayoutState } from "../config/layout/multiChartLayoutTypes";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../lib/types/echarts";
 import {
   MULTI_CHART_MINI_DATA_ZOOM_ID,
-  buildLookup,
-  dispatchCrosshair,
-  dispatchTimeRange,
-  hideCrosshair,
-  resolvePoint,
-  resolveZoomRange,
   type DataZoomSyncPayload,
   type MultiChartSyncPeer,
   type SyncTarget,
-} from "./useMultiChartSync.helpers";
+} from "./sync/multiChartSyncTypes";
+import { buildLookup, resolvePoint, resolveZoomRange } from "./sync/multiChartSyncLookup";
+import {
+  dispatchCrosshair,
+  dispatchTimeRange,
+  hideCrosshair,
+} from "./sync/multiChartSyncDispatch";
 
 type SyncReason = "time" | "crosshair";
 

@@ -1,8 +1,8 @@
-import type { LiveSnapshot } from "../../config/TechnicalAnalysisTypes";
+import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
 import {
   MOVING_AVERAGE_TREND_SIGNAL_SPECS,
   type MovingAverageTrendSignalSpec,
-} from "../../config/movingAverageSeries";
+} from "../../config/indicators/movingAverageSeries";
 import type { ChartDataPoint } from "./TechnicalIndicators";
 
 export type MovingAverageTrendState = "above" | "below" | "neutral" | "unknown";

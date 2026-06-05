@@ -1,11 +1,12 @@
 // renderers/Forecasting/ForecastingSectorRenderer.ts
-// [TENOR 2026 HDR] Sector — Forecasting Renderer
-// TradingView Parity: Arc de cercle délimitant un secteur angulaire de prévision (depuis un point pivot)
+// Sector forecasting renderer.
+// Draws a circular arc that bounds a forecast angle from a pivot point.
 // SCAR-FIX: Trilateral hit-test (handles + boundary lines + arc + fill). ANGLE_EPSILON anti-float-rejection.
-// SCAR-134 FIX: Robust Modulo Arithmetic for Canvas 2D arc() parity.
+// SCAR-134 FIX: robust modulo arithmetic for Canvas 2D arc direction.
 
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { distancePointToSegment } from "./ForecastingUtils";
 import type { EChartsInstance } from "../../../types/echarts";
@@ -13,14 +14,14 @@ import type { EChartsInstance } from "../../../types/echarts";
 const C_HANDLE = "#2962ff";
 
 /**
- * [HDR 2026] Angular epsilon: adds a small tolerance (≈1.5°) to angular comparisons.
+ * Angular epsilon: adds a small tolerance (≈1.5°) to angular comparisons.
  * Prevents floating-point precision issues from rejecting clicks exactly on the arc edge.
  */
 const ANGLE_EPSILON = 0.026; // radians ≈ 1.5°
-const HANDLE_RADIUS = 15; // [HDR-SRE] Rayon de détection des points de contrôle
+const HANDLE_RADIUS = 15; // Rayon de detection des points de controle
 
 /**
- * [TENOR 2026 FIX] SCAR-134: Mathématiquement isomorphique avec ctx.arc(..., false)
+ * SCAR-134: mirrors the Canvas arc direction logic used by the renderer
  * Calcule si un angle de souris se trouve dans le secteur balayé de startAngle à endAngle
  * dans le sens des aiguilles d'une montre (clockwise).
  */
@@ -51,9 +52,9 @@ function isAngleInSector(mouseAngle: number, startAngle: number, endAngle: numbe
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * [TENOR 2026] Sector — High Fidelity Renderer
- * TradingView Parity: 3-click tool (Center → Start/Radius → End angle).
- * [HDR 4.5] "Shortest Arc" Logic: Automatically caps sweep at 180° by choosing optimal direction.
+ * Sector renderer
+ * 3-click tool: center -> start/radius -> end angle.
+ * Shortest-arc logic caps the visual sweep at 180 degrees by choosing the direction.
  */
 export function renderForecastingSector(
   pts: { x: number; y: number }[],
@@ -104,7 +105,7 @@ export function renderForecastingSector(
   const p2 = pts[2] || p1;
   const endAngle = Math.atan2(p2.y - p0.y, p2.x - p0.x);
 
-  // [HDR 4.5] Dynamic Direction: Choose shortest path to enforce 180° cap.
+  // Dynamic direction: choose shortest path to enforce the 180 degree cap.
   const mod = (n: number, m: number) => ((n % m) + m) % m;
   const sweep = mod(endAngle - startAngle, 2 * Math.PI);
   const anticlockwise = sweep > Math.PI;
@@ -166,7 +167,7 @@ export function renderForecastingSector(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * [HDR 2026] Production-grade Trilateral Hit-Test for the Sector tool.
+ * Trilateral hit-test for the Sector tool.
  *
  * Detection priority:
  * 1. Handles — center, start, end — generous 15px touch zone.
@@ -174,8 +175,7 @@ export function renderForecastingSector(
  * 3. Arc edge — ring (radius ± BORDER_THRESHOLD) within the angular span.
  * 4. Fill area — interior disk segment within the angular span.
  *
- * This guarantees the tool is reliably selectable from any rendered pixel,
- * on both desktop (precise mouse) and mobile (imprecise touch / long-press).
+ * This improves selection coverage across handles, boundaries, arc and fill.
  */
 export function hitTestForecastingSector(
   mx: number,
@@ -183,12 +183,12 @@ export function hitTestForecastingSector(
   pixelPoints: { x: number; y: number }[],
   _drawing: Drawing,
   _chart: EChartsInstance,
-  threshold: number = 8 // [SRE-FIX] Default safe baseline for hit-testing
+  threshold: number = 8 // Default safe baseline for hit-testing
 ): HitTestResult {
   if (pixelPoints.length < 2) return { isHit: false, hitType: null };
 
   // Tolerances — caller's threshold is a lower bound (never less than safe defaults)
-  // [SRE-RECOVERY] Seuil de détection accru pour une sélection sans friction
+  // Seuil de détection accru pour une sélection sans friction
   const BORDER_THRESHOLD = Math.max(threshold, 15);
 
   const p0 = pixelPoints[0];
@@ -233,7 +233,7 @@ export function hitTestForecastingSector(
   }
 
   // ── 3. ARC & REMPLISSAGE (Span angulaire) ────────────────────────────────
-  // [HDR] Le "mouseAngle" est calculé en coordonnées Canvas (Clockwise).
+  // Le "mouseAngle" est calcule en coordonnees Canvas (clockwise).
   const distToCenter = distanceBetweenPoints(mx, my, p0.x, p0.y);
   const mouseAngle = Math.atan2(my - p0.y, mx - p0.x);
 
@@ -243,7 +243,7 @@ export function hitTestForecastingSector(
       return { isHit: true, hitType: "shape" };
     }
     // Détection de l'intérieur (Remplissage)
-    // [SRE] On accepte tout ce qui est plus petit que le rayon - tolérance
+    // On accepte tout ce qui est plus petit que le rayon
     if (distToCenter < radius) {
       return { isHit: true, hitType: "shape" };
     }

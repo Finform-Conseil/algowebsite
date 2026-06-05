@@ -4,3 +4,7 @@ la commande chirurgicale pour d√©truire tous les caches qui peuvent poser probl√
     Linux: -  rm -rf .next/cache && npm cache clean --force && npm cache verify
 
     Windows: -  rd /s /q .next & npm cache clean --force & npm cache verify
+
+
+
+========

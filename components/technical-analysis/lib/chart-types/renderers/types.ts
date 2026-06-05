@@ -1,3 +1,4 @@
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import type { ChartTransformResult, ChartWarning } from "../domain/types";
 
 export type ChartOptionPart = Record<string, unknown>;
@@ -42,6 +43,7 @@ export interface ChartTypeRenderPlan {
   series: ChartOptionPart[];
   warnings: ChartWarning[];
   synthetic: boolean;
+  volumeSourceData: ChartDataPoint[];
 }
 
 export type ChartTypeRenderer = (context: ChartTypeRendererContext) => ChartOptionPart[];

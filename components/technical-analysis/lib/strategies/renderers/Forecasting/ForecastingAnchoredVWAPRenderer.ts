@@ -1,7 +1,8 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/renderers/Forecasting/ForecastingAnchoredVWAPRenderer.ts
-import { Drawing, DrawingHelpers, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
+import type { DrawingHelpers } from "../../../../config/drawing/drawingInteractionTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
-import { ChartDataPoint } from "../../../Indicators/TechnicalIndicators";
+import type { ChartDataPoint } from "../../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../../types/echarts";
 
 type AnchoredVWAPSource = NonNullable<Drawing["anchoredVWAPProps"]>["source"];
@@ -112,7 +113,7 @@ const buildAnchoredVWAPSeries = (
         return [];
     }
 
-    // [TENOR 2026] DEFINITIVE FIX: Use { xAxisIndex: 0, yAxisIndex: 0 } to directly target
+    // Axis conversion: Use { xAxisIndex: 0, yAxisIndex: 0 } to directly target
     // the price axes. This is immune to series ordering, unlike { seriesIndex: N }.
     const PRICE_COORD = { xAxisIndex: 0, yAxisIndex: 0 };
 
@@ -160,8 +161,8 @@ const buildAnchoredVWAPSeries = (
 };
 
 /**
- * [TENOR 2026] Anchored VWAP Renderer (Volume-Based)
- * Implements High-Fidelity cumulative math for VWAP and Standard Deviation Bands.
+ * Anchored VWAP Renderer (Volume-Based)
+ * Implements cumulative math for VWAP and Standard Deviation Bands.
  * Anchored to a specific candle (P0).
  */
 export const renderForecastingAnchoredVWAP = (
@@ -184,7 +185,7 @@ export const renderForecastingAnchoredVWAP = (
         mainLine: vwapPoints.map((point) => ({ x: point.x, y: point.y })),
     });
 
-    // [TENOR 2026] DEFINITIVE FIX: Always target price axis directly.
+    // Axis conversion: target the price axis directly.
     const PRICE_COORD = { xAxisIndex: 0, yAxisIndex: 0 };
     const baseFillOpacity = clamp(1 - props.transparency / 100, 0, 1);
 
@@ -312,7 +313,7 @@ export const hitTestForecastingAnchoredVWAP = (
                 current.y,
             ) <= ANCHORED_VWAP_HIT_TOLERANCE_PX
         ) {
-            // [TENOR 2026] ANCHORED VWAP: Clicking the line is treated as clicking the anchor (P0).
+            // ANCHORED VWAP: Clicking the line is treated as clicking the anchor (P0).
             // This is intentional TradingView behavior: dragging the line relocates the anchor.
             // We return hitType:"point" so the manager will do Price-Snapping (not shape-move).
             return { isHit: true, hitType: "point", pointIndex: 0 };

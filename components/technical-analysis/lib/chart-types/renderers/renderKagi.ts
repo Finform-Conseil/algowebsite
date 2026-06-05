@@ -1,4 +1,5 @@
 import type { KagiSegment } from "../domain/types";
+import { PRICE_CUSTOM_SERIES_BINDING } from "./helpers";
 import type { ChartTypeRenderer, CustomRenderApi, CustomRenderParams } from "./types";
 
 export const renderKagi: ChartTypeRenderer = ({ id, name, result, palette, visible }) => {
@@ -9,6 +10,7 @@ export const renderKagi: ChartTypeRenderer = ({ id, name, result, palette, visib
     id,
     name,
     type: "custom",
+    ...PRICE_CUSTOM_SERIES_BINDING,
     data: segments.map((_, index) => [index]),
     renderItem: (params: CustomRenderParams, api: CustomRenderApi) => {
       const segment = segments[params.dataIndex];

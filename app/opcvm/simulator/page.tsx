@@ -55,7 +55,7 @@ export default function OPCVMSimulatorPage() {
   const [redemptionDate, setRedemptionDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Mock Data
-  const mockFunds: OPCVMFund[] = [
+  const mockFunds = useMemo<OPCVMFund[]>(() => [
     {
       id: 'fund1',
       name: 'NSIA Actions Côte d\'Ivoire',
@@ -156,7 +156,7 @@ export default function OPCVMSimulatorPage() {
       riskLevel: 'Élevé',
       navDate: '2024-11-30'
     }
-  ];
+    ], []);
 
   // Filtered Funds
   const filteredFunds = useMemo(() => {

@@ -1,6 +1,6 @@
 import type { PointFigureColumn } from "../domain/types";
 import type { ChartTypeRenderer, CustomRenderApi, CustomRenderParams } from "./types";
-import { makeTextShape } from "./helpers";
+import { PRICE_CUSTOM_SERIES_BINDING, makeTextShape } from "./helpers";
 
 export const renderPointFigure: ChartTypeRenderer = ({ id, name, result, palette, visible }) => {
   if (result.kind !== "custom") return [];
@@ -10,6 +10,7 @@ export const renderPointFigure: ChartTypeRenderer = ({ id, name, result, palette
     id,
     name,
     type: "custom",
+    ...PRICE_CUSTOM_SERIES_BINDING,
     data: columns.map((_, index) => [index]),
     renderItem: (params: CustomRenderParams, api: CustomRenderApi) => {
       const column = columns[params.dataIndex];

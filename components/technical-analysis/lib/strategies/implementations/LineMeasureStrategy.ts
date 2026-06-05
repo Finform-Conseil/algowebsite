@@ -1,10 +1,10 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/LineMeasureStrategy.ts
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import { distToSegment, angleBetweenPoints } from "../../math/geometry";
-import { LINE_TOOLS, MEASURE_TOOLS } from "../../../config/TechnicalAnalysisConstants";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import { LINE_TOOLS, MEASURE_TOOLS } from "../../../config/drawing/drawingConstants";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../types/echarts";
 
 export class LineMeasureStrategy implements IDrawingStrategy {

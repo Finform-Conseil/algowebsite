@@ -3,11 +3,11 @@
 import { useState, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import { setModalOpen } from "../store/technicalAnalysisSlice";
-import { SavedAnalysis } from "../config/TechnicalAnalysisTypes";
+import type { SavedAnalysis } from "../config/persistence/savedAnalysisTypes";
 import { useTechnicalAnalysisActions } from "./useTechnicalAnalysisActions";
-import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
-import { idbGet, idbSet } from "./useDrawingManager";
+import { idbGet, idbSet } from "./drawing/drawingPersistence";
 
 /**
  * [TENOR 2026 CLEAN] useModalOrchestrator

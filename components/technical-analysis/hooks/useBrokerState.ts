@@ -4,7 +4,7 @@ import {
   BrokerConnectionState,
   BrokerOrderIntent,
   BROKER_CATALOG,
-} from "../components/modals/BrokerModal";
+} from "../components/modals/broker/BrokerModal";
 
 /**
  * [TENOR 2026 SRE] useBrokerState

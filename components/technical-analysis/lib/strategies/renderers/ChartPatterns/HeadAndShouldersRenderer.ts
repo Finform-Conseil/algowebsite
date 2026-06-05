@@ -1,5 +1,5 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/renderers/ChartPatterns/HeadAndShouldersRenderer.ts
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { DrawingHelpers } from "../../interfaces/IDrawingStrategy";
 import { drawHollowHandle, fixedRoundRect } from "./support/BaseRendererUtils";
 

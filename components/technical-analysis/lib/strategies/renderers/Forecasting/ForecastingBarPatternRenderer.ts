@@ -1,14 +1,16 @@
-import { Drawing, DrawingHelpers, BarPatternMode } from "../../../../config/TechnicalAnalysisTypes";
+import type { BarPatternMode } from "../../../../config/drawing/drawingToolTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
+import type { DrawingHelpers } from "../../../../config/drawing/drawingInteractionTypes";
 import { distanceBetweenPoints } from "../../../math/geometry";
 import { distancePointToSegment } from "./ForecastingUtils";
 import type { EChartsInstance } from "../../../types/echarts";
 type SeriesOptionLite = { type?: string };
 
 /**
- * [TENOR 2026] Renders the Bar Pattern forecasting tool with EXACT TradingView parity.
- * Implements 2D Affine Transformation for free vertical/horizontal dragging.
- * SCAR-133 FIX: Uses pure `fillRect()` for OHLC bars.
- * SCAR-134 FIX: Removes horizontal ticks entirely to match TV's clean vertical-only look.
+ * Renders the Bar Pattern forecasting tool with TradingView-inspired styling.
+ * Implements local 2D projection for vertical/horizontal dragging.
+ * SCAR-133 FIX: Uses batched path rectangles for OHLC bars.
+ * SCAR-134 FIX: Removes horizontal ticks entirely to follow the local vertical-only bar style.
  * SCAR-135 FIX: Handles are white inside, blue outside.
  */
 export const renderForecastingBarPattern = (
@@ -30,7 +32,7 @@ export const renderForecastingBarPattern = (
   };
 
   // ==========================================================================
-  // PHASE 1 : CREATION (SELECTION BRACKET) - Parity with TradingView
+  // PHASE 1 : CREATION (SELECTION BRACKET)
   // ==========================================================================
   if (drawing.isCreating || !props.data || props.data.length === 0) {
     const p1 = pts[0];
@@ -66,7 +68,7 @@ export const renderForecastingBarPattern = (
       ctx.restore();
     }
 
-    // Show both handles during setup/fallback so the tool is always visible and draggable.
+    // Show both handles during setup/fallback so the tool remains visible and draggable when possible.
     h.drawHandle(p1, "#ffffff", 5);
     if (pts.length > 1) {
       h.drawHandle(p2, "#ffffff", 5);
@@ -130,7 +132,7 @@ export const renderForecastingBarPattern = (
         h_price = currentBasePrice - (h_price - currentBasePrice);
       }
 
-      // [TENOR 2026] SAFETY CLAMPING (Price Space)
+      // SAFETY CLAMPING (Price Space)
       // Prevent bars from going beyond rational chart limits.
       const clampPrice = (p: number) => Math.max(-1000000, Math.min(1000000, p));
       o = clampPrice(o); c = clampPrice(c); l = clampPrice(l); h_price = clampPrice(h_price);
@@ -145,7 +147,7 @@ export const renderForecastingBarPattern = (
 
       if (pxL === undefined || pxH === undefined || pxO === undefined || pxC === undefined) return;
 
-      // [TENOR 2026] COORDINATE CLAMPING (Pixel Space)
+      // COORDINATE CLAMPING (Pixel Space)
       // Ensure Canvas doesn't choke on extreme pixel values.
       const clampPix = (p: number) => Math.max(-10000, Math.min(20000, p));
       const safeL = clampPix(pxL); const safeH = clampPix(pxH);
@@ -167,11 +169,11 @@ export const renderForecastingBarPattern = (
   } else {
     // ========================================================================
     // BAR RENDERER (Optimized Single Path Fill)
-    // ===================================[TENOR 2026 HDR v20] ================
+    // =====================================================================
     ctx.fillStyle = color;
     const halfW = Math.floor(lineWidth / 2);
 
-    // [TENOR 2026] PERFORMANCE: DOWNSAMPLING
+    // PERFORMANCE: DOWNSAMPLING
     const DOWNSAMPLE_THRESHOLD = 500;
     const step = N > DOWNSAMPLE_THRESHOLD ? Math.ceil(N / DOWNSAMPLE_THRESHOLD) : 1;
 
@@ -228,7 +230,7 @@ export const renderForecastingBarPattern = (
 
   if (isSelected) {
     pts.forEach((p) => {
-      // White inside, Blue border (TradingView exact match)
+      // White fill with blue border, matching the local handle style.
       h.drawHandle(p, "#ffffff", 5);
     });
   }

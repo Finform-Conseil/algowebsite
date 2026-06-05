@@ -1,9 +1,9 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/GannStrategy.ts
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import { distToSegment, distanceBetweenPoints, diagonal, isPointInRect, logValue, linearValue, extendToRay } from "../../math/geometry";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../types/echarts";
 
 export class GannStrategy implements IDrawingStrategy {
@@ -259,7 +259,7 @@ export class GannStrategy implements IDrawingStrategy {
 
         const getLevelColor = (levelColor: string) => gannBoxProps.useOneColor && gannBoxProps.oneColor ? gannBoxProps.oneColor : levelColor;
 
-        // Backgrounds (Mosaic Grid) - Optimized for TV Parity
+        // Backgrounds (Mosaic Grid) - Optimized for local TV-inspired styling
         if ((gannBoxProps.priceBackground?.enabled || gannBoxProps.timeBackground?.enabled) && width > 0 && height > 0) {
             h.ctx.save();
             for (let i = 0; i < sortedTimeLevels.length - 1; i++) {
@@ -272,7 +272,7 @@ export class GannStrategy implements IDrawingStrategy {
                     const pColor = getLevelColor(sortedPriceLevels[j + 1].color);
                     const tColor = getLevelColor(sortedTimeLevels[i + 1].color);
 
-                    // Standard HDR 2026 Grid Filling
+                    // Standard grid filling
                     h.ctx.fillStyle = pColor;
                     h.ctx.globalAlpha = (gannBoxProps.priceBackground?.fillOpacity ?? 0.15) * 0.5;
                     h.ctx.fillRect(Math.min(tx1, tx2), Math.min(py1, py2), Math.abs(tx2 - tx1), Math.abs(py2 - py1));
@@ -294,7 +294,7 @@ export class GannStrategy implements IDrawingStrategy {
             const pos = isHorizontal ? priceYMap.get(level.value)! : timeXMap.get(level.value)!;
             
             h.ctx.strokeStyle = getLevelColor(level.color);
-            h.ctx.lineWidth = 1.5; // Thicker lines for TV fidelity
+            h.ctx.lineWidth = 1.5; // Thicker lines for local styling
             h.ctx.globalAlpha = level.lineOpacity || 1;
             h.ctx.setLineDash(level.lineStyle === "dashed" ? [5, 5] : level.lineStyle === "dotted" ? [2, 2] : []);
 
@@ -306,7 +306,7 @@ export class GannStrategy implements IDrawingStrategy {
         });
         h.ctx.restore();
 
-        // Level Labels (Strictly Centered on segments for TV parity)
+        // Level Labels (Centered on segments for TV-inspired styling)
         if (gannBoxProps.showLabels.left || gannBoxProps.showLabels.right || gannBoxProps.showLabels.top || gannBoxProps.showLabels.bottom) {
             h.ctx.save();
             h.ctx.font = "11px Inter";
@@ -354,7 +354,7 @@ export class GannStrategy implements IDrawingStrategy {
             h.drawSegment({ x: left, y: bottom }, { x: right, y: top });
 
             // Secondary Fan-like angles removed from central web to avoid saturation
-            // [HDR 2026] Fidelity Note: Gann Box ≠ Gann Fan.
+            // Gann Box ≠ Gann Fan.
             h.ctx.restore();
         }
 

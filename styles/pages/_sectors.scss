@@ -1,3 +1,5 @@
+@use '../abstracts/tokens' as *;
+
 // Sectors Page Styles - Optimized for 100vh
 .sectors-page {
   height: $content-height;

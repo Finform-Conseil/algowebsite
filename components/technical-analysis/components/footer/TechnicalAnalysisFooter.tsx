@@ -1,111 +1,102 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import clsx from "clsx";
+import { Calendar } from "lucide-react";
 import {
-    BRVM_DISPLAY_TIME_ZONE_LABEL,
-    formatBrvmDisplayClock,
-    getBrvmMarketStatus,
+  BRVM_DISPLAY_TIME_ZONE_LABEL,
+  formatBrvmDisplayClock,
+  getBrvmMarketStatus,
+  type BrvmMarketStatus,
 } from "../../utils/brvmMarketSession";
 
 interface TechnicalAnalysisFooterProps {
-    chartFooterRef: React.Ref<HTMLDivElement>;
-    selectedTimeRange: string;
-    handleTimeRangeSelect: (range: string) => void;
-    setIsDatePickerModalOpen: (open: boolean) => void;
-
+  chartFooterRef: React.Ref<HTMLDivElement>;
+  selectedTimeRange: string;
+  handleTimeRangeSelect: (range: string) => void;
+  setIsDatePickerModalOpen: (open: boolean) => void;
 }
+
+interface FooterClockState {
+  time: string;
+  marketStatus: BrvmMarketStatus;
+}
+
+const TIME_RANGES = ["1J", "5J", "1M", "3M", "6M", "YTD", "1Y", "5Y", "Tout"];
+
+const createInitialFooterClockState = (): FooterClockState => ({
+  time: "",
+  marketStatus: getBrvmMarketStatus(0),
+});
+
+const getCurrentFooterClockState = (): FooterClockState => {
+  const now = Date.now();
+  return {
+    time: formatBrvmDisplayClock(new Date(now)),
+    marketStatus: getBrvmMarketStatus(now),
+  };
+};
+
 export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = ({
-    chartFooterRef,
-    selectedTimeRange,
-    handleTimeRangeSelect,
-    setIsDatePickerModalOpen,
+  chartFooterRef,
+  selectedTimeRange,
+  handleTimeRangeSelect,
+  setIsDatePickerModalOpen,
 }) => {
-    // [TENOR 2026] Hydration Guard: The clock must only render on the client
-    const [time, setTime] = useState<string>("");
-    const [marketStatus, setMarketStatus] = useState(() => getBrvmMarketStatus(0));
+  const [{ time, marketStatus }, setClockState] = useState(createInitialFooterClockState);
 
-    useEffect(() => {
-        const syncMarketClock = () => {
-            const now = Date.now();
-            setTime(formatBrvmDisplayClock(new Date(now)));
-            setMarketStatus(getBrvmMarketStatus(now));
-        };
+  useEffect(() => {
+    const syncMarketClock = () => {
+      setClockState(getCurrentFooterClockState());
+    };
 
-        syncMarketClock();
+    syncMarketClock();
 
-        const timer = setInterval(() => {
-            syncMarketClock();
-        }, 1000);
+    const timer = window.setInterval(syncMarketClock, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-        return () => clearInterval(timer);
-    }, []);
+  return (
+    <div ref={chartFooterRef} className="gp-chart-footer">
+      <div className="gp-time-selector" aria-label="Plages temporelles">
+        {TIME_RANGES.map((range) => {
+          const isActive = selectedTimeRange === range;
 
-    return (
-        <div
-            ref={chartFooterRef}
-            className={clsx("gp-chart-footer", "gp-chart-footer")}
+          return (
+            <button
+              key={range}
+              type="button"
+              className={clsx("gp-time-range-btn", isActive && "active")}
+              aria-pressed={isActive}
+              onClick={() => handleTimeRangeSelect(range)}
+            >
+              {range}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className={clsx("gp-toolbar-btn", "hover-lift")}
+          title="Plage de dates"
+          aria-label="Ouvrir la selection de plage de dates"
+          onClick={() => setIsDatePickerModalOpen(true)}
         >
-            <div className={"gp-time-selector"}>
-                {[
-                    "1J",
-                    "5J",
-                    "1M",
-                    "3M",
-                    "6M",
-                    "YTD",
-                    "1Y",
-                    "5Y",
-                    "Tout",
-                ].map((range) => (
-                    <span
-                        key={range}
-                        className={clsx(
-                            selectedTimeRange === range && "active",
-                            "cursor-pointer",
-                        )}
-                        onClick={() => handleTimeRangeSelect(range)}
-                        role="button"
-                    >
-                        {range}
-                    </span>
-                ))}
-                <button
-                    className={clsx(
-                        "gp-toolbar-btn",
-                        "gp-toolbar-btn",
-                        "hover-lift",
-                        "hover-lift",
-                    )}
-                    title="Plage de dates"
-                    onClick={() => setIsDatePickerModalOpen(true)}
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        fill="currentColor"
-                        className="bi bi-calendar-week"
-                        viewBox="0 0 16 16"
-                    >
-                        <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm-3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm-5 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5z" />
-                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z" />
-                    </svg>
-                </button>
-            </div>
-            <div className={"gp-timestamp"}>
-                <div
-                    className={clsx("gp-market-status", !marketStatus.isOpen && "closed")}
-                    title={marketStatus.title}
-                >
-                    <div className={"gp-live-dot"}></div> {marketStatus.label}
-                </div>
-                <span className="ms-3">
-                    {time || "--:--:--"} {BRVM_DISPLAY_TIME_ZONE_LABEL}
-                </span>
-                <div
-                    className={clsx("gp-toolbar-v-divider", "mx-2")}
-                ></div>
-                <span className="span2">ADJ</span>
-            </div>
+          <Calendar size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+        </button>
+      </div>
+      <div className="gp-timestamp">
+        <div
+          className={clsx("gp-market-status", !marketStatus.isOpen && "closed")}
+          title={marketStatus.title}
+          aria-label={marketStatus.title}
+        >
+          <span className="gp-live-dot" aria-hidden="true" />
+          {marketStatus.label}
         </div>
-    );
+        <span className="ms-3">
+          {time || "--:--:--"} {BRVM_DISPLAY_TIME_ZONE_LABEL}
+        </span>
+        <div className={clsx("gp-toolbar-v-divider", "mx-2")} aria-hidden="true" />
+        <span className="span2">ADJ</span>
+      </div>
+    </div>
+  );
 };

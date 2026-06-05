@@ -1,23 +1,26 @@
 "use client";
 
-import { normalizeChartType } from "../lib/chart-types";
+import {
+  normalizeChartType } from "../lib/chart-types";
 import { useCallback } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import DOMPurify from "dompurify";
+import { useDispatch,
+  useSelector } from "react-redux";
 import {
   setTimeframe,
   setChartConfig,
   setAdvancedIndicators,
   hydrateMultiChartLayout,
   setModalOpen,
+} from "../store/technicalAnalysisSlice";
+import {
   selectChartConfig,
   selectAdvancedIndicators,
-  selectUiState
-} from "../store/technicalAnalysisSlice";
+  selectUiState,
+} from "../store/selectors";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
-import { SavedAnalysis } from "../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { idbGet, idbSet } from "./useDrawingManager";
+import type { SavedAnalysis } from "../config/persistence/savedAnalysisTypes";
+import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { idbGet, idbSet } from "./drawing/drawingPersistence";
 
 /**
  * [TENOR 2026 SRE] useTechnicalAnalysisActions
@@ -70,6 +73,7 @@ export const useTechnicalAnalysisActions = (
       }
 
       // 3. XSS Shield: Sanitize the symbol before using it in the name
+      const DOMPurify = (await import("dompurify")).default;
       const safeSymbol = DOMPurify.sanitize(chartConfig.symbol, { ALLOWED_TAGS: [] }).trim() || "UNKNOWN";
 
       // 4. Append new analysis
@@ -170,6 +174,18 @@ export const useTechnicalAnalysisActions = (
       bollinger: savedAdvancedIndicators.bollinger ?? false,
       stochastic: savedAdvancedIndicators.stochastic ?? false,
       atr: savedAdvancedIndicators.atr ?? false,
+      atr20: savedAdvancedIndicators.atr20 ?? false,
+      natr14: savedAdvancedIndicators.natr14 ?? false,
+      donchian: savedAdvancedIndicators.donchian ?? false,
+      keltner: savedAdvancedIndicators.keltner ?? false,
+      hv10: savedAdvancedIndicators.hv10 ?? false,
+      hv20: savedAdvancedIndicators.hv20 ?? false,
+      hv30: savedAdvancedIndicators.hv30 ?? false,
+      hv60: savedAdvancedIndicators.hv60 ?? false,
+      hv90: savedAdvancedIndicators.hv90 ?? false,
+      hv252: savedAdvancedIndicators.hv252 ?? false,
+      stdDev20: savedAdvancedIndicators.stdDev20 ?? false,
+      chaikinVol: savedAdvancedIndicators.chaikinVol ?? false,
       cci: false,
       cci14: savedAdvancedIndicators.cci14 ?? false,
       cci20: savedAdvancedIndicators.cci20 ?? savedAdvancedIndicators.cci ?? false,
@@ -195,7 +211,54 @@ export const useTechnicalAnalysisActions = (
       ppo: savedAdvancedIndicators.ppo ?? false,
       apo: savedAdvancedIndicators.apo ?? false,
       parabolicSar: savedAdvancedIndicators.parabolicSar ?? false,
+      kst: savedAdvancedIndicators.kst ?? false,
+      linearRegression: savedAdvancedIndicators.linearRegression ?? false,
+      ulcerIndex: savedAdvancedIndicators.ulcerIndex ?? false,
       obv: savedAdvancedIndicators.obv ?? false,
+      adLine: savedAdvancedIndicators.adLine ?? false,
+      cmf20: savedAdvancedIndicators.cmf20 ?? false,
+      nvi: savedAdvancedIndicators.nvi ?? false,
+      pvi: savedAdvancedIndicators.pvi ?? false,
+      chaikinOsc: savedAdvancedIndicators.chaikinOsc ?? false,
+      volumeOsc: savedAdvancedIndicators.volumeOsc ?? false,
+      vroc14: savedAdvancedIndicators.vroc14 ?? false,
+      klinger: savedAdvancedIndicators.klinger ?? false,
+      elderForceIndex: savedAdvancedIndicators.elderForceIndex ?? false,
+      eom14: savedAdvancedIndicators.eom14 ?? false,
+      volumeProfile: savedAdvancedIndicators.volumeProfile ?? false,
+      pivotPointsStandard: savedAdvancedIndicators.pivotPointsStandard ?? false,
+      pivotPointsFibonacci: savedAdvancedIndicators.pivotPointsFibonacci ?? false,
+      movingAverageCrosses: savedAdvancedIndicators.movingAverageCrosses ?? false,
+      vwap: savedAdvancedIndicators.vwap ?? false,
+      fiftyTwoWeekHigh: savedAdvancedIndicators.fiftyTwoWeekHigh ?? false,
+      fiftyTwoWeekLow: savedAdvancedIndicators.fiftyTwoWeekLow ?? false,
+      ath: savedAdvancedIndicators.ath ?? false,
+      atl: savedAdvancedIndicators.atl ?? false,
+      breakoutResistance: savedAdvancedIndicators.breakoutResistance ?? false,
+      breakdownSupport: savedAdvancedIndicators.breakdownSupport ?? false,
+      gapUp: savedAdvancedIndicators.gapUp ?? false,
+      gapDown: savedAdvancedIndicators.gapDown ?? false,
+      trueGapUp: savedAdvancedIndicators.trueGapUp ?? false,
+      trueGapDown: savedAdvancedIndicators.trueGapDown ?? false,
+      gapPct: savedAdvancedIndicators.gapPct ?? false,
+      consecutiveUpDays: savedAdvancedIndicators.consecutiveUpDays ?? false,
+      consecutiveDownDays: savedAdvancedIndicators.consecutiveDownDays ?? false,
+      insideBar: savedAdvancedIndicators.insideBar ?? false,
+      outsideBar: savedAdvancedIndicators.outsideBar ?? false,
+      doji: savedAdvancedIndicators.doji ?? false,
+      longLeggedDoji: savedAdvancedIndicators.longLeggedDoji ?? false,
+      rickshawMan: savedAdvancedIndicators.rickshawMan ?? false,
+      dragonflyDoji: savedAdvancedIndicators.dragonflyDoji ?? false,
+      gravestoneDoji: savedAdvancedIndicators.gravestoneDoji ?? false,
+      tristar: savedAdvancedIndicators.tristar ?? false,
+      hammer: savedAdvancedIndicators.hammer ?? false,
+      hangingMan: savedAdvancedIndicators.hangingMan ?? false,
+      takuri: savedAdvancedIndicators.takuri ?? false,
+      invertedHammer: savedAdvancedIndicators.invertedHammer ?? false,
+      shootingStar: savedAdvancedIndicators.shootingStar ?? false,
+      marubozuBull: savedAdvancedIndicators.marubozuBull ?? false,
+      marubozuBear: savedAdvancedIndicators.marubozuBear ?? false,
+      spinningTop: savedAdvancedIndicators.spinningTop ?? false,
       ichimoku: savedAdvancedIndicators.ichimoku ?? false,
       stochRsi: savedAdvancedIndicators.stochRsi ?? false,
       bbWidth: savedAdvancedIndicators.bbWidth ?? false,

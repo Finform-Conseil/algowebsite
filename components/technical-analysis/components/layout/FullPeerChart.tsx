@@ -5,11 +5,13 @@ import * as echarts from "echarts/core";
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsInstance } from "../../lib/types/echarts";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
-import type { ChartAppearance, MultiChartLayoutCell } from "../../config/TechnicalAnalysisTypes";
+import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
+import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
 import {
   buildCandleDirections,
   buildDirectionalOhlcvSeries,
+  buildDirectionalVolumeBarData,
   getCandleDirectionColor,
   type CandleDirection,
 } from "../../lib/chart/directionalOhlcv";
@@ -21,7 +23,17 @@ import {
   computeDirectionalZoomViewport,
   computeHorizontalPanViewport,
   clampViewportWindow,
+  normalizeWheelDeltaPx,
 } from "../../hooks/useChartViewport";
+import {
+  createEmptyLayoutOhlcState,
+  createLayoutOhlcState,
+  formatLayoutCompactPrice,
+  formatLayoutPrice,
+  formatLayoutShortDate,
+  getRenderableOhlcvSeries,
+  type LayoutOhlcState,
+} from "./layoutChartData";
 
 const PEER_MAX_CANDLES = 500;
 const PEER_Y_AXIS_WIDTH = 58;
@@ -35,7 +47,7 @@ interface PeerViewportState {
   isYManual: boolean;
 }
 
-interface FullPeerChartProps {
+export interface FullPeerChartProps {
   cell: MultiChartLayoutCell;
   data: ChartDataPoint[];
   loadStatus: ComparisonLoadStatus;
@@ -48,43 +60,12 @@ interface FullPeerChartProps {
   onChartDispose: (chartId: string) => void;
 }
 
-interface OhlcState {
-  open: string;
-  high: string;
-  low: string;
-  close: string;
-  change: string;
-  changePercent: string;
-  volume: string;
-  time: string;
-}
-
 type CustomRenderApi = {
   value: (dimension: number) => unknown;
   coord: (data: unknown[]) => number[];
 };
 
 type PeerDojiDatum = [number, number, CandleDirection];
-
-const initialOhlc = (): OhlcState => ({
-  open: "--",
-  high: "--",
-  low: "--",
-  close: "--",
-  change: "--",
-  changePercent: "--",
-  volume: "--",
-  time: "",
-});
-
-const formatPrice = (val: number): string =>
-  val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const formatVolume = (val: number): string => {
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
-  return val.toString();
-};
 
 const toFiniteNumber = (value: unknown): number | null => {
   const numericValue = typeof value === "number" ? value : Number(value);
@@ -229,22 +210,16 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   const canvasRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<EChartsInstance | null>(null);
   const viewportRef = useRef<PeerViewportState>(createInitialViewport());
+  const peerViewportApplyRafRef = useRef<number | null>(null);
   const [chartReadyVersion, setChartReadyVersion] = useState(0);
   const [hasPaintedCandles, setHasPaintedCandles] = useState(false);
-  const [ohlc, setOhlc] = useState<OhlcState>(initialOhlc());
+  const [ohlc, setOhlc] = useState<LayoutOhlcState>(createEmptyLayoutOhlcState());
   const [lastPriceY, setLastPriceY] = useState<number | null>(null);
   const [lastPriceColor, setLastPriceColor] = useState<string>("#94a3b8");
   const [lastPriceText, setLastPriceText] = useState<string>("");
 
   const filteredData = React.useMemo(() => {
-    const valid = data.filter(
-      (p) =>
-        Number.isFinite(p.open) &&
-        Number.isFinite(p.high) &&
-        Number.isFinite(p.low) &&
-        Number.isFinite(p.close) &&
-        p.close > 0
-    );
+    const valid = getRenderableOhlcvSeries(data);
     if (valid.length > PEER_MAX_CANDLES) {
       return valid.slice(valid.length - PEER_MAX_CANDLES);
     }
@@ -261,7 +236,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
 
   // Pre-slice data to activeBounds window so ECharts Y-axis always auto-scales correctly
   // to the visible data range only, rather than the full historical dataset.
-  // This avoids the filterMode: "filter" Y-axis expansion bug on wide historical datasets.
+  // This avoids Y-axis expansion on wide historical datasets while dataZoom windows the pre-sliced arrays.
   const displayData = useMemo<ChartDataPoint[]>(() => {
     const start = activeBounds?.start;
     const end = activeBounds?.end;
@@ -283,35 +258,17 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
 
   const updateOhlcFromPoint = useCallback((point: ChartDataPoint | undefined) => {
     if (!point) {
-      setOhlc(initialOhlc());
+      setOhlc(createEmptyLayoutOhlcState());
       return;
     }
-    const change = point.close - point.open;
-    const changePercent = point.open === 0 ? 0 : (change / point.open) * 100;
-    const sign = change >= 0 ? "+" : "";
-
-    setOhlc({
-      open: formatPrice(point.open),
-      high: formatPrice(point.high),
-      low: formatPrice(point.low),
-      close: formatPrice(point.close),
-      change: `${sign}${formatPrice(change)}`,
-      changePercent: `${sign}${changePercent.toFixed(2)}%`,
-      volume: formatVolume(point.volume),
-      time: new Intl.DateTimeFormat("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(point.time)),
-    });
+    setOhlc(createLayoutOhlcState(point));
   }, []);
 
   useEffect(() => {
     updateOhlcFromPoint(latestPoint);
     if (latestPoint) {
       setLastPriceColor(getCandleDirectionColor(latestDirection, chartAppearance.upColor, chartAppearance.downColor));
-      setLastPriceText(formatPrice(latestPoint.close));
+      setLastPriceText(formatLayoutPrice(latestPoint.close));
     }
   }, [chartAppearance.downColor, chartAppearance.upColor, latestDirection, latestPoint, updateOhlcFromPoint]);
 
@@ -431,6 +388,8 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
       yAxis: [{ id: "peer-price-y-ohlcv", min: finalMin, max: finalMax }],
       dataZoom: [{
         id: MULTI_CHART_MINI_DATA_ZOOM_ID,
+        xAxisIndex: [0, 1],
+        filterMode: "none",
         startValue: state.startIdx,
         endValue: state.endIdx,
       }],
@@ -438,6 +397,21 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
 
     window.requestAnimationFrame(updateLastPriceBadgePosition);
   }, [updateLastPriceBadgePosition]);
+
+  const schedulePeerViewportApply = useCallback(() => {
+    if (peerViewportApplyRafRef.current !== null) return;
+    peerViewportApplyRafRef.current = window.requestAnimationFrame(() => {
+      peerViewportApplyRafRef.current = null;
+      applyPeerViewport();
+    });
+  }, [applyPeerViewport]);
+
+  useEffect(() => () => {
+    if (peerViewportApplyRafRef.current !== null) {
+      window.cancelAnimationFrame(peerViewportApplyRafRef.current);
+      peerViewportApplyRafRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
@@ -480,14 +454,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           axisLine: { lineStyle: { color: "#2a3143" } },
           axisTick: { show: false },
           axisLabel: {
-            formatter: (value: string) => {
-              const ts = Date.parse(value);
-              if (!Number.isFinite(ts)) return "";
-              return new Intl.DateTimeFormat("fr-FR", {
-                day: "2-digit",
-                month: "2-digit",
-              }).format(ts);
-            },
+            formatter: formatLayoutShortDate,
             color: "#94a3b8",
             fontSize: 9,
           },
@@ -518,8 +485,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
             show: true,
             color: "#94a3b8",
             fontSize: 9,
-            formatter: (v: number) =>
-              v.toLocaleString("fr-FR", { maximumFractionDigits: v >= 100 ? 0 : 2 }),
+            formatter: (v: number) => formatLayoutCompactPrice(v),
           },
         },
         {
@@ -539,7 +505,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           id: MULTI_CHART_MINI_DATA_ZOOM_ID,
           type: "inside",
           xAxisIndex: [0, 1],
-          filterMode: "filter",
+          filterMode: "none",
           zoomOnMouseWheel: false,
           moveOnMouseWheel: false,
           moveOnMouseMove: false,
@@ -585,6 +551,8 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           type: "custom",
           xAxisIndex: 0,
           yAxisIndex: 0,
+          encode: { x: 0 },
+          clip: true,
           data: dojiOverlayData,
           silent: true,
           renderItem: (_params: unknown, api: CustomRenderApi) =>
@@ -597,14 +565,9 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           type: "bar",
           xAxisIndex: 1,
           yAxisIndex: 1,
-          data: volumes,
+          data: buildDirectionalVolumeBarData(volumes, { upColor, downColor }, 0.7, dates.length),
           barWidth: "60%",
           barMinHeight: 1,
-          itemStyle: {
-            color: (params: any) =>
-              params.value[2] >= 0 ? upColor : downColor,
-            opacity: 0.7,
-          },
         },
       ],
     };
@@ -666,11 +629,13 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
       const gridRightPx = rect.width - PEER_Y_AXIS_WIDTH;
       const isOnYAxis = mouseX >= gridRightPx;
       const isOnChartOrAxis = mouseX < gridRightPx;
+      const wheelDeltaY = normalizeWheelDeltaPx(event.deltaY, event.deltaMode);
+      const wheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
 
       if (isOnYAxis) {
-        state.yScale *= Math.exp(event.deltaY * TV_ZOOM_VELOCITY);
+        state.yScale *= Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
         state.isYManual = true;
-        applyPeerViewport();
+        schedulePeerViewportApply();
         return;
       }
 
@@ -679,8 +644,8 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
       const visibleCount = Math.max(1, state.endIdx - state.startIdx);
       const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - PEER_Y_AXIS_WIDTH);
 
-      if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-        const zoomFactor = Math.exp(event.deltaY * TV_ZOOM_VELOCITY);
+      if (Math.abs(wheelDeltaY) > Math.abs(wheelDeltaX)) {
+        const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
         const cursorRatio = Math.max(0, Math.min(1, (mouseX - MAIN_GRID_LEFT) / gridWidth));
         const zoomed = computeDirectionalZoomViewport({
           startIdx: state.startIdx,
@@ -688,30 +653,29 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           totalBars,
           cursorRatio,
           zoomFactor,
-          deltaY: event.deltaY,
+          deltaY: wheelDeltaY,
         });
-        const span = Math.max(1, zoomed.endIdx - zoomed.startIdx);
-        state.startIdx = Math.max(0, (totalBars - 1) - span);
-        state.endIdx = totalBars - 1;
+        state.startIdx = zoomed.startIdx;
+        state.endIdx = zoomed.endIdx;
       } else {
         const shifted = computeHorizontalPanViewport({
           startIdx: state.startIdx,
           endIdx: state.endIdx,
           totalBars,
-          shift: (event.deltaX / gridWidth) * visibleCount,
+          shift: (wheelDeltaX / gridWidth) * visibleCount,
         });
         state.startIdx = shifted.startIdx;
         state.endIdx = shifted.endIdx;
       }
 
-      applyPeerViewport();
+      schedulePeerViewportApply();
     };
 
     canvasEl.addEventListener("wheel", onWheel, wheelOptions);
     return () => {
       canvasEl.removeEventListener("wheel", onWheel, wheelOptions);
     };
-  }, [applyPeerViewport]);
+  }, [schedulePeerViewportApply]);
 
   useEffect(() => {
     const canvasEl = canvasRef.current;

@@ -1,4 +1,4 @@
-import { Drawing } from "../../../../config/TechnicalAnalysisTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
 import { distToSegment } from "../../../math/geometry";
 

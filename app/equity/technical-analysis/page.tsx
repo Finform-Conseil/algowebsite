@@ -1,9 +1,9 @@
-"use client";
-
-import TechnicalAnalysis from '@/components/technical-analysis/TechnicalAnalysis';
-
-
+import TechnicalAnalysis from "@/components/technical-analysis/TechnicalAnalysis";
 
 export default function TechnicalAnalysisRoute() {
-  return <TechnicalAnalysis />;
+  return (
+    <main className="technical-analysis-route-shell">
+      <TechnicalAnalysis />
+    </main>
+  );
 }

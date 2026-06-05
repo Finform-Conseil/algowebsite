@@ -95,7 +95,7 @@ export default function FinancialSecondaryScreenerPage() {
     durationRange: [0, 30],
   });
 
-  const mockBonds: SecondaryFinancialBond[] = [
+  const mockBonds = useMemo<SecondaryFinancialBond[]>(() => [
     {
       id: '1',
       isin: 'CIBRVM101',
@@ -213,7 +213,7 @@ export default function FinancialSecondaryScreenerPage() {
       market: 'BRVM',
       compartment: 'Municipal',
     },
-  ];
+    ], []);
 
   const filteredBonds = useMemo(() => {
     return mockBonds.filter(bond => {

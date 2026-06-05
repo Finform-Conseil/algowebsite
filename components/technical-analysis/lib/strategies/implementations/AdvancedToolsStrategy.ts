@@ -1,9 +1,9 @@
-// src/core/presentation/components/pages/Widget/TechnicalAnalysis/lib/strategies/implementations/AdvancedToolsStrategy.ts
 
 import { IDrawingStrategy, HitTestResult, DrawingHelpers } from "../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../config/TechnicalAnalysisTypes";
-import { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-import { MULTI_POINT_TOOLS } from "../../../config/TechnicalAnalysisConstants";
+import type { DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import { MULTI_POINT_TOOLS } from "../../../config/drawing/drawingConstants";
 import { distanceBetweenPoints } from "../../math/geometry";
 import type { EChartsInstance } from "../../types/echarts";
 
@@ -14,7 +14,7 @@ import { renderCurve, hitTestCurve } from "../renderers/AdvancedTools/CurveRende
 import { renderProjection, hitTestProjection } from "../renderers/AdvancedTools/ProjectionRenderer";
 
 /**
- * [HDR 2026] AdvancedToolsStrategy — Orchestrator Only
+ * AdvancedToolsStrategy — Orchestrator Only
  * Handles multi-point drawings: polyline, path, curve, projection, and positions.
  * Rendering logic segregated for Single Responsibility (SOLID).
  */

@@ -1,5 +1,13 @@
 import type { ChartOptionPart, CustomRenderApi } from "./types";
 
+export const PRICE_CUSTOM_SERIES_BINDING = {
+  coordinateSystem: "cartesian2d",
+  xAxisIndex: 0,
+  yAxisIndex: 0,
+  encode: { x: 0 },
+  clip: true,
+} as const;
+
 export const buildLatestPriceMarkLine = (latestPrice: number, liveColor: string): ChartOptionPart => ({
   symbol: ["none", "none"],
   animation: false,

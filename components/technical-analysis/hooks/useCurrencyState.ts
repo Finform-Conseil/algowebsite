@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { CurrencyCode } from "../components/common/CurrencySelector";
+import type { CurrencyCode } from "../components/market/CurrencySelector";
 
 /**
  * [TENOR 2026 SRE] useCurrencyState
@@ -12,7 +12,7 @@ export const useCurrencyState = (initialCurrency: CurrencyCode) => {
   const [currencyQuery, setCurrencyQuery] = useState<string>("");
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(initialCurrency);
   const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  const currencyBtnRef = useRef<HTMLDivElement>(null);
+  const currencyBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isCurrencyOpen) return;

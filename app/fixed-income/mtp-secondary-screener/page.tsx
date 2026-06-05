@@ -86,7 +86,7 @@ export default function MTPSecondaryScreenerPage() {
     durationRange: [0, 30],
   });
 
-  const mockBonds: SecondaryBond[] = [
+  const mockBonds = useMemo<SecondaryBond[]>(() => [
     {
       id: '1',
       isin: 'CI0001234567',
@@ -186,7 +186,7 @@ export default function MTPSecondaryScreenerPage() {
       market: 'BRVM',
       compartment: 'Government',
     },
-  ];
+    ], []);
 
   const filteredBonds = useMemo(() => {
     return mockBonds.filter(bond => {

@@ -1,8 +1,8 @@
 // ================================================================================
 // FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/hooks/useMasterRenderLoop.ts
 // [TENOR 2026 SRE] SCAR-DOUBLE-RAF: Master Render Loop Orchestrator.
-// Eradicates multiple concurrent requestAnimationFrame loops.
-// Synchronizes all Canvas 2D rendering into a single VSync-aligned frame.
+// Centralizes the cursor and overlay requestAnimationFrame subscribers.
+// Synchronizes registered cursor and overlay rendering into one VSync-aligned frame.
 // Implements Frame Drop Monitoring (SRE Observability) and Stale Closure Protection.
 // ================================================================================
 
@@ -30,10 +30,11 @@ const SEVERE_FRAME_DROP_STREAK = 5;
 const DEGRADATION_TRIGGER_MS = 50;
 const DEGRADATION_WINDOW_MS = 700;
 const SLOW_SUBSCRIBER_MS = 8;
+const ENABLE_RAF_DIAGNOSTIC_WARNINGS = process.env.NEXT_PUBLIC_TA_RAF_DIAGNOSTICS === "true";
 
 /**
  * [TENOR 2026 HDR] Singleton Orchestrator
- * Manages a single requestAnimationFrame loop for the entire application.
+ * Manages one requestAnimationFrame loop for registered cursor and overlay subscribers.
  * O(1) subscription management via Set.
  */
 class MasterRenderLoop {
@@ -94,7 +95,9 @@ class MasterRenderLoop {
           this.degradedUntil = Math.max(this.degradedUntil, time + DEGRADATION_WINDOW_MS);
         }
         if (this.consecutiveDrops > SEVERE_FRAME_DROP_STREAK) {
-          console.warn(`[SRE-RAF] Severe Frame Drop Detected. ${this.getFrameDropDiagnosis(delta)}`);
+          if (ENABLE_RAF_DIAGNOSTIC_WARNINGS) {
+            console.warn(`[SRE-RAF] Severe Frame Drop Detected. ${this.getFrameDropDiagnosis(delta)}`);
+          }
           this.consecutiveDrops = 0; // Reset after warning to avoid console spam
         }
       } else {

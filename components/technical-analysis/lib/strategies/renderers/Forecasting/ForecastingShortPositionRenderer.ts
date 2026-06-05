@@ -1,16 +1,17 @@
 /**
  * @file ForecastingShortPositionRenderer.ts
- * @description Renderer Canvas 2D haute fidélité (HDR) pour l'outil "Short Position".
+ * @description Canvas 2D renderer for the "Short Position" tool.
  * 
- * @parity TradingView Parity Features:
+ * @parity TradingView-inspired features:
  * 1. Auto-Clamped Labels: Les labels restent visibles à l'écran même si l'outil déborde.
  * 2. Sub-pixel Rendering: Utilisation de `Math.round(x) + 0.5` pour des lignes 1px nettes.
- * 3. Textes Exacts: Formatage identique ("Target: ... Amount: ...").
+ * 3. Textes: Formatage proche du style position de TradingView.
  * 4. Drag Resilience: Support des offsets tpOffset/slOffset.
  */
 
 import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy";
-import { Drawing, DrawingPoint } from "../../../../config/TechnicalAnalysisTypes";
+import type { DrawingPoint } from "../../../../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../../../../config/drawing/drawingModelTypes";
 import { distanceBetweenPoints, isPointInRect } from "../../../math/geometry";
 import { renderCustomText } from "../ChartPatterns/support/BaseRendererUtils";
 import type { EChartsInstance, EChartsWithModel } from "../../../types/echarts";
@@ -24,7 +25,7 @@ type XAxisOptionLite = {
   data?: Array<string | number>;
 };
 
-// --- CONSTANTES DE STYLE (TRADINGVIEW EXACT MATCH) ---
+// --- CONSTANTES DE STYLE INSPIREES TRADINGVIEW ---
 const C_PROFIT_FILL_LIVE  = "rgba(8, 153, 129, 0.50)"; // Vert foncé
 const C_PROFIT_BAR        = "#089981";
 
@@ -45,7 +46,7 @@ const SQ         = 8;
 const CR         = 5; 
 const DEFAULT_W  = 200;
 
-// --- UTILITAIRES DE RENDU HDR ---
+// --- UTILITAIRES DE RENDU ---
 
 const crisp = (val: number): number => Math.round(val) + 0.5;
 
@@ -382,7 +383,7 @@ export function renderForecastingShortPosition(
       drawCircleHandle(h.ctx, xLeft, entryY);
     }
 
-    // --- RENDU DU TEXTE PERSONNALISÉ (HDR) ---
+    // --- RENDU DU TEXTE PERSONNALISÉ ---
     if (drawing.showText && drawing.text) {
       const pPoints = [
         { x: xLeft, y: Math.min(tpY, slY) },
