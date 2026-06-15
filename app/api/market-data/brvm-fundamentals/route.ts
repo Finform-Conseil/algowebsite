@@ -80,6 +80,23 @@ const cleanNumber = (val: string): number | null => {
 
 // --- DATA SOURCE 2: DIVIDEND PAYMENT TABLE (PAGINATED) ---
 const DIVIDEND_MAX_PAGES = 5;
+const DIVIDEND_DETAILS_TIMEOUT_MS = 15_000;
+const DIVIDEND_PAGE_FETCH_TIMEOUT_MS = 22_000;
+const DIVIDEND_PAGE_FETCH_MAX_RETRIES = 1;
+const FALLBACK_CACHE_SECONDS = 60;
+const PROFILE_LANGUAGES = ['fr', 'en'] as const;
+const PROFILE_PAGE_FETCH_TIMEOUT_MS = 22_000;
+const PROFILE_PAGE_FETCH_MAX_RETRIES = 1;
+const PROFILE_STALE_TTL_SECONDS = 3600 * 24 * 7;
+
+type ProfileLanguage = typeof PROFILE_LANGUAGES[number];
+
+interface ProfilePageSnapshot {
+  cacheStatus: string;
+  html: string;
+  lang: ProfileLanguage;
+  url: string;
+}
 
 /** Normalizes a string by removing accents/diacritics for robust matching. */
 function removeAccents(str: string): string {
@@ -147,16 +164,21 @@ function extractFromPage(html: string, targetTicker: string) {
   return null;
 }
 
-async function fetchDividendDetails(targetTicker: string) {
+async function fetchDividendDetails(targetTicker: string, signal?: AbortSignal) {
   const baseUrl = 'https://www.brvm.org/fr/esv/paiement-de-dividendes';
   try {
     for (let i = 0; i < DIVIDEND_MAX_PAGES; i++) {
+      if (signal?.aborted) return null;
       const pageUrl = i === 0 ? baseUrl : `${baseUrl}?page=${i}`;
       const cacheKey = `brvm_dividend_payments_v2_p${i}`;
       let html: string | null = null;
 
       try {
-        const res = await fetchWithResilience(cacheKey, () => fetchBrvmPage(pageUrl, 38000), { cacheTtl: 3600 * 24 });
+        const res = await fetchWithResilience(
+          cacheKey,
+          () => fetchBrvmPage(pageUrl, DIVIDEND_PAGE_FETCH_TIMEOUT_MS, DIVIDEND_PAGE_FETCH_MAX_RETRIES, signal),
+          { cacheTtl: 3600 * 24, staleTtl: PROFILE_STALE_TTL_SECONDS },
+        );
         html = res.data;
       } catch (e) {
         console.warn(`[HDR-SCRAPER] Page ${i} fetch failed:`, (e as Error).message);
@@ -176,6 +198,66 @@ async function fetchDividendDetails(targetTicker: string) {
     console.error("[DividendDetailScraper] Fatal:", e);
   }
   return null;
+}
+
+async function fetchProfilePage(
+  ticker: string,
+  lang: ProfileLanguage,
+  slug: string,
+  signal?: AbortSignal,
+): Promise<ProfilePageSnapshot> {
+  const url = `https://www.brvm.org/${lang}/emetteurs/societes-cotees/${slug}`;
+
+  try {
+    const response = await fetchWithResilience(
+      `fundamentals_${ticker}_${lang}`,
+      () => fetchBrvmPage(url, PROFILE_PAGE_FETCH_TIMEOUT_MS, PROFILE_PAGE_FETCH_MAX_RETRIES, signal),
+      {
+        cacheTtl: ticker === 'ECOC' ? 60 : 3600 * 48,
+        staleTtl: PROFILE_STALE_TTL_SECONDS,
+      },
+    );
+
+    return {
+      cacheStatus: response.status,
+      html: response.data,
+      lang,
+      url,
+    };
+  } catch (error) {
+    console.warn(`[Fundamentals Scraper] Profile page fetch failed for ${ticker} lang=${lang}:`, error);
+    return {
+      cacheStatus: 'FALLBACK',
+      html: '',
+      lang,
+      url,
+    };
+  }
+}
+
+function linkAbortSignal(source: AbortSignal | undefined, target: AbortController): () => void {
+  if (!source) return () => undefined;
+  if (source.aborted) {
+    target.abort(source.reason);
+    return () => undefined;
+  }
+
+  const abortTarget = () => target.abort(source.reason);
+  source.addEventListener('abort', abortTarget, { once: true });
+  return () => source.removeEventListener('abort', abortTarget);
+}
+
+async function resolveDividendDetailsWithin(targetTicker: string, timeoutMs: number, parentSignal?: AbortSignal) {
+  const controller = new AbortController();
+  const releaseParentAbort = linkAbortSignal(parentSignal, controller);
+  const timeoutId = setTimeout(() => controller.abort(new Error('BRVM dividend details timeout')), timeoutMs);
+
+  try {
+    return await fetchDividendDetails(targetTicker, controller.signal);
+  } finally {
+    clearTimeout(timeoutId);
+    releaseParentAbort();
+  }
 }
 
 export async function GET(request: Request) {
@@ -202,7 +284,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    const languages = ['fr', 'en'];
     let description = "";
     let website = "";
     let employees = "N/A";
@@ -218,30 +299,23 @@ export async function GET(request: Request) {
     const dividendsMap = new Map<string, DividendData>();
     let finalUrl = "";
 
-    const DIVIDEND_DETAILS_TIMEOUT = 15000;
-    const dividendDetailsPromise = Promise.race<ReturnType<typeof fetchDividendDetails>>([
-      fetchDividendDetails(ticker),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), DIVIDEND_DETAILS_TIMEOUT))
-    ]);
+    const dividendDetailsPromise = resolveDividendDetailsWithin(ticker, DIVIDEND_DETAILS_TIMEOUT_MS, request.signal);
+    const profilePages = await Promise.all(
+      PROFILE_LANGUAGES.map((lang) => fetchProfilePage(ticker, lang, slug, request.signal)),
+    );
+    const loadedProfilePages = profilePages.filter((page) => page.html.length > 0);
 
-    for (const lang of languages) {
-      const url = `https://www.brvm.org/${lang}/emetteurs/societes-cotees/${slug}`;
+    if (loadedProfilePages.length === 0) {
+      throw new Error(`BRVM fundamentals source unavailable for ${ticker}`);
+    }
+
+    for (const profilePage of loadedProfilePages) {
+      const { html, lang, url } = profilePage;
       finalUrl = url;
 
-      const [res] = await Promise.all([
-        fetchWithResilience(`fundamentals_${ticker}_${lang}`, () => fetchBrvmPage(url, 38000), {
-          cacheTtl: ticker === 'ECOC' ? 60 : 3600 * 48
-        }),
-        lang === 'fr' ? dividendDetailsPromise : Promise.resolve(null)
-      ]);
-
       if (ticker === 'ECOC') {
-        const resData = res as { data?: string };
-        console.warn(`[HDR-API] 🔍 ECOC request processing. Lang=${lang} | res.data.length=${resData.data?.length || 0}`);
+        console.warn(`[HDR-API] 🔍 ECOC request processing. Lang=${lang} | html.length=${html.length}`);
       }
-
-      const html: string = (res as { data: string }).data;
-      if (!html) continue;
 
       const $ = cheerio.load(html);
 
@@ -470,10 +544,38 @@ export async function GET(request: Request) {
     });
 
     nextResponse.headers.set('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=43200');
+    nextResponse.headers.set('X-Cache-Status', Array.from(new Set(loadedProfilePages.map((page) => page.cacheStatus))).join(','));
     return nextResponse;
 
   } catch (error) {
-    console.error(`[Fundamentals Scraper] Exception for ${ticker}:`, error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    if (isBrvmSourceUnavailable(error)) {
+      return buildUnavailableFundamentalsResponse(ticker, error);
+    }
+    console.error("[Fundamentals Scraper] Exception for " + ticker + ":", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
+}
+
+function buildUnavailableFundamentalsResponse(ticker: string, error: unknown) {
+  console.warn("[brvm-fundamentals] Source unavailable for " + ticker + ", returning degraded payload:", error);
+  const fallback = SPARSE_PROFILES_FALLBACK[ticker];
+  const response = NextResponse.json({
+    ticker,
+    description: fallback?.description || "Description non disponible.",
+    website: fallback?.website || "",
+    employees: fallback?.employees || "N/A",
+    earnings: [],
+    revenues: [],
+    dividends: [],
+    sourceStatus: "unavailable",
+    error: "BRVM fundamentals source temporarily unavailable"
+  });
+  response.headers.set("Cache-Control", "public, s-maxage=" + FALLBACK_CACHE_SECONDS + ", stale-while-revalidate=300");
+  response.headers.set("X-Cache-Status", "UNAVAILABLE");
+  return response;
+}
+
+function isBrvmSourceUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /BRVM|fetch failed|timeout|UND_ERR|ECONN|ABORT_SAFETY_NET|circuit/i.test(message);
 }

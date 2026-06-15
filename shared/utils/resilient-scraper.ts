@@ -53,6 +53,9 @@ const brvmCircuit = getCircuitBreaker('BRVM_SOURCE', {
   halfOpenMaxAttempts: 1
 });
 
+export const BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS = 22_000;
+export const BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES = 1;
+
 interface ScraperOptions {
   timeout?: number;
   retries?: number;
@@ -197,20 +200,50 @@ export async function fetchWithResilience(
 /**
  * [TENOR 2026] fetchBrvmPage avec SOURCE CIRCUIT BREAKER
  */
-export async function fetchBrvmPage(url: string, timeout = 20000, maxRetries = 2): Promise<string> {
+export async function fetchBrvmPage(
+  url: string,
+  timeout = 20000,
+  maxRetries = 2,
+  signal?: AbortSignal,
+): Promise<string> {
   const isBrvm = url.includes('brvm.org');
   const tag = isBrvm ? '[brvm]' : '[unknown]';
 
   // Protection par Circuit Breaker uniquement pour BRVM
   if (isBrvm) {
-    return await brvmCircuit.execute(() => _executeFetch(url, timeout, maxRetries, tag));
+    return await brvmCircuit.execute(() => _executeFetch(url, timeout, maxRetries, tag, signal));
   }
-  return await _executeFetch(url, timeout, maxRetries, tag);
+  return await _executeFetch(url, timeout, maxRetries, tag, signal);
 }
 
-async function _executeFetch(url: string, timeout: number, maxRetries: number, tag: string): Promise<string> {
+function abortSignalError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error('BRVM fetch aborted');
+}
+
+function linkExternalAbort(signal: AbortSignal | undefined, controller: AbortController): () => void {
+  if (!signal) return () => undefined;
+  if (signal.aborted) {
+    controller.abort(abortSignalError(signal));
+    return () => undefined;
+  }
+
+  const forwardAbort = () => controller.abort(abortSignalError(signal));
+  signal.addEventListener('abort', forwardAbort, { once: true });
+  return () => signal.removeEventListener('abort', forwardAbort);
+}
+
+async function _executeFetch(
+  url: string,
+  timeout: number,
+  maxRetries: number,
+  tag: string,
+  signal?: AbortSignal,
+): Promise<string> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (signal?.aborted) throw abortSignalError(signal);
+
     const controller = new AbortController();
+    const releaseExternalAbort = linkExternalAbort(signal, controller);
     // [FIX] AbortController comme filet de sécurité UNIQUEMENT (Diagnostic Confirmé)
     // headersTimeout undici gère le vrai timeout — l'abort est au-delà (+15s)
     const timeoutId = setTimeout(() => controller.abort(new Error('ABORT_SAFETY_NET')), timeout + 15000);
@@ -250,10 +283,11 @@ async function _executeFetch(url: string, timeout: number, maxRetries: number, t
       // Undici encapsule ses erreurs dans e.cause pour les HeadersTimeout/BodyTimeout (Diagnostic Confirmé)
       const undiciCode = err.cause?.code ?? err.code ?? '';
       const isTimeout = err.name === 'AbortError' || undiciCode === 'UND_ERR_HEADERS_TIMEOUT' || undiciCode === 'UND_ERR_BODY_TIMEOUT' || undiciCode === 'UND_ERR_CONNECT_TIMEOUT' || err.message === 'ABORT_SAFETY_NET';
-      const errKind = isTimeout ? 'TIMEOUT' : undiciCode || err.name || 'UNKNOWN';
+      const errKind = signal?.aborted ? 'EXTERNAL_ABORT' : isTimeout ? 'TIMEOUT' : undiciCode || err.name || 'UNKNOWN';
 
       console.error(`${tag} attempt=${attempt}/${maxRetries} kind=${errKind} url=${url} err=${err.message || String(e)}`);
 
+      if (signal?.aborted) throw abortSignalError(signal);
       if (attempt === maxRetries) throw e;
 
       // [FIX] Ne pas retry les erreurs réseau bloquantes (Diagnostic Confirmé)
@@ -263,6 +297,8 @@ async function _executeFetch(url: string, timeout: number, maxRetries: number, t
       // Backoff plus long si timeout (pas la peine de retry immédiatement) (Diagnostic Confirmé)
       const delay = isTimeout ? 3000 * attempt : 1000 * attempt;
       await new Promise(resolve => setTimeout(resolve, delay));
+    } finally {
+      releaseExternalAbort();
     }
   }
   throw new Error('Unreachable');

@@ -29,6 +29,7 @@ type IconButtonProps = {
   style?: React.CSSProperties;
   onClick?: () => void;
   active?: boolean;
+  disabled?: boolean;
 };
 
 export const DrawingRow: React.FC<DrawingRowProps> = ({
@@ -200,23 +201,28 @@ export const ObjectTreeItemRow: React.FC<ObjectTreeItemRowProps> = ({
   </div>
 );
 
-export const IconButton: React.FC<IconButtonProps> = ({ icon, title, style, onClick, active }) => {
+export const IconButton: React.FC<IconButtonProps> = ({ icon, title, style, onClick, active, disabled = false }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
     <button
       type="button"
       title={title}
+      disabled={disabled}
+      aria-disabled={disabled}
       onClick={(event) => {
         event.stopPropagation();
+        if (disabled) return;
         onClick?.();
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
         ...toolbarIconBtnStyle,
-        background: (isHovered || active) ? "rgba(255, 255, 255, 0.08)" : "transparent",
-        color: (isHovered || active) ? TV.tabText : TV.iconBtn,
+        background: (!disabled && (isHovered || active)) ? "rgba(255, 255, 255, 0.08)" : "transparent",
+        color: (!disabled && (isHovered || active)) ? TV.tabText : TV.iconBtn,
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.35 : 1,
         ...style,
       }}
     >

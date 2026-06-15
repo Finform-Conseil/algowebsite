@@ -6,7 +6,6 @@ interface DividendsPanelProps {
   isAvailable: boolean;
   isLoading: boolean;
   onMoreInfo: () => void;
-  unavailableState: React.ReactNode;
 }
 
 const ACTION_BUTTON_STYLE: React.CSSProperties = {
@@ -36,16 +35,16 @@ export const DividendsPanel = React.memo(({
   isAvailable,
   isLoading,
   onMoreInfo,
-  unavailableState,
-}: DividendsPanelProps) => (
+}: DividendsPanelProps) => {
+  if (!isLoading && !isAvailable) return null;
+
+  return (
   <div className="gp-sidebar-section" style={{ borderBottom: "none" }}>
     <div className="gp-sidebar-header">
       <span className="gp-sidebar-title">Dividends</span>
     </div>
     {isLoading ? (
       <DividendsSkeleton />
-    ) : !isAvailable ? (
-      unavailableState
     ) : (
       <div key="ready">
         <div ref={chartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "150px" }} />
@@ -79,6 +78,7 @@ export const DividendsPanel = React.memo(({
       </div>
     )}
   </div>
-));
+  );
+});
 
 DividendsPanel.displayName = "DividendsPanel";

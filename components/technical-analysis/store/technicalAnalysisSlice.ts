@@ -97,6 +97,8 @@ export const {
   updateOrder,
   updateMarketData,
   updateMarketSnapshot,
+  setPineChartOverlay,
+  clearPineChartOverlay,
 } = technicalAnalysisSlice.actions;
 
 

@@ -7,17 +7,19 @@ interface SidebarNewsPanelProps {
   isLoading: boolean;
   newsKey: number;
   onHoverChange: (isHovered: boolean) => void;
-  unavailableState: React.ReactNode;
 }
 
 const SidebarNewsSkeleton = () => (
   <div className="gp-sidebar-news-skeleton" aria-hidden="true">
-    <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-news-skeleton-icon" />
-    <div className="gp-sidebar-news-skeleton-copy">
-      <div className="is-loading-skeleton gp-sidebar-skeleton-line" style={{ width: "58%", height: "9px" }} />
-      <div className="is-loading-skeleton gp-sidebar-skeleton-line" style={{ width: "92%", height: "10px" }} />
-      <div className="is-loading-skeleton gp-sidebar-skeleton-line" style={{ width: "68%", height: "10px" }} />
+    <div className="gp-sidebar-news-skeleton-icon-frame">
+      <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-news-skeleton-icon" />
     </div>
+    <div className="gp-sidebar-news-skeleton-copy">
+      <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-news-skeleton-date" />
+      <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-news-skeleton-title" />
+      <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-news-skeleton-title-short" />
+    </div>
+    <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-news-skeleton-chevron" />
   </div>
 );
 
@@ -76,15 +78,14 @@ export const SidebarNewsPanel = React.memo(({
   isLoading,
   newsKey,
   onHoverChange,
-  unavailableState,
 }: SidebarNewsPanelProps) => (
   <div
     className="gp-sidebar-news-container"
     onMouseEnter={() => onHoverChange(true)}
     onMouseLeave={() => onHoverChange(false)}
-    style={{ ...NEWS_CARD_VIEWPORT_STYLE, height: activeNews || isLoading ? "70px" : "auto" }}
+    style={NEWS_CARD_VIEWPORT_STYLE}
   >
-    {isLoading ? (
+    {isLoading || !activeNews ? (
       <SidebarNewsSkeleton />
     ) : activeNews ? (
       <AnimatePresence mode="wait" initial={false}>
@@ -109,9 +110,7 @@ export const SidebarNewsPanel = React.memo(({
           </div>
         </motion.a>
       </AnimatePresence>
-    ) : (
-      unavailableState
-    )}
+    ) : null}
   </div>
 ));
 

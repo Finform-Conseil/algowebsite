@@ -7,7 +7,6 @@ import DrawingTools from './DrawingTools';
 import SentimentGauge from './SentimentGauge';
 import SymbolSearchModal from './SymbolSearchModal';
 import IndicatorsModal from './IndicatorsModal';
-import AlertsModal from './AlertsModal';
 import ReplayModal from './ReplayModal';
 import ActiveIndicatorsList from './ActiveIndicatorsList';
 import IndicatorConfigModal from './IndicatorConfigModal';
@@ -17,6 +16,29 @@ import { ActiveIndicator, IndicatorConfig, INDICATOR_CONFIGS } from '@/types/ind
 interface IndependentChartViewProps {
   chartId: number;
 }
+
+type IndependentAlertField = "price" | "volume";
+type IndependentAlertOperator = ">" | "<" | ">=" | "<=" | "==";
+
+interface IndependentAlertDraft {
+  field: IndependentAlertField;
+  operator: IndependentAlertOperator;
+  value: string;
+  message: string;
+}
+
+interface IndependentAlertRecord {
+  id: string;
+  symbol: string;
+  field: IndependentAlertField;
+  operator: IndependentAlertOperator;
+  value: number;
+  message: string;
+  createdAt: string;
+  active: boolean;
+}
+
+const INDEPENDENT_ALERT_OPERATORS: IndependentAlertOperator[] = [">", "<", ">=", "<=", "=="];
 
 export default function IndependentChartView({ chartId }: IndependentChartViewProps) {
   const [selectedInterval, setSelectedInterval] = useState('1M');
@@ -30,7 +52,14 @@ export default function IndependentChartView({ chartId }: IndependentChartViewPr
   // États des modals (propres à ce chart)
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showIndicators, setShowIndicators] = useState(false);
-  const [showAlerts, setShowAlerts] = useState(false);
+  const [isAlertsPanelOpen, setIsAlertsPanelOpen] = useState(false);
+  const [alertDraft, setAlertDraft] = useState<IndependentAlertDraft>({
+    field: "price",
+    operator: ">",
+    value: String(DEMO_STOCK.currentPrice),
+    message: "",
+  });
+  const [alerts, setAlerts] = useState<IndependentAlertRecord[]>([]);
   const [showReplay, setShowReplay] = useState(false);
   const [showIndicatorConfig, setShowIndicatorConfig] = useState(false);
   const [selectedIndicatorConfig, setSelectedIndicatorConfig] = useState<IndicatorConfig | null>(null);
@@ -91,9 +120,66 @@ export default function IndependentChartView({ chartId }: IndependentChartViewPr
     setActiveIndicators(prev => prev.filter(ind => ind.instanceId !== instanceId));
   };
 
-  const handleCreateAlert = (alert: any) => {
-    console.log('Alert créée:', alert);
-    setShowAlerts(false);
+  const parsedAlertValue = useMemo(() => {
+    return Number(alertDraft.value.trim().replace(/\s/g, "").replace(",", "."));
+  }, [alertDraft.value]);
+
+  const isAlertDraftValid = Number.isFinite(parsedAlertValue) && parsedAlertValue > 0;
+
+  const openAlertsPanel = () => {
+    setShowSidePanel(true);
+    setIsAlertsPanelOpen(true);
+  };
+
+  const handleSaveAlert = () => {
+    if (!isAlertDraftValid) {
+      return;
+    }
+
+    const message = alertDraft.message.trim() || [
+      currentSymbol,
+      alertDraft.field,
+      alertDraft.operator,
+      parsedAlertValue,
+    ].join(" ");
+
+    setAlerts((currentAlerts) => [
+      {
+        id: "independent-alert-" + Date.now(),
+        symbol: currentSymbol,
+        field: alertDraft.field,
+        operator: alertDraft.operator,
+        value: parsedAlertValue,
+        message,
+        createdAt: new Date().toISOString(),
+        active: true,
+      },
+      ...currentAlerts,
+    ].slice(0, 8));
+
+    setAlertDraft({
+      field: "price",
+      operator: ">",
+      value: String(DEMO_STOCK.currentPrice),
+      message: "",
+    });
+  };
+
+  const handleRemoveAlert = (alertId: string) => {
+    setAlerts((currentAlerts) => currentAlerts.filter((alert) => alert.id !== alertId));
+  };
+
+  const handleToggleAlert = (alertId: string) => {
+    setAlerts((currentAlerts) => currentAlerts.map((alert) => {
+      if (alert.id !== alertId) {
+        return alert;
+      }
+
+      return {
+        ...alert,
+        active: !alert.active,
+      };
+    }));
   };
 
   return (
@@ -111,7 +197,7 @@ export default function IndependentChartView({ chartId }: IndependentChartViewPr
         onSymbolSearch={() => setShowSymbolSearch(true)}
         onAddSymbol={() => setShowSymbolSearch(true)}
         onOpenIndicators={() => setShowIndicators(true)}
-        onOpenAlerts={() => setShowAlerts(true)}
+        onOpenAlerts={openAlertsPanel}
         onOpenReplay={() => setShowReplay(true)}
                 addedSymbols={addedSymbols}
         onRemoveSymbol={handleRemoveSymbol}
@@ -158,6 +244,117 @@ export default function IndependentChartView({ chartId }: IndependentChartViewPr
                 <span className="info-value">#{chartId}</span>
               </div>
             </div>
+
+            {isAlertsPanelOpen && (
+              <section className="side-panel-section independent-alerts-panel" aria-label="Alertes du graphique">
+                <div className="section-header">
+                  <h3>Alertes</h3>
+                  <button
+                    type="button"
+                    className="side-panel-close"
+                    onClick={() => setIsAlertsPanelOpen(false)}
+                    aria-label="Fermer le panneau alertes"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="stock-info-card">
+                  <div className="info-row">
+                    <span className="info-label">Symbole:</span>
+                    <span className="info-value">{currentSymbol}</span>
+                  </div>
+                  <label className="form-label" htmlFor={"alert-field-" + chartId}>Champ</label>
+                  <select
+                    id={"alert-field-" + chartId}
+                    className="form-select"
+                    value={alertDraft.field}
+                    onChange={(event) => setAlertDraft((draft) => ({
+                      ...draft,
+                      field: event.target.value as IndependentAlertField,
+                    }))}
+                  >
+                    <option value="price">Prix</option>
+                    <option value="volume">Volume</option>
+                  </select>
+
+                  <label className="form-label" htmlFor={"alert-operator-" + chartId}>Condition</label>
+                  <select
+                    id={"alert-operator-" + chartId}
+                    className="form-select"
+                    value={alertDraft.operator}
+                    onChange={(event) => setAlertDraft((draft) => ({
+                      ...draft,
+                      operator: event.target.value as IndependentAlertOperator,
+                    }))}
+                  >
+                    {INDEPENDENT_ALERT_OPERATORS.map((operator) => (
+                      <option key={operator} value={operator}>{operator}</option>
+                    ))}
+                  </select>
+
+                  <label className="form-label" htmlFor={"alert-value-" + chartId}>Seuil</label>
+                  <input
+                    id={"alert-value-" + chartId}
+                    className="form-input"
+                    inputMode="decimal"
+                    value={alertDraft.value}
+                    onChange={(event) => setAlertDraft((draft) => ({
+                      ...draft,
+                      value: event.target.value,
+                    }))}
+                  />
+
+                  <label className="form-label" htmlFor={"alert-message-" + chartId}>Message</label>
+                  <input
+                    id={"alert-message-" + chartId}
+                    className="form-input"
+                    value={alertDraft.message}
+                    onChange={(event) => setAlertDraft((draft) => ({
+                      ...draft,
+                      message: event.target.value,
+                    }))}
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!isAlertDraftValid}
+                    onClick={handleSaveAlert}
+                  >
+                    Creer alerte
+                  </button>
+                </div>
+
+                <div className="active-indicators-list">
+                  {alerts.length === 0 ? (
+                    <p className="no-indicators">Aucune alerte locale</p>
+                  ) : (
+                    alerts.map((alert) => (
+                      <div key={alert.id} className="indicator-tag">
+                        <button
+                          type="button"
+                          className="remove-indicator"
+                          onClick={() => handleToggleAlert(alert.id)}
+                          aria-label={alert.active ? "Desactiver alerte" : "Activer alerte"}
+                        >
+                          {alert.active ? "●" : "○"}
+                        </button>
+                        <span>{alert.message}</span>
+                        <button
+                          type="button"
+                          className="remove-indicator"
+                          onClick={() => handleRemoveAlert(alert.id)}
+                          aria-label="Supprimer alerte"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
 
             <h3 style={{ marginTop: '1.5rem' }}>Sentiment du Marché</h3>
             <SentimentGauge buyPercent={65} holdPercent={20} sellPercent={15} />
@@ -215,13 +412,6 @@ export default function IndependentChartView({ chartId }: IndependentChartViewPr
         indicatorConfig={selectedIndicatorConfig}
         existingIndicator={editingIndicator}
         onSave={handleSaveIndicator}
-      />
-
-      <AlertsModal
-        isOpen={showAlerts}
-        onClose={() => setShowAlerts(false)}
-        currentSymbol={currentSymbol}
-        onCreateAlert={handleCreateAlert}
       />
 
       <ReplayModal

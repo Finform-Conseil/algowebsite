@@ -27,7 +27,8 @@ import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { AdvancedIndicatorsState } from "../../../config/indicators/advancedIndicatorsTypes";
 import type { ObjectTreePanelTab, DataWindowCandleValues } from "../../../config/object-tree/objectTreeTypes";
 import type { ChartAppearance, ChartState } from "../../../config/state/chartStateTypes";
-import { setAdvancedIndicators, setChartAppearance, setChartConfig, removeComparisonSymbol } from "../../../store/technicalAnalysisSlice";
+import type { PineChartOverlayPayload } from "../../../components/sidebar/panels/pineEditor/pineTypes";
+import { setAdvancedIndicators, setChartAppearance, setChartConfig, removeComparisonSymbol, clearPineChartOverlay } from "../../../store/technicalAnalysisSlice";
 import { resolveTrendSignalSourceAveragePeriods } from "../../../config/indicators/movingAverageSeries";
 import { resolvePriceVsSmaSourceAveragePeriods } from "../../../config/indicators/priceVsSmaMetrics";
 import { resolvePriceVsEmaSourceAveragePeriods } from "../../../config/indicators/priceVsEmaMetrics";
@@ -106,6 +107,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const priceVsSmaMetricState = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsSmaMetrics);
   const priceVsEmaMetricState = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsEmaMetrics);
   const indicatorPeriods = useSelector((state: RootState) => state.technicalAnalysis.indicatorPeriods);
+  const pineChartOverlay = useSelector((state: RootState) => state.technicalAnalysis.pineChartOverlay);
   const movingAverageTrendSignals = useMemo(
     () => resolveTrendSignalSourceAveragePeriods(movingAverageTrendSignalState),
     [movingAverageTrendSignalState],
@@ -178,6 +180,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         return;
       case "remove-comparison":
         dispatch(removeComparisonSymbol(action.symbol));
+        return;
+      case "remove-pine-overlay":
+        dispatch(clearPineChartOverlay());
         return;
       case "patch-indicators":
         patchChartIndicators(action.patch);
@@ -304,6 +309,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     movingAverageTrendSignals,
     priceVsSmaSourcePeriods,
     priceVsEmaSourcePeriods,
+    pineChartOverlay,
   });
 
   const selectedObject = objectTreeItems.find((item) => item.id === selectedObjectId) ?? null;
@@ -371,12 +377,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       </div>
 
       {/* Content area (scrollable) */}
-      <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="gp-object-tree-scrollpane" style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column" }}>
         {activeTab === "object_tree" ? (
           <>
             <ObjectTreeActionToolbar
               activeMenu={activeMenu}
               selectedObject={selectedObject}
+              canUseDrawingActions={Boolean(selectedDrawingId)}
               onGroupCreate={handleGroupCreateClick}
               onCloneSelected={handleCloneClick}
               onToggleZOrderMenu={handleZOrderMenuClick}
@@ -464,7 +471,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
           </>
         ) : (
-          <DataWindowTab data={dataWindow} />
+          <DataWindowTab data={dataWindow} symbolDisplay={symbolDisplay} />
         )}
       </div>
     </div>

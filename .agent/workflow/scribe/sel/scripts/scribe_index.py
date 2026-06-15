@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 INDEX_VERSION = 3
+RECOMMENDATION_POLICY_VERSION = 2
 DEFAULT_INDEX_NAME = "scribe-index.json"
 SYNONYMS = {
     "app": {"application"},
@@ -110,7 +111,11 @@ def read_index(index_path: Path) -> dict[str, Any] | None:
 def index_is_fresh(payload: dict[str, Any] | None, source_sha256: str) -> bool:
     if not payload:
         return False
-    return payload.get("version") == INDEX_VERSION and payload.get("source_sha256") == source_sha256
+    return (
+        payload.get("version") == INDEX_VERSION
+        and payload.get("recommendation_policy_version") == RECOMMENDATION_POLICY_VERSION
+        and payload.get("source_sha256") == source_sha256
+    )
 
 
 def build_quick_index_payload(store, source: dict[str, Any]) -> dict[str, Any]:
@@ -134,6 +139,7 @@ def build_quick_index_payload(store, source: dict[str, Any]) -> dict[str, Any]:
     stale_warm_patterns = stale_warm_patterns_without_causal_source(store.entities, session_total(store))
     payload = {
         "version": INDEX_VERSION,
+        "recommendation_policy_version": RECOMMENDATION_POLICY_VERSION,
         "complete": True,
         "source": str(store.path),
         "schema_version": store.data.get("schema_version"),

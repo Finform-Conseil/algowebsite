@@ -51,26 +51,89 @@ protocole complet.
 - CLI lecture agent: `{RAG_COMMAND}`
 - Protocole complet: `{SEL_RELATIVE_PATH}/docs/scribe.md`
 - Regles locales: `{SEL_RELATIVE_PATH}/docs/AGENTS.md`
+- Politique de friction: `{SEL_RELATIVE_PATH}/docs/friction-policy.md`
 - Installation multi-agent: `{SEL_RELATIVE_PATH}/docs/multi-agent-installation.md`
+- Coordination live: `{SEL_RELATIVE_PATH}/docs/live-coordination.md`
+- Skill init: `.agent/skills/init-tenor/SKILL.md`
 
 Tout chemin SCRIBE hors de `{BUNDLE_RELATIVE_PATH}/` est non canonique. Ne pas
 creer de dossier de compatibilite visible; corriger les anciens appels vers les
 commandes ci-dessus.
 
-## Reflexe de demarrage
+## Etat stabilise 2026-06-01
+
+Le bundle est stable et ne doit plus etre perfectionne hors bug reel:
+
+- SEL: tests verts (`81 OK` apres les tests lock ownership).
+- RAG: tests verts (`25 OK`).
+- Gate/eval: `{RAG_COMMAND} gate` vert a `8/8`.
+- Doctor: `0 error`; `W009` legacy pre-V3.2 reste cosmetique.
+- Identite/presence: `os.getpid()` utilise, stale PID nettoye, IDs/PIDs simultanes distincts.
+- Coordination: claims avec `ttl_seconds` et `expires_at`; claims expires ou sans TTL nettoyes.
+- Lock: `release` verifie agent/surface avant de nettoyer un stale lock; utiliser `SCRIBE_OWNER_PID` ou `--owner-pid` pour representer un processus proprietaire long-vivant.
+- Backup de reference: `~/backups/agent-scribe-stable-20260601.tar.gz`.
+- Ratio causal mesure: environ `17.5%`, cible `35%`; ne jamais creer de SCAR/GHOST/PAT cosmetique pour gonfler ce ratio.
+
+Instruction operationnelle: STOP `.agent`. Revenir au vrai projet. Ne rouvrir
+le chantier SCRIBE que pour un bug SCRIBE observe, un test rouge, ou une derive
+documentaire concrete.
+
+## Reflexe de demarrage par tier
 
 Depuis la racine du projet:
 
 ```bash
 {BUNDLE_COMMAND} bootstrap
-{BUNDLE_COMMAND} sync --agent <name> --type <extension|cli|api|unknown>
-{RAG_COMMAND} build
+```
+
+`bootstrap` est idempotent et initialise seulement ce qui manque:
+`AGENT-MEMOIRE_PROJECT_STATUS.scribe`, `scribe-out/`, `state.json`,
+`.graphifyignore` et le bloc gere de `AGENTS.md`. Il ne lance aucun daemon.
+
+Mode NANO, correction < 30 min, 1 fichier, sans surface partagee:
+
+```bash
 {RAG_COMMAND} context
 ```
 
-`bootstrap` est idempotent. Il initialise seulement ce qui manque:
-`AGENT-MEMOIRE_PROJECT_STATUS.scribe`, `scribe-out/`, `state.json`,
-`.graphifyignore` et le bloc gere de `AGENTS.md`. Il ne lance aucun daemon.
+Mode STANDARD, changement significatif:
+
+```bash
+{RAG_COMMAND} build
+{RAG_COMMAND} context
+{RAG_COMMAND} challenge "<plan>"
+```
+
+Mode CRITICAL ou mutation SCRIBE/surface partagee:
+
+```bash
+{BUNDLE_COMMAND} workflow read --agent <name> --type <extension|cli|api|unknown>
+{BUNDLE_COMMAND} workflow check --agent <name>
+{BUNDLE_COMMAND} sync --agent <name> --type <extension|cli|api|unknown>
+{RAG_COMMAND} preflight --tier CRITICAL --strict "<objectif ou plan de session>"
+```
+
+`workflow read` calcule le SHA du workflow canonique et enregistre l'ack dans
+`scribe-out/workflow-acks.json`. `workflow check` doit etre vert avant toute
+mutation SCRIBE ou surface partagee.
+
+En mode 4 terminaux, ne pas imposer de noms fixes. Chaque terminal demarre en
+presence `idle`, obtient son ID via `scribe whoami`, lit `coordination status`,
+puis prend un `coordination claim` seulement quand une tache concrete arrive.
+`workflow status` affiche le pool reel; `--required ... --strict` sert uniquement
+si une liste nommee est imposee.
+
+```bash
+{BUNDLE_COMMAND} whoami --type cli --surface idle
+{BUNDLE_COMMAND} coordination status
+{BUNDLE_COMMAND} workflow status
+```
+
+Preuve minimale attendue dans chaque reponse de travail non triviale:
+`SCRIBE_RAG_PROOF: preflight <tier> | eval X/8 | challenge <VERDICT>`.
+Si `preflight` signale `HYBRID_REQUIRED`, reconstruire avec
+`scribe-rag build --with-embeddings --force` ou justifier explicitement le
+maintien BM25.
 
 ## Dashboard SCRIBE
 
@@ -89,6 +152,7 @@ live/reload; ce processus s'arrete avec Ctrl+C et n'est jamais demarre par
 Avant toute commande qui modifie la memoire:
 
 ```bash
+{BUNDLE_COMMAND} workflow check --agent <name>
 {BUNDLE_COMMAND} doctor --suggest-fix
 {BUNDLE_COMMAND} lock acquire --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>
 ```
@@ -101,9 +165,15 @@ Apres validation:
 {BUNDLE_COMMAND} lock release --agent <name>
 ```
 
+`lock acquire` refuse un agent sans ack workflow frais. Utiliser `--surface <nom>`
+pour reserver une surface partagee non-SCRIBE avec le meme garde-fou. `lock release`
+ne supprime plus le stale lock d'un autre agent: il verifie agent et surface avant
+nettoyage.
+
 Les commandes SEL read-only de maintenance (`explain`, `related`, `stats`, `doctor`)
 ne doivent pas etre bloquees par le lock. Pour le retrieval agent, ne pas appeler
-`scribe context` ni `scribe query` directement; utiliser `scribe-rag`.
+`scribe context` ni `scribe query` directement; utiliser `scribe-rag preflight`, puis
+`scribe-rag query/explain/challenge` selon le besoin.
 
 ## Separation Graphify / SCRIBE
 
@@ -127,7 +197,9 @@ prochain agent.
   l'outillage agentique; sinon le garder hors des commits produit.
 
 Avant livraison, utiliser `{BUNDLE_COMMAND} worktree` pour separer source
-reelle, memoire causale validee, tooling volontaire et bruit genere.
+reelle, memoire causale validee, tooling volontaire et bruit genere. Quand le bundle
+SCRIBE/RAG change, lancer aussi `{RAG_COMMAND} gate`; le gate doit rester a 8/8
+pour CI/pre-commit.
 
 ## Intention finale obligatoire
 
@@ -139,10 +211,8 @@ Si la reponse est une douleur concrete, la graver en SCAR ou GHOST. Sinon, le
 JOURNAL suffit.
 """
 
-
 def render_scribe_adapter() -> str:
-    return '#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport runpy\nimport sys\nfrom pathlib import Path\n\n\nsys.dont_write_bytecode = True\n\n\nMEMORY_COMMANDS = {\n    "hot",\n    "context",\n    "stats",\n    "explain",\n    "related",\n    "query",\n    "challenge",\n    "eval",\n    "compact",\n    "review-hot",\n    "promote",\n    "export",\n    "archive",\n    "dashboard",\n}\n\n\ndef main() -> int:\n    root = Path(__file__).resolve().parent\n    scripts_dir = root / ".agent" / "workflow" / "scribe" / "sel" / "scripts"\n    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:\n        print("Usage:")\n        print("  ./scribe doctor [SCRIBE_PATH] [--output REPORT] [--suggest-fix]")\n        print("  ./scribe guard [SCRIBE_PATH] -- <command> [args...]")\n        print("  ./scribe install [TARGET_PATH] [--force] [--dry-run]")\n        print("  ./scribe bootstrap [--root PATH]")\n        print("  ./scribe clean --dry-run|--apply [--graphify] [--agent-cache]")\n        print("  ./scribe lock acquire|release|status")\n        print("  ./scribe sync|whoami")\n        print("  ./scribe hot|context|stats|explain|related|query|challenge|eval|compact|review-hot|promote|export|archive|dashboard")\n        print("  ./scribe graph [--build] [--query TEXT] [--budget N]")\n        print("  ./scribe graphify-hooks [--apply] [--template PATH] [--trusted-hooks PATH]")\n        print("  ./scribe benchmark [--entities 1000,10000] [--queries N] [--json]")\n        print("  ./scribe worktree [--strict]")\n        return 0\n\n    command = sys.argv.pop(1)\n    scripts = {\n        "doctor": "scribe_doctor.py",\n        "guard": "scribe_guard.py",\n        "install": "scribe_install.py",\n        "bootstrap": "scribe_bootstrap.py",\n        "clean": "scribe_clean.py",\n        "lock": "scribe_lock.py",\n        "sync": "scribe_state.py",\n        "whoami": "scribe_state.py",\n        "graph": "scribe_bundle_graph.py",\n        "worktree": "scribe_worktree.py",\n        "benchmark": "scribe_benchmark.py",\n        "graphify-hooks": "scribe_graphify_hooks.py",\n    }\n    for memory_command in MEMORY_COMMANDS:\n        scripts[memory_command] = "scribe_memory.py"\n    script = scripts.get(command)\n    if script is None:\n        print(f"Unknown scribe command: {command}", file=sys.stderr)\n        print("Available commands: doctor, guard, install, bootstrap, clean, hot, context, stats, explain, related, query, challenge, eval, compact, review-hot, promote, export, archive, dashboard, lock, sync, whoami, graph, graphify-hooks, benchmark, worktree", file=sys.stderr)\n        return 2\n\n    if command in MEMORY_COMMANDS:\n        sys.argv.insert(1, command)\n    if command in {"sync", "whoami"}:\n        sys.argv.insert(1, command)\n    sys.path.insert(0, str(scripts_dir))\n    runpy.run_path(str(scripts_dir / script), run_name="__main__")\n    return 0\n\n\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
-
+    return '#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport runpy\nimport sys\nfrom pathlib import Path\n\n\nsys.dont_write_bytecode = True\n\n\nMEMORY_COMMANDS = {\n    "hot",\n    "context",\n    "stats",\n    "explain",\n    "related",\n    "query",\n    "challenge",\n    "eval",\n    "compact",\n    "review-hot",\n    "promote",\n    "export",\n    "archive",\n    "dashboard",\n}\n\n\ndef main() -> int:\n    root = Path(__file__).resolve().parent\n    scripts_dir = root / ".agent" / "workflow" / "scribe" / "sel" / "scripts"\n    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:\n        print("Usage:")\n        print("  ./scribe doctor [SCRIBE_PATH] [--output REPORT] [--suggest-fix]")\n        print("  ./scribe guard [SCRIBE_PATH] -- <command> [args...]")\n        print("  ./scribe install [TARGET_PATH] [--force] [--dry-run]")\n        print("  ./scribe bootstrap [--root PATH]")\n        print("  ./scribe clean --dry-run|--apply [--graphify] [--agent-cache]")\n        print("  ./scribe lock acquire|release|status")\n        print("  ./scribe sync|whoami")\n        print("  ./scribe workflow read|check|status")\n        print("  ./scribe hot|context|stats|explain|related|query|challenge|eval|compact|review-hot|promote|export|archive|dashboard")\n        print("  ./scribe graph [--build] [--query TEXT] [--budget N]")\n        print("  ./scribe graphify-hooks [--apply] [--template PATH] [--trusted-hooks PATH]")\n        print("  ./scribe benchmark [--entities 1000,10000] [--queries N] [--json]")\n        print("  ./scribe worktree [--strict]")\n        return 0\n\n    command = sys.argv.pop(1)\n    scripts = {\n        "doctor": "scribe_doctor.py",\n        "guard": "scribe_guard.py",\n        "install": "scribe_install.py",\n        "bootstrap": "scribe_bootstrap.py",\n        "clean": "scribe_clean.py",\n        "lock": "scribe_lock.py",\n        "sync": "scribe_state.py",\n        "whoami": "scribe_state.py",\n        "workflow": "scribe_state.py",\n        "graph": "scribe_bundle_graph.py",\n        "worktree": "scribe_worktree.py",\n        "benchmark": "scribe_benchmark.py",\n        "graphify-hooks": "scribe_graphify_hooks.py",\n    }\n    for memory_command in MEMORY_COMMANDS:\n        scripts[memory_command] = "scribe_memory.py"\n    script = scripts.get(command)\n    if script is None:\n        print(f"Unknown scribe command: {command}", file=sys.stderr)\n        print(\n            "Available commands: doctor, guard, install, bootstrap, clean, hot, context, stats, explain, related, query, "\n            "challenge, eval, compact, review-hot, promote, export, archive, dashboard, lock, sync, whoami, workflow, graph, graphify-hooks, benchmark, worktree",\n            file=sys.stderr,\n        )\n        return 2\n\n    if command in MEMORY_COMMANDS:\n        sys.argv.insert(1, command)\n    if command in {"sync", "whoami", "workflow"}:\n        sys.argv.insert(1, command)\n    sys.path.insert(0, str(scripts_dir))\n    runpy.run_path(str(scripts_dir / script), run_name="__main__")\n    return 0\n\n\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
 
 def render_shim_helper() -> str:
     return '''from __future__ import annotations
@@ -234,40 +304,55 @@ def render_agents_block() -> str:
     return f"""{AGENTS_START}
 ## SCRIBE/TENOR Local Causal Retrieval Bundle
 
-The reusable SCRIBE/TENOR local causal retrieval bundle lives in:
+Bundle root: `{BUNDLE_RELATIVE_PATH}/`
 
-- `{BUNDLE_RELATIVE_PATH}/`
+Canonical commands:
+- Maintenance/write engine: `{BUNDLE_COMMAND}`
+- Agent read interface: `{RAG_COMMAND}`
+- Local rules: `{SEL_RELATIVE_PATH}/docs/AGENTS.md`
+- Always-on summary: `{SCRIBE_RULE_PATH}`
+- Full protocol: `{SEL_RELATIVE_PATH}/docs/scribe.md`
+- Multi-agent install: `{SEL_RELATIVE_PATH}/docs/multi-agent-installation.md`
+- Friction policy: `{SEL_RELATIVE_PATH}/docs/friction-policy.md`
 
-Read `{SEL_RELATIVE_PATH}/docs/AGENTS.md` for local rules.
-Read `{SCRIBE_RULE_PATH}` as the host-agent always-on summary; the full protocol remains in `{SEL_RELATIVE_PATH}/docs/scribe.md`.
+Current stable baseline (2026-06-01): SEL `81 OK`, RAG `25 OK`, gate/eval
+`8/8`, doctor `0 error` with only cosmetic `W009`. STOP `.agent`: use SCRIBE as
+memory and guardrail, then return to product work unless a real SCRIBE bug appears.
 
-Critical local rules:
-- SEL internal engine from the project root: `{BUNDLE_COMMAND}`. Do not call SEL directly for agent retrieval; use it only for bootstrap, doctor, lock, sync/state, export, archive, graph maintenance, and SCRIBE writes.
-- Agent retrieval interface: `{RAG_COMMAND}` only. Use scribe-rag for `build`, `context`, `query`, `explain`, and `challenge`; it calls SEL internally through the portable SEL command.
-- First command after copying `{BUNDLE_RELATIVE_PATH}/` into a project: `{BUNDLE_COMMAND} bootstrap`. It is idempotent, initializes only missing project-local surfaces, and never starts a daemon.
-- Any SCRIBE path outside `{BUNDLE_RELATIVE_PATH}/` is non-canonical; old callers must migrate to the root commands above instead of recreating compatibility folders.
-- Do not assume root `./scribe` or root `scripts/` exist; they are opt-in legacy adapters generated only with `{BUNDLE_COMMAND} install --with-root-adapters`.
-- Dashboard is available as `{BUNDLE_COMMAND} dashboard` for static HTML and `{BUNDLE_COMMAND} dashboard --serve --host 127.0.0.1 --port 8765` for an opt-in local live server.
-- For installation, migration, or several agents working on the same repo, read `{SEL_RELATIVE_PATH}/docs/multi-agent-installation.md` before editing.
+## PRÉFLIGHT (copier-coller direct)
+
+Mode NANO (< 30 min, 1 file):
+
+```bash
+{RAG_COMMAND} context
+```
+
+Mode STANDARD (> 30 min):
+
+```bash
+{RAG_COMMAND} build
+{RAG_COMMAND} context
+{RAG_COMMAND} challenge "<plan>"
+```
+
+Mode CRITICAL or SCRIBE/shared-surface mutation:
+
+```bash
+{BUNDLE_COMMAND} workflow read --agent <name> --type <extension|cli|api|unknown>
+{BUNDLE_COMMAND} workflow check --agent <name>
+{RAG_COMMAND} preflight --tier CRITICAL --strict "<plan>"
+```
+
+## Rules
+
+- Use `scribe-rag` for retrieval: `preflight`, `context`, `query`, `explain`, `challenge`, `eval`, `gate`, `whoami`.
+- Do not use SEL direct retrieval (`scribe context`, `scribe query`, `scribe explain`) for normal agent work.
 - Read `graphify-out/GRAPH_REPORT.md` before architecture or codebase work when it exists.
-- Keep root `graphify-out/` focused on application code; SCRIBE/TENOR tooling is ignored by root `.graphifyignore`.
-- Use `{BUNDLE_COMMAND} graph --build` and `{BUNDLE_COMMAND} graph --query "..."` for a separate bundle graph under `scribe-out/bundle-graph/scribe/`.
-- Default commit/push scope is the host product source. Version `AGENT-MEMOIRE_PROJECT_STATUS.scribe` only when shared causal memory is desired; keep `graphify-out/` and `scribe-out/` out of commits by default; version `.agent/` only when intentionally maintaining agent tooling.
-- Choose the smallest safe tier from `{SEL_RELATIVE_PATH}/docs/friction-policy.md`; READ_ONLY skips doctor/SCRIBE writes, QUICK skips full ceremony unless risk escalates.
-- Final standard preflight: `{RAG_COMMAND} build` if the index is stale, `{RAG_COMMAND} context`, `graphify update .` when app code changed, then `sed -n "1,100p" graphify-out/GRAPH_REPORT.md`. Before significant implementation, run `{RAG_COMMAND} challenge "<plan>"`; STOP means do not implement, REVIEW means read warnings then decide, and PROCEED means continue.
-- Never use SEL direct retrieval commands in AGENTS.md or agent preflight: no `{BUNDLE_COMMAND} context`, no `{BUNDLE_COMMAND} query`, and no SEL direct challenge for normal agent work.
-- Hybrid activation signal: if `{RAG_COMMAND} eval --force` drops below 7/8, install `sentence-transformers` and run `{RAG_COMMAND} build --with-embeddings --force`; after that build, scribe-rag reads the hybrid index automatically. BM25 remains canonical while eval stays >= 7/8.
-- Run `{BUNDLE_COMMAND} sync --agent <name> --type <extension|cli|api|unknown>` before work; if it reports stale state, relire/re-sync before editing.
-- Run `{BUNDLE_COMMAND} clean --dry-run` before delivery when `scribe-out/` has accumulated generated reports, exports, screenshots, or cache noise.
-- Use `{BUNDLE_COMMAND} doctor --suggest-fix` before and after editing `AGENT-MEMOIRE_PROJECT_STATUS.scribe`.
-- Before mutating SCRIBE state, acquire `{BUNDLE_COMMAND} lock acquire --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>` and release it after validation; doctor and read-only commands stay unblocked.
-- `{RAG_COMMAND} query` searches causal SCRIBE memory through the BM25 canonical interface; Graphify remains responsible for structural code facts.
-- `{BUNDLE_COMMAND} graphify-hooks --apply` reapplies and verifies the stdin-consuming Graphify hook patch after any Graphify reinstall or upgrade.
-- Graphify upstream PR diff is preserved in `{SEL_RELATIVE_PATH}/patches/graphify-upstream-hook-stdin.patch` when direct PR tooling is unavailable.
-- `{BUNDLE_COMMAND} worktree` separates generated noise from source changes before delivery.
+- If SCRIBE memory or shared surfaces are mutated, run workflow ack/check, doctor, lock acquire, sync, and lock release through `{BUNDLE_COMMAND}`.
+- Default commit/push scope is the host product source; keep `graphify-out/` and `scribe-out/` out of commits by default; version `.agent/` only when intentionally maintaining agent tooling.
+- Use `{RAG_COMMAND} gate` for bundle changes; it must stay green at 8/8.
 {AGENTS_END}
 """
-
 
 def render_graphify_block() -> str:
     return f"""{GRAPHIFY_START}

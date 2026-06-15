@@ -89,6 +89,7 @@ import {
   calculateHistoricalRecordLevels,
   calculatePriceActionSignals,
   calculateCandlestickPatterns,
+  calculateVolumeProfile,
   calculateIchimoku,
 } from "../Indicators/TechnicalIndicators";
 import { getEmaSeriesDataKey, getSmaSeriesDataKey, normalizeMovingAveragePeriods } from "../../config/indicators/movingAverageSeries";
@@ -130,6 +131,7 @@ self.onmessage = (e: MessageEvent) => {
     // 3. Execute Math based on Config
     const { indicators, advancedIndicators, indicatorPeriods, bollingerSettings } = config;
     const results: Record<string, Float64Array> = {};
+    const structuredResults: { volumeProfile?: ReturnType<typeof calculateVolumeProfile> } = {};
     const transferables: ArrayBuffer[] = [];
 
     // [worker] Helper to convert (number | string)[] to Float64Array
@@ -578,6 +580,15 @@ self.onmessage = (e: MessageEvent) => {
       results.vwapDistancePct = toFloatArray(vwap.distancePct);
     }
 
+    if (advancedIndicators.volumeProfile) {
+      structuredResults.volumeProfile = calculateVolumeProfile(chartData, {
+        rangeMode: "last_n_bars",
+        numberOfRows: 80,
+        valueAreaPercent: 70,
+        maxBars: Math.max(1, Math.min(150, chartData.length)),
+      });
+    }
+
     if (advancedIndicators.fiftyTwoWeekHigh || advancedIndicators.fiftyTwoWeekLow) {
       const levels = calculateFiftyTwoWeekLevels(chartData);
       if (advancedIndicators.fiftyTwoWeekHigh) {
@@ -648,6 +659,42 @@ self.onmessage = (e: MessageEvent) => {
       || advancedIndicators.takuri
       || advancedIndicators.invertedHammer
       || advancedIndicators.shootingStar
+      || advancedIndicators.engulfingBullish
+      || advancedIndicators.engulfingBearish
+      || advancedIndicators.haramiBullish
+      || advancedIndicators.haramiBearish
+      || advancedIndicators.tweezerTop
+      || advancedIndicators.tweezerBottom
+      || advancedIndicators.piercingLine
+      || advancedIndicators.darkCloudCover
+      || advancedIndicators.tasukiGap
+      || advancedIndicators.separatingLines
+      || advancedIndicators.thrusting
+      || advancedIndicators.counterattack
+      || advancedIndicators.morningStar
+      || advancedIndicators.eveningStar
+      || advancedIndicators.threeWhiteSoldiers
+      || advancedIndicators.threeBlackCrows
+      || advancedIndicators.threeInsideUp
+      || advancedIndicators.threeInsideDown
+      || advancedIndicators.uniqueThreeRiver
+      || advancedIndicators.upsideGapTwoCrows
+      || advancedIndicators.kickerBull
+      || advancedIndicators.kickerBear
+      || advancedIndicators.abandonedBabyBull
+      || advancedIndicators.abandonedBabyBear
+      || advancedIndicators.beltHoldBull
+      || advancedIndicators.beltHoldBear
+      || advancedIndicators.breakawayBull
+      || advancedIndicators.breakawayBear
+      || advancedIndicators.risingThreeMethods
+      || advancedIndicators.fallingThreeMethods
+      || advancedIndicators.matHold
+      || advancedIndicators.gapSideBySideWhite
+      || advancedIndicators.hikkake
+      || advancedIndicators.concealingBabySwallow
+      || advancedIndicators.ladderBottom
+      || advancedIndicators.stickSandwich
       || advancedIndicators.marubozuBull
       || advancedIndicators.marubozuBear
       || advancedIndicators.spinningTop;
@@ -680,6 +727,152 @@ self.onmessage = (e: MessageEvent) => {
         results.shootingStar = toFloatArray(patterns.shootingStar);
         results.shootingStarConfirmed = toFloatArray(patterns.shootingStarConfirmed);
       }
+      if (advancedIndicators.engulfingBullish) {
+        results.engulfingBullish = toFloatArray(patterns.engulfingBullish);
+        results.engulfingBullishConfirmed = toFloatArray(patterns.engulfingBullishConfirmed);
+      }
+      if (advancedIndicators.engulfingBearish) {
+        results.engulfingBearish = toFloatArray(patterns.engulfingBearish);
+        results.engulfingBearishConfirmed = toFloatArray(patterns.engulfingBearishConfirmed);
+      }
+      if (advancedIndicators.haramiBullish) {
+        results.haramiBullish = toFloatArray(patterns.haramiBullish);
+        results.haramiBullishConfirmed = toFloatArray(patterns.haramiBullishConfirmed);
+      }
+      if (advancedIndicators.haramiBearish) {
+        results.haramiBearish = toFloatArray(patterns.haramiBearish);
+        results.haramiBearishConfirmed = toFloatArray(patterns.haramiBearishConfirmed);
+      }
+      if (advancedIndicators.tweezerTop) {
+        results.tweezerTop = toFloatArray(patterns.tweezerTop);
+        results.tweezerTopConfirmed = toFloatArray(patterns.tweezerTopConfirmed);
+      }
+      if (advancedIndicators.tweezerBottom) {
+        results.tweezerBottom = toFloatArray(patterns.tweezerBottom);
+        results.tweezerBottomConfirmed = toFloatArray(patterns.tweezerBottomConfirmed);
+      }
+      if (advancedIndicators.piercingLine) {
+        results.piercingLine = toFloatArray(patterns.piercingLine);
+        results.piercingLineConfirmed = toFloatArray(patterns.piercingLineConfirmed);
+      }
+      if (advancedIndicators.darkCloudCover) {
+        results.darkCloudCover = toFloatArray(patterns.darkCloudCover);
+        results.darkCloudCoverConfirmed = toFloatArray(patterns.darkCloudCoverConfirmed);
+      }
+      if (advancedIndicators.tasukiGap) {
+        results.tasukiGap = toFloatArray(patterns.tasukiGap);
+        results.tasukiGapConfirmed = toFloatArray(patterns.tasukiGapConfirmed);
+      }
+      if (advancedIndicators.separatingLines) {
+        results.separatingLines = toFloatArray(patterns.separatingLines);
+        results.separatingLinesConfirmed = toFloatArray(patterns.separatingLinesConfirmed);
+      }
+      if (advancedIndicators.thrusting) {
+        results.thrusting = toFloatArray(patterns.thrusting);
+        results.thrustingConfirmed = toFloatArray(patterns.thrustingConfirmed);
+      }
+      if (advancedIndicators.counterattack) {
+        results.counterattack = toFloatArray(patterns.counterattack);
+        results.counterattackConfirmed = toFloatArray(patterns.counterattackConfirmed);
+      }
+      if (advancedIndicators.morningStar) {
+        results.morningStar = toFloatArray(patterns.morningStar);
+        results.morningStarConfirmed = toFloatArray(patterns.morningStarConfirmed);
+      }
+      if (advancedIndicators.eveningStar) {
+        results.eveningStar = toFloatArray(patterns.eveningStar);
+        results.eveningStarConfirmed = toFloatArray(patterns.eveningStarConfirmed);
+      }
+      if (advancedIndicators.threeWhiteSoldiers) {
+        results.threeWhiteSoldiers = toFloatArray(patterns.threeWhiteSoldiers);
+        results.threeWhiteSoldiersConfirmed = toFloatArray(patterns.threeWhiteSoldiersConfirmed);
+      }
+      if (advancedIndicators.threeBlackCrows) {
+        results.threeBlackCrows = toFloatArray(patterns.threeBlackCrows);
+        results.threeBlackCrowsConfirmed = toFloatArray(patterns.threeBlackCrowsConfirmed);
+      }
+      if (advancedIndicators.threeInsideUp) {
+        results.threeInsideUp = toFloatArray(patterns.threeInsideUp);
+        results.threeInsideUpConfirmed = toFloatArray(patterns.threeInsideUpConfirmed);
+      }
+      if (advancedIndicators.threeInsideDown) {
+        results.threeInsideDown = toFloatArray(patterns.threeInsideDown);
+        results.threeInsideDownConfirmed = toFloatArray(patterns.threeInsideDownConfirmed);
+      }
+      if (advancedIndicators.uniqueThreeRiver) {
+        results.uniqueThreeRiver = toFloatArray(patterns.uniqueThreeRiver);
+        results.uniqueThreeRiverConfirmed = toFloatArray(patterns.uniqueThreeRiverConfirmed);
+      }
+      if (advancedIndicators.upsideGapTwoCrows) {
+        results.upsideGapTwoCrows = toFloatArray(patterns.upsideGapTwoCrows);
+        results.upsideGapTwoCrowsConfirmed = toFloatArray(patterns.upsideGapTwoCrowsConfirmed);
+      }
+      if (advancedIndicators.kickerBull) {
+        results.kickerBull = toFloatArray(patterns.kickerBull);
+        results.kickerBullConfirmed = toFloatArray(patterns.kickerBullConfirmed);
+      }
+      if (advancedIndicators.kickerBear) {
+        results.kickerBear = toFloatArray(patterns.kickerBear);
+        results.kickerBearConfirmed = toFloatArray(patterns.kickerBearConfirmed);
+      }
+      if (advancedIndicators.abandonedBabyBull) {
+        results.abandonedBabyBull = toFloatArray(patterns.abandonedBabyBull);
+        results.abandonedBabyBullConfirmed = toFloatArray(patterns.abandonedBabyBullConfirmed);
+      }
+      if (advancedIndicators.abandonedBabyBear) {
+        results.abandonedBabyBear = toFloatArray(patterns.abandonedBabyBear);
+        results.abandonedBabyBearConfirmed = toFloatArray(patterns.abandonedBabyBearConfirmed);
+      }
+      if (advancedIndicators.beltHoldBull) {
+        results.beltHoldBull = toFloatArray(patterns.beltHoldBull);
+        results.beltHoldBullConfirmed = toFloatArray(patterns.beltHoldBullConfirmed);
+      }
+      if (advancedIndicators.beltHoldBear) {
+        results.beltHoldBear = toFloatArray(patterns.beltHoldBear);
+        results.beltHoldBearConfirmed = toFloatArray(patterns.beltHoldBearConfirmed);
+      }
+      if (advancedIndicators.breakawayBull) {
+        results.breakawayBull = toFloatArray(patterns.breakawayBull);
+        results.breakawayBullConfirmed = toFloatArray(patterns.breakawayBullConfirmed);
+      }
+      if (advancedIndicators.breakawayBear) {
+        results.breakawayBear = toFloatArray(patterns.breakawayBear);
+        results.breakawayBearConfirmed = toFloatArray(patterns.breakawayBearConfirmed);
+      }
+      if (advancedIndicators.risingThreeMethods) {
+        results.risingThreeMethods = toFloatArray(patterns.risingThreeMethods);
+        results.risingThreeMethodsConfirmed = toFloatArray(patterns.risingThreeMethodsConfirmed);
+      }
+      if (advancedIndicators.fallingThreeMethods) {
+        results.fallingThreeMethods = toFloatArray(patterns.fallingThreeMethods);
+        results.fallingThreeMethodsConfirmed = toFloatArray(patterns.fallingThreeMethodsConfirmed);
+      }
+      if (advancedIndicators.matHold) {
+        results.matHold = toFloatArray(patterns.matHold);
+        results.matHoldConfirmed = toFloatArray(patterns.matHoldConfirmed);
+      }
+      if (advancedIndicators.gapSideBySideWhite) {
+        results.gapSideBySideWhite = toFloatArray(patterns.gapSideBySideWhite);
+        results.gapSideBySideWhiteConfirmed = toFloatArray(patterns.gapSideBySideWhiteConfirmed);
+      }
+      if (advancedIndicators.hikkake) {
+        results.hikkake = toFloatArray(patterns.hikkake);
+        results.hikkakeConfirmed = toFloatArray(patterns.hikkakeConfirmed);
+      }
+      if (advancedIndicators.concealingBabySwallow) {
+        results.concealingBabySwallow = toFloatArray(patterns.concealingBabySwallow);
+        results.concealingBabySwallowConfirmed = toFloatArray(patterns.concealingBabySwallowConfirmed);
+      }
+      if (advancedIndicators.ladderBottom) {
+        results.ladderBottom = toFloatArray(patterns.ladderBottom);
+        results.ladderBottomConfirmed = toFloatArray(patterns.ladderBottomConfirmed);
+        results.ladderBottomBrvm = toFloatArray(patterns.ladderBottomBrvm);
+        results.ladderBottomBrvmConfirmed = toFloatArray(patterns.ladderBottomBrvmConfirmed);
+      }
+      if (advancedIndicators.stickSandwich) {
+        results.stickSandwich = toFloatArray(patterns.stickSandwich);
+        results.stickSandwichConfirmed = toFloatArray(patterns.stickSandwichConfirmed);
+      }
       if (advancedIndicators.marubozuBull) results.marubozuBull = toFloatArray(patterns.marubozuBull);
       if (advancedIndicators.marubozuBear) results.marubozuBear = toFloatArray(patterns.marubozuBear);
       if (advancedIndicators.spinningTop) results.spinningTop = toFloatArray(patterns.spinningTop);
@@ -695,7 +888,7 @@ self.onmessage = (e: MessageEvent) => {
 
     // 4. Send Results Back (Transferring ownership of all result buffers)
     // Echo messageId back to client
-    (self as any).postMessage({ messageId, success: true, results }, transferables);
+    (self as any).postMessage({ messageId, success: true, results, structuredResults }, transferables);
 
   } catch (error) {
     // Echo messageId back even on error

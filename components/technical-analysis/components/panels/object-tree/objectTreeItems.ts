@@ -11,6 +11,7 @@ import { ADVANCED_INDICATOR_LABELS } from "./objectTreeAdvancedLabels";
 import { buildAdvancedChildObjectTreeItems } from "./objectTreeAdvancedChildItems";
 import { getToolLabel } from "./objectTreeDrawingLabels";
 import type { ObjectTreeItem } from "./objectTreeItemTypes";
+import type { PineChartOverlayPayload } from "../../../components/sidebar/panels/pineEditor/pineTypes";
 
 type MovingAverageSignalSources = {
   sma: number[];
@@ -30,6 +31,7 @@ type BuildObjectTreeItemsInput = {
   movingAverageTrendSignals: MovingAverageSignalSources;
   priceVsSmaSourcePeriods: number[];
   priceVsEmaSourcePeriods: number[];
+  pineChartOverlay: PineChartOverlayPayload | null;
 };
 
 const VOLUME_COLOR = "#6256d9";
@@ -167,10 +169,30 @@ const buildAdvancedIndicatorItems = ({
   ];
 };
 
+const buildPineOverlayItem = ({
+  pineChartOverlay,
+  hiddenObjectIds,
+}: Pick<BuildObjectTreeItemsInput, "pineChartOverlay" | "hiddenObjectIds">): ObjectTreeItem[] => {
+  if (!pineChartOverlay) return [];
+  const id = "pine-overlay";
+  const seriesCount = pineChartOverlay.series.length;
+  const signalsCount = pineChartOverlay.signals.length;
+  const label = `${pineChartOverlay.title} (${seriesCount} series${signalsCount > 0 ? `, ${signalsCount} signals` : ""})`;
+  return [{
+    id,
+    label,
+    kind: "pine-overlay" as const,
+    visible: !hiddenObjectIds[id],
+    color: "#8b5cf6",
+    removable: true,
+  }];
+};
+
 export const buildObjectTreeItems = (input: BuildObjectTreeItemsInput): ObjectTreeItem[] => [
   ...buildBaseSeriesItems(input),
   ...buildActiveToolItem(input.activeTool, input.hiddenObjectIds),
   ...buildVolumeItem(input),
   ...buildMovingAverageItems(input),
   ...buildAdvancedIndicatorItems(input),
+  ...buildPineOverlayItem(input),
 ];

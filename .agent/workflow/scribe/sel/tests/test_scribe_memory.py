@@ -32,6 +32,7 @@ state_path_for_scribe = getattr(scribe_state, "state_path_for_scribe")
 
 scribe_index = load_script_module("scribe_index")
 quick_index_version = getattr(scribe_index, "INDEX_VERSION")
+quick_recommendation_policy_version = getattr(scribe_index, "RECOMMENDATION_POLICY_VERSION")
 
 scribe_doctor_lib = load_script_module("scribe_doctor_lib")
 run_doctor = getattr(scribe_doctor_lib, "run_doctor")
@@ -213,6 +214,7 @@ class ScribeMemoryCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "version": quick_index_version,
+                        "recommendation_policy_version": quick_recommendation_policy_version,
                         "source": str(path),
                         "source_sha256": "sha256:" + hashlib.sha256(source).hexdigest(),
                         "source_mtime_ns": path.stat().st_mtime_ns,
@@ -301,6 +303,7 @@ class ScribeMemoryCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "version": quick_index_version,
+                        "recommendation_policy_version": quick_recommendation_policy_version,
                         "complete": True,
                         "source": str(path),
                         "source_sha256": "sha256:" + hashlib.sha256(source).hexdigest(),
@@ -570,8 +573,12 @@ class ScribeMemoryCommandTests(unittest.TestCase):
             live_html = render_dashboard(payload, live_poll_interval_ms=500)
 
         self.assertNotIn("/api/scribe-state", static_html)
+        self.assertNotIn("/api/scribe-events", static_html)
+        self.assertIn("/api/scribe-events", live_html)
         self.assertIn("/api/scribe-state", live_html)
+        self.assertIn("EventSource", live_html)
         self.assertIn("pollIntervalMs = 1000", live_html)
+        self.assertIn("fallbackIntervalMs = Math.max(30000, pollIntervalMs * 10)", live_html)
         self.assertIn(payload["source_sha256"], live_html)
 
     def test_worktree_classifies_generated_noise(self) -> None:

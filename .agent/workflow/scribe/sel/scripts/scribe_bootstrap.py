@@ -326,6 +326,7 @@ def print_report(report: BootstrapReport) -> None:
     for error in report.errors:
         print(f"  error: {error}", file=sys.stderr)
     if report.new_project:
+        print("  next: run .agent/workflow/scribe/scribe-rag preflight --tier STANDARD \"<plan>\"")
         print("  next: read graphify-out/GRAPH_REPORT.md before application work.")
 
 

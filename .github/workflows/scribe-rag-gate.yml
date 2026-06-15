@@ -1,0 +1,22 @@
+name: SCRIBE RAG Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  scribe-rag-gate:
+    name: eval 8/8
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Enforce SCRIBE-RAG eval
+        run: .agent/workflow/scribe/scribe-rag gate

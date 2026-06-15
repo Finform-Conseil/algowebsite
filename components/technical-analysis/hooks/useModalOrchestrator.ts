@@ -15,7 +15,7 @@ import { idbGet, idbSet } from "./drawing/drawingPersistence";
  * TechnicalAnalysis.tsx as props passed down to ModalOrchestrator.
  * 
  * [TENOR 2026 SRE FIX] SCAR-ORCHESTRATOR-DELETE-SYNC
- * Fully migrated to IndexedDB (idbGet, idbSet) to eradicate localStorage limits
+ * Fully migrated to IndexedDB (idbGet, idbSet) to eradicate Web Storage limits
  * and ensure absolute data consistency with useTechnicalAnalysisActions.
  * 
  * Responsibilities:
@@ -65,24 +65,9 @@ export const useModalOrchestrator = (
 
   const openLoadModal = useCallback(async () => {
     try {
-      // 1. Fetch existing analyses from IndexedDB
-      let saved: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
+      const saved: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
 
-      // 2. Silent Migration Fallback (localStorage -> IndexedDB)
-      if (saved.length === 0) {
-        const legacy = localStorage.getItem("savedAnalyses");
-        if (legacy) {
-          try {
-            saved = JSON.parse(legacy);
-            await idbSet("savedAnalyses", saved); // Persist migrated data
-            localStorage.removeItem("savedAnalyses"); // Cleanup legacy
-          } catch (e) {
-            console.warn("[SRE] Failed to parse legacy savedAnalyses", e);
-          }
-        }
-      }
-
-      // 3. Sort by date descending
+      // Sort by date descending
       saved.sort(
         (a, b) => new Date(b.config.savedAt).getTime() - new Date(a.config.savedAt).getTime(),
       );

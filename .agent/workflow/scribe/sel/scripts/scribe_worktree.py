@@ -18,10 +18,10 @@ GENERATED_PREFIXES = (
     ".agent/workflow/scribe/rag/graphify-out/",
     "scribe-out/",
     "node_modules/",
-    "jjk-messenger/backend/dist/",
-    "jjk-messenger/backend/node_modules/",
-    "jjk-messenger/frontend/.next/",
-    "jjk-messenger/frontend/node_modules/",
+    "backend/dist/",
+    "backend/node_modules/",
+    "frontend/.next/",
+    "frontend/node_modules/",
 )
 GENERATED_SUFFIXES = (".pyc", ".pyo", ".tsbuildinfo")
 SOURCE_HINT_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".yml", ".yaml", ".toml", ".prisma")
@@ -63,7 +63,7 @@ SURFACE_MAP = {
         "AGENTS.md",
         ".agent/",
     ),
-    "orchestrator": (
+    "integration": (
         "package.json",
         "package-lock.json",
         "pnpm-lock.yaml",

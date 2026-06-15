@@ -9,6 +9,7 @@ export type VisualOrderDirection = "front" | "back" | "forward" | "backward";
 type ObjectTreeActionToolbarProps = {
   activeMenu: ObjectTreePanelMenu | null;
   selectedObject: ObjectTreeItem | null;
+  canUseDrawingActions: boolean;
   onGroupCreate: () => void;
   onCloneSelected: () => void;
   onToggleZOrderMenu: () => void;
@@ -72,6 +73,7 @@ const MenuButton: React.FC<MenuButtonProps> = ({ icon, children, onClick, style 
 export const ObjectTreeActionToolbar: React.FC<ObjectTreeActionToolbarProps> = ({
   activeMenu,
   selectedObject,
+  canUseDrawingActions,
   onGroupCreate,
   onCloneSelected,
   onToggleZOrderMenu,
@@ -96,11 +98,11 @@ export const ObjectTreeActionToolbar: React.FC<ObjectTreeActionToolbarProps> = (
       position: "relative",
     }}
   >
-    <IconButton icon="bi bi-folder-plus" title="Create a group of drawings" onClick={onGroupCreate} />
-    <IconButton icon="bi bi-copy" title="Clone selected" onClick={onCloneSelected} />
-    <IconButton icon="bi bi-arrow-down-up" title="Visual order" onClick={onToggleZOrderMenu} active={activeMenu === "zorder"} />
+    <IconButton icon="bi bi-folder-plus" title="Create a group of drawings" onClick={onGroupCreate} disabled={!canUseDrawingActions} />
+    <IconButton icon="bi bi-copy" title="Clone, Copy" onClick={onCloneSelected} disabled={!canUseDrawingActions} />
+    <IconButton icon="bi bi-arrow-down-up" title="Move to" onClick={onToggleZOrderMenu} active={activeMenu === "zorder"} disabled={!canUseDrawingActions} />
     <div style={{ flex: 1 }} />
-    <IconButton icon="bi bi-diagram-3" title="Manage drawings and selected object" onClick={onToggleGlobalMenu} active={activeMenu === "layouts"} />
+    <IconButton icon="bi bi-diagram-3" title="Manage layout drawings" onClick={onToggleGlobalMenu} active={activeMenu === "layouts"} />
 
     {activeMenu === "zorder" && (
       <div style={zOrderMenuStyle}>

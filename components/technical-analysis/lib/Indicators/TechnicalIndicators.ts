@@ -137,6 +137,15 @@ export interface CandlestickPatternOptions {
   shadowVeryShortFactor?: number;
   nearAvgPeriod?: number;
   nearFactor?: number;
+  farPeriod?: number;
+  farFactor?: number;
+  equalFactor?: number;
+  bodyLongFactor?: number;
+  bodyShortFactor?: number;
+  penetrationDarkCloud?: number;
+  morningEveningPenetration?: number;
+  abandonedBabyPenetration?: number;
+  matHoldPenetration?: number;
   requireVolumeForPattern?: boolean;
 }
 
@@ -150,6 +159,8 @@ export interface CandlestickPatternSignals {
   bodyDojiMax: (number | string)[];
   shadowVeryShortMax: (number | string)[];
   nearTolerance: (number | string)[];
+  farTolerance: (number | string)[];
+  equalTolerance: (number | string)[];
   avgRange10: (number | string)[];
   avgRange5: (number | string)[];
   dojiMaxBody: (number | string)[];
@@ -170,6 +181,43 @@ export interface CandlestickPatternSignals {
   takuri: (number | string)[];
   invertedHammer: (number | string)[];
   shootingStar: (number | string)[];
+  engulfingBullish: (number | string)[];
+  engulfingBearish: (number | string)[];
+  haramiBullish: (number | string)[];
+  haramiBearish: (number | string)[];
+  tweezerTop: (number | string)[];
+  tweezerBottom: (number | string)[];
+  piercingLine: (number | string)[];
+  darkCloudCover: (number | string)[];
+  tasukiGap: (number | string)[];
+  separatingLines: (number | string)[];
+  thrusting: (number | string)[];
+  counterattack: (number | string)[];
+  morningStar: (number | string)[];
+  eveningStar: (number | string)[];
+  threeWhiteSoldiers: (number | string)[];
+  threeBlackCrows: (number | string)[];
+  threeInsideUp: (number | string)[];
+  threeInsideDown: (number | string)[];
+  uniqueThreeRiver: (number | string)[];
+  upsideGapTwoCrows: (number | string)[];
+  kickerBull: (number | string)[];
+  kickerBear: (number | string)[];
+  abandonedBabyBull: (number | string)[];
+  abandonedBabyBear: (number | string)[];
+  beltHoldBull: (number | string)[];
+  beltHoldBear: (number | string)[];
+  breakawayBull: (number | string)[];
+  breakawayBear: (number | string)[];
+  risingThreeMethods: (number | string)[];
+  fallingThreeMethods: (number | string)[];
+  matHold: (number | string)[];
+  gapSideBySideWhite: (number | string)[];
+  hikkake: (number | string)[];
+  concealingBabySwallow: (number | string)[];
+  ladderBottom: (number | string)[];
+  ladderBottomBrvm: (number | string)[];
+  stickSandwich: (number | string)[];
   marubozuBull: (number | string)[];
   marubozuBear: (number | string)[];
   spinningTop: (number | string)[];
@@ -177,6 +225,43 @@ export interface CandlestickPatternSignals {
   hangingManConfirmed: (number | string)[];
   invertedHammerConfirmed: (number | string)[];
   shootingStarConfirmed: (number | string)[];
+  engulfingBullishConfirmed: (number | string)[];
+  engulfingBearishConfirmed: (number | string)[];
+  haramiBullishConfirmed: (number | string)[];
+  haramiBearishConfirmed: (number | string)[];
+  tweezerTopConfirmed: (number | string)[];
+  tweezerBottomConfirmed: (number | string)[];
+  piercingLineConfirmed: (number | string)[];
+  darkCloudCoverConfirmed: (number | string)[];
+  tasukiGapConfirmed: (number | string)[];
+  separatingLinesConfirmed: (number | string)[];
+  thrustingConfirmed: (number | string)[];
+  counterattackConfirmed: (number | string)[];
+  morningStarConfirmed: (number | string)[];
+  eveningStarConfirmed: (number | string)[];
+  threeWhiteSoldiersConfirmed: (number | string)[];
+  threeBlackCrowsConfirmed: (number | string)[];
+  threeInsideUpConfirmed: (number | string)[];
+  threeInsideDownConfirmed: (number | string)[];
+  uniqueThreeRiverConfirmed: (number | string)[];
+  upsideGapTwoCrowsConfirmed: (number | string)[];
+  kickerBullConfirmed: (number | string)[];
+  kickerBearConfirmed: (number | string)[];
+  abandonedBabyBullConfirmed: (number | string)[];
+  abandonedBabyBearConfirmed: (number | string)[];
+  beltHoldBullConfirmed: (number | string)[];
+  beltHoldBearConfirmed: (number | string)[];
+  breakawayBullConfirmed: (number | string)[];
+  breakawayBearConfirmed: (number | string)[];
+  risingThreeMethodsConfirmed: (number | string)[];
+  fallingThreeMethodsConfirmed: (number | string)[];
+  matHoldConfirmed: (number | string)[];
+  gapSideBySideWhiteConfirmed: (number | string)[];
+  hikkakeConfirmed: (number | string)[];
+  concealingBabySwallowConfirmed: (number | string)[];
+  ladderBottomConfirmed: (number | string)[];
+  ladderBottomBrvmConfirmed: (number | string)[];
+  stickSandwichConfirmed: (number | string)[];
   insufficientHistory: (number | string)[];
   missingOHLC: (number | string)[];
   invalidOHLC: (number | string)[];
@@ -3392,14 +3477,17 @@ export const calculatePriceActionSignals = (
   const closeValues = data.map((point) => toFinitePriceValue(point.close));
   const volumeValues = data.map((point) => toFiniteVolumeValue(point.volume));
   const validBars = data.map((_, index) => {
+    const open = openValues[index];
     const high = highValues[index];
     const low = lowValues[index];
-    return openValues[index] !== null
+    const close = closeValues[index];
+    const volume = volumeValues[index];
+    return open !== null
       && high !== null
       && low !== null
-      && closeValues[index] !== null
-      && volumeValues[index] !== null
-      && volumeValues[index] > 0
+      && close !== null
+      && volume !== null
+      && volume > 0
       && high >= low;
   });
   const toTicks = (value: number) => Math.round(value / tickSize);
@@ -3522,6 +3610,8 @@ const createEmptyCandlestickPatternSignals = (length: number): CandlestickPatter
   bodyDojiMax: createSignalSeries(length),
   shadowVeryShortMax: createSignalSeries(length),
   nearTolerance: createSignalSeries(length),
+  farTolerance: createSignalSeries(length),
+  equalTolerance: createSignalSeries(length),
   avgRange10: createSignalSeries(length),
   avgRange5: createSignalSeries(length),
   dojiMaxBody: createSignalSeries(length),
@@ -3542,6 +3632,43 @@ const createEmptyCandlestickPatternSignals = (length: number): CandlestickPatter
   takuri: createSignalSeries(length),
   invertedHammer: createSignalSeries(length),
   shootingStar: createSignalSeries(length),
+  engulfingBullish: createSignalSeries(length),
+  engulfingBearish: createSignalSeries(length),
+  haramiBullish: createSignalSeries(length),
+  haramiBearish: createSignalSeries(length),
+  tweezerTop: createSignalSeries(length),
+  tweezerBottom: createSignalSeries(length),
+  piercingLine: createSignalSeries(length),
+  darkCloudCover: createSignalSeries(length),
+  tasukiGap: createSignalSeries(length),
+  separatingLines: createSignalSeries(length),
+  thrusting: createSignalSeries(length),
+  counterattack: createSignalSeries(length),
+  morningStar: createSignalSeries(length),
+  eveningStar: createSignalSeries(length),
+  threeWhiteSoldiers: createSignalSeries(length),
+  threeBlackCrows: createSignalSeries(length),
+  threeInsideUp: createSignalSeries(length),
+  threeInsideDown: createSignalSeries(length),
+  uniqueThreeRiver: createSignalSeries(length),
+  upsideGapTwoCrows: createSignalSeries(length),
+  kickerBull: createSignalSeries(length),
+  kickerBear: createSignalSeries(length),
+  abandonedBabyBull: createSignalSeries(length),
+  abandonedBabyBear: createSignalSeries(length),
+  beltHoldBull: createSignalSeries(length),
+  beltHoldBear: createSignalSeries(length),
+  breakawayBull: createSignalSeries(length),
+  breakawayBear: createSignalSeries(length),
+  risingThreeMethods: createSignalSeries(length),
+  fallingThreeMethods: createSignalSeries(length),
+  matHold: createSignalSeries(length),
+  gapSideBySideWhite: createSignalSeries(length),
+  hikkake: createSignalSeries(length),
+  concealingBabySwallow: createSignalSeries(length),
+  ladderBottom: createSignalSeries(length),
+  ladderBottomBrvm: createSignalSeries(length),
+  stickSandwich: createSignalSeries(length),
   marubozuBull: createSignalSeries(length),
   marubozuBear: createSignalSeries(length),
   spinningTop: createSignalSeries(length),
@@ -3549,6 +3676,43 @@ const createEmptyCandlestickPatternSignals = (length: number): CandlestickPatter
   hangingManConfirmed: createSignalSeries(length),
   invertedHammerConfirmed: createSignalSeries(length),
   shootingStarConfirmed: createSignalSeries(length),
+  engulfingBullishConfirmed: createSignalSeries(length),
+  engulfingBearishConfirmed: createSignalSeries(length),
+  haramiBullishConfirmed: createSignalSeries(length),
+  haramiBearishConfirmed: createSignalSeries(length),
+  tweezerTopConfirmed: createSignalSeries(length),
+  tweezerBottomConfirmed: createSignalSeries(length),
+  piercingLineConfirmed: createSignalSeries(length),
+  darkCloudCoverConfirmed: createSignalSeries(length),
+  tasukiGapConfirmed: createSignalSeries(length),
+  separatingLinesConfirmed: createSignalSeries(length),
+  thrustingConfirmed: createSignalSeries(length),
+  counterattackConfirmed: createSignalSeries(length),
+  morningStarConfirmed: createSignalSeries(length),
+  eveningStarConfirmed: createSignalSeries(length),
+  threeWhiteSoldiersConfirmed: createSignalSeries(length),
+  threeBlackCrowsConfirmed: createSignalSeries(length),
+  threeInsideUpConfirmed: createSignalSeries(length),
+  threeInsideDownConfirmed: createSignalSeries(length),
+  uniqueThreeRiverConfirmed: createSignalSeries(length),
+  upsideGapTwoCrowsConfirmed: createSignalSeries(length),
+  kickerBullConfirmed: createSignalSeries(length),
+  kickerBearConfirmed: createSignalSeries(length),
+  abandonedBabyBullConfirmed: createSignalSeries(length),
+  abandonedBabyBearConfirmed: createSignalSeries(length),
+  beltHoldBullConfirmed: createSignalSeries(length),
+  beltHoldBearConfirmed: createSignalSeries(length),
+  breakawayBullConfirmed: createSignalSeries(length),
+  breakawayBearConfirmed: createSignalSeries(length),
+  risingThreeMethodsConfirmed: createSignalSeries(length),
+  fallingThreeMethodsConfirmed: createSignalSeries(length),
+  matHoldConfirmed: createSignalSeries(length),
+  gapSideBySideWhiteConfirmed: createSignalSeries(length),
+  hikkakeConfirmed: createSignalSeries(length),
+  concealingBabySwallowConfirmed: createSignalSeries(length),
+  ladderBottomConfirmed: createSignalSeries(length),
+  ladderBottomBrvmConfirmed: createSignalSeries(length),
+  stickSandwichConfirmed: createSignalSeries(length),
   insufficientHistory: createSignalSeries(length, 0),
   missingOHLC: createSignalSeries(length, 0),
   invalidOHLC: createSignalSeries(length, 0),
@@ -3607,6 +3771,38 @@ const writeBooleanSignal = (series: (number | string)[], index: number, value: b
   series[index] = value === null ? "-" : value ? 1 : 0;
 };
 
+const toPatternConfirmationSignal = (shape: boolean, trend: boolean | null): number | string => {
+  if (!shape) return 0;
+  return trend === null ? "-" : trend ? 1 : 0;
+};
+
+const resolveContainmentScore = (strict: boolean, loose: boolean): 100 | 80 | 0 => {
+  if (strict) return 100;
+  return loose ? 80 : 0;
+};
+
+const isWithinPriceTolerance = (left: number, right: number, tolerance: number): boolean => {
+  const epsilon = Math.max(1e-10, Number.EPSILON * Math.max(Math.abs(left), Math.abs(right), tolerance, 1) * 8);
+  return Math.abs(left - right) <= tolerance + epsilon;
+};
+
+const hasRealBodyGapUp = (right: CandlestickMetrics, left: CandlestickMetrics): boolean =>
+  right.bodyBottom > left.bodyTop;
+
+const hasRealBodyGapDown = (right: CandlestickMetrics, left: CandlestickMetrics): boolean =>
+  right.bodyTop < left.bodyBottom;
+
+const isOpenInsideBody = (target: CandlestickMetrics, container: CandlestickMetrics): boolean =>
+  target.open >= container.bodyBottom && target.open <= container.bodyTop;
+
+type PendingHikkakeSignal = {
+  shapeIndex: number;
+  expiresAt: number;
+  direction: 1 | -1;
+  insideHigh: number;
+  insideLow: number;
+};
+
 export const calculateCandlestickPatterns = (
   data: ChartDataPoint[],
   options: CandlestickPatternOptions = {},
@@ -3622,10 +3818,19 @@ export const calculateCandlestickPatterns = (
     10,
   );
   const nearPeriod = normalizeCandlestickPeriod(options.nearPeriod ?? options.nearAvgPeriod, 5);
+  const farPeriod = normalizeCandlestickPeriod(options.farPeriod ?? options.nearAvgPeriod, 5);
   const trendFilterPeriod = normalizeCandlestickPeriod(options.trendFilterPeriod, 20);
   const bodyDojiFactor = options.bodyDojiFactor ?? options.dojiFactor ?? 0.10;
   const shadowVeryShortFactor = options.shadowVeryShortFactor ?? options.veryShortShadowFactor ?? 0.10;
   const nearFactor = options.nearFactor ?? 0.20;
+  const farFactor = options.farFactor ?? 0.60;
+  const equalFactor = options.equalFactor ?? 0.05;
+  const bodyLongFactor = options.bodyLongFactor ?? 1.0;
+  const bodyShortFactor = options.bodyShortFactor ?? 1.0;
+  const penetrationDarkCloud = options.penetrationDarkCloud ?? 0.5;
+  const morningEveningPenetration = options.morningEveningPenetration ?? 0.30;
+  const abandonedBabyPenetration = options.abandonedBabyPenetration ?? 0.30;
+  const matHoldPenetration = options.matHoldPenetration ?? 0.50;
   const requireVolumeForPattern = options.requireVolumeForPattern ?? false;
   const tickSize = options.tickSize && Number.isFinite(options.tickSize) && options.tickSize > 0
     ? options.tickSize
@@ -3643,6 +3848,7 @@ export const calculateCandlestickPatterns = (
   const bodyBottomValues: Array<number | null> = new Array(data.length).fill(null);
   const dojiFlags: Array<boolean | null> = new Array(data.length).fill(null);
   const nearToleranceValues: Array<number | null> = new Array(data.length).fill(null);
+  const pendingHikkakeSignals: PendingHikkakeSignal[] = [];
 
   for (let index = 0; index < data.length; index++) {
     const point = data[index];
@@ -3716,6 +3922,31 @@ export const calculateCandlestickPatterns = (
     };
   };
 
+  const readBodyLongAverageAt = (targetIndex: number): number | null =>
+    readRollingAverage(bodyPrefix, validPrefix, targetIndex, bodyLongPeriod);
+  const readBodyShortAverageAt = (targetIndex: number): number | null =>
+    readRollingAverage(bodyPrefix, validPrefix, targetIndex, bodyShortPeriod);
+  const readShadowVeryShortMaxAt = (targetIndex: number): number | null => {
+    const averageRange = readRollingAverage(rangePrefix, validPrefix, targetIndex, shadowVeryShortPeriod);
+    return averageRange === null ? null : shadowVeryShortFactor * averageRange;
+  };
+  const readBodyDojiMaxAt = (targetIndex: number): number | null => {
+    const averageRange = readRollingAverage(rangePrefix, validPrefix, targetIndex, bodyDojiPeriod);
+    return averageRange === null ? null : bodyDojiFactor * averageRange;
+  };
+  const readNearToleranceAt = (targetIndex: number): number | null => {
+    const averageRange = readRollingAverage(rangePrefix, validPrefix, targetIndex, nearPeriod);
+    return averageRange === null ? null : nearFactor * averageRange;
+  };
+  const readFarToleranceAt = (targetIndex: number): number | null => {
+    const averageRange = readRollingAverage(rangePrefix, validPrefix, targetIndex, farPeriod);
+    return averageRange === null ? null : farFactor * averageRange;
+  };
+  const readEqualToleranceAt = (targetIndex: number): number | null => {
+    const averageRange = readRollingAverage(rangePrefix, validPrefix, targetIndex, nearPeriod);
+    return averageRange === null ? null : Math.max(tickSize, equalFactor * averageRange);
+  };
+
   for (let index = 0; index < data.length; index++) {
     const current = metrics[index];
     if (!current) continue;
@@ -3725,15 +3956,20 @@ export const calculateCandlestickPatterns = (
     const bodyDojiAvgRange = readRollingAverage(rangePrefix, validPrefix, index, bodyDojiPeriod);
     const shadowVeryShortAvgRange = readRollingAverage(rangePrefix, validPrefix, index, shadowVeryShortPeriod);
     const nearAvgRange = readRollingAverage(rangePrefix, validPrefix, index, nearPeriod);
+    const farAvgRange = readRollingAverage(rangePrefix, validPrefix, index, farPeriod);
     const bodyDojiMax = bodyDojiAvgRange === null ? null : bodyDojiFactor * bodyDojiAvgRange;
     const shadowVeryShortMax = shadowVeryShortAvgRange === null ? null : shadowVeryShortFactor * shadowVeryShortAvgRange;
     const nearTolerance = nearAvgRange === null ? null : nearFactor * nearAvgRange;
+    const farTolerance = farAvgRange === null ? null : farFactor * farAvgRange;
+    const equalTolerance = nearAvgRange === null ? null : Math.max(tickSize, equalFactor * nearAvgRange);
     const previousVolumeAvg = readRollingAverage(volumePrefix, validPrefix, index, 10);
     const insufficientHistory = bodyShortAvg === null
       || bodyLongAvg === null
       || bodyDojiMax === null
       || shadowVeryShortMax === null
-      || nearTolerance === null;
+      || nearTolerance === null
+      || farTolerance === null
+      || equalTolerance === null;
 
     result.realBody[index] = roundIndicatorValue(current.realBody, 4);
     result.highLowRange[index] = roundIndicatorValue(current.range, 4);
@@ -3754,6 +3990,8 @@ export const calculateCandlestickPatterns = (
       result.nearMidTolerance[index] = roundIndicatorValue(nearTolerance, 4);
       nearToleranceValues[index] = nearTolerance;
     }
+    if (farTolerance !== null) result.farTolerance[index] = roundIndicatorValue(farTolerance, 4);
+    if (equalTolerance !== null) result.equalTolerance[index] = roundIndicatorValue(equalTolerance, 4);
     if (bodyDojiAvgRange !== null) result.avgRange10[index] = roundIndicatorValue(bodyDojiAvgRange, 4);
     if (nearAvgRange !== null) result.avgRange5[index] = roundIndicatorValue(nearAvgRange, 4);
     result.insufficientHistory[index] = insufficientHistory ? 1 : 0;
@@ -3763,11 +4001,14 @@ export const calculateCandlestickPatterns = (
     writeBooleanSignal(result.uptrend, index, uptrend);
     writeBooleanSignal(result.downtrend, index, downtrend);
 
-    if (bodyShortAvg === null || bodyLongAvg === null || bodyDojiMax === null || shadowVeryShortMax === null || nearTolerance === null) {
+    if (bodyShortAvg === null || bodyLongAvg === null || bodyDojiMax === null || shadowVeryShortMax === null || nearTolerance === null || farTolerance === null || equalTolerance === null) {
       continue;
     }
 
     const previous = index > 0 ? metrics[index - 1] : null;
+    const twoBack = index > 1 ? metrics[index - 2] : null;
+    const threeBack = index > 2 ? metrics[index - 3] : null;
+    const fourBack = index > 3 ? metrics[index - 4] : null;
     const previousNearTolerance = index > 0 ? nearToleranceValues[index - 1] : null;
     const isDoji = current.realBody <= bodyDojiMax;
     const longLeggedDoji = isDoji && (current.upperShadow > current.realBody || current.lowerShadow > current.realBody);
@@ -3812,6 +4053,537 @@ export const calculateCandlestickPatterns = (
       && current.upperShadow > current.realBody
       && current.lowerShadow > current.realBody;
 
+    const previousBodyLongAvg = index > 0 ? readBodyLongAverageAt(index - 1) : null;
+    const previousBodyShortAvg = index > 0 ? readBodyShortAverageAt(index - 1) : null;
+    const twoBackBodyLongAvg = index > 1 ? readBodyLongAverageAt(index - 2) : null;
+    const twoBackBodyShortAvg = index > 1 ? readBodyShortAverageAt(index - 2) : null;
+    const threeBackBodyShortAvg = index > 2 ? readBodyShortAverageAt(index - 3) : null;
+    const previousShadowVeryShortMax = index > 0 ? readShadowVeryShortMaxAt(index - 1) : null;
+    const twoBackShadowVeryShortMax = index > 1 ? readShadowVeryShortMaxAt(index - 2) : null;
+    const threeBackShadowVeryShortMax = index > 2 ? readShadowVeryShortMaxAt(index - 3) : null;
+    const previousNearForPattern = index > 0 ? readNearToleranceAt(index - 1) : null;
+    const twoBackNearForPattern = index > 1 ? readNearToleranceAt(index - 2) : null;
+    const previousFarForPattern = index > 0 ? readFarToleranceAt(index - 1) : null;
+    const twoBackFarForPattern = index > 1 ? readFarToleranceAt(index - 2) : null;
+    const previousEqualForPattern = index > 0 ? readEqualToleranceAt(index - 1) : null;
+    const twoBackEqualForPattern = index > 1 ? readEqualToleranceAt(index - 2) : null;
+    const fourBackBodyLongAvg = index > 3 ? readBodyLongAverageAt(index - 4) : null;
+    const previousBodyDojiMax = index > 0 ? readBodyDojiMaxAt(index - 1) : null;
+    const isPreviousBullish = previous !== null && previous.close > previous.open;
+    const isPreviousBearish = previous !== null && previous.close < previous.open;
+    const isTwoBackBullish = twoBack !== null && twoBack.close > twoBack.open;
+    const isTwoBackBearish = twoBack !== null && twoBack.close < twoBack.open;
+    const isThreeBackBullish = threeBack !== null && threeBack.close > threeBack.open;
+    const isThreeBackBearish = threeBack !== null && threeBack.close < threeBack.open;
+    const isFourBackBullish = fourBack !== null && fourBack.close > fourBack.open;
+    const isFourBackBearish = fourBack !== null && fourBack.close < fourBack.open;
+    const isCurrentBullish = current.close > current.open;
+    const isCurrentBearish = current.close < current.open;
+    const isPreviousLong = previous !== null && previousBodyLongAvg !== null && previous.realBody > previousBodyLongAvg * bodyLongFactor;
+    const isPreviousShort = previous !== null && previousBodyShortAvg !== null && previous.realBody <= previousBodyShortAvg * bodyShortFactor;
+    const isTwoBackLong = twoBack !== null && twoBackBodyLongAvg !== null && twoBack.realBody > twoBackBodyLongAvg * bodyLongFactor;
+    const isTwoBackShort = twoBack !== null && twoBackBodyShortAvg !== null && twoBack.realBody <= twoBackBodyShortAvg * bodyShortFactor;
+    const isThreeBackShort = threeBack !== null && threeBackBodyShortAvg !== null && threeBack.realBody < threeBackBodyShortAvg * bodyShortFactor;
+    const isFourBackLong = fourBack !== null && fourBackBodyLongAvg !== null && fourBack.realBody > fourBackBodyLongAvg * bodyLongFactor;
+    const isCurrentLong = current.realBody > bodyLongAvg * bodyLongFactor;
+    const isCurrentShort = current.realBody <= bodyShortAvg * bodyShortFactor;
+    const isPreviousMarubozuBull = previous !== null
+      && previousBodyLongAvg !== null
+      && previousShadowVeryShortMax !== null
+      && isPreviousBullish
+      && previous.realBody > previousBodyLongAvg * bodyLongFactor
+      && previous.upperShadow < previousShadowVeryShortMax
+      && previous.lowerShadow < previousShadowVeryShortMax;
+    const isPreviousMarubozuBear = previous !== null
+      && previousBodyLongAvg !== null
+      && previousShadowVeryShortMax !== null
+      && isPreviousBearish
+      && previous.realBody > previousBodyLongAvg * bodyLongFactor
+      && previous.upperShadow < previousShadowVeryShortMax
+      && previous.lowerShadow < previousShadowVeryShortMax;
+    const bullishEngulfingStrict = Boolean(previous)
+      && isPreviousBearish
+      && isCurrentBullish
+      && current.close > previous.open
+      && current.open < previous.close;
+    const bullishEngulfingLoose = Boolean(previous)
+      && isPreviousBearish
+      && isCurrentBullish
+      && ((current.close >= previous.open && current.open < previous.close)
+        || (current.close > previous.open && current.open <= previous.close));
+    const bearishEngulfingStrict = Boolean(previous)
+      && isPreviousBullish
+      && isCurrentBearish
+      && current.open > previous.close
+      && current.close < previous.open;
+    const bearishEngulfingLoose = Boolean(previous)
+      && isPreviousBullish
+      && isCurrentBearish
+      && ((current.open >= previous.close && current.close < previous.open)
+        || (current.open > previous.close && current.close <= previous.open));
+    const engulfingBullishScore = resolveContainmentScore(bullishEngulfingStrict, bullishEngulfingLoose);
+    const engulfingBearishScore = resolveContainmentScore(bearishEngulfingStrict, bearishEngulfingLoose);
+
+    const haramiStrict = Boolean(previous)
+      && isPreviousLong
+      && isCurrentShort
+      && current.bodyTop < previous.bodyTop
+      && current.bodyBottom > previous.bodyBottom;
+    const haramiLoose = Boolean(previous)
+      && isPreviousLong
+      && isCurrentShort
+      && current.bodyTop <= previous.bodyTop
+      && current.bodyBottom >= previous.bodyBottom;
+    const haramiScore = resolveContainmentScore(haramiStrict, haramiLoose);
+    const haramiBullishScore = isPreviousBearish ? haramiScore : 0;
+    const haramiBearishScore = isPreviousBullish ? -haramiScore : 0;
+
+    const sameHigh = previous !== null && isWithinPriceTolerance(current.high, previous.high, equalTolerance);
+    const sameLow = previous !== null && isWithinPriceTolerance(current.low, previous.low, equalTolerance);
+    const tweezerTopShape = sameHigh && previous.range > 0 && current.range > 0;
+    const tweezerBottomShape = sameLow && previous.range > 0 && current.range > 0;
+
+    const piercingLineBase = Boolean(previous)
+      && isPreviousBearish
+      && isPreviousLong
+      && isCurrentBullish
+      && isCurrentLong
+      && current.close < previous.open
+      && current.close > previous.close + previous.realBody * 0.5;
+    const piercingLineStrictGap = previous !== null && current.open < previous.low;
+    const piercingLineSessionOpen = previous !== null
+      && current.open <= previous.close + equalTolerance
+      && current.open < previous.open;
+    const piercingLineShape = piercingLineBase && piercingLineStrictGap;
+    const piercingLineSessionShape = piercingLineBase && !piercingLineStrictGap && piercingLineSessionOpen;
+    const piercingLineScore = piercingLineShape ? 100 : piercingLineSessionShape ? 80 : 0;
+
+    const darkCloudCoverBase = Boolean(previous)
+      && isPreviousBullish
+      && isPreviousLong
+      && isCurrentBearish
+      && current.close > previous.open
+      && current.close < previous.close - previous.realBody * penetrationDarkCloud;
+    const darkCloudCoverStrictGap = previous !== null && current.open > previous.high;
+    const darkCloudCoverSessionOpen = previous !== null
+      && current.open >= previous.close - equalTolerance
+      && current.open > previous.open;
+    const darkCloudCoverShape = darkCloudCoverBase && darkCloudCoverStrictGap;
+    const darkCloudCoverSessionShape = darkCloudCoverBase && !darkCloudCoverStrictGap && darkCloudCoverSessionOpen;
+    const darkCloudCoverScore = darkCloudCoverShape ? -100 : darkCloudCoverSessionShape ? -80 : 0;
+
+    const tasukiGapUpsideShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBullish
+      && isPreviousBullish
+      && isCurrentBearish
+      && hasRealBodyGapUp(previous, twoBack)
+      && isOpenInsideBody(current, previous)
+      && current.close > twoBack.bodyTop
+      && current.close < previous.bodyBottom;
+    const tasukiGapDownsideShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBearish
+      && isPreviousBearish
+      && isCurrentBullish
+      && hasRealBodyGapDown(previous, twoBack)
+      && isOpenInsideBody(current, previous)
+      && current.close < twoBack.bodyBottom
+      && current.close > previous.bodyTop;
+    const tasukiGapScore = tasukiGapUpsideShape ? 100 : tasukiGapDownsideShape ? -100 : 0;
+
+    const sameOpen = previous !== null && isWithinPriceTolerance(current.open, previous.open, equalTolerance);
+    const separatingLinesScore = sameOpen && isCurrentLong
+      ? isPreviousBearish && isCurrentBullish
+        ? 100
+        : isPreviousBullish && isCurrentBearish
+          ? -100
+          : 0
+      : 0;
+
+    const thrustingShape = previous !== null
+      && isPreviousBearish
+      && isPreviousLong
+      && isCurrentBullish
+      && current.open < previous.low
+      && current.close > previous.close
+      && current.close < previous.open - previous.realBody * 0.5;
+
+    const sameClose = previous !== null && isWithinPriceTolerance(current.close, previous.close, equalTolerance);
+    const counterattackScore = sameClose && isPreviousLong && isCurrentLong
+      ? isPreviousBearish && isCurrentBullish
+        ? 100
+        : isPreviousBullish && isCurrentBearish
+          ? -100
+          : 0
+      : 0;
+
+    const morningStarShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBearish
+      && isTwoBackLong
+      && isPreviousShort
+      && hasRealBodyGapDown(previous, twoBack)
+      && isCurrentBullish
+      && current.realBody > bodyShortAvg * bodyShortFactor
+      && current.close > twoBack.close + twoBack.realBody * morningEveningPenetration;
+    const eveningStarShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBullish
+      && isTwoBackLong
+      && isPreviousShort
+      && hasRealBodyGapUp(previous, twoBack)
+      && isCurrentBearish
+      && current.realBody > bodyShortAvg * bodyShortFactor
+      && current.close < twoBack.close - twoBack.realBody * morningEveningPenetration;
+
+    const threeWhiteSoldiersShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBullish
+      && isPreviousBullish
+      && isCurrentBullish
+      && twoBack.close < previous.close
+      && previous.close < current.close
+      && twoBackShadowVeryShortMax !== null
+      && previousShadowVeryShortMax !== null
+      && twoBackNearForPattern !== null
+      && previousNearForPattern !== null
+      && twoBackFarForPattern !== null
+      && previousFarForPattern !== null
+      && twoBack.upperShadow < twoBackShadowVeryShortMax
+      && previous.upperShadow < previousShadowVeryShortMax
+      && current.upperShadow < shadowVeryShortMax
+      && previous.open > twoBack.open
+      && previous.open <= twoBack.close + twoBackNearForPattern
+      && current.open > previous.open
+      && current.open <= previous.close + previousNearForPattern
+      && previous.realBody > twoBack.realBody - twoBackFarForPattern
+      && current.realBody > previous.realBody - previousFarForPattern
+      && current.realBody > bodyShortAvg * bodyShortFactor;
+
+    const threeBlackCrowsShape = threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && isThreeBackBullish
+      && isTwoBackBearish
+      && isPreviousBearish
+      && isCurrentBearish
+      && twoBackShadowVeryShortMax !== null
+      && previousShadowVeryShortMax !== null
+      && twoBack.lowerShadow < twoBackShadowVeryShortMax
+      && previous.lowerShadow < previousShadowVeryShortMax
+      && current.lowerShadow < shadowVeryShortMax
+      && previous.open < twoBack.open
+      && previous.open > twoBack.close
+      && current.open < previous.open
+      && current.open > previous.close
+      && threeBack.high > twoBack.close
+      && twoBack.close > previous.close
+      && previous.close > current.close;
+
+    const threeInsideUpShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBearish
+      && isTwoBackLong
+      && isPreviousShort
+      && previous.bodyTop < twoBack.bodyTop
+      && previous.bodyBottom > twoBack.bodyBottom
+      && isCurrentBullish
+      && current.close > twoBack.open;
+    const threeInsideDownShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBullish
+      && isTwoBackLong
+      && isPreviousShort
+      && previous.bodyTop < twoBack.bodyTop
+      && previous.bodyBottom > twoBack.bodyBottom
+      && isCurrentBearish
+      && current.close < twoBack.open;
+
+    const uniqueThreeRiverShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBearish
+      && isTwoBackLong
+      && isPreviousBearish
+      && isCurrentBullish
+      && isCurrentShort
+      && previous.open < twoBack.open
+      && previous.open > twoBack.close
+      && previous.close < twoBack.close
+      && previous.low < twoBack.low
+      && current.open > previous.low
+      && current.close < previous.close;
+
+    const upsideGapTwoCrowsShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBullish
+      && isTwoBackLong
+      && isPreviousBearish
+      && isCurrentBearish
+      && previous.bodyBottom > twoBack.bodyTop
+      && current.open > previous.open
+      && current.close < previous.close
+      && current.close > twoBack.close;
+
+    const kickerBullShape = previous !== null
+      && isPreviousMarubozuBear
+      && marubozuBull
+      && current.bodyBottom > previous.bodyTop;
+    const kickerBearShape = previous !== null
+      && isPreviousMarubozuBull
+      && marubozuBear
+      && current.bodyTop < previous.bodyBottom;
+
+    const previousDoji = previous !== null
+      && previousBodyDojiMax !== null
+      && previous.realBody <= previousBodyDojiMax;
+    const abandonedBabyBullShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBearish
+      && isTwoBackLong
+      && previousDoji
+      && previous.high < twoBack.low
+      && isCurrentBullish
+      && current.low > previous.high
+      && current.close > twoBack.close + twoBack.realBody * abandonedBabyPenetration;
+    const abandonedBabyBearShape = twoBack !== null
+      && previous !== null
+      && isTwoBackBullish
+      && isTwoBackLong
+      && previousDoji
+      && previous.low > twoBack.high
+      && isCurrentBearish
+      && current.high < previous.low
+      && current.close < twoBack.close - twoBack.realBody * abandonedBabyPenetration;
+
+    const beltHoldBullShape = isCurrentBullish
+      && isCurrentLong
+      && current.lowerShadow < shadowVeryShortMax;
+    const beltHoldBearShape = isCurrentBearish
+      && isCurrentLong
+      && current.upperShadow < shadowVeryShortMax;
+    const beltHoldBullContext = downtrend === true || (previous !== null && current.close > previous.high);
+    const beltHoldBearContext = uptrend === true || (previous !== null && current.close < previous.low);
+
+    const breakawayBullShape = fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && isFourBackLong
+      && isFourBackBearish
+      && isThreeBackBearish
+      && threeBack.bodyTop < fourBack.bodyBottom
+      && twoBack.close < threeBack.close
+      && previous.close < twoBack.close
+      && isCurrentBullish
+      && current.close > threeBack.open
+      && current.close < fourBack.open;
+    const breakawayBearShape = fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && isFourBackLong
+      && isFourBackBullish
+      && isThreeBackBullish
+      && threeBack.bodyBottom > fourBack.bodyTop
+      && twoBack.close > threeBack.close
+      && previous.close > twoBack.close
+      && isCurrentBearish
+      && current.close < threeBack.open
+      && current.close > fourBack.open;
+
+    const risingThreeMethodsShape = fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && isFourBackBullish
+      && isFourBackLong
+      && isThreeBackBearish
+      && isTwoBackBearish
+      && isPreviousBearish
+      && isThreeBackShort
+      && isTwoBackShort
+      && isPreviousShort
+      && threeBack.bodyBottom < fourBack.high
+      && threeBack.bodyTop > fourBack.low
+      && twoBack.bodyBottom < fourBack.high
+      && twoBack.bodyTop > fourBack.low
+      && previous.bodyBottom < fourBack.high
+      && previous.bodyTop > fourBack.low
+      && twoBack.close < threeBack.close
+      && previous.close < twoBack.close
+      && isCurrentBullish
+      && isCurrentLong
+      && current.open > previous.close
+      && current.close > fourBack.close;
+    const fallingThreeMethodsShape = fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && isFourBackBearish
+      && isFourBackLong
+      && isThreeBackBullish
+      && isTwoBackBullish
+      && isPreviousBullish
+      && isThreeBackShort
+      && isTwoBackShort
+      && isPreviousShort
+      && threeBack.bodyBottom < fourBack.high
+      && threeBack.bodyTop > fourBack.low
+      && twoBack.bodyBottom < fourBack.high
+      && twoBack.bodyTop > fourBack.low
+      && previous.bodyBottom < fourBack.high
+      && previous.bodyTop > fourBack.low
+      && twoBack.close > threeBack.close
+      && previous.close > twoBack.close
+      && isCurrentBearish
+      && isCurrentLong
+      && current.open < previous.close
+      && current.close < fourBack.close;
+
+    const twoBackBodyBottom = twoBack === null ? null : Math.min(twoBack.open, twoBack.close);
+    const previousBodyBottom = previous === null ? null : Math.min(previous.open, previous.close);
+    const twoBackBodyTop = twoBack === null ? null : Math.max(twoBack.open, twoBack.close);
+    const previousBodyTop = previous === null ? null : Math.max(previous.open, previous.close);
+    const matHoldReactionFloor = fourBack === null ? null : fourBack.close - fourBack.realBody * matHoldPenetration;
+    const matHoldShape = fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && twoBackBodyBottom !== null
+      && previousBodyBottom !== null
+      && twoBackBodyTop !== null
+      && previousBodyTop !== null
+      && matHoldReactionFloor !== null
+      && isFourBackBullish
+      && isFourBackLong
+      && isThreeBackBearish
+      && isThreeBackShort
+      && hasRealBodyGapUp(threeBack, fourBack)
+      && isTwoBackShort
+      && isPreviousShort
+      && twoBackBodyBottom < fourBack.close
+      && previousBodyBottom < fourBack.close
+      && twoBackBodyBottom > matHoldReactionFloor
+      && previousBodyBottom > matHoldReactionFloor
+      && twoBackBodyTop < threeBack.open
+      && previousBodyTop < twoBackBodyTop
+      && isCurrentBullish
+      && current.open > previous.close
+      && current.close > Math.max(threeBack.high, twoBack.high, previous.high);
+
+    const gapSideBySideWhiteScore = twoBack !== null
+      && previous !== null
+      && previousNearForPattern !== null
+      && previousEqualForPattern !== null
+      && isPreviousBullish
+      && isCurrentBullish
+      && Math.abs(current.realBody - previous.realBody) <= previousNearForPattern
+      && isWithinPriceTolerance(current.open, previous.open, previousEqualForPattern)
+      ? hasRealBodyGapUp(previous, twoBack) && hasRealBodyGapUp(current, twoBack)
+        ? 100
+        : hasRealBodyGapDown(previous, twoBack) && hasRealBodyGapDown(current, twoBack)
+          ? -100
+          : 0
+      : 0;
+
+    let hikkakeScore = 0;
+    let hikkakeConfirmedSignal: number | string = 0;
+    for (let pendingIndex = pendingHikkakeSignals.length - 1; pendingIndex >= 0; pendingIndex--) {
+      const pending = pendingHikkakeSignals[pendingIndex];
+      if (index > pending.expiresAt) {
+        pendingHikkakeSignals.splice(pendingIndex, 1);
+        continue;
+      }
+      if (index <= pending.shapeIndex) continue;
+      const confirmed = pending.direction > 0
+        ? current.close > pending.insideHigh
+        : current.close < pending.insideLow;
+      if (confirmed) {
+        hikkakeScore = pending.direction > 0 ? 200 : -200;
+        hikkakeConfirmedSignal = 1;
+        pendingHikkakeSignals.splice(pendingIndex, 1);
+      }
+    }
+    const insideBar = twoBack !== null && previous !== null && previous.high < twoBack.high && previous.low > twoBack.low;
+    const bullishHikkakeShape = insideBar && previous !== null && current.high < previous.high && current.low < previous.low;
+    const bearishHikkakeShape = insideBar && previous !== null && current.high > previous.high && current.low > previous.low;
+    if (hikkakeScore === 0 && previous !== null && (bullishHikkakeShape || bearishHikkakeShape)) {
+      const direction = bullishHikkakeShape ? 1 : -1;
+      hikkakeScore = direction > 0 ? 100 : -100;
+      pendingHikkakeSignals.push({
+        shapeIndex: index,
+        expiresAt: index + 3,
+        direction,
+        insideHigh: previous.high,
+        insideLow: previous.low,
+      });
+    }
+
+    const concealingBabySwallowShape = threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && threeBackShadowVeryShortMax !== null
+      && twoBackShadowVeryShortMax !== null
+      && previousShadowVeryShortMax !== null
+      && isThreeBackBearish
+      && isTwoBackBearish
+      && isPreviousBearish
+      && isCurrentBearish
+      && threeBack.lowerShadow < threeBackShadowVeryShortMax
+      && threeBack.upperShadow < threeBackShadowVeryShortMax
+      && twoBack.lowerShadow < twoBackShadowVeryShortMax
+      && twoBack.upperShadow < twoBackShadowVeryShortMax
+      && hasRealBodyGapDown(previous, twoBack)
+      && previous.upperShadow > previousShadowVeryShortMax
+      && previous.high > twoBack.close
+      && current.high > previous.high
+      && current.low < previous.low;
+
+    const ladderBottomShape = fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && previousShadowVeryShortMax !== null
+      && isFourBackBearish
+      && isThreeBackBearish
+      && isTwoBackBearish
+      && fourBack.open > threeBack.open
+      && threeBack.open > twoBack.open
+      && fourBack.close > threeBack.close
+      && threeBack.close > twoBack.close
+      && isPreviousBearish
+      && previous.upperShadow > previousShadowVeryShortMax
+      && isCurrentBullish
+      && current.open > previous.open
+      && current.close > previous.high;
+
+    const ladderBottomBrvmShape = !ladderBottomShape
+      && fourBack !== null
+      && threeBack !== null
+      && twoBack !== null
+      && previous !== null
+      && [isFourBackBearish, isThreeBackBearish, isTwoBackBearish, isPreviousBearish].filter(Boolean).length >= 3
+      && fourBack.open >= threeBack.open
+      && threeBack.open >= twoBack.open
+      && twoBack.open >= previous.open
+      && fourBack.close > threeBack.close
+      && threeBack.close > twoBack.close
+      && twoBack.close >= previous.close
+      && previous.upperShadow >= Math.max(1, previous.realBody * 0.5, previous.range * 0.08)
+      && isCurrentBullish
+      && current.close > previous.close
+      && current.close >= previous.bodyTop;
+
+    const stickSandwichShape = twoBack !== null
+      && previous !== null
+      && twoBackEqualForPattern !== null
+      && isTwoBackBearish
+      && isPreviousBullish
+      && isCurrentBearish
+      && previous.low > twoBack.close
+      && isWithinPriceTolerance(current.close, twoBack.close, twoBackEqualForPattern);
+
     dojiFlags[index] = isDoji;
     result.doji[index] = isDoji ? 1 : 0;
     result.longLeggedDoji[index] = longLeggedDoji ? 1 : 0;
@@ -3823,13 +4595,115 @@ export const calculateCandlestickPatterns = (
     result.takuri[index] = takuri ? 100 : 0;
     result.invertedHammer[index] = invertedHammerShape ? 100 : 0;
     result.shootingStar[index] = shootingStarShape ? -100 : 0;
+    result.engulfingBullish[index] = engulfingBullishScore;
+    result.engulfingBearish[index] = -engulfingBearishScore;
+    result.haramiBullish[index] = haramiBullishScore;
+    result.haramiBearish[index] = haramiBearishScore;
+    result.tweezerTop[index] = tweezerTopShape ? -100 : 0;
+    result.tweezerBottom[index] = tweezerBottomShape ? 100 : 0;
+    result.piercingLine[index] = piercingLineScore;
+    result.darkCloudCover[index] = darkCloudCoverScore;
+    result.tasukiGap[index] = tasukiGapScore;
+    result.separatingLines[index] = separatingLinesScore;
+    result.thrusting[index] = thrustingShape ? -100 : 0;
+    result.counterattack[index] = counterattackScore;
+    result.morningStar[index] = morningStarShape ? 100 : 0;
+    result.eveningStar[index] = eveningStarShape ? -100 : 0;
+    result.threeWhiteSoldiers[index] = threeWhiteSoldiersShape ? 100 : 0;
+    result.threeBlackCrows[index] = threeBlackCrowsShape ? -100 : 0;
+    if (twoBack !== null && previous !== null) {
+      result.threeInsideUp[index] = threeInsideUpShape ? 100 : 0;
+      result.threeInsideDown[index] = threeInsideDownShape ? -100 : 0;
+      result.uniqueThreeRiver[index] = uniqueThreeRiverShape ? 100 : 0;
+      result.upsideGapTwoCrows[index] = upsideGapTwoCrowsShape ? -100 : 0;
+      result.abandonedBabyBull[index] = abandonedBabyBullShape ? 100 : 0;
+      result.abandonedBabyBear[index] = abandonedBabyBearShape ? -100 : 0;
+      result.gapSideBySideWhite[index] = gapSideBySideWhiteScore;
+      result.hikkake[index] = hikkakeScore;
+      result.stickSandwich[index] = stickSandwichShape ? 100 : 0;
+    }
+    if (previous !== null) {
+      result.kickerBull[index] = kickerBullShape ? 100 : 0;
+      result.kickerBear[index] = kickerBearShape ? -100 : 0;
+    }
+    result.beltHoldBull[index] = beltHoldBullShape ? 100 : 0;
+    result.beltHoldBear[index] = beltHoldBearShape ? -100 : 0;
+    if (fourBack !== null && threeBack !== null && twoBack !== null && previous !== null) {
+      result.breakawayBull[index] = breakawayBullShape ? 100 : 0;
+      result.breakawayBear[index] = breakawayBearShape ? -100 : 0;
+      result.risingThreeMethods[index] = risingThreeMethodsShape ? 100 : 0;
+      result.fallingThreeMethods[index] = fallingThreeMethodsShape ? -100 : 0;
+      result.matHold[index] = matHoldShape ? 100 : 0;
+      result.ladderBottom[index] = ladderBottomShape ? 100 : 0;
+      result.ladderBottomBrvm[index] = ladderBottomBrvmShape ? 80 : 0;
+    }
+    if (threeBack !== null && twoBack !== null && previous !== null) {
+      result.concealingBabySwallow[index] = concealingBabySwallowShape ? 100 : 0;
+    }
     result.marubozuBull[index] = marubozuBull ? 100 : 0;
     result.marubozuBear[index] = marubozuBear ? -100 : 0;
     result.spinningTop[index] = spinningTop ? (current.close > current.open ? 100 : current.close < current.open ? -100 : 0) : 0;
     result.hammerConfirmed[index] = hammerShape ? (downtrend === null ? "-" : downtrend ? 1 : 0) : 0;
     result.hangingManConfirmed[index] = hangingManShape ? (uptrend === null ? "-" : uptrend ? 1 : 0) : 0;
     result.invertedHammerConfirmed[index] = invertedHammerShape ? (downtrend === null ? "-" : downtrend ? 1 : 0) : 0;
-    result.shootingStarConfirmed[index] = shootingStarShape ? (uptrend === null ? "-" : uptrend ? 1 : 0) : 0;
+    result.shootingStarConfirmed[index] = toPatternConfirmationSignal(shootingStarShape, uptrend);
+    result.engulfingBullishConfirmed[index] = toPatternConfirmationSignal(engulfingBullishScore > 0, downtrend);
+    result.engulfingBearishConfirmed[index] = toPatternConfirmationSignal(engulfingBearishScore > 0, uptrend);
+    result.haramiBullishConfirmed[index] = toPatternConfirmationSignal(haramiBullishScore > 0, downtrend);
+    result.haramiBearishConfirmed[index] = toPatternConfirmationSignal(haramiBearishScore < 0, uptrend);
+    result.tweezerTopConfirmed[index] = toPatternConfirmationSignal(tweezerTopShape, uptrend);
+    result.tweezerBottomConfirmed[index] = toPatternConfirmationSignal(tweezerBottomShape, downtrend);
+    result.piercingLineConfirmed[index] = toPatternConfirmationSignal(piercingLineScore > 0, downtrend);
+    result.darkCloudCoverConfirmed[index] = toPatternConfirmationSignal(darkCloudCoverScore < 0, uptrend);
+    result.tasukiGapConfirmed[index] = toPatternConfirmationSignal(
+      tasukiGapScore !== 0,
+      tasukiGapScore > 0 ? uptrend : tasukiGapScore < 0 ? downtrend : null,
+    );
+    result.separatingLinesConfirmed[index] = toPatternConfirmationSignal(
+      separatingLinesScore !== 0,
+      separatingLinesScore > 0 ? uptrend : separatingLinesScore < 0 ? downtrend : null,
+    );
+    result.thrustingConfirmed[index] = toPatternConfirmationSignal(thrustingShape, downtrend);
+    result.counterattackConfirmed[index] = toPatternConfirmationSignal(
+      counterattackScore !== 0,
+      counterattackScore > 0 ? downtrend : counterattackScore < 0 ? uptrend : null,
+    );
+    result.morningStarConfirmed[index] = toPatternConfirmationSignal(morningStarShape, downtrend);
+    result.eveningStarConfirmed[index] = toPatternConfirmationSignal(eveningStarShape, uptrend);
+    result.threeWhiteSoldiersConfirmed[index] = toPatternConfirmationSignal(threeWhiteSoldiersShape, downtrend);
+    result.threeBlackCrowsConfirmed[index] = toPatternConfirmationSignal(threeBlackCrowsShape, uptrend);
+    if (twoBack !== null && previous !== null) {
+      result.threeInsideUpConfirmed[index] = toPatternConfirmationSignal(threeInsideUpShape, downtrend);
+      result.threeInsideDownConfirmed[index] = toPatternConfirmationSignal(threeInsideDownShape, uptrend);
+      result.uniqueThreeRiverConfirmed[index] = toPatternConfirmationSignal(uniqueThreeRiverShape, downtrend);
+      result.upsideGapTwoCrowsConfirmed[index] = toPatternConfirmationSignal(upsideGapTwoCrowsShape, uptrend);
+      result.abandonedBabyBullConfirmed[index] = toPatternConfirmationSignal(abandonedBabyBullShape, downtrend);
+      result.abandonedBabyBearConfirmed[index] = toPatternConfirmationSignal(abandonedBabyBearShape, uptrend);
+      result.gapSideBySideWhiteConfirmed[index] = toPatternConfirmationSignal(
+        gapSideBySideWhiteScore !== 0,
+        gapSideBySideWhiteScore > 0 ? uptrend : gapSideBySideWhiteScore < 0 ? downtrend : null,
+      );
+      result.hikkakeConfirmed[index] = hikkakeConfirmedSignal;
+      result.stickSandwichConfirmed[index] = toPatternConfirmationSignal(stickSandwichShape, downtrend);
+    }
+    if (previous !== null) {
+      result.kickerBullConfirmed[index] = toPatternConfirmationSignal(kickerBullShape, downtrend);
+      result.kickerBearConfirmed[index] = toPatternConfirmationSignal(kickerBearShape, uptrend);
+    }
+    result.beltHoldBullConfirmed[index] = toPatternConfirmationSignal(beltHoldBullShape, beltHoldBullContext);
+    result.beltHoldBearConfirmed[index] = toPatternConfirmationSignal(beltHoldBearShape, beltHoldBearContext);
+    if (fourBack !== null && threeBack !== null && twoBack !== null && previous !== null) {
+      result.breakawayBullConfirmed[index] = toPatternConfirmationSignal(breakawayBullShape, downtrend);
+      result.breakawayBearConfirmed[index] = toPatternConfirmationSignal(breakawayBearShape, uptrend);
+      result.risingThreeMethodsConfirmed[index] = toPatternConfirmationSignal(risingThreeMethodsShape, uptrend);
+      result.fallingThreeMethodsConfirmed[index] = toPatternConfirmationSignal(fallingThreeMethodsShape, downtrend);
+      result.matHoldConfirmed[index] = toPatternConfirmationSignal(matHoldShape, uptrend);
+      result.ladderBottomConfirmed[index] = toPatternConfirmationSignal(ladderBottomShape, downtrend);
+      result.ladderBottomBrvmConfirmed[index] = toPatternConfirmationSignal(ladderBottomBrvmShape, downtrend);
+    }
+    if (threeBack !== null && twoBack !== null && previous !== null) {
+      result.concealingBabySwallowConfirmed[index] = toPatternConfirmationSignal(concealingBabySwallowShape, downtrend);
+    }
   }
 
   for (let index = 2; index < data.length; index++) {

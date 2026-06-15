@@ -27,6 +27,7 @@ import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 import { fetchDailyCsvData } from "./marketData.fetchers";
 import { parseIndicatorCSV, resolveBRVMDatasetTicker } from "./marketData.parsers";
 import { REALTIME_ENRICHMENT_TIMEOUT_MS, scheduleRealtimeEnrichment } from "./realtimeEnrichment";
+import { idbGet, idbSet } from "../drawing/drawingPersistence";
 
 type DataMode = "mock" | "real";
 type ErrorWithStatus = Error & { status?: number };
@@ -34,6 +35,7 @@ export type ComparisonLoadStatus = "idle" | "loading" | "loaded" | "empty" | "fa
 export type ComparisonLoadState = Record<string, ComparisonLoadStatus>;
 
 const COMPARISON_NO_DATA_GRACE_MS = 1500;
+const MARKET_LAST_FETCH_KEY_PREFIX = "brvm_last_fetch_";
 
 const normalizeComparisonSymbols = (symbols: string[]): string[] =>
   Array.from(new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)));
@@ -53,6 +55,22 @@ const readFiniteNumberField = (value: unknown): number | undefined =>
 
 const readStringField = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+
+const getMarketLastFetchKey = (symbol: string) => `${MARKET_LAST_FETCH_KEY_PREFIX}${symbol.toUpperCase()}`;
+
+const readMarketLastFetch = async (symbol: string): Promise<number | null> => {
+  const value = await idbGet<number | string>(getMarketLastFetchKey(symbol));
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const writeMarketLastFetch = async (symbol: string, value: number): Promise<void> => {
+  await idbSet(getMarketLastFetchKey(symbol), value);
+};
 
 const applyCapitalizationFields = (snapshot: LiveSnapshot, capData: unknown): void => {
   if (!isRecord(capData) || capData.error) return;
@@ -212,9 +230,7 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
 
       // [TENOR 2026 SRE FIX] Success Reset
       retryCount.current = 0;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`brvm_last_fetch_${upperTicker}`, Date.now().toString());
-      }
+      void writeMarketLastFetch(upperTicker, Date.now());
 
       setIsLoading(false);
       clearPatienceTimer();
@@ -289,6 +305,10 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
               const rawVar = liveData.variation || "0.00%";
               const variationNum = parseFloat(rawVar.replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
 
+              const cacheStatus = typeof liveData.cacheStatus === "string" ? liveData.cacheStatus : "";
+              const hasPositiveLivePrice = typeof liveData.price === "number" && Number.isFinite(liveData.price) && liveData.price > 0;
+              const isStaleLiveSource = !hasPositiveLivePrice || cacheStatus === "STALE" || cacheStatus === "FALLBACK";
+
               const parsedLiveSnapshot: LiveSnapshot = {
                 symbol: upperTicker,
                 price: (liveData.price > 0) ? liveData.price : fallbackPrice,
@@ -302,8 +322,8 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
                 volume: liveData.volume || 0,
                 tradesCount: liveData.tradesCount ?? liveData.trades_count ?? null,
                 source: typeof liveData.source === "string" ? liveData.source : "BRVM_DIRECT",
-                sourceStatus: "live",
-                sourceLabel: "Live BRVM",
+                sourceStatus: isStaleLiveSource ? "fallback" : "live",
+                sourceLabel: isStaleLiveSource ? "Stale BRVM" : "Live BRVM",
                 lastUpdate: new Date().toISOString()
               };
 
@@ -459,14 +479,17 @@ export const useMarketData = (mode: DataMode = "mock", forcedSymbol?: string) =>
       } else {
         console.log("[MarketData] Tab visible. Resuming polling.");
         if (isOnline) {
-          // Check if we need to catch up
-          const lastFetch = localStorage.getItem(`brvm_last_fetch_${symbolRef.current}`);
-          const now = Date.now();
-          if (!lastFetch || (now - parseInt(lastFetch, 10) > POLLING_INTERVAL)) {
-            console.log("[MarketData] Data stale. Fetching immediately.");
-            fetchRealDataRef.current(symbolRef.current, false);
-          }
-          startPolling();
+          void (async () => {
+            const currentSymbol = symbolRef.current;
+            const lastFetch = await readMarketLastFetch(currentSymbol);
+            if (typeof document !== 'undefined' && document.hidden) return;
+            if (!isOnline) return;
+            if (lastFetch === null || Date.now() - lastFetch > POLLING_INTERVAL) {
+              console.log("[MarketData] Data stale. Fetching immediately.");
+              fetchRealDataRef.current(currentSymbol, false);
+            }
+            startPolling();
+          })();
         }
       }
     };

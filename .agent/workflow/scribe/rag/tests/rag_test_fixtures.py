@@ -69,9 +69,98 @@ RAW_AUTH_ENTITIES: list[dict[str, Any]] = [
 ]
 
 
-def build_auth_test_index() -> dict[str, Any]:
-    entities = [normalize_entity(entity, position) for position, entity in enumerate(RAW_AUTH_ENTITIES)]
-    negative_index = build_negative_memory_index(RAW_AUTH_ENTITIES)
+RAW_AGENT_PROTOCOL_ENTITIES: list[dict[str, Any]] = [
+    {
+        "id": "PAT-GRAPH-001",
+        "collection": "patterns",
+        "tier": "hot",
+        "status": "ACTIVE",
+        "title": "Graphify and SCRIBE separation",
+        "abstract": "Use Graphify for structural code facts and SCRIBE for causal project memory.",
+        "incoming": ["JOURNAL-000"],
+        "outgoing": [],
+        "value": {
+            "date": "2026-05-28",
+            "scope": "dev",
+            "l0_abstract": "Graphify owns code structure, dependencies, god-nodes, and blast radius; SCRIBE owns causal decisions and pain.",
+            "evidence": {"type": "OBSERVED", "source": "JOURNAL-000"},
+        },
+    },
+    {
+        "id": "PAT-GIT-001",
+        "collection": "patterns",
+        "tier": "hot",
+        "status": "ACTIVE",
+        "title": "Agent artifact versioning boundary",
+        "abstract": "Commit product source by default; keep graphify-out and scribe-out generated state out of product commits.",
+        "incoming": ["JOURNAL-000"],
+        "outgoing": [],
+        "value": {
+            "date": "2026-05-28",
+            "scope": "dev",
+            "l0_abstract": "Generated Graphify and SCRIBE runtime artifacts are reconstructible local state unless explicitly shared.",
+            "evidence": {"type": "REASONED", "source": "JOURNAL-000"},
+        },
+    },
+    {
+        "id": "INV-F004",
+        "collection": "invariants",
+        "tier": "hot",
+        "status": "ACTIVE",
+        "title": "Generated agent state stays out of product commits",
+        "abstract": "Version host product source by default; keep graphify-out and scribe-out out of commits unless explicitly requested.",
+        "incoming": [],
+        "outgoing": [],
+        "value": {"scope": "dev"},
+    },
+    {
+        "id": "PAT-SCRIBE-RAG-001",
+        "collection": "patterns",
+        "tier": "hot",
+        "status": "ACTIVE",
+        "title": "scribe-rag preflight proof",
+        "abstract": "Agents must use scribe-rag preflight/context/query/challenge as the proof surface before significant work.",
+        "incoming": ["JOURNAL-000"],
+        "outgoing": ["GHOST-SCRIBE-RAG-SEL-DIRECT-001"],
+        "value": {
+            "date": "2026-05-28",
+            "scope": "dev bundle",
+            "l0_abstract": "The agent memory proof is scribe-rag preflight, then focused query/explain, then challenge before implementation; SEL stays internal.",
+            "l2_details": "This prevents host models from reading policy text once and skipping the actual memory retrieval path.",
+            "approved": True,
+            "evidence": {"type": "OBSERVED", "source": "JOURNAL-000"},
+        },
+    },
+    {
+        "id": "GHOST-SCRIBE-RAG-SEL-DIRECT-001",
+        "collection": "ghosts",
+        "tier": "hot",
+        "status": "ACTIVE",
+        "title": "No SEL direct retrieval for agents",
+        "abstract": "SEL direct context/query/challenge is rejected for host-agent retrieval; use scribe-rag so retrieval is compact and auditable.",
+        "incoming": ["PAT-SCRIBE-RAG-001"],
+        "outgoing": [],
+        "value": {
+            "date": "2026-05-28",
+            "scope": "dev bundle",
+            "l0_abstract": "Agents read memory through scribe-rag only; SEL direct commands are reserved for maintenance, guard, sync, lock, export, and writes.",
+            "ne_pas_reproposer": [
+                "appeler SEL direct context query pour retrieval agent",
+                "utiliser scribe context au lieu de scribe-rag",
+                "lire AGENT-MEMOIRE_PROJECT_STATUS.scribe directement pour retrieval agent",
+            ],
+            "alternatives_rejetees": [
+                {"nom": "SEL direct retrieval", "raison_rejet": "It bypasses the compact agent proof surface and makes policy compliance invisible."}
+            ],
+            "evidence": {"type": "OBSERVED", "source": "JOURNAL-000"},
+        },
+    },
+]
+
+
+def _build_test_index(raw_entities: list[dict[str, Any]]) -> dict[str, Any]:
+    entities = [normalize_entity(entity, position) for position, entity in enumerate(raw_entities)]
+    negative_index = build_negative_memory_index(raw_entities)
     return {
         "version": 2,
         "mode": "bm25",
@@ -80,3 +169,11 @@ def build_auth_test_index() -> dict[str, Any]:
         "negative_memory_index": negative_index,
         "stats": {"entities": len(entities), "negative_terms": len(negative_index)},
     }
+
+
+def build_auth_test_index() -> dict[str, Any]:
+    return _build_test_index(RAW_AUTH_ENTITIES)
+
+
+def build_agent_protocol_test_index() -> dict[str, Any]:
+    return _build_test_index(RAW_AGENT_PROTOCOL_ENTITIES)

@@ -18,7 +18,8 @@ import { useDispatch } from "react-redux";
 import type { AdvancedIndicatorsState, IndicatorPeriods, BollingerSettings } from "../config/indicators/advancedIndicatorsTypes";
 import type { ChartState, ChartAppearance } from "../config/state/chartStateTypes";
 import type { UiState } from "../config/state/uiStateTypes";
-import { calculateAcceleratorOscillator, calculateADLine, calculateADX, calculateALMA, calculateAPO, calculateATR, calculateAroon, calculateAroonOscillator, calculateAwesomeOscillator, calculateCCI, calculateCMF, calculateCMO, calculateChaikinOscillator, calculateChaikinVolatility, calculateCoppockCurve, calculateDEMA, calculateDPO, calculateDYMI, calculateDonchianChannels, calculateElderBullBearPower, calculateElderForceIndex, calculateEMA, calculateEOM, calculateFisherTransform, calculateFiftyTwoWeekLevels, calculateHMA, calculateHistoricalRecordLevels, calculateHistoricalVolatility, calculateKAMA, calculateKST, calculateKeltnerChannels, calculateKlingerOscillator, calculateLinearRegressionIndicator, calculateMACD, calculateMFI, calculateMassIndex, calculateMomentum, calculateMovingAverageCrossSignals, calculateNATR, calculateNVI, calculateOBV, calculatePPO, calculatePVI, calculateParabolicSAR, calculatePivotPointsFibonacci, calculatePivotPointsStandard, calculatePriceActionSignals, calculateCandlestickPatterns, calculatePriceStdDev, calculateROC, calculateRVI, calculateSMA, calculateSMMA, calculateSTC, calculateSupertrend, calculateTEMA, calculateTRIX, calculateTSI, calculateUlcerIndex, calculateUltimateOscillator, calculateVROC, calculateVWAP, calculateVWMA, calculateVolumeOscillator, calculateVolumeProfile, calculateVortex, calculateWilliamsR, calculateWMA, calculateZLEMA, ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { calculateAcceleratorOscillator, calculateADLine, calculateADX, calculateALMA, calculateAPO, calculateATR, calculateAroon, calculateAroonOscillator, calculateAwesomeOscillator, calculateCCI, calculateCMF, calculateCMO, calculateChaikinOscillator, calculateChaikinVolatility, calculateCoppockCurve, calculateDEMA, calculateDPO, calculateDYMI, calculateDonchianChannels, calculateElderBullBearPower, calculateElderForceIndex, calculateEMA, calculateEOM, calculateFisherTransform, calculateFiftyTwoWeekLevels, calculateHMA, calculateHistoricalRecordLevels, calculateHistoricalVolatility, calculateKAMA, calculateKST, calculateKeltnerChannels, calculateKlingerOscillator, calculateLinearRegressionIndicator, calculateMACD, calculateMFI, calculateMassIndex, calculateMomentum, calculateMovingAverageCrossSignals, calculateNATR, calculateNVI, calculateOBV, calculatePPO, calculatePVI, calculateParabolicSAR, calculatePivotPointsFibonacci, calculatePivotPointsStandard, calculatePriceActionSignals, calculateCandlestickPatterns, calculatePriceStdDev, calculateROC, calculateRVI, calculateSMA, calculateSMMA, calculateSTC, calculateSupertrend, calculateTEMA, calculateTRIX, calculateTSI, calculateUlcerIndex, calculateUltimateOscillator, calculateVROC, calculateVWAP, calculateVWMA, calculateVolumeOscillator, calculateVortex, calculateWilliamsR, calculateWMA, calculateZLEMA, ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import type { VolumeProfileResult } from "../lib/Indicators/TechnicalIndicators";
 import {
   useChartViewport,
   TV_Y_AXIS_WIDTH,
@@ -60,10 +61,8 @@ import {
 } from "../config/indicators/advancedMovingAverageSeries";
 import {
   CANDLESTICK_PATTERN_PRIORITY,
-  buildCandlestickPatternSignalSummary,
   getCandlestickPatternPresentation,
   type CandlestickPatternKey,
-  type CandlestickPatternSignalSummary,
 } from "../config/indicators/candlestickPatternPresentation";
 import {
   buildChartTypeSeries,
@@ -81,6 +80,7 @@ import {
   getLastFiniteComparisonPoint,
   normalizeComparisonValues,
 } from "./chart-rendering/comparisonSeries";
+import type { PineChartOverlayPayload } from "../components/sidebar/panels/pineEditor/pineTypes";
 import type { EChartsInstance, TechnicalEChartsOption } from "../lib/types/echarts";
 
 let areEChartsModulesRegistered = false;
@@ -94,6 +94,7 @@ const applyChartOption = (chart: EChartsInstance, option: TechnicalEChartsOption
     lazyUpdate: false,
   });
 };
+
 
 const registerEChartsModules = (): void => {
   if (areEChartsModulesRegistered) return;
@@ -123,6 +124,14 @@ const registerEChartsModules = (): void => {
 // ============================================================================
 // [TENOR 2026 FIX] SCAR-TS-01: Exported Interface to fix TS 2304
 // ============================================================================
+export type MarubozuAlertRequest = {
+  price: number;
+  condition: "GREATER_THAN" | "LESS_THAN";
+  label: string;
+};
+export type ShootingStarAlertRequest = MarubozuAlertRequest;
+export type CandlestickPatternAlertRequest = MarubozuAlertRequest;
+
 export interface UseEChartsRendererProps {
   stockChartRef: RefObject<HTMLDivElement | null>;
   /** [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
@@ -150,9 +159,13 @@ export interface UseEChartsRendererProps {
   isMainChartVisible?: boolean;
   comparisonSeries?: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
   onCompareSeriesSettingsRequest?: (symbol: string) => void;
+  onMarubozuAlertRequest?: (request: MarubozuAlertRequest) => void;
+  onShootingStarAlertRequest?: (request: ShootingStarAlertRequest) => void;
+  onCandlestickPatternAlertRequest?: (request: CandlestickPatternAlertRequest) => void;
   onChartVisualReady?: () => void;
   hasLiveStitchedCandle?: boolean;
   hiddenObjectIds?: Record<string, boolean>;
+  pineOverlay?: PineChartOverlayPayload | null;
 }
 
 // ============================================================================
@@ -161,6 +174,38 @@ export interface UseEChartsRendererProps {
 const TV_AXIS_BADGE_RIGHT_INSET = 8;
 const TV_AXIS_ACTION_GAP = 3;
 const TV_CURSOR_BADGE_MIN_WIDTH = 72;
+const ACTIONABLE_TWO_CANDLE_PATTERN_SERIES_IDS = new Set([
+  "engulfing-bullish-bracket",
+  "engulfing-bearish-bracket",
+  "harami-bullish-bracket",
+  "harami-bearish-bracket",
+  "tweezer-top-line",
+  "tweezer-bottom-line",
+  "piercing-line-marker",
+  "dark-cloud-cover-marker",
+  "tasuki-gap-bracket",
+  "separating-lines-marker",
+  "thrusting-marker",
+  "counterattack-bracket",
+  "morning-star-bracket",
+  "evening-star-bracket",
+  "three-white-soldiers-bracket",
+  "three-black-crows-bracket",
+  "rising-three-methods-bracket",
+  "falling-three-methods-bracket",
+  "mat-hold-bracket",
+  "gap-side-by-side-white-bracket",
+  "hikkake-bracket",
+  "concealing-baby-swallow-bracket",
+  "ladder-bottom-bracket",
+  "stick-sandwich-bracket",
+]);
+const ACTIONABLE_CANDLESTICK_PATTERN_TOOLTIP_SERIES_IDS = new Set([
+  "marubozu-bull-outline",
+  "marubozu-bear-outline",
+  "shooting-star-marker",
+  ...ACTIONABLE_TWO_CANDLE_PATTERN_SERIES_IDS,
+]);
 type ChartOptionPart = Record<string, unknown>;
 
 type RenderableSeriesOption = {
@@ -276,6 +321,10 @@ interface PriceSignalMarkerOptions {
   opacity?: number;
 }
 
+interface IndicatorStructuredResults {
+  volumeProfile?: VolumeProfileResult | null;
+}
+
 interface ChartBuilderContext {
   dates: string[];
   volumes: DirectionalVolumeDataPoint[];
@@ -289,6 +338,7 @@ interface ChartBuilderContext {
   uiState: UiState;
   displaySymbol: string;
   indicatorsData: Record<string, (number | string)[]>;
+  structuredResults: IndicatorStructuredResults;
   comparisonSeries: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
   hiddenObjectIds: Record<string, boolean>;
   latestPrice: number;
@@ -297,6 +347,7 @@ interface ChartBuilderContext {
   legendSelection: Record<string, boolean>;
   comparisonBaselineIndex: number;
   hasLiveStitchedCandle: boolean;
+  pineOverlay: PineChartOverlayPayload | null;
 }
 
 const formatAxisPriceValue = (value: number): string => {
@@ -314,6 +365,15 @@ const formatSignalNumber = (value: number | null, fractionDigits = 2): string =>
     maximumFractionDigits: fractionDigits,
   });
 };
+
+const escapeTooltipHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  }[character] ?? character));
 
 const toFiniteNumber = (value: unknown): number | null => {
   const numberValue = Number(value);
@@ -432,6 +492,7 @@ const buildEChartsOption = ({
   uiState,
   displaySymbol,
   indicatorsData,
+  structuredResults,
   comparisonSeries,
   hiddenObjectIds,
   latestPrice,
@@ -440,6 +501,7 @@ const buildEChartsOption = ({
   legendSelection,
   comparisonBaselineIndex,
   hasLiveStitchedCandle,
+  pineOverlay,
 }: ChartBuilderContext): TechnicalEChartsOption => {
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
@@ -447,6 +509,33 @@ const buildEChartsOption = ({
 
   const isObjectVisible = (id: string) => hiddenObjectIds[id] !== true;
   const isCci20Active = advancedIndicators.cci20 || advancedIndicators.cci;
+  const hasVisibleMacdPanel = advancedIndicators.macd
+    && isObjectVisible("macd")
+    && (isObjectVisible("macd-line") || isObjectVisible("macd-signal") || isObjectVisible("macd-hist"));
+  const hasVisibleStochasticPanel = advancedIndicators.stochastic
+    && isObjectVisible("stochastic")
+    && (isObjectVisible("stoch-k") || isObjectVisible("stoch-d"));
+  const hasVisibleStochRsiPanel = advancedIndicators.stochRsi
+    && isObjectVisible("stochRsi")
+    && (isObjectVisible("stochrsi-k") || isObjectVisible("stochrsi-d"));
+  const hasVisibleIchimokuOverlay = advancedIndicators.ichimoku
+    && isObjectVisible("ichimoku")
+    && (
+      isObjectVisible("ichimoku-tenkan")
+      || isObjectVisible("ichimoku-kijun")
+      || isObjectVisible("ichimoku-chikou")
+      || isObjectVisible("ichimoku-senkouA")
+      || isObjectVisible("ichimoku-senkouB")
+      || isObjectVisible("ichimoku-cloud")
+    );
+  const hasVisibleBollingerOverlay = advancedIndicators.bollinger
+    && isObjectVisible("bollinger")
+    && (
+      isObjectVisible("boll-upper")
+      || isObjectVisible("boll-mid")
+      || isObjectVisible("boll-lower")
+      || (bollingerSettings.showFill !== false && isObjectVisible("boll-fill"))
+    );
   const hasVisibleCciPanel = (advancedIndicators.cci14 && isObjectVisible("cci14"))
     || (advancedIndicators.cci20 && isObjectVisible("cci20"))
     || (advancedIndicators.cci && isObjectVisible("cci"));
@@ -495,10 +584,10 @@ const buildEChartsOption = ({
     && isObjectVisible("linear-reg-slope");
   const hasVisibleDonchianOverlay = advancedIndicators.donchian
     && isObjectVisible("donchian")
-    && (isObjectVisible("donchian-upper") || isObjectVisible("donchian-middle") || isObjectVisible("donchian-lower"));
+    && (isObjectVisible("donchian-upper") || isObjectVisible("donchian-middle") || isObjectVisible("donchian-lower") || isObjectVisible("donchian-fill"));
   const hasVisibleKeltnerOverlay = advancedIndicators.keltner
     && isObjectVisible("keltner")
-    && (isObjectVisible("keltner-upper") || isObjectVisible("keltner-middle") || isObjectVisible("keltner-lower"));
+    && (isObjectVisible("keltner-upper") || isObjectVisible("keltner-middle") || isObjectVisible("keltner-lower") || isObjectVisible("keltner-fill"));
   const hasVisibleVolumeProfileOverlay = advancedIndicators.volumeProfile
     && isObjectVisible("volumeProfile")
     && (isObjectVisible("volume-profile-rows") || isObjectVisible("vp-poc") || isObjectVisible("vp-vah") || isObjectVisible("vp-val"));
@@ -608,6 +697,114 @@ const buildEChartsOption = ({
   const hasVisibleShootingStarOverlay = advancedIndicators.shootingStar
     && isObjectVisible("shootingStar")
     && isObjectVisible("shooting-star-marker");
+  const hasVisibleEngulfingBullishOverlay = advancedIndicators.engulfingBullish
+    && isObjectVisible("engulfingBullish")
+    && isObjectVisible("engulfing-bullish-bracket");
+  const hasVisibleEngulfingBearishOverlay = advancedIndicators.engulfingBearish
+    && isObjectVisible("engulfingBearish")
+    && isObjectVisible("engulfing-bearish-bracket");
+  const hasVisibleHaramiBullishOverlay = advancedIndicators.haramiBullish
+    && isObjectVisible("haramiBullish")
+    && isObjectVisible("harami-bullish-bracket");
+  const hasVisibleHaramiBearishOverlay = advancedIndicators.haramiBearish
+    && isObjectVisible("haramiBearish")
+    && isObjectVisible("harami-bearish-bracket");
+  const hasVisibleTweezerTopOverlay = advancedIndicators.tweezerTop
+    && isObjectVisible("tweezerTop")
+    && isObjectVisible("tweezer-top-line");
+  const hasVisibleTweezerBottomOverlay = advancedIndicators.tweezerBottom
+    && isObjectVisible("tweezerBottom")
+    && isObjectVisible("tweezer-bottom-line");
+  const hasVisiblePiercingLineOverlay = advancedIndicators.piercingLine
+    && isObjectVisible("piercingLine")
+    && isObjectVisible("piercing-line-marker");
+  const hasVisibleDarkCloudCoverOverlay = advancedIndicators.darkCloudCover
+    && isObjectVisible("darkCloudCover")
+    && isObjectVisible("dark-cloud-cover-marker");
+  const hasVisibleTasukiGapOverlay = advancedIndicators.tasukiGap
+    && isObjectVisible("tasukiGap")
+    && isObjectVisible("tasuki-gap-bracket");
+  const hasVisibleSeparatingLinesOverlay = advancedIndicators.separatingLines
+    && isObjectVisible("separatingLines")
+    && isObjectVisible("separating-lines-marker");
+  const hasVisibleThrustingOverlay = advancedIndicators.thrusting
+    && isObjectVisible("thrusting")
+    && isObjectVisible("thrusting-marker");
+  const hasVisibleCounterattackOverlay = advancedIndicators.counterattack
+    && isObjectVisible("counterattack")
+    && isObjectVisible("counterattack-bracket");
+  const hasVisibleMorningStarOverlay = advancedIndicators.morningStar
+    && isObjectVisible("morningStar")
+    && isObjectVisible("morning-star-bracket");
+  const hasVisibleEveningStarOverlay = advancedIndicators.eveningStar
+    && isObjectVisible("eveningStar")
+    && isObjectVisible("evening-star-bracket");
+  const hasVisibleThreeWhiteSoldiersOverlay = advancedIndicators.threeWhiteSoldiers
+    && isObjectVisible("threeWhiteSoldiers")
+    && isObjectVisible("three-white-soldiers-bracket");
+  const hasVisibleThreeBlackCrowsOverlay = advancedIndicators.threeBlackCrows
+    && isObjectVisible("threeBlackCrows")
+    && isObjectVisible("three-black-crows-bracket");
+  const hasVisibleThreeInsideUpOverlay = advancedIndicators.threeInsideUp
+    && isObjectVisible("threeInsideUp")
+    && isObjectVisible("three-inside-up-bracket");
+  const hasVisibleThreeInsideDownOverlay = advancedIndicators.threeInsideDown
+    && isObjectVisible("threeInsideDown")
+    && isObjectVisible("three-inside-down-bracket");
+  const hasVisibleUniqueThreeRiverOverlay = advancedIndicators.uniqueThreeRiver
+    && isObjectVisible("uniqueThreeRiver")
+    && isObjectVisible("unique-three-river-bracket");
+  const hasVisibleUpsideGapTwoCrowsOverlay = advancedIndicators.upsideGapTwoCrows
+    && isObjectVisible("upsideGapTwoCrows")
+    && isObjectVisible("upside-gap-two-crows-bracket");
+  const hasVisibleKickerBullOverlay = advancedIndicators.kickerBull
+    && isObjectVisible("kickerBull")
+    && isObjectVisible("kicker-bull-bracket");
+  const hasVisibleKickerBearOverlay = advancedIndicators.kickerBear
+    && isObjectVisible("kickerBear")
+    && isObjectVisible("kicker-bear-bracket");
+  const hasVisibleAbandonedBabyBullOverlay = advancedIndicators.abandonedBabyBull
+    && isObjectVisible("abandonedBabyBull")
+    && isObjectVisible("abandoned-baby-bull-bracket");
+  const hasVisibleAbandonedBabyBearOverlay = advancedIndicators.abandonedBabyBear
+    && isObjectVisible("abandonedBabyBear")
+    && isObjectVisible("abandoned-baby-bear-bracket");
+  const hasVisibleBeltHoldBullOverlay = advancedIndicators.beltHoldBull
+    && isObjectVisible("beltHoldBull")
+    && isObjectVisible("belt-hold-bull-marker");
+  const hasVisibleBeltHoldBearOverlay = advancedIndicators.beltHoldBear
+    && isObjectVisible("beltHoldBear")
+    && isObjectVisible("belt-hold-bear-marker");
+  const hasVisibleBreakawayBullOverlay = advancedIndicators.breakawayBull
+    && isObjectVisible("breakawayBull")
+    && isObjectVisible("breakaway-bull-bracket");
+  const hasVisibleBreakawayBearOverlay = advancedIndicators.breakawayBear
+    && isObjectVisible("breakawayBear")
+    && isObjectVisible("breakaway-bear-bracket");
+  const hasVisibleRisingThreeMethodsOverlay = advancedIndicators.risingThreeMethods
+    && isObjectVisible("risingThreeMethods")
+    && isObjectVisible("rising-three-methods-bracket");
+  const hasVisibleFallingThreeMethodsOverlay = advancedIndicators.fallingThreeMethods
+    && isObjectVisible("fallingThreeMethods")
+    && isObjectVisible("falling-three-methods-bracket");
+  const hasVisibleMatHoldOverlay = advancedIndicators.matHold
+    && isObjectVisible("matHold")
+    && isObjectVisible("mat-hold-bracket");
+  const hasVisibleGapSideBySideWhiteOverlay = advancedIndicators.gapSideBySideWhite
+    && isObjectVisible("gapSideBySideWhite")
+    && isObjectVisible("gap-side-by-side-white-bracket");
+  const hasVisibleHikkakeOverlay = advancedIndicators.hikkake
+    && isObjectVisible("hikkake")
+    && isObjectVisible("hikkake-bracket");
+  const hasVisibleConcealingBabySwallowOverlay = advancedIndicators.concealingBabySwallow
+    && isObjectVisible("concealingBabySwallow")
+    && isObjectVisible("concealing-baby-swallow-bracket");
+  const hasVisibleLadderBottomOverlay = advancedIndicators.ladderBottom
+    && isObjectVisible("ladderBottom")
+    && isObjectVisible("ladder-bottom-bracket");
+  const hasVisibleStickSandwichOverlay = advancedIndicators.stickSandwich
+    && isObjectVisible("stickSandwich")
+    && isObjectVisible("stick-sandwich-bracket");
   const hasVisibleMarubozuBullOverlay = advancedIndicators.marubozuBull
     && isObjectVisible("marubozuBull")
     && isObjectVisible("marubozu-bull-outline");
@@ -670,7 +867,7 @@ const buildEChartsOption = ({
 
   const oscillatorPanels = [
     advancedIndicators.rsi && isObjectVisible("rsi") ? "RSI" : null,
-    advancedIndicators.macd && isObjectVisible("macd") ? "MACD" : null,
+    hasVisibleMacdPanel ? "MACD" : null,
     hasVisiblePpoPanel ? "PPO" : null,
     advancedIndicators.apo && isObjectVisible("apo") ? "APO" : null,
     hasVisibleAdxPanel ? "ADX" : null,
@@ -682,7 +879,7 @@ const buildEChartsOption = ({
     advancedIndicators.massIndex && isObjectVisible("massIndex") ? "Mass Index" : null,
     hasVisibleKstPanel ? "KST" : null,
     hasVisibleLinearRegressionSlopePanel ? "LinReg Slope" : null,
-    advancedIndicators.stochastic && isObjectVisible("stochastic") ? "Stoch" : null,
+    hasVisibleStochasticPanel ? "Stoch" : null,
     advancedIndicators.atr && isObjectVisible("atr") ? "ATR 14" : null,
     advancedIndicators.atr20 && isObjectVisible("atr20") ? "ATR 20" : null,
     advancedIndicators.natr14 && isObjectVisible("natr14") ? "NATR 14" : null,
@@ -717,7 +914,7 @@ const buildEChartsOption = ({
     hasVisibleKlingerPanel ? "Klinger" : null,
     hasVisibleElderForcePanel ? "Elder Force Index" : null,
     hasVisibleEomPanel ? "EOM 14" : null,
-    advancedIndicators.stochRsi && isObjectVisible("stochRsi") ? "StochRSI" : null,
+    hasVisibleStochRsiPanel ? "StochRSI" : null,
     advancedIndicators.bbWidth && isObjectVisible("bbWidth") ? "BB Width" : null,
     advancedIndicators.bbPercentB && isObjectVisible("bbPercentB") ? "BB %B" : null,
   ].filter((panel): panel is string => panel !== null);
@@ -818,6 +1015,62 @@ const buildEChartsOption = ({
 
 
   seriesOptions.push(...chartTypePlan.series);
+
+  if (pineOverlay && pineOverlay.series.length > 0) {
+    pineOverlay.series.forEach((pineSeries, index) => {
+      const pointData = pineSeries.points.map((p) => {
+        const dateIndex = renderDates.indexOf(p.time);
+        return dateIndex !== -1 ? [dateIndex, p.value] : null;
+      }).filter((entry): entry is [number, number] => entry !== null);
+
+      if (pointData.length === 0) return;
+
+      const pineZ = 55 + index;
+      seriesOptions.push({
+        id: `pine-series-${index}`,
+        name: pineSeries.title,
+        type: "line",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: pointData,
+        encode: { x: 0, y: 1 },
+        showSymbol: false,
+        smooth: true,
+        connectNulls: true,
+        z: pineZ,
+        lineStyle: { width: 1.5, color: pineSeries.color, opacity: 0.92 },
+        itemStyle: { color: pineSeries.color },
+      });
+    });
+  }
+
+  if (pineOverlay && pineOverlay.signals.length > 0) {
+    pineOverlay.signals.forEach((signal, index) => {
+      const signalPoints = signal.points.map((p) => {
+        const dateIndex = renderDates.indexOf(p.time);
+        const dateStr = p.time;
+        return dateIndex !== -1 ? { value: [dateIndex, p.value], name: dateStr } : null;
+      }).filter((entry): entry is { value: [number, number]; name: string } => entry !== null);
+
+      if (signalPoints.length === 0) return;
+
+      const signalZ = 60 + index;
+      seriesOptions.push({
+        id: `pine-signal-${index}`,
+        name: signal.title,
+        type: "scatter",
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: signalPoints,
+        encode: { x: 0, y: 1 },
+        symbol: "pin",
+        symbolSize: 14,
+        z: signalZ,
+        itemStyle: { color: signal.color, opacity: 0.88, borderColor: "#ffffff", borderWidth: 0.5 },
+        label: { show: false },
+      });
+    });
+  }
 
   if (shouldRenderVolumePanel) {
     const volumeGridIndex = gridOptions.length;
@@ -1262,9 +1515,75 @@ const buildEChartsOption = ({
     });
   };
 
+  type MarubozuRenderPoint = [
+    index: number,
+    open: number,
+    close: number,
+    high: number,
+    low: number,
+    bodyPct: number,
+    upperWickPct: number,
+    lowerWickPct: number,
+    qualityScore: number,
+    alertPrice: number,
+    dateLabel: string,
+    directionLabel: string,
+    volumeLabel: string,
+    confirmationLabel: string,
+  ];
+  type MarubozuTooltipParam = {
+    seriesId?: string | number;
+    seriesName?: string;
+    value?: unknown;
+  };
+  type ShootingStarRenderPoint = [
+    index: number,
+    high: number,
+    low: number,
+    open: number,
+    close: number,
+    bodyPct: number,
+    upperWickPct: number,
+    lowerWickPct: number,
+    upperToBody: number,
+    qualityScore: number,
+    triggerPrice: number,
+    invalidationPrice: number,
+    dateLabel: string,
+    volumeLabel: string,
+    confirmationLabel: string,
+    trendLabel: string,
+  ];
+  type ShootingStarTooltipParam = {
+    value?: unknown;
+  };
+  type TwoCandlePatternRenderPoint = [
+    endIndex: number,
+    startIndex: number,
+    direction: number,
+    high: number,
+    low: number,
+    firstBodyTop: number,
+    firstBodyBottom: number,
+    secondBodyTop: number,
+    secondBodyBottom: number,
+    triggerPrice: number,
+    invalidationPrice: number,
+    score: number,
+    confirmationValue: number | string,
+    body1Pct: number,
+    body2Pct: number,
+    dateLabel: string,
+    chartLabel: string,
+    patternName: string,
+    volumeLabel: string,
+    confirmationLabel: string,
+  ];
+  type TwoCandlePatternTooltipParam = {
+    value?: unknown;
+  };
+
   type CandlestickPatternSeriesMap = Partial<Record<CandlestickPatternKey, (number | string)[]>>;
-  type CandlestickQualityKey = "insufficientHistory" | "missingOHLC" | "invalidOHLC" | "zeroRange" | "noTradeSession" | "stalePrice" | "corporateActionSuspected" | "lowReliabilityBecauseIlliquid";
-  type CandlestickQualitySeriesMap = Partial<Record<CandlestickQualityKey, (number | string)[]>>;
 
   const isCandlestickSignalActive = (signalData: (number | string)[] | undefined, index: number): boolean => {
     const value = toFiniteNumber(signalData?.[index]);
@@ -1441,29 +1760,725 @@ const buildEChartsOption = ({
     return markerData.length;
   };
 
+  const readMarubozuDisplayMetrics = (index: number) => {
+    const point = chartData[index];
+    const open = toFiniteNumber(point?.open);
+    const high = toFiniteNumber(point?.high);
+    const low = toFiniteNumber(point?.low);
+    const close = toFiniteNumber(point?.close);
+    if (open === null || high === null || low === null || close === null || high <= low) return null;
+    if (open < low || open > high || close < low || close > high) return null;
+
+    const bodyTop = Math.max(open, close);
+    const bodyBottom = Math.min(open, close);
+    const realBody = Math.abs(close - open);
+    const range = high - low;
+    if (realBody <= 0 || range <= 0) return null;
+
+    const upperShadow = high - bodyTop;
+    const lowerShadow = bodyBottom - low;
+    const bodyRatio = realBody / range;
+    const upperShadowRatio = upperShadow / range;
+    const lowerShadowRatio = lowerShadow / range;
+    const qualityScore = Math.round(clamp(
+      (bodyRatio * 70)
+      + ((1 - Math.min(1, upperShadowRatio / 0.10)) * 15)
+      + ((1 - Math.min(1, lowerShadowRatio / 0.10)) * 15),
+      0,
+      100,
+    ));
+
+    return {
+      open,
+      close,
+      realBody,
+      range,
+      upperShadow,
+      lowerShadow,
+      bodyRatio,
+      upperShadowRatio,
+      lowerShadowRatio,
+      qualityScore,
+    };
+  };
+
+  const resolveRecentAverageMarubozuBody = (index: number, lookback = 10): number | null => {
+    let total = 0;
+    let count = 0;
+    for (let cursor = index - 1; cursor >= 0 && count < lookback; cursor--) {
+      const metrics = readMarubozuDisplayMetrics(cursor);
+      if (!metrics) continue;
+      total += metrics.realBody;
+      count++;
+    }
+    return count >= 5 ? total / count : null;
+  };
+
+  const resolveRecentAveragePositiveVolume = (index: number, lookback = 20): number | null => {
+    let total = 0;
+    let count = 0;
+    for (let cursor = index - 1; cursor >= 0 && count < lookback; cursor--) {
+      const volume = toFiniteNumber(chartData[cursor]?.volume);
+      if (volume === null || volume <= 0) continue;
+      total += volume;
+      count++;
+    }
+    return count >= 5 ? total / count : null;
+  };
+
+  const resolveMarubozuVolumeContext = (index: number): { isReliable: boolean; label: string } => {
+    const volume = toFiniteNumber(chartData[index]?.volume);
+    const averageVolume = resolveRecentAveragePositiveVolume(index);
+    if (averageVolume === null) {
+      return volume !== null && volume > 0
+        ? { isReliable: true, label: "Volume positif" }
+        : { isReliable: true, label: "Volume non vérifié" };
+    }
+    if (volume === null || volume <= 0) return { isReliable: false, label: "Volume absent" };
+
+    const ratio = volume / averageVolume;
+    const ratioLabel = `x${formatSignalNumber(ratio, 1)} moy.`;
+    if (ratio < 0.55) return { isReliable: false, label: `Volume faible · ${ratioLabel}` };
+    if (ratio >= 1.25) return { isReliable: true, label: `Volume fort · ${ratioLabel}` };
+    return { isReliable: true, label: `Volume correct · ${ratioLabel}` };
+  };
+
+  const resolveCandlestickSignalVolumeContext = (index: number): { isReliable: boolean; label: string } =>
+    resolveMarubozuVolumeContext(index);
+
+  const resolveMarubozuConfirmationLabel = (index: number, isBearish: boolean, alertPrice: number): string => {
+    const nextClose = toFiniteNumber(chartData[index + 1]?.close);
+    if (nextClose === null) return "Confirmation suivante: en attente";
+    const isConfirmed = isBearish ? nextClose <= alertPrice : nextClose >= alertPrice;
+    return isConfirmed ? "Confirmation suivante: validée" : "Confirmation suivante: à surveiller";
+  };
+
+  const isPremiumMarubozuDisplaySignal = (index: number, isBearish: boolean): boolean => {
+    const metrics = readMarubozuDisplayMetrics(index);
+    if (!metrics) return false;
+    if (isBearish ? metrics.close >= metrics.open : metrics.close <= metrics.open) return false;
+
+    const bodyRatio = metrics.realBody / metrics.range;
+    const upperShadowRatio = metrics.upperShadow / metrics.range;
+    const lowerShadowRatio = metrics.lowerShadow / metrics.range;
+    const recentAverageBody = resolveRecentAverageMarubozuBody(index);
+    const hasStrongRelativeBody = recentAverageBody === null || metrics.realBody >= recentAverageBody * 1.15;
+    const volumeContext = resolveMarubozuVolumeContext(index);
+    return bodyRatio >= 0.82
+      && upperShadowRatio <= 0.10
+      && lowerShadowRatio <= 0.10
+      && hasStrongRelativeBody
+      && volumeContext.isReliable;
+  };
+
+  const formatMarubozuTooltip = (params: MarubozuTooltipParam): string => {
+    if (!Array.isArray(params.value)) return "";
+    const bodyPct = toFiniteNumber(params.value[5]);
+    const upperWickPct = toFiniteNumber(params.value[6]);
+    const lowerWickPct = toFiniteNumber(params.value[7]);
+    const qualityScore = toFiniteNumber(params.value[8]);
+    const alertPrice = toFiniteNumber(params.value[9]);
+    const dateLabel = typeof params.value[10] === "string" ? escapeTooltipHtml(params.value[10]) : "";
+    const directionLabel = typeof params.value[11] === "string" ? escapeTooltipHtml(params.value[11]) : "Marubozu";
+    const isBearishSignal = String(params.seriesId ?? "").includes("bear");
+    const alertOperator = isBearishSignal ? "&le;" : "&ge;";
+    const alertPriceLabel = alertPrice === null ? "N/D" : formatAxisPriceValue(alertPrice);
+    const volumeLabel = typeof params.value[12] === "string" ? escapeTooltipHtml(params.value[12]) : "Volume non vérifié";
+    const confirmationLabel = typeof params.value[13] === "string" ? escapeTooltipHtml(params.value[13]) : "Confirmation suivante: en attente";
+    const scoreTone = qualityScore !== null && qualityScore >= 92 ? "Forte" : "Valide";
+
+    return `
+      <div style="min-width:190px;color:#e2e8f0;font:12px Inter,system-ui,sans-serif;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
+          <strong style="color:#f8fafc;font-size:12px;">${directionLabel}</strong>
+          <span style="color:#94a3b8;font-size:11px;">${dateLabel}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:3px 12px;">
+          <span style="color:#94a3b8;">Corps</span><b>${formatSignalNumber(bodyPct, 1)}%</b>
+          <span style="color:#94a3b8;">Mèche haute</span><b>${formatSignalNumber(upperWickPct, 1)}%</b>
+          <span style="color:#94a3b8;">Mèche basse</span><b>${formatSignalNumber(lowerWickPct, 1)}%</b>
+          <span style="color:#94a3b8;">Volume</span><b>${volumeLabel}</b>
+          <span style="color:#94a3b8;">Qualité</span><b>${scoreTone} · ${formatSignalNumber(qualityScore, 0)}/100</b>
+        </div>
+        <div style="margin-top:6px;color:#cbd5e1;">${confirmationLabel}</div>
+        <div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(148,163,184,.22);color:#cbd5e1;">
+          Alerte: prix ${alertOperator} ${alertPriceLabel}
+        </div>
+      </div>
+    `;
+  };
+
+
+  const readShootingStarDisplayMetrics = (index: number) => {
+    const point = chartData[index];
+    const open = toFiniteNumber(point?.open);
+    const high = toFiniteNumber(point?.high);
+    const low = toFiniteNumber(point?.low);
+    const close = toFiniteNumber(point?.close);
+    if (open === null || high === null || low === null || close === null || high <= low) return null;
+    if (open < low || open > high || close < low || close > high) return null;
+
+    const bodyTop = Math.max(open, close);
+    const bodyBottom = Math.min(open, close);
+    const realBody = Math.abs(close - open);
+    const range = high - low;
+    if (realBody <= 0 || range <= 0) return null;
+
+    const upperShadow = high - bodyTop;
+    const lowerShadow = bodyBottom - low;
+    const bodyRatio = realBody / range;
+    const upperShadowRatio = upperShadow / range;
+    const lowerShadowRatio = lowerShadow / range;
+    const upperToBody = upperShadow / realBody;
+    const bodyTopPosition = (bodyTop - low) / range;
+    const qualityScore = Math.round(clamp(
+      (Math.min(1, upperShadowRatio / 0.62) * 38)
+      + ((1 - Math.min(1, bodyRatio / 0.34)) * 22)
+      + ((1 - Math.min(1, lowerShadowRatio / 0.14)) * 18)
+      + (Math.min(1, upperToBody / 2.6) * 16)
+      + ((1 - Math.min(1, bodyTopPosition / 0.46)) * 6),
+      0,
+      100,
+    ));
+
+    return {
+      open,
+      close,
+      high,
+      low,
+      realBody,
+      range,
+      upperShadow,
+      lowerShadow,
+      bodyRatio,
+      upperShadowRatio,
+      lowerShadowRatio,
+      upperToBody,
+      bodyTopPosition,
+      qualityScore,
+    };
+  };
+
+  const resolveShootingStarConfirmationLabel = (index: number, triggerPrice: number): string => {
+    const nextClose = toFiniteNumber(chartData[index + 1]?.close);
+    if (nextClose === null) return "Confirmation suivante: en attente";
+    return nextClose <= triggerPrice
+      ? "Confirmation suivante: cassure validée"
+      : "Confirmation suivante: support du signal non cassé";
+  };
+
+  const hasRecentShootingStarUpswing = (index: number, lookback = 4): boolean => {
+    const referenceClose = toFiniteNumber(chartData[index - 1]?.close);
+    const startIndex = Math.max(0, index - lookback);
+    const startClose = toFiniteNumber(chartData[startIndex]?.close);
+    if (referenceClose === null || startClose === null || startClose <= 0) return false;
+
+    let risingSteps = 0;
+    for (let cursor = startIndex + 1; cursor < index; cursor++) {
+      const previousClose = toFiniteNumber(chartData[cursor - 1]?.close);
+      const cursorClose = toFiniteNumber(chartData[cursor]?.close);
+      if (previousClose !== null && cursorClose !== null && cursorClose >= previousClose) risingSteps++;
+    }
+
+    const risePct = (referenceClose - startClose) / startClose;
+    return risePct >= 0.006 || risingSteps >= 2;
+  };
+
+  const isPremiumShootingStarDisplaySignal = (index: number, confirmedData?: (number | string)[]): boolean => {
+    const metrics = readShootingStarDisplayMetrics(index);
+    if (!metrics) return false;
+
+    const trendConfirmed = toFiniteNumber(confirmedData?.[index]);
+    const hasTrendContext = trendConfirmed === 1 || hasRecentShootingStarUpswing(index);
+    if (!hasTrendContext) return false;
+
+    const volumeContext = resolveCandlestickSignalVolumeContext(index);
+    const hasAcceptableVolume = volumeContext.isReliable || metrics.qualityScore >= 78;
+    return metrics.upperToBody >= 1.6
+      && metrics.upperShadowRatio >= 0.40
+      && metrics.bodyRatio <= 0.42
+      && metrics.lowerShadowRatio <= 0.22
+      && metrics.bodyTopPosition <= 0.62
+      && metrics.qualityScore >= 52
+      && hasAcceptableVolume;
+  };
+
+  const formatShootingStarTooltip = (params: ShootingStarTooltipParam): string => {
+    if (!Array.isArray(params.value)) return "";
+    const bodyPct = toFiniteNumber(params.value[5]);
+    const upperWickPct = toFiniteNumber(params.value[6]);
+    const lowerWickPct = toFiniteNumber(params.value[7]);
+    const upperToBody = toFiniteNumber(params.value[8]);
+    const qualityScore = toFiniteNumber(params.value[9]);
+    const triggerPrice = toFiniteNumber(params.value[10]);
+    const invalidationPrice = toFiniteNumber(params.value[11]);
+    const dateLabel = typeof params.value[12] === "string" ? escapeTooltipHtml(params.value[12]) : "";
+    const volumeLabel = typeof params.value[13] === "string" ? escapeTooltipHtml(params.value[13]) : "Volume non vérifié";
+    const confirmationLabel = typeof params.value[14] === "string" ? escapeTooltipHtml(params.value[14]) : "Confirmation suivante: en attente";
+    const trendLabel = typeof params.value[15] === "string" ? escapeTooltipHtml(params.value[15]) : "Hausse préalable confirmée";
+    const scoreTone = qualityScore !== null && qualityScore >= 82 ? "Forte" : "Valide";
+    const triggerLabel = triggerPrice === null ? "N/D" : formatAxisPriceValue(triggerPrice);
+    const invalidationLabel = invalidationPrice === null ? "N/D" : formatAxisPriceValue(invalidationPrice);
+
+    return [
+      '<div style="min-width:220px;color:#e2e8f0;font:12px Inter,system-ui,sans-serif;">',
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">',
+      '<strong style="color:#f8fafc;font-size:12px;">Shooting Star</strong>',
+      '<span style="color:#94a3b8;font-size:11px;">' + dateLabel + '</span>',
+      '</div>',
+      '<div style="display:grid;grid-template-columns:1fr auto;gap:3px 12px;">',
+      '<span style="color:#94a3b8;">Mèche haute</span><b>' + formatSignalNumber(upperWickPct, 1) + '%</b>',
+      '<span style="color:#94a3b8;">Mèche/corps</span><b>x' + formatSignalNumber(upperToBody, 1) + '</b>',
+      '<span style="color:#94a3b8;">Corps</span><b>' + formatSignalNumber(bodyPct, 1) + '%</b>',
+      '<span style="color:#94a3b8;">Mèche basse</span><b>' + formatSignalNumber(lowerWickPct, 1) + '%</b>',
+      '<span style="color:#94a3b8;">Volume</span><b>' + volumeLabel + '</b>',
+      '<span style="color:#94a3b8;">Qualité</span><b>' + scoreTone + ' · ' + formatSignalNumber(qualityScore, 0) + '/100</b>',
+      '</div>',
+      '<div style="margin-top:6px;color:#cbd5e1;">' + trendLabel + '</div>',
+      '<div style="margin-top:4px;color:#cbd5e1;">' + confirmationLabel + '</div>',
+      '<div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(148,163,184,.22);color:#cbd5e1;">',
+      'Alerte: cassure &le; ' + triggerLabel + ' · invalidation &gt; ' + invalidationLabel,
+      '</div>',
+      '</div>',
+    ].join('');
+  };
+
+  const pushShootingStarRejectionMarkers = (
+    signalData: (number | string)[] | undefined,
+    patternSeries: CandlestickPatternSeriesMap,
+    confirmedData?: (number | string)[],
+  ): number => {
+    const presentation = getCandlestickPatternPresentation("shootingStar");
+    if (!signalData || !isObjectVisible(presentation.markerId)) return 0;
+
+    const markerIndexes = getSignalIndexes(signalData, {
+      maxMarkers: presentation.maxMarkers * 3,
+      minBarGap: presentation.minBarGap,
+      absolute: true,
+    })
+      .filter((index) => shouldRenderCandlestickPattern("shootingStar", index, patternSeries))
+      .filter((index) => isPremiumShootingStarDisplaySignal(index, confirmedData))
+      .slice(-presentation.maxMarkers);
+    if (markerIndexes.length === 0) return 0;
+
+    const chartLabel = presentation.chartLabel ?? presentation.shortLabel;
+    const markerData = markerIndexes.map((index) => {
+      const metrics = readShootingStarDisplayMetrics(index);
+      if (!metrics) return null;
+      const volumeContext = resolveCandlestickSignalVolumeContext(index);
+      const trendConfirmed = toFiniteNumber(confirmedData?.[index]);
+      const trendLabel = trendConfirmed === 1 ? "Hausse préalable confirmée" : "Hausse préalable probable";
+      return [
+        index,
+        metrics.high,
+        metrics.low,
+        metrics.open,
+        metrics.close,
+        metrics.bodyRatio * 100,
+        metrics.upperShadowRatio * 100,
+        metrics.lowerShadowRatio * 100,
+        metrics.upperToBody,
+        metrics.qualityScore,
+        metrics.low,
+        metrics.high,
+        renderDates[index] ?? "#" + (index + 1),
+        volumeContext.label,
+        resolveShootingStarConfirmationLabel(index, metrics.low),
+        trendLabel,
+      ];
+    }).filter((point): point is ShootingStarRenderPoint => point !== null);
+    if (markerData.length === 0) return 0;
+
+    seriesOptions.push({
+      id: presentation.markerId,
+      name: presentation.legendName,
+      type: "custom",
+      ...PRICE_CUSTOM_SERIES_BINDING,
+      data: markerData,
+      silent: false,
+      legendHoverLink: false,
+      tooltip: {
+        show: true,
+        formatter: formatShootingStarTooltip,
+      },
+      z: presentation.z,
+      renderItem: (params: { coordSys?: { x: number; y: number; width: number; height: number } }, api: CustomRenderApi) => {
+        const xIndex = toFiniteNumber(api.value(0));
+        const high = toFiniteNumber(api.value(1));
+        if (!params.coordSys || xIndex === null || high === null) return undefined;
+
+        const highCoord = api.coord([xIndex, high]);
+        const labelText = chartLabel ?? "SS-";
+        const labelWidth = Math.max(26, labelText.length * 6 + 12);
+        const labelHeight = 15;
+        const labelGap = presentation.labelDistance ?? 6;
+        const minLabelCenterX = params.coordSys.x + labelWidth / 2 + 2;
+        const maxLabelCenterX = params.coordSys.x + params.coordSys.width - labelWidth / 2 - 2;
+        const labelTop = highCoord[1] - labelGap - labelHeight;
+        const minLabelTop = params.coordSys.y + 2;
+        const hasHorizontalLabelRoom = highCoord[0] >= minLabelCenterX && highCoord[0] <= maxLabelCenterX;
+        const hasVerticalLabelRoom = labelTop >= minLabelTop;
+        if (!hasHorizontalLabelRoom || !hasVerticalLabelRoom) {
+          const markerX = clamp(highCoord[0], params.coordSys.x + 3, params.coordSys.x + params.coordSys.width - 3);
+          const markerY = clamp(highCoord[1], params.coordSys.y + 3, params.coordSys.y + params.coordSys.height - 3);
+          return {
+            type: "group",
+            children: [
+              {
+                type: "line",
+                shape: { x1: markerX, y1: Math.max(params.coordSys.y + 2, markerY - 10), x2: markerX, y2: markerY },
+                style: { stroke: presentation.borderColor, lineWidth: 1, opacity: 0.72 },
+              },
+              {
+                type: "circle",
+                shape: { cx: markerX, cy: markerY, r: 3 },
+                style: { fill: presentation.color, stroke: presentation.borderColor, lineWidth: 1.2 },
+              },
+            ],
+          };
+        }
+
+        const connectorStartY = labelTop + labelHeight;
+        const connectorEndY = Math.max(connectorStartY + 1, highCoord[1] - 2);
+        return {
+          type: "group",
+          children: [
+            {
+              type: "line",
+              shape: { x1: highCoord[0], y1: connectorStartY, x2: highCoord[0], y2: connectorEndY },
+              style: { stroke: presentation.borderColor, lineWidth: 1, opacity: 0.76 },
+            },
+            {
+              type: "circle",
+              shape: { cx: highCoord[0], cy: highCoord[1], r: 2.4 },
+              style: { fill: presentation.color, stroke: presentation.borderColor, lineWidth: 1 },
+            },
+            {
+              type: "rect",
+              shape: {
+                x: highCoord[0] - labelWidth / 2,
+                y: labelTop,
+                width: labelWidth,
+                height: labelHeight,
+                r: presentation.labelBorderRadius ?? 3,
+              },
+              style: {
+                fill: presentation.labelBackgroundColor,
+                stroke: presentation.labelBorderColor ?? presentation.borderColor,
+                lineWidth: presentation.labelBorderWidth ?? 1,
+                shadowBlur: 4,
+                shadowColor: "rgba(2, 6, 23, 0.28)",
+              },
+            },
+            {
+              type: "text",
+              style: {
+                text: labelText,
+                x: highCoord[0],
+                y: labelTop + labelHeight / 2,
+                align: "center",
+                verticalAlign: "middle",
+                fill: presentation.labelTextColor,
+                font: String(presentation.labelFontWeight ?? 800) + " " + String(presentation.labelFontSize ?? 9) + "px sans-serif",
+              },
+            },
+          ],
+        };
+      },
+    });
+    return markerData.length;
+  };
+
+
+  const formatTwoCandlePatternTooltip = (params: TwoCandlePatternTooltipParam): string => {
+    if (!Array.isArray(params.value)) return "";
+    const triggerPrice = toFiniteNumber(params.value[9]);
+    const invalidationPrice = toFiniteNumber(params.value[10]);
+    const score = toFiniteNumber(params.value[11]);
+    const confirmationValue = params.value[12];
+    const body1Pct = toFiniteNumber(params.value[13]);
+    const body2Pct = toFiniteNumber(params.value[14]);
+    const dateLabel = typeof params.value[15] === "string" ? escapeTooltipHtml(params.value[15]) : "";
+    const patternName = typeof params.value[17] === "string" ? escapeTooltipHtml(params.value[17]) : "Pattern chandelier";
+    const volumeLabel = typeof params.value[18] === "string" ? escapeTooltipHtml(params.value[18]) : "Volume non vérifié";
+    const confirmationLabel = typeof params.value[19] === "string" ? escapeTooltipHtml(params.value[19]) : "Tendance non déterminée";
+    const direction = toFiniteNumber(params.value[2]);
+    const triggerOperator = direction !== null && direction > 0 ? "&ge;" : "&le;";
+    const invalidationOperator = direction !== null && direction > 0 ? "&lt;" : "&gt;";
+    const confidenceTone = confirmationValue === 1 ? "Confirmé" : confirmationValue === 0 ? "Forme seule" : "Contexte incomplet";
+    const structureTone = score !== null && Math.abs(score) >= 100
+      ? "Structure stricte"
+      : score !== null && Math.abs(score) >= 80
+        ? "Structure sans gap strict"
+        : "Structure faible";
+
+    return [
+      '<div style="min-width:230px;color:#e2e8f0;font:12px Inter,system-ui,sans-serif;">',
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">',
+      '<strong style="color:#f8fafc;font-size:12px;">' + patternName + '</strong>',
+      '<span style="color:#94a3b8;font-size:11px;">' + dateLabel + '</span>',
+      '</div>',
+      '<div style="display:grid;grid-template-columns:1fr auto;gap:3px 12px;">',
+      '<span style="color:#94a3b8;">Corps bougie 1</span><b>' + formatSignalNumber(body1Pct, 1) + '%</b>',
+      '<span style="color:#94a3b8;">Corps bougie 2</span><b>' + formatSignalNumber(body2Pct, 1) + '%</b>',
+      '<span style="color:#94a3b8;">Score</span><b>' + formatSignalNumber(score, 0) + '</b>',
+      '<span style="color:#94a3b8;">Structure</span><b>' + structureTone + '</b>',
+      '<span style="color:#94a3b8;">Volume</span><b>' + volumeLabel + '</b>',
+      '<span style="color:#94a3b8;">Fiabilité</span><b>' + confidenceTone + '</b>',
+      '</div>',
+      '<div style="margin-top:6px;color:#cbd5e1;">' + confirmationLabel + '</div>',
+      '<div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(148,163,184,.22);color:#cbd5e1;">',
+      'Alerte: cassure ' + triggerOperator + ' ' + (triggerPrice === null ? 'N/D' : formatAxisPriceValue(triggerPrice)),
+      ' · invalidation ' + invalidationOperator + ' ' + (invalidationPrice === null ? 'N/D' : formatAxisPriceValue(invalidationPrice)),
+      '</div>',
+      '</div>',
+    ].join('');
+  };
+
+  const pushTwoCandlePatternBrackets = (
+    signalData: (number | string)[] | undefined,
+    pattern: CandlestickPatternKey,
+    patternSeries: CandlestickPatternSeriesMap,
+    confirmedData?: (number | string)[],
+    options: { spanBars?: number; directionFromScore?: boolean; markerVisibilityId?: string } = {},
+  ): number => {
+    const presentation = getCandlestickPatternPresentation(pattern);
+    const spanBars = Math.max(2, Math.floor(options.spanBars ?? 2));
+    const markerVisibilityId = options.markerVisibilityId ?? presentation.markerId;
+    if (!signalData || !isObjectVisible(markerVisibilityId)) return 0;
+
+    const markerIndexes = getSignalIndexes(signalData, {
+      maxMarkers: presentation.maxMarkers * 3,
+      minBarGap: presentation.minBarGap,
+      absolute: true,
+    })
+      .filter((index) => index >= spanBars - 1)
+      .filter((index) => shouldRenderCandlestickPattern(pattern, index, patternSeries))
+      .slice(-presentation.maxMarkers);
+    if (markerIndexes.length === 0) return 0;
+
+    const defaultIsBullish = presentation.position === "below";
+    const markerData = markerIndexes.map((index) => {
+      const startIndex = index - spanBars + 1;
+      const windowBars = chartData.slice(startIndex, index + 1).map((point) => {
+        const open = toFiniteNumber(point?.open);
+        const high = toFiniteNumber(point?.high);
+        const low = toFiniteNumber(point?.low);
+        const close = toFiniteNumber(point?.close);
+        if (open === null || high === null || low === null || close === null || high <= low) return null;
+        return { open, high, low, close };
+      });
+      if (windowBars.length !== spanBars || windowBars.some((bar) => bar === null)) return null;
+
+      const first = windowBars[0];
+      const signal = windowBars[windowBars.length - 1];
+      if (!first || !signal) return null;
+      const high = Math.max(...windowBars.map((bar) => bar?.high ?? -Number.POSITIVE_INFINITY));
+      const low = Math.min(...windowBars.map((bar) => bar?.low ?? Number.POSITIVE_INFINITY));
+      const firstBodyTop = Math.max(first.open, first.close);
+      const firstBodyBottom = Math.min(first.open, first.close);
+      const secondBodyTop = Math.max(signal.open, signal.close);
+      const secondBodyBottom = Math.min(signal.open, signal.close);
+      const firstBodyPct = (Math.abs(first.close - first.open) / (first.high - first.low)) * 100;
+      const secondBodyPct = (Math.abs(signal.close - signal.open) / (signal.high - signal.low)) * 100;
+      const score = toFiniteNumber(signalData[index]) ?? 0;
+      const isBullish = options.directionFromScore ? score >= 0 : defaultIsBullish;
+      const direction = isBullish ? 1 : -1;
+      const triggerPrice = isBullish ? high : low;
+      const invalidationPrice = isBullish ? low : high;
+      const volumeContext = resolveCandlestickSignalVolumeContext(index);
+      const confirmationValue = confirmedData?.[index] ?? "-";
+      const confirmationLabel = confirmationValue === 1
+        ? "Tendance préalable confirmée"
+        : confirmationValue === 0
+          ? "Forme valide, tendance à confirmer"
+          : "Tendance préalable non déterminée";
+      const chartLabel = presentation.chartLabel ?? presentation.shortLabel ?? presentation.legendName;
+
+      return [
+        index,
+        index - spanBars + 1,
+        direction,
+        high,
+        low,
+        firstBodyTop,
+        firstBodyBottom,
+        secondBodyTop,
+        secondBodyBottom,
+        triggerPrice,
+        invalidationPrice,
+        score,
+        confirmationValue,
+        firstBodyPct,
+        secondBodyPct,
+        renderDates[index] ?? "#" + (index + 1),
+        chartLabel,
+        presentation.legendName,
+        volumeContext.label,
+        confirmationLabel,
+      ];
+    }).filter((point): point is TwoCandlePatternRenderPoint => point !== null);
+    if (markerData.length === 0) return 0;
+
+    seriesOptions.push({
+      id: presentation.markerId,
+      name: presentation.legendName,
+      type: "custom",
+      ...PRICE_CUSTOM_SERIES_BINDING,
+      data: markerData,
+      silent: false,
+      legendHoverLink: false,
+      tooltip: {
+        show: true,
+        formatter: formatTwoCandlePatternTooltip,
+      },
+      z: presentation.z,
+      renderItem: (params: { coordSys?: { x: number; y: number; width: number; height: number } }, api: CustomRenderApi) => {
+        const endIndex = toFiniteNumber(api.value(0));
+        const startIndex = toFiniteNumber(api.value(1));
+        const high = toFiniteNumber(api.value(3));
+        const low = toFiniteNumber(api.value(4));
+        const labelTextRaw = api.value(16);
+        const labelText = typeof labelTextRaw === "string" ? labelTextRaw : presentation.shortLabel ?? "PAT";
+        const renderedDirection = toFiniteNumber(api.value(2));
+        const isBullish = renderedDirection === null ? defaultIsBullish : renderedDirection > 0;
+        if (!params.coordSys || endIndex === null || startIndex === null || high === null || low === null) return undefined;
+
+        const startHighCoord = api.coord([startIndex, high]);
+        const endHighCoord = api.coord([endIndex, high]);
+        const startLowCoord = api.coord([startIndex, low]);
+        const endLowCoord = api.coord([endIndex, low]);
+        const pointWidth = params.coordSys.width / Math.max(1, priceOverlayPointCount);
+        const left = Math.min(startHighCoord[0], endHighCoord[0]) - Math.min(10, pointWidth * 0.42);
+        const right = Math.max(startHighCoord[0], endHighCoord[0]) + Math.min(10, pointWidth * 0.42);
+        const top = Math.min(startHighCoord[1], endHighCoord[1]);
+        const bottom = Math.max(startLowCoord[1], endLowCoord[1]);
+        const width = Math.max(8, right - left);
+        const height = Math.max(8, bottom - top);
+        const bracketTop = clamp(top, params.coordSys.y + 2, params.coordSys.y + params.coordSys.height - 4);
+        const bracketBottom = clamp(bottom, params.coordSys.y + 4, params.coordSys.y + params.coordSys.height - 2);
+        const markerCenterX = clamp(endHighCoord[0], params.coordSys.x + 3, params.coordSys.x + params.coordSys.width - 3);
+        const markerBaseY = isBullish ? bracketBottom : bracketTop;
+        const labelWidth = Math.max(28, labelText.length * 6 + 12);
+        const labelHeight = 15;
+        const labelGap = presentation.labelDistance ?? 5;
+        const rawLabelTop = isBullish ? markerBaseY + labelGap : markerBaseY - labelGap - labelHeight;
+        const labelTop = clamp(rawLabelTop, params.coordSys.y + 2, params.coordSys.y + params.coordSys.height - labelHeight - 2);
+        const hasLabelRoom = markerCenterX >= params.coordSys.x + labelWidth / 2 + 2
+          && markerCenterX <= params.coordSys.x + params.coordSys.width - labelWidth / 2 - 2
+          && rawLabelTop === labelTop;
+        const opacity = api.value(12) === 1 ? 0.95 : 0.64;
+        const children: Array<Record<string, unknown>> = [
+          {
+            type: "rect",
+            shape: { x: left, y: bracketTop, width, height: Math.max(6, bracketBottom - bracketTop) },
+            style: { fill: presentation.verticalBandColor ?? "rgba(0,0,0,0)", stroke: presentation.color, lineWidth: pattern === "haramiBullish" || pattern === "haramiBearish" ? 1.1 : 1.5, opacity },
+          },
+          {
+            type: "circle",
+            shape: { cx: markerCenterX, cy: markerBaseY, r: 2.8 },
+            style: { fill: presentation.color, stroke: presentation.borderColor, lineWidth: 1, opacity: Math.min(1, opacity + 0.12) },
+          },
+        ];
+
+        if (pattern === "tweezerTop" || pattern === "tweezerBottom") {
+          const y = pattern === "tweezerTop" ? bracketTop : bracketBottom;
+          children.push({
+            type: "line",
+            shape: { x1: left, y1: y, x2: right, y2: y },
+            style: { stroke: presentation.borderColor, lineWidth: 2, opacity: Math.min(1, opacity + 0.1) },
+          });
+        }
+
+        if (hasLabelRoom) {
+          children.push(
+            {
+              type: "rect",
+              shape: {
+                x: markerCenterX - labelWidth / 2,
+                y: labelTop,
+                width: labelWidth,
+                height: labelHeight,
+                r: presentation.labelBorderRadius ?? 3,
+              },
+              style: {
+                fill: presentation.labelBackgroundColor,
+                stroke: presentation.labelBorderColor ?? presentation.borderColor,
+                lineWidth: presentation.labelBorderWidth ?? 1,
+                shadowBlur: 4,
+                shadowColor: "rgba(2, 6, 23, 0.28)",
+              },
+            },
+            {
+              type: "text",
+              style: {
+                text: labelText,
+                x: markerCenterX,
+                y: labelTop + labelHeight / 2,
+                align: "center",
+                verticalAlign: "middle",
+                fill: presentation.labelTextColor,
+                font: String(presentation.labelFontWeight ?? 800) + " " + String(presentation.labelFontSize ?? 9) + "px sans-serif",
+              },
+            },
+          );
+        }
+
+        return { type: "group", children };
+      },
+    });
+    return markerData.length;
+  };
+
   const pushMarubozuBodyOutlines = (
     id: string,
     name: string,
     signalData: (number | string)[] | undefined,
-    color: string,
     pattern: CandlestickPatternKey,
     patternSeries: CandlestickPatternSeriesMap,
     options: { maxMarkers?: number; minBarGap?: number; lineWidth?: number; opacity?: number } = {},
   ): number => {
     if (!signalData || !isObjectVisible(id)) return 0;
+    const presentation = getCandlestickPatternPresentation(pattern);
+    const chartLabel = presentation.chartLabel ?? presentation.shortLabel;
+    const isBearish = pattern === "marubozuBear";
+    const maxMarkers = options.maxMarkers ?? presentation.maxMarkers;
     const markerIndexes = getSignalIndexes(signalData, {
-      maxMarkers: options.maxMarkers ?? 36,
-      minBarGap: options.minBarGap ?? 1,
+      maxMarkers: maxMarkers * 3,
+      minBarGap: options.minBarGap ?? presentation.minBarGap,
       absolute: true,
-    }).filter((index) => shouldRenderCandlestickPattern(pattern, index, patternSeries));
+    })
+      .filter((index) => shouldRenderCandlestickPattern(pattern, index, patternSeries))
+      .filter((index) => isPremiumMarubozuDisplaySignal(index, isBearish))
+      .slice(-maxMarkers);
     if (markerIndexes.length === 0) return 0;
 
     const outlineData = markerIndexes.map((index) => {
       const open = toFiniteNumber(chartData[index]?.open);
       const close = toFiniteNumber(chartData[index]?.close);
-      if (open === null || close === null) return null;
-      return [index, open, close];
-    }).filter((point): point is number[] => point !== null);
+      const high = toFiniteNumber(chartData[index]?.high);
+      const low = toFiniteNumber(chartData[index]?.low);
+      const metrics = readMarubozuDisplayMetrics(index);
+      if (open === null || close === null || high === null || low === null || !metrics) return null;
+      const volumeContext = resolveMarubozuVolumeContext(index);
+      const directionLabel = isBearish ? "Marubozu baissier" : "Marubozu haussier";
+      return [
+        index,
+        open,
+        close,
+        high,
+        low,
+        metrics.bodyRatio * 100,
+        metrics.upperShadowRatio * 100,
+        metrics.lowerShadowRatio * 100,
+        metrics.qualityScore,
+        close,
+        renderDates[index] ?? `#${index + 1}`,
+        directionLabel,
+        volumeContext.label,
+        resolveMarubozuConfirmationLabel(index, isBearish, close),
+      ];
+    }).filter((point): point is MarubozuRenderPoint => point !== null);
     if (outlineData.length === 0) return 0;
 
     seriesOptions.push({
@@ -1472,33 +2487,68 @@ const buildEChartsOption = ({
       type: "custom",
       ...PRICE_CUSTOM_SERIES_BINDING,
       data: outlineData,
-      silent: true,
-      z: 33,
-      renderItem: (params: { coordSys?: { width: number } }, api: CustomRenderApi) => {
+      silent: false,
+      tooltip: {
+        show: true,
+        formatter: formatMarubozuTooltip,
+      },
+      z: presentation.z,
+      renderItem: (params: { coordSys?: { x: number; y: number; width: number; height: number } }, api: CustomRenderApi) => {
         const xIndex = toFiniteNumber(api.value(0));
-        const open = toFiniteNumber(api.value(1));
-        const close = toFiniteNumber(api.value(2));
-        if (!params.coordSys || xIndex === null || open === null || close === null) return undefined;
+        const high = toFiniteNumber(api.value(3));
+        const low = toFiniteNumber(api.value(4));
+        if (!params.coordSys || xIndex === null || high === null || low === null) return undefined;
 
-        const openCoord = api.coord([xIndex, open]);
-        const closeCoord = api.coord([xIndex, close]);
-        const bandWidth = Math.max(5, Math.min(18, (params.coordSys.width / Math.max(1, priceOverlayPointCount)) * 0.82));
-        const top = Math.min(openCoord[1], closeCoord[1]);
-        const height = Math.max(3, Math.abs(openCoord[1] - closeCoord[1]));
+        const highCoord = api.coord([xIndex, high]);
+        const lowCoord = api.coord([xIndex, low]);
+        const candleTop = Math.min(highCoord[1], lowCoord[1]);
+        const candleBottom = Math.max(highCoord[1], lowCoord[1]);
+        const labelWidth = Math.max(22, chartLabel ? chartLabel.length * 6 + 10 : 0);
+        const labelHeight = 15;
+        const labelGap = presentation.labelDistance ?? 5;
+        const minLabelCenterX = params.coordSys.x + labelWidth / 2 + 2;
+        const maxLabelCenterX = params.coordSys.x + params.coordSys.width - labelWidth / 2 - 2;
+        const hasHorizontalLabelRoom = highCoord[0] >= minLabelCenterX && highCoord[0] <= maxLabelCenterX;
+        const rawLabelTop = isBearish ? candleTop - labelGap - labelHeight : candleBottom + labelGap;
+        const minLabelTop = params.coordSys.y + 2;
+        const maxLabelTop = params.coordSys.y + params.coordSys.height - labelHeight - 2;
+        const hasVerticalLabelRoom = rawLabelTop >= minLabelTop && rawLabelTop <= maxLabelTop;
+        const labelX = highCoord[0];
+        const labelTop = rawLabelTop;
+        if (!chartLabel || !hasHorizontalLabelRoom || !hasVerticalLabelRoom) return undefined;
         return {
-          type: "rect",
-          shape: {
-            x: openCoord[0] - bandWidth / 2,
-            y: top,
-            width: bandWidth,
-            height,
-          },
-          style: api.style({
-            fill: "rgba(0,0,0,0)",
-            stroke: color,
-            lineWidth: options.lineWidth ?? 2.2,
-            opacity: options.opacity ?? 0.95,
-          }),
+          type: "group",
+          children: [
+            {
+              type: "rect",
+              shape: {
+                x: labelX - labelWidth / 2,
+                y: labelTop,
+                width: labelWidth,
+                height: labelHeight,
+                r: presentation.labelBorderRadius ?? 3,
+              },
+              style: {
+                fill: presentation.labelBackgroundColor,
+                stroke: presentation.labelBorderColor ?? presentation.borderColor,
+                lineWidth: presentation.labelBorderWidth ?? 1,
+                shadowBlur: 4,
+                shadowColor: "rgba(2, 6, 23, 0.28)",
+              },
+            },
+            {
+              type: "text",
+              style: {
+                text: chartLabel,
+                x: labelX,
+                y: labelTop + labelHeight / 2,
+                align: "center",
+                verticalAlign: "middle",
+                fill: presentation.labelTextColor,
+                font: `${presentation.labelFontWeight ?? 800} ${presentation.labelFontSize ?? 9}px sans-serif`,
+              },
+            },
+          ],
         };
       },
     });
@@ -1651,7 +2701,7 @@ const buildEChartsOption = ({
     );
   });
 
-  if (advancedIndicators.ichimoku) {
+  if (hasVisibleIchimokuOverlay) {
     pushLine("ichimoku-tenkan", "Tenkan", indicatorsData.tenkan, "#2962FF");
     pushLine("ichimoku-kijun", "Kijun", indicatorsData.kijun, "#B71C1C");
     pushLine("ichimoku-chikou", "Chikou", indicatorsData.chikou, "#43A047");
@@ -1659,7 +2709,7 @@ const buildEChartsOption = ({
     pushLine("ichimoku-senkouB", "Senkou B", indicatorsData.senkouB, "#EF9A9A", { allowProjection: true });
 
     const cloudData = buildBandFillData(indicatorsData.senkouA, indicatorsData.senkouB, renderDates.length);
-    if (cloudData.length > 0) {
+    if (isObjectVisible("ichimoku-cloud") && cloudData.length > 0) {
       seriesOptions.push({
         id: "ichimoku-cloud",
         name: "Kumo Cloud",
@@ -1677,13 +2727,13 @@ const buildEChartsOption = ({
     }
   }
 
-  if (advancedIndicators.bollinger) {
+  if (hasVisibleBollingerOverlay) {
     const showBollingerFill = bollingerSettings.showFill !== false;
     const allowBollingerProjection = bollingerSettings.offset > 0;
     const bollingerPointLimit = allowBollingerProjection ? renderDates.length : priceOverlayPointCount;
     const bollingerFillData = buildBandFillData(indicatorsData.bollUpper, indicatorsData.bollLower, bollingerPointLimit);
 
-    if (showBollingerFill && bollingerFillData.length > 0) {
+    if (showBollingerFill && isObjectVisible("boll-fill") && bollingerFillData.length > 0) {
       seriesOptions.push({
         id: "boll-fill",
         name: "BB Background",
@@ -1710,7 +2760,7 @@ const buildEChartsOption = ({
     const lower = indicatorsData.donchianLower ?? fallbackDonchian?.lower ?? [];
     const fillData = buildBandFillData(upper, lower, priceOverlayPointCount);
 
-    if (isObjectVisible("donchian-upper") && isObjectVisible("donchian-lower") && fillData.length > 0) {
+    if (isObjectVisible("donchian-fill") && fillData.length > 0) {
       seriesOptions.push({
         id: "donchian-fill",
         name: "Donchian Background",
@@ -1736,7 +2786,7 @@ const buildEChartsOption = ({
     const lower = indicatorsData.keltnerLower ?? fallbackKeltner?.lower ?? [];
     const fillData = buildBandFillData(upper, lower, priceOverlayPointCount);
 
-    if (isObjectVisible("keltner-upper") && isObjectVisible("keltner-lower") && fillData.length > 0) {
+    if (isObjectVisible("keltner-fill") && fillData.length > 0) {
       seriesOptions.push({
         id: "keltner-fill",
         name: "Keltner Background",
@@ -1754,12 +2804,7 @@ const buildEChartsOption = ({
   }
 
   if (hasVisibleVolumeProfileOverlay && priceOverlayPointCount > 0) {
-    const profile = calculateVolumeProfile(chartData, {
-      rangeMode: "last_n_bars",
-      numberOfRows: 80,
-      valueAreaPercent: 70,
-      maxBars: Math.min(150, chartData.length),
-    });
+    const profile = structuredResults.volumeProfile ?? null;
     const lastRenderableIndex = priceOverlayPointCount - 1;
 
     if (profile && profile.rows.length > 0) {
@@ -1807,11 +2852,11 @@ const buildEChartsOption = ({
                 width: barWidth,
                 height: Math.max(1, Math.abs(yLow - yHigh)),
               },
-              style: api.style({
+              style: {
                 fill: isValueArea ? "rgba(14, 165, 233, 0.30)" : "rgba(148, 163, 184, 0.18)",
                 stroke: "rgba(15, 23, 42, 0.22)",
                 lineWidth: 0.4,
-              }),
+              },
             };
           },
         });
@@ -2212,9 +3257,51 @@ const buildEChartsOption = ({
     || hasVisibleTakuriOverlay
     || hasVisibleInvertedHammerOverlay
     || hasVisibleShootingStarOverlay
+    || hasVisibleEngulfingBullishOverlay
+    || hasVisibleEngulfingBearishOverlay
+    || hasVisibleHaramiBullishOverlay
+    || hasVisibleHaramiBearishOverlay
+    || hasVisibleTweezerTopOverlay
+    || hasVisibleTweezerBottomOverlay
+    || hasVisiblePiercingLineOverlay
+    || hasVisibleDarkCloudCoverOverlay
+    || hasVisibleTasukiGapOverlay
+    || hasVisibleSeparatingLinesOverlay
+    || hasVisibleThrustingOverlay
+    || hasVisibleCounterattackOverlay
+    || hasVisibleMorningStarOverlay
+    || hasVisibleEveningStarOverlay
+    || hasVisibleThreeWhiteSoldiersOverlay
+    || hasVisibleThreeBlackCrowsOverlay
+    || hasVisibleThreeInsideUpOverlay
+    || hasVisibleThreeInsideDownOverlay
+    || hasVisibleUniqueThreeRiverOverlay
+    || hasVisibleUpsideGapTwoCrowsOverlay
+    || hasVisibleKickerBullOverlay
+    || hasVisibleKickerBearOverlay
+    || hasVisibleAbandonedBabyBullOverlay
+    || hasVisibleAbandonedBabyBearOverlay
+    || hasVisibleBeltHoldBullOverlay
+    || hasVisibleBeltHoldBearOverlay
+    || hasVisibleBreakawayBullOverlay
+    || hasVisibleBreakawayBearOverlay
+    || hasVisibleRisingThreeMethodsOverlay
+    || hasVisibleFallingThreeMethodsOverlay
+    || hasVisibleMatHoldOverlay
+    || hasVisibleGapSideBySideWhiteOverlay
+    || hasVisibleHikkakeOverlay
+    || hasVisibleConcealingBabySwallowOverlay
+    || hasVisibleLadderBottomOverlay
+    || hasVisibleStickSandwichOverlay
     || hasVisibleMarubozuBullOverlay
     || hasVisibleMarubozuBearOverlay
     || hasVisibleSpinningTopOverlay;
+  if (hasAnyVisibleCandlestickPatternOverlay) {
+    const invalidOhlcSeries = getCandlestickPatternSeries("candlestickInvalidOHLC", "invalidOHLC");
+    const invalidOhlcCount = countSignalsInVisibleWindow(invalidOhlcSeries);
+    if (invalidOhlcCount > 0) addPriceOverlayStatusNote(`Données OHLC invalides détectées: ${invalidOhlcCount} bougies ignorées`);
+  }
+
   const candlestickPatternSeries: CandlestickPatternSeriesMap = hasAnyVisibleCandlestickPatternOverlay ? {
     tristar: getCandlestickPatternSeries("tristar", "tristar"),
     takuri: getCandlestickPatternSeries("takuri", "takuri"),
@@ -2222,6 +3309,43 @@ const buildEChartsOption = ({
     hangingMan: getCandlestickPatternSeries("hangingMan", "hangingMan"),
     invertedHammer: getCandlestickPatternSeries("invertedHammer", "invertedHammer"),
     shootingStar: getCandlestickPatternSeries("shootingStar", "shootingStar"),
+    engulfingBullish: getCandlestickPatternSeries("engulfingBullish", "engulfingBullish"),
+    engulfingBearish: getCandlestickPatternSeries("engulfingBearish", "engulfingBearish"),
+    haramiBullish: getCandlestickPatternSeries("haramiBullish", "haramiBullish"),
+    haramiBearish: getCandlestickPatternSeries("haramiBearish", "haramiBearish"),
+    tweezerTop: getCandlestickPatternSeries("tweezerTop", "tweezerTop"),
+    tweezerBottom: getCandlestickPatternSeries("tweezerBottom", "tweezerBottom"),
+    piercingLine: getCandlestickPatternSeries("piercingLine", "piercingLine"),
+    darkCloudCover: getCandlestickPatternSeries("darkCloudCover", "darkCloudCover"),
+    tasukiGap: getCandlestickPatternSeries("tasukiGap", "tasukiGap"),
+    separatingLines: getCandlestickPatternSeries("separatingLines", "separatingLines"),
+    thrusting: getCandlestickPatternSeries("thrusting", "thrusting"),
+    counterattack: getCandlestickPatternSeries("counterattack", "counterattack"),
+    morningStar: getCandlestickPatternSeries("morningStar", "morningStar"),
+    eveningStar: getCandlestickPatternSeries("eveningStar", "eveningStar"),
+    threeWhiteSoldiers: getCandlestickPatternSeries("threeWhiteSoldiers", "threeWhiteSoldiers"),
+    threeBlackCrows: getCandlestickPatternSeries("threeBlackCrows", "threeBlackCrows"),
+    threeInsideUp: getCandlestickPatternSeries("threeInsideUp", "threeInsideUp"),
+    threeInsideDown: getCandlestickPatternSeries("threeInsideDown", "threeInsideDown"),
+    uniqueThreeRiver: getCandlestickPatternSeries("uniqueThreeRiver", "uniqueThreeRiver"),
+    upsideGapTwoCrows: getCandlestickPatternSeries("upsideGapTwoCrows", "upsideGapTwoCrows"),
+    kickerBull: getCandlestickPatternSeries("kickerBull", "kickerBull"),
+    kickerBear: getCandlestickPatternSeries("kickerBear", "kickerBear"),
+    abandonedBabyBull: getCandlestickPatternSeries("abandonedBabyBull", "abandonedBabyBull"),
+    abandonedBabyBear: getCandlestickPatternSeries("abandonedBabyBear", "abandonedBabyBear"),
+    beltHoldBull: getCandlestickPatternSeries("beltHoldBull", "beltHoldBull"),
+    beltHoldBear: getCandlestickPatternSeries("beltHoldBear", "beltHoldBear"),
+    breakawayBull: getCandlestickPatternSeries("breakawayBull", "breakawayBull"),
+    breakawayBear: getCandlestickPatternSeries("breakawayBear", "breakawayBear"),
+    risingThreeMethods: getCandlestickPatternSeries("risingThreeMethods", "risingThreeMethods"),
+    fallingThreeMethods: getCandlestickPatternSeries("fallingThreeMethods", "fallingThreeMethods"),
+    matHold: getCandlestickPatternSeries("matHold", "matHold"),
+    gapSideBySideWhite: getCandlestickPatternSeries("gapSideBySideWhite", "gapSideBySideWhite"),
+    hikkake: getCandlestickPatternSeries("hikkake", "hikkake"),
+    concealingBabySwallow: getCandlestickPatternSeries("concealingBabySwallow", "concealingBabySwallow"),
+    ladderBottom: getCandlestickPatternSeries("ladderBottom", "ladderBottom"),
+    ladderBottomBrvm: getCandlestickPatternSeries("ladderBottomBrvm", "ladderBottomBrvm"),
+    stickSandwich: getCandlestickPatternSeries("stickSandwich", "stickSandwich"),
     marubozuBull: getCandlestickPatternSeries("marubozuBull", "marubozuBull"),
     marubozuBear: getCandlestickPatternSeries("marubozuBear", "marubozuBear"),
     spinningTop: getCandlestickPatternSeries("spinningTop", "spinningTop"),
@@ -2231,142 +3355,212 @@ const buildEChartsOption = ({
     longLeggedDoji: getCandlestickPatternSeries("longLeggedDoji", "longLeggedDoji"),
     doji: getCandlestickPatternSeries("doji", "doji"),
   } : {};
-  const candlestickQualitySeries: CandlestickQualitySeriesMap = hasAnyVisibleCandlestickPatternOverlay ? {
-    insufficientHistory: getCandlestickPatternSeries("candlestickInsufficientHistory", "insufficientHistory"),
-    missingOHLC: getCandlestickPatternSeries("candlestickMissingOHLC", "missingOHLC"),
-    invalidOHLC: getCandlestickPatternSeries("candlestickInvalidOHLC", "invalidOHLC"),
-    zeroRange: getCandlestickPatternSeries("candlestickZeroRange", "zeroRange"),
-    noTradeSession: getCandlestickPatternSeries("candlestickNoTradeSession", "noTradeSession"),
-    stalePrice: getCandlestickPatternSeries("candlestickStalePrice", "stalePrice"),
-    corporateActionSuspected: getCandlestickPatternSeries("candlestickCorporateActionSuspected", "corporateActionSuspected"),
-    lowReliabilityBecauseIlliquid: getCandlestickPatternSeries("candlestickLowReliabilityBecauseIlliquid", "lowReliabilityBecauseIlliquid"),
-  } : {};
-  const criticalCandlestickQualityNotes: Array<[string, number]> = hasAnyVisibleCandlestickPatternOverlay ? ([
-    ["OHLC manquant", countSignalsInVisibleWindow(candlestickQualitySeries.missingOHLC)],
-    ["OHLC invalide", countSignalsInVisibleWindow(candlestickQualitySeries.invalidOHLC)],
-    ["corporate action", countSignalsInVisibleWindow(candlestickQualitySeries.corporateActionSuspected)],
-  ] as Array<[string, number]>).filter(([, count]) => count > 0) : [];
-
-  const selectedCandlestickPatternSeries = [
-    hasVisibleTristarOverlay ? candlestickPatternSeries.tristar : undefined,
-    hasVisibleTakuriOverlay ? candlestickPatternSeries.takuri : undefined,
-    hasVisibleHammerOverlay ? candlestickPatternSeries.hammer : undefined,
-    hasVisibleHangingManOverlay ? candlestickPatternSeries.hangingMan : undefined,
-    hasVisibleInvertedHammerOverlay ? candlestickPatternSeries.invertedHammer : undefined,
-    hasVisibleShootingStarOverlay ? candlestickPatternSeries.shootingStar : undefined,
-    hasVisibleMarubozuBullOverlay ? candlestickPatternSeries.marubozuBull : undefined,
-    hasVisibleMarubozuBearOverlay ? candlestickPatternSeries.marubozuBear : undefined,
-    hasVisibleSpinningTopOverlay ? candlestickPatternSeries.spinningTop : undefined,
-    hasVisibleDragonflyDojiOverlay ? candlestickPatternSeries.dragonflyDoji : undefined,
-    hasVisibleGravestoneDojiOverlay ? candlestickPatternSeries.gravestoneDoji : undefined,
-    hasVisibleRickshawManOverlay ? candlestickPatternSeries.rickshawMan : undefined,
-    hasVisibleLongLeggedDojiOverlay ? candlestickPatternSeries.longLeggedDoji : undefined,
-    hasVisibleDojiOverlay ? candlestickPatternSeries.doji : undefined,
-  ];
-  const hasVisibleCandlestickPatternSignal = selectedCandlestickPatternSeries.some((series) =>
-    hasSignalInVisibleWindow(series, { absolute: true }),
-  );
-  if (hasAnyVisibleCandlestickPatternOverlay && !hasVisibleCandlestickPatternSignal) {
-    addPriceOverlayStatusNote("Patterns chandeliers: 0 signal confirmé sur la fenêtre");
-    if (criticalCandlestickQualityNotes.length > 0) {
-      const visibleNotes = criticalCandlestickQualityNotes.slice(0, 2).map(([label, count]) => `${label}: ${count}`);
-      const overflowCount = criticalCandlestickQualityNotes.length - visibleNotes.length;
-      addPriceOverlayStatusNote(`Barres ignorées: ${visibleNotes.join(" · ")}${overflowCount > 0 ? ` · +${overflowCount}` : ""}`);
-    }
-  }
-
-  const candlestickPatternSignalSummaries: CandlestickPatternSignalSummary[] = [];
-  const recordCandlestickPatternSummary = (pattern: CandlestickPatternKey, count: number) => {
-    if (count <= 0) return;
-    const presentation = getCandlestickPatternPresentation(pattern);
-    candlestickPatternSignalSummaries.push({
-      legendName: presentation.legendName,
-      shortLabel: presentation.shortLabel,
-      count,
-    });
-  };
 
   if (hasVisibleTristarOverlay) {
-    recordCandlestickPatternSummary(
-      "tristar",
-      pushTristarZones("tristar-zone", getCandlestickPatternPresentation("tristar").legendName, candlestickPatternSeries.tristar),
-    );
+    pushTristarZones("tristar-zone", getCandlestickPatternPresentation("tristar").legendName, candlestickPatternSeries.tristar);
   }
 
   if (hasVisibleTakuriOverlay) {
-    recordCandlestickPatternSummary("takuri", pushCandlestickPatternMarkers(candlestickPatternSeries.takuri, "takuri", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.takuri, "takuri", candlestickPatternSeries);
   }
 
   if (hasVisibleHammerOverlay) {
-    recordCandlestickPatternSummary(
-      "hammer",
-      pushCandlestickPatternMarkers(candlestickPatternSeries.hammer, "hammer", candlestickPatternSeries, getCandlestickPatternSeries("hammerConfirmed", "hammerConfirmed")),
-    );
+    pushCandlestickPatternMarkers(candlestickPatternSeries.hammer, "hammer", candlestickPatternSeries, getCandlestickPatternSeries("hammerConfirmed", "hammerConfirmed"));
   }
 
   if (hasVisibleHangingManOverlay) {
-    recordCandlestickPatternSummary(
-      "hangingMan",
-      pushCandlestickPatternMarkers(candlestickPatternSeries.hangingMan, "hangingMan", candlestickPatternSeries, getCandlestickPatternSeries("hangingManConfirmed", "hangingManConfirmed")),
-    );
+    pushCandlestickPatternMarkers(candlestickPatternSeries.hangingMan, "hangingMan", candlestickPatternSeries, getCandlestickPatternSeries("hangingManConfirmed", "hangingManConfirmed"));
   }
 
   if (hasVisibleInvertedHammerOverlay) {
-    recordCandlestickPatternSummary(
-      "invertedHammer",
-      pushCandlestickPatternMarkers(candlestickPatternSeries.invertedHammer, "invertedHammer", candlestickPatternSeries, getCandlestickPatternSeries("invertedHammerConfirmed", "invertedHammerConfirmed")),
-    );
+    pushCandlestickPatternMarkers(candlestickPatternSeries.invertedHammer, "invertedHammer", candlestickPatternSeries, getCandlestickPatternSeries("invertedHammerConfirmed", "invertedHammerConfirmed"));
   }
 
   if (hasVisibleShootingStarOverlay) {
-    recordCandlestickPatternSummary(
-      "shootingStar",
-      pushCandlestickPatternMarkers(candlestickPatternSeries.shootingStar, "shootingStar", candlestickPatternSeries, getCandlestickPatternSeries("shootingStarConfirmed", "shootingStarConfirmed")),
-    );
+    pushShootingStarRejectionMarkers(candlestickPatternSeries.shootingStar, candlestickPatternSeries, getCandlestickPatternSeries("shootingStarConfirmed", "shootingStarConfirmed"));
+  }
+
+  if (hasVisibleEngulfingBullishOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.engulfingBullish, "engulfingBullish", candlestickPatternSeries, getCandlestickPatternSeries("engulfingBullishConfirmed", "engulfingBullishConfirmed"));
+  }
+
+  if (hasVisibleEngulfingBearishOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.engulfingBearish, "engulfingBearish", candlestickPatternSeries, getCandlestickPatternSeries("engulfingBearishConfirmed", "engulfingBearishConfirmed"));
+  }
+
+  if (hasVisiblePiercingLineOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.piercingLine, "piercingLine", candlestickPatternSeries, getCandlestickPatternSeries("piercingLineConfirmed", "piercingLineConfirmed"));
+  }
+
+  if (hasVisibleDarkCloudCoverOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.darkCloudCover, "darkCloudCover", candlestickPatternSeries, getCandlestickPatternSeries("darkCloudCoverConfirmed", "darkCloudCoverConfirmed"));
+  }
+
+  if (hasVisibleMorningStarOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.morningStar, "morningStar", candlestickPatternSeries, getCandlestickPatternSeries("morningStarConfirmed", "morningStarConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleEveningStarOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.eveningStar, "eveningStar", candlestickPatternSeries, getCandlestickPatternSeries("eveningStarConfirmed", "eveningStarConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleThreeWhiteSoldiersOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.threeWhiteSoldiers, "threeWhiteSoldiers", candlestickPatternSeries, getCandlestickPatternSeries("threeWhiteSoldiersConfirmed", "threeWhiteSoldiersConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleThreeBlackCrowsOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.threeBlackCrows, "threeBlackCrows", candlestickPatternSeries, getCandlestickPatternSeries("threeBlackCrowsConfirmed", "threeBlackCrowsConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleThreeInsideUpOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.threeInsideUp, "threeInsideUp", candlestickPatternSeries, getCandlestickPatternSeries("threeInsideUpConfirmed", "threeInsideUpConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleThreeInsideDownOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.threeInsideDown, "threeInsideDown", candlestickPatternSeries, getCandlestickPatternSeries("threeInsideDownConfirmed", "threeInsideDownConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleUniqueThreeRiverOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.uniqueThreeRiver, "uniqueThreeRiver", candlestickPatternSeries, getCandlestickPatternSeries("uniqueThreeRiverConfirmed", "uniqueThreeRiverConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleUpsideGapTwoCrowsOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.upsideGapTwoCrows, "upsideGapTwoCrows", candlestickPatternSeries, getCandlestickPatternSeries("upsideGapTwoCrowsConfirmed", "upsideGapTwoCrowsConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleKickerBullOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.kickerBull, "kickerBull", candlestickPatternSeries, getCandlestickPatternSeries("kickerBullConfirmed", "kickerBullConfirmed"));
+  }
+
+  if (hasVisibleKickerBearOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.kickerBear, "kickerBear", candlestickPatternSeries, getCandlestickPatternSeries("kickerBearConfirmed", "kickerBearConfirmed"));
+  }
+
+  if (hasVisibleAbandonedBabyBullOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.abandonedBabyBull, "abandonedBabyBull", candlestickPatternSeries, getCandlestickPatternSeries("abandonedBabyBullConfirmed", "abandonedBabyBullConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleAbandonedBabyBearOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.abandonedBabyBear, "abandonedBabyBear", candlestickPatternSeries, getCandlestickPatternSeries("abandonedBabyBearConfirmed", "abandonedBabyBearConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleBeltHoldBullOverlay) {
+    pushCandlestickPatternMarkers(candlestickPatternSeries.beltHoldBull, "beltHoldBull", candlestickPatternSeries, getCandlestickPatternSeries("beltHoldBullConfirmed", "beltHoldBullConfirmed"));
+  }
+
+  if (hasVisibleBeltHoldBearOverlay) {
+    pushCandlestickPatternMarkers(candlestickPatternSeries.beltHoldBear, "beltHoldBear", candlestickPatternSeries, getCandlestickPatternSeries("beltHoldBearConfirmed", "beltHoldBearConfirmed"));
+  }
+
+  if (hasVisibleBreakawayBullOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.breakawayBull, "breakawayBull", candlestickPatternSeries, getCandlestickPatternSeries("breakawayBullConfirmed", "breakawayBullConfirmed"), { spanBars: 5 });
+  }
+
+  if (hasVisibleBreakawayBearOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.breakawayBear, "breakawayBear", candlestickPatternSeries, getCandlestickPatternSeries("breakawayBearConfirmed", "breakawayBearConfirmed"), { spanBars: 5 });
+  }
+
+  if (hasVisibleHikkakeOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.hikkake, "hikkake", candlestickPatternSeries, getCandlestickPatternSeries("hikkakeConfirmed", "hikkakeConfirmed"), { spanBars: 3, directionFromScore: true });
+  }
+
+  if (hasVisibleRisingThreeMethodsOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.risingThreeMethods, "risingThreeMethods", candlestickPatternSeries, getCandlestickPatternSeries("risingThreeMethodsConfirmed", "risingThreeMethodsConfirmed"), { spanBars: 5 });
+  }
+
+  if (hasVisibleFallingThreeMethodsOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.fallingThreeMethods, "fallingThreeMethods", candlestickPatternSeries, getCandlestickPatternSeries("fallingThreeMethodsConfirmed", "fallingThreeMethodsConfirmed"), { spanBars: 5 });
+  }
+
+  if (hasVisibleMatHoldOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.matHold, "matHold", candlestickPatternSeries, getCandlestickPatternSeries("matHoldConfirmed", "matHoldConfirmed"), { spanBars: 5 });
+  }
+
+  if (hasVisibleConcealingBabySwallowOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.concealingBabySwallow, "concealingBabySwallow", candlestickPatternSeries, getCandlestickPatternSeries("concealingBabySwallowConfirmed", "concealingBabySwallowConfirmed"), { spanBars: 4 });
+  }
+
+  if (hasVisibleLadderBottomOverlay) {
+    const strictSignals = pushTwoCandlePatternBrackets(candlestickPatternSeries.ladderBottom, "ladderBottom", candlestickPatternSeries, getCandlestickPatternSeries("ladderBottomConfirmed", "ladderBottomConfirmed"), { spanBars: 5 });
+    const brvmSignals = pushTwoCandlePatternBrackets(candlestickPatternSeries.ladderBottomBrvm, "ladderBottomBrvm", candlestickPatternSeries, getCandlestickPatternSeries("ladderBottomBrvmConfirmed", "ladderBottomBrvmConfirmed"), { spanBars: 5, markerVisibilityId: "ladder-bottom-bracket" });
+    if (strictSignals === 0 && brvmSignals === 0) addPriceOverlayStatusNote("Ladder Bottom strict/BRVM: 0 signal");
+    else if (strictSignals === 0 && brvmSignals > 0) addPriceOverlayStatusNote(`Ladder Bottom strict: 0 · BRVM: ${brvmSignals} signal tolerant`);
+  }
+
+  if (hasVisibleStickSandwichOverlay) {
+    const renderedSignals = pushTwoCandlePatternBrackets(candlestickPatternSeries.stickSandwich, "stickSandwich", candlestickPatternSeries, getCandlestickPatternSeries("stickSandwichConfirmed", "stickSandwichConfirmed"), { spanBars: 3 });
+    if (renderedSignals === 0) addPriceOverlayStatusNote("Stick Sandwich: 0 signal strict");
+  }
+
+  if (hasVisibleGapSideBySideWhiteOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.gapSideBySideWhite, "gapSideBySideWhite", candlestickPatternSeries, getCandlestickPatternSeries("gapSideBySideWhiteConfirmed", "gapSideBySideWhiteConfirmed"), { spanBars: 3, directionFromScore: true });
+  }
+
+  if (hasVisibleTasukiGapOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.tasukiGap, "tasukiGap", candlestickPatternSeries, getCandlestickPatternSeries("tasukiGapConfirmed", "tasukiGapConfirmed"), { spanBars: 3 });
+  }
+
+  if (hasVisibleCounterattackOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.counterattack, "counterattack", candlestickPatternSeries, getCandlestickPatternSeries("counterattackConfirmed", "counterattackConfirmed"));
+  }
+
+  if (hasVisibleSeparatingLinesOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.separatingLines, "separatingLines", candlestickPatternSeries, getCandlestickPatternSeries("separatingLinesConfirmed", "separatingLinesConfirmed"));
+  }
+
+  if (hasVisibleThrustingOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.thrusting, "thrusting", candlestickPatternSeries, getCandlestickPatternSeries("thrustingConfirmed", "thrustingConfirmed"));
+  }
+
+  if (hasVisibleHaramiBullishOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.haramiBullish, "haramiBullish", candlestickPatternSeries, getCandlestickPatternSeries("haramiBullishConfirmed", "haramiBullishConfirmed"));
+  }
+
+  if (hasVisibleHaramiBearishOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.haramiBearish, "haramiBearish", candlestickPatternSeries, getCandlestickPatternSeries("haramiBearishConfirmed", "haramiBearishConfirmed"));
+  }
+
+  if (hasVisibleTweezerTopOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.tweezerTop, "tweezerTop", candlestickPatternSeries, getCandlestickPatternSeries("tweezerTopConfirmed", "tweezerTopConfirmed"));
+  }
+
+  if (hasVisibleTweezerBottomOverlay) {
+    pushTwoCandlePatternBrackets(candlestickPatternSeries.tweezerBottom, "tweezerBottom", candlestickPatternSeries, getCandlestickPatternSeries("tweezerBottomConfirmed", "tweezerBottomConfirmed"));
   }
 
   if (hasVisibleMarubozuBullOverlay) {
     const presentation = getCandlestickPatternPresentation("marubozuBull");
-    recordCandlestickPatternSummary(
-      "marubozuBull",
-      pushMarubozuBodyOutlines(presentation.markerId, presentation.legendName, candlestickPatternSeries.marubozuBull, presentation.color, "marubozuBull", candlestickPatternSeries),
-    );
+    pushMarubozuBodyOutlines(presentation.markerId, presentation.legendName, candlestickPatternSeries.marubozuBull, "marubozuBull", candlestickPatternSeries);
   }
 
   if (hasVisibleMarubozuBearOverlay) {
     const presentation = getCandlestickPatternPresentation("marubozuBear");
-    recordCandlestickPatternSummary(
-      "marubozuBear",
-      pushMarubozuBodyOutlines(presentation.markerId, presentation.legendName, candlestickPatternSeries.marubozuBear, presentation.color, "marubozuBear", candlestickPatternSeries),
-    );
+    pushMarubozuBodyOutlines(presentation.markerId, presentation.legendName, candlestickPatternSeries.marubozuBear, "marubozuBear", candlestickPatternSeries);
   }
 
   if (hasVisibleSpinningTopOverlay) {
-    recordCandlestickPatternSummary("spinningTop", pushCandlestickPatternMarkers(candlestickPatternSeries.spinningTop, "spinningTop", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.spinningTop, "spinningTop", candlestickPatternSeries);
   }
 
   if (hasVisibleDragonflyDojiOverlay) {
-    recordCandlestickPatternSummary("dragonflyDoji", pushCandlestickPatternMarkers(candlestickPatternSeries.dragonflyDoji, "dragonflyDoji", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.dragonflyDoji, "dragonflyDoji", candlestickPatternSeries);
   }
 
   if (hasVisibleGravestoneDojiOverlay) {
-    recordCandlestickPatternSummary("gravestoneDoji", pushCandlestickPatternMarkers(candlestickPatternSeries.gravestoneDoji, "gravestoneDoji", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.gravestoneDoji, "gravestoneDoji", candlestickPatternSeries);
   }
 
   if (hasVisibleRickshawManOverlay) {
-    recordCandlestickPatternSummary("rickshawMan", pushCandlestickPatternMarkers(candlestickPatternSeries.rickshawMan, "rickshawMan", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.rickshawMan, "rickshawMan", candlestickPatternSeries);
   }
 
   if (hasVisibleLongLeggedDojiOverlay) {
-    recordCandlestickPatternSummary("longLeggedDoji", pushCandlestickPatternMarkers(candlestickPatternSeries.longLeggedDoji, "longLeggedDoji", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.longLeggedDoji, "longLeggedDoji", candlestickPatternSeries);
   }
 
   if (hasVisibleDojiOverlay) {
-    recordCandlestickPatternSummary("doji", pushCandlestickPatternMarkers(candlestickPatternSeries.doji, "doji", candlestickPatternSeries));
+    pushCandlestickPatternMarkers(candlestickPatternSeries.doji, "doji", candlestickPatternSeries);
   }
-
-  const candlestickPatternSignalSummary = buildCandlestickPatternSignalSummary(candlestickPatternSignalSummaries);
-  if (candlestickPatternSignalSummary) addPriceOverlayStatusNote(candlestickPatternSignalSummary);
 
   if (hasVisibleLinearRegressionOverlay) {
     const fallbackLinearRegression = indicatorsData.linearRegValue
@@ -2673,17 +3867,23 @@ const buildEChartsOption = ({
       });
     } else if (panelName === "MACD") {
       const fallbackMacd = indicatorsData.macdLine && indicatorsData.macdSignal && indicatorsData.macdHist ? null : calculateMACD(chartData);
-      seriesOptions.push({
-        id: "macd-hist",
-        name: "MACD Histogram",
-        type: "bar",
-        xAxisIndex,
-        yAxisIndex,
-        data: (indicatorsData.macdHist ?? fallbackMacd?.histogram ?? []).map((value, i) => [i, value]),
-        itemStyle: { color: (params: { value: (number | string)[] }) => Number(params.value[1]) > 0 ? upColor : downColor },
-      });
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-line", "MACD Line", indicatorsData.macdLine ?? fallbackMacd?.macdLine ?? [], "#ffffff");
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-signal", "MACD Signal", indicatorsData.macdSignal ?? fallbackMacd?.signalLine ?? [], "#FF9F04");
+      if (isObjectVisible("macd-hist")) {
+        seriesOptions.push({
+          id: "macd-hist",
+          name: "MACD Histogram",
+          type: "bar",
+          xAxisIndex,
+          yAxisIndex,
+          data: (indicatorsData.macdHist ?? fallbackMacd?.histogram ?? []).map((value, i) => [i, value]),
+          itemStyle: { color: (params: { value: (number | string)[] }) => Number(params.value[1]) > 0 ? upColor : downColor },
+        });
+      }
+      if (isObjectVisible("macd-line")) {
+        pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-line", "MACD Line", indicatorsData.macdLine ?? fallbackMacd?.macdLine ?? [], "#ffffff");
+      }
+      if (isObjectVisible("macd-signal")) {
+        pushOscillatorLine(xAxisIndex, yAxisIndex, "macd-signal", "MACD Signal", indicatorsData.macdSignal ?? fallbackMacd?.signalLine ?? [], "#FF9F04");
+      }
     } else if (panelName === "PPO") {
       const fallbackPpo = indicatorsData.ppo && indicatorsData.ppoSignal && indicatorsData.ppoHistogram ? null : calculatePPO(chartData);
       if (isObjectVisible("ppo-histogram")) {
@@ -2897,17 +4097,25 @@ const buildEChartsOption = ({
         { markLine: oscillatorGuide([0]) },
       );
     } else if (panelName === "Stoch") {
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "stoch-k", "%K", indicatorsData.stochK, "#2962FF", {
-        markArea: { silent: true, itemStyle: { color: "rgba(33, 150, 243, 0.08)" }, data: [[{ yAxis: 20 }, { yAxis: 80 }]] },
-        markLine: oscillatorGuide([80, 20, 50]),
-      });
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "stoch-d", "%D", indicatorsData.stochD, "#FF6D00");
+      if (isObjectVisible("stoch-k")) {
+        pushOscillatorLine(xAxisIndex, yAxisIndex, "stoch-k", "%K", indicatorsData.stochK, "#2962FF", {
+          markArea: { silent: true, itemStyle: { color: "rgba(33, 150, 243, 0.08)" }, data: [[{ yAxis: 20 }, { yAxis: 80 }]] },
+          markLine: oscillatorGuide([80, 20, 50]),
+        });
+      }
+      if (isObjectVisible("stoch-d")) {
+        pushOscillatorLine(xAxisIndex, yAxisIndex, "stoch-d", "%D", indicatorsData.stochD, "#FF6D00");
+      }
     } else if (panelName === "StochRSI") {
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "stochrsi-k", "StochRSI %K", indicatorsData.stochRsiK, "#2962FF", {
-        markArea: { silent: true, itemStyle: { color: "rgba(33, 150, 243, 0.08)" }, data: [[{ yAxis: 20 }, { yAxis: 80 }]] },
-        markLine: oscillatorGuide([80, 20, 50]),
-      });
-      pushOscillatorLine(xAxisIndex, yAxisIndex, "stochrsi-d", "StochRSI %D", indicatorsData.stochRsiD, "#FF6D00");
+      if (isObjectVisible("stochrsi-k")) {
+        pushOscillatorLine(xAxisIndex, yAxisIndex, "stochrsi-k", "StochRSI %K", indicatorsData.stochRsiK, "#2962FF", {
+          markArea: { silent: true, itemStyle: { color: "rgba(33, 150, 243, 0.08)" }, data: [[{ yAxis: 20 }, { yAxis: 80 }]] },
+          markLine: oscillatorGuide([80, 20, 50]),
+        });
+      }
+      if (isObjectVisible("stochrsi-d")) {
+        pushOscillatorLine(xAxisIndex, yAxisIndex, "stochrsi-d", "StochRSI %D", indicatorsData.stochRsiD, "#FF6D00");
+      }
     } else if (panelName === "ATR 14") {
       addPanelNote(`ATR 14 · ${resolveIndicatorQualityLabel(chartData, 14, hasLiveStitchedCandle)}`);
       pushOscillatorLine(
@@ -3467,6 +4675,12 @@ const buildEChartsOption = ({
     });
   });
 
+  const seriesOptionsWithTooltipPolicy = seriesOptions.map((series) => {
+    const seriesId = typeof series.id === "string" ? series.id : "";
+    if (ACTIONABLE_CANDLESTICK_PATTERN_TOOLTIP_SERIES_IDS.has(seriesId)) return series;
+    return { ...series, tooltip: { show: false } };
+  });
+
   const hiddenLegendSeriesIds = new Set([
     "bollinger-fill",
     "donchian-fill",
@@ -3528,14 +4742,26 @@ const buildEChartsOption = ({
       itemWidth: 15,
       itemHeight: 10
     },
-    tooltip: { show: false },
+    tooltip: {
+      show: true,
+      trigger: "item",
+      confine: true,
+      appendToBody: true,
+      transitionDuration: 0,
+      backgroundColor: "rgba(15, 23, 42, 0.96)",
+      borderColor: "rgba(148, 163, 184, 0.38)",
+      borderWidth: 1,
+      padding: 8,
+      extraCssText: "box-shadow:0 10px 28px rgba(2,6,23,.34);border-radius:6px;",
+      textStyle: { color: "#e2e8f0" },
+    },
     axisPointer: { show: false },
     grid: gridOptions,
     xAxis: xAxisOptions,
     yAxis: yAxisOptions,
     graphic: graphicOptions,
     dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: false, filterMode: "none" }],
-    series: seriesOptions,
+    series: seriesOptionsWithTooltipPolicy,
   };
 };
 
@@ -3755,10 +4981,14 @@ export const useEChartsRenderer = ({
   isMainChartVisible = true,
   comparisonSeries = [],
   onCompareSeriesSettingsRequest,
+  onMarubozuAlertRequest,
+  onShootingStarAlertRequest,
+  onCandlestickPatternAlertRequest,
   onChartVisualReady,
   hasLiveStitchedCandle = false,
   hiddenObjectIds = {},
   layersStackRef,
+  pineOverlay = null,
 }: UseEChartsRendererProps) => {
   const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
@@ -3954,6 +5184,7 @@ export const useEChartsRenderer = ({
   // SCAR-162: Eradicates UI Freezes and Race Conditions via messageId.
   // ============================================================================
   const [indicatorsData, setIndicatorsData] = useState<Record<string, (number | string)[]>>({});
+  const [structuredIndicatorResults, setStructuredIndicatorResults] = useState<IndicatorStructuredResults>({});
   const workerRef = useRef<Worker | null>(null);
   const messageIdRef = useRef<number>(0);
 
@@ -3977,6 +5208,7 @@ export const useEChartsRenderer = ({
 
     if (isInitialChartRenderDeferred || renderChartData.length === 0) {
       setIndicatorsData({});
+      setStructuredIndicatorResults({});
       return;
     }
 
@@ -4007,6 +5239,8 @@ export const useEChartsRenderer = ({
 
       if (!e.data.success) {
         console.error("[SRE] Worker Math Error:", e.data.error);
+        setIndicatorsData({});
+        setStructuredIndicatorResults({});
         return;
       }
 
@@ -4018,7 +5252,11 @@ export const useEChartsRenderer = ({
         formattedResults[key] = Array.from(rawResults[key], (v: number) => Number.isNaN(v) ? "-" : v);
       }
 
+      const rawStructuredResults = e.data.structuredResults as IndicatorStructuredResults | undefined;
       setIndicatorsData(formattedResults);
+      setStructuredIndicatorResults({
+        volumeProfile: rawStructuredResults?.volumeProfile ?? null,
+      });
     };
 
     // 3. Post Message
@@ -4320,6 +5558,7 @@ export const useEChartsRenderer = ({
       uiState,
       displaySymbol,
       indicatorsData,
+      structuredResults: structuredIndicatorResults,
       comparisonSeries: renderComparisonSeries,
       hiddenObjectIds,
       latestPrice,
@@ -4328,6 +5567,7 @@ export const useEChartsRenderer = ({
       legendSelection: legendSelectionRef.current,
       comparisonBaselineIndex: comparisonBaselineIndexRef.current,
       hasLiveStitchedCandle,
+      pineOverlay,
     };
 
     const option = withStableInitialViewport({
@@ -4368,10 +5608,51 @@ export const useEChartsRenderer = ({
       setLegendSelection(nextSelection);
     };
 
-    const handleCompareSeriesClick = (params: any) => {
+    const handleChartItemClick = (params: any) => {
       if (!isMountedRef.current) return;
       const seriesId = typeof params.seriesId === "string" ? params.seriesId : "";
       const seriesName = typeof params.seriesName === "string" ? params.seriesName : "";
+
+      if ((seriesId === "marubozu-bull-outline" || seriesId === "marubozu-bear-outline") && Array.isArray(params.value)) {
+        const alertPrice = toFiniteNumber(params.value[9]);
+        if (alertPrice !== null) {
+          onMarubozuAlertRequest?.({
+            price: alertPrice,
+            condition: seriesId === "marubozu-bear-outline" ? "LESS_THAN" : "GREATER_THAN",
+            label: typeof params.value[11] === "string" ? params.value[11] : seriesName || "Marubozu",
+          });
+        }
+        return;
+      }
+
+      if (seriesId === "shooting-star-marker" && Array.isArray(params.value)) {
+        const alertPrice = toFiniteNumber(params.value[10]);
+        if (alertPrice !== null) {
+          onShootingStarAlertRequest?.({
+            price: alertPrice,
+            condition: "LESS_THAN",
+            label: "Shooting Star",
+          });
+        }
+        return;
+      }
+
+      if (ACTIONABLE_TWO_CANDLE_PATTERN_SERIES_IDS.has(seriesId) && Array.isArray(params.value)) {
+        const alertPrice = toFiniteNumber(params.value[9]);
+        const direction = toFiniteNumber(params.value[2]);
+        const label = typeof params.value[17] === "string"
+          ? params.value[17]
+          : seriesName || "Pattern chandelier";
+        if (alertPrice !== null && direction !== null) {
+          onCandlestickPatternAlertRequest?.({
+            price: alertPrice,
+            condition: direction > 0 ? "GREATER_THAN" : "LESS_THAN",
+            label,
+          });
+        }
+        return;
+      }
+
       const isCompareSeries = seriesId.startsWith("compare-") || visibleCompareSymbolLookup.has(normalizeCompareSymbol(seriesName));
       if (!isCompareSeries) return;
       const normalizedName = seriesId.startsWith("compare-")
@@ -4383,7 +5664,7 @@ export const useEChartsRenderer = ({
 
     chart.on('finished', reportVisualReady);
     chart.on('legendselectchanged', handleLegendChange);
-    chart.on('click', handleCompareSeriesClick);
+    chart.on('click', handleChartItemClick);
     chart.on('datazoom', scheduleComparisonBaselines);
     chart.on('restore', scheduleComparisonBaselines);
 
@@ -4398,7 +5679,7 @@ export const useEChartsRenderer = ({
       if (chart && !chart.isDisposed()) {
         chart.off('finished', reportVisualReady);
         chart.off('legendselectchanged', handleLegendChange);
-        chart.off('click', handleCompareSeriesClick);
+        chart.off('click', handleChartItemClick);
         chart.off('datazoom', scheduleComparisonBaselines);
         chart.off('restore', scheduleComparisonBaselines);
       }
@@ -4419,6 +5700,7 @@ export const useEChartsRenderer = ({
     bollingerSettings,
     uiState.cursorMode,
     indicatorsData,
+    structuredIndicatorResults,
     dispatch,
     chartInstanceRef,
     stockChartRef,
@@ -4452,7 +5734,11 @@ export const useEChartsRenderer = ({
     scheduleComparisonBaselines,
     visibleCompareSymbolLookup,
     onCompareSeriesSettingsRequest,
-    onChartVisualReady
+    onMarubozuAlertRequest,
+    onShootingStarAlertRequest,
+    onCandlestickPatternAlertRequest,
+    onChartVisualReady,
+    pineOverlay
   ]);
 
   return { indicatorsData };

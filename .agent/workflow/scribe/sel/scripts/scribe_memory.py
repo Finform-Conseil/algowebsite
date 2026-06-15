@@ -292,7 +292,7 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard.add_argument("--serve", action="store_true", help="Serve a lightweight live dashboard that reloads when the SCRIBE file changes.")
     dashboard.add_argument("--host", default="127.0.0.1", help="Host for --serve. Defaults to localhost only.")
     dashboard.add_argument("--port", type=int, default=8765, help="Port for --serve. Use 0 to pick a free port.")
-    dashboard.add_argument("--poll-interval-ms", type=int, default=2000, help="Browser polling interval for --serve live reload. Minimum 1000ms.")
+    dashboard.add_argument("--poll-interval-ms", type=int, default=2000, help="Server-side file watch interval for --serve SSE live reload. Browser fallback polls no faster than 30000ms. Minimum 1000ms.")
     dashboard.set_defaults(func=cmd_dashboard)
     return parser
 

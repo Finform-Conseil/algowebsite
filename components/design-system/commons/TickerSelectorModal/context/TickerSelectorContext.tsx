@@ -8,6 +8,7 @@
 
 import { BRVMSecurity,  BRVM_SECURITIES, getBRVMSecurityByTicker } from '@/core/data/brvm-securities';
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { readPersistedTickerSymbol, writePersistedTickerSymbol } from "./tickerSelectorPersistence";
 
 // --- TYPES ---
 
@@ -59,32 +60,34 @@ export const TickerSelectorProvider: React.FC<TickerSelectorProviderProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // [PERSISTENCE] Charger la sélection depuis le localStorage au montage (Client-side only)
   React.useEffect(() => {
-    try {
-      const savedTickerSymbol = localStorage.getItem('algoway_selected_ticker');
-      if (savedTickerSymbol) {
+    let isActive = true;
+
+    const hydrateSelectedTicker = async () => {
+      try {
+        const savedTickerSymbol = await readPersistedTickerSymbol();
+        if (!isActive || !savedTickerSymbol) return;
+
         const savedSecurity = getBRVMSecurityByTicker(savedTickerSymbol);
         if (savedSecurity) {
-          // Si un ticker initial est forcé par prop, on ne l'écrase pas sauf si c'est pour l'initialisation par défaut
           if (!initialTicker || initialTicker === 'BOAB') {
              setSelectedTicker(savedSecurity);
           }
         }
+      } finally {
+        if (isActive) setIsInitialized(true);
       }
-    } catch (error) {
-      console.warn('Failed to load ticker from localStorage', error);
-    } finally {
-      // Marquer comme initialisé pour autoriser les sauvegardes futures
-      setIsInitialized(true);
-    }
+    };
+
+    void hydrateSelectedTicker();
+    return () => {
+      isActive = false;
+    };
   }, [initialTicker]);
 
-  // [PERSISTENCE] Sauvegarder la sélection dans le localStorage
-  // UNIQUEMENT après l'initialisation pour éviter d'écraser la sauvegarde avec la valeur par défaut
   React.useEffect(() => {
     if (isInitialized && selectedTicker) {
-      localStorage.setItem('algoway_selected_ticker', selectedTicker.ticker);
+      void writePersistedTickerSymbol(selectedTicker.ticker);
     }
   }, [selectedTicker, isInitialized]);
 

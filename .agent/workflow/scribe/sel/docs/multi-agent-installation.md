@@ -1,6 +1,11 @@
 # Multi-Agent Installation Procedure
 
-Purpose: install and operate the SCRIBE/TENOR local causal retrieval bundle in a host project so several coding agents can work asynchronously without creating competing roots, stale memory, or hidden regressions.
+Purpose: install and operate the SCRIBE/TENOR local causal retrieval bundle in a host project so several coding agents can work asynchronously without creating competing roots, stale memory, or hidden regressions. Live session coordination is canonical in `docs/live-coordination.md`; do not create `.agent/workflow/multi-agent/`.
+
+Stable baseline as of 2026-06-01: SEL `81 OK`, RAG `25 OK`, gate/eval `8/8`,
+doctor `0 error` plus cosmetic `W009`, PID identity fixed, TTL claims active,
+lock release owner-safe, and backup `~/backups/agent-scribe-stable-20260601.tar.gz`.
+The installation goal is now reuse, not adding features.
 
 ## Command Contract
 
@@ -25,7 +30,8 @@ Use this path for new projects and for multi-agent coding sessions:
 
 ```bash
 $SCRIBE bootstrap
-$SCRIBE_RAG build
+$SCRIBE workflow read --agent "<agent-name>" --type "<extension|cli|api|unknown>"
+$SCRIBE workflow check --agent "<agent-name>"
 $SCRIBE_RAG context
 ```
 
@@ -60,18 +66,24 @@ Every agent that joins the project should run this sequence before editing:
 
 ```bash
 $SCRIBE bootstrap
+$SCRIBE workflow read --agent "<agent-name>" --type "<extension|cli|api|unknown>"
+$SCRIBE workflow check --agent "<agent-name>"
 sed -n '1,220p' graphify-out/GRAPH_REPORT.md
 $SCRIBE sync --agent "<agent-name>" --type "<extension|cli|api|unknown>"
-$SCRIBE_RAG build
+$SCRIBE whoami --agent "<agent-name>" --type "<extension|cli|api|unknown>" --surface idle
+$SCRIBE coordination status
 $SCRIBE_RAG context
 $SCRIBE worktree
 ```
 
 Then the agent chooses the smallest safe workflow tier from `docs/friction-policy.md`.
+Use NANO (`$SCRIBE_RAG context`) for a one-file task under 30 minutes; reserve
+CRITICAL preflight for auth/data/public API, SCRIBE mutation, shared surfaces, or destructive work.
 
 For SCRIBE memory edits:
 
 ```bash
+$SCRIBE workflow check --agent "<agent-name>"
 $SCRIBE lock acquire --agent "<agent-name>" --type "<extension|cli|api|unknown>" --session "JOURNAL-XXX"
 $SCRIBE sync --agent "<agent-name>" --type "<extension|cli|api|unknown>"
 $SCRIBE doctor --suggest-fix
@@ -81,14 +93,24 @@ $SCRIBE sync --repair --agent "<agent-name>" --type "<extension|cli|api|unknown>
 $SCRIBE lock release --agent "<agent-name>"
 ```
 
+For long-lived ownership, set `SCRIBE_OWNER_PID` or pass `--owner-pid`; release
+now validates agent/surface before stale cleanup.
+
 ## Async Coordination
 
 When several LLM agents work on the same repository:
-- One agent owns one write surface at a time.
+- Agents start as an idle pool; they only claim work after receiving a concrete task.
+- Work is claimed semantically, for example `indicator:X`, not only by filename.
+- Shared files are allowed across different semantic claims when the agent re-reads current files and rebases before delivery.
+- The same semantic claim, same exact function, deletion, rename, or global refactor requires explicit coordination.
+- Broad surfaces remain exclusive only when they are actually claimed as broad surfaces.
+- Each active agent must have a fresh `$SCRIBE workflow read` ack before SCRIBE writes or shared-surface locks.
+- `$SCRIBE workflow status` without `--required` shows the current acked agent pool; use `--required ... --strict` only when a human explicitly imposes a named gate.
 - SCRIBE memory is a locked surface: mutating commands and manual YAML edits require `$SCRIBE lock acquire` first.
 - Application code, SCRIBE bundle code, SCRIBE memory, and generated reports are separate surfaces.
+- Agents must run `$SCRIBE coordination status` before writing and `$SCRIBE coordination finish` when their semantic claim is delivered.
 - No agent reverts files it did not intentionally change.
-- Before changing shared behavior, run `$SCRIBE_RAG challenge "<plan>"`.
+- Before changing shared behavior, run `$SCRIBE_RAG preflight --tier CRITICAL --strict "<plan>"`; do not use CRITICAL for routine NANO/QUICK tasks.
 - Before delivery, run `$SCRIBE worktree` and report tracked changes, untracked source candidates, generated noise, and other untracked files.
 - If the task changes bundle architecture, run `$SCRIBE graph --build`.
 - If the task changes retrieval ranking, tiers, or scoring, run `$SCRIBE_RAG eval --force` before and after the change.
@@ -105,16 +127,18 @@ test ! -e scripts
 $SCRIBE install . --dry-run
 $SCRIBE clean --dry-run
 $SCRIBE doctor --suggest-fix
-$SCRIBE_RAG build
-$SCRIBE_RAG context
+$SCRIBE workflow read --agent codex --type cli
+$SCRIBE workflow check --agent codex
+$SCRIBE_RAG preflight --tier STANDARD "installation acceptance"
 $SCRIBE_RAG eval --force
+$SCRIBE_RAG gate
 git diff --check
 ```
 
 Expected acceptance:
 - install dry-run reports `unchanged AGENTS.md` and `unchanged .graphifyignore`;
 - doctor reports zero errors;
-- scribe-rag context runs and eval remains green;
+- scribe-rag preflight runs, prints proof, eval remains green, and gate passes locally plus through `.github/workflows/scribe-rag-gate.yml`;
 - no Python `__pycache__` or `.pyc` artifacts remain inside the bundle.
 
 ## Recovery

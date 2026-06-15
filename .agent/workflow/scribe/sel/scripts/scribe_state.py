@@ -14,6 +14,12 @@ from typing import Any
 from scribe_doctor_model import parse_yaml
 from scribe_lock import DEFAULT_SURFACE, active_lock
 from scribe_clean import print_scribe_noise_warning
+from scribe_workflow_ack import (
+    check_workflow_ack,
+    parse_agent_list,
+    workflow_read_lines,
+    workflow_status_lines,
+)
 
 
 DEFAULT_SCRIBE_PATH = Path("AGENT-MEMOIRE_PROJECT_STATUS.scribe")
@@ -224,6 +230,33 @@ def cmd_whoami(args: argparse.Namespace) -> int:
     return 0 if check.ok else 1
 
 
+
+def cmd_workflow_read(args: argparse.Namespace) -> int:
+    _, lines = workflow_read_lines(args.agent, args.agent_type, Path(args.root))
+    print("\n".join(lines))
+    return 0
+
+
+def cmd_workflow_check(args: argparse.Namespace) -> int:
+    ok, verdict, ack, digest, path = check_workflow_ack(args.agent, Path(args.root))
+    print("SCRIBE WORKFLOW CHECK")
+    print(f"  agent: {args.agent}")
+    print(f"  ack_file: {path}")
+    print(f"  workflow_sha256: {digest.sha256}")
+    if ack:
+        print(f"  acknowledged_at: {ack.get('acknowledged_at', '-')}")
+    print(f"  verdict: {verdict}")
+    if not ok:
+        print(f"  run: scribe workflow read --agent {args.agent} --type <extension|cli|api|unknown>")
+    return 0 if ok else 2
+
+
+def cmd_workflow_status(args: argparse.Namespace) -> int:
+    required = parse_agent_list(args.required)
+    ok, lines = workflow_status_lines(required, Path(args.root))
+    print("\n".join(lines))
+    return 0 if ok or not args.strict else 2
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="scribe state", description="Synchronize agents through scribe-out/state.json.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -241,6 +274,26 @@ def build_parser() -> argparse.ArgumentParser:
     whoami = subparsers.add_parser("whoami", help="Show the last SCRIBE writer recorded in state.json.")
     whoami.add_argument("--scribe", default=str(DEFAULT_SCRIBE_PATH))
     whoami.set_defaults(func=cmd_whoami)
+
+    workflow = subparsers.add_parser("workflow", help="Record and verify agent workflow read acknowledgements.")
+    workflow_sub = workflow.add_subparsers(dest="workflow_command", required=True)
+
+    workflow_read = workflow_sub.add_parser("read", help="Read and acknowledge the current SCRIBE workflow digest.")
+    workflow_read.add_argument("--agent", required=True)
+    workflow_read.add_argument("--type", dest="agent_type", default="unknown", choices=sorted(AGENT_TYPES))
+    workflow_read.add_argument("--root", default=".")
+    workflow_read.set_defaults(func=cmd_workflow_read)
+
+    workflow_check = workflow_sub.add_parser("check", help="Require a fresh workflow acknowledgement for one agent.")
+    workflow_check.add_argument("--agent", required=True)
+    workflow_check.add_argument("--root", default=".")
+    workflow_check.set_defaults(func=cmd_workflow_check)
+
+    workflow_status = workflow_sub.add_parser("status", help="Show workflow acknowledgements for the agent pool or an explicit named gate.")
+    workflow_status.add_argument("--required", default=None)
+    workflow_status.add_argument("--root", default=".")
+    workflow_status.add_argument("--strict", action="store_true")
+    workflow_status.set_defaults(func=cmd_workflow_status)
     return parser
 
 

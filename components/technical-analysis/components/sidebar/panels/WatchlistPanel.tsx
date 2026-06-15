@@ -96,31 +96,30 @@ const SkeletonLine = ({ className, style }: { className?: string; style?: React.
 );
 
 const WatchlistSkeleton = () => (
-  <div className="gp-sidebar-skeleton-card">
+  <div className="gp-sidebar-skeleton-card gp-sidebar-quote-skeleton" aria-hidden="true">
     <div className="gp-sidebar-skeleton-brand">
       <SkeletonLine className="gp-sidebar-skeleton-logo" />
       <div className="gp-sidebar-skeleton-meta">
-        <SkeletonLine style={{ width: "64%", height: "12px" }} />
-        <SkeletonLine style={{ width: "42%", height: "8px" }} />
+        <div className="gp-sidebar-skeleton-company-row">
+          <SkeletonLine className="gp-sidebar-skeleton-company" />
+          <SkeletonLine className="gp-sidebar-skeleton-exchange" />
+        </div>
       </div>
     </div>
     <div className="gp-sidebar-skeleton-price-row">
-      <SkeletonLine style={{ width: "42%", height: "26px" }} />
-      <SkeletonLine style={{ width: "34%", height: "14px" }} />
+      <SkeletonLine className="gp-sidebar-skeleton-price-main" />
+      <SkeletonLine className="gp-sidebar-skeleton-currency" />
+      <SkeletonLine className="gp-sidebar-skeleton-change-pill" />
     </div>
-    <SkeletonLine style={{ width: "56%", height: "8px" }} />
-    <div className="gp-sidebar-skeleton-market-row">
+    <SkeletonLine className="gp-sidebar-skeleton-timestamp" />
+    <div className="gp-sidebar-skeleton-status-row">
       <SkeletonLine className="gp-sidebar-skeleton-dot" />
-      <SkeletonLine style={{ width: "34%", height: "10px" }} />
-      <SkeletonLine style={{ width: "30%", height: "10px" }} />
+      <SkeletonLine className="gp-sidebar-skeleton-status-line" />
+      <SkeletonLine className="gp-sidebar-skeleton-status-pill" />
     </div>
     <div className="gp-sidebar-skeleton-details-row">
-      <SkeletonLine style={{ width: "37%", height: "10px" }} />
-      <SkeletonLine style={{ width: "38%", height: "10px" }} />
-    </div>
-    <div className="gp-sidebar-skeleton-audit-row">
-      <SkeletonLine style={{ width: "36%", height: "16px" }} />
-      <SkeletonLine style={{ width: "28%", height: "16px" }} />
+      <SkeletonLine className="gp-sidebar-skeleton-sector" />
+      <SkeletonLine className="gp-sidebar-skeleton-country" />
     </div>
   </div>
 );
@@ -130,6 +129,21 @@ const SettingsItem = ({ checked, label, onChange }: { checked: boolean; label: s
     <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
     <span>{label}</span>
   </label>
+);
+
+const IndicesSkeletonRows = () => (
+  <div className="gp-indices-skeleton-rows" aria-hidden="true">
+    {INDEX_ROWS.map((indexRow) => (
+      <div key={indexRow.key} className="gp-indices-row gp-indices-row-skeleton">
+        <div className="gp-indices-cell-name">
+          <SkeletonLine className={clsx("gp-indices-skeleton-icon", indexRow.iconClass)} />
+          <SkeletonLine className="gp-indices-skeleton-name" />
+        </div>
+        <SkeletonLine className="gp-indices-skeleton-last" />
+        <SkeletonLine className="gp-indices-skeleton-change" />
+      </div>
+    ))}
+  </div>
 );
 
 const IndicesPanel = ({ data, error, isLoading, isOpen }: { data: Record<string, BRVMIndexData> | null; error: string | null; isLoading: boolean; isOpen: boolean }) => (
@@ -144,12 +158,12 @@ const IndicesPanel = ({ data, error, isLoading, isOpen }: { data: Record<string,
         <i className="bi bi-chevron-down me-1" style={{ fontSize: "0.8em" }} /> INDICES
       </div>
       {isLoading ? (
-        <div className="d-flex flex-column gap-2 p-2">
-          {[1, 2, 3].map((item) => <div key={item} className="is-loading-skeleton" style={{ height: "24px", borderRadius: "4px" }} />)}
-        </div>
+        <IndicesSkeletonRows />
       ) : error ? (
         <div className="text-warning text-center py-2 px-1" style={{ fontSize: "10px" }}><i className="bi bi-exclamation-triangle-fill me-1" /> Données non vérifiées ({error})</div>
-      ) : !data || Object.keys(data).length === 0 ? (
+      ) : !data ? (
+        <IndicesSkeletonRows />
+      ) : Object.keys(data).length === 0 ? (
         <div className="text-warning text-center py-2 px-1" style={{ fontSize: "10px" }}><i className="bi bi-exclamation-triangle-fill me-1" /> Données non vérifiées (indisponibles)</div>
       ) : (
         INDEX_ROWS.map((indexRow) => {

@@ -41,6 +41,13 @@ Réflexe obligatoire avant tout changement : "Est-ce qu'un utilisateur peut mett
 **Dernière Passe :** Vérification TypeScript ciblée Bollinger/Ichimoku/RAF sans sortie d'erreur sur les fichiers concernés. Audit global ESLint historique conservé.
 ---
 ## 📋 3. PLAN DE CORRECTION PRIORISÉ
+### Priorité immédiate — Affichage et activation des indicateurs
+- [ ] Résoudre d'abord les régressions d'affichage et d'activation des indicateurs avant tout grand split de `IndicatorsModal.tsx`.
+- [ ] Reproduire chaque bug via Chrome DevTools MCP : ouverture du modal, recherche, activation parent/enfant, apparition sur chart, Object Tree, Data Window et persistance après reload.
+- [ ] Pour chaque indicateur cassé, prouver la chaîne complète : entrée catalogue -> dispatch Redux -> calcul/worker -> série ECharts -> visibilité Object Tree.
+- [ ] Ne pas lancer le refactor massif du modal tant que les indicateurs râpés/cassés en activation ne sont pas stabilisés; le split reste une dette critique mais non prioritaire face aux erreurs visibles utilisateur.
+- [ ] Conserver le diagnostic d'audit : `IndicatorsModal.tsx` est trop gros, mais le traiter après stabilisation fonctionnelle pour éviter de mélanger bugfix et déplacement de code.
+
 ### Sprint 1 & 2 — Corrections rapides et architecturales
 - ✅ **COMPLÉTÉ** : Nettoyage des dépendances, variables inutilisées, console.logs, et migration des états dérivés.
 ### Sprint 3 — Finalisation des désactivations Zero-Lag
@@ -93,6 +100,7 @@ Réflexe obligatoire avant tout changement : "Est-ce qu'un utilisateur peut mett
 - **Impact :** Élevé : transforme l'outil en mini-terminal multi-vues complet.
 ---
 ## ⚠️ 5. ANGLES MORTS CONNUS & DETTE TECHNIQUE (Torvalds Speak)
+- **Dette IndicatorsModal Split :** `IndicatorsModal.tsx` dépasse largement le budget cognitif, mais le split est gelé jusqu'à résolution des problèmes d'affichage et d'activation des indicateurs. Refactor massif interdit pendant la phase de bugfix visuel.
 - **Dette Bollinger Source/Offset :** Les contrôles `Source` et `Offset` ne doivent pas rester décoratifs; ils doivent modifier réellement le calcul ou être masqués temporairement.
 - **Dette de Typage Résiduelle :** Il reste des casts `any` dans `IndicatorsModal.tsx` et `useEChartsRenderer.ts` qui doivent être nettoyés pour atteindre la pureté TypeScript absolue.
 - **Garde-fou MarketData :** ne pas reintroduire de hook, helper ou route intraday BRVM. Le terminal TA reste daily OHLCV plus snapshot live.

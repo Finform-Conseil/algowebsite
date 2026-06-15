@@ -6,7 +6,7 @@ meta_project:
   scribe_version: "3.2-local-causal-retrieval"
   graphify_graph: "graphify-out/graph.json"
 tiers:
-  hot: ["PAT-GRAPH-001", "PAT-GIT-001"]
+  hot: ["PAT-GRAPH-001", "PAT-GIT-001", "PAT-SCRIBE-RAG-001", "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001", "GHOST-SCRIBE-RAG-SEL-DIRECT-001", "GHOST-SCRIBE-STRICT-MEMORY-001"]
   warm: []
   cold: []
 invariants:
@@ -59,16 +59,91 @@ patterns:
       observable: "graphify-out and scribe-out are generated local state, while AGENT-MEMOIRE_PROJECT_STATUS.scribe is optional shared causal memory."
     liens_causaux:
       source: "JOURNAL-000"
+
+  - id: "PAT-SCRIBE-RAG-001"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
+    tier: "hot"
+    status: "ACTIVE"
+    titre: "scribe-rag preflight proof"
+    l0_abstract: "Agents must use scribe-rag preflight/context/query/challenge as the proof surface before significant work."
+    scope: "dev bundle"
+    approved: true
+    evidence:
+      type: "OBSERVED"
+      source: "JOURNAL-000"
+      observable: "Bootstrap installed the portable scribe-rag CLI and the always-on host rule points every model to it."
+    liens_causaux:
+      source: "JOURNAL-000"
+  - id: "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
+    tier: "hot"
+    status: "ACTIVE"
+    titre: "Dashboard causal-density is informational"
+    l0_abstract: "Do not create SCAR/GHOST/PAT to clean dashboard ratios; write causal memory only after real pain, bugs, durable decisions, or rejected alternatives."
+    scope: "dev bundle"
+    approved: true
+    evidence:
+      type: "REASONED"
+      source: "JOURNAL-000"
+      observable: "A low causal-density ratio is a quality reminder, not a write trigger."
+    liens_causaux:
+      source: "GHOST-SCRIBE-STRICT-MEMORY-001"
+ghosts:
+  - id: "GHOST-SCRIBE-RAG-SEL-DIRECT-001"
+    titre: "No SEL direct retrieval for agents"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
+    tier: "hot"
+    status: "ACTIVE"
+    l0_abstract: "SEL direct context/query/challenge is rejected for host-agent retrieval; use scribe-rag so retrieval is compact and auditable."
+    scope: "dev bundle"
+    alternatives_rejetees:
+      - nom: "SEL direct retrieval"
+        raison_rejet: "It bypasses the compact agent proof surface and makes policy compliance invisible."
+    ne_pas_reproposer:
+      - "appeler SEL direct context query pour retrieval agent"
+      - "utiliser scribe context au lieu de scribe-rag"
+      - "lire AGENT-MEMOIRE_PROJECT_STATUS.scribe directement pour retrieval agent"
+    evidence:
+      type: "OBSERVED"
+      source: "JOURNAL-000"
+      observable: "The host-facing retrieval path is scribe-rag; SEL remains the internal guard/write engine."
+    liens_causaux:
+      source: "PAT-SCRIBE-RAG-001"
+  - id: "GHOST-SCRIBE-STRICT-MEMORY-001"
+    titre: "Strict causal memory beats clean dashboard"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
+    tier: "hot"
+    status: "ACTIVE"
+    l0_abstract: "Keep SCRIBE strict even when the dashboard shows low causal density; a visible warning is better than artificial memory."
+    scope: "dev bundle"
+    alternatives_rejetees:
+      - nom: "Artificial dashboard cleanup memory"
+        raison_rejet: "It improves the ratio while degrading retrieval with entries that did not come from real project pain."
+      - nom: "Treat P2 density as mandatory write work"
+        raison_rejet: "The P2 signal is a discipline reminder; it becomes actionable only when a concrete bug, decision, or rejected option exists."
+    ne_pas_reproposer:
+      - "creer SCAR/GHOST/PAT pour nettoyer le dashboard"
+      - "traiter une alerte densite causale comme dette bloquante"
+    evidence:
+      type: "REASONED"
+      source: "JOURNAL-000"
+      observable: "Strict causal memory preserves retrieval quality better than a clean dashboard ratio."
+    liens_causaux:
+      source: "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001"
 journal:
   - id: "JOURNAL-000"
     date: "{{DATE}}"
     mode: "STANDARD"
     agent_type: "unknown"
     surface: ""
-    hot_entries_consulted: ["PAT-GRAPH-001", "PAT-GIT-001"]
+    hot_entries_consulted: ["PAT-GRAPH-001", "PAT-GIT-001", "PAT-SCRIBE-RAG-001", "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001", "GHOST-SCRIBE-STRICT-MEMORY-001"]
     l0_abstract: "Bootstrap initial."
-    pourquoi: "This project received the portable SCRIBE/TENOR local causal retrieval bundle. Graphify owns structural retrieval; SCRIBE starts as causal memory, and generated agent runtime artifacts stay outside product commits by default."
-    scribe_delta: "PAT-GRAPH-001 | PAT-GIT-001 | JOURNAL-000"
+    pourquoi: "This project received the portable SCRIBE/TENOR local causal retrieval bundle. Graphify owns structural retrieval; SCRIBE starts as strict causal memory, dashboard density warnings are informational, and generated agent runtime artifacts stay outside product commits by default."
+    scribe_delta: "PAT-GRAPH-001 | PAT-GIT-001 | PAT-SCRIBE-RAG-001 | PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001 | GHOST-SCRIBE-RAG-SEL-DIRECT-001 | GHOST-SCRIBE-STRICT-MEMORY-001 | JOURNAL-000"
     multi_agent_context:
       surface: ""
       other_agents_active: []

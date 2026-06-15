@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
-import { fetchWithResilience, fetchBrvmPage } from '@/shared/utils/resilient-scraper';
+import {
+  BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+  BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+  fetchBrvmPage,
+  fetchWithResilience,
+} from '@/shared/utils/resilient-scraper';
+
+const FALLBACK_CACHE_SECONDS = 60;
 
 /**
  * [TENOR 2026] SCRAPER CAPITALISATION LIVE BRVM
  * Rôle : Récupérer les données réelles de capitalisation avec protection Redis SWR.
  * [TENOR 2026 FIX] SCAR-114: JSDOM Purged. Migrated to Cheerio for OOM prevention in Serverless.
  */
-async function getBrvmCapHTML() {
+async function getBrvmCapHTML(signal?: AbortSignal) {
   return fetchWithResilience(
     'live_capitalisations',
-    () => fetchBrvmPage('https://www.brvm.org/fr/capitalisations/0', 38000),
+    () => fetchBrvmPage(
+      'https://www.brvm.org/fr/capitalisations/0',
+      BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+      BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+      signal,
+    ),
     {
       cacheTtl: 1800, // 30 minutes de fraîcheur (FinOps)
       staleTtl: 86400 // 24 heures de survie
@@ -28,7 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: html, status } = await getBrvmCapHTML();
+    const { data: html, status } = await getBrvmCapHTML(request.signal);
     const $ = cheerio.load(html);
     
     // [TENOR 2026 FIX] Explicit cast to any[] to satisfy TS strict mode
@@ -82,9 +94,34 @@ export async function GET(request: NextRequest) {
     return processRow(cells, ticker, status, $);
 
   } catch (error) {
+    if (isBrvmSourceUnavailable(error)) {
+      return buildUnavailableCapitalizationResponse(ticker, error);
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: 'Failed to scrape BRVM Capitalization', details: message }, { status: 503 });
+    return NextResponse.json({ error: 'Failed to scrape BRVM Capitalization', details: message }, { status: 500 });
   }
+}
+
+function buildUnavailableCapitalizationResponse(ticker: string, error: unknown) {
+  console.warn("[brvm-live-capitalisation] Source unavailable for " + ticker + ", returning degraded payload:", error);
+  const response = NextResponse.json(ticker === "ALL"
+    ? {}
+    : {
+      error: "BRVM capitalization source temporarily unavailable",
+      found: false,
+      source: "BRVM_CAPITALIZATION",
+      sourceStatus: "unavailable",
+      symbol: ticker,
+      timestamp: new Date().toISOString()
+    });
+  response.headers.set("Cache-Control", "public, s-maxage=" + FALLBACK_CACHE_SECONDS + ", stale-while-revalidate=300");
+  response.headers.set("X-Cache-Status", "UNAVAILABLE");
+  return response;
+}
+
+function isBrvmSourceUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /BRVM|fetch failed|timeout|UND_ERR|ECONN|ABORT_SAFETY_NET|circuit/i.test(message);
 }
 
 function processRow(cells: Element[], ticker: string, status: string, $: cheerio.CheerioAPI) {

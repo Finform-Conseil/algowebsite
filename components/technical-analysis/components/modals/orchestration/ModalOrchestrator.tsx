@@ -26,7 +26,13 @@ import type { ChartDataPoint } from "../../../lib/Indicators/TechnicalIndicators
 import { ANONYMOUS_PSEUDOS } from "../../../config/ui/anonymousPseudos";
 import { useModalOrchestrator } from "../../../hooks/useModalOrchestrator";
 import { BaseModal } from "../../common/primitives/BaseModal";
-import { loadIndicatorsModalComponent } from "./indicatorsModalLoader";
+import {
+  getPreloadedIndicatorsModalComponent,
+  loadIndicatorsModalComponent,
+  preloadIndicatorsModal,
+  resetIndicatorsModalPreload,
+  type IndicatorsModalComponent,
+} from "./indicatorsModalLoader";
 import { normalizeScrollTop, readStoredIndicatorsModalScrollTop, storeIndicatorsModalScrollTop } from "./scrollMemory";
 
 const indicatorSkeletonGroups = [
@@ -35,67 +41,116 @@ const indicatorSkeletonGroups = [
   { id: "catalog", rows: [4, 4, 3] },
 ] as const;
 
-const IndicatorsModalLoading = () => (
-  <BaseModal
-    isOpen
-    onClose={() => undefined}
-    title="Indicateurs Techniques"
-    icon={<i className="bi bi-activity me-2" aria-hidden="true"></i>}
-    maxWidth="750px"
-    className="gp-indicators-modal"
-    overlayClassName="gp-indicators-modal-overlay"
-    draggable
-    showCloseButton={false}
-    footer={
-      <div className="gp-indicators-loading__footer" aria-hidden="true">
-        <span className="gp-indicators-loading__action is-loading-skeleton" />
-        <span className="gp-indicators-loading__action gp-indicators-loading__action--primary is-loading-skeleton" />
-      </div>
-    }
-  >
-    <div
-      className="gp-indicators-loading"
-      aria-busy="true"
-      aria-label="Chargement du catalogue d'indicateurs techniques"
-      role="status"
-    >
-      <div className="gp-indicator-search-panel gp-indicators-loading__search">
-        <div className="gp-indicators-loading__search-box" aria-hidden="true">
-          <span className="gp-indicators-loading__icon is-loading-skeleton" />
-          <span className="gp-indicators-loading__line gp-indicators-loading__line--search is-loading-skeleton" />
-        </div>
-        <div className="gp-indicators-loading__meta" aria-hidden="true">
-          <span className="gp-indicators-loading__line gp-indicators-loading__line--count is-loading-skeleton" />
-          <span className="gp-indicators-loading__line gp-indicators-loading__line--filter is-loading-skeleton" />
-        </div>
-      </div>
+const INDICATORS_MODAL_IDLE_PRELOAD_TIMEOUT_MS = 1_500;
+const INDICATORS_MODAL_STALL_TIMEOUT_MS = 3_500;
 
-      <div className="gp-indicators-loading__catalog" aria-hidden="true">
-        {indicatorSkeletonGroups.map((group) => (
-          <section className="gp-indicators-loading__family" key={group.id}>
-            <div className="gp-indicators-loading__family-header">
-              <span className="gp-indicators-loading__accent is-loading-skeleton" />
-              <span className="gp-indicators-loading__line gp-indicators-loading__line--title is-loading-skeleton" />
-              <span className="gp-indicators-loading__line gp-indicators-loading__line--code is-loading-skeleton" />
-            </div>
-            <div className="gp-indicators-loading__chip-groups">
-              {group.rows.map((chipCount, rowIndex) => (
-                <div className="gp-indicators-loading__chip-row" key={group.id + "-row-" + rowIndex}>
-                  {Array.from({ length: chipCount }, (_, chipIndex) => (
-                    <span
-                      className="gp-indicators-loading__chip is-loading-skeleton"
-                      key={group.id + "-chip-" + rowIndex + "-" + chipIndex}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
+type IndicatorsModalLoadState = "loading" | "stalled" | "failed";
+
+type IndicatorsModalLoadingProps = {
+  state?: IndicatorsModalLoadState;
+  errorMessage?: string | null;
+  onClose?: () => void;
+  onRetry?: () => void;
+};
+
+const IndicatorsModalLoading = ({
+  state = "loading",
+  errorMessage,
+  onClose,
+  onRetry,
+}: IndicatorsModalLoadingProps = {}) => {
+  const isActionable = state === "stalled" || state === "failed";
+  const statusTitle = state === "failed"
+    ? "Chargement impossible"
+    : state === "stalled"
+      ? "Chargement anormalement long"
+      : null;
+  const statusMessage = state === "failed"
+    ? errorMessage || "Le catalogue d'indicateurs n'a pas pu être chargé."
+    : state === "stalled"
+      ? "Le catalogue prend trop de temps à charger. Vous pouvez relancer le chargement ou fermer ce modal."
+      : null;
+
+  return (
+    <BaseModal
+      isOpen
+      onClose={onClose ?? (() => undefined)}
+      title="Indicateurs Techniques"
+      icon={<i className="bi bi-activity me-2" aria-hidden="true"></i>}
+      maxWidth="750px"
+      className="gp-indicators-modal"
+      overlayClassName="gp-indicators-modal-overlay"
+      draggable
+      showCloseButton={isActionable}
+      footer={
+        isActionable ? (
+          <div className="gp-indicators-loading__footer gp-indicators-loading__footer--actions">
+            <button className="btn btn-sm btn-outline-light" onClick={onClose} type="button">
+              Fermer
+            </button>
+            <button className="btn btn-sm btn-warning" onClick={onRetry} type="button">
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <div className="gp-indicators-loading__footer" aria-hidden="true">
+            <span className="gp-indicators-loading__action is-loading-skeleton" />
+            <span className="gp-indicators-loading__action gp-indicators-loading__action--primary is-loading-skeleton" />
+          </div>
+        )
+      }
+    >
+      <div
+        className={`gp-indicators-loading gp-indicators-loading--${state}`}
+        aria-busy={state === "loading"}
+        aria-label="Chargement du catalogue d'indicateurs techniques"
+        role="status"
+      >
+        <div className="gp-indicator-search-panel gp-indicators-loading__search">
+          <div className="gp-indicators-loading__search-box" aria-hidden="true">
+            <span className="gp-indicators-loading__icon is-loading-skeleton" />
+            <span className="gp-indicators-loading__line gp-indicators-loading__line--search is-loading-skeleton" />
+          </div>
+          <div className="gp-indicators-loading__meta" aria-hidden="true">
+            <span className="gp-indicators-loading__line gp-indicators-loading__line--count is-loading-skeleton" />
+            <span className="gp-indicators-loading__line gp-indicators-loading__line--filter is-loading-skeleton" />
+          </div>
+        </div>
+
+        {statusTitle && statusMessage && (
+          <div className={`gp-indicators-loading__notice gp-indicators-loading__notice--${state}`} role="alert">
+            <strong>{statusTitle}</strong>
+            <span>{statusMessage}</span>
+          </div>
+        )}
+
+        <div className="gp-indicators-loading__catalog" aria-hidden="true">
+          {indicatorSkeletonGroups.map((group) => (
+            <section className="gp-indicators-loading__family" key={group.id}>
+              <div className="gp-indicators-loading__family-header">
+                <span className="gp-indicators-loading__accent is-loading-skeleton" />
+                <span className="gp-indicators-loading__line gp-indicators-loading__line--title is-loading-skeleton" />
+                <span className="gp-indicators-loading__line gp-indicators-loading__line--code is-loading-skeleton" />
+              </div>
+              <div className="gp-indicators-loading__chip-groups">
+                {group.rows.map((chipCount, rowIndex) => (
+                  <div className="gp-indicators-loading__chip-row" key={group.id + "-row-" + rowIndex}>
+                    {Array.from({ length: chipCount }, (_, chipIndex) => (
+                      <span
+                        className="gp-indicators-loading__chip is-loading-skeleton"
+                        key={group.id + "-chip-" + rowIndex + "-" + chipIndex}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
-    </div>
-  </BaseModal>
-);
+    </BaseModal>
+  );
+};
 
 // ============================================================================
 // DYNAMIC IMPORTS (Code Splitting)
@@ -103,10 +158,6 @@ const IndicatorsModalLoading = () => (
 const SearchSymbolModal = dynamic(
   () => import("../search-symbol/SearchSymbolModal").then((module) => module.SearchSymbolModal),
   { ssr: false, loading: () => null }
-);
-const IndicatorsModal = dynamic(
-  loadIndicatorsModalComponent,
-  { ssr: false, loading: IndicatorsModalLoading }
 );
 const ReplayModal = dynamic(
   () => import("../replay/ReplayModal").then((module) => module.ReplayModal),
@@ -134,10 +185,6 @@ const MoreOptionsModal = dynamic(
 );
 const DatePickerModal = dynamic(
   () => import("../date-picker/DatePickerModal").then((module) => module.DatePickerModal),
-  { ssr: false, loading: () => null }
-);
-const AlertsModal = dynamic(
-  () => import("../alerts/AlertsModal").then((module) => module.AlertsModal),
   { ssr: false, loading: () => null }
 );
 const PublishOptionsModal = dynamic(
@@ -181,6 +228,10 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   const searchMode = uiState.searchMode;
   const [isPublishPseudoDropdownOpen, setIsPublishPseudoDropdownOpen] = useState(false);
   const indicatorsModalScrollTopRef = useRef(0);
+  const indicatorsModalLoadRequestRef = useRef(0);
+  const [LoadedIndicatorsModal, setLoadedIndicatorsModal] = useState<IndicatorsModalComponent | null>(() => getPreloadedIndicatorsModalComponent());
+  const [indicatorsModalLoadState, setIndicatorsModalLoadState] = useState<IndicatorsModalLoadState>("loading");
+  const [indicatorsModalLoadError, setIndicatorsModalLoadError] = useState<string | null>(null);
 
   // --- Handlers ---
   // [TENOR 2026 FIX] Centralized modal closing to DRY up the JSX
@@ -197,6 +248,95 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   useEffect(() => {
     indicatorsModalScrollTopRef.current = readStoredIndicatorsModalScrollTop();
   }, []);
+
+  const ensureIndicatorsModalLoaded = useCallback((options: { forceRetry?: boolean } = {}) => {
+    if (options.forceRetry) {
+      resetIndicatorsModalPreload();
+      setLoadedIndicatorsModal(null);
+    }
+
+    const preloadedComponent = getPreloadedIndicatorsModalComponent();
+    if (preloadedComponent) {
+      setLoadedIndicatorsModal(() => preloadedComponent);
+      setIndicatorsModalLoadState("loading");
+      setIndicatorsModalLoadError(null);
+      return;
+    }
+
+    const requestId = indicatorsModalLoadRequestRef.current + 1;
+    indicatorsModalLoadRequestRef.current = requestId;
+    setIndicatorsModalLoadState("loading");
+    setIndicatorsModalLoadError(null);
+
+    let stallTimerId: number | null = null;
+    if (typeof window !== "undefined") {
+      stallTimerId = window.setTimeout(() => {
+        if (indicatorsModalLoadRequestRef.current !== requestId) return;
+        setIndicatorsModalLoadState((current) => current === "loading" ? "stalled" : current);
+      }, INDICATORS_MODAL_STALL_TIMEOUT_MS);
+    }
+
+    void loadIndicatorsModalComponent()
+      .then((Component) => {
+        if (indicatorsModalLoadRequestRef.current !== requestId) return;
+        setLoadedIndicatorsModal(() => Component);
+        setIndicatorsModalLoadState("loading");
+        setIndicatorsModalLoadError(null);
+      })
+      .catch((error: unknown) => {
+        if (indicatorsModalLoadRequestRef.current !== requestId) return;
+        resetIndicatorsModalPreload();
+        setLoadedIndicatorsModal(null);
+        setIndicatorsModalLoadState("failed");
+        setIndicatorsModalLoadError(error instanceof Error ? error.message : "Erreur inconnue pendant le chargement du catalogue.");
+      })
+      .finally(() => {
+        if (stallTimerId !== null && typeof window !== "undefined") {
+          window.clearTimeout(stallTimerId);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let cancelled = false;
+    let idleId: number | null = null;
+    let timeoutId: number | null = null;
+    const preloadWhenIdle = () => {
+      void preloadIndicatorsModal()
+        .then((loadedModule) => {
+          if (cancelled) return;
+          setLoadedIndicatorsModal(() => loadedModule.IndicatorsModal as IndicatorsModalComponent);
+        })
+        .catch(() => undefined);
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(preloadWhenIdle, { timeout: INDICATORS_MODAL_IDLE_PRELOAD_TIMEOUT_MS });
+    } else {
+      timeoutId = window.setTimeout(preloadWhenIdle, INDICATORS_MODAL_IDLE_PRELOAD_TIMEOUT_MS);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== null) idleWindow.cancelIdleCallback?.(idleId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (modals.indicators) ensureIndicatorsModalLoaded();
+  }, [ensureIndicatorsModalLoaded, modals.indicators]);
+
+  const retryIndicatorsModalLoad = useCallback(() => {
+    ensureIndicatorsModalLoaded({ forceRetry: true });
+  }, [ensureIndicatorsModalLoaded]);
 
   const didHydrateLoadAnalysisRef = useRef(false);
 
@@ -246,13 +386,22 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
       )}
 
       {modals.indicators && (
-        <IndicatorsModal
-          isOpen={modals.indicators}
-          onClose={() => closeModal("indicators")}
-          initialScrollTop={indicatorsModalScrollTopRef.current || readStoredIndicatorsModalScrollTop()}
-          onScrollPositionChange={rememberIndicatorsModalScrollTop}
-          onRevealObjectIds={onRevealObjectIds}
-        />
+        LoadedIndicatorsModal ? (
+          <LoadedIndicatorsModal
+            isOpen={modals.indicators}
+            onClose={() => closeModal("indicators")}
+            initialScrollTop={indicatorsModalScrollTopRef.current || readStoredIndicatorsModalScrollTop()}
+            onScrollPositionChange={rememberIndicatorsModalScrollTop}
+            onRevealObjectIds={onRevealObjectIds}
+          />
+        ) : (
+          <IndicatorsModalLoading
+            state={indicatorsModalLoadState}
+            errorMessage={indicatorsModalLoadError}
+            onClose={() => closeModal("indicators")}
+            onRetry={retryIndicatorsModalLoad}
+          />
+        )
       )}
 
       {modals.replay && (
@@ -316,14 +465,6 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
               closeModal("datePicker");
             }
           }}
-        />
-      )}
-
-      {modals.alerts && (
-        <AlertsModal
-          isOpen={modals.alerts}
-          onClose={() => closeModal("alerts")}
-          btnStyle={"btn-california"}
         />
       )}
 

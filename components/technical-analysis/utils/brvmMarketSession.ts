@@ -7,6 +7,22 @@ const BRVM_PRE_OPEN_UTC_MINUTE = 9 * 60;
 const BRVM_OFFICIAL_CLOSE_UTC_MINUTE = 15 * 60;
 const BRVM_DISPLAY_TIME_ZONE = "Africa/Porto-Novo";
 export const BRVM_DISPLAY_TIME_ZONE_LABEL = "GMT+1";
+export const BRVM_OBSERVED_HOLIDAYS_UTC = new Set([
+  "2026-01-01",
+  "2026-03-16",
+  "2026-03-20",
+  "2026-04-06",
+  "2026-05-01",
+  "2026-05-14",
+  "2026-05-25",
+  "2026-05-27",
+  "2026-08-07",
+  "2026-08-15",
+  "2026-08-26",
+  "2026-11-01",
+  "2026-11-15",
+  "2026-12-25",
+]);
 
 type TimeframeUnit = "second" | "minute" | "hour" | "day" | "week" | "month" | "year";
 
@@ -46,9 +62,16 @@ const parseTimeframe = (timeframe?: string | null): ParsedTimeframe | null => {
   return null;
 };
 
-const isBrvmBusinessDay = (date: Date): boolean => {
+const formatUtcDateKey = (date: Date): string => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+};
+
+export const isBrvmBusinessDay = (date: Date): boolean => {
   const day = date.getUTCDay();
-  return day >= 1 && day <= 5;
+  return day >= 1 && day <= 5 && !BRVM_OBSERVED_HOLIDAYS_UTC.has(formatUtcDateKey(date));
 };
 
 const getUtcDayStartMs = (date: Date): number => {

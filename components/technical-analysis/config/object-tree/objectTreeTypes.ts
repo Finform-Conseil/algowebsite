@@ -8,5 +8,8 @@ export interface DataWindowCandleValues {
   close: number;
   volume: number;
   change: number;
+  changePercent: number;
+  lastDayChange: number;
+  lastDayChangePercent: number;
   isUp: boolean;
 }

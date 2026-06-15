@@ -77,11 +77,18 @@ def scribe_file_state(scribe_path: Path) -> dict[str, Any]:
     }
 
 
+def scribe_stat_fingerprint(scribe_path: Path) -> tuple[int, int]:
+    stat = scribe_path.stat()
+    return (stat.st_mtime_ns, stat.st_size)
+
+
 def serve_dashboard(args: argparse.Namespace) -> int:
     scribe_path = Path(args.scribe)
     poll_interval_ms = max(1000, int(args.poll_interval_ms))
 
     class DashboardRequestHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
         def log_message(self, format: str, *values: object) -> None:
             return
 
@@ -93,14 +100,22 @@ def serve_dashboard(args: argparse.Namespace) -> int:
             if route == "/api/scribe-state":
                 self.send_json(scribe_file_state(scribe_path))
                 return
+            if route == "/api/scribe-events":
+                self.send_scribe_events()
+                return
             if route == "/api/dashboard-data":
                 self.send_json(dashboard_payload(args))
                 return
+            body = b"Not found\n"
             self.send_response(404)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(b"Not found\n")
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                return
 
         def send_dashboard_html(self) -> None:
             payload = dashboard_payload(args)
@@ -110,7 +125,10 @@ def serve_dashboard(args: argparse.Namespace) -> int:
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Content-Length", str(len(html)))
             self.end_headers()
-            self.wfile.write(html)
+            try:
+                self.wfile.write(html)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                return
 
         def send_json(self, payload: dict[str, Any]) -> None:
             body = (json.dumps(payload, ensure_ascii=False, sort_keys=True, default=json_default) + "\n").encode("utf-8")
@@ -119,7 +137,42 @@ def serve_dashboard(args: argparse.Namespace) -> int:
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                return
+
+        def send_scribe_events(self) -> None:
+            interval_seconds = poll_interval_ms / 1000
+            last_fingerprint: tuple[int, int] | None = None
+            last_keepalive = time.monotonic()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            while True:
+                try:
+                    fingerprint = scribe_stat_fingerprint(scribe_path)
+                    if fingerprint != last_fingerprint:
+                        last_fingerprint = fingerprint
+                        self.write_sse_event("state", scribe_file_state(scribe_path))
+                    elif time.monotonic() - last_keepalive >= 30:
+                        last_keepalive = time.monotonic()
+                        self.write_sse_comment("keepalive")
+                    time.sleep(interval_seconds)
+                except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                    return
+
+        def write_sse_event(self, event: str, payload: dict[str, Any]) -> None:
+            data = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=json_default)
+            self.wfile.write(f"event: {event}\ndata: {data}\n\n".encode("utf-8"))
+            self.wfile.flush()
+
+        def write_sse_comment(self, comment: str) -> None:
+            self.wfile.write(f": {comment}\n\n".encode("utf-8"))
+            self.wfile.flush()
 
     server = ThreadingHTTPServer((args.host, args.port), DashboardRequestHandler)
     server.daemon_threads = True
@@ -127,7 +180,8 @@ def serve_dashboard(args: argparse.Namespace) -> int:
     print("SCRIBE DASHBOARD LIVE", flush=True)
     print(f"  url: http://{host}:{port}/", flush=True)
     print(f"  source: {scribe_path}", flush=True)
-    print(f"  poll: {poll_interval_ms}ms", flush=True)
+    print("  reload: SSE on file change", flush=True)
+    print(f"  watch: {poll_interval_ms}ms server-side", flush=True)
     print("  stop: Ctrl+C", flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
@@ -321,23 +375,50 @@ def live_reload_script(payload: dict[str, Any], poll_interval_ms: int | None) ->
     return f"""<script>
 (() => {{
   if (!window.location.protocol.startsWith("http")) return;
-  const endpoint = "/api/scribe-state";
+  const eventEndpoint = "/api/scribe-events";
+  const fallbackEndpoint = "/api/scribe-state";
   const pollIntervalMs = {interval};
+  const fallbackIntervalMs = Math.max(30000, pollIntervalMs * 10);
   let currentHash = {source_hash};
+  let fallbackTimer = null;
 
-  async function checkFreshness() {{
+  function applyState(state) {{
+    if (!state || typeof state !== "object") return;
+    if (state.source_sha256 && currentHash && state.source_sha256 !== currentHash) {{
+      window.location.reload();
+      return;
+    }}
+    if (state.source_sha256) currentHash = state.source_sha256;
+  }}
+
+  async function checkFreshnessFallback() {{
     try {{
-      const response = await fetch(endpoint, {{ cache: "no-store" }});
+      const response = await fetch(fallbackEndpoint, {{ cache: "no-store" }});
       if (!response.ok) return;
-      const state = await response.json();
-      if (state.source_sha256 && currentHash && state.source_sha256 !== currentHash) {{
-        window.location.reload();
-        return;
-      }}
-      if (state.source_sha256) currentHash = state.source_sha256;
+      applyState(await response.json());
     }} catch (error) {{}}
   }}
 
-  window.setInterval(checkFreshness, pollIntervalMs);
+  function startFallback() {{
+    if (fallbackTimer !== null) return;
+    fallbackTimer = window.setInterval(checkFreshnessFallback, fallbackIntervalMs);
+  }}
+
+  if (!("EventSource" in window)) {{
+    startFallback();
+    return;
+  }}
+
+  const source = new EventSource(eventEndpoint);
+  source.addEventListener("state", (event) => {{
+    try {{
+      applyState(JSON.parse(event.data));
+    }} catch (error) {{}}
+  }});
+  source.onerror = () => {{
+    source.close();
+    startFallback();
+  }};
+  window.addEventListener("beforeunload", () => source.close(), {{ once: true }});
 }})();
 </script>"""

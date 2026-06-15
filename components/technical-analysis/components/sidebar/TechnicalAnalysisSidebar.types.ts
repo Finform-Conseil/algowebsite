@@ -1,6 +1,7 @@
 import type React from "react";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { DisplaySecurity } from "../../config/market/marketSnapshotTypes";
+import type { PineChartOverlayPayload } from "./panels/pineEditor/pineTypes";
 
 export interface TechnicalAnalysisSidebarProps {
   sidebarRef: React.RefObject<HTMLElement | null>;
@@ -27,6 +28,8 @@ export interface TechnicalAnalysisSidebarProps {
   isObjectTreeOpen?: boolean;
   onToggleObjectTree?: () => void;
   openTickerSelector?: () => void;
+  onPineOverlayAttach?: (overlay: PineChartOverlayPayload | null) => void;
+  onPineOverlayClear?: () => void;
 }
 
 export type IncomeViewMode = "annual" | "quarterly";

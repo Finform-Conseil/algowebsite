@@ -7,7 +7,6 @@ interface FundamentalsPanelProps {
   isAvailable: boolean;
   isLoading: boolean;
   onMoreInfo: () => void;
-  unavailableState: React.ReactNode;
 }
 
 const ACTION_BUTTON_STYLE: React.CSSProperties = {
@@ -27,18 +26,27 @@ const ACTION_BUTTON_STYLE: React.CSSProperties = {
 
 const FundamentalsSkeleton = () => (
   <div className="gp-sidebar-fundamentals-skeleton" aria-hidden="true">
-    <div className="is-loading-skeleton gp-sidebar-skeleton-line" style={{ width: "34%", height: "16px" }} />
-    <div className="gp-sidebar-skeleton-chart">
-      {[0, 1, 2, 3].map((index) => (
-        <span key={index} className="gp-sidebar-skeleton-grid-line" />
-      ))}
-      {[2013, 2014, 2015].map((year, index) => (
-        <span
-          key={year}
-          className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-skeleton-chart-dot"
-          style={{ left: `${18 + index * 28}%`, bottom: `${20 + index * 16}%` }}
-        />
-      ))}
+    <div className="gp-sidebar-fundamentals-skeleton-head">
+      <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-fundamentals-skeleton-title" />
+      <div className="is-loading-skeleton gp-sidebar-skeleton-line gp-sidebar-fundamentals-skeleton-value" />
+    </div>
+    <div className="gp-sidebar-fundamentals-skeleton-chart">
+      <span className="gp-sidebar-fundamentals-skeleton-grid-line" />
+      <span className="gp-sidebar-fundamentals-skeleton-grid-line" />
+      <span className="gp-sidebar-fundamentals-skeleton-grid-line" />
+      <span className="gp-sidebar-fundamentals-skeleton-grid-line" />
+      <span className="gp-sidebar-fundamentals-skeleton-x-tick" style={{ left: "16%" }} />
+      <span className="gp-sidebar-fundamentals-skeleton-x-tick" style={{ left: "48%" }} />
+      <span className="gp-sidebar-fundamentals-skeleton-x-tick" style={{ left: "80%" }} />
+      <span className="is-loading-skeleton gp-sidebar-fundamentals-skeleton-point gp-sidebar-fundamentals-skeleton-point-actual" style={{ left: "16%", bottom: "29%" }} />
+      <span className="is-loading-skeleton gp-sidebar-fundamentals-skeleton-point gp-sidebar-fundamentals-skeleton-point-actual" style={{ left: "48%", bottom: "41%" }} />
+      <span className="is-loading-skeleton gp-sidebar-fundamentals-skeleton-point gp-sidebar-fundamentals-skeleton-point-actual" style={{ left: "80%", bottom: "53%" }} />
+      <span className="gp-sidebar-fundamentals-skeleton-point gp-sidebar-fundamentals-skeleton-point-estimate" style={{ left: "48%", bottom: "45%" }} />
+      <span className="gp-sidebar-fundamentals-skeleton-point gp-sidebar-fundamentals-skeleton-point-estimate" style={{ left: "80%", bottom: "61%" }} />
+    </div>
+    <div className="gp-sidebar-fundamentals-skeleton-legend">
+      <span><i className="gp-sidebar-fundamentals-skeleton-legend-dot" /><span className="is-loading-skeleton gp-sidebar-skeleton-line" /></span>
+      <span><i className="gp-sidebar-fundamentals-skeleton-legend-ring" /><span className="is-loading-skeleton gp-sidebar-skeleton-line" /></span>
     </div>
   </div>
 );
@@ -49,16 +57,16 @@ export const FundamentalsPanel = React.memo(({
   isAvailable,
   isLoading,
   onMoreInfo,
-  unavailableState,
-}: FundamentalsPanelProps) => (
+}: FundamentalsPanelProps) => {
+  if (!isLoading && !isAvailable) return null;
+
+  return (
   <div className={clsx("gp-sidebar-section", "gp-benefits-section-v2")} style={{ minHeight: "150px" }}>
     <div className="gp-sidebar-header">
       <span className="gp-sidebar-title">Fondamentaux (FY)</span>
     </div>
     {isLoading ? (
       <FundamentalsSkeleton />
-    ) : !isAvailable ? (
-      unavailableState
     ) : (
       <div key="ready">
         <div ref={chartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "120px" }} />
@@ -83,6 +91,7 @@ export const FundamentalsPanel = React.memo(({
       </div>
     )}
   </div>
-));
+  );
+});
 
 FundamentalsPanel.displayName = "FundamentalsPanel";

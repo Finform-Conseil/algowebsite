@@ -11,8 +11,20 @@ Scope:
 - Canonical SEL engine CLI from a host project root is `.agent/workflow/scribe/scribe`; examples below use `<SCRIBE>` for maintenance-only commands. Agent retrieval must go through `.agent/workflow/scribe/scribe-rag`.
 - Host-agent always-on summary lives at `.agent/rules/scribe.md`; the full canonical protocol remains `docs/scribe.md`.
 - Do not assume root `./scribe` or root `scripts/` exist. They are optional legacy adapters generated only with `<SCRIBE> install --with-root-adapters`.
-- For installation, migration, or several agents working on the same repo, read `docs/multi-agent-installation.md` before editing.
+- For installation, migration, or several agents working on the same repo, read `docs/multi-agent-installation.md` and `docs/live-coordination.md` before editing.
 - For SCRIBE tooling work, use `<SCRIBE> graph --build` and `<SCRIBE> graph --query "..."` for a separate bundle graph under `scribe-out/bundle-graph/`; do not pollute the app graph or store generated graph output inside the bundle.
+
+## Current stable baseline
+
+As of 2026-06-01, the bundle is stable: SEL `81 OK`, RAG `25 OK`, gate/eval
+`8/8`, doctor `0 error` with only cosmetic legacy `W009`, PID identity fixed via
+`os.getpid()`, TTL claims active, expired/no-TTL claims stale, and lock release
+validates agent/surface ownership. Backup: `~/backups/agent-scribe-stable-20260601.tar.gz`.
+
+Operational rule: STOP `.agent`; use SCRIBE as memory/guardrail and return to
+product work. Reopen SCRIBE only for a real SCRIBE bug, red test, or concrete doc drift.
+Causal ratio was measured around `17.5%` with target `35%`; improve it only from
+real future bugs, decisions, and rejected alternatives.
 
 ## Versioning boundaries
 
@@ -30,7 +42,7 @@ reconstructible from the product source plus the SCRIBE commands. Run
 `<SCRIBE> worktree` before delivery to separate source changes from generated
 noise.
 
-## PRÉFLIGHT STANDARD V4
+## PRÉFLIGHT (copier-coller direct)
 
 Command convention from a host project root:
 
@@ -39,80 +51,101 @@ SCRIBE=.agent/workflow/scribe/scribe
 SCRIBE_RAG=.agent/workflow/scribe/scribe-rag
 ```
 
-### Étape 0 — Bootstrap
+### Mode NANO (< 30 min)
 
 ```bash
-$SCRIBE bootstrap
+$SCRIBE_RAG context
 ```
 
-### Étape 1 — Contexte mémoire
+Use this for a one-file correction with no shared surface. No doctor, no lock, no worktree, no sync.
+
+### Mode STANDARD (> 30 min)
 
 ```bash
 $SCRIBE_RAG build
 $SCRIBE_RAG context
+graphify update .   # only if application code changed
 ```
 
-### Étape 2 — Structure code
+### Before significant implementation
 
 ```bash
-graphify update .   # only when app code changed since the last graph refresh
-sed -n '1,100p' graphify-out/GRAPH_REPORT.md
-```
-
-Graphify has no `--surface` mode. Surfaces are a SCRIBE/protocol concept, not a Graphify concept.
-
-### Avant toute implémentation significative
-
-```bash
-$SCRIBE_RAG challenge "<description précise du plan>"
+$SCRIBE_RAG challenge "<plan>"
 ```
 
 Verdicts:
-- `STOP`: do not implement; read the BLOCK and revise the plan.
-- `REVIEW`: read WARNs, then decide explicitly.
+- `STOP`: do not implement; read the block and revise the plan.
+- `REVIEW`: read warnings, then decide explicitly.
 - `PROCEED`: implement.
 
-### Signal Hybrid
-
-If `$SCRIBE_RAG eval --force` returns less than `7/8`:
+### SCRIBE write or shared surface only
 
 ```bash
-pip install sentence-transformers --break-system-packages
-$SCRIBE_RAG build --with-embeddings --force
+$SCRIBE workflow read --agent <name> --type <extension|cli|api|unknown>
+$SCRIBE workflow check --agent <name>
+$SCRIBE doctor --suggest-fix
+$SCRIBE lock acquire --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>
 ```
 
-After that build, the hybrid index is used automatically. BM25 remains canonical while eval stays `>= 7/8`.
-
-## POSTFLIGHT STANDARD V4
-
-Ask before closing a real coding session:
-
-> "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
-
-If the answer is concrete future pain, write a SCAR or GHOST. If not, a JOURNAL entry is enough.
+After validation:
 
 ```bash
-$SCRIBE_RAG doctor
-$SCRIBE sync --agent <nom> --type <extension|cli|api|unknown>
-$SCRIBE lock release --agent <nom>
-git diff --check
+$SCRIBE doctor --suggest-fix
+$SCRIBE sync --agent <name> --type <extension|cli|api|unknown>
+$SCRIBE lock release --agent <name>
 ```
 
-Never use these for normal agent retrieval:
-- `$SCRIBE context` (SEL direct)
-- `$SCRIBE query` (SEL direct)
-- `$SCRIBE explain` (SEL direct)
-- SEL direct challenge
-- Archiving SEL while scribe-rag depends on it
+Do not use these for normal agent retrieval: `$SCRIBE context`, `$SCRIBE query`, `$SCRIBE explain`, or SEL direct challenge.
+
+### Hybrid signal
+
+BM25 is canonical while it retrieves the right SCRIBE memories. Test hybrid
+embeddings only after recall-loss evidence:
+
+- `$SCRIBE_RAG eval --force` drops below `7/8`;
+- `$SCRIBE_RAG query "<question>"` misses a known relevant SCRIBE entry;
+- `$SCRIBE_RAG challenge "<plan>"` misses a directly related SCAR/VAC/GHOST;
+- normal project wording repeatedly returns off-topic results.
+
+The existence of `sentence-transformers` or `all-MiniLM-L6-v2` is not a signal by
+itself.
+
+### AutoDream post-implementation
+
+AutoDream is a user-approved read-only review suggested after a real
+implementation has been delivered. It exists because agents cannot infer human
+idle time. Use `$SCRIBE_RAG autodream --read-only`. The runner inspects current
+diff surfaces, existing RAG context, coordination state, and docs/SCRIBE rules,
+then reports contradictions, read-only proof, stale context cleanup, and memory
+candidates. It must not edit files, write SCRIBE, clean generated outputs, run
+daemons, or commit. Any write candidate becomes a separate task with workflow
+ack, doctor, lock, sync, and validation.
+
+### Canonical surface sync
+
+After any SCRIBE workflow evolution, keep these surfaces at the same information
+level: `AGENTS.md`, `.agent/rules/scribe.md`,
+`.agent/skills/init-tenor/SKILL.md`, `.agent/workflow/scribe/README.md`,
+`.agent/workflow/scribe/rag/README.md`,
+`.agent/workflow/scribe/sel/docs/AGENTS.md`,
+`.agent/workflow/scribe/sel/docs/friction-policy.md`,
+`.agent/workflow/scribe/sel/docs/scribe.md`, and
+`AGENT-MEMOIRE_PROJECT_STATUS.scribe`. Archive `.old` files are historical
+snapshots, not canonical rule surfaces.
 
 ## Multi-Agent V4
 
-- One exclusive surface per agent maximum.
+- Agents start as an idle pool; a work task claims a semantic intent first, for example `indicator:X`.
+- Shared files are allowed across different semantic claims, but each agent must re-read and rebase before delivery.
+- Same semantic claim, same exact function, deletion, rename, or global refactor is a conflict requiring coordination.
+- One exclusive broad surface per agent maximum when a broad surface is claimed.
 - Agents read memory through scribe-rag; they do not read the `.scribe` file directly.
-- SEL lock is mandatory before SCRIBE writes.
+- Every active agent must run `$SCRIBE workflow read --agent <name> --type <extension|cli|api|unknown>` before SCRIBE writes or shared surfaces.
+- `$SCRIBE workflow status` without `--required` shows the current acked agent pool; use `--required ... --strict` only for an explicit named gate.
+- SEL lock is mandatory before SCRIBE writes and refuses missing/stale workflow ack.
 - `scribe sync` is mandatory before work and after memory repair.
 - `scribe worktree --strict` is mandatory before delivery in coordinated multi-agent work.
-- The orchestrator owns surface attribution and Git conflict resolution.
+- Coordination ownership is temporary: the terminal integrating deltas owns conflict arbitration for that integration window, not a permanent named role.
 
 
 Rules:
@@ -130,6 +163,10 @@ Before closing a real coding session, ask:
 > "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
 
 If the answer is concrete pain, write a SCAR or GHOST. If there is no future pain, a JOURNAL entry is enough. This is the anti-drift rule that keeps SCRIBE causal instead of becoming a polished activity log.
+
+## Causal density dashboard warning
+
+Dashboard causal-density warnings are informational quality signals. Do not create SCAR/GHOST/PAT entries to make the dashboard look clean. Leave the warning visible until real application pain, bug evidence, a durable decision, or a rejected alternative gives the next agent concrete causal value.
 
 ## Graphify hook compatibility
 
@@ -164,6 +201,7 @@ Every future evolution of `AGENT-MEMOIRE_PROJECT_STATUS.scribe` is guarded:
 
 - Run `<SCRIBE> doctor --suggest-fix` before editing the SCRIBE.
 - Run `<SCRIBE> sync --agent <name> --type <extension|cli|api|unknown>` before work; if it reports stale state, relire the latest SCRIBE delta before editing.
+- Run `<SCRIBE> workflow check --agent <name>` before any SCRIBE mutation or shared-surface lock.
 - Run `<SCRIBE> lock acquire --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>` before any SCRIBE mutation, then `<SCRIBE> lock release --agent <name>` after validation; doctor and read-only commands are never blocked by the lock.
 - Doctor Markdown reports are generated under `scribe-out/` by default; do not write doctor `.md` reports at repository root.
 - If the pre-doctor reports any ERROR, stop and repair the existing memory before adding a new delta.

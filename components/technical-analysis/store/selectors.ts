@@ -2,6 +2,7 @@ import type { BollingerSettings, IndicatorPeriods } from "../config/indicators/a
 import type { TechnicalAnalysisState } from "../config/state/technicalAnalysisStateTypes";
 import type { UiState } from "../config/state/uiStateTypes";
 import type { RootState } from "@/core/infrastructure/store";
+import type { PineChartOverlayPayload } from "../components/sidebar/panels/pineEditor/pineTypes";
 
 export const selectTA = (state: RootState): TechnicalAnalysisState => state.technicalAnalysis;
 export const selectChartConfig = (state: RootState) => state.technicalAnalysis.chartConfig;
@@ -16,3 +17,4 @@ export const selectOrders = (state: RootState) => state.technicalAnalysis.orders
 export const selectDataMode = (state: RootState): "mock" | "real" => state.technicalAnalysis.ui.dataMode || "real";
 export const selectMarketData = (state: RootState) => state.technicalAnalysis.marketData;
 export const selectMarketSnapshots = (state: RootState) => state.technicalAnalysis.marketSnapshots;
+export const selectPineChartOverlay = (state: RootState): PineChartOverlayPayload | null => state.technicalAnalysis.pineChartOverlay;

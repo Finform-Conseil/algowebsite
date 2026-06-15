@@ -91,13 +91,46 @@ const fallbackCursorDateText = (): string => {
   return `${now.toLocaleDateString('en-US', { weekday: 'short' })} ${now.getDate().toString().padStart(2, '0')} ${now.toLocaleDateString('en-US', { month: 'short' })} ${now.getFullYear()}`;
 };
 
+type CursorXAxisOption = {
+  data?: unknown[];
+};
+
+const toCursorTimeValue = (value: unknown): string | number | null => {
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return null;
+};
+
+const resolvePrimaryXAxisData = (chart: EChartsInstance): unknown[] | null => {
+  const option = chart.getOption() as { xAxis?: CursorXAxisOption | CursorXAxisOption[] };
+  const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+  return Array.isArray(xAxis?.data) ? xAxis.data : null;
+};
+
+const resolveAxisTimeAtIndex = (chart: EChartsInstance, dataIndex: number): string | number | null => {
+  const axisData = resolvePrimaryXAxisData(chart);
+  if (!axisData || axisData.length === 0) return null;
+
+  const safeIndex = Math.max(0, Math.min(axisData.length - 1, dataIndex));
+  return toCursorTimeValue(axisData[safeIndex]);
+};
+
+const resolveCandleTimeAtIndex = (data: CandleData[], dataIndex: number): string | number | null => {
+  if (data.length === 0) return null;
+
+  const safeIndex = Math.max(0, Math.min(data.length - 1, dataIndex));
+  const candle = data[safeIndex];
+  const time = Array.isArray(candle) ? candle[0] : candle?.time;
+  return toCursorTimeValue(time);
+};
+
 const resolveCursorDateText = (
   chart: EChartsInstance | null,
   data: CandleData[],
   clientX: number,
   clientY: number
 ): string => {
-  if (!chart || chart.isDisposed() || data.length === 0) return fallbackCursorDateText();
+  if (!chart || chart.isDisposed()) return fallbackCursorDateText();
 
   try {
     const chartPixel = resolveChartPixelFromClient(chart, clientX, clientY);
@@ -105,9 +138,7 @@ const resolveCursorDateText = (
     if (!pointInData || !Array.isArray(pointInData)) return fallbackCursorDateText();
 
     const dataIndex = Math.round(pointInData[0]);
-    const safeIndex = Math.max(0, Math.min(data.length - 1, dataIndex));
-    const candle = data[safeIndex];
-    const time = Array.isArray(candle) ? candle[0] : candle?.time;
+    const time = resolveAxisTimeAtIndex(chart, dataIndex) ?? resolveCandleTimeAtIndex(data, dataIndex);
 
     return time ? formatCursorDateText(time) : fallbackCursorDateText();
   } catch {

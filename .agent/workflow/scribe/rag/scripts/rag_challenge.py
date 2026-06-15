@@ -7,6 +7,23 @@ from rag_scoring import FAILURE_WORDS, retrieve
 from rag_text import compact, tokenize
 
 
+PREVENTION_WORDS = {
+    "avoid",
+    "ban",
+    "block",
+    "bloquer",
+    "durcir",
+    "eviter",
+    "forbid",
+    "interdire",
+    "jamais",
+    "never",
+    "prohibit",
+    "reject",
+    "rejeter",
+}
+
+
 def challenge(plan: str, index: dict[str, Any], *, limit: int = 5) -> tuple[str, list[str]]:
     results = retrieve(plan, index, top_k=limit, mode="challenge")
     negative = []
@@ -14,9 +31,17 @@ def challenge(plan: str, index: dict[str, Any], *, limit: int = 5) -> tuple[str,
         for match in result.negative_matches:
             negative.append((result, match))
     if negative:
+        if set(tokenize(plan)) & PREVENTION_WORDS:
+            lines = [f"SCRIBE-RAG CHALLENGE: {plan}", "VERDICT: PROCEED"]
+            lines.append("INFO comportement interdit cite comme prevention, pas comme action a faire:")
+            for result, match in negative[:3]:
+                term = compact(str(match.get("term")), 56)
+                lines.append(f"INFO {entity_label(result.entity)} — `{term}` reste rejete")
+            return "PROCEED", lines
         lines = [f"SCRIBE-RAG CHALLENGE: {plan}", f"VERDICT: STOP"]
         for result, match in negative[:3]:
-            lines.append(f"BLOCK {entity_label(result.entity)} — `{compact(str(match.get('term')), 56)}` rejeté")
+            term = compact(str(match.get("term")), 56)
+            lines.append(f"BLOCK {entity_label(result.entity)} — `{term}` rejeté")
         return "STOP", lines
     review = [result for result in results if result.reasons.get("failure", 0.0) >= 0.5 and result.score >= 0.45]
     approved = [result for result in results if result.entity.get("approved") and result.score >= 0.45]

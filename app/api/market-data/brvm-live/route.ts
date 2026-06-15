@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchWithResilience, fetchBrvmPage } from '@/shared/utils/resilient-scraper';
+import {
+    BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+    BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+    fetchBrvmPage,
+    fetchWithResilience,
+} from '@/shared/utils/resilient-scraper';
+
+const FALLBACK_CACHE_SECONDS = 30;
 
 /**
  * [TENOR 2026] PROXY LIVE BRVM (Architecture de Guerre - OOM Shield)
@@ -8,10 +15,15 @@ import { fetchWithResilience, fetchBrvmPage } from '@/shared/utils/resilient-scr
  * Utilisation d'un parseur natif ultra-léger.
  */
 
-async function getBrvmLiveHTML() {
+async function getBrvmLiveHTML(signal?: AbortSignal) {
     return fetchWithResilience(
         'live_cours_actions',
-        () => fetchBrvmPage('https://www.brvm.org/fr/cours-actions/0', 38000),
+        () => fetchBrvmPage(
+            'https://www.brvm.org/fr/cours-actions/0',
+            BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+            BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+            signal,
+        ),
         {
             cacheTtl: 900, // 15 minutes de fraîcheur (FinOps)
             staleTtl: 86400 // 24 heures de survie si panne source
@@ -110,7 +122,7 @@ export async function GET(request: NextRequest) {
     const ticker = rawTicker.toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
     try {
-        const { data: html, status } = await getBrvmLiveHTML();
+        const { data: html, status } = await getBrvmLiveHTML(request.signal);
         
         const rowsHtml = extractRows(html);
 
@@ -182,9 +194,34 @@ export async function GET(request: NextRequest) {
         return finalResp;
 
     } catch (error) {
+        if (isBrvmSourceUnavailable(error)) {
+            return buildUnavailableLiveResponse(ticker, error);
+        }
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: 'Failed to scrape BRVM (No cache available)', details: message }, { status: 503 });
+        return NextResponse.json({ error: 'Failed to scrape BRVM', details: message }, { status: 500 });
     }
+}
+
+function buildUnavailableLiveResponse(ticker: string, error: unknown) {
+    console.warn("[brvm-live] Source unavailable for " + ticker + ", returning degraded payload:", error);
+    const response = NextResponse.json(ticker === "ALL"
+        ? { rows: [], sourceStatus: "unavailable", error: "BRVM live source temporarily unavailable" }
+        : {
+            error: "BRVM live source temporarily unavailable",
+            found: false,
+            source: "BRVM_DIRECT",
+            sourceStatus: "unavailable",
+            symbol: ticker,
+            timestamp: new Date().toISOString()
+        });
+    response.headers.set("Cache-Control", "public, s-maxage=" + FALLBACK_CACHE_SECONDS + ", stale-while-revalidate=300");
+    response.headers.set("X-Cache-Status", "UNAVAILABLE");
+    return response;
+}
+
+function isBrvmSourceUnavailable(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /BRVM|fetch failed|timeout|UND_ERR|ECONN|ABORT_SAFETY_NET|circuit/i.test(message);
 }
 
 function processBrvmRow(cells: string[], ticker: string, status: string, rawMode: boolean = false) {

@@ -45,7 +45,9 @@
 #   Responsabilités:
 #     - bootstrap portable
 #     - doctor et validation SCRIBE
-#     - lock, state, sync multi-agent
+#     - workflow read ack, lock, state, sync multi-agent
+#     - identite unique, presence idle/working et claims semantiques
+#       pour coordination agent-pool
 #     - export/archive
 #     - graph bundle
 #     - écritures SCRIBE et garde-fous d'écriture
@@ -54,21 +56,65 @@
 #   Dossier   : .agent/workflow/scribe/rag/
 #   CLI       : .agent/workflow/scribe/scribe-rag
 #   Rôle      : toutes les lectures mémoire agent passent par scribe-rag.
-#   Commandes : build, context, query, explain, challenge, eval, doctor.
+#   Commandes : preflight, build, context, query, explain, challenge, eval, doctor.
 #   Mode      : BM25 par défaut, portable, sans dépendance externe.
+#   Hybrid    : option opt-in seulement apres preuve de baisse de rappel; jamais
+#               parce qu un modele local existe.
+#   Preflight : la commande `scribe-rag preflight` est la preuve obligatoire
+#               d exploitation mémoire: whoami + context + eval + challenge.
+#   CI Gate   : `scribe-rag gate` et `hooks/pre-commit` échouent si eval
+#               n est pas entièrement vert et au moins 8/8.
+#   Ack agents: `scribe workflow read/check/status` force chaque agent à lire
+#               le workflow courant avant lock SCRIBE ou surface partagée.
 #   Lecture   : les agents ne lisent jamais AGENT-MEMOIRE_PROJECT_STATUS.scribe
 #               directement; scribe-rag consomme SEL/export puis son index.
 #
 # SIGNAL HYBRID
-#   Si `scribe-rag eval --force` descend sous 7/8 :
+#   BM25 reste canonique tant qu il retrouve les bonnes entrees SCRIBE.
+#   Preuve de baisse de rappel = eval < 7/8, query qui manque une entree SCRIBE
+#   connue pertinente, challenge qui ne remonte pas une SCAR/VAC/GHOST directement
+#   liee au plan, ou resultats hors sujet repetes sur le vocabulaire normal du projet.
+#   Seulement dans ce cas :
 #     1. Installer sentence-transformers.
 #     2. Lancer `scribe-rag build --with-embeddings --force`.
 #     3. Le mode hybrid devient actif via l'index reconstruit.
-#   Tant que eval >= 7/8, BM25 reste le système canonique portable.
+#   Tant que eval >= 7/8 et que les souvenirs pertinents sortent, BM25 reste le
+#   système canonique portable.
 #
 # RÈGLE ABSOLUE V4
 #   Un agent ne doit JAMAIS appeler SEL directement pour du retrieval ou du contexte.
 #   scribe-rag uniquement. SEL reste le moteur sous le capot.
+#
+# AUTODREAM
+#   Les LLM ne connaissent pas les temps morts humains. Apres une vraie
+#   implementation livree, l agent propose AutoDream explicitement a l utilisateur.
+#   Commande: `scribe-rag autodream --read-only`. AutoDream est read-only:
+#   digerer les surfaces du diff, compacter le contexte via l index RAG existant,
+#   detecter les contradictions, prouver l absence d ecriture et proposer les
+#   memoires candidates. Il ne modifie ni code, ni SCRIBE, ni artefact genere,
+#   ne lance aucun daemon/build/doctor et ne commit jamais. Toute ecriture issue
+#   d AutoDream est une tache separee avec validation humaine, workflow ack,
+#   doctor, lock, sync et validation.
+#
+# SURFACES CANONIQUES
+#   Apres toute evolution du workflow SCRIBE, synchroniser et verifier:
+#   `AGENTS.md`, `.agent/rules/scribe.md`, `.agent/skills/init-tenor/SKILL.md`,
+#   `.agent/workflow/scribe/README.md`, `.agent/workflow/scribe/rag/README.md`,
+#   `.agent/workflow/scribe/sel/docs/AGENTS.md`,
+#   `.agent/workflow/scribe/sel/docs/friction-policy.md`,
+#   `.agent/workflow/scribe/sel/docs/scribe.md` et
+#   `AGENT-MEMOIRE_PROJECT_STATUS.scribe`.
+#   Les archives `.old` restent historiques et non canoniques.
+#
+# ÉTAT STABILISÉ 2026-06-01
+#   SEL tests 81 OK, RAG tests 25 OK, gate/eval 8/8, doctor 0 error.
+#   W009 legacy pré-V3.2 est cosmétique.
+#   getpid, stale PID cleanup, TTL claims, expired/no-TTL claim cleanup,
+#   IDs/PIDs simultanés et lock release ownership sont corrigés.
+#   Backup : ~/backups/agent-scribe-stable-20260601.tar.gz.
+#   Ratio causal mesuré ~17.5%, cible 35% : améliorer seulement avec de vraies
+#   douleurs applicatives, jamais par SCAR/GHOST/PAT cosmétique.
+#   Instruction finale : STOP .agent; retourner au projet produit sauf bug SCRIBE réel.
 #
 # HYGIÈNE VCS / PUSH
 #   Le scope de commit/push par défaut est le produit applicatif hôte.
@@ -98,6 +144,8 @@
 # > CAUSALITÉ : Un bug résolu sans lien causal ne vaut rien.
 # > ANTI-DÉRIVE : "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
 #                 Si la réponse existe, écrire un SCAR ou un GHOST; sinon le JOURNAL suffit.
+# > DENSITÉ CAUSALE : Une alerte dashboard de densité faible est un signal informatif,
+#                     jamais une autorisation d'écrire un SCAR/GHOST/PAT cosmétique.
 # > PERFECTION: La perfection = quand il n'y a plus rien à retirer.
 # > GRAPHIFY  : Tout fait structurel déductible du code appartient à Graphify,
 #               pas au SCRIBE. Le SCRIBE est léger par design.
@@ -129,22 +177,27 @@
 # ════════════════════════════════════════════════════════════════════════════════
 #
 # 3.0 CYCLE OPÉRATIONNEL PAR TÂCHE RÉELLE — NON-NÉGOCIABLE
-#   Pour chaque tâche concrète sur jjk-messenger :
+#   Pour chaque tâche concrète sur le projet hote :
 #   1. Lire graphify-out/GRAPH_REPORT.md avant de comprendre le code
-#   2. Lancer `scribe-rag build` si l'index est stale, puis `scribe-rag context`
-#   3. Avant toute implémentation significative : `scribe-rag challenge "<plan>"`
-#   4. Implémenter de façon ciblée, sans régression
-#   5. Valider par tests/lint/build adaptés au périmètre
-#   6. Écrire le delta causal dans AGENT-MEMOIRE_PROJECT_STATUS.scribe seulement si une mémoire durable est utile
+#   2. Lancer `scribe whoami --type <type> --surface idle`, puis `scribe workflow read/check` et `scribe coordination status`
+#   3. Quand une tache arrive, prendre un `scribe coordination claim` semantique avant les fichiers partages
+#   4. Choisir le plus petit tier sûr : NANO = `scribe-rag context`, STANDARD = build/context/challenge, CRITICAL = preflight strict.
+#   5. Si le plan change après preflight : relancer `scribe-rag challenge "<plan révisé>"`
+#   6. Implémenter de façon ciblée, sans régression
+#   7. Valider par tests/lint/build adaptés au périmètre
+#   8. Écrire le delta causal dans AGENT-MEMOIRE_PROJECT_STATUS.scribe seulement si une mémoire durable est utile
 #      └── Question finale obligatoire :
 #          "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
 #          Réponse concrète → SCAR/GHOST. Pas de réponse → JOURNAL seulement.
-#   7. Relancer scribe doctor pour vérifier la mémoire après écriture
+#          Une alerte dashboard de densité causale ne déclenche aucune écriture sans douleur réelle.
+#   9. Relancer scribe doctor pour vérifier la mémoire après écriture
 #      └── Les rapports Markdown doctor vont toujours dans `scribe-out/`.
 #
 # RÈGLE SIMPLE :
 #   Graphify avant de comprendre le code.
-#   scribe-rag avant de décider.
+#   whoami idle + workflow read/check + coordination status avant toute surface partagee.
+#   coordination claim semantique avant les fichiers partages.
+#   scribe-rag preflight avant de décider.
 #   SCRIBE après avoir appris.
 #   SEL doctor AVANT d'écrire la mémoire.
 #   SEL doctor APRÈS avoir écrit la mémoire.
@@ -153,6 +206,8 @@
 #
 # GARDE DOCTOR — OBLIGATOIRE POUR TOUTE ÉVOLUTION SCRIBE :
 #   Toute modification de AGENT-MEMOIRE_PROJECT_STATUS.scribe suit ce protocole :
+#   0. AVANT LOCK : `<SCRIBE> workflow check --agent <name>`
+#      └── `lock acquire` refuse automatiquement ACK_REQUIRED ou ACK_STALE.
 #   1. AVANT : `<SCRIBE> doctor --suggest-fix`
 #      └── Rapport par défaut : `scribe-out/scribe-doctor-report.md`
 #      └── Si ERRORS > 0 : STOP, corriger la mémoire existante avant d'ajouter quoi que ce soit.
@@ -172,11 +227,11 @@
 #   └── AFFICHE le SCRIBE-CHECK V4
 #
 # 3.1.5 CHALLENGE (Avant toute implémentation significative)
-#   ├── Lance `scribe-rag challenge "<description précise du plan>"`
+#   ├── NANO : `scribe-rag context` suffit; STANDARD/CRITICAL : lancer `scribe-rag preflight` ou `challenge` selon le risque.
 #   ├── STOP   → ne pas implémenter; lire le BLOCK et corriger la stratégie
 #   ├── REVIEW → lire les WARNs puis décider explicitement
 #   ├── PROCEED → implémenter
-#   └── Ne jamais remplacer ce challenge par un appel SEL direct.
+#   └── Ne jamais remplacer ce preflight/challenge par un appel SEL direct.
 #
 # 3.2 PHASE 2 : GATHER SIGNAL (Pendant la tâche)
 #   ├── Pour toute question structure/dépendance → graphify query "..."

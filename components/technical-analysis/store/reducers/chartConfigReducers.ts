@@ -9,6 +9,7 @@ import {
   applyChartSymbolUpdate,
   applyChartTimeframeUpdate,
 } from "../policies/chartConfigPolicy";
+import type { PineChartOverlayPayload } from "../../components/sidebar/panels/pineEditor/pineTypes";
 
 export const chartConfigReducers = {
   setSymbol: (state: TechnicalAnalysisState, action: PayloadAction<string>) => {
@@ -65,5 +66,11 @@ export const chartConfigReducers = {
     state.chartAppearance = initialState.chartAppearance;
     state.indicatorPeriods = initialState.indicatorPeriods;
     state.bollingerSettings = initialState.bollingerSettings;
+  },
+  setPineChartOverlay: (state: TechnicalAnalysisState, action: PayloadAction<PineChartOverlayPayload | null>) => {
+    state.pineChartOverlay = action.payload;
+  },
+  clearPineChartOverlay: (state: TechnicalAnalysisState) => {
+    state.pineChartOverlay = null;
   },
 };

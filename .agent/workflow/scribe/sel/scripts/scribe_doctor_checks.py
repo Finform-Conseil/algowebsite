@@ -161,7 +161,7 @@ def check_edge_type_ratio(entities: list[Entity], registry: dict[str, list[str]]
             "W010",
             "edge type distribution",
             f"causal_edges={counts['causal']} sur {total} edge(s) typés (<20%).",
-            "Séparer consultation/journal du causal réel et relier les PATs à des SCARs/GHOSTs prouvés.",
+            "Séparer consultation/journal du causal réel; relier aux SCAR/GHOST seulement si une cause prouvée existe.",
         )
     ]
 
@@ -188,7 +188,7 @@ def check_warm_pattern_causal_audit(entities: list[Entity], data: dict[str, Any]
             "W014",
             "patterns warm causal audit",
             f"{len(stale)} PAT warm sans SCAR/GHOST source depuis >=20 sessions: {sample}{suffix}.",
-            "Auditer: reconstituer un SCAR/GHOST réel depuis les JOURNALs, ou rétrograder cold si la règle n'a pas prouvé sa valeur.",
+            "Auditer: rattacher à un SCAR/GHOST réel seulement si la causalité existe; sinon rétrograder cold si la règle n'a pas prouvé sa valeur.",
         )
     ]
 

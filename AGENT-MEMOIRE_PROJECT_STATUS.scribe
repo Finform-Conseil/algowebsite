@@ -3,7 +3,7 @@ meta_project:
   project_name: Quantum Ledger
   stack: Next.js + React + TypeScript + SCSS
   initialized_at: '2026-05-26T12:44:03.188671Z'
-  last_update: 2026-06-05T16:43:46Z
+  last_update: 2026-06-11T18:09:34Z
   scribe_version: 3.2-local-causal-retrieval
   graphify_graph: graphify-out/graph.json
   legacy_architecture: Frontend Monolith (App Router)
@@ -12,6 +12,9 @@ meta_project:
   legacy_last_update: '2026-05-26T13:14:57+01:00'
 tiers:
   hot:
+  - SCAR-TA-ALERTS-MULTITICKER-REDUX-SNAPSHOT-GAP-001
+  - SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
   - SCAR-ECHARTS-MARKLINE-COMPONENT-REGISTRATION-001
   - SCAR-ECHARTS-VOLUME-EXPLICIT-X-PAN-LEAD-001
   - SCAR-ECHARTS-VOLUME-GRID-DATAZOOM-PAN-001
@@ -33,6 +36,8 @@ tiers:
   - PAT-TOOLBAR-VERTICAL-HELPER-EXTRACTION-001
   - PAT-TOOLBAR-DOMAIN-FOLDER-NAMING-001
   - PAT-TA-CONFIG-DOMAIN-ADAPTERS-001
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - PAT-BRVM-DATA-RESILIENCE-001
   - PAT-PRD-ARCHITECTURE-GATE-001
   - PAT-PRD-FIRST-GATE-001
   - PAT-TA-LIB-HONEST-CONTRACT-NAMES-001
@@ -148,6 +153,82 @@ invariants:
   l0_abstract: Version host product source by default; keep graphify-out and scribe-out out of commits unless explicitly requested.
   schema_patch_date: '2026-05-26'
 scars:
+- id: SCAR-TA-ALERTS-MULTITICKER-REDUX-SNAPSHOT-GAP-001
+  severity: HIGH
+  severite: HIGH
+  tier: hot
+  status: ACTIVE
+  titre: Alerts multi-ticker cannot rely only on current Redux snapshots
+  l0_abstract: >
+    Une alerte sur un ticker non affiche ne declenche pas si le runtime ne dispose que du contexte du ticker courant; il faut completer par un tick live BRVM pour les alertes actives manquantes.
+  description: >
+    Le smoke Chrome DevTools en contexte isole a charge la page BOAB, injecte une alerte SNTS Crossing 28 250 depuis IndexedDB, puis recharge l app. Avant correction, l alerte restait active: le reseau montrait seulement /brvm-live?ticker=BOAB, donc contextsByTicker ne contenait pas SNTS malgre la migration multi-ticker du reducer.
+  cause_racine: >
+    La premiere correction avait deplace l evaluation de context.ticker vers contextsByTicker, mais elle supposait que Redux contenait deja tous les snapshots utiles. En production, la page charge parfois seulement le ticker courant; une map multi-ticker vide pour SNTS reste fonctionnellement mono-ticker.
+  resolution: >
+    Ajouter un fallback runtime qui detecte les alertes actives dont le ticker manque dans les contextes de base, fetch /api/market-data/brvm-live?ticker=ALL, construit un AlertsRailContext live, puis reevalue l alerte avec ce vrai tick BRVM.
+  test_binding: >
+    Rejouer le smoke Chrome DevTools MCP isole: page BOAB, alerte SNTS Crossing sur tick BRVM_DIRECT 28 250, presence du fetch /brvm-live?ticker=ALL, status triggered, log triggered et toast Alert on SNTS. Garder npm run test:alerts-rail vert.
+  attention_future: >
+    Ne pas confondre reducer multi-ticker et surveillance multi-ticker reelle. Le reducer accepte plusieurs contextes, mais le runtime doit les fournir, surtout quand le routeur ou la page ne fetch que le ticker affiche.
+  schema_patch_date: 2026-06-10
+  scope: technical-analysis:right-rail-alerts
+  evidence:
+    type: OBSERVED
+    source: JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-SNTS-20260610
+    observable: Chrome DevTools MCP isole a d abord observe SNTS active sans trigger quand seul BOAB etait charge, puis trigger apres ajout du fallback live ALL.
+  liens_causaux:
+    source: JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-SNTS-20260610
+
+- id: SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001
+  severity: HIGH
+  severite: HIGH
+  tier: hot
+  status: ACTIVE
+  titre: Alerts multi-ticker must prefer fresh live ticks over stale peripheral contexts
+  l0_abstract: >
+    Une alerte hors ecran peut rester active si le runtime prefere un contexte peripherique stale au tick live BRVM frais; le contexte supplemental live doit gagner sauf pour le ticker courant.
+  description: >
+    Le smoke Chrome DevTools isole a cree une alerte BOAB Crossing 8 745 via le vrai formulaire, puis a affiche SNTS. L API live ALL donnait BOAB 8 600, mais l alerte restait active avec lastObservedValue 8 745 avant correction.
+  cause_racine: >
+    La surveillance multi-ticker distinguait le ticker courant et les contextes additionnels, mais elle traitait les contextes peripheriques deja presents comme suffisamment fiables. Un snapshot stale pouvait donc masquer le tick BRVM_DIRECT frais qui prouvait le crossing.
+  resolution: >
+    Rafraichir tous les tickers actifs hors ticker courant via le flux live supplemental, puis fusionner les contextes avec priorite aux supplemental live et au contexte courant en dernier.
+  test_binding: >
+    Rejouer le smoke MCP isole: creer une alerte BOAB Crossing 8 745, afficher SNTS, attendre le tick BOAB 8 600, verifier status triggered, lastTriggeredValue 8600, log triggered et Web Storage vide. Garder le test runtime context priority vert.
+  attention_future: >
+    Ne pas supposer qu une map contextsByTicker est fraiche. Pour les alertes trading hors ecran, la fraicheur du tick compte plus que la presence d une cle dans une map client.
+  schema_patch_date: 2026-06-10
+  scope: technical-analysis:right-rail-alerts
+  evidence:
+    type: OBSERVED
+    source: JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-BOAB-SNTS-20260610
+    observable: BOAB 8 600 live a declenche BOAB Crossing 8 745 pendant que l interface affichait SNTS apres correction de priorite des contextes.
+  liens_causaux:
+  - SCAR-TA-ALERTS-MULTITICKER-REDUX-SNAPSHOT-GAP-001
+  - JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-BOAB-SNTS-20260610
+
+- id: SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  severity: HIGH
+  severite: HIGH
+  tier: hot
+  status: ACTIVE
+  titre: Right rail TradingView stalk-first contract violated
+  l0_abstract: >
+    Avant d'implementer une icone du rail droit inspire TradingView, il faut explorer sa vue comme un utilisateur: hover, click, onglets enfants, boutons, menus, etats vides, actions et logs; puis seulement adapter BRVM.
+  description: >
+    L'implementation initiale du rail 11 icones a ajoute une structure visuelle inspiree TradingView sans reproduire le processus attendu par l'utilisateur: ouvrir chaque icone TradingView, cliquer ses sous-controles, observer ses etats vides et produire un rapport fonctionnel avant codage. Le resultat a ete une sidebar artificiellement scindee et des panneaux secondaires trop pauvres.
+  cause_racine: >
+    Confusion entre une matrice conceptuelle TradingView vers BRVM et une copie intelligente de comportement. Le travail aurait du avancer icone par icone: Alertes d'abord, avec tabs Alerts/Log, barre d'actions, empty states, creation d'alerte, menus secondaires et conclusions BRVM; ensuite seulement implementation locale et validation, puis passage a l'icone suivante.
+  resolution: >
+    Graver le protocole stalk-first: pour chaque icone, capturer hover/click, explorer tous les onglets et boutons enfants, decrire ce que TradingView fait reellement, traduire en fonction BRVM capital-markets, implementer localement, puis verifier visuellement avant de commencer l'icone suivante.
+  test_binding: >
+    Toute future reprise du rail 11 icones doit fournir pour l'icone cible un mini-rapport TradingView observe: role, onglets, boutons enfants, menus, empty states, action primaire, differences BRVM et criteres de validation UI. Si ce rapport n'existe pas, ne pas coder.
+  attention_future: >
+    Ne pas remplir les 11 icones avec des fragments du rendu existant, et ne pas inventer des panneaux abstraits sans avoir clique TradingView comme un vrai utilisateur. L'objectif est une copie intelligente de comportement, pas un simple mapping de labels.
+  schema_patch_date: 2026-06-09
+  scope: technical-analysis:right-rail-11-brvm
+
 - id: SCAR-ECHARTS-MARKLINE-COMPONENT-REGISTRATION-001
   severity: HIGH
   severite: HIGH
@@ -752,6 +833,26 @@ scars:
     renforce:
     - GHOST-SCRIBE-STABILISATION-FINALE-20260601
 vaccins:
+- id: VAC-TA-TBI-NO-LOCALSTORAGE-001
+  date: 2026-06-10
+  schema_patch_date: 2026-06-10
+  status: ACTIVE
+  tier: hot
+  titre: TA/TBI client persistence must use IndexedDB, never localStorage
+  l0_abstract: >
+    localStorage est synchrone, fragile et trop limite pour une interface trading complexe; IndexedDB devient le contrat de persistance local TA/TBI.
+  virus: >
+    Ajouter ou conserver une persistance produit TA/TBI via localStorage, ou introduire un fallback localStorage sous pretexte de compatibilite rapide.
+  antidote: >
+    Utiliser IndexedDB pour les persistences client; hydrater de facon asynchrone avec garde anti-ecrasement, puis persister des snapshots sanitizes.
+  contexte: technical-analysis and TBI client persistence
+  scope: technical-analysis,tbi/client-persistence
+  evidence:
+    type: OBSERVED
+    source: JOURNAL-TA-RIGHT-RAIL-ALERTS-IDB-SOUND-20260610
+    observable: User stated TA/TBI must never use localStorage and must prefer IndexedDB; Alerts was migrated to IndexedDB-only storage.
+  liens_causaux:
+    source: JOURNAL-TA-RIGHT-RAIL-ALERTS-IDB-SOUND-20260610
 - id: VAC-BRVM-LIVE-TABLE-SELECTION-001
   description: Le scraper cours-actions BRVM doit selectionner la table metier par ses en-tetes, jamais le premier tbody de la page.
   pattern: Sur les pages Drupal BRVM, scorer les tables par Symbole, Cours Cloture, Cours Veille, Cours Ouverture, Volume et Variation avant d extraire les lignes; conserver le fallback HTML complet seulement si aucune table n atteint le score minimal.
@@ -767,6 +868,21 @@ vaccins:
     observable: /api/market-data/brvm-live?ticker=ALL retournait [] parce que le premier tbody etait un tableau top valeurs a 3 colonnes; apres selection par en-tetes, BOAB retourne BRVM_DIRECT avec prix 8715 et volume 4344.
   liens_causaux:
     source: JOURNAL-TA-MARKETDATA-LIVE-BRVM-TABLE-FIX-20260603
+- id: VAC-BRVM-CSV-CANDLES-ONLY-001
+  description: Les bougies ECharts BRVM daily doivent provenir exclusivement du CSV OHLCV confirme.
+  pattern: Garder le live BRVM dans les panneaux et snapshots de seance; si le CSV est stale, afficher la derniere bougie CSV stale et signaler la fraicheur, mais ne jamais creer une bougie daily avec un snapshot live partiel.
+  status: ACTIVE
+  tier: hot
+  titre: VAC-BRVM-CSV-CANDLES-ONLY-001
+  l0_abstract: Une bougie chart BRVM non presente dans le CSV OHLCV confirme est une information trompeuse, meme si le prix live officiel existe.
+  schema_patch_date: 2026-06-08
+  scope: technical-analysis/market-data
+  evidence:
+    type: OBSERVED
+    source: JOURNAL-TA-MARKETDATA-FRESH-LAST-CANDLE-20260608
+    observable: Le live BRVM fournit prix/volume de seance, mais pas une bougie OHLCV daily confirmee; le stitching live aurait induit en erreur sur la derniere bougie.
+  liens_causaux:
+    source: JOURNAL-TA-MARKETDATA-FRESH-LAST-CANDLE-20260608
 - id: VAC-BRVM-CANDLESTICK-OHLC-ONLY-001
   description: Les figures chandeliers BRVM doivent etre calculees sur OHLC par defaut; volume/trades faibles sont un signal de fiabilite, pas un veto de rendu.
   pattern: Pour Doji, Spinning Top, Hammer et assimilés, ne jamais bloquer un signal OHLC valide uniquement parce que volume ou tradesCount vaut 0, manque ou reflète une séance peu liquide.
@@ -1072,6 +1188,54 @@ vaccins:
     source: JOURNAL-COMMON-UI-REALISM-ARCHITECTURE-20260603
 
 patterns:
+- id: PAT-BRVM-DATA-RESILIENCE-001
+  date: 2026-06-11
+  schema_patch_date: 2026-06-11
+  tier: hot
+  status: ACTIVE
+  titre: BRVM data routes need abortable source budgets aligned with client budgets
+  l0_abstract: >
+    Les routes BRVM non-candles doivent avoir un budget source abortable, un fallback JSON stable et un timeout client aligne; un timeout UI court qui coupe avant la route transforme la resilience serveur en faux echec produit.
+  description: >
+    Le flux fundamentals etait coupe cote sidebar apres 12s alors que la route peut legitiment attendre le cache/SWR ou un scrape BRVM lent. Sous panne source, cette divergence produit une erreur UI au lieu d une degradation controlee. La bonne frontiere est: route abortable avec cache/SWR/circuit breaker, client avec budget explicite plus long, et payload degrade compatible avec les normalizers.
+  application: >
+    Pour live, capitalisation, indices, news, bonds et fundamentals, propager AbortSignal jusqu a undici, limiter les retries source par requete interactive, exposer Cache-Control et X-Cache-Status, et conserver les shapes JSON consommees par la sidebar.
+  virus: >
+    Ajouter un setTimeout local dans un hook React sans tenir compte du budget route, ou utiliser Promise.race cote serveur sans annuler le fetch amont.
+  antidote: >
+    Composer les AbortSignal, declarer les budgets par endpoint, laisser le cache/SWR absorber les lenteurs et retourner un fallback HTTP 200 compatible quand la source BRVM est indisponible.
+  scope: market-data/brvm-routes
+  evidence:
+    type: OBSERVED
+    source: JOURNAL-BRVM-DATA-RESILIENCE-ABORTABLE-20260611
+    observable: >
+      Smoke HTTP local: fundamentals et indices repondent HTTP 200 degrade avec X-Cache-Status UNAVAILABLE; news repond HTTP 200 succes avec X-Cache-Status MISS; bonds degrade en HTTP 200 avec Cache-Control explicite.
+  liens_causaux:
+    source: JOURNAL-BRVM-DATA-RESILIENCE-ABORTABLE-20260611
+- id: PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  date: 2026-06-11
+  schema_patch_date: 2026-06-11
+  tier: hot
+  status: ACTIVE
+  titre: Indicator alerts must declare their real engine route
+  l0_abstract: >
+    Une famille d indicateurs ne doit etre declaree alertable que si sa condition correspond au moteur existant; sinon elle doit etre marquee indicator-engine-required jusqu a creation d un vrai evaluateur indicateur.
+  description: >
+    Le catalogue research-grade couvre 224 indicateurs, mais les moteurs actuels ne savent evaluer que prix, variation, volume, dividende et news. Mapper RSI, MACD ou volatilite vers un seuil de prix serait une fausse promesse produit.
+  application: >
+    Avant toute UI d alerte indicateur, declarer route, condition, metrique et seuil par famille. Les familles prix/support/chandelier peuvent utiliser un niveau prix confirme; volume/liquidite peut utiliser le ratio volume; oscillateurs, tendance et volatilite exigent un moteur indicateur persistant et evaluable.
+  virus: >
+    Ajouter un bouton alerte sur un indicateur de panel et pre-remplir seulement GREATER_THAN/LESS_THAN prix, ou stocker un seuil indicateur dans un champ threshold prix existant.
+  antidote: >
+    Creer un type d alerte indicateur dedie avec metricId, condition, threshold, source series et evaluation runtime; conserver les familles non supportees en indicator-engine-required tant que ce contrat n existe pas.
+  scope: technical-analysis:indicators-alerts
+  evidence:
+    type: OBSERVED
+    source: JOURNAL-TA-INDICATOR-BACKTEST-ALERT-POLICY-20260611
+    observable: >
+      Le contrat testable force les 224 entrees research-grade a exposer une route d alerte et marque RSI comme indicator-engine-required, SMA200 comme legacy-price-modal et Volume Profile comme right-rail-volume.
+  liens_causaux:
+    source: JOURNAL-TA-INDICATOR-BACKTEST-ALERT-POLICY-20260611
 - id: PAT-TA-MARKET-NATIVE-TRIGGER-001
   date: 2026-06-04
   schema_patch_date: 2026-06-04
@@ -3491,6 +3655,34 @@ patterns:
     source: JOURNAL-TA-CHART-RENDER-CONTRACTS-20260604
 
 ghosts:
+- id: GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  titre: Alerts rail persistence uses IndexedDB only
+  date: 2026-06-10
+  schema_patch_date: 2026-06-10
+  tier: hot
+  status: ACTIVE
+  l0_abstract: Alerts CRUD, drafts, logs and sound preference must persist through IndexedDB, not localStorage.
+  l2_details: >
+    The right rail unmounts panels when the user switches icons. Alerts therefore needs durable client persistence for CRUD state,
+    draft-open flags, draft values, logs and the sound preference. The user clarified a hard product invariant: TA/TBI must never
+    use localStorage. IndexedDB was selected because it is asynchronous, structured and appropriate for a trading-grade UI; the
+    Alerts adapter uses an IndexedDB-only snapshot and an hydration guard so an empty initial render cannot overwrite stored data.
+  alternatives_rejetees:
+  - nom: Keep localStorage for Alerts
+    raison_rejet: It violates the explicit TA/TBI invariant, is synchronous on the main thread and does not fit a complex trading interface.
+  - nom: Add a runtime localStorage fallback or reader
+    raison_rejet: A fallback would reintroduce the forbidden dependency and make future regressions too easy.
+  - nom: Keep sound implicit with no user control
+    raison_rejet: Trading alerts may beep, but the user must be able to mute the local alert sound deterministically.
+  ne_pas_reproposer:
+  - localStorage for TA/TBI state
+  - localStorage fallback for Alerts
+  - audible alert without persisted mute control
+  evidence:
+    type: USER_CLARIFICATION
+    source: JOURNAL-TA-RIGHT-RAIL-ALERTS-IDB-SOUND-20260610
+    observable: User explicitly rejected localStorage for TA/TBI and asked for Alerts CRUD connected to IndexedDB plus sound.
+  scope: technical-analysis:right-rail-alerts
 - id: GHOST-TA-INTRADAY-BRVM-COLLECT-REJECTED-20260603
   titre: Intraday and brvm-collect experiments are rejected
   date: 2026-06-03
@@ -4275,6 +4467,60 @@ dettes:
     session: JOURNAL-BOLLINGER-DEBT-TRUTH-20260529
 lecons: []
 journal:
+- id: JOURNAL-BRVM-DATA-RESILIENCE-ABORTABLE-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: market-data/brvm-routes
+  hot_entries_consulted:
+  - SCAR-SIDEBAR-FUNDAMENTALS-STALE-TICKER-001
+  - VAC-BRVM-LIVE-TABLE-SELECTION-001
+  - PAT-BRVM-DATA-RESILIENCE-001
+  l0_abstract: >
+    Les flux BRVM non-candles ont ete durcis autour d un contrat abortable: budgets source partages, fallback HTTP 200 compatible, headers cache/status et timeout sidebar fundamentals aligne.
+  pourquoi: >
+    La prochaine panne production probable n etait plus la serie daily candles, mais les donnees peripheriques BRVM de la sidebar. Le smoke avait montre fundamentals coupe a 12s cote client pendant que la route pouvait encore travailler. Ce delai trop court cassait l experience meme si la route etait capable de degrader. Le correctif devait donc traiter client et serveur ensemble: annulation reelle jusqu a undici, budgets interactifs bornes, fetch FR/EN fundamentals parallele, dividendes non bloquants et fallbacks JSON stables.
+  validations:
+  - "Next docs lus: Route Handlers, fetch, NextResponse"
+  - "Graphify: fetchWithResilience relie live, fundamentals, capitalisation, indices, news et bonds dans la meme communaute BRVM"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint routes BRVM + resilient-scraper + sidebar fetchers/hooks: PASS"
+  - "npm run test:technical-analysis-config: PASS 41/41"
+  - "npm run test:alerts-rail: PASS 21/21 apres escalation bwrap"
+  - "curl fundamentals BOAB: HTTP 200 degrade, Cache-Control fallback, X-Cache-Status UNAVAILABLE"
+  - "curl indices: HTTP 200 degrade, Cache-Control fallback, X-Cache-Status UNAVAILABLE"
+  - "curl news: HTTP 200 succes, Cache-Control public, X-Cache-Status MISS"
+  - "curl bonds: HTTP 200 fallback rapide, Cache-Control fallback, X-Cache-Status UNAVAILABLE"
+  attention_future: >
+    Pour ajouter ou modifier un flux BRVM, ne jamais reparer uniquement le hook ou uniquement la route. Le budget client, le budget source, le cache/SWR et le payload degrade doivent etre verifies ensemble, sinon une amelioration locale recree un faux echec sous latence africaine/mondiale.
+  scribe_delta: PAT-BRVM-DATA-RESILIENCE-001 | JOURNAL-BRVM-DATA-RESILIENCE-ABORTABLE-20260611
+
+- id: JOURNAL-TA-RIGHT-RAIL-SCREENERS-TRADINGVIEW-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis/right-rail-screeners
+  hot_entries_consulted:
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  l0_abstract: >
+    Screeners right-rail reproduction used TradingView observation first, then adapted the existing local rail entry instead of creating a parallel surface.
+  pourquoi: >
+    TradingView showed Screeners as an existing right-rail entry opening a dense stock screener surface with filters, table columns and source-like context. The local product already had a screeners rail id, so creating a second entry would have duplicated navigation and increased drift. The correct move was to keep the rail contract, fix reliable pointer/keyboard activation, and replace the generic BRVM summary with a BRVM stock/bond screener panel.
+  validations:
+  - "TradingView MCP observation: hover tooltip Screeners, 44x44 right-rail button, Stock Screener overlay with filters and dense table"
+  - "Local MCP smoke: activeEntry=screeners, aria-pressed=true, button 44x44, 12 equity rows, Bond Screener present, source/formula present"
+  - "Keyboard smoke: focus Screeners then Enter opens Stock Screener"
+  - "Follow-up fix: narrow sidebar table has no horizontal scroll; MCP measured wrapScrollWidth=clientWidth=250 and panelOverflowsX=false"
+  - "Follow-up all-symbols: removed the 12-row cap; CDP measured rowCount=47, uniqueSymbols=47, no horizontal scroll"
+  - "Follow-up filters: chips were static spans, now native buttons with aria-pressed; CDP clicked Price, Chg %, Mkt cap, P/E, EPS, Sector and Watchlist with observable row/order changes"
+  - "Follow-up bonds: 0 obligations came from empty topBonds without a local fallback; the screener now fetches /api/market-data/brvm-bonds and CDP measured 5 obligations after load"
+  - "MCP Chrome DevTools transport stayed closed; CDP /json/version and /json/list were verified before direct CDP smoke, no external browser test dependency added"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npm run lint: PASS"
+  attention_future: >
+    For the remaining TradingView right-rail icons, do not create new local navigation when a canonical rail id already exists. Observe TradingView first, decide ADAPTER_EXISTANT versus CREER_SURFACE, then validate activation with MCP Chrome DevTools.
+  scribe_delta: JOURNAL-TA-RIGHT-RAIL-SCREENERS-TRADINGVIEW-20260611
+
 - id: JOURNAL-TA-MARKET-NATIVE-TRIGGER-20260604
   date: 2026-06-04
   mode: STANDARD
@@ -16488,26 +16734,1471 @@ journal:
   multi_agent_context:
     surface: technical-analysis-panels-objecttree-stop-gate
 
+- id: JOURNAL-TA-MARKETDATA-FRESH-LAST-CANDLE-20260608
+  date: 2026-06-08
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis/market-data
+  hot_entries_consulted:
+  - VAC-BRVM-LIVE-TABLE-SELECTION-001
+  - VAC-BRVM-CSV-CANDLES-ONLY-001
+  - JOURNAL-TA-BRVM-SIMU-TOGGLE-REFRESH-20260605
+  l0_abstract: >
+    La derniere bougie BOAB reste strictement la derniere bougie CSV OHLCV confirmee; le live BRVM ne complete plus la serie chart.
+  pourquoi: >
+    Le cache client `force-cache` plus une Map sans TTL pouvait conserver indefiniment une serie OHLCV stale. Le correctif utile borne le cache daily a 5 minutes et force une URL bucketisee no-store, mais la tentative de stitcher une bougie depuis le live BRVM a ete rejetee: le live donne un snapshot de seance partiel, pas une bougie OHLCV daily confirmee.
+  validations:
+  - "Source CSV Fredysessie BOAB observee au 2026-06-04; aucune bougie CSV 2026-06-08 disponible"
+  - "Chrome DevTools viewport: PASS graphe strict CSV sans extension de bougie au 2026-06-08; panneau separe SOURCE Live BRVM"
+  - "Network: PASS BOAB daily CSV requested with refresh bucket/no-cache; brvm-live separe retourne snapshot prix 8725 volume 2724 timestamp 2026-06-08T12:01:08Z"
+  - "npx eslint targeted market-data/TA files: PASS"
+  - "tsc --noEmit --pretty false: PASS"
+  - "git diff --check targeted files: PASS"
+  attention_future: >
+    Ne jamais assimiler donnees daily et snapshot live: si le CSV est en retard, le chart doit rester en retard. Le live BRVM peut informer le panneau de seance, mais ne doit pas creer de bougie ni nourrir les indicateurs confirmes.
+  scribe_delta: JOURNAL-TA-MARKETDATA-FRESH-LAST-CANDLE-20260608
+  multi_agent_context:
+    surface: technical-analysis-market-data-freshness
+    coordination_claim: marketdata:freshness-last-candle
+    agent: cli-20260608-85b7d2689d54
+
+
+- id: JOURNAL-TA-CURSOR-DATE-AXIS-ALIGNMENT-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis/hooks/cursor
+  hot_entries_consulted:
+  - SCAR-ECHARTS-CUSTOM-SERIES-DATAZOOM-X-ENCODE-001
+  - SCAR-ECHARTS-VOLUME-GRID-DATAZOOM-PAN-001
+  - VAC-FINANCIAL-PROOF-001
+  - VAC-ECHARTS-MUTATION-QUEUE-001
+  l0_abstract: >
+    Cursor date label was re-anchored to the ECharts primary time axis so the bottom crosshair label matches the axisPointer date on projected or padded charts.
+  pourquoi: >
+    Le curseur convertissait le pixel souris en index de categorie mais formatait la date depuis chartData a cet index. Or l option ECharts peut afficher un domaine temps different via renderDates quand les transformations de type de graphe, projections ou paddings etendent l axe X. La source de verite de l etiquette basse est donc xAxis[0].data; chartData ne doit servir que de fallback.
+  validations:
+  - "graphify query/explain technical-analysis time axis cursor: PASS"
+  - "Next Client Components docs read before patch"
+  - "tsc --noEmit: PASS"
+  - "git diff --check targeted cursor file: PASS"
+  attention_future: >
+    Si la date axisPointer et la date basse du curseur divergent encore, inspecter xAxis[0].data avant chartData; ne pas corriger en decalant les bougies ni en modifiant dataZoom.
+  scribe_delta: JOURNAL-TA-CURSOR-DATE-AXIS-ALIGNMENT-20260609
+  multi_agent_context:
+    surface: technical-analysis:time-axis-date-alignment
+    coordination_claim: technical-analysis:time-axis-date-alignment
+    agent: cli-20260609-ba2292a1e5c2
+
+- id: JOURNAL-TA-ADVANCED-CANDLESTICK-PATTERNS-COMPLETION-20260609
+  date: 2026-06-09
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:advanced-candlestick-patterns
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCRIBE-RAG-PREFLIGHT-CRITICAL
+  l0_abstract: >
+    Les patterns chandeliers avances ont ete termines comme signaux evenementiels multi-bougies, avec scores bruts separes des confirmations de tendance.
+  pourquoi: >
+    Ces patterns sont conventionnels et subjectifs; le choix robuste etait donc de garder une semantique TA-Lib-compatible cote calcul, de separer forme brute et contexte de tendance, puis de rendre le front responsable uniquement de l'organisation, de la hierarchie visuelle et des overlays. La branche ne dispose pas encore d'un moteur Django TA-Lib branche; le fallback TypeScript doit donc rester deterministe, null-safe et testable pour eviter qu'un switch du modal active un signal absent ou approximatif.
+  validations:
+  - "node --test components/technical-analysis/lib/Indicators/__tests__/candlestickPatterns.test.cjs: PASS 15/15"
+  - "npm test: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint fichiers techniques touches: PASS"
+  - "git diff --check: PASS"
+  - "npm run build: PASS Next.js production build"
+  attention_future: >
+    Quand le backend Django TA-Lib sera disponible, conserver les memes cles de payload et comparer les sorties sur fixtures avant de remplacer le calcul local; ne pas convertir ces signaux en courbes continues, ce sont des evenements a marqueurs/brackets.
+  scribe_delta: JOURNAL-TA-ADVANCED-CANDLESTICK-PATTERNS-COMPLETION-20260609
+  multi_agent_context:
+    surface: technical-analysis:advanced-candlestick-patterns
+    coordination_claim: technical-analysis:advanced-candlestick-patterns-completion
+    agent: cli-20260609-47d9f715db66
+
+- id: JOURNAL-TA-INDICATORS-MODAL-LOADER-HARDENING-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:indicators-modal-loader
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCRIBE-RAG-CONTEXT
+  l0_abstract: >
+    Le modal Indicateurs Techniques ne peut plus rester en skeleton silencieux indefiniment: le chunk est prechauffe et un etat retry/fermeture remplace le skeleton anormalement long.
+  pourquoi: >
+    Le skeleton provenait du loading de next/dynamic autour du gros catalogue d'indicateurs. Sans prechargement garanti au montage, sans reset du cache apres rejet d'import, et sans deadline UX, une compilation dev lente, un chunk bloque ou une promesse rejetee pouvait laisser l'utilisateur devant un squelette pendant plusieurs minutes. Le bon correctif etait de garder le code-splitting, mais de reprendre le controle du cycle de chargement dans l'orchestrateur avec prewarm idle, timeout court, retry explicite et fermeture disponible.
+  validations:
+  - "Browser local: modal ouvert avec gp-indicators-modal=1, gp-indicators-loading=0, champ recherche reel present"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint ModalOrchestrator + indicatorsModalLoader: PASS"
+  - "git diff --check targeted loader/modal/style: PASS"
+  - "npm run build: PASS Next.js production build"
+  attention_future: >
+    Ne jamais exposer un next/dynamic loading modal sans deadline visible. Les modals lourds doivent avoir soit un prewarm proactif, soit un fallback actionnable; un skeleton sans issue est une regression UX meme si le chunk finit parfois par charger.
+  scribe_delta: JOURNAL-TA-INDICATORS-MODAL-LOADER-HARDENING-20260609
+  multi_agent_context:
+    surface: technical-analysis:indicators-modal-loader
+    coordination_claim: technical-analysis:indicators-modal-loader
+    agent: cli-20260609-47d9f715db66
+
+- id: JOURNAL-TA-RIGHT-RAIL-11-BRVM-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-11-brvm
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCRIBE-RAG-CONTEXT
+  l0_abstract: >
+    Le rail droit Technical Analysis passe a 11 entrees inspirees TradingView, mais la premiere entree conserve toute la sidebar historique scrollable.
+  pourquoi: >
+    La premiere tentative a expose le risque central: traduire TradingView ne veut pas dire repartir les blocs existants entre les icones. Pour AfriMarket BRVM, la vue Watchlist reste le cockpit complet historique; les autres entrees ouvrent des panneaux BRVM autonomes pour alertes, data window, notes, screener, strategies, calendrier, idees, notifications, produits et aide.
+  validations:
+  - "TradingView right rail observed by hover/click: 11 entries mapped to BRVM capital-markets panels"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint targeted sidebar rail files: PASS"
+  - "git diff --check targeted sidebar rail files: PASS"
+  - "./node_modules/.bin/sass _technical-analysis-final.scss: PASS"
+  - "Headless CDP smoke: 11 rail buttons; watchlist restored with 13 historical sections; secondary entries each render one BRVM panel and zero reused historical sections"
+  attention_future: >
+    Ne jamais scinder la sidebar historique pour remplir les icones secondaires. La bonne regle UX est: icone 1 egale cockpit complet scrollable; icones 2-11 egales panneaux dedies et autonomes, sans voler les sections Watchlist/Fondamentaux/Stats de la premiere vue.
+  scribe_delta: JOURNAL-TA-RIGHT-RAIL-11-BRVM-20260609
+  multi_agent_context:
+    surface: technical-analysis:right-rail-11-brvm
+    coordination_claim: technical-analysis:right-rail-11-brvm
+    agent: cli-20260609-ba2292a1e5c2
+
+- id: JOURNAL-TA-INDICATOR-HOVER-PANEL-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:indicators-modal-hover-info
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCRIBE-RAG-CONTEXT
+  l0_abstract: >
+    Les items du modal Indicateurs Techniques disposent maintenant d'un panneau d'information au survol/focus, avec style technique sobre et positionnement hors du scroll modal.
+  pourquoi: >
+    Un tooltip rendu comme enfant d'une carte reste prisonnier de l'overflow du corps de modal: augmenter le z-index ne corrige pas le clipping. Le correctif robuste est de porter le panneau via un portal document.body, de calculer sa position en viewport avec flip haut/bas selon l'espace disponible, puis d'utiliser une forme visuelle sobre proche des tooltips techniques existants pour eviter une UI trop decorative.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint IndicatorsModal.tsx: PASS"
+  - "git diff --check targeted modal/style: PASS"
+  - "npm run build: PASS Next.js production build"
+  - "DevTools MCP: transport ferme avant capture finale; verification browser complete non relancee sans ajout d'outil"
+  attention_future: >
+    Dans un modal scrollable, ne jamais rendre un panneau d'aide profond comme enfant absolu de la carte. Utiliser un portal ou un composant flottant equivalent; sinon le clipping d'overflow reviendra meme avec un z-index eleve.
+  scribe_delta: JOURNAL-TA-INDICATOR-HOVER-PANEL-20260609
+  multi_agent_context:
+    surface: technical-analysis:indicators-modal-hover-info
+    coordination_claim: none
+    agent: cli-20260609-47d9f715db66
+
+- id: JOURNAL-TA-DATA-WINDOW-HOVER-ZRENDER-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:data-window-hover
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCRIBE-RAG-CONTEXT
+  - JOURNAL-TA-PANELS-PHASE3-ROWS-DATAWINDOW-20260605
+  l0_abstract: >
+    La Data Window ne reste plus bloquee sur le message de survol: elle est alimentee par le pixel souris ZRender quand updateAxisPointer ne sort pas.
+  pourquoi: >
+    Le hook Data Window dependait exclusivement de l'evenement ECharts updateAxisPointer, alors que le chart courant utilise tooltip trigger item et axisPointer global desactive. Dans ce contrat, le hover utilisateur peut etre visible pour le canvas sans jamais produire l'evenement attendu par le panneau. Le correctif garde updateAxisPointer mais ajoute un fallback ZRender mousemove + convertFromPixel sur le grid principal, ce qui relie directement la position souris au bon index OHLCV.
+  validations:
+  - "graphify query Data Window hover/object tree: PASS"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint useObjectTreePanel/DataWindowTab: PASS"
+  - "git diff --check useObjectTreePanel: PASS"
+  - "Headless CDP smoke: Data Window placeholder present before hover, removed after mouseMoved on chart canvas; Date/Open/High/Low/Close/Volume populated"
+  attention_future: >
+    Ne jamais supposer que updateAxisPointer suffit pour la Data Window. Si tooltip ou axisPointer changent encore, conserver une source de verite pixel->index via chart.convertFromPixel afin que le panneau reponde au vrai mouvement souris.
+  scribe_delta: JOURNAL-TA-DATA-WINDOW-HOVER-ZRENDER-20260609
+  multi_agent_context:
+    surface: technical-analysis:data-window-hover-zrender
+    coordination_claim: technical-analysis:data-window-hover-zrender
+    agent: cli-20260609-ba2292a1e5c2
+
+- id: JOURNAL-TA-RIGHT-RAIL-STALK-FIRST-SCAR-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-11-brvm
+  hot_entries_consulted:
+  - SCRIBE-RAG-CONTEXT
+  - JOURNAL-TA-RIGHT-RAIL-11-BRVM-20260609
+  l0_abstract: >
+    La faute d'implementation du rail 11 icones est promue en SCAR hot: chaque icone TradingView doit etre stalked et rapportee avant adaptation BRVM.
+  pourquoi: >
+    Le retour utilisateur clarifie que la mission n'etait pas de poser 11 boutons puis de partager du contenu existant, mais de copier intelligemment chaque fonctionnalite TradingView comme un parcours utilisateur complet. Cette cicatrice force les prochaines reprises a travailler icone par icone, en commencant par Alertes, avec observation exhaustive des sous-controles et validation locale avant de passer a l'icone suivante.
+  validations:
+  - "SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001 ajoute en tier hot"
+  - "Regle future: pas de codage d'une icone sans rapport hover/click/enfants/etats/actions"
+  attention_future: >
+    Si une prochaine session demande de continuer le rail, commencer par l'icone precise demandee et produire le rapport TradingView observe avant toute modification du localhost.
+  scribe_delta: SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001 | JOURNAL-TA-RIGHT-RAIL-STALK-FIRST-SCAR-20260609
+  multi_agent_context:
+    surface: technical-analysis:right-rail-11-brvm
+    coordination_claim: none
+    agent: cli-20260609-ba2292a1e5c2
+
+- id: JOURNAL-TA-CANDLESTICK-CONTINUATION-RARE-FINAL-20260609
+  date: 2026-06-09
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:candlestick-pattern-recognition
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCRIBE-RAG-CONTEXT
+  - PAT-CANDLESTICK-PATTERN-PRESENTATION-CONTRACT-001
+  l0_abstract: >
+    Les derniers patterns chandeliers de continuation, gap avance et retournements rares sont finalises comme signaux evenementiels multi-bougies, calcules par le moteur indicateurs puis seulement affiches par Next/ECharts.
+  pourquoi: >
+    Ces patterns ne doivent pas etre recalcules dans le front: le risque de divergence est trop eleve entre worker, renderer et sauvegardes. La decision conserve une source de verite unique dans le calculateur, expose les scores et confirmations via le worker, puis laisse le renderer appliquer uniquement priorite, bracket et marqueur. Hikkake a ete traite comme un signal differe parce que sa confirmation arrive jusqu'a trois bougies apres la fausse cassure.
+  validations:
+  - "graphify query candlestick patterns/worker/renderer: PASS"
+  - "node --test candlestickPatterns.test.cjs: PASS 20/20"
+  - "npm test: PASS"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint targeted technical-analysis files: PASS"
+  - "git diff --check: PASS"
+  - "npm run build: PASS Next.js production build"
+  attention_future: >
+    Toute nouvelle figure chandelier doit suivre ce meme contrat: score shape explicite, confirmation separee, null implicite tant que l'historique ou OHLC est non calculable, et aucun calcul concurrent dans le renderer. Les patterns signes doivent tirer leur direction du score pour eviter un bracket affiche du mauvais cote.
+  scribe_delta: JOURNAL-TA-CANDLESTICK-CONTINUATION-RARE-FINAL-20260609
+  multi_agent_context:
+    surface: technical-analysis:candlestick-pattern-recognition
+    coordination_claim: none
+    agent: cli-20260609-continuation-rare-candles
+
+- id: JOURNAL-TA-RIGHT-RAIL-ALERTS-STALK-IMPLEMENTATION-20260609
+  date: 2026-06-09
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - VAC-FINANCIAL-PROOF-001
+  l0_abstract: >
+    L icone Alertes du rail droit est maintenant implementee apres observation TradingView: onglets Alertes/Journal, toolbar, recherche, menu, etat vide, creation et journal separes.
+  pourquoi: >
+    Le retour utilisateur exigeait une copie intelligente de comportement, pas un simple panneau generique. TradingView traite Alerts comme un centre operationnel avec tabs Alerts/Log, actions +/search/sort/more, etat vide avec CTA, menu de filtres et workflow de creation. L adaptation BRVM garde cette structure mais centre les types sur cours, variation, volume, dividende, coupon, communique BRVM et news, avec brouillon local explicite tant qu aucun backend d alertes persistant n existe.
+  validations:
+  - "Stalk TradingView Alerts: onglets Alerts/Log, empty states, toolbar + search/sort/more, menu filtres/settings, create alert dialog observes"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint TechnicalAnalysisSidebarContent + AlertsRailPanel: PASS"
+  - "./node_modules/.bin/sass _technical-analysis-final.scss: PASS"
+  - "git diff --check targeted alert files: PASS"
+  - "CDP local smoke: Alertes/Journal, recherche, menu, formulaire, brouillon local; watchlist retournee a 13 sections; overflowCount=0"
+  attention_future: >
+    Pour les prochaines icones du rail, continuer strictement icone par icone. Ne pas passer a Object Tree/Data Window ou Notes sans produire d abord le rapport TradingView observe et sans valider que la premiere icone Watchlist reste le cockpit complet scrollable.
+  scribe_delta: JOURNAL-TA-RIGHT-RAIL-ALERTS-STALK-IMPLEMENTATION-20260609
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: technical-analysis:right-rail-alerts-stalk-implementation
+    agent: cli-20260609-ba2292a1e5c2
+
+- id: JOURNAL-TA-RIGHT-RAIL-ALERTS-AUDIT-BADGES-POLISH-20260609
+  date: 2026-06-09
+  mode: QUICK
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  l0_abstract: >
+    Le panneau Alertes ne rend plus les badges audit Formule/Devise et ses tabs reprennent un style segmente sombre proche Object Tree/Data Window.
+  pourquoi: >
+    Alertes est une surface operationnelle inspiree TradingView, pas un panneau de statistiques financieres. Lui injecter l audit trail du cockpit rendait visible une provenance hors contexte et cassait la lecture utilisateur; les tabs blancs divergeaient aussi du controle segmente Object Tree.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint TechnicalAnalysisSidebarContent + AlertsRailPanel: PASS"
+  - "./node_modules/.bin/sass _technical-analysis-final.scss: PASS"
+  - "CDP local smoke: Formule/Devise absents, tab actif sombre, overflowCount=0"
+  attention_future: >
+    Ne pas transmettre les audit trails financiers aux panneaux du rail droit qui copient une vue operationnelle TradingView, sauf si la vue observee comporte explicitement une zone provenance comparable.
+  scribe_delta: JOURNAL-TA-RIGHT-RAIL-ALERTS-AUDIT-BADGES-POLISH-20260609
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: none
+    agent: cli-20260609-ba2292a1e5c2
+
+
+- id: JOURNAL-TA-RIGHT-RAIL-ALERTS-RUNTIME-PERSISTENCE-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SUITE.TXT
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - VAC-FINANCIAL-PROOF-001
+  l0_abstract: >
+    Le panneau Alertes conserve maintenant son brouillon ouvert apres un aller-retour entre icones du rail droit et active une alerte BRVM locale avec journal reel.
+  pourquoi: >
+    Les validations statiques ne prouvent pas le cycle runtime important ici: le panneau Alertes est demonte quand l utilisateur clique une autre icone du rail. Le draft devait donc persister non seulement ses champs, mais aussi son etat ouvert par ticker. Sans `draftOpenByTicker`, un brouillon ouvert redevenait invisible au retour, meme si le modele etait type-correct.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint ciblé AlertsRail + TechnicalAnalysisSidebarContent: PASS"
+  - "./node_modules/.bin/sass styles/pages/_technical-analysis-final.scss /tmp/technical-analysis-final.css: PASS"
+  - "CDP local smoke: ouvrir draft, switch Watchlist, retour Alerts, MESSAGE toujours visible"
+  - "CDP local smoke: Activer cree une alerte Declenchee et deux entrees Journal, puis etat de test nettoye"
+  attention_future: >
+    Pour toute icone du rail droit dont le panneau peut etre demonte, tester explicitement le cycle ouvrir etat local, changer d icone, revenir. Si l etat doit survivre, persister aussi le flag de visibilite ou remonter l etat hors du composant, pas seulement les valeurs du formulaire.
+  scribe_delta: JOURNAL-TA-RIGHT-RAIL-ALERTS-RUNTIME-PERSISTENCE-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: right-rail-alerts
+    agent: cli-20260610-ae0c9cfac8dd
+
+- id: JOURNAL-TA-RIGHT-RAIL-ALERTS-IDB-SOUND-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SUITE.TXT
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - VAC-FINANCIAL-PROOF-001
+  l0_abstract: >
+    Le CRUD Alertes du rail droit est migre de localStorage vers IndexedDB-only et declenche un son local controle par un toggle persiste.
+  pourquoi: >
+    L utilisateur a fixe une contrainte produit dure: dans TA/TBI, ne jamais utiliser localStorage et privilegier IndexedDB.
+    Pour Alerts, le stockage doit survivre aux demontages du rail droit, aux reloads et aux operations CRUD sans bloquer le main thread.
+    Le son est utile pour une interface trading, mais il doit rester local, non bloquant et desactivable par preference persistee.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint cible AlertsRailPanel + alertsRail modules: PASS"
+  - "CDP local smoke: creation alerte declenchee, snapshot IndexedDB alertCount=1/status=triggered/soundEnabled=true"
+  - "CDP local smoke: suppression CRUD vide alerts[] dans IndexedDB, aucun retour de la cle localStorage legacy"
+  - "CDP local smoke: toggle Muet/Actif persiste soundEnabled false puis true"
+  - "Console apres reload/form: seulement warnings preexistants next/image quality 100 et ECharts color:auto"
+  attention_future: >
+    Toute nouvelle persistance TA/TBI doit passer par IndexedDB ou un backend explicite. Si une ancienne cle localStorage existe dans un navigateur de dev,
+    la nettoyer hors runtime produit; ne pas reinjecter un fallback localStorage dans le code applicatif.
+  scribe_delta: VAC-TA-TBI-NO-LOCALSTORAGE-001 | GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610 | JOURNAL-TA-RIGHT-RAIL-ALERTS-IDB-SOUND-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: right-rail-alerts
+    agent: cli-20260610-ae0c9cfac8dd
+
+- id: JOURNAL-TA-RIGHT-RAIL-ALERTS-LOG-FILTER-20260610
+  date: 2026-06-10
+  mode: QUICK
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  l0_abstract: >
+    Le Journal Alerts affiche maintenant les declenchements par defaut et garde l audit complet derriere Tout le journal.
+  pourquoi: >
+    Le journal complet etait correct techniquement mais illisible pour l utilisateur: creation, pause, reprise et declenchement se ressemblaient
+    et donnaient l impression de doublons. Le bon contrat trading conserve l audit complet sans polluer la vue principale des alertes declenchees.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint cible Alerts journal filter: PASS"
+  - "./node_modules/.bin/sass styles/pages/_technical-analysis-final.scss /tmp/technical-analysis-final.css: PASS"
+  - "CDP local smoke: Declenchements 1 affiche une seule entree; Tout le journal 4 affiche l audit complet"
+  - "CDP cleanup: IndexedDB Alerts vide, soundEnabled=true, aucune cle legacy localStorage"
+  attention_future: >
+    Ne pas supprimer les logs create/pause/resume: ils sont utiles pour audit. La vue par defaut doit rester declenchements-only
+    pour eviter les faux doublons visuels.
+  scribe_delta: JOURNAL-TA-RIGHT-RAIL-ALERTS-LOG-FILTER-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: right-rail-alerts
+    agent: cli-20260610-ae0c9cfac8dd
+
+- id: JOURNAL-TA-ALERTS-RUNTIME-LIVE-SNTS-AUDIT-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  - JOURNAL-TA-RIGHT-RAIL-ALERTS-LOG-FILTER-20260610
+  l0_abstract: >
+    Audit et hardening du runtime Alerts apres passage du second agent: SNTS live declenche un toast unique et Edit alert ouvre le formulaire.
+  pourquoi: >
+    Le runtime global etait la bonne direction, mais deux failles de production restaient dangereuses: la rehydratation IndexedDB pouvait dependre
+    de valeurs de prix derivees et donc se relancer pendant les ticks, et la migration legacy ne normalisait pas tous les champs requis d une alerte.
+    Pour une interface trading, un tick live ne doit jamais faire perdre l etat runtime ni faire planter une entree stockee partielle.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint cible Alerts runtime/storage/sidebar: PASS"
+  - "./node_modules/.bin/sass styles/pages/_technical-analysis-final.scss /tmp/technical-analysis-final.css: PASS"
+  - "Playwright CDP SNTS live: Market open, Last update 13:33 GMT+1, toastCount=1, status=triggered, triggerLogs=1"
+  - "Playwright CDP Edit alert: panneau Alerts monte et formulaire contient SNTS Crossing 28 280"
+  - "Playwright CDP cleanup: IndexedDB Alerts alertCount=0, logCount=0, soundEnabled=true, aucune cle legacy localStorage"
+  attention_future: >
+    Pour tester un runtime qui surveille IndexedDB, ne pas injecter le snapshot pendant que le runtime TA est monte: son etat courant peut reecrire le store.
+    Preparer IndexedDB depuis une page meme-origin hors TA, puis revenir sur TA et changer de ticker pour tester la vraie hydration runtime.
+  scribe_delta: JOURNAL-TA-ALERTS-RUNTIME-LIVE-SNTS-AUDIT-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: right-rail-alerts
+    agent: cli-20260610-ae0c9cfac8dd
+
+
+- id: JOURNAL-MCP-CHROME-DEVTOOLS-SECOND-CDP-FALLBACK-20260610
+  date: 2026-06-10
+  mode: CRITICAL
+  agent_type: codex
+  surface: mcp:chrome-devtools
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-SCRIBE-WORKFLOW-ACK-001
+  - PAT-SCRIBE-RAG-001
+  l0_abstract: >
+    Le runbook Chrome DevTools documente maintenant le fallback second navigateur CDP isole pour les cas Transport closed.
+  pourquoi: >
+    La session a prouve que le serveur chrome-devtools-mcp et Chrome/CDP peuvent etre sains alors que le pont natif Codex reste ferme.
+    Ouvrir un Chrome dedie sur un port libre comme 9223 avec profil isole permet de continuer les smoke tests via probe MCP manuel,
+    sans reinstaller le MCP ni tuer les processus existants.
+  validations:
+  - "codex mcp get chrome-devtools: config OK sur 9222"
+  - "curl 127.0.0.1:9222/json/version: CDP OK"
+  - "probe JSON-RPC chrome-devtools-mcp 9222: tools/list OK, list_pages OK"
+  - "second surface: Antigravity window + Chrome CDP 9223 lance"
+  - "curl 127.0.0.1:9223/json/version: CDP OK"
+  - "probe JSON-RPC chrome-devtools-mcp 9223: 29 outils, list_pages voit localhost"
+  attention_future: >
+    Ne pas confondre ce fallback avec une reparation a chaud de mcp__chrome_devtools: le transport natif Codex reste ferme jusqu au redemarrage du host.
+    Ne pas connecter ce fallback a un profil Chrome personnel charge de sessions sensibles.
+  scribe_delta: JOURNAL-MCP-CHROME-DEVTOOLS-SECOND-CDP-FALLBACK-20260610
+  multi_agent_context:
+    surface: mcp:chrome-devtools
+    coordination_claim: mcp-chrome-devtools-runbook
+    agent: cli-20260610-5741fc556f2c
+
+- id: JOURNAL-TA-INDICATORS-MCP-CI-SMOKE-20260610
+  date: 2026-06-10
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicators-modal
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-MCP-CHROME-DEVTOOLS-SECOND-CDP-FALLBACK-20260610
+  l0_abstract: >
+    Le smoke navigateur du modal Indicateurs Techniques est industrialise en CI via chrome-devtools-mcp sans Playwright.
+  pourquoi: >
+    Les contrats statiques prouvent la parite registry/modal/renderer, mais le bug recurrent etait runtime: bouton actif sans serie visible.
+    Le smoke MCP ouvre une target Chrome fraiche, active MACD, Bollinger et Ichimoku, puis verifie les series ECharts, les lignes Object Tree et l absence d erreurs console.
+  validations:
+  - "npm run test:technical-analysis-browser:mcp: PASS; MACD/Bollinger/Ichimoku series ECharts presentes avec donnees; Object Tree missing=[]"
+  - "npm run test:technical-analysis-config: PASS 21/21"
+  - "npx eslint scripts/smoke-technical-analysis-indicators-mcp.cjs: PASS"
+  - "node --check scripts/smoke-technical-analysis-indicators-mcp.cjs: PASS"
+  - "js-yaml workflow parse: PASS"
+  - "rg playwright/@playwright/test/cypress/puppeteer/selenium sur package, lockfile, smoke et workflow: aucune occurrence"
+  attention_future: >
+    Ne pas reintroduire @playwright/test pour les validations navigateur de ce projet. Utiliser Chrome DevTools MCP en priorite,
+    et le fallback stdio documente quand le wrapper natif Codex retourne Transport closed alors que CDP reste sain.
+  scribe_delta: JOURNAL-TA-INDICATORS-MCP-CI-SMOKE-20260610
+  multi_agent_context:
+    surface: technical-analysis:indicators-modal
+    coordination_claim: indicators-modal-mcp-smoke-ci
+    agent: codex-20260610
+
+
+- id: JOURNAL-TA-ALERTS-TORVALDS-MULTITICKER-EXPIRATION-CHANNELS-TESTS-20260610
+  date: 2026-06-10
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  - JOURNAL-TA-ALERTS-RUNTIME-LIVE-SNTS-AUDIT-20260610
+  l0_abstract: >
+    Correction Torvalds limitee aux gaps prod Alerts: surveillance multi-ticker via snapshots Redux, expiration effective, canal local Notification API et tests unitaires Node sans Playwright.
+  pourquoi: >
+    Surveiller seulement le ticker affiche transforme une alerte trading en gadget contextuel: BOAB doit pouvoir declencher pendant que l utilisateur inspecte SNTS si le runtime possede un snapshot BOAB. Les expirations stockees doivent aussi fermer le cycle metier en passant les alertes en expired, et les canaux doivent avoir un comportement concret: journal silencieux, interface/toast, local via permission Notification API.
+  validations:
+  - "npm run test:alerts-rail: PASS 7/7, sans Playwright"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint cible Alerts rail + TechnicalAnalysisSidebarContent: PASS 0 erreur 0 warning"
+  - "./node_modules/.bin/sass styles/pages/_technical-analysis-final.scss /tmp/technical-analysis-final.css: PASS"
+  - "rg localStorage/sessionStorage sur le perimetre Alerts: aucune occurrence"
+  attention_future: >
+    Le multi-ticker reste borne aux snapshots deja presents cote client. Pour une surveillance vraiment serveur, il faudra un worker/backend de ticks BRVM; ne pas maquiller cette limite en promettant email/push/webhook sans infrastructure explicite.
+  scribe_delta: JOURNAL-TA-ALERTS-TORVALDS-MULTITICKER-EXPIRATION-CHANNELS-TESTS-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: none
+    agent: codex-20260610
+
+
+- id: JOURNAL-TA-SIDEBAR-FUNDAMENTALS-SKELETON-TIMEOUT-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis-sidebar
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-SIDEBAR-FUNDAMENTALS-STALE-TICKER-001
+  - VAC-SIDEBAR-STABLE-HYDRATION-001
+  l0_abstract: >
+    Les skeletons financiers du sidebar ne peuvent plus rester visibles indefiniment quand le feed fondamentaux BRVM ne livre aucune serie exploitable.
+  pourquoi: >
+    Le bug venait de deux signaux melanges: absence de validFundamentals interpretee comme chargement permanent, et props.isLoading capable de maintenir les panels financiers en skeleton meme apres un statut ready/error du feed. Le bon contrat UX est skeleton seulement pendant une requete bornee, puis rendu silencieux des sections sans donnees au lieu d un message ou d un skeleton infini.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint cible sidebar fundamentals loading: PASS 0 erreur 0 warning"
+  - "git diff --check cible sidebar fundamentals loading: PASS"
+  - "rg anciens textes indisponibles/news: aucune occurrence dans components/technical-analysis/components/sidebar"
+  attention_future: >
+    Ne jamais calculer un etat loading a partir de la seule absence de donnees. Les feeds asynchrones doivent avoir un statut terminal explicite et une deadline UX, sinon un endpoint lent transforme une indisponibilite normale en attente infinie.
+  scribe_delta: JOURNAL-TA-SIDEBAR-FUNDAMENTALS-SKELETON-TIMEOUT-20260610
+  multi_agent_context:
+    surface: technical-analysis-sidebar
+    coordination_claim: right-sidebar:fundamentals-loading-timeout
+    agent: cli-20260610-c17d95d36f3e
+
+
+- id: JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-SNTS-20260610
+  date: 2026-06-10
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  - SCAR-TA-ALERTS-MULTITICKER-REDUX-SNAPSHOT-GAP-001
+  l0_abstract: >
+    Validation Chrome DevTools MCP reelle du multi-ticker Alerts: page BOAB, alerte SNTS, tick BRVM_DIRECT, toast Alert on SNTS et log triggered.
+  pourquoi: >
+    La validation a expose que le reducer multi-ticker ne suffisait pas si la page charge seulement le ticker courant. Le runtime doit completer les contextes manquants avec un vrai tick live BRVM pour que l alerte reste utile pendant que l utilisateur regarde une autre valeur.
+  validations:
+  - "Chrome DevTools MCP natif: Transport closed; fallback manuel JSON-RPC sur CDP 9222 conforme au runbook"
+  - "new_page isolatedContext=alerts-multiticker-smoke: IndexedDB isole, onglet ferme apres test"
+  - "Tick live utilise: SNTS 28 250, source BRVM_DIRECT, timestamp 2026-06-10T15:14:37.354Z"
+  - "Page courante: BOAB; alerte test: SNTS Crossing 28 250; resultat: status triggered, lastTriggeredValue 28250"
+  - "Réseau: /api/market-data/brvm-live?ticker=ALL 200 puis /brvm-live?ticker=BOAB 200"
+  - "Toast visible: Alert on SNTS; journal: triggered SNTS Crossing 28 250 - declenche (prix 28 250)"
+  - "npm test: PASS; test:alerts-rail 8/8"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint cible Alerts: PASS 0 erreur"
+  - "rg localStorage/sessionStorage/Playwright sur perimetre Alerts/package: aucune occurrence"
+  attention_future: >
+    Les onglets locaux partagent IndexedDB par origine: pour tester un snapshot Alerts sans ecrasement par un autre runtime, utiliser un isolatedContext MCP ou une deuxieme surface CDP isolee.
+  scribe_delta: SCAR-TA-ALERTS-MULTITICKER-REDUX-SNAPSHOT-GAP-001 | JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-SNTS-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: none
+    agent: codex-20260610
+
+
+- id: JOURNAL-TA-SIDEBAR-ECHARTS-VISIBILITY-REPAINT-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis-sidebar
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-SIDEBAR-STABLE-HYDRATION-001
+  - VAC-ECHARTS-STABLE-INITIAL-VIEWPORT-001
+  l0_abstract: >
+    Les charts ECharts du sidebar redessinent maintenant apres retour visible ou resize du conteneur, au lieu de rester blancs si la premiere frame etait non drawable.
+  pourquoi: >
+    Le graphe Fondamentaux pouvait disparaitre durablement parce que le hook de chart dependait d un unique signal IntersectionObserver et initialisait ECharts sans attendre une taille DOM exploitable. Un changement de rail, un scroll interne ou une frame de layout a taille zero suffisait a produire une instance blank qui ne recevait pas de redessin fiable.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint cible useSidebarChart/useSidebarCharts/FundamentalsPanel: PASS"
+  - "git diff --check cible sidebar chart repaint: PASS"
+  - "CDP headless local: Fondamentaux canvas 212x120 nonblank avant et apres switch Alerts -> Watchlist"
+  attention_future: >
+    Pour tout chart ECharts dans une zone scrollable, tabbee ou conditionnelle, ne jamais supposer que le premier callback IntersectionObserver suffit. Verifier taille DOM positive, observer ResizeObserver, redessiner apres paint et tester un cycle masquer/revenir.
+  scribe_delta: JOURNAL-TA-SIDEBAR-ECHARTS-VISIBILITY-REPAINT-20260610
+  multi_agent_context:
+    surface: technical-analysis-sidebar
+    coordination_claim: right-sidebar:echarts-visibility-repaint
+    agent: cli-20260610-c17d95d36f3e
+
+- id: JOURNAL-TA-INDICATORS-MCP-FAMILY-MATRIX-SMOKE-20260610
+  date: 2026-06-10
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicators-modal
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-TA-INDICATORS-MCP-CI-SMOKE-20260610
+  l0_abstract: >
+    Le smoke navigateur MCP couvre maintenant une matrice de familles critiques au lieu de seulement trois composites historiques.
+  pourquoi: >
+    Tester 224 clics bruts serait lent, fragile et peu explicatif. Le risque prod reel est familial: chaque type de rendu doit prouver au moins un chemin modal -> etat -> calcul -> serie ECharts -> Object Tree. La matrice capture overlay ligne, overlay zone, panneau bas simple, composite multi-lignes, histogramme, pivots, volume profile et patterns chandelier marker/bracket.
+  validations:
+  - "npm run test:technical-analysis-browser:mcp: PASS; matrixProof missingRequired=[] missingAny=[]"
+  - "ECharts prouves: vwap-line, boll-fill/upper/mid/lower, rsi-series, macd-line/signal/hist, pivots standard P/R/S, volume-profile rows/POC/VAH/VAL, spinning/hammer/engulfing markers-brackets"
+  - "Object Tree: PASS; lignes parent/enfant visibles pour RSI, MACD, Bollinger, Volume Profile, Pivot Points, VWAP et patterns chandelier"
+  - "npm run test:technical-analysis-config: PASS 21/21"
+  - "npx eslint scripts/smoke-technical-analysis-indicators-mcp.cjs: PASS"
+  - "node --check scripts/smoke-technical-analysis-indicators-mcp.cjs: PASS"
+  - "git diff --check cible smoke/workflow/package/scribe: PASS"
+  - "rg @playwright/test/playwright/cypress/puppeteer/selenium sur package, lockfile, smoke et workflow: aucune occurrence"
+  attention_future: >
+    Garder ce smoke comme matrice de familles, pas comme brute-force 224 indicateurs. Si une nouvelle famille de rendu apparait, ajouter un representant explicite avec IDs ECharts et Object Tree plutot qu augmenter aveuglement le nombre de clics.
+  scribe_delta: JOURNAL-TA-INDICATORS-MCP-FAMILY-MATRIX-SMOKE-20260610
+  multi_agent_context:
+    surface: technical-analysis:indicators-modal
+    coordination_claim: indicators-modal-mcp-family-matrix-smoke
+    agent: codex-20260610
+
+- id: JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-BOAB-SNTS-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - SCAR-TA-ALERTS-MULTITICKER-REDUX-SNAPSHOT-GAP-001
+  - JOURNAL-MCP-CHROME-DEVTOOLS-SECOND-CDP-FALLBACK-20260610
+  l0_abstract: >
+    Validation Chrome DevTools MCP de la symetrie exacte: alerte BOAB creee par l UI, interface affichee sur SNTS, tick live BOAB 8 600 et status triggered.
+  pourquoi: >
+    La premiere validation SNTS pendant BOAB ne suffisait pas: elle prouvait le fallback live pour contexte manquant, pas le cas inverse ou un contexte peripherique BOAB stale existe deja. Le smoke inverse a force le runtime a choisir entre stale et live; la correction donne la priorite au tick frais pour les alertes hors ecran.
+  validations:
+  - "Chrome DevTools MCP natif: Transport closed; fallback manuel JSON-RPC CDP 9222 utilise, sans Playwright"
+  - "Scenario: creation UI BOAB Crossing 8 745, bascule SNTS, tick BOAB live 8 600, resultat triggered"
+  - "IndexedDB final avant cleanup: status=triggered, lastObservedValue=8600, lastTriggeredValue=8600, log=BOAB Crossing 8 745 - declenche (prix 8 600)"
+  - "Screenshot: /tmp/alerts-multiticker-boab-while-snts.png"
+  - "Cleanup contexte isole: alerts=[], logs=[], soundEnabled=true, localStorageLength=0, sessionStorageLength=0"
+  - "npm test cible AlertsRail: PASS 9/9; tsc --noEmit: PASS; eslint cible: PASS"
+  - "rg localStorage/sessionStorage/Playwright sur surfaces TA ciblees: aucune occurrence code"
+  attention_future: >
+    Pour les smokes Alerts multi-ticker, ne pas valider seulement le cas contexte absent. Tester aussi le cas contexte stale, car c est lui qui masque un vrai crossing BRVM pendant que l utilisateur inspecte une autre valeur.
+  scribe_delta: SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001 | JOURNAL-TA-ALERTS-CDP-LIVE-MULTITICKER-BOAB-SNTS-20260610
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: none
+    agent: codex-20260610
+
+
+- id: JOURNAL-TA-OBJECT-TREE-DARK-SCROLLBAR-20260610
+  date: 2026-06-10
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:object-tree
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - VAC-SIDEBAR-STABLE-HYDRATION-001
+  l0_abstract: >
+    La zone Object tree utilise maintenant une scrollbar sombre, fine et stable au lieu de la scrollbar native blanche du navigateur.
+  pourquoi: >
+    Le contenu scrollable du panneau etait un div inline avec overflowY auto mais sans classe CSS. Quand beaucoup d indicateurs rendaient la liste longue, Chromium affichait la scrollbar native claire, visuellement hors-theme dans la sidebar sombre.
+  validations:
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint ObjectTreePanel.tsx: PASS"
+  - "./node_modules/.bin/sass styles/pages/_technical-analysis-final.scss /tmp/technical-analysis-final.css: PASS"
+  - "git diff --check ObjectTreePanel + SCSS: PASS"
+  - "CDP headless local: gp-object-tree-scrollpane found, scrollbarWidth=thin, scrollbarColor sombre, scrollbarGutter=stable"
+  attention_future: >
+    Toute zone scrollable creee en inline style dans la sidebar doit recevoir une classe stable et une scrollbar thematisee. Sinon les scrollbars natives claires reapparaissent des que le contenu depasse la hauteur visible.
+  scribe_delta: JOURNAL-TA-OBJECT-TREE-DARK-SCROLLBAR-20260610
+  multi_agent_context:
+    surface: technical-analysis:object-tree
+    coordination_claim: object-tree:dark-scrollbar
+    agent: cli-20260610-c17d95d36f3e
+
+- id: JOURNAL-TA-INDICATOR-RESEARCH-GRADE-POLICY-GATE-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicators-research-grade
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-MODALS-UI-CANONICAL-ADAPTERS-001
+  - VAC-ECHARTS-MUTATION-QUEUE-001
+  l0_abstract: >
+    Premier gate research-grade: les 224 indicateurs visibles du modal sont maintenant couverts par un contrat de benchmark professionnel avant tout durcissement famille par famille.
+  pourquoi: >
+    La demande utilisateur exigeait de traiter les 224 indicateurs, mais une passe directe dans le renderer aurait melange audit, UX et calculs sans preuve de couverture. Le choix retenu fige d abord un inventaire testable avec exigences de signal, densite, collision, tooltip, alertabilite, contexte BRVM et mobile; cela empeche les futurs chunks de promouvoir une famille sans gates explicites.
+  validations:
+  - "npm run test:technical-analysis-config: PASS 23/23"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint indicatorResearchGradePolicy.ts indicatorResearchGradeTypes.ts indicator-activation-contract.test.cjs: PASS"
+  - "git diff --check: PASS"
+  attention_future: >
+    Ne pas declarer les 224 indicateurs TradingView/GoCharting-grade apres ce gate seul. Les prochains chunks doivent durcir les familles a risque dans l ordre: chandeliers, volume/liquidite, overlays/signaux prix, oscillateurs, tendance/moyennes, avec Chrome DevTools MCP des qu un rendu ou une interaction change.
+  scribe_delta: JOURNAL-TA-INDICATOR-RESEARCH-GRADE-POLICY-GATE-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicators-research-grade
+    coordination_claim: none
+    agent: codex-20260611
+
+- id: JOURNAL-TA-INDICATOR-RESEARCH-GRADE-FAMILY-HARDENING-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicators-research-grade
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-MODALS-UI-CANONICAL-ADAPTERS-001
+  - VAC-ECHARTS-MUTATION-QUEUE-001
+  l0_abstract: >
+    Le plan research-grade 224 indicateurs est passe d un inventaire verifie a des gates executables: familles couvertes par policy, chandeliers densite-capped, formules registry garanties worker, et Volume Profile sorti du thread UI.
+  pourquoi: >
+    La robustesse demandee ne pouvait pas reposer sur une declaration de completude. Le choix retenu verrouille d abord la couverture de toute la surface visible, puis traite les deux risques les plus concrets en production: pollution visuelle des patterns frequents et calcul Volume Profile dans le renderer. Le worker devient le chemin contractuel pour les formules du registre, avec un canal structure separe pour les resultats non series.
+  validations:
+  - "npm run test:technical-analysis-config: PASS 27/27"
+  - "npm run test:candlestick-patterns: PASS"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint cibles research-grade/worker/renderer/tests: PASS"
+  - "git diff --check: PASS"
+  - "Chrome DevTools MCP: modal 224 visible, Volume Profile filtre/active/applique, worker chunk charge, console errors/warnings/issues=0 apres reload"
+  - "Chrome DevTools MCP: network local scripts/API 200/304; screenshot /tmp/technical-analysis-research-grade-final.png"
+  attention_future: >
+    Ne plus laisser un indicateur lourd recreer un calcul dans le renderer sous pretexte de fallback UX. Les futurs indicateurs non scalaires doivent passer par structuredResults ou un protocole worker equivalent, avec test contractuel et smoke MCP si le canvas change.
+  scribe_delta: JOURNAL-TA-INDICATOR-RESEARCH-GRADE-FAMILY-HARDENING-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicators-research-grade
+    coordination_claim: technical-analysis:indicators-research-grade
+    agent: codex-20260611
+
+- id: JOURNAL-TA-INDICATOR-BACKTEST-ALERT-POLICY-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicators-research-grade
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-TA-CONFIG-DOMAIN-ADAPTERS-001
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - VAC-FINANCIAL-PROOF-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  l0_abstract: >
+    Les 224 indicateurs research-grade ont maintenant une politique pure de backtesting walk-forward et une route d alerte explicite par famille, sans fausse compatibilite avec le moteur prix/volume actuel.
+  pourquoi: >
+    La prochaine etape demandait backtesting et alertes par famille, mais les alertes existantes ne savent pas evaluer une valeur RSI, MACD ou volatilite. Le choix retenu separe donc ce qui est vraiment executable aujourd hui (prix confirme, ratio volume) de ce qui exige un futur moteur indicateur dedie. Cela evite une UI professionnelle en apparence mais mensongere en production.
+  validations:
+  - "npm run test:technical-analysis-config: PASS 30/30"
+  - "npm run test:candlestick-patterns: PASS"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint indicatorBacktestAlertPolicy.ts indicator-backtest-alert-policy.test.cjs: PASS"
+  - "git diff --check: PASS"
+  - "npm run test:alerts-rail: PASS 12/12"
+  attention_future: >
+    Ne pas brancher les oscillateurs, tendances et volatilites sur le modal prix legacy. La vraie suite consiste a creer un type d alerte indicateur avec metricId, condition cross/threshold, source series et evaluation runtime; toute persistance client doit respecter le contrat IndexedDB-only deja grave.
+  scribe_delta: PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001 | JOURNAL-TA-INDICATOR-BACKTEST-ALERT-POLICY-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicators-research-grade
+    coordination_claim: technical-analysis:indicator-backtest-alert-policy
+    agent: codex-20260611-backtest-alerts
+
+- id: JOURNAL-BRVM-BONDS-DEGRADED-FALLBACK-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: market-data:brvm-bonds
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001
+  l0_abstract: >
+    /api/market-data/brvm-bonds degrade maintenant en payload 200 sourceStatus unavailable quand la source BRVM est indisponible, pour eviter qu une donnee sidebar optionnelle pollue le panel Alert en 500.
+  pourquoi: >
+    Le smoke du panel Alert sur /equity/technical-analysis montrait que l indisponibilite reseau BRVM faisait echouer une route accessoire et brouillait la validation du rail droit. Le choix retenu conserve le contrat frontend bonds:[] et signale l etat sourceStatus au lieu de transformer une absence de donnees obligataires en erreur applicative.
+  validations:
+  - "npx eslint brvm-bonds route + alertsRailStorage: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npm run test:alerts-rail: PASS 12/12"
+  - "curl /api/market-data/brvm-bonds: HTTP 200 sourceStatus unavailable"
+  - "CDP direct fallback: navigateur /equity/technical-analysis observe brvm-bonds HTTP 200"
+  attention_future: >
+    Les routes optionnelles de sidebar doivent distinguer source externe indisponible et bug serveur. Ne pas renvoyer 500 pour un fallback vide attendu; reserver 500 aux erreurs internes qui cassent le contrat.
+  scribe_delta: JOURNAL-BRVM-BONDS-DEGRADED-FALLBACK-20260611
+  multi_agent_context:
+    surface: market-data:brvm-bonds
+    coordination_claim: none
+    agent: codex-20260611-brvm-bonds
+
+- id: JOURNAL-TA-INDICATOR-RUNTIME-ALERT-ENGINE-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-TA-CONFIG-DOMAIN-ADAPTERS-001
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - VAC-FINANCIAL-PROOF-001
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  l0_abstract: >
+    Le rail droit sait maintenant creer et evaluer des alertes indicateur a partir de cibles metriques typees au runtime, au lieu de reutiliser implicitement le moteur prix.
+  pourquoi: >
+    La politique research-grade avait volontairement classe la majorite des indicateurs en engine-required. Pour avancer sans mentir, le rail devait d abord porter une cible indicateur explicite, un choix UI de metrique et une evaluation cross/threshold sur la valeur observee, afin que RSI, SMA et score technique ne soient pas confondus avec le prix courant.
+  preflight_note: >
+    Le preflight CRITICAL a retourne STOP sur GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610 car le contexte Alerts reste associe a la cicatrice localStorage. La contrainte est respectee: aucun fallback localStorage n a ete introduit, et le changement reste limite au moteur runtime, a la validation et a la sanitation des cibles indicateur.
+  validations:
+  - "npm run test:alerts-rail: PASS 17/17"
+  - "npm run test:technical-analysis-config: PASS 30/30"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint alertsRail + TechnicalAnalysisSidebarContent targets: PASS"
+  - "git diff --check: PASS"
+  attention_future: >
+    Le formulaire couvre les metriques runtime exposees au contexte courant. Les alertes indicateur off-screen ou multi-ticker ne doivent pas etre presentees comme completes tant qu un contexte historique supplementaire par ticker/indicateur n est pas fourni par un worker ou fetch dedie.
+  scribe_delta: JOURNAL-TA-INDICATOR-RUNTIME-ALERT-ENGINE-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: technical-analysis:indicator-alert-engine
+    agent: codex-20260611-indicator-alert-engine
+
+- id: JOURNAL-BRVM-MARKET-DATA-DEGRADED-FALLBACK-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: market-data:brvm-live-fundamentals-capitalisation
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-BRVM-BONDS-DEGRADED-FALLBACK-20260611
+  - SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001
+  l0_abstract: >
+    Les routes BRVM live, capitalisation et fundamentals degradent maintenant en HTTP 200 quand la source externe ou le cache sont indisponibles, afin de ne plus polluer le panel Alert avec des 500/503 pour des donnees optionnelles.
+  pourquoi: >
+    Le smoke navigateur montrait que les erreurs source BRVM brouillaient la validation fonctionnelle du rail droit. Le choix retenu garde les vrais bugs internes en 500, mais transforme les indisponibilites detectables de source externe en payloads explicites sourceStatus unavailable que les consommateurs savent ignorer ou afficher comme donnees manquantes.
+  validations:
+  - "npx eslint routes BRVM + alertsRailReducer: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npm run test:alerts-rail: PASS 17/17"
+  - "curl brvm-live BOAB, brvm-live-capitalisation BOAB, brvm-fundamentals BOAB: HTTP 200"
+  - "CDP direct fallback apres console.clear: watched BRVM endpoints HTTP 200, serverErrors [], consoleEvents []"
+  attention_future: >
+    Ne pas confondre indisponibilite de source externe avec bug interne. Les routes de donnees optionnelles doivent fournir un payload degrade compatible UI, tout en laissant les erreurs de parsing ou contrat serveur sortir en 500 pour rester visibles.
+  scribe_delta: JOURNAL-BRVM-MARKET-DATA-DEGRADED-FALLBACK-20260611
+  multi_agent_context:
+    surface: market-data:brvm-live-fundamentals-capitalisation
+    coordination_claim: none
+    agent: codex-20260611-brvm-fallbacks
+
+- id: JOURNAL-TA-OFFSCREEN-INDICATOR-ALERT-CONTEXTS-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-TA-INDICATOR-RUNTIME-ALERT-ENGINE-20260611
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - VAC-FINANCIAL-PROOF-001
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  l0_abstract: >
+    Les alertes indicateur hors-ecran disposent maintenant d un contexte supplemental par ticker construit depuis les series daily CSV, avec RSI 14, SMA 20, SMA 50 et score technique observes.
+  pourquoi: >
+    Le moteur indicateur runtime etait correct pour le titre affiche, mais les alertes actives sur un autre ticker restaient aveugles sans serie historique. Le choix retenu reutilise le fetcher daily CSV deja cache et le meme calcul pur que le sidebar courant, afin d eviter deux formules RSI/SMA divergentes et de garder les alertes off-screen honnetes.
+  preflight_note: >
+    Le preflight CRITICAL a retourne STOP sur GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610. La cicatrice reste respectee: aucune persistance locale nouvelle ni fallback localStorage n a ete ajoute; le changement porte seulement sur le contexte runtime supplemental et les calculs de metriques.
+  validations:
+  - "npm run test:alerts-rail: PASS 20/20"
+  - "npm run test:technical-analysis-config: PASS 30/30"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint alertsRailIndicatorMetrics/liveContexts/runtime/sidebar targets: PASS"
+  - "git diff --check: PASS"
+  attention_future: >
+    Ne pas recalculer une variante RSI/SMA dans un autre composant. Les futures metriques alertables doivent passer par le helper pur de contexte indicateur ou par un worker dedie compatible avec cette forme IndicatorAlertValue.
+  scribe_delta: JOURNAL-TA-OFFSCREEN-INDICATOR-ALERT-CONTEXTS-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: technical-analysis:offscreen-indicator-alerts
+    agent: codex-20260611-offscreen-indicator-alerts
+
+- id: JOURNAL-TA-ALERT-PANEL-COMPLETENESS-RECHECK-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001
+  - GHOST-TA-ALERTS-IDB-PERSISTENCE-20260610
+  - JOURNAL-BRVM-MARKET-DATA-DEGRADED-FALLBACK-20260611
+  - JOURNAL-TA-OFFSCREEN-INDICATOR-ALERT-CONTEXTS-20260611
+  l0_abstract: >
+    Recheck complet du panel Alert apres nettoyage backend: le noyau fonctionnel est solide pour une app locale BRVM, mais la parite TradingView production reste incomplete sans alertes cloud, webhooks, email mobile, drawings strategies et watchlist alerts natives.
+  pourquoi: >
+    Le backend ne masque plus la vraie evaluation du panel par des 500 de source optionnelle. La nouvelle jauge separe donc le terrain reel: CRUD local, runtime multi ticker, indicateurs off screen, IndexedDB, BroadcastChannel et notifications navigateur fonctionnent; les ecarts restants ne sont plus des bugs immediats du rail, mais des capacites plateforme necessaires pour egaler TradingView.
+  validations:
+  - "scribe-rag query panel Alert: SCAR GHOST VAC pertinents retrouves"
+  - "graphify query panel Alert: communaute alertsRail identifiee"
+  - "npm run test:alerts-rail: PASS 20/20"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "npx eslint AlertsRailPanel + alertsRail + sidebar controller: PASS"
+  - "CDP direct fallback: panel Alert visible sur /equity/technical-analysis, toolbar et tabs presents"
+  - "CDP direct fallback: endpoints brvm-live capitalisation fundamentals bonds HTTP 200, serverErrors []"
+  completude:
+    feuille_de_route_alert_panel: 91
+    production_reelle_locale_brvm: 82
+    parite_tradingview_alerts: 72
+  attention_future: >
+    Ne plus traiter le panel Alert comme bloque par le backend. La prochaine marche utile est un choix produit: soit assumer une version locale BRVM pro, soit construire les briques plateforme TradingView manquantes comme sync serveur, webhook email mobile, alertes drawings strategies watchlists et service worker background fiable.
+  scribe_delta: JOURNAL-TA-ALERT-PANEL-COMPLETENESS-RECHECK-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: none
+    agent: codex-20260611-alert-panel-completeness
+
+- id: JOURNAL-TA-INDICATOR-RUNTIME-SCALAR-CATALOG-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:right-rail-alerts
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - JOURNAL-TA-INDICATOR-RUNTIME-ALERT-ENGINE-20260611
+  - JOURNAL-TA-OFFSCREEN-INDICATOR-ALERT-CONTEXTS-20260611
+  - JOURNAL-TA-ALERT-PANEL-COMPLETENESS-RECHECK-20260611
+  l0_abstract: >
+    Les alertes indicateur runtime couvrent maintenant les 105 entrees scalaires oscillator, trend, volatility et volume-liquidity de l inventaire research-grade; l inventaire 224 ne contient plus aucune route indicator-engine-required.
+  pourquoi: >
+    Le contexte supplemental daily avait ferme le trou hors-ecran seulement pour RSI 14, SMA 20, SMA 50 et score technique. Cela restait fragile: une alerte MACD, Bollinger, ADX, Stoch RSI, HV ou Volume Profile pouvait etre declaree dans la policy sans valeur runtime fiable. Le choix retenu est un catalogue explicite ID inventaire -> cle runtime, avec extracteur OHLCV quotidien et test qui echoue si une entree routee indicator-runtime ne produit pas une valeur finie.
+  validations:
+  - "npm run test:alerts-rail: PASS 21/21"
+  - "npm run test:technical-analysis-config: PASS 31/31"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint runtime indicator files + tests: PASS"
+  - "audit route inventory: 224 total, 119 legacy-price-modal, 105 indicator-runtime, 0 indicator-engine-required"
+  attention_future: >
+    Ne pas ajouter une entree oscillator, trend, volatility ou volume-liquidity au modal sans ajouter sa cle runtime, son extracteur et un test de valeur finie. Si la valeur n est pas calculable depuis OHLCV quotidien, la route doit rester explicitement non-runtime au lieu d etre annoncee complete.
+  scribe_delta: JOURNAL-TA-INDICATOR-RUNTIME-SCALAR-CATALOG-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-alerts
+    coordination_claim: technical-analysis:indicator-runtime-scalar-catalog
+    agent: codex-20260611-indicator-runtime-scalars
+
+- id: JOURNAL-TRADINGVIEW-REPRODUCTION-WORKFLOW-CONTRACT-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: workflow:tradingview-reproduction
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - JOURNAL-TA-ALERT-PANEL-COMPLETENESS-RECHECK-20260611
+  - VAC-MODAL-SCROLL-001
+  - VAC-ECHARTS-MUTATION-QUEUE-001
+  l0_abstract: >
+    Le workflow TradingView devient le contrat complet de mission pour qu un agent puisse partir d une simple capture ou icone et mener reconnaissance, parite, implementation et validation sans prompt long fragile.
+  pourquoi: >
+    Le succes du panel Alert a montre que le risque principal n est pas le manque de prompt, mais l absence d un protocole executable: observer TradingView avant de coder, mesurer le pixel contract, comparer localhost, choisir adapter ou creer, puis prouver dans le navigateur. Le workflow centralise maintenant ces gates pour eviter de repeter les echecs right rail, old route, legacy modal et completion maquillee.
+  validations:
+  - "tradingview-reproduction.md enrichi avec contrat mission universel"
+  - "contrat Right Rail Chats ajoute comme premiere feature cible"
+  - "prompt minimal agent externe ajoute"
+  - "evidence pack, mesures pixel-perfect et anti-echec ajoutes"
+  attention_future: >
+    Pour les prochaines features TradingView, ne plus ecrire un prompt long ad hoc. Donner la capture, le nom de la feature et demander d appliquer ce workflow; l agent doit produire Phase A avant toute Phase B.
+  scribe_delta: JOURNAL-TRADINGVIEW-REPRODUCTION-WORKFLOW-CONTRACT-20260611
+  multi_agent_context:
+    surface: workflow:tradingview-reproduction
+    coordination_claim: none
+    agent: codex-20260611-tradingview-workflow-contract
+
+- id: JOURNAL-TA-INDICATOR-FAMILY-BACKTEST-SIGNALS-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicator-backtesting
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - JOURNAL-TA-INDICATOR-BACKTEST-ALERT-POLICY-20260611
+  - JOURNAL-TA-INDICATOR-RUNTIME-SCALAR-CATALOG-20260611
+  l0_abstract: >
+    Le backtesting indicateur ne depend plus de signaux fournis manuellement: chaque famille research-grade a maintenant une strategie explicite de construction de signaux historiques avant le resume walk-forward.
+  pourquoi: >
+    La politique de backtest couvrait les 224 entrees, mais elle ne disait pas comment produire les signaux par famille. Cela rendait le score historique trop abstrait. Le choix retenu separe le resolveur de series historiques et le builder de signaux par famille, avec des modeles distincts pour price-cross, threshold-cross, state-transition, event-confirmation et volatility-expansion.
+  decisions:
+  - "Volatilite pure: expansion neutre, pas de direction bullish/bearish inventee."
+  - "Bandes/niveaux de volatilite: signal directionnel uniquement quand le prix casse un niveau concret."
+  - "Oscillateurs: seuil natif ou zero-line selon la famille de valeur."
+  - "Patterns price-action/candlestick: evenements rares avec direction heuristique ou valeur de pattern quand disponible."
+  validations:
+  - "npm run test:technical-analysis-config: PASS 35/35"
+  - "npm run test:alerts-rail: PASS 21/21"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint backtesting files + TechnicalAnalysisSidebarContent: PASS"
+  attention_future: >
+    Ne pas assimiler backtest a recommandation de trade. Le resume walk-forward mesure des reactions historiques closes, pas une promesse predictive; toute nouvelle famille doit declarer son modele de signal avant d etre scoree.
+  scribe_delta: JOURNAL-TA-INDICATOR-FAMILY-BACKTEST-SIGNALS-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicator-backtesting
+    coordination_claim: technical-analysis:indicator-family-backtesting
+    agent: codex-20260611-indicator-family-backtesting
+
+- id: JOURNAL-TA-OBJECT-TREE-DATA-WINDOW-GAP-AUDIT-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-object-tree-data-window
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - JOURNAL-TA-PANELS-PHASE3-ROWS-DATAWINDOW-20260605
+  - JOURNAL-TRADINGVIEW-REPRODUCTION-WORKFLOW-CONTRACT-20260611
+  l0_abstract: >
+    Audit comparatif Object Tree/Data Window: le panel local existe et fonctionne, mais il reste des ecarts de parite TradingView sur geometrie, Data Window detaillee, toolbar disabled et hide-data par groupe.
+  pourquoi: >
+    L utilisateur a precise que la fonctionnalite avait deja ete implementee et demandait une exploration des omissions, pas une reimplementation. Le bon choix est donc de figer un contrat de gaps: conserver la valeur BRVM locale, puis corriger seulement les ecarts observables au lieu de repartir de zero.
+  validations:
+  - "Graphify query ciblee: useObjectTreePanel et ObjectTreePanel identifies comme surface locale"
+  - "CDP TradingView: right rail object_tree observe, tabs Object tree/Data window, toolbar group/copy/move/manage et Data Window OHLC Change Vol Last day change"
+  - "CDP localhost: /equity/technical-analysis, panel ouvert sur target actif, overlay 270x795, tabs fonctionnels, rows BOAB/Volume, Data Window alimentee par hover ECharts"
+  - "Captures CDP generees: /tmp/local-object-tree-right-rail.png et /tmp/local-data-window-right-rail.png"
+  - "Workflow tradingview-reproduction.md enrichi avec contrat audite Object Tree/Data Window"
+  completude:
+    local_functional_panel: 78
+    tradingview_pixel_parity: 61
+    next_patch_confidence: 88
+  attention_future: >
+    Ne pas annoncer le panel Object Tree/Data Window comme pixel-perfect. La prochaine passe doit cibler largeur/placement, Data Window avec groupe instrument + Change %, Last day change, Hide data et disabled states toolbar. Ne pas recreer le panel ni supprimer les enrichissements BRVM deja utiles.
+  scribe_delta: JOURNAL-TA-OBJECT-TREE-DATA-WINDOW-GAP-AUDIT-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-object-tree-data-window
+    coordination_claim: audit-only-no-product-code
+    agent: codex-20260611-object-tree-gap-audit
+
+- id: JOURNAL-TA-OBJECT-TREE-DATA-WINDOW-TV-PARITY-SCOPE-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-object-tree-data-window
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-TOOLBAR-UI-HONEST-CONTRACTS-001
+  - JOURNAL-TA-OBJECT-TREE-DATA-WINDOW-GAP-AUDIT-20260611
+  l0_abstract: >
+    Correction ciblee des cinq ecarts approuves Object Tree/Data Window: Change avec pourcentage, Last day change, groupe instrument symbol-timeframe-venue, Hide data inline et toolbar disabled TradingView-like.
+  pourquoi: >
+    L utilisateur a approuve uniquement ces cinq gaps apres l audit. Le choix retenu conserve le panel local existant, ses enrichissements BRVM et ses ancres DOM O(1), au lieu de reouvrir la geometrie ou de recreer la fonctionnalite.
+  decisions:
+  - "Change et Last day change utilisent la cloture precedente quand elle existe, avec fallback sur l ouverture de la bougie courante."
+  - "Hide data masque seulement les lignes du groupe principal et garde les ancres DOM montees pour les updates haute frequence."
+  - "Les actions de dessin group/clone/move sont visuellement et fonctionnellement disablees tant qu aucun dessin n est selectionne."
+  - "Aucune correction de largeur, placement ou scrollbar n a ete incluse dans cette passe car elle n etait pas approuvee."
+  validations:
+  - "npx eslint fichiers Object Tree/Data Window: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "node --test objectTreeActions + objectTreeDrawingActions: PASS 3/3"
+  - "git diff --check fichiers Object Tree/Data Window: PASS"
+  - "CDP localhost Data Window: instrument BOAB · 1D · BRVM, Change -20.00 (-0.29%), Last day change present, Hide data toggle OK"
+  - "CDP localhost toolbar: group, Clone, Copy et Move to disabled sans dessin; Manage layout drawings enabled"
+  evidence:
+    screenshot: /tmp/local-data-window-approved-scope.png
+  completude:
+    approved_scope: 100
+    local_functional_panel: 86
+    tradingview_pixel_parity: 68
+  attention_future: >
+    Ne pas confondre cette passe avec un pixel-perfect global du panel. La geometrie/largeur et les ajustements de scrollbar restent hors scope tant que l utilisateur ne les approuve pas explicitement.
+  scribe_delta: JOURNAL-TA-OBJECT-TREE-DATA-WINDOW-TV-PARITY-SCOPE-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-object-tree-data-window
+    coordination_claim: approved-five-gap-product-code
+    agent: codex-20260611-object-tree-approved-scope
+
+- id: JOURNAL-TA-INDICATOR-BACKTEST-DASHBOARD-UI-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicator-modal-backtest-ui
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - JOURNAL-TA-INDICATOR-FAMILY-BACKTEST-SIGNALS-20260611
+  - PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001
+  l0_abstract: >
+    Le modal Indicateurs Techniques affiche maintenant un dashboard de backtesting par famille, directement branche sur les 224 entrees research-grade.
+  pourquoi: >
+    Le moteur de backtest etait complet mais invisible pour l utilisateur. Le choix retenu expose les resultats dans le modal sans transformer le backtest en recommandation de trade: le panneau agrège par famille, signale les historiques insuffisants et garde les volatilites pures en contexte neutre.
+  decisions:
+  - "Calcul dashboard limite aux 360 dernieres bougies valides: assez pour les indicateurs 252 jours, sans freeze sur historiques longs."
+  - "Cache de series partage par run: MACD, Bollinger, Ichimoku, chandeliers, pivots et volume profile ne sont plus recalcules par sortie."
+  - "Le composant UI reste pur; le calcul metier vit dans config/indicators pour rester testable hors React."
+  validations:
+  - "npm run test:technical-analysis-config: PASS 37/37"
+  - "npm run test:alerts-rail: PASS 21/21"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint fichiers backtesting/modal: PASS"
+  - "./node_modules/.bin/sass _technical-analysis-final.scss: PASS"
+  - "CDP smoke localhost: modal ouvert, panneau backtest present, 10 familles, 224 indicateurs evalues, aucun overflow horizontal, aucun evenement console critique"
+  attention_future: >
+    Ne pas augmenter la fenetre de backtest UI sans workerisation ou calcul incremental. Au-dela de 360 bougies, les familles structurées peuvent recreer un freeze modal sous charge utilisateur reelle.
+  scribe_delta: JOURNAL-TA-INDICATOR-BACKTEST-DASHBOARD-UI-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicator-modal-backtest-ui
+    coordination_claim: technical-analysis:indicator-backtest-dashboard-ui
+    agent: codex-20260611-indicator-backtest-dashboard-ui
+
+- id: JOURNAL-TA-INDICATOR-BACKTEST-WORKER-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicator-modal-backtest-worker
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-TA-INDICATOR-BACKTEST-DASHBOARD-UI-20260611
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001
+  l0_abstract: >
+    Le backtesting par famille du modal Indicateurs Techniques passe par un worker dedie avec timeout, anti-race et fallback synchrone controle.
+  pourquoi: >
+    Le dashboard etait utile mais son calcul restait potentiellement dangereux si la fenetre de donnees ou les comparaisons ticker augmentaient. Le choix retenu garde la reactivite du modal sous charge: le thread UI serialize les OHLCV, le worker calcule le dashboard, et le hook ignore les reponses stale via messageId.
+  decisions:
+  - "Worker module separe du worker indicateurs existant pour isoler le backtesting famille et eviter de melanger contrats renderer et analytics modal."
+  - "Timeout 2500 ms puis fallback local: degradation visible et bornee au lieu d'un modal bloque si le worker ne demarre pas."
+  - "Protocole binaire OHLCV avec tradesCount nullable preserve: moins d'allocation JSON et pas de perte de semantique liquidite."
+  - "Fallback EMPTY_CHART_DATA stable dans IndicatorsModal pour supprimer le warning React-Redux et eviter des rerenders inutiles."
+  validations:
+  - "npm run test:technical-analysis-config: PASS 38/38"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint fichiers worker/backtest/modal: PASS"
+  - "./node_modules/.bin/sass _technical-analysis-final.scss: PASS"
+  - "npm run test:alerts-rail: PASS 21/21 apres relance hors sandbox bwrap"
+  - "git diff --check fichiers backtest/modal/styles: PASS"
+  - "CDP smoke injecte: AlgowayIndicatorBacktestWorker cree, postMessage OHLCV, reponses success avec dashboard, 10 familles, 224 indicateurs, 0 console signal, 0 network failure, aucun overflow"
+  evidence:
+    screenshot: /tmp/indicator-backtest-worker-modal-after-fix.png
+    cdp_worker_probe: AlgowayIndicatorBacktestWorker create/postMessage/message success dashboard=true
+  attention_future: >
+    Si la prochaine phase compare plusieurs tickers ou augmente la fenetre au-dela de 360 bougies, ne pas revenir a un calcul synchrone dans React. Il faut garder worker, batch incremental ou cache par ticker, et exposer la source worker/fallback seulement si l'UX a besoin de diagnostiquer la degradation.
+  scribe_delta: JOURNAL-TA-INDICATOR-BACKTEST-WORKER-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicator-modal-backtest-worker
+    coordination_claim: technical-analysis:indicator-backtest-workerization
+    agent: codex-20260611-indicator-backtest-worker
+
+- id: JOURNAL-TA-CHATS-TALKS-HEADER-MENU-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-chats
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001
+  l0_abstract: >
+    Le rail Chats reproduit maintenant le header Talks TradingView avec recherche, menu options, etats notification et filtre favoris local.
+  pourquoi: >
+    L utilisateur a compare le panneau aux captures TradingView et a signale une rupture de fidelite: la liste de talks existait, mais sans son header, sans recherche et sans menu de room. La correction complete la surface attendue sans pretendre connecter les actions serveur encore absentes.
+  decisions:
+  - "Les options de son, snapshot preview et favoris restent en etat local pour rendre l UI testable sans backend de messagerie."
+  - "Les actions Ignored Users, Link, Archives et Separate Window restent visibles mais disabled afin de ne pas promettre une integration room ou session non implementee."
+  validations:
+  - "npx eslint ChatsRailPanel.tsx: PASS"
+  - "tsc --noEmit --pretty false: PASS"
+  - "sass _technical-analysis-final.scss: PASS"
+  - "Chrome DevTools MCP: header Talks, Search talks, menu Talks options et toutes les entrees TradingView observes; transport MCP ferme pendant le test de fill, CDP json version et json list OK."
+  attention_future: >
+    Quand la messagerie sera connectee, remplacer les toggles locaux par une source persistante et activer les actions seulement avec un contrat de room clair; ne jamais convertir ces boutons disabled en faux liens muets.
+  scribe_delta: JOURNAL-TA-CHATS-TALKS-HEADER-MENU-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-chats
+    coordination_claim: tradingview-chats-talks-header-menu
+    agent: codex-20260611-chats-talks-header-menu
+
+- id: JOURNAL-TA-INDICATOR-BACKTEST-BATCH-CACHE-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicator-modal-backtest-batch-cache
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-TA-INDICATOR-BACKTEST-WORKER-20260611
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  - PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001
+  l0_abstract: >
+    Le backtesting du modal Indicateurs accepte maintenant plusieurs tickers dans un batch worker et reutilise les dashboards via un cache par ticker.
+  pourquoi: >
+    La phase worker rendait le calcul non bloquant, mais elle restait mono-contexte tant que le modal ne consommait pas les series de comparaison. Le choix retenu garde la logique dans le worker, evite les refetchs caches hors Redux, et permet au modal d afficher un comparatif explicite sans recalculer tous les dashboards a chaque ouverture.
+  decisions:
+  - "Le batch lit uniquement les donnees deja presentes dans le contexte TA: ticker courant plus comparaisons Redux chargees, sans fetch cache invisible depuis le modal."
+  - "La cle de cache inclut symbole, longueur, derniere bougie, fingerprint OHLCV recent et periodes indicateur afin d invalider proprement les resultats apres changement de donnees ou reglages."
+  - "La limite batch reste volontairement bornee a 6 tickers pour proteger le worker et garder une UX previsible sous charge."
+  - "Le smoke navigateur force le mode simulation pour prouver le batch multi-ticker sans dependre de la disponibilite des fetchs BRVM reels."
+  validations:
+  - "npm run test:technical-analysis-config: PASS 40/40"
+  - "npm run test:alerts-rail: PASS 21/21 apres relance hors sandbox bwrap"
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint fichiers backtest batch/cache/modal/worker: PASS"
+  - "./node_modules/.bin/sass _technical-analysis-final.scss: PASS"
+  - "git diff --check fichiers backtest batch/cache/modal/styles: PASS"
+  - "CDP smoke localhost mode simulation: comparaison SNTS ajoutee, worker batch itemCount=2 BOAB+SNTS, dashboardCount=2, chip Comparatif visible, 10 familles, 224 indicateurs, 0 console warning/error, 0 overflow"
+  evidence:
+    screenshot: /tmp/indicator-backtest-batch-cache-modal-mock.png
+    cdp_worker_probe: AlgowayIndicatorBacktestWorker postMessage batch itemCount=2 symbols=BOAB,SNTS message success dashboardCount=2
+  attention_future: >
+    En mode BRVM reel, le comparatif reste tributaire du chargement effectif de la serie ticker. Ne pas inventer une alerte ou un backtest off-screen complet sans pipeline supplemental par ticker; si les fetchs reels abortent ou retournent vide, le modal doit degrader proprement au ticker courant.
+  scribe_delta: JOURNAL-TA-INDICATOR-BACKTEST-BATCH-CACHE-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicator-modal-backtest-batch-cache
+    coordination_claim: technical-analysis:indicator-backtest-batch-cache
+    agent: codex-20260611-indicator-backtest-batch-cache
+
+- id: JOURNAL-TA-OBJECT-TREE-SCROLLPANE-STYLE-PARITY-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-object-tree-data-window
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - JOURNAL-TA-OBJECT-TREE-DATA-WINDOW-GAP-AUDIT-20260611
+  - JOURNAL-TA-OBJECT-TREE-DARK-SCROLLBAR-20260610
+  l0_abstract: >
+    La passe pixel-perfect suivante rebranche la classe de scrollpane sombre deja canonisee sur le conteneur scrollable Object Tree/Data Window.
+  pourquoi: >
+    La correction precedente avait volontairement retire la classe car elle etait hors du scope strict approuve. Apres validation de continuer, le prochain ecart visuel utile etait de rebrancher le style scrollbar existant sans modifier la largeur, la structure ou la logique du panel.
+  decisions:
+  - "Reutiliser la classe SCSS existante au lieu d inventer un nouveau style inline."
+  - "Limiter la passe a la surface scrollable: aucune geometrie globale, aucune largeur, aucun changement Data Window."
+  validations:
+  - "npx eslint ObjectTreePanel.tsx: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "git diff --check ObjectTreePanel + SCSS: PASS"
+  - "node --test objectTreeActions + objectTreeDrawingActions: PASS 3/3"
+  - "CDP multi-onglets localhost: gp-object-tree-scrollpane present, overflowX hidden, scrollbarGutter stable, scrollbarWidth thin, overscrollBehavior contain, errorCount 0"
+  evidence:
+    screenshot: /tmp/object-tree-scrollpane-validation.png
+  completude:
+    local_functional_panel: 87
+    tradingview_pixel_parity: 70
+  attention_future: >
+    Les prochaines passes pixel-perfect doivent encore comparer largeur/placement et densite exacte TradingView. Ne pas refaire les corrections deja validees: Change %, Last day change, Hide data et disabled toolbar sont termines.
+  scribe_delta: JOURNAL-TA-OBJECT-TREE-SCROLLPANE-STYLE-PARITY-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-object-tree-data-window
+    coordination_claim: object-tree-scrollpane-style-parity
+    agent: codex-20260611-object-tree-scrollpane
+
+- id: JOURNAL-TA-CHATS-PORTRAIT-AVATARS-20260611
+  date: 2026-06-11
+  mode: QUICK
+  agent_type: codex
+  surface: technical-analysis:right-rail-chats
+  hot_entries_consulted:
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - JOURNAL-TA-CHATS-TALKS-HEADER-MENU-20260611
+  l0_abstract: >
+    Les avatars du feed Chats passent des initiales colorees a des portraits publics en ligne avec fallback initiales.
+  pourquoi: >
+    L utilisateur voulait un rendu plus professionnel dans la zone Chat. Le choix retenu ameliore la perception visuelle sans introduire de compte utilisateur reel: les portraits restent decoratifs, les noms affiches restent la source accessible, et les initiales restent disponibles si une image externe echoue.
+  decisions:
+  - "Utiliser des URLs Unsplash recadrees en 160px pour limiter le poids et eviter Next image domain config sur cette tranche."
+  - "Conserver un fallback initiales cache sous l image afin que le chat reste lisible si le reseau externe bloque."
+  validations:
+  - "npx eslint ChatsRailPanel.tsx: PASS"
+  - "tsc --noEmit --pretty false: PASS"
+  - "sass _technical-analysis-final.scss: PASS"
+  - "curl HEAD portraits Unsplash: HTTP 200 x3"
+  attention_future: >
+    Si ces profils deviennent des donnees utilisateur reelles, remplacer les URLs statiques par un modele avatar source-policy et documenter droits, consentement et fallback local.
+  scribe_delta: JOURNAL-TA-CHATS-PORTRAIT-AVATARS-20260611
+
+- id: JOURNAL-TA-INDICATOR-BACKTEST-SUPPLEMENTAL-REAL-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:indicator-modal-backtest-supplemental-real
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-ALERTS-MULTITICKER-STALE-CONTEXT-PRIORITY-001
+  - JOURNAL-TA-INDICATOR-BACKTEST-BATCH-CACHE-20260611
+  - PAT-TA-INDICATOR-ALERT-ROUTE-TAXONOMY-001
+  l0_abstract: >
+    Le modal Indicateurs sait maintenant completer un backtest comparatif avec des series daily supplemental reelles quand Redux expose un ticker compare sans historique charge.
+  pourquoi: >
+    Le batch/cache precedent prouvait le multi-ticker en simulation, mais le mode BRVM reel a revele deux fragilites de production: les CSV daily pouvaient depasser le timeout fixe de 18s, et un ticker compare visible pouvait arriver apres le dashboard primaire. Le correctif accepte ce chemin reel: fetch daily retryable, timeout worker proportionnel au volume de candles, puis enrichissement incremental BOAB/SNTS sans bloquer l UI.
+  decisions:
+  - "Le fetch daily passe a 45s avec une relance bornee et backoff pour absorber la latence proxy/GitHub observee sans boucle infinie."
+  - "Le timeout worker backtest devient proportionnel au nombre de candles, borne a 30s, afin de proteger les gros historiques sans retomber trop vite en fallback main-thread."
+  - "Le modal conserve les tickers de comparaison meme si leur serie Redux est vide, puis fetch supplemental uniquement les symboles manquants avec limite stricte."
+  - "Le smoke navigateur accepte le chemin cache + batch incremental: BOAB peut etre pret avant SNTS, mais la section Comparatif ne passe que lorsque SNTS a son dashboard worker."
+  validations:
+  - "./node_modules/.bin/tsc --noEmit: PASS"
+  - "npx eslint fetcher/backtest/modal/test: PASS"
+  - "npm run test:technical-analysis-config: PASS 41/41"
+  - "npm run test:alerts-rail: PASS 21/21 hors sandbox bwrap"
+  - "CDP smoke reel localhost: SNTS daily 200 en 8587ms, batch worker final BOAB+SNTS longueurs 5367/6439, response dashboardCount=2, section Comparatif SNTS visible"
+  evidence:
+    screenshot: /tmp/indicator-backtest-supplemental-real-modal.png
+    cdp_worker_probe: BOAB+SNTS worker response dashboardCount=2 comparisonPanelText=SNTS
+  attention_future: >
+    Le fetch fundamentals continue a avoir son propre abort autour de 12s et ne doit pas etre confondu avec les CSV daily. Si une prochaine phase exige fundamentals sous forte latence, traiter ce fetcher separement au lieu de reutiliser aveuglement le timeout daily.
+  scribe_delta: JOURNAL-TA-INDICATOR-BACKTEST-SUPPLEMENTAL-REAL-20260611
+  multi_agent_context:
+    surface: technical-analysis:indicator-modal-backtest-supplemental-real
+    coordination_claim: technical-analysis:indicator-backtest-supplemental-real
+    agent: codex-20260611-indicator-backtest-supplemental-real
+
+- id: JOURNAL-TA-PINE-RIGHT-RAIL-20260611
+  date: 2026-06-11
+  mode: STANDARD
+  agent_type: codex
+  surface: technical-analysis:right-rail-pine
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - JOURNAL-TA-CHATS-PORTRAIT-AVATARS-20260611
+  l0_abstract: >
+    Le bouton Pine du rail droit reproduit maintenant le contrat TradingView observe: icone Pine, tooltip Pine, aria Pine et panneau Pine Editor local.
+  pourquoi: >
+    La phase A a montre que TradingView expose un bouton data-name pine-dialog-button avec tooltip et aria Pine, mais le clic source ne donnait pas de panneau exploitable dans la session. La solution locale adapte donc l entree existante strategies au contrat Pine sans inventer une execution Pine reelle: le panneau affiche un apercu code et des templates BRVM, tandis que les actions restent desactivees pour ne pas promettre un runtime inexistant.
+  decisions:
+  - "Conserver l id interne strategies pour eviter une migration de state et limiter le blast radius."
+  - "Remplacer l icone generique Code par un SVG Pine local parce que lucide ne fournit pas le symbole TradingView observe."
+  - "Afficher un Pine Editor preview avec diagnostics honnetes, plutot qu un editeur actif sans language server local."
+  validations:
+  - "npx eslint SidebarRail.tsx TechnicalAnalysisSidebarContent.tsx: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "sass _technical-analysis-final.scss: PASS"
+  - "git diff --check cible: PASS"
+  - "CDP direct localhost: bouton Pine aria/title/data label Pine, rect 44x44, panel .gp-pine-panel visible, preview //@version=5 et actions disabled presentes"
+  attention_future: >
+    Si une vraie execution Pine est demandee, ne pas brancher les boutons sur une simulation silencieuse. Il faudra introduire un moteur explicite ou une integration externe documentee, avec etat de connexion et erreurs visibles.
+  scribe_delta: JOURNAL-TA-PINE-RIGHT-RAIL-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-pine
+    coordination_claim: technical-analysis:right-rail-pine-reproduction
+    agent: codex-20260611-pine-right-rail
+
+
+- id: JOURNAL-TA-PINE-EDITOR-IDB-RUNTIME-20260611
+  date: 2026-06-11
+  mode: CRITICAL
+  agent_type: codex
+  surface: technical-analysis:right-rail-pine
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  - VAC-TA-TBI-NO-LOCALSTORAGE-001
+  - JOURNAL-TA-PINE-RIGHT-RAIL-20260611
+  l0_abstract: >
+    Le panneau Pine passe de preview statique a editeur local robuste avec compilation defensive, sauvegarde IndexedDB et attachement overlay local.
+  pourquoi: >
+    L evaluation TORVALDS a montre que la premiere tranche etait visuellement correcte mais seulement 43% production. Le correctif monte la surface a une fonctionnalite locale honnete: aucune publication TradingView n est promise, mais l utilisateur peut editer, compiler, sauvegarder en IndexedDB, retrouver son draft, et attacher un overlay local sans executer de JavaScript non fiable.
+  decisions:
+  - "Respect strict de VAC-TA-TBI-NO-LOCALSTORAGE-001: aucune persistance Pine en localStorage, uniquement IndexedDB async avec snapshot sanitize."
+  - "Le compilateur Pine reste un validateur de sous-ensemble local borne, pas un faux moteur Pine proprietaire."
+  - "Publish script reste desactive tant qu aucune integration externe ou language server Pine reel n existe."
+  - "SidebarRail.tsx est marque en intent-to-add pour supprimer le risque de fichier non suivi sans commit automatique."
+  validations:
+  - "npx eslint surface Pine + TechnicalAnalysisSidebarContent: PASS"
+  - "./node_modules/.bin/tsc --noEmit --pretty false: PASS"
+  - "sass _technical-analysis-final.scss: PASS"
+  - "npm run test:pine-editor: PASS 6/6 hors sandbox bwrap"
+  - "npm test: PASS candlestick + alerts rail 21/21 + pine 6/6 hors sandbox bwrap"
+  - "CDP direct localhost: textarea Pine, Save script, Add to chart, Publish disabled, IndexedDB snapshot version=1 savedScripts=1 attachedTitle=BRVM RSI + SMA Guard"
+  attention_future: >
+    Ne jamais remplacer cette persistance par un fallback localStorage. Si la prochaine phase demande un rendu chart reel, brancher l overlay sur le moteur chart existant avec contrat de donnees explicite et tests navigateur, sans pretendre a une compatibilite Pine complete.
+  next_action: "Implémenter le rendu chart réel des plots/signaux Pine locaux"
+  scribe_delta: JOURNAL-TA-PINE-EDITOR-IDB-RUNTIME-20260611
+  multi_agent_context:
+    surface: technical-analysis:right-rail-pine
+    coordination_claim: technical-analysis:right-rail-pine-idb-editor-runtime
+    agent: codex-20260611-pine-idb-editor
+
+- id: JOURNAL-CALENDAR-MOCK-ENRICH-20260612
+  date: "2026-06-12"
+  titre: "SESSION ENRICHISSEMENT CALENDRIER MOCK"
+  llm: "cli-20260612-eafad1cd298f"
+  session_numero: 410
+  mode: STANDARD
+  agent_type: cli
+  surface: technical-analysis:right-rail-calendar
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - SCAR-TA-RIGHT-RAIL-TRADINGVIEW-STALK-FIRST-001
+  l0_abstract: >
+    Le panneau Calendars du rail droit est enrichi avec les donnees mockees CorporateEventsData (16 evenements corporate actions africains) et IPOData (5 IPO completes + 3 upcoming) sans backend externe.
+  pourquoi: >
+    TradingView Calendars affiche un calendrier economique mondial et des corporate actions, mais BRVM n'a pas d'API dediee. Les 16 CorporateEvent (splits, fusions, dividendes, IPO, radiations) et 8 IPO (5 completes + 3 upcoming) existaient deja dans le codebase sous forme de donnees mockees statiques, mais n'etaient pas connectees a l'UI Calendars. Cette session les integre.
+  decisions:
+  - "Ajout de CalendarEventKind = ipo | corporate-action pour distinguer les nouveaux types d'evenements."
+  - "buildCorporateActionEvents() mappe CorporateEvent[] vers CalendarEvent[] avec detail specifique (splitRatio, dealValue, dividendAmount)."
+  - "buildIPOEvents() mappe IPO[] + UpcomingIPO[] vers CalendarEvent[] avec return % pour les completes et subscriptionStatus pour les upcoming."
+  - "Filtres IPOs et Actions ajoutes aux 3 filtres existants (Sessions, Dividends, Bonds)."
+  - "EXCHANGE_LABELS map pour afficher les noms de bourses (JSE -> Johannesburg, NGX -> Nigeria, etc.)."
+  validations:
+  - "TypeScript: PASS (tsc --noEmit)"
+  - "ESLint: PASS (0 error)"
+  - "SCSS: PASS (sass compile) -- aucun changement SCSS necessaire"
+  attention_future: >
+    Les donnees restent mockees. Le vrai production necessite un backend calendrier economique BRVM/corporate-actions. Si un flux externe est connecte un jour, remplacer les imports statiques par un appel API dans sidebarFetchers.ts et passer le resultat en prop.
+  next_action: "Connecter un vrai flux calendrier economique BRVM si un backend emerge"
+  scribe_delta: JOURNAL-CALENDAR-MOCK-ENRICH-20260612
+
+- id: JOURNAL-PRODUCTS-MENU-POPOVER-20260612
+  date: "2026-06-12"
+  titre: "SESSION PRODUCTS MENU POPOVER"
+  llm: "cli-20260612-c1c8d67be684"
+  session_numero: 411
+  mode: QUICK
+  agent_type: cli
+  surface: technical-analysis:right-rail-products-menu
+  hot_entries_consulted:
+  - GRAPH_REPORT.md
+  - tradingview-reproduction.md
+  - SidebarRail.tsx
+  - TechnicalAnalysisSidebarContent.tsx
+  l0_abstract: >
+    Le panneau Produits de marche (BrvmRailPanel placeholder) a ete remplace par un popover menu TradingView-style avec icone bento grid 3x3. Le popover s ouvre a gauche du rail et contient deux sections: PRODUCTS (Screeners, Pine Editor, Calendars, News Flow, Fundamental Graphs, Yield Curves, Seasonality, Volatility, Income Statement, Model Heuristic, Performance) et SOCIAL (Community, Notifications). Chaque item a une etoile pin/unpin qui controle sa visibilite dans le rail. Cliquer sur un item ouvre le panneau correspondant et ferme le popover.
+  pourquoi: >
+    L ancien panneau Produits de marche affichait des donnees statiques (capitalisation, nombre d obligations) sans rapport avec le menu Products de TradingView. Le vrai comportement est un lanceur d applications avec pin/unpin. Le nouveau composant suit pixel-by-pixel la reproduction de TradingView: popover 230px, ombre portee, icone bento, etoiles pin, deux sections PRODUCTS/SOCIAL, footer avec compteur d items epingles.
+  decisions:
+  - "Creer ProductsMenuPopover.tsx: popover autonome avec useEffect pour click-outside et escape."
+  - "BentoGridIcon (3x3) remplace l icone Package pour le bouton Products."
+  - "SidebarRail filtre les entrees bottom par pinnedItems -- seuls les items epingles apparaissent dans le rail."
+  - "ProductsMenuEntryId reutilise SidebarRailEntryId moins products/help/object-tree, plus nouveaux ids (fundamentals, bonds, seasonality, volatility, income, model, performance)."
+  - "Les nouveaux ids sont ajoutes a SidebarRailEntryId et SIDEBAR_RAIL_ENTRIES pour etre pinables."
+  - "Les panels existants (fundamentalsPanel, bondsPanel, seasonalityPanel, ...) sont reutilises dans les conditions activeEntry."
+  - "DEFAULT_PINNED: screeners, strategies, calendar, ideas, notifications."
+  - "Le popover est positionne a droite du rail (right: toolbar-width + 4px) centre verticalement."
+  validations:
+  - "TypeScript: PASS (0 erreur dans les fichiers modifies)"
+  - "ESLint: PASS (0 error)"
+  - "SCSS: PASS (sass compile)"
+  - "Fichiers modifies: ProductsMenuPopover.tsx (cree), SidebarRail.tsx (edit), TechnicalAnalysisSidebarContent.tsx (edit), _technical-analysis-final.scss (edit)"
+  attention_future: >
+    Les nouveaux entry ids (fundamentals, bonds, seasonality, volatility, income, model, performance) sont ajoutes au type SidebarRailEntryId et aux entrees du rail. Ils ne sont PAS pin par defaut. Le prochain travail pourrait etendre le menu pour inclure plus d items ou connecter les etats pin a IndexedDB pour persistence.
+  next_action: "Valider le popover visuellement dans le navigateur via Chrome DevTools MCP -- verifier positionnement, hover states, pin/unpin toggles"
+  scribe_delta: JOURNAL-PRODUCTS-MENU-POPOVER-20260612
+
 metrics:
-  sessions_total: 370
-  scars_total: 35
-  vaccins_actifs: 18
+  sessions_total: 411
+  scars_total: 38
+  vaccins_actifs: 20
   taux_recidive: 0.0
   bugs_prevenus_par_vaccin: 0
   complexite_moyenne: 0.0
   mode_distribution:
-    CRITICAL: 51
-    STANDARD: 317
-    QUICK: 9
+    CRITICAL: 70
+    STANDARD: 335
+    QUICK: 12
   dette_p0_p1_courante: 0
   dezoom_total: 1
   taux_dezoom_par_session: 0.0027
-  torvalds_items_total: 4
+  torvalds_items_total: 9
   torvalds_items_traites: 0
   taux_completion_prod_moyenne: 42.0
   delta_feuille_vs_prod_moyen: 0.0
-  graphify_queries_total: 150
-  tokens_saved_via_graphify: 468200
+  graphify_queries_total: 191
+  tokens_saved_via_graphify: 528400
   legacy_sessions_imported: 142
   legacy_journal_entries_imported: 238
   legacy_causal_entities_imported: 142

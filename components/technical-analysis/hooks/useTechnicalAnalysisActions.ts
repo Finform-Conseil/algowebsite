@@ -24,7 +24,7 @@ import { idbGet, idbSet } from "./drawing/drawingPersistence";
 
 /**
  * [TENOR 2026 SRE] useTechnicalAnalysisActions
- * Refactored to use IndexedDB (Asynchronous) instead of localStorage (Synchronous).
+ * Refactored to use IndexedDB (Asynchronous) instead of Web Storage (Synchronous).
  * Eradicates the 5MB storage limit and prevents Main Thread blocking (UI Freezes)
  * when saving massive 10k+ candle analysis objects.
  */
@@ -56,34 +56,20 @@ export const useTechnicalAnalysisActions = (
         savedAt: new Date().toISOString(),
       };
 
-      // 1. Fetch existing analyses from IndexedDB
-      let savedAnalyses: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
+      const savedAnalyses: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
 
-      // 2. Silent Migration Fallback (localStorage -> IndexedDB)
-      if (savedAnalyses.length === 0) {
-        const legacy = localStorage.getItem("savedAnalyses");
-        if (legacy) {
-          try {
-            savedAnalyses = JSON.parse(legacy);
-            localStorage.removeItem("savedAnalyses"); // Cleanup legacy
-          } catch (e) {
-            console.warn("[SRE] Failed to parse legacy savedAnalyses", e);
-          }
-        }
-      }
-
-      // 3. XSS Shield: Sanitize the symbol before using it in the name
+      // XSS Shield: Sanitize the symbol before using it in the name
       const DOMPurify = (await import("dompurify")).default;
       const safeSymbol = DOMPurify.sanitize(chartConfig.symbol, { ALLOWED_TAGS: [] }).trim() || "UNKNOWN";
 
-      // 4. Append new analysis
+      // Append new analysis
       savedAnalyses.push({
         id: `analysis_${Date.now()}`,
         name: `${safeSymbol} - ${new Date().toLocaleDateString()}`,
         config: analysisConfig,
       });
 
-      // 5. Save back to IndexedDB (Off-Main-Thread)
+      // Save back to IndexedDB (Off-Main-Thread)
       await idbSet("savedAnalyses", savedAnalyses);
 
       addNotification({
@@ -106,24 +92,9 @@ export const useTechnicalAnalysisActions = (
 
   const handleOpenLoadModal = useCallback(async () => {
     try {
-      // 1. Fetch existing analyses from IndexedDB
-      let saved: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
+      const saved: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
 
-      // 2. Silent Migration Fallback (localStorage -> IndexedDB)
-      if (saved.length === 0) {
-        const legacy = localStorage.getItem("savedAnalyses");
-        if (legacy) {
-          try {
-            saved = JSON.parse(legacy);
-            await idbSet("savedAnalyses", saved); // Persist migrated data
-            localStorage.removeItem("savedAnalyses"); // Cleanup legacy
-          } catch (e) {
-            console.warn("[SRE] Failed to parse legacy savedAnalyses", e);
-          }
-        }
-      }
-
-      // 3. Sort by date descending
+      // Sort by date descending
       saved.sort(
         (a: SavedAnalysis, b: SavedAnalysis) =>
           new Date(b.config.savedAt).getTime() - new Date(a.config.savedAt).getTime(),
@@ -256,6 +227,42 @@ export const useTechnicalAnalysisActions = (
       takuri: savedAdvancedIndicators.takuri ?? false,
       invertedHammer: savedAdvancedIndicators.invertedHammer ?? false,
       shootingStar: savedAdvancedIndicators.shootingStar ?? false,
+      engulfingBullish: savedAdvancedIndicators.engulfingBullish ?? false,
+      engulfingBearish: savedAdvancedIndicators.engulfingBearish ?? false,
+      haramiBullish: savedAdvancedIndicators.haramiBullish ?? false,
+      haramiBearish: savedAdvancedIndicators.haramiBearish ?? false,
+      tweezerTop: savedAdvancedIndicators.tweezerTop ?? false,
+      tweezerBottom: savedAdvancedIndicators.tweezerBottom ?? false,
+      piercingLine: savedAdvancedIndicators.piercingLine ?? false,
+      darkCloudCover: savedAdvancedIndicators.darkCloudCover ?? false,
+      tasukiGap: savedAdvancedIndicators.tasukiGap ?? false,
+      separatingLines: savedAdvancedIndicators.separatingLines ?? false,
+      thrusting: savedAdvancedIndicators.thrusting ?? false,
+      counterattack: savedAdvancedIndicators.counterattack ?? false,
+      morningStar: savedAdvancedIndicators.morningStar ?? false,
+      eveningStar: savedAdvancedIndicators.eveningStar ?? false,
+      threeWhiteSoldiers: savedAdvancedIndicators.threeWhiteSoldiers ?? false,
+      threeBlackCrows: savedAdvancedIndicators.threeBlackCrows ?? false,
+      threeInsideUp: savedAdvancedIndicators.threeInsideUp ?? false,
+      threeInsideDown: savedAdvancedIndicators.threeInsideDown ?? false,
+      uniqueThreeRiver: savedAdvancedIndicators.uniqueThreeRiver ?? false,
+      upsideGapTwoCrows: savedAdvancedIndicators.upsideGapTwoCrows ?? false,
+      kickerBull: savedAdvancedIndicators.kickerBull ?? false,
+      kickerBear: savedAdvancedIndicators.kickerBear ?? false,
+      abandonedBabyBull: savedAdvancedIndicators.abandonedBabyBull ?? false,
+      abandonedBabyBear: savedAdvancedIndicators.abandonedBabyBear ?? false,
+      beltHoldBull: savedAdvancedIndicators.beltHoldBull ?? false,
+      beltHoldBear: savedAdvancedIndicators.beltHoldBear ?? false,
+      breakawayBull: savedAdvancedIndicators.breakawayBull ?? false,
+      breakawayBear: savedAdvancedIndicators.breakawayBear ?? false,
+      risingThreeMethods: savedAdvancedIndicators.risingThreeMethods ?? false,
+      fallingThreeMethods: savedAdvancedIndicators.fallingThreeMethods ?? false,
+      matHold: savedAdvancedIndicators.matHold ?? false,
+      gapSideBySideWhite: savedAdvancedIndicators.gapSideBySideWhite ?? false,
+      hikkake: savedAdvancedIndicators.hikkake ?? false,
+      concealingBabySwallow: savedAdvancedIndicators.concealingBabySwallow ?? false,
+      ladderBottom: savedAdvancedIndicators.ladderBottom ?? false,
+      stickSandwich: savedAdvancedIndicators.stickSandwich ?? false,
       marubozuBull: savedAdvancedIndicators.marubozuBull ?? false,
       marubozuBear: savedAdvancedIndicators.marubozuBear ?? false,
       spinningTop: savedAdvancedIndicators.spinningTop ?? false,

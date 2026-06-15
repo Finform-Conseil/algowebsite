@@ -12,6 +12,7 @@ export type ObjectItemVisibilityAction =
 export type ObjectItemRemoveAction =
   | { type: "blocked"; message: string }
   | { type: "remove-comparison"; symbol: string }
+  | { type: "remove-pine-overlay" }
   | { type: "patch-indicators"; patch: Partial<ChartIndicators> }
   | { type: "set-advanced-indicator"; patch: Partial<AdvancedIndicatorsState> }
   | { type: "unsupported"; message: string };
@@ -61,6 +62,10 @@ export const resolveObjectItemRemoveAction = ({
 
   if (item.id.startsWith("compare-")) {
     return { type: "remove-comparison", symbol: item.id.replace("compare-", "") };
+  }
+
+  if (item.id === "pine-overlay") {
+    return { type: "remove-pine-overlay" };
   }
 
   if (item.id.startsWith("sma-")) {

@@ -7,23 +7,35 @@
 
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import { fetchWithResilience, fetchBrvmPage } from '@/shared/utils/resilient-scraper';
+import {
+  BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+  BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+  fetchBrvmPage,
+  fetchWithResilience,
+} from '@/shared/utils/resilient-scraper';
+
+const FALLBACK_CACHE_SECONDS = 60;
 
 /**
  * [TENOR 2026] SCRAPER INDICES LIVE BRVM
  * Rôle : Récupérer les performances réelles des indices (BRVMC, BRVM30, BRVMPR).
  */
-async function getBrvmIndicesHTML() {
+async function getBrvmIndicesHTML(signal?: AbortSignal) {
   return fetchWithResilience(
     'live_indices',
-    () => fetchBrvmPage('https://www.brvm.org/fr/indices', 38000),
+    () => fetchBrvmPage(
+      'https://www.brvm.org/fr/indices',
+      BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+      BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+      signal,
+    ),
     { cacheTtl: 900, staleTtl: 86400 } // 15 minutes / 24 heures
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data: html, status } = await getBrvmIndicesHTML();
+    const { data: html, status } = await getBrvmIndicesHTML(request.signal);
     const $ = cheerio.load(html);
     
     // [TENOR 2026 FIX] Explicit cast to any[] to satisfy TS strict mode
@@ -69,7 +81,17 @@ export async function GET() {
     return resp;
 
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: 'Failed to scrape BRVM Indices', details: message }, { status: 503 });
+    return buildUnavailableIndicesResponse(error);
   }
+}
+
+function buildUnavailableIndicesResponse(error: unknown) {
+  console.warn('[brvm-indices] Source unavailable, returning empty indices payload:', error);
+  const response = NextResponse.json({
+    error: 'BRVM indices source temporarily unavailable',
+    sourceStatus: 'unavailable',
+  });
+  response.headers.set('Cache-Control', `public, s-maxage=${FALLBACK_CACHE_SECONDS}, stale-while-revalidate=300`);
+  response.headers.set('X-Cache-Status', 'UNAVAILABLE');
+  return response;
 }

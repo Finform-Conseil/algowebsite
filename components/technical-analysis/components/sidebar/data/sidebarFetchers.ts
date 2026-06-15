@@ -24,6 +24,17 @@ export interface BRVMIndexData {
   timestamp: string;
 }
 
+const SIDEBAR_FETCH_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const SIDEBAR_FETCH_RETRY_BASE_DELAY_MS = 750;
+const SIDEBAR_DEFAULT_FETCH_TIMEOUT_MS = 24_000;
+const SIDEBAR_FUNDAMENTALS_FETCH_TIMEOUT_MS = 45_000;
+
+interface SidebarFetchJsonOptions extends RequestInit {
+  retryCount?: number;
+  retryBaseDelayMs?: number;
+  timeoutMs?: number;
+}
+
 export async function fetchSidebarFundamentals(
   ticker: string,
   signal: AbortSignal,
@@ -33,7 +44,11 @@ export async function fetchSidebarFundamentals(
   const data = await fetchJson(
     `/api/market-data/brvm-fundamentals?ticker=${encodeURIComponent(normalizedTicker)}${cacheBuster}`,
     signal,
-    { cache: "no-store" },
+    {
+      cache: "no-store",
+      retryCount: 0,
+      timeoutMs: SIDEBAR_FUNDAMENTALS_FETCH_TIMEOUT_MS,
+    },
   );
   const normalized = normalizeFundamentalsResponse(data, normalizedTicker);
 
@@ -45,7 +60,7 @@ export async function fetchSidebarFundamentals(
 }
 
 export async function fetchSidebarIndices(signal: AbortSignal): Promise<Record<string, BRVMIndexData>> {
-  const data = await fetchJson("/api/market-data/indices", signal);
+  const data = await fetchJson("/api/market-data/indices", signal, { retryCount: 1 });
   if (!isRecord(data)) return {};
 
   const indices: Record<string, BRVMIndexData> = {};
@@ -59,7 +74,7 @@ export async function fetchSidebarIndices(signal: AbortSignal): Promise<Record<s
 }
 
 export async function fetchSidebarNews(signal: AbortSignal): Promise<BRVMNewsItem[]> {
-  const data = await fetchJson("/api/market-data/brvm-news", signal);
+  const data = await fetchJson("/api/market-data/brvm-news", signal, { retryCount: 1 });
   if (!Array.isArray(data)) return [];
   return data.flatMap((item) => {
     const newsItem = normalizeNewsItem(item);
@@ -68,7 +83,7 @@ export async function fetchSidebarNews(signal: AbortSignal): Promise<BRVMNewsIte
 }
 
 export async function fetchSidebarBonds(signal: AbortSignal): Promise<BRVMBond[]> {
-  const data = await fetchJson("/api/market-data/brvm-bonds", signal);
+  const data = await fetchJson("/api/market-data/brvm-bonds", signal, { retryCount: 1 });
   if (!isRecord(data) || !Array.isArray(data.bonds)) return [];
   return data.bonds.flatMap((item) => {
     const bond = normalizeBond(item);
@@ -76,11 +91,95 @@ export async function fetchSidebarBonds(signal: AbortSignal): Promise<BRVMBond[]
   });
 }
 
-async function fetchJson(path: string, signal: AbortSignal, init?: RequestInit): Promise<unknown> {
-  const requestInit: RequestInit = init ? { ...init, signal } : { signal };
-  const response = await fetch(path, requestInit);
-  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-  return response.json() as Promise<unknown>;
+async function fetchJson(
+  path: string,
+  signal: AbortSignal,
+  options: SidebarFetchJsonOptions = {},
+): Promise<unknown> {
+  const {
+    retryBaseDelayMs = SIDEBAR_FETCH_RETRY_BASE_DELAY_MS,
+    retryCount = 0,
+    timeoutMs = SIDEBAR_DEFAULT_FETCH_TIMEOUT_MS,
+    ...init
+  } = options;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+    const controller = new AbortController();
+    const releaseParentAbort = linkAbortSignal(signal, controller);
+    const timeoutId = window.setTimeout(() => {
+      abortOnce(controller, new Error(`Sidebar fetch timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    try {
+      const response = await fetch(path, { ...init, signal: controller.signal });
+      if (!response.ok) {
+        const error = new Error(`HTTP error ${response.status}`);
+        if (attempt < retryCount && SIDEBAR_FETCH_RETRY_STATUSES.has(response.status)) {
+          lastError = error;
+          await waitForRetry(retryBaseDelayMs * (attempt + 1), signal);
+          continue;
+        }
+        throw error;
+      }
+
+      return response.json() as Promise<unknown>;
+    } catch (error) {
+      lastError = error;
+      if (signal.aborted || attempt >= retryCount || !isRetryableFetchError(error)) {
+        throw error;
+      }
+      await waitForRetry(retryBaseDelayMs * (attempt + 1), signal);
+    } finally {
+      window.clearTimeout(timeoutId);
+      releaseParentAbort();
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Sidebar fetch failed");
+}
+
+function linkAbortSignal(source: AbortSignal, target: AbortController): () => void {
+  if (source.aborted) {
+    abortOnce(target, source.reason);
+    return () => undefined;
+  }
+
+  const abortTarget = () => abortOnce(target, source.reason);
+  source.addEventListener("abort", abortTarget, { once: true });
+  return () => source.removeEventListener("abort", abortTarget);
+}
+
+function abortOnce(controller: AbortController, reason?: unknown) {
+  if (!controller.signal.aborted) controller.abort(reason);
+}
+
+function waitForRetry(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+
+  return new Promise((resolve, reject) => {
+    let timeoutId = 0;
+    const abortRetry = () => {
+      cleanup();
+      reject(signal.reason);
+    };
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      signal.removeEventListener("abort", abortRetry);
+    };
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", abortRetry, { once: true });
+  });
+}
+
+function isRetryableFetchError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  if (!(error instanceof Error)) return false;
+  return /network|fetch|timeout|aborted|failed/i.test(error.message);
 }
 
 function normalizeNewsItem(value: unknown): BRVMNewsItem | null {

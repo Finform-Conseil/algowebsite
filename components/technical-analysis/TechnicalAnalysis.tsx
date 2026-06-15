@@ -31,6 +31,8 @@ import {
   setPrefilledAlert,
   setSymbol,
   updateLayoutChart,
+  setPineChartOverlay,
+  clearPineChartOverlay,
 } from "@/components/technical-analysis/store/technicalAnalysisSlice";
 import {
   selectChartConfig,
@@ -42,6 +44,7 @@ import {
   selectMarketData,
   selectMarketSnapshots,
   selectBollingerSettings,
+  selectPineChartOverlay,
 } from "@/components/technical-analysis/store/selectors";
 import type { RootState } from "@/core/infrastructure/store";
 import type { EChartsInstance } from "@/components/technical-analysis/lib/types/echarts";
@@ -59,6 +62,7 @@ import { revealHiddenObjectIds, type IndicatorObjectId } from "@/components/tech
 import type { Drawing } from "./config/drawing/drawingModelTypes";
 import type { ToolbarConfig } from "./config/drawing/drawingToolbarTypes";
 import type { DisplaySecurity } from "./config/market/marketSnapshotTypes";
+import type { PineChartOverlayPayload } from "./components/sidebar/panels/pineEditor/pineTypes";
 
 // Extracted Components
 import { ChartToolbar } from "@/components/technical-analysis/components/toolbar/ChartToolbar";
@@ -79,7 +83,6 @@ import { useDrawingManager } from "@/components/technical-analysis/hooks/useDraw
 import { useLiveMetrics, useComparisonManager } from "@/components/technical-analysis/hooks/MarketData/useMarketData";
 import { useTechnicalAnalysisActions } from "@/components/technical-analysis/hooks/useTechnicalAnalysisActions";
 import { useToolbarHandlers } from "@/components/technical-analysis/hooks/useToolbarHandlers";
-import { useAlertMonitor } from "@/components/technical-analysis/hooks/useAlertMonitor";
 import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFloatingToolbar";
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
@@ -266,10 +269,10 @@ const ConnectedTradeHUD = React.memo(() => {
   const isPrimaryActive = !activeSymbol || activeSymbol === selectedTicker?.ticker;
 
   const activeChartData = useMemo(() => {
-    if (isPrimaryActive) return marketData.chartData;
+    if (isPrimaryActive) return chartState.displayChartData;
     const cached = allMarketData[activeSymbol];
     return (cached && cached.length > 0) ? cached : marketData.chartData;
-  }, [isPrimaryActive, allMarketData, activeSymbol, marketData.chartData]);
+  }, [isPrimaryActive, allMarketData, activeSymbol, chartState.displayChartData, marketData.chartData]);
 
   const activeLiveSnapshot = useSelector(
     (state: RootState) => selectMarketSnapshots(state)[activeSymbol] ?? null
@@ -292,7 +295,7 @@ const ConnectedTradeHUD = React.memo(() => {
 });
 ConnectedTradeHUD.displayName = "ConnectedTradeHUD";
 
-const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, overlayContent, openTickerSelector }: any) => {
+const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, onPineOverlayClear, onToggleObjectTree, overlayContent, openTickerSelector }: { isObjectTreeOpen: boolean; onPineOverlayAttach?: (overlay: PineChartOverlayPayload | null) => void; onPineOverlayClear?: () => void; onToggleObjectTree?: () => void; overlayContent?: React.ReactNode; openTickerSelector?: () => void }) => {
   const marketData = useMarketDataContext();
   const chartState = useChartStateContext();
   const refs = useChartRefsContext();
@@ -300,7 +303,7 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, ove
 
   const liveSnapshot = useSelector((state: RootState) => selectMarketSnapshots(state)[chartState.security.ticker]);
   const { convertedLivePrice, convertedLiveChange, liveChangePercent, isMarketPositive } = useLiveMetrics(
-    marketData.chartData,
+    chartState.displayChartData,
     liveSnapshot,
     chartState.security,
     chartState.effectiveRate
@@ -314,7 +317,7 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, ove
     [chartState.security, chartState.currencyDisplayLabel]
   );
 
-  const deferredChartData = useDeferredValue(marketData.chartData);
+  const deferredChartData = useDeferredValue(chartState.displayChartData);
 
   return (
     <MemoizedSidebar
@@ -342,6 +345,8 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onToggleObjectTree, ove
       isObjectTreeOpen={isObjectTreeOpen}
       onToggleObjectTree={onToggleObjectTree}
       openTickerSelector={openTickerSelector}
+      onPineOverlayAttach={onPineOverlayAttach}
+      onPineOverlayClear={onPineOverlayClear}
     />
   );
 });
@@ -373,10 +378,10 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
   // - Primary chart: use chartState.displayChartData (freshest, includes live ticks from polling)
   // - Secondary chart: use allMarketData[activeSymbol] (loaded by useComparisonManager when secondary)
   const activeChartData = useMemo(() => {
-    if (isPrimaryActive) return marketData.chartData;
+    if (isPrimaryActive) return chartState.displayChartData;
     const cached = allMarketData[activeSymbol];
     return (cached && cached.length > 0) ? cached : marketData.chartData;
-  }, [isPrimaryActive, allMarketData, activeSymbol, marketData.chartData]);
+  }, [isPrimaryActive, allMarketData, activeSymbol, chartState.displayChartData, marketData.chartData]);
 
   // Active chart's live snapshot from the Redux market-snapshot cache.
   const activeLiveSnapshot = useSelector(
@@ -572,6 +577,13 @@ const ChartUI: React.FC = () => {
 
   const { openModal: openTickerSelector, selectedTicker: primaryTicker, setSelectedTicker } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
+  const pineChartOverlay = useSelector(selectPineChartOverlay);
+  const dispatchPineOverlay = useCallback((overlay: PineChartOverlayPayload | null) => {
+    dispatch(setPineChartOverlay(overlay));
+  }, [dispatch]);
+  const clearPineOverlay = useCallback(() => {
+    dispatch(clearPineChartOverlay());
+  }, [dispatch]);
 
   // ============================================================================
   // [TENOR 2026] BIDIRECTIONAL TICKER & REDUX SYNC ENGINE (LOOP-FREE SHIELD)
@@ -861,7 +873,6 @@ const ChartUI: React.FC = () => {
 
   const selectedDrawing = drawings.find((d: Drawing) => d.id === selectedDrawingId);
 
-  useAlertMonitor({ chartData: chartState.displayChartData, addNotification });
   const layoutSymbols = useMemo(
     () =>
       multiChartLayout.charts
@@ -1032,11 +1043,63 @@ const ChartUI: React.FC = () => {
   const activeSymbol = chartConfig.symbol;
   const isPrimaryActive = !activeSymbol || activeSymbol === primaryTicker?.ticker;
 
+  const handleShootingStarAlertRequest = useCallback(
+    ({ price, condition, label }: { price: number; condition: "GREATER_THAN" | "LESS_THAN"; label: string }) => {
+      if (!Number.isFinite(price) || price <= 0) return;
+      const priceLabel = price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const symbolLabel = activeSymbol || chartState.displaySymbolName;
+      dispatch(setPrefilledAlert({ price, condition }));
+      dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
+      addNotification({
+        title: "Alerte Shooting Star préparée",
+        message: `${label} · cassure ${symbolLabel} sous ${priceLabel}`,
+        type: "info",
+        iconType: "faBell",
+      });
+    },
+    [activeSymbol, addNotification, chartState.displaySymbolName, dispatch],
+  );
+
+  const handleMarubozuAlertRequest = useCallback(
+    ({ price, condition, label }: { price: number; condition: "GREATER_THAN" | "LESS_THAN"; label: string }) => {
+      if (!Number.isFinite(price) || price <= 0) return;
+      const priceLabel = price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const symbolLabel = activeSymbol || chartState.displaySymbolName;
+      dispatch(setPrefilledAlert({ price, condition }));
+      dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
+      addNotification({
+        title: "Alerte Marubozu préparée",
+        message: `${label} · ${symbolLabel} au niveau ${priceLabel}`,
+        type: "info",
+        iconType: "faBell",
+      });
+    },
+    [activeSymbol, addNotification, chartState.displaySymbolName, dispatch],
+  );
+
+  const handleCandlestickPatternAlertRequest = useCallback(
+    ({ price, condition, label }: { price: number; condition: "GREATER_THAN" | "LESS_THAN"; label: string }) => {
+      if (!Number.isFinite(price) || price <= 0) return;
+      const priceLabel = price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const symbolLabel = activeSymbol || chartState.displaySymbolName;
+      const conditionLabel = condition === "GREATER_THAN" ? "au-dessus" : "sous";
+      dispatch(setPrefilledAlert({ price, condition }));
+      dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
+      addNotification({
+        title: "Alerte pattern chandelier préparée",
+        message: `${label} · ${symbolLabel} ${conditionLabel} ${priceLabel}`,
+        type: "info",
+        iconType: "faBell",
+      });
+    },
+    [activeSymbol, addNotification, chartState.displaySymbolName, dispatch],
+  );
+
   const activeRawChartData = useMemo(() => {
-    if (isPrimaryActive) return marketData.chartData;
+    if (isPrimaryActive) return chartState.displayChartData;
     const cached = comparisonMarketData[activeSymbol];
     return (cached && cached.length > 0) ? cached : marketData.chartData;
-  }, [isPrimaryActive, comparisonMarketData, activeSymbol, marketData.chartData]);
+  }, [isPrimaryActive, comparisonMarketData, activeSymbol, chartState.displayChartData, marketData.chartData]);
 
   const activeFilteredChartData = useMemo(() => {
     const rawData = activeRawChartData;
@@ -1082,7 +1145,7 @@ const ChartUI: React.FC = () => {
   const activeDisplayChartData = useMemo(() => {
     const sourceData = activeFilteredChartData;
     const rate = chartState.effectiveRate;
-    if (rate === 1) return sourceData;
+    if (isPrimaryActive || rate === 1) return sourceData;
 
     return sourceData.map((p) => ({
       ...p,
@@ -1091,7 +1154,7 @@ const ChartUI: React.FC = () => {
       low: p.low * rate,
       close: p.close * rate,
     }));
-  }, [activeFilteredChartData, chartState.effectiveRate]);
+  }, [activeFilteredChartData, chartState.effectiveRate, isPrimaryActive]);
 
   const shouldShowPrimaryChartLoader = chartState.globalIsLoading || activeDisplayChartData.length === 0;
 
@@ -1423,9 +1486,14 @@ const ChartUI: React.FC = () => {
                           lastPriceLineRef: refs.lastPriceLineRef,
                           lastPriceAxisValue: lightweightLastPrice,
                           isMainChartVisible: chartState.isMainChartVisible,
+                          hasLiveStitchedCandle: isPrimaryActive && chartState.hasLiveStitchedCandle,
                           comparisonSeries,
                           onCompareSeriesSettingsRequest: openCompareSettings,
+                          onMarubozuAlertRequest: handleMarubozuAlertRequest,
+                          onShootingStarAlertRequest: handleShootingStarAlertRequest,
+                          onCandlestickPatternAlertRequest: handleCandlestickPatternAlertRequest,
                           hiddenObjectIds,
+                          pineOverlay: pineChartOverlay,
                         }}
                         overlay={{
                           selectedDrawingId,
@@ -1631,6 +1699,8 @@ const ChartUI: React.FC = () => {
             <div className="gp-sidebar-shell">
               <ConnectedSidebar
                   isObjectTreeOpen={isObjectTreeOpen}
+                  onPineOverlayAttach={dispatchPineOverlay}
+                  onPineOverlayClear={clearPineOverlay}
                   onToggleObjectTree={toggleObjectTree}
                   openTickerSelector={openTickerSelector}
                   overlayContent={

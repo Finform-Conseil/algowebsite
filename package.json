@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "test": "npm run test:candlestick-patterns",
+    "test": "npm run test:candlestick-patterns && npm run test:alerts-rail && npm run test:pine-editor",
     "test:candlestick-patterns": "node scripts/test-candlestick-patterns.cjs",
-    "test:technical-analysis-config": "node --test components/technical-analysis/config/__tests__/config-baseline.test.cjs",
-    "test:brvm-logos": "node --test core/data/__tests__/brvm-logo-registry.test.cjs"
+    "test:technical-analysis-config": "node --test components/technical-analysis/config/__tests__/config-baseline.test.cjs components/technical-analysis/config/__tests__/indicator-activation-contract.test.cjs components/technical-analysis/config/__tests__/candlestick-presentation-contract.test.cjs components/technical-analysis/config/__tests__/indicator-backtest-alert-policy.test.cjs",
+    "test:technical-analysis-browser:mcp": "node scripts/smoke-technical-analysis-indicators-mcp.cjs",
+    "test:brvm-logos": "node --test core/data/__tests__/brvm-logo-registry.test.cjs",
+    "test:alerts-rail": "node --test components/technical-analysis/components/sidebar/panels/alertsRail/__tests__/alertsRailRuntime.test.cjs",
+    "test:pine-editor": "node --test components/technical-analysis/components/sidebar/panels/pineEditor/__tests__/pineEditor.test.cjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

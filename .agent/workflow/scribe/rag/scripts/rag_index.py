@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -184,6 +185,10 @@ def is_fresh(index: dict[str, Any] | None, snapshot: dict[str, Any], requested_m
 
 def write_index(index_path: Path, payload: dict[str, Any]) -> None:
     index_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = index_path.with_suffix(index_path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(index_path)
+    tmp = index_path.with_name(f"{index_path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.replace(index_path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()

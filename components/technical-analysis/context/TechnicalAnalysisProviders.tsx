@@ -79,6 +79,7 @@ export type ChartStateData = {
   userInitials: string;
   globalIsLoading: boolean;
   displayChartData: ChartDataPoint[];
+  hasLiveStitchedCandle: boolean;
   isMainChartVisible: boolean;
   setIsMainChartVisible: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -263,6 +264,8 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // [TENOR 2026 FIX] SCAR-UX-LOADER: Restored marketIsLoading dependency to prevent 2-minute blank chart
   const globalIsLoading = isTickerLoading || isConverting || (marketIsLoading && chartData.length === 0);
 
+  const hasLiveStitchedCandle = false;
+
   const filteredChartData = useMemo(() => {
     if (chartData.length === 0) return chartData;
     const range = selectedTimeRange;
@@ -375,6 +378,7 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isCurrencyRateUnavailable,
       globalIsLoading,
       displayChartData,
+      hasLiveStitchedCandle,
       userInitials,
       displaySymbolName,
       isMainChartVisible,
@@ -390,6 +394,7 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isCurrencyRateUnavailable,
       globalIsLoading,
       displayChartData,
+      hasLiveStitchedCandle,
       userInitials,
       displaySymbolName,
       isMainChartVisible,

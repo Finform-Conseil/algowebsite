@@ -3,6 +3,7 @@ import type { AdvancedIndicatorsState, BollingerSettings, IndicatorPeriods } fro
 import type { LiveSnapshot } from "../market/marketSnapshotTypes";
 import type { ChartAppearance, ChartState } from "./chartStateTypes";
 import type { UiState } from "./uiStateTypes";
+import type { PineChartOverlayPayload } from "../../components/sidebar/panels/pineEditor/pineTypes";
 
 export interface Alert {
   id: string;
@@ -47,6 +48,7 @@ export interface TechnicalAnalysisState {
   orders: Order[];
   marketData: Record<string, ChartDataPoint[]>;
   marketSnapshots: Record<string, LiveSnapshot>;
+  pineChartOverlay: PineChartOverlayPayload | null;
 }
 
 // ============================================================================

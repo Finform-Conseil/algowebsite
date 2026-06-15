@@ -21,7 +21,7 @@ def build_recommendations(payload: dict[str, Any]) -> list[dict[str, str]]:
                 "P1",
                 "Auditer les PAT warm sans source causale",
                 f"{stale_warm} PAT warm ont dépassé 20 sessions sans SCAR/GHOST source.",
-                'scribe query "PAT warm sans SCAR GHOST"',
+                'scribe-rag query "PAT warm sans SCAR GHOST"',
             )
         )
 
@@ -32,7 +32,7 @@ def build_recommendations(payload: dict[str, Any]) -> list[dict[str, str]]:
                 "P1",
                 "Rembourser les dettes actives",
                 f"{active_debts} dette(s) active(s) restent visibles avant montée en charge.",
-                'scribe query "dette active remboursement"',
+                'scribe-rag query "dette active remboursement"',
             )
         )
 
@@ -43,7 +43,7 @@ def build_recommendations(payload: dict[str, Any]) -> list[dict[str, str]]:
                 "P1",
                 "Corriger la qualité retrieval",
                 f"{failed_cases} cas eval échoue(nt); ne pas flatter le score, documenter la limite.",
-                "scribe eval --smoke",
+                "scribe-rag eval --force",
             )
         )
 
@@ -53,9 +53,9 @@ def build_recommendations(payload: dict[str, Any]) -> list[dict[str, str]]:
         recommendations.append(
             action(
                 "P2",
-                "Augmenter la densité causale réelle",
-                "Le graphe reste dominé par consultation/journal; créer de vrais SCAR/GHOST applicatifs.",
-                'scribe challenge "nouvelle décision applicative"',
+                "Surveiller la densité causale stricte",
+                "Signal informatif: ne jamais créer SCAR/GHOST/PAT pour nettoyer le score; attendre vraie douleur, bug, décision ou alternative rejetée.",
+                'scribe-rag challenge "vraie douleur applicative à documenter"',
             )
         )
 
@@ -65,7 +65,7 @@ def build_recommendations(payload: dict[str, Any]) -> list[dict[str, str]]:
                 "P2",
                 "Reconstruire l’index complet",
                 "Le cache doit contenir toutes les entités pour query/stats/dashboard sous charge.",
-                "scribe context --mode quick",
+                "scribe-rag build",
             )
         )
 
@@ -83,7 +83,14 @@ def build_recommendations(payload: dict[str, Any]) -> list[dict[str, str]]:
         break
 
     if not recommendations:
-        recommendations.append(action("OK", "Aucune action bloquante", "Continuer sur le projet réel et capturer la prochaine douleur en SCAR/GHOST.", "scribe context --mode quick"))
+        recommendations.append(
+            action(
+                "OK",
+                "Aucune action bloquante",
+                "Continuer sur le projet réel; capturer SCAR/GHOST seulement après douleur causale concrète.",
+                'scribe-rag preflight --tier READ_ONLY "prochaine douleur causale"',
+            )
+        )
     return recommendations[:6]
 
 

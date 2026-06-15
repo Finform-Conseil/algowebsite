@@ -10,6 +10,7 @@
 // ================================================================================
 
 import React, { useCallback, useMemo, useState, useDeferredValue, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   shallowEqual,
   useDispatch,
@@ -18,6 +19,8 @@ import { Check,
   Eye,
   EyeOff } from "lucide-react";
 import { BaseModal } from "../../common/primitives/BaseModal";
+import { IndicatorBacktestPanel } from "./IndicatorBacktestPanel";
+import { useIndicatorBacktestDashboard } from "./useIndicatorBacktestDashboard";
 import type { AdvancedIndicatorsState,
   BollingerSettings,
   MovingAverageTrendSignalId,
@@ -83,6 +86,18 @@ import {
   type AdvancedMovingAverageSpec,
 } from "../../../config/indicators/advancedMovingAverageSeries";
 import {
+  BOTTOM_PANEL_INDICATOR_IDS,
+  getAdvancedIndicatorRegistryEntry,
+  isAdvancedIndicatorRegistryId,
+} from "../../../config/indicators/indicatorRegistry";
+import {
+  COMPOSITE_INDICATOR_SPECS,
+  INDICATOR_MODAL_GROUPS,
+  type BackendIndicatorItem,
+  type BackendIndicatorSection,
+  type CompositeIndicatorSpec,
+} from "../../../config/indicators/indicatorModalRegistry";
+import {
   calculateMovingAverageTrendSignals,
   type MovingAverageTrendSignalResult,
   type MovingAverageTrendState
@@ -97,6 +112,7 @@ import {
 } from "../../../lib/Indicators/priceVsEmaMetrics";
 
 const INDICATOR_SEARCH_INPUT_ID = "technical-analysis-indicator-search";
+const EMPTY_CHART_DATA: ReturnType<typeof selectMarketData>[string] = [];
 
 interface IndicatorsModalProps {
   isOpen: boolean;
@@ -108,103 +124,8 @@ interface IndicatorsModalProps {
   onScrollPositionChange?: (scrollTop: number) => void;
 }
 
-type BackendIndicatorItem = {
-  key: string;
-  name: string;
-  desc: string;
-  wiredId?: keyof AdvancedIndicatorsState | string; // Allowed string for custom routing (RSI)
-};
-
-type BackendIndicatorSection = {
-  title: string;
-  items: BackendIndicatorItem[];
-  rowGrouping?: "name-prefix";
-  groupSwitch?: boolean;
-};
-
-type BackendIndicatorGroup = {
-  title: string;
-  subtitle: string;
-  sections: BackendIndicatorSection[];
-};
-
-type CompositeIndicatorSpec = {
-  id: string;
-  title: string;
-  desc: string;
-  outputKeys: string[];
-  missingOutputs?: BackendIndicatorItem[];
-  wiredId?: keyof AdvancedIndicatorsState | string;
-  sectionTitle?: string;
-  requireCompleteOutputs?: boolean;
-  hasSettings?: boolean; // [TENOR 2026 HDR] Enables the settings gear icon
-};
-
 const MAX_BOTTOM_INDICATORS = 5;
-const BOTTOM_PANEL_INDICATORS = [
-  "rsi",
-  "macd",
-  "stochastic",
-  "stochRsi",
-  "atr",
-  "atr20",
-  "natr14",
-  "hv10",
-  "hv20",
-  "hv30",
-  "hv60",
-  "hv90",
-  "hv252",
-  "stdDev20",
-  "chaikinVol",
-  "cci",
-  "cci14",
-  "cci20",
-  "mfi14",
-  "williamsR",
-  "williamsR14",
-  "roc",
-  "roc10",
-  "roc20",
-  "momentum10",
-  "momentum20",
-  "cmo14",
-  "dymi",
-  "ultimateOsc",
-  "dpo20",
-  "tsi",
-  "awesomeOsc",
-  "acOsc",
-  "rvi",
-  "fisherTransform",
-  "elderBullBear",
-  "coppock",
-  "ppo",
-  "apo",
-  "adx",
-  "aroon",
-  "aroonOsc",
-  "vortex",
-  "trix",
-  "stc",
-  "massIndex",
-  "kst",
-  "linearRegression",
-  "ulcerIndex",
-  "obv",
-  "adLine",
-  "cmf20",
-  "nvi",
-  "pvi",
-  "chaikinOsc",
-  "volumeOsc",
-  "vroc14",
-  "klinger",
-  "elderForceIndex",
-  "eom14",
-  "bbWidth",
-  "bbPercentB",
-] satisfies Array<keyof AdvancedIndicatorsState>;
+const BOTTOM_PANEL_INDICATORS = BOTTOM_PANEL_INDICATOR_IDS;
 
 const isCciMomentumKey = (id: string): id is "cci" | "cci14" | "cci20" =>
   id === "cci" || id === "cci14" || id === "cci20";
@@ -238,6 +159,43 @@ const isHistoricalVolatilityKey = (id: string): id is typeof HISTORICAL_VOLATILI
 const hasActiveHistoricalVolatilityPanel = (indicators: AdvancedIndicatorsState): boolean =>
   HISTORICAL_VOLATILITY_KEYS.some((key) => indicators[key]);
 
+const CONSOLIDATED_BOTTOM_PANEL_KEYS = new Set<string>([
+  "cci",
+  "cci14",
+  "cci20",
+  "williamsR",
+  "williamsR14",
+  "roc",
+  "roc10",
+  "roc20",
+  "momentum10",
+  "momentum20",
+  ...HISTORICAL_VOLATILITY_KEYS,
+]);
+
+const getRequestedBottomPanelIndicatorLabel = (id: string): string => {
+  if (id.startsWith("rsi_")) return `RSI ${id.slice(4)}`;
+  if (isAdvancedIndicatorRegistryId(id)) return getAdvancedIndicatorRegistryEntry(id).label;
+  return id;
+};
+
+const getActiveBottomPanelLabels = (indicators: AdvancedIndicatorsState): string[] => {
+  const labels: string[] = [];
+
+  if (hasActiveCciMomentumPanel(indicators)) labels.push("CCI");
+  if (hasActiveWilliamsRPanel(indicators)) labels.push("Williams %R");
+  if (hasActiveRocMomentumPanel(indicators)) labels.push("ROC");
+  if (hasActiveRawMomentumPanel(indicators)) labels.push("Momentum");
+  if (hasActiveHistoricalVolatilityPanel(indicators)) labels.push("Historical Volatility");
+
+  BOTTOM_PANEL_INDICATORS.forEach((key) => {
+    if (CONSOLIDATED_BOTTOM_PANEL_KEYS.has(key)) return;
+    if (indicators[key]) labels.push(getAdvancedIndicatorRegistryEntry(key).label);
+  });
+
+  return labels;
+};
+
 const countActiveBottomIndicators = (indicators: AdvancedIndicatorsState) =>
   BOTTOM_PANEL_INDICATORS.reduce((total, key) => {
     if (isCciMomentumKey(key) || isWilliamsRKey(key) || isRocMomentumKey(key) || isRawMomentumKey(key) || isHistoricalVolatilityKey(key)) return total;
@@ -248,332 +206,10 @@ const countActiveBottomIndicators = (indicators: AdvancedIndicatorsState) =>
     + (hasActiveRawMomentumPanel(indicators) ? 1 : 0)
     + (hasActiveHistoricalVolatilityPanel(indicators) ? 1 : 0));
 
-const isAdvancedIndicatorKey = (id: string): id is keyof AdvancedIndicatorsState =>
-  id in {
-    rsi: true,
-    macd: true,
-    bollinger: true,
-    stochastic: true,
-    atr: true,
-    atr20: true,
-    natr14: true,
-    donchian: true,
-    keltner: true,
-    hv10: true,
-    hv20: true,
-    hv30: true,
-    hv60: true,
-    hv90: true,
-    hv252: true,
-    stdDev20: true,
-    chaikinVol: true,
-    cci: true,
-    cci14: true,
-    cci20: true,
-    mfi14: true,
-    williamsR: true,
-    williamsR14: true,
-    roc: true,
-    roc10: true,
-    roc20: true,
-    momentum10: true,
-    momentum20: true,
-    cmo14: true,
-    dymi: true,
-    ultimateOsc: true,
-    dpo20: true,
-    tsi: true,
-    awesomeOsc: true,
-    acOsc: true,
-    rvi: true,
-    fisherTransform: true,
-    elderBullBear: true,
-    coppock: true,
-    ppo: true,
-    apo: true,
-    adx: true,
-    aroon: true,
-    aroonOsc: true,
-    supertrend: true,
-    vortex: true,
-    trix: true,
-    stc: true,
-    massIndex: true,
-    kst: true,
-    linearRegression: true,
-    ulcerIndex: true,
-    parabolicSar: true,
-    obv: true,
-    adLine: true,
-    cmf20: true,
-    nvi: true,
-    pvi: true,
-    chaikinOsc: true,
-    volumeOsc: true,
-    vroc14: true,
-    klinger: true,
-    elderForceIndex: true,
-    eom14: true,
-    volumeProfile: true,
-    pivotPointsStandard: true,
-    pivotPointsFibonacci: true,
-    movingAverageCrosses: true,
-    vwap: true,
-    fiftyTwoWeekHigh: true,
-    fiftyTwoWeekLow: true,
-    ath: true,
-    atl: true,
-    breakoutResistance: true,
-    breakdownSupport: true,
-    gapUp: true,
-    gapDown: true,
-    trueGapUp: true,
-    trueGapDown: true,
-    gapPct: true,
-    consecutiveUpDays: true,
-    consecutiveDownDays: true,
-    insideBar: true,
-    outsideBar: true,
-    doji: true,
-    longLeggedDoji: true,
-    rickshawMan: true,
-    dragonflyDoji: true,
-    gravestoneDoji: true,
-    tristar: true,
-    hammer: true,
-    hangingMan: true,
-    takuri: true,
-    invertedHammer: true,
-    shootingStar: true,
-    marubozuBull: true,
-    marubozuBear: true,
-    spinningTop: true,
-    ichimoku: true,
-    stochRsi: true,
-    bbWidth: true,
-    bbPercentB: true,
-  };
+const isAdvancedIndicatorKey = isAdvancedIndicatorRegistryId;
 
 const isBottomPanelIndicatorKey = (id: string): id is typeof BOTTOM_PANEL_INDICATORS[number] =>
   BOTTOM_PANEL_INDICATORS.includes(id as typeof BOTTOM_PANEL_INDICATORS[number]);
-
-const compositeIndicatorSpecs: CompositeIndicatorSpec[] = [
-  {
-    id: "ichimoku",
-    title: "Ichimoku",
-    desc: "Tenkan, Kijun, Senkou, Chikou et nuage",
-    outputKeys: [
-      "ichimoku_tenkan",
-      "ichimoku_kijun",
-      "ichimoku_senkou_a",
-      "ichimoku_senkou_b",
-      "ichimoku_chikou",
-      "ichimoku_cloud_color",
-      "price_vs_cloud",
-    ],
-    wiredId: "ichimoku",
-  },
-  {
-    id: "bollinger",
-    title: "Bollinger Bands",
-    desc: "Bandes supérieure, médiane, inférieure",
-    outputKeys: ["bb_upper", "bb_middle", "bb_lower"], // Width and %B are now standalone
-    wiredId: "bollinger",
-    hasSettings: true, // [TENOR 2026 HDR] Enable settings panel
-  },
-  {
-    id: "macd",
-    title: "MACD",
-    desc: "Ligne MACD, signal et histogramme",
-    outputKeys: ["macd_line", "macd_signal", "macd_histogram"],
-    wiredId: "macd",
-  },
-  {
-    id: "adx",
-    title: "ADX / DMI",
-    desc: "Force de tendance, +DI et -DI",
-    outputKeys: ["adx", "adx_plus_di", "adx_minus_di", "adx_trend_strength"],
-    wiredId: "adx",
-  },
-  {
-    id: "stochastic",
-    title: "Stochastic",
-    desc: "Oscillateur %K et ligne signal %D",
-    outputKeys: ["stoch_k", "stoch_d"],
-    wiredId: "stochastic",
-  },
-  {
-    id: "stochastic-rsi",
-    title: "Stochastic RSI",
-    desc: "Stochastique appliqué au RSI avec %K et %D",
-    outputKeys: ["stoch_rsi_k", "stoch_rsi_d"],
-    wiredId: "stochRsi",
-  },
-  {
-    id: "tsi",
-    title: "TSI",
-    desc: "True Strength Index et ligne signal",
-    outputKeys: ["tsi", "tsi_signal"],
-    wiredId: "tsi",
-  },
-  {
-    id: "ppo",
-    title: "PPO",
-    desc: "MACD normalisé (%) + signal/hist.",
-    outputKeys: ["macd_ppo", "macd_ppo_signal", "macd_ppo_histogram"],
-    wiredId: "ppo",
-  },
-  {
-    id: "parabolic-sar",
-    title: "Parabolic SAR",
-    desc: "Points SAR et signal de retournement",
-    outputKeys: ["parabolic_sar", "parabolic_sar_signal"],
-    wiredId: "parabolicSar",
-  },
-  {
-    id: "rvi",
-    title: "RVI",
-    desc: "Relative Vigor Index et ligne signal",
-    outputKeys: ["rvi", "rvi_signal"],
-    wiredId: "rvi",
-  },
-  {
-    id: "fisher-transform",
-    title: "Fisher Transform",
-    desc: "Fisher et ligne signal",
-    outputKeys: ["fisher_transform", "fisher_transform_signal"],
-    wiredId: "fisherTransform",
-  },
-  {
-    id: "elder-ray",
-    title: "Elder Bull/Bear Power",
-    desc: "Pression acheteuse et vendeuse",
-    outputKeys: ["elder_bull_power", "elder_bear_power"],
-    wiredId: "elderBullBear",
-  },
-  {
-    id: "aroon",
-    title: "Aroon",
-    desc: "Récence des plus hauts et plus bas",
-    outputKeys: ["aroon_up", "aroon_down"],
-    wiredId: "aroon",
-  },
-  {
-    id: "supertrend",
-    title: "Supertrend",
-    desc: "Ligne et signal de régime",
-    outputKeys: ["supertrend", "supertrend_signal"],
-    wiredId: "supertrend",
-  },
-  {
-    id: "vortex",
-    title: "Vortex Indicator",
-    desc: "VI+ et VI-",
-    outputKeys: ["vortex_plus", "vortex_minus"],
-    wiredId: "vortex",
-  },
-  {
-    id: "kst",
-    title: "KST",
-    desc: "Know Sure Thing et ligne signal",
-    outputKeys: ["kst", "kst_signal"],
-    wiredId: "kst",
-  },
-  {
-    id: "linear-regression",
-    title: "Linear Regression",
-    desc: "Valeur de régression et pente analytique",
-    outputKeys: ["linear_reg_value", "linear_reg_slope"],
-    wiredId: "linearRegression",
-  },
-  {
-    id: "klinger",
-    title: "Klinger Oscillator",
-    desc: "Oscillateur volume-prix et ligne signal",
-    outputKeys: ["klinger_osc", "klinger_signal"],
-    wiredId: "klinger",
-  },
-  {
-    id: "elder-force-index",
-    title: "Elder Force Index",
-    desc: "Force brute et EMA 13 prix-volume",
-    outputKeys: ["elder_force_raw", "force_index_13"],
-    wiredId: "elderForceIndex",
-  },
-  {
-    id: "pivot-points-standard",
-    title: "Pivot Points Standard",
-    desc: "Pivot central, résistances R1-R3 et supports S1-S3",
-    outputKeys: [
-      "pivot_standard",
-      "pivot_r1",
-      "pivot_r2",
-      "pivot_r3",
-      "pivot_s1",
-      "pivot_s2",
-      "pivot_s3",
-    ],
-    wiredId: "pivotPointsStandard",
-    sectionTitle: "Pivot Points Standard",
-    requireCompleteOutputs: true,
-  },
-  {
-    id: "pivot-points-fibonacci",
-    title: "Pivot Points Fibonacci",
-    desc: "Pivot central, résistances et supports Fibonacci",
-    outputKeys: [
-      "pivot_fib_p",
-      "pivot_fib_r1",
-      "pivot_fib_r2",
-      "pivot_fib_r3",
-      "pivot_fib_s1",
-      "pivot_fib_s2",
-      "pivot_fib_s3",
-    ],
-    wiredId: "pivotPointsFibonacci",
-    sectionTitle: "Pivot Points Fibonacci",
-    requireCompleteOutputs: true,
-  },
-  {
-    id: "moving-average-crosses",
-    title: "Croisements de moyennes",
-    desc: "Signaux Golden Cross et Death Cross",
-    outputKeys: ["golden_cross", "death_cross"],
-    wiredId: "movingAverageCrosses",
-    sectionTitle: "Croisements de moyennes",
-    requireCompleteOutputs: true,
-  },
-  {
-    id: "vwap",
-    title: "VWAP",
-    desc: "Ligne VWAP et état Prix > VWAP",
-    outputKeys: ["vwap", "is_above_vwap"],
-    wiredId: "vwap",
-    sectionTitle: "Position intraday / volume",
-    requireCompleteOutputs: true,
-  },
-  {
-    id: "donchian",
-    title: "Donchian Channels",
-    desc: "Canal prix basé sur les plus hauts et plus bas",
-    outputKeys: ["donchian_upper", "donchian_middle", "donchian_lower"],
-    wiredId: "donchian",
-  },
-  {
-    id: "keltner",
-    title: "Keltner Channels",
-    desc: "Canal de volatilité basé sur moyenne et ATR",
-    outputKeys: ["keltner_upper", "keltner_middle", "keltner_lower"],
-    wiredId: "keltner",
-  },
-  {
-    id: "volume-profile",
-    title: "Volume Profile",
-    desc: "POC, VAH et VAL",
-    outputKeys: ["vp_poc", "vp_vah", "vp_val"],
-    wiredId: "volumeProfile",
-  },
-];
 
 const normalizeCompositeSectionTitle = (value: string): string =>
   value.trim().toLowerCase();
@@ -610,7 +246,7 @@ const expandRequiredCompositeSectionItems = (
   if (visibleItems.length === 0 || visibleItems.length === section.items.length) return visibleItems;
 
   const visibleKeys = new Set(visibleItems.map((item) => item.key));
-  compositeIndicatorSpecs.forEach((spec) => {
+  COMPOSITE_INDICATOR_SPECS.forEach((spec) => {
     if (!spec.requireCompleteOutputs) return;
     if (
       spec.sectionTitle
@@ -624,6 +260,207 @@ const expandRequiredCompositeSectionItems = (
 
   return section.items.filter((item) => visibleKeys.has(item.key));
 };
+
+const sanitizeIndicatorInfoId = (value: string): string =>
+  value.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "indicator";
+
+const getIndicatorInfoPanelId = (scope: string, key: string): string =>
+  `indicator-info-${sanitizeIndicatorInfoId(scope)}-${sanitizeIndicatorInfoId(key)}`;
+
+type IndicatorInfoPlacement = "top" | "bottom";
+
+type IndicatorInfoPosition = {
+  arrowLeft: number;
+  left: number;
+  placement: IndicatorInfoPlacement;
+  top: number;
+  width: number;
+};
+
+const INDICATOR_INFO_PANEL_MAX_WIDTH = 320;
+const INDICATOR_INFO_PANEL_MIN_WIDTH = 224;
+const INDICATOR_INFO_PANEL_MARGIN = 12;
+const INDICATOR_INFO_PANEL_GAP = 8;
+const INDICATOR_INFO_PANEL_FALLBACK_HEIGHT = 92;
+
+const clampIndicatorInfoValue = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
+const getIndicatorInfoPosition = (anchor: HTMLElement, panel: HTMLElement | null): IndicatorInfoPosition => {
+  const rect = anchor.getBoundingClientRect();
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+  const availableWidth = Math.max(0, viewportWidth - INDICATOR_INFO_PANEL_MARGIN * 2);
+  const width = Math.min(
+    Math.max(rect.width, INDICATOR_INFO_PANEL_MIN_WIDTH),
+    Math.min(INDICATOR_INFO_PANEL_MAX_WIDTH, availableWidth),
+  );
+  const height = panel?.offsetHeight || INDICATOR_INFO_PANEL_FALLBACK_HEIGHT;
+  const spaceAbove = rect.top - INDICATOR_INFO_PANEL_MARGIN;
+  const spaceBelow = viewportHeight - rect.bottom - INDICATOR_INFO_PANEL_MARGIN;
+  const placement: IndicatorInfoPlacement =
+    spaceBelow >= height + INDICATOR_INFO_PANEL_GAP || spaceBelow >= spaceAbove ? "bottom" : "top";
+  const anchorCenterX = rect.left + rect.width / 2;
+  const left = clampIndicatorInfoValue(
+    anchorCenterX - width / 2,
+    INDICATOR_INFO_PANEL_MARGIN,
+    Math.max(INDICATOR_INFO_PANEL_MARGIN, viewportWidth - width - INDICATOR_INFO_PANEL_MARGIN),
+  );
+  const unclampedTop = placement === "bottom"
+    ? rect.bottom + INDICATOR_INFO_PANEL_GAP
+    : rect.top - height - INDICATOR_INFO_PANEL_GAP;
+  const top = clampIndicatorInfoValue(
+    unclampedTop,
+    INDICATOR_INFO_PANEL_MARGIN,
+    Math.max(INDICATOR_INFO_PANEL_MARGIN, viewportHeight - height - INDICATOR_INFO_PANEL_MARGIN),
+  );
+  const arrowLeft = clampIndicatorInfoValue(anchorCenterX - left, 18, Math.max(18, width - 18));
+
+  return { arrowLeft, left, placement, top, width };
+};
+
+const IndicatorHoverInfoPanel = React.memo(({
+  anchorRef,
+  id,
+  title,
+  description,
+  code,
+  contextLabel,
+  statusLabel,
+  tone = "default",
+}: {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  id: string;
+  title: string;
+  description: string;
+  code: string;
+  contextLabel?: string;
+  statusLabel: string;
+  tone?: "default" | "missing";
+}) => {
+  const panelRef = useRef<HTMLSpanElement | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const closeTimeoutRef = useRef<number | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState<IndicatorInfoPosition | null>(null);
+
+  const clearPendingClose = useCallback(() => {
+    if (closeTimeoutRef.current === null) return;
+    window.clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = null;
+  }, []);
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor || typeof window === "undefined") return;
+    setPosition(getIndicatorInfoPosition(anchor, panelRef.current));
+  }, [anchorRef]);
+
+  const schedulePositionUpdate = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      updatePosition();
+    });
+  }, [updatePosition]);
+
+  const showPanel = useCallback(() => {
+    clearPendingClose();
+    setIsVisible(true);
+    schedulePositionUpdate();
+  }, [clearPendingClose, schedulePositionUpdate]);
+
+  const hidePanel = useCallback(() => {
+    clearPendingClose();
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setIsVisible(false);
+      setPosition(null);
+      closeTimeoutRef.current = null;
+    }, 40);
+  }, [clearPendingClose]);
+
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor || typeof window === "undefined") return undefined;
+
+    const handleFocusOut = (event: FocusEvent) => {
+      if (event.relatedTarget instanceof Node && anchor.contains(event.relatedTarget)) return;
+      hidePanel();
+    };
+
+    anchor.addEventListener("pointerenter", showPanel);
+    anchor.addEventListener("pointerleave", hidePanel);
+    anchor.addEventListener("focusin", showPanel);
+    anchor.addEventListener("focusout", handleFocusOut);
+
+    return () => {
+      anchor.removeEventListener("pointerenter", showPanel);
+      anchor.removeEventListener("pointerleave", hidePanel);
+      anchor.removeEventListener("focusin", showPanel);
+      anchor.removeEventListener("focusout", handleFocusOut);
+    };
+  }, [anchorRef, hidePanel, showPanel]);
+
+  useLayoutEffect(() => {
+    if (!isVisible) return;
+    schedulePositionUpdate();
+  }, [isVisible, schedulePositionUpdate]);
+
+  useEffect(() => {
+    if (!isVisible || typeof window === "undefined") return undefined;
+
+    window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("scroll", schedulePositionUpdate, true);
+
+    return () => {
+      window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("scroll", schedulePositionUpdate, true);
+    };
+  }, [isVisible, schedulePositionUpdate]);
+
+  useEffect(() => () => {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    if (closeTimeoutRef.current !== null) window.clearTimeout(closeTimeoutRef.current);
+  }, []);
+
+  const panelStyle = position
+    ? ({
+      "--indicator-info-arrow-left": `${position.arrowLeft}px`,
+      left: `${position.left}px`,
+      top: `${position.top}px`,
+      width: `${position.width}px`,
+    } as React.CSSProperties)
+    : undefined;
+
+  const panel = isVisible && typeof document !== "undefined"
+    ? createPortal(
+      <span
+        className={`gp-indicator-info-panel ${tone === "missing" ? "is-missing" : ""}`}
+        data-placement={position?.placement ?? "bottom"}
+        role="tooltip"
+        ref={panelRef}
+        style={panelStyle}
+      >
+        <span className="gp-indicator-info-panel__line">{title}: {description}</span>
+        {contextLabel && <span className="gp-indicator-info-panel__line">Groupe: {contextLabel}</span>}
+        <span className="gp-indicator-info-panel__line">Code: {code}</span>
+        <span className="gp-indicator-info-panel__line">{statusLabel}</span>
+      </span>,
+      document.body,
+    )
+    : null;
+
+  return (
+    <>
+      <span id={id} className="gp-indicator-info-sr-only">
+        {title} {contextLabel ? `${contextLabel} ` : ""}{description} {code} {statusLabel}
+      </span>
+      {panel}
+    </>
+  );
+});
+IndicatorHoverInfoPanel.displayName = "IndicatorHoverInfoPanel";
 
 // ============================================================================
 // [TENOR 2026 SRE] BARE-METAL LEAF COMPONENTS WITH OPTIMISTIC UI
@@ -716,6 +553,9 @@ const IndicatorCard = React.memo(({
   }, [isActive]);
 
   const activeColor = "#2962ff";
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const infoPanelId = getIndicatorInfoPanelId("catalog", ind.key);
+  const statusLabel = isWired ? (optimisticActive ? "Actif" : "Disponible") : "Backend seulement";
 
   const handleClick = () => {
     if (isWired && ind.wiredId) {
@@ -728,10 +568,20 @@ const IndicatorCard = React.memo(({
     }
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!isWired) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleClick();
+  };
+
   return (
     <div className="col p-1">
       <div
-        className={`gp-indicator-catalog-card ${optimisticActive ? "active" : ""} ${!isWired ? "is-backend-only" : ""}`}
+        aria-describedby={infoPanelId}
+        aria-pressed={isWired ? optimisticActive : undefined}
+        className={`gp-indicator-catalog-card gp-indicator-info-anchor ${optimisticActive ? "active" : ""} ${!isWired ? "is-backend-only" : ""}`}
+        role={isWired ? "button" : "group"}
         style={{
           border: `1px solid ${optimisticActive ? activeColor : '#1e293b'}`,
           cursor: isWired ? "pointer" : "default",
@@ -742,6 +592,9 @@ const IndicatorCard = React.memo(({
           alignItems: "center"
         }}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        ref={(node) => { anchorRef.current = node; }}
+        tabIndex={0}
       >
         <div
           className="d-flex align-items-center justify-content-center me-3 flex-shrink-0"
@@ -772,6 +625,14 @@ const IndicatorCard = React.memo(({
             BACKEND
           </span>
         )}
+        <IndicatorHoverInfoPanel
+          anchorRef={anchorRef}
+          id={infoPanelId}
+          title={ind.name}
+          description={ind.desc}
+          code={ind.key}
+          statusLabel={statusLabel}
+        />
       </div>
     </div>
   );
@@ -1256,6 +1117,44 @@ const BollingerSettingsPanel = React.memo(() => {
 });
 BollingerSettingsPanel.displayName = "BollingerSettingsPanel";
 
+const CompositeIndicatorChildChip = React.memo(({
+  item,
+  parentTitle,
+  missing = false,
+}: {
+  item: BackendIndicatorItem;
+  parentTitle: string;
+  missing?: boolean;
+}) => {
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const infoPanelId = getIndicatorInfoPanelId(parentTitle, item.key);
+  const statusLabel = missing ? "Sortie attendue" : "Sortie calculée";
+
+  return (
+    <span
+      aria-describedby={infoPanelId}
+      className={`gp-composite-indicator-child gp-indicator-info-anchor ${missing ? "is-missing" : ""}`}
+      ref={(node) => { anchorRef.current = node; }}
+      tabIndex={0}
+    >
+      <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: missing ? "#334155" : "#475569", marginRight: "8px" }}></span>
+      <span style={{ marginRight: "6px" }}>{item.name}</span>
+      <small style={{ fontSize: "11px" }}>{item.desc}</small>
+      <IndicatorHoverInfoPanel
+        anchorRef={anchorRef}
+        id={infoPanelId}
+        title={item.name}
+        description={item.desc}
+        code={item.key}
+        contextLabel={parentTitle}
+        statusLabel={statusLabel}
+        tone={missing ? "missing" : "default"}
+      />
+    </span>
+  );
+});
+CompositeIndicatorChildChip.displayName = "CompositeIndicatorChildChip";
+
 const CompositeIndicatorCard = React.memo(({
   spec,
   items,
@@ -1365,18 +1264,10 @@ const CompositeIndicatorCard = React.memo(({
 
       <div className="gp-composite-indicator-children">
         {items.map((item) => (
-          <span className="gp-composite-indicator-child" key={item.key}>
-            <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#475569", marginRight: "8px" }}></span>
-            <span style={{ color: "#cbd5e1", marginRight: "6px" }}>{item.name}</span>
-            <small style={{ color: "#64748b", fontSize: "11px" }}>{item.desc}</small>
-          </span>
+          <CompositeIndicatorChildChip item={item} key={item.key} parentTitle={spec.title} />
         ))}
         {spec.missingOutputs?.map((item) => (
-          <span className="gp-composite-indicator-child is-missing" key={item.key}>
-            <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#334155", marginRight: "8px" }}></span>
-            <span style={{ marginRight: "6px" }}>{item.name}</span>
-            <small style={{ fontSize: "11px" }}>{item.desc}</small>
-          </span>
+          <CompositeIndicatorChildChip item={item} key={item.key} missing parentTitle={spec.title} />
         ))}
       </div>
     </div>
@@ -1399,6 +1290,8 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   const { addNotification } = useGlobalNotification();
   const advancedIndicators = useSelector(selectAdvancedIndicators, shallowEqual);
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
+  const marketDataBySymbol = useSelector(selectMarketData, shallowEqual);
+  const comparisonSymbols = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSymbols, shallowEqual);
   const chartIndicators = chartConfig.indicators;
   const advancedMovingAverages = useMemo<AdvancedMovingAverageActivationState>(() => ({
     activeWma: chartIndicators.activeWma ?? [],
@@ -1438,7 +1331,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     [rawPriceVsEmaMetrics],
   );
   const currentSymbol = (chartConfig.symbol || "BOAB").trim().toUpperCase();
-  const currentChartData = useSelector((state: RootState) => selectMarketData(state)[currentSymbol] ?? []);
+  const currentChartData = marketDataBySymbol[currentSymbol] ?? EMPTY_CHART_DATA;
   const currentLiveSnapshot = useSelector((state: RootState) => selectMarketSnapshots(state)[currentSymbol] ?? null);
 
   const [indicatorSearch, setIndicatorSearch] = useState("");
@@ -1577,705 +1470,24 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     () => new Map(priceVsEmaMetricResults.map((result) => [result.spec.id, result])),
     [priceVsEmaMetricResults],
   );
+  const comparisonBacktestData = useMemo(() => comparisonSymbols
+    .map((rawSymbol) => rawSymbol.trim().toUpperCase())
+    .filter((comparisonSymbol) => comparisonSymbol.length > 0 && comparisonSymbol !== currentSymbol)
+    .map((comparisonSymbol) => ({
+      data: marketDataBySymbol[comparisonSymbol] ?? EMPTY_CHART_DATA,
+      symbol: comparisonSymbol,
+    })), [comparisonSymbols, currentSymbol, marketDataBySymbol]);
 
-  const backendIndicatorGroups = useMemo<BackendIndicatorGroup[]>(() => [
-    {
-      title: "Moyennes & Comparaisons",
-      subtitle: "Moyennes avancées et distances prix/moyennes",
-      sections: [
-        {
-          title: "Prix vs SMA",
-          items: [
-            { key: "price_vs_sma20_pct", name: "Prix / SMA 20", desc: "Distance en %" },
-            { key: "price_vs_sma50_pct", name: "Prix / SMA 50", desc: "Distance en %" },
-            { key: "price_vs_sma150_pct", name: "Prix / SMA 150", desc: "Distance en %" },
-            { key: "price_vs_sma200_pct", name: "Prix / SMA 200", desc: "Distance en %" },
-          ],
-        },
-        {
-          title: "Prix vs EMA",
-          items: [
-            { key: "price_vs_ema20_pct", name: "Prix / EMA 20", desc: "Distance en %" },
-            { key: "price_vs_ema50_pct", name: "Prix / EMA 50", desc: "Distance en %" },
-            { key: "price_vs_ema200_pct", name: "Prix / EMA 200", desc: "Distance en %" },
-          ],
-        },
-        {
-          title: "WMA / DEMA / TEMA",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "wma_20", name: "WMA 20", desc: "Weighted Moving Average" },
-            { key: "wma_50", name: "WMA 50", desc: "Weighted Moving Average" },
-            { key: "dema_20", name: "DEMA 20", desc: "Double EMA" },
-            { key: "dema_50", name: "DEMA 50", desc: "Double EMA" },
-            { key: "tema_20", name: "TEMA 20", desc: "Triple EMA" },
-            { key: "tema_50", name: "TEMA 50", desc: "Triple EMA" },
-          ],
-        },
-        {
-          title: "Réduction du retard",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "hma_20", name: "HMA 20", desc: "Hull Moving Average" },
-            { key: "hma_50", name: "HMA 50", desc: "Hull Moving Average" },
-            { key: "zlema_20", name: "ZLEMA 20", desc: "Zero Lag EMA" },
-          ],
-        },
-        {
-          title: "Lissage avancé",
-          items: [
-            { key: "alma_20", name: "ALMA 20", desc: "Arnaud Legoux MA" },
-            { key: "smma_20", name: "SMMA 20", desc: "Smoothed Moving Average" },
-          ],
-        },
-        {
-          title: "Adaptative",
-          items: [
-            { key: "kama_20", name: "KAMA 20", desc: "Kaufman Adaptive MA" },
-          ],
-        },
-        {
-          title: "Pondérée volume",
-          items: [
-            { key: "vwma_20", name: "VWMA 20", desc: "Volume Weighted MA" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Oscillateurs",
-      subtitle: "Surachat, survente, vitesse et retournements",
-      sections: [
-        {
-          title: "RSI",
-          items: [
-            { key: "rsi_9", name: "RSI 9", desc: "Court terme", wiredId: "rsi_9" as any },
-            { key: "rsi_14", name: "RSI 14", desc: "Standard", wiredId: "rsi_14" as any },
-            { key: "rsi_25", name: "RSI 25", desc: "Lissé / long terme", wiredId: "rsi_25" as any },
-          ],
-        },
-        {
-          title: "Stochastic",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "stoch_k", name: "Stoch %K", desc: "Stochastic oscillator", wiredId: "stochastic" },
-            { key: "stoch_d", name: "Stoch %D", desc: "Signal stochastic" },
-            { key: "stoch_rsi_k", name: "Stoch RSI %K", desc: "RSI stochastique" },
-            { key: "stoch_rsi_d", name: "Stoch RSI %D", desc: "Signal Stoch RSI" },
-          ],
-        },
-        {
-          title: "Momentum prix",
-          items: [
-            { key: "cci_14", name: "CCI 14", desc: "Plus réactif · HLC3", wiredId: "cci14" },
-            { key: "cci_20", name: "CCI 20", desc: "Plus lissé · HLC3", wiredId: "cci20" },
-          ],
-        },
-        {
-          title: "Momentum prix + volume",
-          items: [
-            { key: "mfi_14", name: "MFI 14", desc: "Pression achat/vente · Volume", wiredId: "mfi14" },
-          ],
-        },
-        {
-          title: "Oscillateur borné",
-          items: [
-            { key: "williams_r_14", name: "Williams %R 14", desc: "Surachat / survente · 0 à -100", wiredId: "williamsR14" },
-          ],
-        },
-        {
-          title: "Variation en pourcentage",
-          items: [
-            { key: "roc_10", name: "ROC 10", desc: "Variation court terme en %", wiredId: "roc10" },
-            { key: "roc_20", name: "ROC 20", desc: "Variation longue en %", wiredId: "roc20" },
-          ],
-        },
-        {
-          title: "Momentum brut",
-          items: [
-            { key: "momentum_10", name: "Momentum 10", desc: "Close - Close[10]", wiredId: "momentum10" },
-            { key: "momentum_20", name: "Momentum 20", desc: "Close - Close[20]", wiredId: "momentum20" },
-          ],
-        },
-        {
-          title: "Momentum pur",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "cmo_14", name: "CMO 14", desc: "Chande · -100 à +100", wiredId: "cmo14" },
-            { key: "dymi", name: "DYMI", desc: "RSI dynamique · Volatilité", wiredId: "dymi" },
-            { key: "ultimate_osc", name: "Ultimate Osc", desc: "Pression achat 7 / 14 / 28", wiredId: "ultimateOsc" },
-          ],
-        },
-        {
-          title: "Cycle / Detrending",
-          items: [
-            { key: "dpo_20", name: "DPO 20", desc: "Cycle détrendé · shift -11", wiredId: "dpo20" },
-          ],
-        },
-        {
-          title: "Force + signal",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "tsi", name: "TSI", desc: "True Strength Index et ligne signal" },
-            { key: "tsi_signal", name: "TSI Signal", desc: "Signal TSI" },
-          ],
-        },
-        {
-          title: "Bill Williams",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "awesome_osc", name: "Awesome Osc", desc: "SMA5(HL2) - SMA34(HL2)", wiredId: "awesomeOsc" },
-            { key: "ac_osc", name: "AC Osc", desc: "AO - SMA5(AO)", wiredId: "acOsc" },
-          ],
-        },
-        {
-          title: "Signal avancé",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "rvi", name: "RVI", desc: "Relative Vigor Index" },
-            { key: "rvi_signal", name: "RVI Signal", desc: "Signal RVI" },
-            { key: "fisher_transform", name: "Fisher", desc: "Fisher Transform" },
-            { key: "fisher_transform_signal", name: "Fisher Signal", desc: "Signal Fisher" },
-            { key: "elder_bull_power", name: "Elder Bull", desc: "High - EMA13" },
-            { key: "elder_bear_power", name: "Elder Bear", desc: "Low - EMA13" },
-            { key: "coppock_curve", name: "Coppock", desc: "WMA10(ROC11 + ROC14)", wiredId: "coppock" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Tendance",
-      subtitle: "Direction, force et suivi de tendance",
-      sections: [
-        {
-          title: "Convergence / Divergence",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "macd_line", name: "MACD Line", desc: "EMA12 - EMA26", wiredId: "macd" },
-            { key: "macd_signal", name: "MACD Signal", desc: "Signal MACD" },
-            { key: "macd_histogram", name: "MACD Histogram", desc: "Histogramme MACD" },
-          ],
-        },
-        {
-          title: "Oscillateurs dérivés",
-          items: [
-            { key: "macd_ppo", name: "PPO Line", desc: "MACD normalisé %" },
-            { key: "macd_ppo_signal", name: "PPO Signal", desc: "EMA9 du PPO" },
-            { key: "macd_ppo_histogram", name: "PPO Histogram", desc: "PPO - Signal" },
-            { key: "macd_apo", name: "APO", desc: "MACD Line absolue", wiredId: "apo" },
-          ],
-        },
-        {
-          title: "Parabolic SAR",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "parabolic_sar", name: "SAR", desc: "Stop and reverse" },
-            { key: "parabolic_sar_signal", name: "SAR Signal", desc: "Signal Parabolic SAR" },
-          ],
-        },
-        {
-          title: "Ichimoku",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "ichimoku_tenkan", name: "Tenkan", desc: "Ligne de conversion" },
-            { key: "ichimoku_kijun", name: "Kijun", desc: "Ligne de base" },
-            { key: "ichimoku_senkou_a", name: "Senkou A", desc: "Nuage Ichimoku A" },
-            { key: "ichimoku_senkou_b", name: "Senkou B", desc: "Nuage Ichimoku B" },
-            { key: "ichimoku_chikou", name: "Chikou", desc: "Ligne retardée" },
-            { key: "ichimoku_cloud_color", name: "Cloud Color", desc: "Couleur du nuage" },
-            { key: "price_vs_cloud", name: "Prix / Nuage", desc: "Position face au nuage" },
-          ],
-        },
-        {
-          title: "ADX / Directional",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "adx", name: "ADX", desc: "Force de tendance · Wilder 14" },
-            { key: "adx_plus_di", name: "+DI", desc: "Direction haussière" },
-            { key: "adx_minus_di", name: "-DI", desc: "Direction baissière" },
-            { key: "adx_trend_strength", name: "Trend Strength", desc: "Badge dérivé ADX" },
-          ],
-        },
-        {
-          title: "Aroon — Détection de tendance",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "aroon_up", name: "Aroon Up", desc: "Aroon haussier" },
-            { key: "aroon_down", name: "Aroon Down", desc: "Aroon baissier" },
-          ],
-        },
-        {
-          title: "Aroon Oscillator",
-          items: [
-            { key: "aroon_oscillator", name: "Aroon Osc", desc: "Aroon Up - Aroon Down", wiredId: "aroonOsc" },
-          ],
-        },
-        {
-          title: "Overlay de tendance",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "supertrend", name: "Supertrend", desc: "Overlay ATR 10 × 3" },
-            { key: "supertrend_signal", name: "Supertrend Signal", desc: "Signal Supertrend" },
-          ],
-        },
-        {
-          title: "Oscillateur directionnel",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "vortex_plus", name: "Vortex +", desc: "Vortex positif" },
-            { key: "vortex_minus", name: "Vortex -", desc: "Vortex négatif" },
-          ],
-        },
-        {
-          title: "Oscillateurs de tendance",
-          items: [
-            { key: "trix", name: "TRIX", desc: "Triple EMA ROC %", wiredId: "trix" },
-            { key: "stc", name: "STC", desc: "Schaff Trend Cycle", wiredId: "stc" },
-            { key: "mass_index", name: "Mass Index", desc: "Range expansion", wiredId: "massIndex" },
-          ],
-        },
-        {
-          title: "KST — Know Sure Thing",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "kst", name: "KST", desc: "Know Sure Thing" },
-            { key: "kst_signal", name: "KST Signal", desc: "Signal KST" },
-          ],
-        },
-        {
-          title: "Régression linéaire",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "linear_reg_value", name: "LinReg Value", desc: "Valeur régression prix" },
-            { key: "linear_reg_slope", name: "LinReg Slope", desc: "Pente prix/bougie" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Volatilité",
-      subtitle: "Bandes, range, dispersion et risque",
-      sections: [
-        {
-          title: "Bollinger",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "bb_upper", name: "BB Upper", desc: "Bollinger supérieure", wiredId: "bollinger" },
-            { key: "bb_middle", name: "BB Middle", desc: "Bollinger médiane" },
-            { key: "bb_lower", name: "BB Lower", desc: "Bollinger inférieure" },
-            // [TENOR 2026 HDR] Separated derived oscillators
-            { key: "bb_width", name: "BB Width", desc: "Largeur des bandes", wiredId: "bbWidth" },
-            { key: "bb_pct", name: "BB %B", desc: "Position dans les bandes", wiredId: "bbPercentB" },
-          ],
-        },
-        {
-          title: "ATR",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "atr_14", name: "ATR 14", desc: "Average True Range", wiredId: "atr" },
-            { key: "atr_20", name: "ATR 20", desc: "ATR période 20", wiredId: "atr20" },
-            { key: "natr_14", name: "NATR 14", desc: "ATR normalisé", wiredId: "natr14" },
-          ],
-        },
-        {
-          title: "Canaux de prix",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "donchian_upper", name: "Donchian Upper", desc: "Canal de Donchian haut", wiredId: "donchian" },
-            { key: "donchian_middle", name: "Donchian Middle", desc: "Canal de Donchian médian", wiredId: "donchian" },
-            { key: "donchian_lower", name: "Donchian Lower", desc: "Canal de Donchian bas", wiredId: "donchian" },
-            { key: "keltner_upper", name: "Keltner Upper", desc: "Canal de Keltner haut", wiredId: "keltner" },
-            { key: "keltner_middle", name: "Keltner Middle", desc: "Base EMA 20 du canal", wiredId: "keltner" },
-            { key: "keltner_lower", name: "Keltner Lower", desc: "Canal de Keltner bas", wiredId: "keltner" },
-          ],
-        },
-        {
-          title: "Historical Volatility",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "hv_10", name: "HV 10", desc: "Volatilité annualisée des rendements log", wiredId: "hv10" },
-            { key: "hv_20", name: "HV 20", desc: "Volatilité annualisée des rendements log", wiredId: "hv20" },
-            { key: "hv_30", name: "HV 30", desc: "Volatilité annualisée des rendements log", wiredId: "hv30" },
-            { key: "hv_60", name: "HV 60", desc: "Volatilité annualisée des rendements log", wiredId: "hv60" },
-            { key: "hv_90", name: "HV 90", desc: "Volatilité annualisée des rendements log", wiredId: "hv90" },
-            { key: "hv_252", name: "HV 252", desc: "Volatilité annualisée des rendements log", wiredId: "hv252" },
-          ],
-        },
-        {
-          title: "Dispersion du prix",
-          items: [
-            { key: "std_dev_20", name: "Std Dev 20", desc: "Dispersion du prix brut", wiredId: "stdDev20" },
-          ],
-        },
-        {
-          title: "Expansion de volatilité",
-          items: [
-            { key: "chaikin_vol", name: "Chaikin Volatility", desc: "Variation % du range High-Low lissé", wiredId: "chaikinVol" },
-          ],
-        },
-        {
-          title: "Risque de drawdown",
-          items: [
-            { key: "ulcer_index", name: "Ulcer Index", desc: "Profondeur et durée des replis", wiredId: "ulcerIndex" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Volume",
-      subtitle: "Flux, accumulation et pression volume-prix",
-      sections: [
-        {
-          title: "Flux cumulatifs",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "obv", name: "OBV", desc: "On Balance Volume", wiredId: "obv" },
-            { key: "ad_line", name: "A/D Line", desc: "Cumul du volume pondéré par le close", wiredId: "adLine" },
-          ],
-        },
-        {
-          title: "Pression volume-prix",
-          items: [
-            { key: "cmf_20", name: "CMF 20", desc: "Pression achat/vente bornée -1 à +1", wiredId: "cmf20" },
-          ],
-        },
-        {
-          title: "Indices de volume",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "nvi", name: "NVI", desc: "Indice cumulatif des séances à volume plus faible", wiredId: "nvi" },
-            { key: "pvi", name: "PVI", desc: "Indice cumulatif des séances à volume plus fort", wiredId: "pvi" },
-          ],
-        },
-        {
-          title: "Flux accumulation / distribution",
-          items: [
-            { key: "chaikin_osc", name: "Chaikin Oscillator", desc: "Momentum dynamique de la ligne A/D", wiredId: "chaikinOsc" },
-          ],
-        },
-        {
-          title: "Variation du volume",
-          items: [
-            { key: "volume_osc", name: "Volume Oscillator", desc: "Écart relatif SMA5/SMA20 du volume", wiredId: "volumeOsc" },
-            { key: "vroc_14", name: "VROC 14", desc: "Variation du volume en % sur 14 bougies", wiredId: "vroc14" },
-          ],
-        },
-        {
-          title: "Klinger Volume Oscillator",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "klinger_osc", name: "Klinger Osc", desc: "Oscillateur volume-prix", wiredId: "klinger" },
-            { key: "klinger_signal", name: "Klinger Signal", desc: "Signal EMA13 Klinger", wiredId: "klinger" },
-          ],
-        },
-        {
-          title: "Force du mouvement",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "elder_force_raw", name: "Elder Force Raw", desc: "Force brute prix-volume", wiredId: "elderForceIndex" },
-            { key: "force_index_13", name: "Force Index 13", desc: "EMA13 de la force brute", wiredId: "elderForceIndex" },
-          ],
-        },
-        {
-          title: "Facilité du mouvement",
-          items: [
-            { key: "eom_14", name: "EOM 14", desc: "Oscillateur prix-volume autour de zéro", wiredId: "eom14" },
-          ],
-        },
-        {
-          title: "Volume Profile",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "vp_poc", name: "POC", desc: "Point of Control", wiredId: "volumeProfile" },
-            { key: "vp_vah", name: "VAH", desc: "Value Area High", wiredId: "volumeProfile" },
-            { key: "vp_val", name: "VAL", desc: "Value Area Low", wiredId: "volumeProfile" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Pivots & Signaux",
-      subtitle: "Niveaux pivots et signaux de marché",
-      sections: [
-        {
-          title: "Pivot Points Standard",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pivot_standard", name: "Pivot", desc: "Pivot standard", wiredId: "pivotPointsStandard" },
-            { key: "pivot_r1", name: "R1", desc: "Résistance 1", wiredId: "pivotPointsStandard" },
-            { key: "pivot_r2", name: "R2", desc: "Résistance 2", wiredId: "pivotPointsStandard" },
-            { key: "pivot_r3", name: "R3", desc: "Résistance 3", wiredId: "pivotPointsStandard" },
-            { key: "pivot_s1", name: "S1", desc: "Support 1", wiredId: "pivotPointsStandard" },
-            { key: "pivot_s2", name: "S2", desc: "Support 2", wiredId: "pivotPointsStandard" },
-            { key: "pivot_s3", name: "S3", desc: "Support 3", wiredId: "pivotPointsStandard" },
-          ],
-        },
-        {
-          title: "Pivot Points Fibonacci",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pivot_fib_p", name: "Pivot", desc: "Pivot central Fibonacci", wiredId: "pivotPointsFibonacci" },
-            { key: "pivot_fib_r1", name: "Fib R1", desc: "Résistance Fibonacci 0.382", wiredId: "pivotPointsFibonacci" },
-            { key: "pivot_fib_r2", name: "Fib R2", desc: "Résistance Fibonacci 0.618", wiredId: "pivotPointsFibonacci" },
-            { key: "pivot_fib_r3", name: "Fib R3", desc: "Résistance Fibonacci 1.000", wiredId: "pivotPointsFibonacci" },
-            { key: "pivot_fib_s1", name: "Fib S1", desc: "Support Fibonacci 0.382", wiredId: "pivotPointsFibonacci" },
-            { key: "pivot_fib_s2", name: "Fib S2", desc: "Support Fibonacci 0.618", wiredId: "pivotPointsFibonacci" },
-            { key: "pivot_fib_s3", name: "Fib S3", desc: "Support Fibonacci 1.000", wiredId: "pivotPointsFibonacci" },
-          ],
-        },
-        {
-          title: "Croisements de moyennes",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "golden_cross", name: "Golden Cross", desc: "SMA50 croise SMA200 vers le haut", wiredId: "movingAverageCrosses" },
-            { key: "death_cross", name: "Death Cross", desc: "SMA50 croise SMA200 vers le bas", wiredId: "movingAverageCrosses" },
-          ],
-        },
-        {
-          title: "Position intraday / volume",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "vwap", name: "VWAP", desc: "Prix moyen pondéré par volume", wiredId: "vwap" },
-            { key: "is_above_vwap", name: "Prix > VWAP", desc: "État au-dessus VWAP", wiredId: "vwap" },
-          ],
-        },
-        {
-          title: "Niveaux 52 semaines",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "fifty_two_week_high", name: "52W High", desc: "Niveau haut sur 364 jours", wiredId: "fiftyTwoWeekHigh" },
-            { key: "fifty_two_week_low", name: "52W Low", desc: "Niveau bas sur 364 jours", wiredId: "fiftyTwoWeekLow" },
-          ],
-        },
-        {
-          title: "Records historiques",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "ath", name: "ATH", desc: "Plus haut historique", wiredId: "ath" },
-            { key: "atl", name: "ATL", desc: "Plus bas historique", wiredId: "atl" },
-          ],
-        },
-        {
-          title: "Cassures techniques",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "breakout_resistance", name: "Breakout résistance", desc: "Cassure confirmée au-dessus de la résistance roulante", wiredId: "breakoutResistance" },
-            { key: "breakdown_support", name: "Breakdown support", desc: "Cassure confirmée sous le support roulant", wiredId: "breakdownSupport" },
-          ],
-        },
-        {
-          title: "Gaps",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "gap_up", name: "Gap Up", desc: "Ouverture au-dessus de la clôture précédente", wiredId: "gapUp" },
-            { key: "gap_down", name: "Gap Down", desc: "Ouverture sous la clôture précédente", wiredId: "gapDown" },
-            { key: "gap_pct", name: "Gap %", desc: "Amplitude du gap d'ouverture", wiredId: "gapPct" },
-            { key: "true_gap_up", name: "True Gap Up", desc: "Bougie entièrement au-dessus du range précédent", wiredId: "trueGapUp" },
-            { key: "true_gap_down", name: "True Gap Down", desc: "Bougie entièrement sous le range précédent", wiredId: "trueGapDown" },
-          ],
-        },
-        {
-          title: "Séquences directionnelles",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "consecutive_up_days", name: "Jours hausse", desc: "Compteur de clôtures haussières consécutives", wiredId: "consecutiveUpDays" },
-            { key: "consecutive_down_days", name: "Jours baisse", desc: "Compteur de clôtures baissières consécutives", wiredId: "consecutiveDownDays" },
-          ],
-        },
-        {
-          title: "Structure de barres",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "inside_bar", name: "Inside Bar", desc: "Bougie contenue dans le range précédent", wiredId: "insideBar" },
-            { key: "outside_bar", name: "Outside Bar", desc: "Bougie englobant le range précédent", wiredId: "outsideBar" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Patterns Chandeliers",
-      subtitle: "Reconnaissance des structures de chandeliers",
-      sections: [
-        {
-          title: "Doji classiques",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_doji", name: "Doji", desc: "Corps quasi nul", wiredId: "doji" },
-            { key: "pattern_doji_longleg", name: "Long-legged Doji", desc: "Doji avec longue mèche", wiredId: "longLeggedDoji" },
-            { key: "pattern_rickshaw_man", name: "Rickshaw Man", desc: "Doji centré avec deux longues mèches", wiredId: "rickshawMan" },
-          ],
-        },
-        {
-          title: "Doji directionnels",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_doji_dragonfly", name: "Dragonfly Doji", desc: "Doji avec mèche basse longue", wiredId: "dragonflyDoji" },
-            { key: "pattern_doji_gravestone", name: "Gravestone Doji", desc: "Doji avec mèche haute longue", wiredId: "gravestoneDoji" },
-          ],
-        },
-        {
-          title: "Structure rare",
-          items: [
-            { key: "pattern_tristar", name: "Tristar", desc: "Trois doji consécutifs avec gap central", wiredId: "tristar" },
-          ],
-        },
-        {
-          title: "Rejets bas",
-          rowGrouping: "name-prefix",
-          groupSwitch: true,
-          items: [
-            { key: "pattern_hammer", name: "Hammer", desc: "Rejet bas après baisse potentielle", wiredId: "hammer" },
-            { key: "pattern_hanging_man", name: "Hanging Man", desc: "Rejet bas après hausse potentielle", wiredId: "hangingMan" },
-            { key: "pattern_takuri", name: "Takuri", desc: "Rejet bas marqué", wiredId: "takuri" },
-          ],
-        },
-        {
-          title: "Rejets hauts",
-          rowGrouping: "name-prefix",
-          groupSwitch: true,
-          items: [
-            { key: "pattern_inv_hammer", name: "Inverted Hammer", desc: "Rejet haut après baisse potentielle", wiredId: "invertedHammer" },
-            { key: "pattern_shooting_star", name: "Shooting Star", desc: "Rejet haut après hausse potentielle", wiredId: "shootingStar" },
-          ],
-        },
-        {
-          title: "Bougies de force",
-          rowGrouping: "name-prefix",
-          groupSwitch: true,
-          items: [
-            { key: "pattern_marubozu_bull", name: "Marubozu Bull", desc: "Domination acheteuse", wiredId: "marubozuBull" },
-            { key: "pattern_marubozu_bear", name: "Marubozu Bear", desc: "Domination vendeuse", wiredId: "marubozuBear" },
-          ],
-        },
-        {
-          title: "Indécision",
-          groupSwitch: true,
-          items: [
-            { key: "pattern_spinning_top", name: "Spinning Top", desc: "Petit corps avec mèches", wiredId: "spinningTop" },
-          ],
-        },
-        {
-          title: "Engulfing",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_engulfing_bull", name: "Engulfing Bullish", desc: "Englobante haussière" },
-            { key: "pattern_engulfing_bear", name: "Engulfing Bearish", desc: "Englobante baissière" },
-          ],
-        },
-        {
-          title: "Harami",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_harami_bull", name: "Harami Bullish", desc: "Harami haussier" },
-            { key: "pattern_harami_bear", name: "Harami Bearish", desc: "Harami baissier" },
-          ],
-        },
-        {
-          title: "Tweezer",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_tweezer_top", name: "Tweezer Top", desc: "Rejet haut sur même niveau" },
-            { key: "pattern_tweezer_bottom", name: "Tweezer Bottom", desc: "Rejet bas sur même niveau" },
-          ],
-        },
-        {
-          title: "Retournements classiques",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_piercing_line", name: "Piercing Line", desc: "Retournement haussier potentiel" },
-            { key: "pattern_dark_cloud_cover", name: "Dark Cloud Cover", desc: "Retournement baissier potentiel" },
-          ],
-        },
-        {
-          title: "Continuation / gap",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_tasuki_gap", name: "Tasuki Gap", desc: "Continuation autour d'un gap" },
-            { key: "pattern_separating_lines", name: "Separating Lines", desc: "Continuation directionnelle" },
-            { key: "pattern_thrusting", name: "Thrusting", desc: "Hésitation ou continuation baissière" },
-          ],
-        },
-        {
-          title: "Confrontation acheteurs vendeurs",
-          items: [
-            { key: "pattern_counterattack", name: "Counterattack", desc: "Opposition forte acheteurs / vendeurs" },
-          ],
-        },
-        {
-          title: "Retournements en étoile",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_morning_star", name: "Morning Star", desc: "Retournement haussier potentiel" },
-            { key: "pattern_evening_star", name: "Evening Star", desc: "Retournement baissier potentiel" },
-          ],
-        },
-        {
-          title: "Impulsion directionnelle",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_3_white_soldiers", name: "Three White Soldiers", desc: "Séquence haussière forte" },
-            { key: "pattern_3_black_crows", name: "Three Black Crows", desc: "Séquence baissière forte" },
-          ],
-        },
-        {
-          title: "Three Inside",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_3_inside_up", name: "Three Inside Up", desc: "Confirmation haussière après Harami" },
-            { key: "pattern_3_inside_down", name: "Three Inside Down", desc: "Confirmation baissière après Harami" },
-          ],
-        },
-        {
-          title: "Patterns rares avancés",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_unique_3_river", name: "Unique Three River", desc: "Retournement haussier rare" },
-            { key: "pattern_upside_gap_two_crows", name: "Upside Gap Two Crows", desc: "Retournement baissier rare" },
-          ],
-        },
-        {
-          title: "Retournements directionnels",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_kicker_bull", name: "Kicker Bull", desc: "Retournement haussier impulsif" },
-            { key: "pattern_kicker_bear", name: "Kicker Bear", desc: "Retournement baissier impulsif" },
-            { key: "pattern_abandoned_baby_bull", name: "Abandoned Baby Bull", desc: "Retournement haussier rare" },
-            { key: "pattern_abandoned_baby_bear", name: "Abandoned Baby Bear", desc: "Retournement baissier rare" },
-            { key: "pattern_belthold_bull", name: "Belt Hold Bull", desc: "Pression acheteuse directionnelle" },
-            { key: "pattern_belthold_bear", name: "Belt Hold Bear", desc: "Pression vendeuse directionnelle" },
-            { key: "pattern_breakaway_bull", name: "Breakaway Bull", desc: "Rupture haussière de retournement" },
-            { key: "pattern_breakaway_bear", name: "Breakaway Bear", desc: "Rupture baissière de retournement" },
-          ],
-        },
-        {
-          title: "Continuation",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_rising_three_methods", name: "Rising Three Methods", desc: "Continuation haussière" },
-            { key: "pattern_falling_three_methods", name: "Falling Three Methods", desc: "Continuation baissière" },
-            { key: "pattern_mat_hold", name: "Mat Hold", desc: "Continuation après consolidation" },
-          ],
-        },
-        {
-          title: "Gap / structure avancée",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_gap_side_side_white", name: "Gap Side-by-Side White", desc: "Structure de gap avancée" },
-            { key: "pattern_hikkake", name: "Hikkake", desc: "Fausse cassure de range" },
-            { key: "pattern_concealing_baby_swallow", name: "Concealing Baby Swallow", desc: "Structure baissière avancée" },
-          ],
-        },
-        {
-          title: "Retournements rares",
-          rowGrouping: "name-prefix",
-          items: [
-            { key: "pattern_ladder_bottom", name: "Ladder Bottom", desc: "Retournement haussier rare" },
-            { key: "pattern_stick_sandwich", name: "Stick Sandwich", desc: "Retournement rare autour d'un niveau" },
-          ],
-        },
-      ],
-    },
-  ], []);
+  const indicatorBacktestState = useIndicatorBacktestDashboard({
+    comparisonData: comparisonBacktestData,
+    data: currentChartData,
+    enabled: isOpen,
+    indicatorPeriods,
+    symbol: currentSymbol,
+  });
+  const indicatorBacktestDashboard = indicatorBacktestState.dashboard;
+
+  const backendIndicatorGroups = INDICATOR_MODAL_GROUPS;
 
   const indicatorSearchTerm = deferredSearch.trim().toLowerCase();
   const hasIndicatorSearch = indicatorSearchTerm.length > 0;
@@ -2346,6 +1558,9 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   );
 
   const visibleIndicatorCount = visibleMovingAverageCount + visibleBackendIndicatorCount;
+  const activeBottomIndicatorLabels = useMemo(() => getActiveBottomPanelLabels(advancedIndicators), [advancedIndicators]);
+  const activeBottomIndicatorCount = countActiveBottomIndicators(advancedIndicators);
+  const isBottomIndicatorLimitReached = activeBottomIndicatorCount >= MAX_BOTTOM_INDICATORS;
   const hasVisibleMovingAverages = visibleMovingAverageCount > 0;
   const hasVisibleIndicators = visibleIndicatorCount > 0;
   const activeTrendSignalCount = MOVING_AVERAGE_TREND_SIGNAL_SPECS.filter(
@@ -2469,13 +1684,16 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     }));
   }, [advancedMovingAverages, chartIndicators, dispatch, revealObjectIds]);
 
-  const warnBottomIndicatorLimit = useCallback(() => {
+  const warnBottomIndicatorLimit = useCallback((requestedId: string, activeLabels: readonly string[]) => {
+    const requestedLabel = getRequestedBottomPanelIndicatorLabel(requestedId);
+    const activeList = activeLabels.length > 0 ? activeLabels.join(", ") : "aucun panneau identifié";
+
     addNotification({
-      title: "Limite d'indicateurs atteinte",
-      message: `Maximum ${MAX_BOTTOM_INDICATORS} indicateurs sous le volume. Retirez un indicateur existant avant d'en ajouter un autre.`,
+      title: "Limite de panneaux bas atteinte",
+      message: `Impossible d'ajouter ${requestedLabel}: ${activeLabels.length}/${MAX_BOTTOM_INDICATORS} panneaux bas actifs (${activeList}). Désactive un panneau dans le modal ou l'Object Tree avant d'ajouter un autre oscillateur.`,
       type: "warning",
       iconType: "faExclamationTriangle",
-      duration: 4500,
+      duration: 7000,
     });
   }, [addNotification]);
 
@@ -2490,7 +1708,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     if (isRawMomentumKey(normalizedId) && hasActiveRawMomentumPanel(advancedIndicators)) return true;
     if (isHistoricalVolatilityKey(normalizedId) && hasActiveHistoricalVolatilityPanel(advancedIndicators)) return true;
     const canActivate = countActiveBottomIndicators(advancedIndicators) < MAX_BOTTOM_INDICATORS;
-    if (!canActivate) warnBottomIndicatorLimit();
+    if (!canActivate) warnBottomIndicatorLimit(id, getActiveBottomPanelLabels(advancedIndicators));
     return canActivate;
   }, [advancedIndicators, warnBottomIndicatorLimit]);
 
@@ -2760,7 +1978,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       );
     }
 
-    const sectionCompositeSpecs = compositeIndicatorSpecs.filter((spec) =>
+    const sectionCompositeSpecs = COMPOSITE_INDICATOR_SPECS.filter((spec) =>
       isCompositeSpecAllowedInSection(spec, section)
     );
 
@@ -2804,7 +2022,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
 
     if (section.rowGrouping !== "name-prefix") {
       return (
-        <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 mx-0">
+        <div className="gp-indicator-card-grid">
           {section.items.map((item) => (
             <IndicatorCard
               key={item.key}
@@ -2834,7 +2052,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     );
 
     return (
-      <div className="gp-indicator-row-groups">
+      <div className="gp-indicator-row-groups gp-indicator-card-grid">
         {groupedItems.map((group) => (
           <div className="gp-indicator-row-group" key={`${section.title}-${group.label}`}>
             {group.items.map((item) => (
@@ -2882,8 +2100,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
       contentRef={modalContentRef}
       draggable
     >
-      {/* [TENOR 2026 SRE] CSS CONTAINMENT FOR NATIVE SCROLL */}
-      <div style={{ contain: 'content', transform: 'translateZ(0)', WebkitFontSmoothing: 'antialiased' }}>
+      <div className="gp-indicators-modal-scroll-content">
         <div className="gp-indicator-search-panel">
           <div className="gp-indicator-search-box">
             <i className="bi bi-search" aria-hidden="true"></i>
@@ -2916,8 +2133,22 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
               {hasIndicatorSearch ? `${visibleIndicatorCount} résultats` : `${visibleIndicatorCount} indicateurs disponibles`}
             </span>
             {hasIndicatorSearch && <span style={{ color: "#ff9800", fontSize: "11px" }}>Filtre actif</span>}
+            {isBottomIndicatorLimitReached && (
+              <span style={{ color: "#f59e0b", fontSize: "11px" }}>
+                {activeBottomIndicatorCount}/{MAX_BOTTOM_INDICATORS} panneaux bas actifs · désactive un panneau pour ajouter un oscillateur
+              </span>
+            )}
           </div>
         </div>
+
+        {indicatorBacktestDashboard && (
+          <IndicatorBacktestPanel
+            comparisonDashboards={indicatorBacktestState.dashboards.filter((entry) => entry.symbol !== currentSymbol)}
+            dashboard={indicatorBacktestDashboard}
+            symbol={currentSymbol}
+            timeframe={String(chartConfig.timeframe || "1D")}
+          />
+        )}
 
         {/* --- SECTION 1: MOYENNES MOBILES --- */}
         {hasVisibleMovingAverages && (

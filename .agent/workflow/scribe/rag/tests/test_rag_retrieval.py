@@ -10,7 +10,10 @@ sys.path.insert(0, str(SCRIPTS))
 from rag_challenge import challenge
 from rag_compact import format_results
 from rag_context import context
-from rag_test_fixtures import build_auth_test_index
+from rag_eval import run_eval
+from rag_gate import gate
+from rag_preflight import preflight
+from rag_test_fixtures import build_agent_protocol_test_index, build_auth_test_index
 from rag_scoring import retrieve
 
 class RagRetrievalTests(unittest.TestCase):
@@ -57,6 +60,52 @@ class RagRetrievalTests(unittest.TestCase):
 
     def test_context_line_budget(self) -> None:
         self.assertLessEqual(len(context(self.index).splitlines()), 35)
+
+
+class RagProtocolPreflightTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.index = build_agent_protocol_test_index()
+
+    def test_eval_scores_scriberag_protocol_memory(self) -> None:
+        checks = run_eval(self.index)
+        self.assertTrue(all(check.passed for check in checks), [check for check in checks if not check.passed])
+
+    def test_gate_passes_only_on_full_protocol_eval(self) -> None:
+        result = gate(self.index)
+        output = "\n".join(result.lines)
+        self.assertEqual(result.code, 0)
+        self.assertIn("SCRIBE-RAG GATE: PASS eval 8/8", output)
+
+    def test_gate_fails_when_protocol_eval_is_incomplete(self) -> None:
+        result = gate(build_auth_test_index())
+        output = "\n".join(result.lines)
+        self.assertEqual(result.code, 1)
+        self.assertIn("SCRIBE-RAG GATE: FAIL", output)
+
+    def test_challenge_blocks_sel_direct_retrieval(self) -> None:
+        verdict, _ = challenge("appeler SEL direct context query pour retrieval agent", self.index)
+        self.assertEqual(verdict, "STOP")
+
+    def test_challenge_allows_preventing_sel_direct_retrieval(self) -> None:
+        verdict, _ = challenge("interdire SEL direct context query pour retrieval agent", self.index)
+        self.assertEqual(verdict, "PROCEED")
+
+    def test_preflight_outputs_proof_surface(self) -> None:
+        result = preflight(
+            self.index,
+            tier="STANDARD",
+            plan="utiliser scribe-rag comme interface agent et garder SEL comme moteur interne",
+            module="bundle",
+            limit=5,
+            strict=True,
+        )
+        output = "\n".join(result.lines)
+        self.assertEqual(result.code, 0)
+        self.assertIn("SCRIBE-RAG PREFLIGHT", output)
+        self.assertIn("SCRIBE_RAG_PROOF: preflight STANDARD | eval 8/8 PASS | challenge PROCEED", output)
+        self.assertIn("eval 8/8 PASS", output)
+        self.assertIn("challenge PROCEED", output)
 
 if __name__ == "__main__":
     unittest.main()

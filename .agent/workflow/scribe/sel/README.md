@@ -6,6 +6,12 @@ This folder is the importable home for agent rules, doctor scripts, workflow doc
 engineering notes, command specs, retrieval design, evaluation suites, benchmarks, and future
 implementation plans around SCRIBE query/challenge/explain tooling.
 
+Current stable baseline (2026-06-01): SEL `81 OK`, RAG `25 OK`, gate/eval `8/8`,
+doctor `0 error` with only cosmetic legacy `W009`, `os.getpid()` presence/lock
+ownership fixed, TTL claims active, expired/no-TTL claims stale, and backup
+`~/backups/agent-scribe-stable-20260601.tar.gz` created. Do not keep expanding
+this bundle unless a real SCRIBE bug or test failure appears; return to product work.
+
 Layout:
 - `docs/`: canonical agent and workflow documents; historical protocols stay under `docs/archive/`.
 - `docs/multi-agent-installation.md`: rootless install and async-agent operating procedure for host projects.
@@ -51,7 +57,7 @@ The examples below use `<SCRIBE>` for that path.
 - `<SCRIBE> install [TARGET_PATH] [--force] [--dry-run] [--with-root-adapters]`
   - Installs this bundle into another project rootlessly by default. `AGENTS.md` and `.graphifyignore` managed blocks are updated; root `scribe` and `scripts/` are generated only with `--with-root-adapters`.
 - `<SCRIBE> lock acquire|release|status`
-  - Coordinates SCRIBE mutations with a local JSON lock at `scribe-out/locks/scribe.lock`; mutating commands refuse writes without an active lock.
+  - Coordinates SCRIBE mutations with a local JSON lock at `scribe-out/locks/scribe.lock`; mutating commands refuse writes without an active lock. `release` verifies agent/surface before stale cleanup; use `SCRIBE_OWNER_PID` or `--owner-pid` when the lock represents a long-lived owner process.
 - `<SCRIBE> sync --agent NAME --type extension|cli|api|unknown [--repair --session JOURNAL-ID]`
   - Compares `scribe-out/state.json` with the real SCRIBE hash; `--repair` rebuilds the state file atomically after a legitimate write or manual recovery.
 - `<SCRIBE> whoami`

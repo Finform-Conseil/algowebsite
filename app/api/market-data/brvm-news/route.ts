@@ -7,7 +7,12 @@
 
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import { fetchWithResilience, fetchBrvmPage } from '@/shared/utils/resilient-scraper';
+import {
+  BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+  BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+  fetchBrvmPage,
+  fetchWithResilience,
+} from '@/shared/utils/resilient-scraper';
 
 interface BRVMNewsItem {
   title: string;
@@ -15,11 +20,18 @@ interface BRVMNewsItem {
   date: string;
 }
 
-export async function GET() {
+const FALLBACK_CACHE_SECONDS = 60;
+
+export async function GET(request: Request) {
   try {
-    const { data: html } = await fetchWithResilience(
+    const { data: html, status } = await fetchWithResilience(
       'brvm_news_list',
-      () => fetchBrvmPage('https://www.brvm.org/fr/mediacentre/actualites', 38000),
+      () => fetchBrvmPage(
+        'https://www.brvm.org/fr/mediacentre/actualites',
+        BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+        BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+        request.signal,
+      ),
       {
         cacheTtl: 3600, // 1 hour freshness
         staleTtl: 86400 // 24 hours survival
@@ -60,12 +72,18 @@ export async function GET() {
       return { title, link, date };
     }).filter(Boolean) as BRVMNewsItem[];
 
-    return NextResponse.json(results);
+    const response = NextResponse.json(results);
+    response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=7200');
+    response.headers.set('X-Cache-Status', status);
+    return response;
   } catch (error) {
     console.error('[NewsScraper] Error:', error);
-    return NextResponse.json([
+    const response = NextResponse.json([
       { title: "Marché BRVM : Les indices en légère hausse", date: "aujourd'hui", link: "#" },
       { title: "Économie UEMOA : Perspectives de croissance 2026", date: "hier", link: "#" }
     ]);
+    response.headers.set('Cache-Control', `public, s-maxage=${FALLBACK_CACHE_SECONDS}, stale-while-revalidate=300`);
+    response.headers.set('X-Cache-Status', 'UNAVAILABLE');
+    return response;
   }
 }

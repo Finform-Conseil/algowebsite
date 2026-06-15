@@ -1,10 +1,13 @@
 import React from "react";
+import SentimentGauge, { toSentimentGaugeParts } from "@/components/technical/SentimentGauge";
+import type { SidebarTechnicalData } from "../TechnicalAnalysisSidebar.types";
+
 interface TechnicalsPanelProps {
   auditTrail?: React.ReactNode;
-  chartRef: React.RefObject<HTMLDivElement | null>;
   isAvailable: boolean;
   isLoading: boolean;
   onMoreTechnicals: () => void;
+  technicalData: SidebarTechnicalData | null;
   unavailableState: React.ReactNode;
 }
 
@@ -31,32 +34,36 @@ const TechnicalsSkeleton = () => (
 
 export const TechnicalsPanel = React.memo(({
   auditTrail,
-  chartRef,
   isAvailable,
   isLoading,
   onMoreTechnicals,
+  technicalData,
   unavailableState,
-}: TechnicalsPanelProps) => (
-  <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
-    <div className="gp-sidebar-header" style={{ marginBottom: "0px" }}>
-      <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Technicals</span>
-    </div>
-    {isLoading ? (
-      <TechnicalsSkeleton />
-    ) : !isAvailable ? (
-      unavailableState
-    ) : (
-      <div key="ready">
-        <div ref={chartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "160px" }} />
-        {auditTrail}
-        <div className="d-flex justify-content-center mt-2">
-          <button className="hover-lift" style={ACTION_BUTTON_STYLE} onClick={onMoreTechnicals}>
-            More technicals
-          </button>
-        </div>
+}: TechnicalsPanelProps) => {
+  const gaugeParts = technicalData ? toSentimentGaugeParts(technicalData.score) : null;
+
+  return (
+    <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
+      <div className="gp-sidebar-header" style={{ marginBottom: "0px" }}>
+        <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Technicals</span>
       </div>
-    )}
-  </div>
-));
+      {isLoading ? (
+        <TechnicalsSkeleton />
+      ) : !isAvailable || !gaugeParts ? (
+        unavailableState
+      ) : (
+        <div key="ready">
+          <SentimentGauge {...gaugeParts} />
+          {auditTrail}
+          <div className="d-flex justify-content-center mt-2">
+            <button className="hover-lift" style={ACTION_BUTTON_STYLE} onClick={onMoreTechnicals}>
+              More technicals
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 TechnicalsPanel.displayName = "TechnicalsPanel";

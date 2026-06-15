@@ -11,6 +11,7 @@ const {
   formatBrvmExchangeClock,
   getBrvmMarketStatus,
   getBrvmPriceAxisCountdown,
+  isBrvmBusinessDay,
 } = require("../brvmMarketSession.ts");
 
 const utcMs = (year, month, day, hour, minute = 0, second = 0) =>
@@ -26,6 +27,15 @@ test("BRVM market status opens only during the weekday UTC session", () => {
   assert.equal(getBrvmMarketStatus(utcMs(2026, 6, 1, 14, 59, 59)).isOpen, true);
   assert.equal(getBrvmMarketStatus(utcMs(2026, 6, 1, 15, 0)).isOpen, false);
   assert.equal(getBrvmMarketStatus(utcMs(2026, 6, 6, 10, 0)).isOpen, false);
+});
+
+test("BRVM observed holidays close the market and move the next open", () => {
+  assert.equal(isBrvmBusinessDay(new Date(utcMs(2026, 1, 1, 12))), false);
+  assert.equal(getBrvmMarketStatus(utcMs(2026, 1, 1, 10)).isOpen, false);
+  assert.deepEqual(getBrvmPriceAxisCountdown("1D", utcMs(2025, 12, 31, 16)), {
+    label: "Ouv. 1D 17:00:00",
+    accessibilityLabel: "prochaine ouverture BRVM dans",
+  });
 });
 
 test("price-axis countdown respects opening, candle boundary and daily close", () => {

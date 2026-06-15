@@ -9,7 +9,6 @@ interface IncomeStatementPanelProps {
   isLoading: boolean;
   onModeChange: (mode: IncomeViewMode) => void;
   onMoreFinancials: () => void;
-  unavailableState: React.ReactNode;
   viewMode: IncomeViewMode;
 }
 
@@ -50,9 +49,11 @@ export const IncomeStatementPanel = React.memo(({
   isLoading,
   onModeChange,
   onMoreFinancials,
-  unavailableState,
   viewMode,
-}: IncomeStatementPanelProps) => (
+}: IncomeStatementPanelProps) => {
+  if (!isLoading && !isAvailable) return null;
+
+  return (
   <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
     <div className="gp-sidebar-header" style={{ marginBottom: "8px" }}>
       <div className="d-flex justify-content-between align-items-center w-100">
@@ -65,8 +66,6 @@ export const IncomeStatementPanel = React.memo(({
     </div>
     {isLoading ? (
       <IncomeStatementSkeleton />
-    ) : !isAvailable ? (
-      unavailableState
     ) : (
       <div key="ready">
         <div ref={chartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "140px" }} />
@@ -91,6 +90,7 @@ export const IncomeStatementPanel = React.memo(({
       </div>
     )}
   </div>
-));
+  );
+});
 
 IncomeStatementPanel.displayName = "IncomeStatementPanel";

@@ -102,7 +102,7 @@
 # ════════════════════════════════════════════════════════════════════════════════
 #
 # 3.0 CYCLE OPÉRATIONNEL PAR TÂCHE RÉELLE — NON-NÉGOCIABLE
-#   Pour chaque tâche concrète sur jjk-messenger :
+#   Pour chaque tâche concrète sur le projet hote :
 #   1. Lire graphify-out/GRAPH_REPORT.md avant de comprendre le code
 #   2. Lire le SCRIBE pertinent : hot intégral, warm ciblé selon la tâche
 #   3. Lancer scribe doctor AVANT toute évolution du SCRIBE

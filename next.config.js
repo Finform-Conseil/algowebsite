@@ -2,11 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  allowedDevOrigins: ["127.0.0.1"],
+  images: {
+    qualities: [75, 100],
+  },
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react", "framer-motion", "lucide-react"],
   },
 
-   logging: {
+  logging: {
     browserToTerminal: true,
     // 'error' — errors only (default)
     // 'warn'  — warnings and errors

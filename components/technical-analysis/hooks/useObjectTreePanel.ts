@@ -46,10 +46,32 @@ const fmtPrice = (v: number): string =>
 
 const fmtVol = (v: number): string =>
   v >= 1_000_000
-    ? `${(v / 1_000_000).toFixed(2)}M`
+    ? (v / 1_000_000).toFixed(2) + "M"
     : v >= 1_000
-      ? `${(v / 1_000).toFixed(1)}K`
+      ? (v / 1_000).toFixed(1) + "K"
       : String(v);
+
+const fmtPercent = (v: number): string =>
+  (v >= 0 ? "+" : "") + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+
+const fmtChangeWithPercent = (value: number, percent: number): string =>
+  (value >= 0 ? "+" : "") + fmtPrice(value) + " (" + fmtPercent(percent) + ")";
+
+const resolveChangeMetrics = (data: ChartDataPoint[], idx: number, candle: ChartDataPoint) => {
+  const previousClose = idx > 0 && Number.isFinite(data[idx - 1]?.close)
+    ? data[idx - 1].close
+    : candle.open;
+  const baseline = previousClose !== 0 ? previousClose : candle.open;
+  const change = candle.close - baseline;
+  const changePercent = baseline !== 0 ? (change / baseline) * 100 : 0;
+
+  return {
+    change,
+    changePercent,
+    lastDayChange: change,
+    lastDayChangePercent: changePercent,
+  };
+};
 
 const resolveAxisPointerIndex = (
   params: {
@@ -83,6 +105,38 @@ type AxisPointerPayload = {
 
 const isAxisPointerPayload = (value: unknown): value is AxisPointerPayload =>
   typeof value === "object" && value !== null;
+
+type ZrMouseMovePayload = {
+  offsetX?: number;
+  offsetY?: number;
+  event?: {
+    offsetX?: number;
+    offsetY?: number;
+  };
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const resolveZrMousePoint = (payload: ZrMouseMovePayload): [number, number] | null => {
+  const offsetX = isFiniteNumber(payload.offsetX) ? payload.offsetX : payload.event?.offsetX;
+  const offsetY = isFiniteNumber(payload.offsetY) ? payload.offsetY : payload.event?.offsetY;
+  return isFiniteNumber(offsetX) && isFiniteNumber(offsetY) ? [offsetX, offsetY] : null;
+};
+
+const resolvePixelPointerIndex = (
+  chart: EChartsType,
+  payload: ZrMouseMovePayload,
+): number | null => {
+  const point = resolveZrMousePoint(payload);
+  if (!point) return null;
+  if (!chart.containPixel({ gridIndex: 0 }, point)) return null;
+
+  const pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, point);
+  const rawIndex = Array.isArray(pointInData) ? pointInData[0] : pointInData;
+  if (!isFiniteNumber(rawIndex)) return null;
+  return Math.round(rawIndex);
+};
 
 type ComparisonDataWindowSeries = {
   id?: string;
@@ -156,20 +210,16 @@ export const useObjectTreePanel = ({
 
     let rafId: number;
 
-    const handleMouseMove = (...args: unknown[]) => {
-      const params = args[0];
-      if (!isAxisPointerPayload(params)) return;
-
+    const updateDataWindowAtIndex = (idx: number) => {
       const data = chartDataRef.current;
-      const idx = resolveAxisPointerIndex(params, data);
-
-      if (idx === null || idx < 0 || idx >= data.length) return;
+      if (idx < 0 || idx >= data.length) return;
 
       const candle = data[idx];
       if (!candle) return;
 
       const isUp = candle.close >= candle.open;
-      const dateEl = document.getElementById('dw-date');
+      const changeMetrics = resolveChangeMetrics(data, idx, candle);
+      const dateEl = document.getElementById("dw-date");
       if (lastDataWindowIndexRef.current === idx && dateEl) return;
       lastDataWindowIndexRef.current = idx;
 
@@ -185,7 +235,10 @@ export const useObjectTreePanel = ({
           low: candle.low,
           close: candle.close,
           volume: candle.volume ?? 0,
-          change: candle.close - candle.open,
+          change: changeMetrics.change,
+          changePercent: changeMetrics.changePercent,
+          lastDayChange: changeMetrics.lastDayChange,
+          lastDayChangePercent: changeMetrics.lastDayChangePercent,
           isUp,
         });
         return;
@@ -194,45 +247,51 @@ export const useObjectTreePanel = ({
       // 2. High-Frequency Updates: Direct DOM Manipulation (Zero-Lag)
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const color = isUp ? "#26a69a" : "#ef5350"; // TV.bullColor : TV.bearColor
+        const candleColor = isUp ? "#26a69a" : "#ef5350"; // TV.bullColor : TV.bearColor
+        const changeColor = changeMetrics.change >= 0 ? "#26a69a" : "#ef5350";
 
         // --- MAIN OHLCV UPDATE ---
         dateEl.textContent = formatDataWindowDate(candle.time);
 
-        const openEl = document.getElementById('dw-open');
+        const openEl = document.getElementById("dw-open");
         if (openEl) {
           openEl.textContent = fmtPrice(candle.open);
-          openEl.style.color = color;
+          openEl.style.color = candleColor;
         }
 
-        const highEl = document.getElementById('dw-high');
+        const highEl = document.getElementById("dw-high");
         if (highEl) {
           highEl.textContent = fmtPrice(candle.high);
-          highEl.style.color = color;
+          highEl.style.color = candleColor;
         }
 
-        const lowEl = document.getElementById('dw-low');
+        const lowEl = document.getElementById("dw-low");
         if (lowEl) {
           lowEl.textContent = fmtPrice(candle.low);
-          lowEl.style.color = color;
+          lowEl.style.color = candleColor;
         }
 
-        const closeEl = document.getElementById('dw-close');
+        const closeEl = document.getElementById("dw-close");
         if (closeEl) {
           closeEl.textContent = fmtPrice(candle.close);
-          closeEl.style.color = color;
+          closeEl.style.color = candleColor;
         }
 
-        const volEl = document.getElementById('dw-volume');
+        const volEl = document.getElementById("dw-volume");
         if (volEl) {
           volEl.textContent = fmtVol(candle.volume ?? 0);
         }
 
-        const changeEl = document.getElementById('dw-change');
+        const changeEl = document.getElementById("dw-change");
         if (changeEl) {
-          const change = candle.close - candle.open;
-          changeEl.textContent = `${change >= 0 ? "+" : ""}${fmtPrice(change)}`;
-          changeEl.style.color = color;
+          changeEl.textContent = fmtChangeWithPercent(changeMetrics.change, changeMetrics.changePercent);
+          changeEl.style.color = changeColor;
+        }
+
+        const lastDayChangeEl = document.getElementById("dw-last-day-change");
+        if (lastDayChangeEl) {
+          lastDayChangeEl.textContent = fmtChangeWithPercent(changeMetrics.lastDayChange, changeMetrics.lastDayChangePercent);
+          lastDayChangeEl.style.color = changeColor;
         }
 
         // --- [TENOR 2026 HDR] COMPARISON SYMBOLS UPDATE (Torvalds T3) ---
@@ -259,19 +318,19 @@ export const useObjectTreePanel = ({
             if (!rowEl || !symEl || !valEl) continue;
 
             const s = compSeries[i];
-            
+
             // If series exists and has valid data at this index
             if (s && s.data && s.data[idx] !== undefined && s.data[idx] !== null) {
-              rowEl.style.display = 'flex';
+              rowEl.style.display = "flex";
               symEl.textContent = s.name ?? "";
-              symEl.style.color = s.itemStyle?.color || '#d1d4dc';
-              
+              symEl.style.color = s.itemStyle?.color || "#d1d4dc";
+
               const val = Number(s.data[idx]);
-              valEl.textContent = `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`;
-              valEl.style.color = val >= 0 ? '#26a69a' : '#ef5350';
+              valEl.textContent = `${val >= 0 ? "+" : ""}${val.toFixed(2)}%`;
+              valEl.style.color = val >= 0 ? "#26a69a" : "#ef5350";
             } else {
               // Hide the slot if no data or no series
-              rowEl.style.display = 'none';
+              rowEl.style.display = "none";
             }
           }
         } catch (e) {
@@ -280,13 +339,31 @@ export const useObjectTreePanel = ({
       });
     };
 
-    // ECharts émet 'updateAxisPointer' avec les données de la bougie pointée
-    chart.on("updateAxisPointer", handleMouseMove);
+    const handleAxisPointerMove = (...args: unknown[]) => {
+      const params = args[0];
+      if (!isAxisPointerPayload(params)) return;
+
+      const data = chartDataRef.current;
+      const idx = resolveAxisPointerIndex(params, data);
+      if (idx !== null) updateDataWindowAtIndex(idx);
+    };
+
+    const handleCanvasMouseMove = (payload: ZrMouseMovePayload) => {
+      const idx = resolvePixelPointerIndex(chart, payload);
+      if (idx !== null) updateDataWindowAtIndex(idx);
+    };
+
+    // ECharts peut ne pas emettre updateAxisPointer quand tooltip/axisPointer sont desactives.
+    // Le fallback ZRender garde la Data Window alimentee par le pixel souris reel du chart.
+    chart.on("updateAxisPointer", handleAxisPointerMove);
+    const zr = chart.getZr();
+    zr.on("mousemove", handleCanvasMouseMove);
 
     return () => {
       cancelAnimationFrame(rafId);
       if (!chart.isDisposed()) {
-        chart.off("updateAxisPointer", handleMouseMove);
+        chart.off("updateAxisPointer", handleAxisPointerMove);
+        zr.off("mousemove", handleCanvasMouseMove);
       }
     };
   }, [isOpen, chartInstanceRef]);

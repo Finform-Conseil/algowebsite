@@ -45,6 +45,18 @@ class ScribeStateTests(unittest.TestCase):
             else:
                 os.environ["SCRIBE_STATE_PATH"] = old_state_path
 
+    @contextlib.contextmanager
+    def isolated_workflow_ack_path(self, root: Path):
+        old_ack_path = os.environ.get("SCRIBE_WORKFLOW_ACK_PATH")
+        os.environ["SCRIBE_WORKFLOW_ACK_PATH"] = str(root / "scribe-out" / "workflow-acks.json")
+        try:
+            yield
+        finally:
+            if old_ack_path is None:
+                os.environ.pop("SCRIBE_WORKFLOW_ACK_PATH", None)
+            else:
+                os.environ["SCRIBE_WORKFLOW_ACK_PATH"] = old_ack_path
+
     def test_sync_reports_missing_state_without_rewriting_writer(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, self.isolated_state_path(Path(tmp)):
             path = write_fixture(Path(tmp))
@@ -133,6 +145,43 @@ class ScribeStateTests(unittest.TestCase):
 
         self.assertEqual(doctor_code, 0)
         self.assertIn("W013", report)
+
+    def test_workflow_read_check_and_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, self.isolated_workflow_ack_path(Path(tmp)):
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text("workflow v1\n", encoding="utf-8")
+
+            code, output, error = self.run_cli("workflow", "check", "--agent", "codex", "--root", str(root))
+            self.assertEqual(code, 2, error)
+            self.assertIn("verdict: ACK_REQUIRED", output)
+
+            code, output, error = self.run_cli("workflow", "read", "--agent", "codex", "--type", "cli", "--root", str(root))
+            self.assertEqual(code, 0, error)
+            self.assertIn("verdict: ACK_RECORDED", output)
+            self.assertIn("AGENTS.md", output)
+
+            code, output, error = self.run_cli("workflow", "check", "--agent", "codex", "--root", str(root))
+            self.assertEqual(code, 0, error)
+            self.assertIn("verdict: ACK_OK", output)
+
+            code, output, error = self.run_cli("workflow", "status", "--strict", "--root", str(root))
+            self.assertEqual(code, 0, error)
+            self.assertIn("required_agents: none", output)
+            self.assertIn("recorded_agents: codex", output)
+            self.assertIn("verdict: POOL_STATUS_OK", output)
+
+            code, output, error = self.run_cli(
+                "workflow",
+                "status",
+                "--required",
+                "codex,claude",
+                "--strict",
+                "--root",
+                str(root),
+            )
+            self.assertEqual(code, 2, error)
+            self.assertIn("agent[codex]: ACK_OK", output)
+            self.assertIn("agent[claude]: ACK_REQUIRED", output)
 
 
 if __name__ == "__main__":

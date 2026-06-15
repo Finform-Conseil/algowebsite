@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scribe_workflow_ack import check_workflow_ack
+
 
 DEFAULT_LOCK_PATH = Path("scribe-out") / "locks" / "scribe.lock"
 DEFAULT_SURFACE = "scribe-memory"
@@ -31,10 +33,10 @@ class LockState:
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "LockState":
         return cls(
-            agent=str(payload.get("agent") or ""),
+            agent=str(payload.get("owner_id") or payload.get("agent") or ""),
             agent_type=str(payload.get("agent_type") or "unknown"),
             session=str(payload.get("session") or ""),
-            pid=int(payload.get("pid") or 0),
+            pid=int(payload.get("owner_pid") or payload.get("pid") or 0),
             acquired_at=parse_timestamp(str(payload.get("acquired_at") or "")),
             surface=str(payload.get("surface") or DEFAULT_SURFACE),
             ttl_minutes=int(payload.get("ttl_minutes") or DEFAULT_TTL_MINUTES),
@@ -44,6 +46,8 @@ class LockState:
         return {
             "agent": self.agent,
             "agent_type": self.agent_type,
+            "owner_id": self.agent,
+            "owner_pid": self.pid,
             "session": self.session,
             "pid": self.pid,
             "acquired_at": self.acquired_at.isoformat().replace("+00:00", "Z"),
@@ -59,7 +63,7 @@ def configured_lock_path() -> Path:
 
 def configured_owner_pid() -> int:
     override = os.environ.get(OWNER_PID_ENV)
-    return int(override) if override else os.getppid()
+    return int(override) if override else os.getpid()
 
 
 def utc_now() -> datetime:
@@ -198,24 +202,37 @@ def acquire_lock(
 
 
 def release_lock(agent: str | None = None, surface: str = DEFAULT_SURFACE) -> tuple[bool, str]:
-    current, reason = active_lock(surface=surface)
+    current = read_lock()
     if current is None:
-        return True, f"already unlocked" if reason is None else f"stale lock released ({reason})"
+        return True, "already unlocked"
+    if current.surface != surface:
+        return False, f"lock belongs to surface {current.surface}, not {surface}"
     if agent and current.agent != agent:
         return False, f"lock held by {current.agent}, not {agent}"
+    reason = stale_reason(current)
     remove_lock()
+    if reason:
+        return True, f"released stale lock ({reason})"
     return True, "released"
 
 
 def cmd_acquire(args: argparse.Namespace) -> int:
+    if not args.no_workflow_check:
+        ack_ok, verdict, _, _, _ = check_workflow_ack(args.agent)
+        if not ack_ok:
+            print(f"SCRIBE LOCK: mutation refused: workflow {verdict} for {args.agent}", file=sys.stderr)
+            print(f"  run: scribe workflow read --agent {args.agent} --type {args.agent_type}", file=sys.stderr)
+            return 2
     ok, message = acquire_lock(args.agent, args.session, args.agent_type, args.surface, args.ttl_minutes, args.owner_pid)
     print(f"SCRIBE LOCK: {message}")
     if ok:
         print(f"  file: {configured_lock_path()}")
         print(f"  agent: {args.agent}")
+        print(f"  owner_id: {args.agent}")
         print(f"  agent_type: {args.agent_type}")
         print(f"  session: {args.session}")
         print(f"  surface: {args.surface}")
+        print(f"  owner_pid: {args.owner_pid or configured_owner_pid()}")
     return 0 if ok else 2
 
 
@@ -236,9 +253,11 @@ def cmd_status(args: argparse.Namespace) -> int:
         return 0
     print("  state: locked")
     print(f"  agent: {state.agent}")
+    print(f"  owner_id: {state.agent}")
     print(f"  agent_type: {state.agent_type}")
     print(f"  session: {state.session}")
     print(f"  pid: {state.pid}")
+    print(f"  owner_pid: {state.pid}")
     print(f"  acquired_at: {state.acquired_at.isoformat().replace('+00:00', 'Z')}")
     print(f"  surface: {state.surface}")
     print(f"  ttl_minutes: {state.ttl_minutes}")
@@ -255,7 +274,8 @@ def build_parser() -> argparse.ArgumentParser:
     acquire.add_argument("--session", required=True, help="JOURNAL-ID tied to this mutation session.")
     acquire.add_argument("--surface", default=DEFAULT_SURFACE)
     acquire.add_argument("--ttl-minutes", type=int, default=DEFAULT_TTL_MINUTES)
-    acquire.add_argument("--owner-pid", type=int, help="Long-lived process PID that owns this lock. Defaults to the parent process.")
+    acquire.add_argument("--owner-pid", type=int, help="Long-lived process PID that owns this lock. Defaults to the current process.")
+    acquire.add_argument("--no-workflow-check", action="store_true", help="Emergency bypass for bootstrapping tests only.")
     acquire.set_defaults(func=cmd_acquire)
 
     release = subparsers.add_parser("release", help="Release the SCRIBE mutation lock.")

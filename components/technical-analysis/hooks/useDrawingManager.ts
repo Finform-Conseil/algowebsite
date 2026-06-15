@@ -322,39 +322,20 @@ export const useDrawingManager = ({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
-    // Migration from localStorage to IndexedDB (Seamless upgrade)
-    const migrateData = async () => {
+
+    const loadDrawingPreferences = async () => {
       try {
-        // 1. Defaults
-        let defaultsData = await idbGet<unknown>('algoway_drawing_defaults');
-        if (!defaultsData) {
-          const legacyDefaults = localStorage.getItem('algoway_drawing_defaults');
-          if (legacyDefaults) {
-            defaultsData = JSON.parse(legacyDefaults);
-            await idbSet('algoway_drawing_defaults', defaultsData);
-            localStorage.removeItem('algoway_drawing_defaults'); // Cleanup
-          }
-        }
+        const defaultsData = await idbGet<unknown>('algoway_drawing_defaults');
         if (defaultsData) setToolDefaults(validateToolDefaults(defaultsData));
 
-        // 2. Templates
-        let templatesData = await idbGet<unknown>('algoway_drawing_templates');
-        if (!templatesData) {
-          const legacyTemplates = localStorage.getItem('algoway_drawing_templates');
-          if (legacyTemplates) {
-            templatesData = JSON.parse(legacyTemplates);
-            await idbSet('algoway_drawing_templates', templatesData);
-            localStorage.removeItem('algoway_drawing_templates'); // Cleanup
-          }
-        }
+        const templatesData = await idbGet<unknown>('algoway_drawing_templates');
         if (templatesData) setNamedTemplates(validateNamedTemplates(templatesData));
       } catch (e) {
-        console.error("[SRE] Migration to IndexedDB failed", e);
+        console.error("[SRE] IndexedDB drawing preferences load failed", e);
       }
     };
-    
-    migrateData();
+
+    void loadDrawingPreferences();
   }, []);
 
   const getToolDefault = useCallback((tool: string): DrawingStyle => {

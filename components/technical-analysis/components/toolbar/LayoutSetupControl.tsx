@@ -6,6 +6,7 @@ import {
   useDispatch,
   useSelector } from "react-redux";
 import type { MultiChartLayoutId,
+  MultiChartLayoutState,
   MultiChartSyncKey } from "../../config/layout/multiChartLayoutTypes";
 import {
   hasCollapsedLayoutSymbols,
@@ -23,6 +24,7 @@ import {
   selectChartConfig,
   selectUiState,
 } from "../../store/selectors";
+import { idbGet, idbSet } from "../../hooks/drawing/drawingPersistence";
 
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
   { key: "symbol", label: "Symbol", title: "Synchronise le symbole entre tous les graphiques" },
@@ -62,20 +64,28 @@ export const LayoutSetupControl: React.FC = () => {
   useEffect(() => {
     if (didHydrateRef.current || typeof window === "undefined") return;
     didHydrateRef.current = true;
-    const raw = window.localStorage.getItem(MULTI_CHART_STORAGE_KEY);
-    if (!raw) return;
+    let isActive = true;
 
-    try {
-      dispatch(hydrateMultiChartLayout(JSON.parse(raw)));
-    } catch (error) {
-      console.warn("[LayoutSetup] Invalid persisted layout ignored", error);
-      window.localStorage.removeItem(MULTI_CHART_STORAGE_KEY);
-    }
+    const hydratePersistedLayout = async () => {
+      const storedLayout = await idbGet<MultiChartLayoutState>(MULTI_CHART_STORAGE_KEY);
+      if (!isActive || !storedLayout) return;
+
+      try {
+        dispatch(hydrateMultiChartLayout(storedLayout));
+      } catch (error) {
+        console.warn("[LayoutSetup] Invalid persisted layout ignored", error);
+      }
+    };
+
+    void hydratePersistedLayout();
+    return () => {
+      isActive = false;
+    };
   }, [dispatch]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(MULTI_CHART_STORAGE_KEY, JSON.stringify(layoutState));
+    void idbSet(MULTI_CHART_STORAGE_KEY, layoutState);
   }, [layoutState]);
 
   useEffect(() => {
