@@ -1,28 +1,8 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import MultiLineChart from '@/components/opcvm/MultiLineChart';
-import { Candle } from '@/core/data/TechnicalAnalysis';
-
-// Types
-type OPCVM = {
-  id: string;
-  name: string;
-  manager: string;
-  approvalYear: number;
-  strategy: string;
-  performance: number;
-  benchmark: string;
-  benchmarkPerformance: number;
-  volatility: number;
-  riskLevel: 'Low' | 'Moderate' | 'High';
-  managementFees: number;
-  feesLevel: 'Low' | 'Medium' | 'High';
-  successFactors?: string[];
-  underperformanceFactors?: string[];
-  historicalData?: Candle[];
-};
+import { useOpcvmRepository } from '@/core/infra/repositories/opcvm.repository.impl';
 
 type Exchange = 'BRVM' | 'JSE' | 'NGX' | 'NSE' | 'CSE' | 'GSE';
 type ViewMode = 'detailed' | 'table' | 'charts';
@@ -30,191 +10,29 @@ type ViewMode = 'detailed' | 'table' | 'charts';
 export default function OPCVMComparisonReportPage() {
   const [selectedExchange, setSelectedExchange] = useState<Exchange>('BRVM');
   const [startDate, setStartDate] = useState('2024-01-01');
-  const [endDate, setEndDate] = useState('2024-11-30');
+  const [endDate, setEndDate] = useState('2026-02-03');
   const [viewMode, setViewMode] = useState<ViewMode>('charts');
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
-  const backgroundImages = [
-    '/images/screener-header-3.jpg',
-    '/images/exchanges-header-2.jpg',
-    '/images/exchanges-header-1.jpg',
-  ];
-
+  const { topFlopOpcvmsData, getTopFlopOpcvms } = useOpcvmRepository();
+  
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [backgroundImages.length]);
+    getTopFlopOpcvms({date_from: startDate, date_to: endDate, bourse_ticker: selectedExchange});
+  }, [startDate, endDate, selectedExchange]);
 
-  // Generate mock historical data for charts
-  const generateHistoricalData = (basePrice: number, trend: 'up' | 'down'): Candle[] => {
-    const data: Candle[] = [];
-    const days = 90;
-    let price = basePrice;
-    const startDateObj = new Date(startDate);
+  useEffect(() =>
+  {
+    console.log("All OPCVM Data", topFlopOpcvmsData)
+  }, [topFlopOpcvmsData])
 
-    for (let i = 0; i < days; i++) {
-      const date = new Date(startDateObj);
-      date.setDate(date.getDate() + i);
-      
-      const volatility = 0.02;
-      const trendFactor = trend === 'up' ? 0.001 : -0.001;
-      
-      const open = price;
-      const change = price * (Math.random() * volatility - volatility / 2 + trendFactor);
-      const close = price + change;
-      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-      const volume = Math.floor(Math.random() * 1000000) + 500000;
-
-      data.push({
-        date: date.toISOString().split('T')[0],
-        open,
-        high,
-        low,
-        close,
-        volume,
-      });
-
-      price = close;
-    }
-
-    return data;
+  const formatMetric = (value?: number | string | null, digits = 4, suffix = '') => {
+    const numericValue = Number(value);
+    return value === null || value === undefined || Number.isNaN(numericValue) ? '-' : `${numericValue.toFixed(digits)}${suffix}`;
   };
 
-  // Mock data - To be replaced with real API data
-  const mockTopOPCVM: OPCVM[] = [
-    {
-      id: '1',
-      name: 'NSIA Ivory Coast Equity',
-      manager: 'NSIA Banque',
-      approvalYear: 2015,
-      strategy: 'Equity fund investing primarily in large-cap stocks on the BRVM, with an active management approach aimed at outperforming the BRVM Composite index. The fund favors the banking, telecommunications, and distribution sectors.',
-      performance: 18.3,
-      benchmark: 'BRVM Composite',
-      benchmarkPerformance: 12.5,
-      volatility: 12.5,
-      riskLevel: 'High',
-      managementFees: 1.5,
-      feesLevel: 'Medium',
-      historicalData: generateHistoricalData(1000, 'up'),
-      successFactors: [
-        'Excellent stock selection in the banking sector which experienced strong growth',
-        'Opportune overweighting of the telecommunications sector',
-        'Effective active management with well-timed arbitrage',
-        'Good geographic diversification within the WAEMU zone'
-      ]
-    },
-    {
-      id: '2',
-      name: 'Coris Dynamic Equity',
-      manager: 'Coris Asset Management',
-      approvalYear: 2018,
-      strategy: 'Dynamic equity fund investing in growth stocks on the BRVM. Momentum approach with active sector rotation.',
-      performance: 16.8,
-      benchmark: 'BRVM Composite',
-      benchmarkPerformance: 12.5,
-      volatility: 14.2,
-      riskLevel: 'High',
-      managementFees: 1.8,
-      feesLevel: 'High',
-      historicalData: generateHistoricalData(950, 'up'),
-      successFactors: [
-        'Momentum strategy well-suited to the bullish market context',
-        'Effective sector rotation towards performing sectors',
-        'Significant exposure to growth stocks',
-        'Optimized entry and exit timing'
-      ]
-    },
-    {
-      id: '3',
-      name: 'BOA Growth Plus',
-      manager: 'BOA Capital',
-      approvalYear: 2016,
-      strategy: 'Flexible mixed fund with dynamic allocation between equities (60-80%) and bonds (20-40%). Value management with focus on undervalued securities.',
-      performance: 14.5,
-      benchmark: 'BRVM Composite 70% + BRVM Bonds 30%',
-      benchmarkPerformance: 10.8,
-      volatility: 9.8,
-      riskLevel: 'Moderate',
-      managementFees: 1.2,
-      feesLevel: 'Low',
-      historicalData: generateHistoricalData(900, 'up'),
-      successFactors: [
-        'Optimal asset allocation with equity overweighting at the right time',
-        'Selection of value stocks that experienced revaluation',
-        'Competitive management fees maximizing net performance',
-        'Good risk management with effective diversification'
-      ]
-    }
-  ];
-
-  const mockFlopOPCVM: OPCVM[] = [
-    {
-      id: '4',
-      name: 'Atlantique Emerging Equity',
-      manager: 'Atlantique Asset Management',
-      approvalYear: 2017,
-      strategy: 'Equity fund investing in small and mid-cap stocks on the BRVM, with a long-term growth approach.',
-      performance: -3.2,
-      benchmark: 'BRVM Composite',
-      benchmarkPerformance: 12.5,
-      volatility: 18.5,
-      riskLevel: 'High',
-      managementFees: 2.0,
-      feesLevel: 'High',
-      historicalData: generateHistoricalData(1000, 'down'),
-      underperformanceFactors: [
-        'Overexposure to small caps that underperformed',
-        'Excessive concentration on struggling sectors',
-        'High management fees impacting net performance',
-        'Lack of liquidity on certain positions'
-      ]
-    },
-    {
-      id: '5',
-      name: 'Sahel Short-Term Bonds',
-      manager: 'Sahel Finance',
-      approvalYear: 2019,
-      strategy: 'Bond fund investing in short-term debt securities (maturity < 3 years) issued by States and companies in the WAEMU zone.',
-      performance: 2.1,
-      benchmark: 'BRVM Bonds',
-      benchmarkPerformance: 5.8,
-      volatility: 3.2,
-      riskLevel: 'Low',
-      managementFees: 0.8,
-      feesLevel: 'Low',
-      historicalData: generateHistoricalData(980, 'down'),
-      underperformanceFactors: [
-        'Underweighting of government bonds that performed well',
-        'Exposure to corporate issuers that experienced difficulties',
-        'Duration too short in a declining rate environment',
-        'Lack of reactivity in portfolio adjustment'
-      ]
-    },
-    {
-      id: '6',
-      name: 'Ecobank Balanced',
-      manager: 'Ecobank Asset Management',
-      approvalYear: 2014,
-      strategy: 'Balanced mixed fund with fixed 50% equity / 50% bonds allocation. Passive management replicating benchmark indices.',
-      performance: 4.8,
-      benchmark: 'BRVM Composite 50% + BRVM Bonds 50%',
-      benchmarkPerformance: 9.2,
-      volatility: 7.5,
-      riskLevel: 'Moderate',
-      managementFees: 1.0,
-      feesLevel: 'Medium',
-      historicalData: generateHistoricalData(950, 'down'),
-      underperformanceFactors: [
-        'Passive management unsuited to a market requiring arbitrage',
-        'Fixed allocation preventing from taking advantage of opportunities',
-        'Imperfect replication of benchmark indices',
-        'High transaction costs impacting tracking error'
-      ]
-    }
-  ];
+  const formatSgo = (sgo?: string | { name?: string }) => (
+    typeof sgo === 'string' ? sgo : sgo?.name || '-'
+  );
+  
 
   return (
     <div className="comparison-report-page">
@@ -223,13 +41,13 @@ export default function OPCVMComparisonReportPage() {
         <div 
           className="report-header__hero"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
           }}
         >
           <div className="header-content">
             <div className="header-title">
               <h1>Funds Comparison Report</h1>
-              <p>Comparative analysis of Top-3 and Flop-3 UCITS by exchange</p>
+              <p>Comparative analysis of Top-3 and Flop-3 Funds by exchange</p>
             </div>
 
             <div className="header-filters">
@@ -327,7 +145,7 @@ export default function OPCVMComparisonReportPage() {
             <section className="report-section introduction">
               <h2>Introduction</h2>
               <p>
-                This report aims to provide investors with a periodic comparative analysis of six Undertakings for Collective Investment in Transferable Securities (UCITS) listed on the <strong>{selectedExchange}</strong>. We have selected the three UCITS with the best performance ("Top-3") and the three with the lowest performance ("Flop-3") over the period from <strong>{new Date(startDate).toLocaleDateString('en-US')}</strong> to <strong>{new Date(endDate).toLocaleDateString('en-US')}</strong>.
+                This report aims to provide investors with a periodic comparative analysis of six Undertakings for Collective Investment in Transferable Securities (Funds) listed on the <strong>{selectedExchange}</strong>. We have selected the three Funds with the best performance ("Top-3") and the three with the lowest performance ("Flop-3") over the period from <strong>{new Date(startDate).toLocaleDateString('en-US')}</strong> to <strong>{new Date(endDate).toLocaleDateString('en-US')}</strong>.
               </p>
               <p>
                 The analysis will focus on their performance, management fees, and main investment strategies, to help investors better understand the factors of success and underperformance, and to inform their investment decisions.
@@ -338,7 +156,7 @@ export default function OPCVMComparisonReportPage() {
         <section className="report-section methodology">
           <h2>Methodology</h2>
           <p>
-            The selection of UCITS was based on the <strong>total net return</strong> over the analyzed period. Information regarding management fees and investment strategies was extracted from Key Investor Information Documents (KIID), prospectuses, and publicly available periodic reports.
+            The selection of Funds was based on the <strong>total net return</strong> over the analyzed period. Information regarding management fees and investment strategies was extracted from Key Investor Information Documents (KIID), prospectuses, and publicly available periodic reports.
           </p>
         </section>
 
@@ -351,31 +169,31 @@ export default function OPCVMComparisonReportPage() {
                 <polyline points="17 6 23 6 23 12" />
               </svg>
             </div>
-            <h2>Detailed Analysis of Top-3 UCITS</h2>
+            <h2>Detailed Analysis of Top-3 Funds</h2>
           </div>
 
           <div className="opcvm-cards">
-            {mockTopOPCVM.map((opcvm, index) => (
-              <div key={opcvm.id} className="opcvm-card top-card">
+            {topFlopOpcvmsData?.top_performers.map((topOpcvm, index) => (
+              <div key={index} className="opcvm-card top-card">
                 <div className="card-header">
                   <div className="rank-badge top-rank">#{index + 1}</div>
-                  <h3>{opcvm.name}</h3>
+                  <h3>{topOpcvm.opcvm.intitule}</h3>
                 </div>
 
                 <div className="card-info">
                   <div className="info-row">
                     <span className="info-label">Management Company:</span>
-                    <span className="info-value">{opcvm.manager}</span>
+                    <span className="info-value">{typeof topOpcvm.opcvm.sgo == "string" ? topOpcvm.opcvm.sgo : '--'}</span>
                   </div>
                   <div className="info-row">
                     <span className="info-label">Approval Year:</span>
-                    <span className="info-value">{opcvm.approvalYear}</span>
+                    <span className="info-value">{topOpcvm.opcvm.date_agrement?.toString()}</span>
                   </div>
                 </div>
 
                 <div className="card-section">
                   <h4>Main Investment Strategy</h4>
-                  <p>{opcvm.strategy}</p>
+                  <p>{topOpcvm.opcvm.orientation_strategique}</p>
                 </div>
 
                 <div className="card-section">
@@ -383,47 +201,32 @@ export default function OPCVMComparisonReportPage() {
                   <div className="performance-metrics">
                     <div className="metric-item">
                       <span className="metric-label">Return</span>
-                      <span className="metric-value positive">+{opcvm.performance}%</span>
+                      <span className="metric-value positive">+{topOpcvm.performance.toFixed(4)}%</span>
                     </div>
                     <div className="metric-item">
                       <span className="metric-label">Benchmark</span>
-                      <span className="metric-value">{opcvm.benchmark}</span>
-                    </div>
-                    <div className="metric-item">
-                      <span className="metric-label">Benchmark Performance</span>
-                      <span className="metric-value">+{opcvm.benchmarkPerformance}%</span>
+                      <span className="metric-value">{topOpcvm.opcvm.indice_description}</span>
                     </div>
                     <div className="metric-item">
                       <span className="metric-label">Volatility</span>
-                      <span className="metric-value">{opcvm.volatility}%</span>
+                      <span className="metric-value">{topOpcvm.volatility}%</span>
                     </div>
                     <div className="metric-item">
                       <span className="metric-label">Risk Level</span>
-                      <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
+                      <span className={`risk-badge risk-${topOpcvm.opcvm.niveau_risque}`}>{topOpcvm.opcvm.niveau_risque}</span>
                     </div>
                   </div>
                   <p className="performance-text">
-                    With a return of <strong>+{opcvm.performance}%</strong> over the period, this fund significantly outperformed its benchmark (<strong>{opcvm.benchmark}</strong> at <strong>+{opcvm.benchmarkPerformance}%</strong>). Its volatility of <strong>{opcvm.volatility}%</strong> suggests a <strong>{opcvm.riskLevel.toLowerCase()}</strong> risk level compared to its category.
+                    With a return of <strong>+{topOpcvm.performance.toFixed(4)}%</strong> over the period, this fund significantly outperformed its benchmark. Its volatility of <strong>{topOpcvm.volatility}%</strong> suggests a <strong>{topOpcvm.opcvm.niveau_risque}</strong> risk level compared to its category.
                   </p>
                 </div>
 
                 <div className="card-section">
                   <h4>Management Fees</h4>
                   <p>
-                    Annual management fees amount to <strong>{opcvm.managementFees}%</strong>, which is in a <strong>{opcvm.feesLevel.toLowerCase()}</strong> range compared to its category.
+                    Annual management fees amount to <strong>{topOpcvm.opcvm.max_gestion}%</strong>, which is in a <strong>{topOpcvm.opcvm.max_souscription}</strong> range compared to its category.
                   </p>
                 </div>
-
-                {opcvm.successFactors && (
-                  <div className="card-section">
-                    <h4>Potential Success Factors</h4>
-                    <ul className="factors-list">
-                      {opcvm.successFactors.map((factor, idx) => (
-                        <li key={idx}>{factor}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -438,31 +241,31 @@ export default function OPCVMComparisonReportPage() {
                 <polyline points="17 18 23 18 23 12" />
               </svg>
             </div>
-            <h2>Detailed Analysis of Flop-3 UCITS</h2>
+            <h2>Detailed Analysis of Flop-3 Funds</h2>
           </div>
 
           <div className="opcvm-cards">
-            {mockFlopOPCVM.map((opcvm, index) => (
-              <div key={opcvm.id} className="opcvm-card flop-card">
+            {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, index) => (
+              <div key={index} className="opcvm-card flop-card">
                 <div className="card-header">
                   <div className="rank-badge flop-rank">#{index + 1}</div>
-                  <h3>{opcvm.name}</h3>
+                  <h3>{worstOpcvm.opcvm.intitule}</h3>
                 </div>
 
                 <div className="card-info">
                   <div className="info-row">
                     <span className="info-label">Management Company:</span>
-                    <span className="info-value">{opcvm.manager}</span>
+                    <span className="info-value">{typeof worstOpcvm.opcvm.sgo =='string'? worstOpcvm.opcvm.sgo : '--'}</span>
                   </div>
                   <div className="info-row">
                     <span className="info-label">Approval Year:</span>
-                    <span className="info-value">{opcvm.approvalYear}</span>
+                    <span className="info-value">{worstOpcvm.opcvm.date_agrement?.toString() || '--'}</span>
                   </div>
                 </div>
 
                 <div className="card-section">
                   <h4>Main Investment Strategy</h4>
-                  <p>{opcvm.strategy}</p>
+                  <p>{worstOpcvm.opcvm.orientation_strategique}</p>
                 </div>
 
                 <div className="card-section">
@@ -470,72 +273,53 @@ export default function OPCVMComparisonReportPage() {
                   <div className="performance-metrics">
                     <div className="metric-item">
                       <span className="metric-label">Return</span>
-                      <span className={`metric-value ${opcvm.performance >= 0 ? 'positive' : 'negative'}`}>
-                        {opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%
+                      <span className={`metric-value ${worstOpcvm.performance >= 0 ? 'positive' : 'negative'}`}>
+                        {worstOpcvm.performance >= 0 ? '+' : ''}{worstOpcvm.performance.toFixed(4)}%
                       </span>
                     </div>
                     <div className="metric-item">
                       <span className="metric-label">Benchmark</span>
-                      <span className="metric-value">{opcvm.benchmark}</span>
-                    </div>
-                    <div className="metric-item">
-                      <span className="metric-label">Benchmark Performance</span>
-                      <span className="metric-value">+{opcvm.benchmarkPerformance}%</span>
+                      <span className="metric-value">{worstOpcvm.opcvm.indice_description}</span>
                     </div>
                     <div className="metric-item">
                       <span className="metric-label">Volatility</span>
-                      <span className="metric-value">{opcvm.volatility}%</span>
+                      <span className="metric-value">{worstOpcvm.volatility}%</span>
                     </div>
                     <div className="metric-item">
                       <span className="metric-label">Risk Level</span>
-                      <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
+                      <span className={`risk-badge risk-${worstOpcvm.opcvm.niveau_risque}`}>{worstOpcvm.opcvm.niveau_risque}</span>
                     </div>
                   </div>
                   <p className="performance-text">
-                    With a return of <strong>{opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%</strong> over the period, this fund significantly underperformed its benchmark (<strong>{opcvm.benchmark}</strong> at <strong>+{opcvm.benchmarkPerformance}%</strong>). Its volatility of <strong>{opcvm.volatility}%</strong> suggests a <strong>{opcvm.riskLevel.toLowerCase()}</strong> risk level.
+                    With a return of <strong>{worstOpcvm.performance >= 0 ? '+' : ''}{worstOpcvm.performance.toFixed(4)}%</strong> over the period, this fund significantly underperformed its benchmark. Its volatility of <strong>{worstOpcvm.volatility}%</strong> suggests a <strong>{worstOpcvm.opcvm.niveau_risque}</strong> risk level.
                   </p>
                 </div>
 
                 <div className="card-section">
                   <h4>Management Fees</h4>
                   <p>
-                    Annual management fees amount to <strong>{opcvm.managementFees}%</strong>, which is in a <strong>{opcvm.feesLevel.toLowerCase()}</strong> range compared to its category.
+                    Annual management fees amount to <strong>{worstOpcvm.opcvm.max_gestion}%</strong>, which is in a <strong>{worstOpcvm.opcvm.max_souscription}</strong> range compared to its category.
                   </p>
                 </div>
-
-                {opcvm.underperformanceFactors && (
-                  <div className="card-section">
-                    <h4>Potential Underperformance Factors</h4>
-                    <ul className="factors-list">
-                      {opcvm.underperformanceFactors.map((factor, idx) => (
-                        <li key={idx}>{factor}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             ))}
           </div>
         </section>
 
-            {/* Avertissement */}
-            <section className="report-section disclaimer">
-              <div className="disclaimer-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-              </div>
-              <h2>Important Disclaimer</h2>
-              <p>
-                <strong>Past performance does not guarantee future results.</strong> This report is based on historical data and does not constitute investment advice. Investors should conduct their own thorough analysis and consult a financial advisor before making any investment decision.
-              </p>
-              <p>
-                Management fees are an important factor to consider, as they directly impact the investor's net performance.
-              </p>
-            </section>
+          {/* Avertissement */}
+        <section className="report-section disclaimer">
+          <div className="disclaimer-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
           </div>
+          <h2>Important Disclaimer</h2>
+          <p><strong>Past performance does not guarantee future results.</strong> This report is based on historical data and does not constitute investment advice. Investors should conduct their own thorough analysis and consult a financial advisor before making any investment decision.</p>
+          <p>Management fees are an important factor to consider, as they directly impact the investor's net performance.</p>
+        </section>
+        </div>
         )}
 
         {/* Vue Tableau */}
@@ -552,7 +336,7 @@ export default function OPCVMComparisonReportPage() {
                           <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                           <polyline points="17 6 23 6 23 12" />
                         </svg>
-                        Top-3 OPCVM
+                        Top-3 Funds
                       </div>
                     </th>
                     <th className="flop-header" colSpan={3}>
@@ -561,119 +345,110 @@ export default function OPCVMComparisonReportPage() {
                           <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
                           <polyline points="17 18 23 18 23 12" />
                         </svg>
-                        Flop-3 OPCVM
+                        Flop-3 Funds
                       </div>
                     </th>
                   </tr>
                   <tr className="sub-header">
                     <th></th>
-                    {mockTopOPCVM.map((opcvm, idx) => (
-                      <th key={opcvm.id} className="top-col">#{idx + 1}</th>
+                    {topFlopOpcvmsData?.top_performers.map((opcvm, idx) => (
+                      <th key={idx} className="top-col">#{idx + 1}</th>
                     ))}
-                    {mockFlopOPCVM.map((opcvm, idx) => (
-                      <th key={opcvm.id} className="flop-col">#{idx + 1}</th>
+                    {topFlopOpcvmsData?.worst_performers.map((opcvm, idx) => (
+                      <th key={idx} className="flop-col">#{idx + 1}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="metric-label">Fund Name</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell font-weight-600">{opcvm.name}</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell font-weight-600">{topOpcvm.opcvm.intitule}</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell font-weight-600">{opcvm.name}</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell font-weight-600">{worstOpcvm.opcvm.intitule}</td>
                     ))}
                   </tr>
                   <tr>
                     <td className="metric-label">Management Company</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">{opcvm.manager}</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">{typeof topOpcvm.opcvm.sgo == 'string' ? topOpcvm.opcvm.sgo : "--" }</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">{opcvm.manager}</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">{typeof worstOpcvm.opcvm.sgo == 'string' ? worstOpcvm.opcvm.sgo : "--"}</td>
                     ))}
                   </tr>
                   <tr>
                     <td className="metric-label">Approval Year</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">{opcvm.approvalYear}</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">{topOpcvm.opcvm.date_agrement?.toString()}</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">{opcvm.approvalYear}</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">{worstOpcvm.opcvm.date_agrement?.toString()}</td>
                     ))}
                   </tr>
                   <tr className="highlight-row">
                     <td className="metric-label">Performance</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">
-                        <span className="performance-value positive">+{opcvm.performance}%</span>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">
+                        <span className="performance-value positive">+{topOpcvm.performance.toFixed(4)}%</span>
                       </td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">
-                        <span className={`performance-value ${opcvm.performance >= 0 ? 'positive' : 'negative'}`}>
-                          {opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">
+                        <span className={`performance-value ${worstOpcvm.performance >= 0 ? 'positive' : 'negative'}`}>
+                          {worstOpcvm.performance >= 0 ? '+' : ''}{worstOpcvm.performance.toFixed(4)}%
                         </span>
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className="metric-label">Benchmark</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell small-text">{opcvm.benchmark}</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell small-text">{topOpcvm.opcvm.indice_description}</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell small-text">{opcvm.benchmark}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="metric-label">Benchmark Performance</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">+{opcvm.benchmarkPerformance}%</td>
-                    ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">+{opcvm.benchmarkPerformance}%</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell small-text">{worstOpcvm.opcvm.indice_description}</td>
                     ))}
                   </tr>
                   <tr>
                     <td className="metric-label">Volatility</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">{opcvm.volatility}%</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">{topOpcvm.volatility}%</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">{opcvm.volatility}%</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">{worstOpcvm.volatility}%</td>
                     ))}
                   </tr>
                   <tr>
                     <td className="metric-label">Risk Level</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">
-                        <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">
+                        <span className={`risk-badge risk-${topOpcvm.opcvm.niveau_risque}`}>{topOpcvm.opcvm.niveau_risque ?? "--"}</span>
                       </td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">
-                        <span className={`risk-badge risk-${opcvm.riskLevel.toLowerCase()}`}>{opcvm.riskLevel}</span>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">
+                        <span className={`risk-badge risk-${worstOpcvm.opcvm.niveau_risque}`}>{worstOpcvm.opcvm.niveau_risque ?? "--"}</span>
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className="metric-label">Management Fees</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">{opcvm.managementFees}%</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">{topOpcvm.opcvm.max_gestion}%</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">{opcvm.managementFees}%</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">{worstOpcvm.opcvm.max_gestion}%</td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="metric-label">Fees Level</td>
-                    {mockTopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="top-cell">{opcvm.feesLevel}</td>
+                    <td className="metric-label">Subscription Fees</td>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <td key={idx} className="top-cell">{topOpcvm.opcvm.max_souscription}</td>
                     ))}
-                    {mockFlopOPCVM.map(opcvm => (
-                      <td key={opcvm.id} className="flop-cell">{opcvm.feesLevel}</td>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <td key={idx} className="flop-cell">{worstOpcvm.opcvm.max_souscription}</td>
                     ))}
                   </tr>
                 </tbody>
@@ -706,25 +481,36 @@ export default function OPCVMComparisonReportPage() {
                       <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                       <polyline points="17 6 23 6 23 12" />
                     </svg>
-                    <h3>Top-3 UCITS Performance</h3>
+                    <h3>Top-3 Funds Performance</h3>
                   </div>
                   <div className="chart-legend">
-                    {mockTopOPCVM.map((opcvm, idx) => (
-                      <div key={opcvm.id} className="legend-item">
+                    <div className="legend-item legend-header">
+                      <span></span>
+                      <span>Fund</span>
+                      <span>SGO</span>
+                      <span>Sharpe 1Y</span>
+                      <span>Volatility</span>
+                      <span>Performance</span>
+                    </div>
+                    {topFlopOpcvmsData?.top_performers.map((topOpcvm, idx) => (
+                      <div key={idx} className="legend-item">
                         <span className={`legend-color top-${idx + 1}`}></span>
-                        <span className="legend-label">{opcvm.name}</span>
-                        <span className="legend-value positive">+{opcvm.performance}%</span>
+                        <span className="legend-label">{topOpcvm.opcvm.intitule}</span>
+                        <span className="legend-meta">{formatSgo(topOpcvm.opcvm.sgo)}</span>
+                        <span className="legend-meta">{formatMetric(topOpcvm.opcvm.latest_metrics?.sharpe_ratio_1y)}</span>
+                        <span className="legend-meta">{formatMetric(topOpcvm.volatility, 4, '%')}</span>
+                        <span className="legend-value positive">+{topOpcvm.performance.toFixed(4)}%</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="chart-wrapper">
                   <MultiLineChart
-                    series={mockTopOPCVM.map((opcvm, idx) => ({
-                      name: opcvm.name,
-                      data: opcvm.historicalData || [],
+                    series={topFlopOpcvmsData?.top_performers.map((worstOpcvm, idx) => ({
+                      name: worstOpcvm.opcvm.intitule,
+                      data: worstOpcvm.metrics || [],
                       color: idx === 0 ? '#10b981' : idx === 1 ? '#34d399' : '#6ee7b7'
-                    }))}
+                    })) || []}
                     type="top"
                   />
                 </div>
@@ -738,15 +524,26 @@ export default function OPCVMComparisonReportPage() {
                       <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
                       <polyline points="17 18 23 18 23 12" />
                     </svg>
-                    <h3>Flop-3 UCITS Performance</h3>
+                    <h3>Flop-3 Funds Performance</h3>
                   </div>
                   <div className="chart-legend">
-                    {mockFlopOPCVM.map((opcvm, idx) => (
-                      <div key={opcvm.id} className="legend-item">
+                    <div className="legend-item legend-header">
+                      <span></span>
+                      <span>Fund</span>
+                      <span>SGO</span>
+                      <span>Sharpe 1Y</span>
+                      <span>Volatility</span>
+                      <span>Performance</span>
+                    </div>
+                    {topFlopOpcvmsData?.worst_performers.map((worstOpcvm, idx) => (
+                      <div key={idx} className="legend-item">
                         <span className={`legend-color flop-${idx + 1}`}></span>
-                        <span className="legend-label">{opcvm.name}</span>
-                        <span className={`legend-value ${opcvm.performance >= 0 ? 'positive' : 'negative'}`}>
-                          {opcvm.performance >= 0 ? '+' : ''}{opcvm.performance}%
+                        <span className="legend-label">{worstOpcvm.opcvm.intitule}</span>
+                        <span className="legend-meta">{formatSgo(worstOpcvm.opcvm.sgo)}</span>
+                        <span className="legend-meta">{formatMetric(worstOpcvm.opcvm.latest_metrics?.sharpe_ratio_1y)}</span>
+                        <span className="legend-meta">{formatMetric(worstOpcvm.volatility, 4, '%')}</span>
+                        <span className={`legend-value ${worstOpcvm.performance >= 0 ? 'positive' : 'negative'}`}>
+                          {worstOpcvm.performance >= 0 ? '+' : ''}{worstOpcvm.performance.toFixed(4)}%
                         </span>
                       </div>
                     ))}
@@ -754,11 +551,11 @@ export default function OPCVMComparisonReportPage() {
                 </div>
                 <div className="chart-wrapper">
                   <MultiLineChart
-                    series={mockFlopOPCVM.map((opcvm, idx) => ({
-                      name: opcvm.name,
-                      data: opcvm.historicalData || [],
+                    series={topFlopOpcvmsData?.worst_performers.map((topOpcvm, idx) => ({
+                      name: topOpcvm.opcvm.intitule,
+                      data: topOpcvm.metrics || [],
                       color: idx === 0 ? '#ef4444' : idx === 1 ? '#f87171' : '#fca5a5'
-                    }))}
+                    })) || []}
                     type="flop"
                   />
                 </div>

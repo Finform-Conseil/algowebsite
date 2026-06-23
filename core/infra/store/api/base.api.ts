@@ -78,7 +78,7 @@ const baseQueryWithReauth: BaseQueryFn<
 const api = createApi({
 	reducerPath: 'api',
 	baseQuery: baseQueryWithReauth,
-  tagTypes: ['User', 'Users', 'Currencies', 'Sectors', 'Bourses', 'Countries', 'Societies', 'Actions', 'Industries', 'Activities', 'Cours', 'Statements', 'Sheets', 'Events', 'Results', 'Documents', 'Files', 'Dividends', 'Actionnariats', 'OPCVMs','OPCVMMetrics', 'Indices', 'IndiceCours', 'Rates', 'Sgos'], 
+  tagTypes: ['User', 'Users', 'Currencies', 'Sectors', 'Bourses', 'Countries', 'Societies', 'Actions', 'Industries', 'Activities', 'Cours', 'Statements', 'Macros', 'Sheets', 'Events', 'Results', 'Documents', 'Files', 'Dividends', 'Actionnariats', 'OPCVMs','OPCVMMetrics', 'Indices', 'IndiceCours', 'Rates', 'Sgos'], 
 	endpoints: builder => ({}),
 });
 

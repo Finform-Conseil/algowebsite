@@ -1,42 +1,18 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
-import OPCVMChartView from '@/components/opcvm/OPCVMChartView';
-
-// Types
-type OPCVMFund = {
-  id: string;
-  name: string;
-  isin: string;
-  exchange: string;
-  nature: string;
-  type: string;
-  managementCompany: string;
-  nav: number;
-  currency: string;
-  entryFees: number;
-  exitFees: number;
-  managementFees: number;
-  minSubscription: number;
-  var1Week: number;
-  var1Month: number;
-  var1Year: number;
-  riskLevel: string;
-  navDate: string;
-};
+import OPCVMSelector from '@/components/comparison/OPCVMSelector';
+import TechnicalAnalysisChart from '@/components/charts/TechnicalAnalysisChart';
+import { useOpcvmMetricRepository } from '@/core/infra/repositories/opcvm.repository.impl';
+import { OPCVMEntity, OPCVMMetricEntity } from '@/core/domain/entities/opcvm.entity';
 
 type OperationType = 'subscription' | 'redemption';
 
 export default function OPCVMSimulatorPage() {
-  // Filters
-  const [selectedExchange, setSelectedExchange] = useState<string>('all');
-  const [selectedNature, setSelectedNature] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
   // Selected Fund
-  const [selectedFund, setSelectedFund] = useState<OPCVMFund | null>(null);
+  const [selectedFund, setSelectedFund] = useState<OPCVMEntity | null>(null);
+  const [sortedData, setSortedData] = useState<OPCVMMetricEntity[]>([]);
+  const [activeTab, setActiveTab] = useState<'general' | 'fees' | 'strategy'>('fees');
   
   // Operation Type
   const [operationType, setOperationType] = useState<OperationType>('subscription');
@@ -54,158 +30,65 @@ export default function OPCVMSimulatorPage() {
   const [redemptionAmount, setRedemptionAmount] = useState<string>('');
   const [redemptionDate, setRedemptionDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Background rotation
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
-  
   // Popup state
   const [showFundsPopup, setShowFundsPopup] = useState(false);
+  const { allOpcvmMetricsData, getAllOpcvmMetrics } = useOpcvmMetricRepository();
 
-  const backgroundImages = [
-    '/images/screener-header-3.jpg',
-    '/images/exchanges-header-2.jpg',
-    '/images/exchanges-header-1.jpg',
-  ];
+  const selectedOPCVMs = selectedFund ? [selectedFund] : [];
+  const fundNav = selectedFund?.latest_metrics?.liquidative_value ?? selectedFund?.valeur_demarrage ?? 0;
+  const entryFees = selectedFund?.max_souscription ?? 0;
+  const exitFees = selectedFund?.max_rachat ?? 0;
+  const managementFees = selectedFund?.max_gestion ?? 0;
+  const minSubscription = selectedFund?.souscription_min ?? selectedFund?.valeur_demarrage ?? 0;
+  const fundManager = typeof selectedFund?.sgo === 'string' ? selectedFund.sgo : selectedFund?.sgo?.name;
+
+  const handleSelectFund = (opcvm: OPCVMEntity) => {
+    setSelectedFund(opcvm);
+    setShowFundsPopup(false);
+  };
+
+  const handleRemoveFund = () => {
+    setSelectedFund(null);
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [backgroundImages.length]);
-
-  // Mock Data
-  const mockFunds: OPCVMFund[] = [
-    {
-      id: 'fund1',
-      name: 'NSIA Actions Côte d\'Ivoire',
-      isin: 'CI0001234567',
-      exchange: 'BRVM',
-      nature: 'Actions',
-      type: 'OPCVM Actions',
-      managementCompany: 'NSIA Gestion',
-      nav: 12500,
-      currency: 'FCFA',
-      entryFees: 2.5,
-      exitFees: 1.0,
-      managementFees: 1.5,
-      minSubscription: 100000,
-      var1Week: 1.2,
-      var1Month: 3.5,
-      var1Year: 18.3,
-      riskLevel: 'Élevé',
-      navDate: '2024-11-30'
-    },
-    {
-      id: 'fund2',
-      name: 'Coris Obligations Plus',
-      isin: 'BF0009876543',
-      exchange: 'BRVM',
-      nature: 'Obligations',
-      type: 'OPCVM Obligataire',
-      managementCompany: 'Coris Asset Management',
-      nav: 10850,
-      currency: 'FCFA',
-      entryFees: 1.5,
-      exitFees: 0.5,
-      managementFees: 1.0,
-      minSubscription: 50000,
-      var1Week: 0.3,
-      var1Month: 1.2,
-      var1Year: 5.8,
-      riskLevel: 'Modéré',
-      navDate: '2024-11-30'
-    },
-    {
-      id: 'fund3',
-      name: 'BOA Monétaire Dynamique',
-      isin: 'SN0005555555',
-      exchange: 'BRVM',
-      nature: 'Monétaire',
-      type: 'OPCVM Monétaire',
-      managementCompany: 'BOA Capital',
-      nav: 10125,
-      currency: 'FCFA',
-      entryFees: 0.5,
-      exitFees: 0.0,
-      managementFees: 0.5,
-      minSubscription: 25000,
-      var1Week: 0.1,
-      var1Month: 0.4,
-      var1Year: 2.5,
-      riskLevel: 'Faible',
-      navDate: '2024-11-30'
-    },
-    {
-      id: 'fund4',
-      name: 'Ecobank Mixte Équilibré',
-      isin: 'TG0007777777',
-      exchange: 'BRVM',
-      nature: 'Mixte',
-      type: 'OPCVM Mixte',
-      managementCompany: 'Ecobank Asset Management',
-      nav: 11750,
-      currency: 'FCFA',
-      entryFees: 2.0,
-      exitFees: 0.75,
-      managementFees: 1.25,
-      minSubscription: 75000,
-      var1Week: 0.8,
-      var1Month: 2.1,
-      var1Year: 10.5,
-      riskLevel: 'Modéré',
-      navDate: '2024-11-30'
-    },
-    {
-      id: 'fund5',
-      name: 'SG Actions Croissance',
-      isin: 'CI0002468135',
-      exchange: 'BRVM',
-      nature: 'Actions',
-      type: 'OPCVM Actions',
-      managementCompany: 'SG Asset Management Africa',
-      nav: 13200,
-      currency: 'FCFA',
-      entryFees: 3.0,
-      exitFees: 1.5,
-      managementFees: 1.75,
-      minSubscription: 150000,
-      var1Week: 1.5,
-      var1Month: 4.2,
-      var1Year: 22.1,
-      riskLevel: 'Élevé',
-      navDate: '2024-11-30'
+    if (!selectedFund?.id) {
+      setSortedData([]);
+      return;
     }
-  ];
 
-  // Filtered Funds
-  const filteredFunds = useMemo(() => {
-    return mockFunds.filter(fund => {
-      const matchesExchange = selectedExchange === 'all' || fund.exchange === selectedExchange;
-      const matchesNature = selectedNature === 'all' || fund.nature === selectedNature;
-      const matchesType = selectedType === 'all' || fund.type === selectedType;
-      const matchesSearch = searchQuery === '' || 
-        fund.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        fund.managementCompany.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      return matchesExchange && matchesNature && matchesType && matchesSearch;
-    });
-  }, [selectedExchange, selectedNature, selectedType, searchQuery, mockFunds]);
+    getAllOpcvmMetrics({ view_type: "screener", page: -1, opcvm: selectedFund.id });
+  }, [selectedFund?.id]);
+
+  useEffect(() => {
+    const sortedMetrics = allOpcvmMetricsData?.data ? [...allOpcvmMetricsData.data].sort((a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    ) : [];
+
+    setSortedData(sortedMetrics);
+  }, [allOpcvmMetricsData]);
+
+  useEffect(() =>
+  {
+    console.log("Current OPCVM Data", selectedFund);
+  }, [selectedFund])
+
 
   // Calculations for Subscription
   const subscriptionResults = useMemo(() => {
     if (!selectedFund || !investmentAmount) return null;
 
     const amount = parseFloat(investmentAmount);
-    if (isNaN(amount) || amount < selectedFund.minSubscription) return null;
+    if (isNaN(amount) || amount < minSubscription || fundNav <= 0) return null;
 
-    const entryFeesAmount = (amount * selectedFund.entryFees) / 100;
+    const entryFeesAmount = (amount * entryFees) / 100;
     const netAmount = amount - entryFeesAmount;
-    const numberOfShares = netAmount / selectedFund.nav;
+    const numberOfShares = netAmount / fundNav;
 
     const projections = [
-      { period: '3 mois', value: netAmount * 1.02, return: 2 },
-      { period: '1 an', value: netAmount * 1.08, return: 8 },
-      { period: '3 ans', value: netAmount * 1.26, return: 26 }
+      { period: '3 months', value: netAmount * 1.02, return: 2 },
+      { period: '1 year', value: netAmount * 1.08, return: 8 },
+      { period: '3 years', value: netAmount * 1.26, return: 26 }
     ];
 
     return {
@@ -213,10 +96,10 @@ export default function OPCVMSimulatorPage() {
       entryFees: entryFeesAmount,
       netAmount,
       numberOfShares,
-      navUsed: selectedFund.nav,
+      navUsed: fundNav,
       projections
     };
-  }, [selectedFund, investmentAmount]);
+  }, [selectedFund, investmentAmount, minSubscription, fundNav, entryFees]);
 
   // Calculations for Redemption
   const redemptionResults = useMemo(() => {
@@ -228,24 +111,24 @@ export default function OPCVMSimulatorPage() {
     } else {
       const amount = parseFloat(redemptionAmount);
       if (!isNaN(amount)) {
-        shares = amount / selectedFund.nav;
+        shares = amount / fundNav;
       }
     }
 
-    if (isNaN(shares) || shares <= 0) return null;
+    if (isNaN(shares) || shares <= 0 || fundNav <= 0) return null;
 
-    const grossValue = shares * selectedFund.nav;
-    const exitFeesAmount = (grossValue * selectedFund.exitFees) / 100;
+    const grossValue = shares * fundNav;
+    const exitFeesAmount = (grossValue * exitFees) / 100;
     const netAmount = grossValue - exitFeesAmount;
 
-    const initialNav = selectedFund.nav * 0.9;
+    const initialNav = fundNav * 0.9;
     const initialInvestment = shares * initialNav;
     const capitalGain = netAmount - initialInvestment;
     const returnPercentage = ((netAmount - initialInvestment) / initialInvestment) * 100;
 
     return {
       numberOfShares: shares,
-      navUsed: selectedFund.nav,
+      navUsed: fundNav,
       grossValue,
       exitFees: exitFeesAmount,
       netAmount,
@@ -253,7 +136,7 @@ export default function OPCVMSimulatorPage() {
       capitalGain,
       returnPercentage
     };
-  }, [selectedFund, redemptionType, numberOfShares, redemptionAmount]);
+  }, [selectedFund, redemptionType, numberOfShares, redemptionAmount, fundNav, exitFees]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -264,6 +147,47 @@ export default function OPCVMSimulatorPage() {
     }).format(amount);
   };
 
+  const formatDetailCurrency = (amount?: number | null) => {
+    if (amount) {
+      return new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    }
+    return "--";
+  };
+
+  const formatLargeCurrency = (amount?: number | null) => {
+    if (amount) {
+      if (amount >= 1000000000) {
+        return `${(amount / 1000000000).toFixed(2)} Mds`;
+      } else if (amount >= 1000000) {
+        return `${(amount / 1000000).toFixed(2)} M`;
+      }
+      return formatDetailCurrency(amount);
+    }
+    return "--";
+  };
+
+  const getPeriodicite = (periodicite: string): string => {
+    switch(periodicite){
+      case 'J':
+        return 'Daily';
+      case 'H':
+        return 'Weekly';
+      case 'M':
+        return 'Monthly';
+      case 'T':
+        return 'Quarterly';
+      case 'S':
+        return 'Semi-Annual';
+      case 'A':
+        return 'Annual';
+      default:
+        return 'Not defined';
+    }
+  };
+
   return (
     <div className="opcvm-simulator-page">
       {/* Simplified Header */}
@@ -271,7 +195,7 @@ export default function OPCVMSimulatorPage() {
         <div 
           className="simulator-header__hero"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
           }}
         >
           <div className="header-content">
@@ -285,7 +209,7 @@ export default function OPCVMSimulatorPage() {
                 <div className="selected-fund-badge">
                   <div className="badge-content">
                     <span className="badge-label">Selected Fund:</span>
-                    <span className="badge-name">{selectedFund.name}</span>
+                    <span className="badge-name">{selectedFund.intitule}</span>
                   </div>
                   <button 
                     className="badge-change-btn"
@@ -327,93 +251,13 @@ export default function OPCVMSimulatorPage() {
               </button>
             </div>
 
-            {/* Filters */}
-            <div className="popup-filters">
-              <select
-                value={selectedExchange}
-                onChange={(e) => setSelectedExchange(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Exchanges</option>
-                <option value="BRVM">BRVM</option>
-                <option value="JSE">JSE</option>
-                <option value="NGX">NGX</option>
-              </select>
-
-              <select
-                value={selectedNature}
-                onChange={(e) => setSelectedNature(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Natures</option>
-                <option value="Actions">Equity</option>
-                <option value="Obligations">Bonds</option>
-                <option value="Monétaire">Money Market</option>
-                <option value="Mixte">Mixed</option>
-              </select>
-
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Types</option>
-                <option value="OPCVM Actions">Equity Funds</option>
-                <option value="OPCVM Obligataire">Bond Funds</option>
-                <option value="OPCVM Monétaire">Money Market Funds</option>
-                <option value="OPCVM Mixte">Mixed Funds</option>
-              </select>
-
-              <div className="search-box">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Funds List */}
             <div className="popup-funds-list">
-              {filteredFunds.length === 0 ? (
-                <div className="no-funds">No funds found</div>
-              ) : (
-                filteredFunds.map((fund) => (
-                  <div
-                    key={fund.id}
-                    className={`fund-card ${selectedFund?.id === fund.id ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedFund(fund);
-                      setShowFundsPopup(false);
-                    }}
-                  >
-                    <div className="fund-card-header">
-                      <div className="fund-main-info">
-                        <h4>{fund.name}</h4>
-                        <p className="fund-company">{fund.managementCompany}</p>
-                      </div>
-                      <div className="fund-nav-info">
-                        <div className="nav-label">NAV</div>
-                        <div className="nav-value">{formatCurrency(fund.nav)}</div>
-                      </div>
-                    </div>
-                    <div className="fund-card-footer">
-                      <div className="fund-badges">
-                        <span className="badge badge-exchange">{fund.exchange}</span>
-                        <span className="badge badge-nature">{fund.nature}</span>
-                      </div>
-                      <div className={`fund-perf ${fund.var1Year >= 0 ? 'positive' : 'negative'}`}>
-                        {fund.var1Year >= 0 ? '+' : ''}{fund.var1Year}% (1Y)
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+              <OPCVMSelector
+                selectedOPCVMs={selectedOPCVMs}
+                onAddStock={handleSelectFund}
+                onRemoveStock={handleRemoveFund}
+                maxStocks={1}
+              />
             </div>
           </div>
         </div>
@@ -434,55 +278,182 @@ export default function OPCVMSimulatorPage() {
               <p>Click the button below to choose a fund and view its chart</p>
             </div>
           ) : (
-            <>
-              {/* Chart */}
-              <div className="chart-container">
-                <OPCVMChartView 
-                  fundName={selectedFund.name}
-                  fundTicker={selectedFund.isin}
-                />
+            <div className="content-chart">
+              <div className="chart-section">
+                {sortedData.length > 0 ? (
+                  <TechnicalAnalysisChart
+                    data={sortedData}
+                    defaultMetrics={['liquidative_value']}
+                    defaultTimeFrame="1Y"
+                    showToolbox={true}
+                  />
+                ) : (
+                  <div style={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.9rem'
+                  }}>
+                    {allOpcvmMetricsData ? 'No historical data available' : 'Loading chart data...'}
+                  </div>
+                )}
               </div>
 
-              {/* Fund Info Card */}
-              <div className="fund-info-card">
-                <div className="info-header">
-                  <div>
-                    <h3>{selectedFund.name}</h3>
-                    <p>{selectedFund.managementCompany}</p>
-                  </div>
-                  <div className="nav-display">
-                    <div className="nav-label">VL au {selectedFund.navDate}</div>
-                    <div className="nav-value">{formatCurrency(selectedFund.nav)}</div>
-                  </div>
+              <div className="details-section">
+                <div className="details-tabs">
+                  <button
+                    className={`tab-btn ${activeTab === 'fees' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('fees')}
+                  >
+                    Fees & Commissions
+                  </button>
+                  <button
+                    className={`tab-btn ${activeTab === 'general' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('general')}
+                  >
+                    General Information
+                  </button>
+                  <button
+                    className={`tab-btn ${activeTab === 'strategy' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('strategy')}
+                  >
+                    Strategy
+                  </button>
                 </div>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <span className="info-label">ISIN</span>
-                    <span className="info-value">{selectedFund.isin}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Bourse</span>
-                    <span className="info-value">{selectedFund.exchange}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Frais d'entrée</span>
-                    <span className="info-value">{selectedFund.entryFees}%</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Frais de sortie</span>
-                    <span className="info-value">{selectedFund.exitFees}%</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Frais de gestion</span>
-                    <span className="info-value">{selectedFund.managementFees}%</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Durée de placement recommandée</span>
-                    <span className="info-value">{formatCurrency(selectedFund.minSubscription)}</span>
-                  </div>
+
+                <div className="details-content">
+                  {activeTab === 'general' && (
+                    <div className="details-grid full-width">
+                      <div className="detail-column">
+                        <div className="detail-item">
+                          <span className="label">Manager</span>
+                          <span className="value">{fundManager || "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Promoters</span>
+                          <span className="value">{selectedFund.promoteurs ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Custodian</span>
+                          <span className="value">{selectedFund.depositaire ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Auditors</span>
+                          <span className="value">{selectedFund.commissaires_comptes ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">CEO</span>
+                          <span className="value">{selectedFund.directeur_general ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">NAV Frequency</span>
+                          <span className="value">{getPeriodicite(selectedFund.periodicite || '')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'fees' && (
+                    <div className="details-grid two-columns">
+                      <div className="detail-column">
+                        <div className="detail-item">
+                          <span className="label">Subscription Fee</span>
+                          <span className="value">{selectedFund.max_souscription ?? "--"}%</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Redemption Fee</span>
+                          <span className="value">{selectedFund.max_rachat ?? "--"}%</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Management Fee</span>
+                          <span className="value">{selectedFund.max_gestion ?? "--"}%</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Account Commission</span>
+                          <span className="value">{selectedFund.commission_au_compte}{selectedFund.commission_au_compte_type === 'amount' ? (typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol) : '%'}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Market Authority Fee</span>
+                          <span className="value">{selectedFund.redevance_autorite_marche}{selectedFund.redevance_autorite_marche_type === 'amount' ? (typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol) : '%'}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Commission Retrocession</span>
+                          <span className="value">{selectedFund.retrocession_commission ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Income Allocation</span>
+                          <span className="value">{selectedFund.affectation_resultat ? selectedFund.affectation_resultat.toUpperCase() : "--"}</span>
+                        </div>
+                      </div>
+
+                      <div className="detail-column">
+                        <div className="detail-item">
+                          <span className="label">Minimum Subscription</span>
+                          <span className="value">{formatLargeCurrency(selectedFund.souscription_min)} </span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Initial Value</span>
+                          <span className="value">{formatDetailCurrency(selectedFund.valeur_demarrage)} {typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Initial Capital</span>
+                          <span className="value">{formatLargeCurrency(selectedFund.capital_initial)} {typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Recommended Holding Period</span>
+                          <span className="value">{selectedFund.duree_placement_recommandee ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Settlement Period</span>
+                          <span className="value">{selectedFund.delai_reglement_depositaire ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Creation Date</span>
+                          <span className="value">{selectedFund.date_creation ? new Date(selectedFund.date_creation).toLocaleDateString('en-EN') : 'N/A'}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Approval Date</span>
+                          <span className="value">{selectedFund.date_agrement ? new Date(selectedFund.date_agrement).toLocaleDateString('en-EN') : 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'strategy' && (
+                    <div className="details-grid full-width">
+                      <div className="detail-column">
+                        <div className="detail-item vertical">
+                          <span className="label">Investment Objective</span>
+                          <p className="value-text">
+                            {selectedFund.objectif_investissement ?? "--"}
+                          </p>
+                        </div>
+                        <div className="detail-item vertical">
+                          <span className="label">Strategic Orientation</span>
+                          <p className="value-text">
+                            {selectedFund.orientation_strategique ?? "--"}
+                          </p>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Benchmark Index</span>
+                          <span className="value">{selectedFund.indice_description ?? "--"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">SRI (Socially Responsible Investment)</span>
+                          <span className={`value ${selectedFund.isr ? "badge-yes" : "badge-no"}`}>{selectedFund.isr ? "Yes" : "No"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">SDG Contribution</span>
+                          <span className="value">ODD {selectedFund.contribution_odd ?? "--"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 
@@ -495,8 +466,8 @@ export default function OPCVMSimulatorPage() {
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
-              <h3>Sélectionnez un fonds</h3>
-              <p>Choisissez un fonds pour commencer votre simulation</p>
+              <h3>Select a Fund</h3>
+              <p>Choose a fund to start your simulation</p>
             </div>
           ) : (
             <>
@@ -510,7 +481,7 @@ export default function OPCVMSimulatorPage() {
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Souscription
+                  Subscription
                 </button>
                 <button
                   className={`tab-btn ${operationType === 'redemption' ? 'active' : ''}`}
@@ -519,37 +490,37 @@ export default function OPCVMSimulatorPage() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Rachat
+                  Redemption
                 </button>
               </div>
 
               {/* Subscription Form */}
               {operationType === 'subscription' && (
                 <div className="operation-form">
-                  <h3>Simulation de Souscription</h3>
+                  <h3>Subscription Simulation</h3>
                   
                   <div className="form-grid">
                     <div className="form-group full-width">
-                      <label>Montant à investir</label>
+                      <label>Amount to Invest</label>
                       <div className="input-with-currency">
                         <input
                           type="number"
                           value={investmentAmount}
                           onChange={(e) => setInvestmentAmount(e.target.value)}
                           placeholder="0"
-                          min={selectedFund.minSubscription}
+                          min={minSubscription}
                         />
-                        <span className="currency">FCFA</span>
+                        <span className="currency">{typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol}</span>
                       </div>
-                      {investmentAmount && parseFloat(investmentAmount) < selectedFund.minSubscription && (
+                      {investmentAmount && parseFloat(investmentAmount) < minSubscription && (
                         <span className="error-message">
-                          Montant minimum: {formatCurrency(selectedFund.minSubscription)}
+                          Minimum amount: {formatCurrency(minSubscription)}
                         </span>
                       )}
                     </div>
 
                     <div className="form-group">
-                      <label>Date de souscription</label>
+                      <label>Subscription Date</label>
                       <input
                         type="date"
                         value={investmentDate}
@@ -558,10 +529,10 @@ export default function OPCVMSimulatorPage() {
                     </div>
 
                     <div className="form-group">
-                      <label>Frais d'entrée</label>
+                      <label>Entry Fee</label>
                       <input
                         type="text"
-                        value={`${selectedFund.entryFees}%`}
+                        value={`${entryFees}%`}
                         disabled
                         className="disabled-input"
                       />
@@ -574,14 +545,14 @@ export default function OPCVMSimulatorPage() {
                           checked={recurringPayments}
                           onChange={(e) => setRecurringPayments(e.target.checked)}
                         />
-                        <span>Versements programmés</span>
+                        <span>Scheduled Payments</span>
                       </label>
                     </div>
 
                     {recurringPayments && (
                       <>
                         <div className="form-group">
-                          <label>Montant mensuel</label>
+                          <label>Monthly Amount</label>
                           <div className="input-with-currency">
                             <input
                               type="number"
@@ -589,12 +560,12 @@ export default function OPCVMSimulatorPage() {
                               onChange={(e) => setMonthlyAmount(e.target.value)}
                               placeholder="0"
                             />
-                            <span className="currency">FCFA</span>
+                            <span className="currency">{typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol}</span>
                           </div>
                         </div>
 
                         <div className="form-group">
-                          <label>Nombre de mois</label>
+                          <label>Number of Months</label>
                           <input
                             type="number"
                             value={numberOfMonths}
@@ -610,37 +581,37 @@ export default function OPCVMSimulatorPage() {
                   {/* Results */}
                   {subscriptionResults && (
                     <div className="results-section">
-                      <h4>Résultats de la Simulation</h4>
+                      <h4>Simulation Results</h4>
                       
                       <div className="results-grid">
                         <div className="result-card primary">
-                          <div className="result-label">Nombre de parts obtenues</div>
+                          <div className="result-label">Number of Shares Received</div>
                           <div className="result-value">{subscriptionResults.numberOfShares.toFixed(4)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">Montant brut investi</div>
+                          <div className="result-label">Gross Amount Invested</div>
                           <div className="result-value">{formatCurrency(subscriptionResults.grossAmount)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">Frais d'entrée</div>
+                          <div className="result-label">Entry Fee</div>
                           <div className="result-value negative">-{formatCurrency(subscriptionResults.entryFees)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">Montant net investi</div>
+                          <div className="result-label">Net Amount Invested</div>
                           <div className="result-value">{formatCurrency(subscriptionResults.netAmount)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">VL utilisée</div>
+                          <div className="result-label">NAV Used</div>
                           <div className="result-value">{formatCurrency(subscriptionResults.navUsed)}</div>
                         </div>
                       </div>
 
                       <div className="projections">
-                        <h5>Projections (estimations)</h5>
+                        <h5>Projections (estimates)</h5>
                         <div className="projection-list">
                           {subscriptionResults.projections.map((proj, idx) => (
                             <div key={idx} className="projection-item">
@@ -659,11 +630,11 @@ export default function OPCVMSimulatorPage() {
               {/* Redemption Form */}
               {operationType === 'redemption' && (
                 <div className="operation-form">
-                  <h3>Simulation de Rachat</h3>
+                  <h3>Redemption Simulation</h3>
                   
                   <div className="form-grid">
                     <div className="form-group full-width">
-                      <label>Type de rachat</label>
+                      <label>Redemption Type</label>
                       <div className="radio-group">
                         <label className="radio-label">
                           <input
@@ -672,7 +643,7 @@ export default function OPCVMSimulatorPage() {
                             checked={redemptionType === 'shares'}
                             onChange={(e) => setRedemptionType(e.target.value as 'shares' | 'amount')}
                           />
-                          <span>Par nombre de parts</span>
+                          <span>By Number of Shares</span>
                         </label>
                         <label className="radio-label">
                           <input
@@ -681,14 +652,14 @@ export default function OPCVMSimulatorPage() {
                             checked={redemptionType === 'amount'}
                             onChange={(e) => setRedemptionType(e.target.value as 'shares' | 'amount')}
                           />
-                          <span>Par montant</span>
+                          <span>By Amount</span>
                         </label>
                       </div>
                     </div>
 
                     {redemptionType === 'shares' ? (
                       <div className="form-group full-width">
-                        <label>Nombre de parts à racheter</label>
+                        <label>Number of Shares to Redeem</label>
                         <input
                           type="number"
                           value={numberOfShares}
@@ -699,7 +670,7 @@ export default function OPCVMSimulatorPage() {
                       </div>
                     ) : (
                       <div className="form-group full-width">
-                        <label>Montant souhaité</label>
+                        <label>Desired Amount</label>
                         <div className="input-with-currency">
                           <input
                             type="number"
@@ -707,13 +678,13 @@ export default function OPCVMSimulatorPage() {
                             onChange={(e) => setRedemptionAmount(e.target.value)}
                             placeholder="0"
                           />
-                          <span className="currency">FCFA</span>
+                          <span className="currency">{typeof selectedFund.currency === 'string' ? selectedFund.currency : selectedFund.currency?.symbol}</span>
                         </div>
                       </div>
                     )}
 
                     <div className="form-group">
-                      <label>Date de rachat</label>
+                      <label>Redemption Date</label>
                       <input
                         type="date"
                         value={redemptionDate}
@@ -722,10 +693,10 @@ export default function OPCVMSimulatorPage() {
                     </div>
 
                     <div className="form-group">
-                      <label>Frais de sortie</label>
+                      <label>Exit Fee</label>
                       <input
                         type="text"
-                        value={`${selectedFund.exitFees}%`}
+                        value={`${exitFees}%`}
                         disabled
                         className="disabled-input"
                       />
@@ -735,50 +706,50 @@ export default function OPCVMSimulatorPage() {
                   {/* Results */}
                   {redemptionResults && (
                     <div className="results-section">
-                      <h4>Résultats de la Simulation</h4>
+                      <h4>Simulation Results</h4>
                       
                       <div className="results-grid">
                         <div className="result-card primary">
-                          <div className="result-label">Montant net à recevoir</div>
+                          <div className="result-label">Net Amount to Receive</div>
                           <div className="result-value positive">{formatCurrency(redemptionResults.netAmount)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">Nombre de parts</div>
+                          <div className="result-label">Number of Shares</div>
                           <div className="result-value">{redemptionResults.numberOfShares.toFixed(4)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">VL de cession</div>
+                          <div className="result-label">Redemption NAV</div>
                           <div className="result-value">{formatCurrency(redemptionResults.navUsed)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">Valeur brute</div>
+                          <div className="result-label">Gross Value</div>
                           <div className="result-value">{formatCurrency(redemptionResults.grossValue)}</div>
                         </div>
 
                         <div className="result-card">
-                          <div className="result-label">Frais de sortie</div>
+                          <div className="result-label">Exit Fee</div>
                           <div className="result-value negative">-{formatCurrency(redemptionResults.exitFees)}</div>
                         </div>
                       </div>
 
                       <div className="performance-summary">
-                        <h5>Performance de l'investissement</h5>
+                        <h5>Investment Performance</h5>
                         <div className="performance-grid">
                           <div className="performance-item">
-                            <span className="performance-label">Investissement initial</span>
+                            <span className="performance-label">Initial Investment</span>
                             <span className="performance-value">{formatCurrency(redemptionResults.initialInvestment)}</span>
                           </div>
                           <div className="performance-item">
-                            <span className="performance-label">Plus/Moins-value</span>
+                            <span className="performance-label">Capital Gain/Loss</span>
                             <span className={`performance-value ${redemptionResults.capitalGain >= 0 ? 'positive' : 'negative'}`}>
                               {redemptionResults.capitalGain >= 0 ? '+' : ''}{formatCurrency(redemptionResults.capitalGain)}
                             </span>
                           </div>
                           <div className="performance-item">
-                            <span className="performance-label">Rendement</span>
+                            <span className="performance-label">Return</span>
                             <span className={`performance-value ${redemptionResults.returnPercentage >= 0 ? 'positive' : 'negative'}`}>
                               {redemptionResults.returnPercentage >= 0 ? '+' : ''}{redemptionResults.returnPercentage.toFixed(2)}%
                             </span>
@@ -798,9 +769,9 @@ export default function OPCVMSimulatorPage() {
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <p>
-                  <strong>Avertissement:</strong> Les résultats de cette simulation sont fournis à titre indicatif uniquement. 
-                  Les performances passées ne préjugent pas des performances futures. Les projections sont basées sur des hypothèses 
-                  et ne constituent pas une garantie de rendement.
+                  <strong>Disclaimer:</strong> The results of this simulation are provided for informational purposes only.
+                  Past performance is not indicative of future performance. Projections are based on assumptions
+                  and do not constitute a guarantee of return.
                 </p>
               </div>
             </>

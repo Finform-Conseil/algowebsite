@@ -1,3 +1,4 @@
+import { BourseEntity } from "./bourse.entity";
 import { CountryEntity } from "./country.entity";
 import { OPCVMEntity } from "./opcvm.entity";
 
@@ -8,10 +9,17 @@ export interface SGOEntity {
     name?: string;
     longitude?: number;
     latitude?: number;
-    country?: CountryEntity;
     email?: string;
     phone?: string;
     geographic_address?: string;
     opcvms_count?: number;
-    opcvms?: OPCVMEntity[]
+    opcvms?: OPCVMEntity[];
+
+    bourse?: BourseEntity;
+    country?: CountryEntity;
+    aum?: number;
+    performance?: number;
+    objectif_investissement?: string;
+    orientation_strategique?: string;
+    website?: string;
 }

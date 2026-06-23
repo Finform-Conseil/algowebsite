@@ -24,7 +24,7 @@ interface DataPoint {
 // Type pour les données brutes OPCVM
 interface OPCVMMetricData {
   timestamp: string;
-  liquidative_value: string;
+  liquidative_value: number;
   performance_1m?: number | null;
   performance_3m?: number | null;
   performance_6m?: number | null;
@@ -764,32 +764,12 @@ export default function TechnicalAnalysisChart({
     <div className="technical-analysis-chart" style={{ height }}>
       {/* Controls */}
       <div className="chart-controls">
-        {/* Selected Metrics Pills */}
+        {/* Compact Metrics Manager */}
         <div className="selected-metrics">
-          <label className="metrics-label">Indicateurs sélectionnés :</label>
-          <div className="metrics-pills">
-            {selectedMetrics.map(metric => {
-              const config = METRIC_CONFIG[metric];
-              return (
-                <div
-                  key={metric}
-                  className="metric-pill"
-                  style={{
-                    '--metric-color': config.color,
-                  } as React.CSSProperties}
-                >
-                  <span className="metric-pill__indicator"></span>
-                  <span className="metric-pill__label">{config.name}</span>
-                  <button
-                    className="metric-pill__remove"
-                    onClick={() => removeMetric(metric)}
-                    aria-label="Retirer"
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })}
+          <div className="metrics-compact-header">
+            <label className="metrics-label">
+              Indicators ({selectedMetrics.length})
+            </label>
             
             {/* Add Metric Dropdown */}
             <div className="metric-dropdown" ref={dropdownRef}>
@@ -801,7 +781,7 @@ export default function TechnicalAnalysisChart({
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                Ajouter un indicateur
+                Add
               </button>
               
               {isDropdownOpen && (
@@ -845,6 +825,38 @@ export default function TechnicalAnalysisChart({
               )}
             </div>
           </div>
+
+          {/* Compact Metrics List */}
+          {selectedMetrics.length > 0 && (
+            <div className="metrics-compact-list">
+              {selectedMetrics.map(metric => {
+                const config = METRIC_CONFIG[metric];
+                return (
+                  <div
+                    key={metric}
+                    className="metric-compact-item"
+                    style={{
+                      '--metric-color': config.color,
+                    } as React.CSSProperties}
+                  >
+                    <span className="metric-compact-item__indicator"></span>
+                    <span className="metric-compact-item__label">{config.name}</span>
+                    <button
+                      className="metric-compact-item__remove"
+                      onClick={() => removeMetric(metric)}
+                      aria-label="Remove"
+                      title="Remove indicator"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Timeframe Selector */}

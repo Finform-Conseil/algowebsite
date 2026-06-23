@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts';
 import { Candle } from '@/core/data/TechnicalAnalysis';
+import { OPCVMMetricEntity } from '@/core/domain/entities/opcvm.entity';
 
 interface DataSeries {
   name: string;
-  data: Candle[];
+  data: OPCVMMetricEntity[];
   color: string;
 }
 
@@ -35,15 +36,15 @@ export default function MultiLineChart({ series, type = 'top' }: MultiLineChartP
     if (!chart || !series.length) return;
 
     // Utiliser les dates de la première série comme référence
-    const dates = series[0].data.map((d) => d.date);
+    const dates = series[0].data.map((d) => d.timestamp);
 
     // Normaliser toutes les séries à 100 au départ pour comparer les performances relatives
     const normalizedSeries = series.map((s) => {
-      const firstPrice = s.data[0].close;
+      const firstPrice = s.data[0].liquidative_value ?? 0;
       return {
         name: s.name,
         color: s.color,
-        data: s.data.map((d) => ((d.close / firstPrice) * 100).toFixed(2))
+        data: s.data.map((d) => ((d.liquidative_value / firstPrice) * 100).toFixed(2))
       };
     });
 
@@ -69,7 +70,7 @@ export default function MultiLineChart({ series, type = 'top' }: MultiLineChartP
         top: 10,
         left: 'center',
         textStyle: {
-          color: 'var(--text-color)',
+          color: '#fff',
           fontSize: 11,
         },
         data: normalizedSeries.map(s => s.name),
@@ -80,13 +81,22 @@ export default function MultiLineChart({ series, type = 'top' }: MultiLineChartP
           type: 'cross',
           animation: false,
           label: {
-            backgroundColor: 'var(--primary-color)',
+            backgroundColor: '#cb8408',
+            formatter: (params: any) => {
+              if (params.axisDimension !== 'x') return params.value;
+              const date = new Date(params.value);
+              return date.toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              });
+            },
           },
         },
         backgroundColor: 'var(--card-background)',
         borderColor: 'var(--border-color)',
         textStyle: {
-          color: 'var(--text-color)',
+          color: '#fff',
         },
         formatter: (params: any) => {
           if (!Array.isArray(params) || params.length === 0) return '';
@@ -127,15 +137,15 @@ export default function MultiLineChart({ series, type = 'top' }: MultiLineChartP
         boundaryGap: false,
         axisLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#fff',
           },
         },
         axisLabel: {
-          color: 'var(--text-secondary)',
+          color: '#fff',
           fontSize: 10,
           formatter: (value: string) => {
             const date = new Date(value);
-            return `${date.getDate()}/${date.getMonth() + 1}`;
+            return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear().toString().slice(-2)}`;
           },
         },
         splitLine: {
@@ -147,14 +157,14 @@ export default function MultiLineChart({ series, type = 'top' }: MultiLineChartP
         scale: true,
         position: 'right',
         axisLabel: {
-          color: 'var(--text-secondary)',
+          color: '#fff',
           fontSize: 10,
           formatter: (value: number) => `${value.toFixed(0)}`,
         },
         splitLine: {
           show: true,
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#fff',
             opacity: 0.2,
           },
         },

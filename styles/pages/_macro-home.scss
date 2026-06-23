@@ -15,11 +15,10 @@
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
     position: relative;
-    overflow: hidden;
   }
 
   .macro-header {
-    padding: 2rem 2rem;
+    padding: 1.5rem 2rem;
     flex-shrink: 0;
     width: 100%;
     z-index: 2;
@@ -53,7 +52,96 @@
   .macro-content {
     flex: 1;
     overflow-y: auto;
-    padding: 2rem;
+
+      .macro-tools-section {
+      flex-shrink: 0;
+      padding: 2rem;
+
+      .section-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin: 0 0 1.5rem 0;
+      }
+
+      .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+
+        .tool-card {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1.25rem;
+          background: var(--card-background);
+          border: 1px solid var(--border-color);
+          border-radius: $border-radius-lg;
+          text-decoration: none;
+          transition: all $transition-fast;
+          position: relative;
+          overflow: hidden;
+
+          &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(0, 191, 255, 0.05) 100%);
+            opacity: 0;
+            transition: opacity $transition-fast;
+          }
+
+          &:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+            &::before {
+              opacity: 1;
+            }
+
+            .tool-arrow {
+              transform: translateX(4px);
+            }
+          }
+
+          .tool-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: $border-radius-md;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+
+          .tool-content {
+            flex: 1;
+
+            h3 {
+              font-size: 1rem;
+              font-weight: 700;
+              margin: 0 0 0.25rem 0;
+            }
+
+            p {
+              font-size: 0.8125rem;
+              color: var(--text-secondary);
+              margin: 0;
+              line-height: 1.4;
+            }
+          }
+
+          .tool-arrow {
+            color: var(--text-secondary);
+            transition: transform $transition-fast;
+          }
+        }
+      }
+    }
   }
 }
 

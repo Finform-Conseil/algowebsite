@@ -1,5 +1,5 @@
-import { OPCVMEntity, OPCVMMetricEntity } from "../entities/opcvm.entity";
-import { CreateOpcvmMetricType, CreateOpcvmType, OpcvmMetricType, OpcvmType, UpdateOpcvmMetricType, UpdateOpcvmType } from "../types/opcvm.type";
+import { OPCVMEntity, OPCVMMetricEntity, TopFlopEntity } from "../entities/opcvm.entity";
+import { CreateOpcvmMetricType, CreateOpcvmType, OpcvmMetricType, OpcvmQueryParams, OpcvmType, UpdateOpcvmMetricType, UpdateOpcvmType } from "../types/opcvm.type";
 import { PaginatedResponse, QueryParams } from "../types/pagination.type";
 
 export interface IOpcvmRepository {
@@ -8,6 +8,7 @@ export interface IOpcvmRepository {
   updateOpcvm(id: string, opcvm: UpdateOpcvmType): Promise<OpcvmType | null>;
   deleteOpcvm(id: string): Promise<boolean>;
   getAllOpcvms(params?: QueryParams): Promise<PaginatedResponse<OPCVMEntity>>;
+  getTopFlopOpcvms(params?: OpcvmQueryParams): Promise<TopFlopEntity>;
   getOpcvmById(id: string): OPCVMEntity | null;
 
   // Query states
@@ -15,6 +16,11 @@ export interface IOpcvmRepository {
   isLoadingAllOpcvms?: boolean;
   isFetchingAllOpcvms?: boolean;
   allOpcvmsError?: any;
+
+  topFlopOpcvmsData?: TopFlopEntity;
+  isLoadingTopFlopOpcvms?: boolean;
+  isFetchingTopFlopOpcvms?: boolean;
+  topFlopOpcvmsError?: any;
 
   currentOpcvmData?: OPCVMEntity;
   isLoadingOpcvmById?: boolean;

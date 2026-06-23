@@ -7,6 +7,7 @@ import { societyApi } from "./society.api";
 import { actionApi } from "./action.api";
 import { coursApi } from "./cours.api";
 import { statementApi } from "./statement.api";
+import { macroApi } from "./macro.api";
 import { sheetApi } from "./sheet.api";
 import { eventApi } from "./event.api";
 import { industryApi } from "./industry.api";
@@ -151,6 +152,22 @@ export const {
 } = statementApi;
 
 export const {
+  useCreateMacroMutation,
+  useUploadSectorRealMutation,
+  useUploadSectorFinancesMutation,
+  useUploadSectorForeignMutation,
+  useUploadSectorMonetaryMutation,
+  useDeleteMacroMutation,
+  useLazyGetAllSectorRealQuery,
+  useLazyGetAllSectorFinancesQuery,
+  useLazyGetAllSectorForeignQuery,
+  useLazyGetAllSectorMonetaryQuery,
+  useGetMacroByIdQuery,
+  useUpdateMacroMutation,
+  endpoints: { createMacro, uploadSectorFinances, uploadSectorForeign, uploadSectorMonetary, uploadSectorReal, deleteMacro, getAllSectorFinances, getAllSectorForeign, getAllSectorMonetary, getAllSectorReal, getMacroById, updateMacro },
+} = macroApi;
+
+export const {
   useCreateSheetMutation,
   useUploadSheetMutation,
   useDeleteSheetMutation,
@@ -220,9 +237,10 @@ export const {
   useDeleteOpcvmMutation,
   useGetAllOpcvmsQuery,
   useLazyGetAllOpcvmsQuery,
+  useLazyGetTopFlopOpcvmsQuery,
   useGetOpcvmByIdQuery,
   useUpdateOpcvmMutation,
-  endpoints: { createOpcvm, uploadOpcvms, deleteOpcvm, getAllOpcvms, getOpcvmById, updateOpcvm },
+  endpoints: { createOpcvm, uploadOpcvms, deleteOpcvm, getAllOpcvms, getTopFlopOpcvms, getOpcvmById, updateOpcvm },
 } = opcvmApi;
 
 export const {

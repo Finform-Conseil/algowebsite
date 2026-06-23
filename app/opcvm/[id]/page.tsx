@@ -251,7 +251,7 @@ export default function OPCVMDetailPage() {
               <div className="nav-display">
                 <div className="nav-label">Net Asset Value</div>
                 <div className="nav-value">
-                  {lastMetric?.liquidative_value ? formatCurrency(parseFloat(lastMetric.liquidative_value)) : '--'}
+                  {lastMetric?.liquidative_value ? formatCurrency(lastMetric.liquidative_value) : '--'}
                   <span className="currency">{typeof currentOpcvmData?.currency === 'string' ? currentOpcvmData.currency : currentOpcvmData?.currency?.code}</span>
                 </div>
                 {lastMetric && sortedData.length > 1 && (
@@ -267,7 +267,7 @@ export default function OPCVMDetailPage() {
                     {((sortedData[sortedData.length-1]?.rendement ?? 0) * 100).toFixed(2)}%
                     <span className="change-amount">
                       ({sortedData.length > 1 && sortedData[sortedData.length-1]?.liquidative_value && sortedData[sortedData.length-2]?.liquidative_value
-                        ? `${(parseFloat(sortedData[sortedData.length-1].liquidative_value!) - parseFloat(sortedData[sortedData.length-2].liquidative_value!)) >= 0 ? '+' : ''}${formatCurrency(parseFloat(sortedData[sortedData.length-1].liquidative_value!) - parseFloat(sortedData[sortedData.length-2].liquidative_value!))}`
+                        ? `${(sortedData[sortedData.length-1].liquidative_value! - sortedData[sortedData.length-2].liquidative_value!) >= 0 ? '+' : ''}${formatCurrency(sortedData[sortedData.length-1].liquidative_value! - sortedData[sortedData.length-2].liquidative_value!)}`
                         : '--'})
                     </span>
                   </div>

@@ -298,7 +298,7 @@
       flex-direction: column;
       background: var(--card-background);
       border-right: 1px solid var(--border-color);
-      overflow-y: auto;
+      overflow: hidden;
 
       .no-selection {
         display: flex;
@@ -326,6 +326,144 @@
           font-size: 1rem;
           color: var(--text-secondary);
           margin: 0;
+        }
+      }
+
+      .content-chart {
+        height: 100%;
+        background: var(--card-background);
+        display: grid;
+        grid-template-rows: 60% 40%;
+        overflow: hidden;
+
+        .chart-section {
+          height: 100%;
+          border-bottom: 1px solid var(--border-color);
+          overflow: hidden;
+        }
+
+        .details-section {
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background: var(--background);
+
+          .details-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem 1.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+
+            .tab-btn {
+              padding: 0.625rem 1.25rem;
+              background: transparent;
+              border: none;
+              border-bottom: 2px solid transparent;
+              color: var(--text-secondary);
+              font-size: 0.875rem;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s;
+
+              &:hover {
+                color: var(--text-primary);
+              }
+
+              &.active {
+                color: var(--primary-color);
+                border-bottom-color: var(--primary-color);
+              }
+            }
+          }
+
+          .details-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+
+            &::-webkit-scrollbar {
+              width: 6px;
+            }
+
+            &::-webkit-scrollbar-track {
+              background: transparent;
+            }
+
+            &::-webkit-scrollbar-thumb {
+              background: var(--border-color);
+              border-radius: 3px;
+            }
+
+            .details-grid {
+              display: grid;
+              gap: 2rem;
+              grid-template-columns: repeat(3, 1fr);
+
+              &.two-columns {
+                grid-template-columns: repeat(2, 1fr);
+              }
+
+              &.full-width {
+                grid-template-columns: 1fr;
+              }
+
+              .detail-column {
+                .detail-item {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  padding: 0.625rem 0;
+                  border-bottom: 1px solid var(--border-color);
+
+                  &:last-child {
+                    border-bottom: none;
+                  }
+
+                  &.vertical {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                  }
+
+                  .label {
+                    font-size: 0.8125rem;
+                    color: var(--text-secondary);
+                    font-weight: 500;
+                  }
+
+                  .value {
+                    font-size: 0.875rem;
+                    color: var(--text-primary);
+                    font-weight: 600;
+                    text-align: right;
+
+                    &.badge-yes {
+                      padding: 0.25rem 0.75rem;
+                      background: rgba(16, 185, 129, 0.1);
+                      color: var(--positive-color);
+                      border-radius: 6px;
+                      font-size: 0.75rem;
+                    }
+
+                    &.badge-no {
+                      padding: 0.25rem 0.75rem;
+                      background: rgba(239, 68, 68, 0.1);
+                      color: var(--negative-color);
+                      border-radius: 6px;
+                      font-size: 0.75rem;
+                    }
+                  }
+
+                  .value-text {
+                    font-size: 0.8125rem;
+                    color: var(--text-secondary);
+                    line-height: 1.6;
+                    margin: 0;
+                  }
+                }
+              }
+            }
+          }
         }
       }
 
@@ -997,7 +1135,7 @@
 
       .popup-funds-list {
         flex: 1;
-        overflow-y: auto;
+        // overflow-y: auto;
         padding: 1.5rem 2rem;
 
         .no-funds {

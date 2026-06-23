@@ -22,4 +22,7 @@ export type UpdateOpcvmMetricType = z.infer<typeof updateOpcvmMetricSchema>;
 
 export interface OpcvmMetricQueryParams extends QueryParams {
     opcvmId?: string;
+    bourse_ticker?: string;
+    date_from?: string;
+    date_to?: string;
 }

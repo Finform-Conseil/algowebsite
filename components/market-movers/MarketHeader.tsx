@@ -17,7 +17,7 @@ export default function MarketHeader({ indicators, onFilterChange, availableSect
   const [minVolume, setMinVolume] = useState<string>('');
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  const exchanges: Exchange[] = ['BRVM', 'JSE', 'CSE', 'NGX', 'GSE', 'NSE', 'EGX', 'TUNSE'];
+  const exchanges: Exchange[] = ['BRVM', 'CSE', 'GSE', 'JSE', 'NGX', 'NSE'];
   const sectors: Sector[] = availableSectors.length > 0 
     ? availableSectors as Sector[] 
     : ['Finance', 'Energy', 'Telecom', 'Industry', 'Consumer', 'Real Estate', 'Healthcare', 'Technology', 'Materials', 'Services'];

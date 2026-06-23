@@ -10,6 +10,7 @@ import {
 
   useGetAllOpcvmMetricsQuery,
   useLazyGetAllOpcvmMetricsQuery,
+  useLazyGetTopFlopOpcvmsQuery,
   useGetOpcvmMetricByIdQuery,
   useUpdateOpcvmMetricMutation, 
   useCreateOpcvmMetricMutation, 
@@ -18,8 +19,8 @@ import {
 } from "../store/api";
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { IOpcvmMetricRepository, IOpcvmRepository } from '../../domain/repositories/opcvm.repository';
-import { CreateOpcvmMetricType, CreateOpcvmType, OpcvmMetricType, OpcvmType, UpdateOpcvmMetricType, UpdateOpcvmType } from '../../domain/types/opcvm.type';
-import { OPCVMEntity, OPCVMMetricEntity } from '@/core/domain/entities/opcvm.entity';
+import { CreateOpcvmMetricType, CreateOpcvmType, OpcvmMetricType, OpcvmQueryParams, OpcvmType, UpdateOpcvmMetricType, UpdateOpcvmType } from '../../domain/types/opcvm.type';
+import { OPCVMEntity, OPCVMMetricEntity, TopFlopEntity } from '@/core/domain/entities/opcvm.entity';
 import { PaginatedResponse, QueryParams } from '@/core/domain/types/pagination.type';
 
 export const useOpcvmRepository = (): IOpcvmRepository => {
@@ -79,6 +80,16 @@ export const useOpcvmRepository = (): IOpcvmRepository => {
     },
   ] = useLazyGetAllOpcvmsQuery();
 
+  const [
+    triggerGetTopFlopOpcvms,
+    {
+      data: topFlopOpcvmsQueryResult,
+      isLoading: isLoadingTopFlopOpcvmsQuery,
+      isFetching: isFetchingTopFlopOpcvmsQuery,
+      error: topFlopOpcvmsQueryError,
+    },
+  ] = useLazyGetTopFlopOpcvmsQuery();
+
   const {
     data: currentOpcvmQueryResult,
     isLoading: isLoadingOpcvmByIdQuery,
@@ -123,6 +134,16 @@ export const useOpcvmRepository = (): IOpcvmRepository => {
     [triggerGetAllOpcvms]
   );
 
+  const getTopFlopOpcvms = useCallback(
+    async (
+      params: OpcvmQueryParams = {}
+    ): Promise<TopFlopEntity> => {
+      const result = await triggerGetTopFlopOpcvms(params).unwrap();
+      return result;
+    },
+    [triggerGetTopFlopOpcvms]
+  );
+
   const getOpcvmById = useCallback((id: string) => {
     setOpcvmIdArg(id);
     return currentOpcvmQueryResult || null;
@@ -134,12 +155,18 @@ export const useOpcvmRepository = (): IOpcvmRepository => {
     updateOpcvm,
     deleteOpcvm,
     getAllOpcvms,
+    getTopFlopOpcvms,
     getOpcvmById,
 
     allOpcvmsData: allOpcvmsQueryResult,
     isLoadingAllOpcvms: isLoadingAllOpcvmsQuery,
     isFetchingAllOpcvms: isFetchingAllOpcvmsQuery,
     allOpcvmsError: allOpcvmsQueryError,
+
+    topFlopOpcvmsData: topFlopOpcvmsQueryResult,
+    isLoadingTopFlopOpcvms: isLoadingTopFlopOpcvmsQuery,
+    isFetchingTopFlopOpcvms: isFetchingTopFlopOpcvmsQuery,
+    topFlopOpcvmsError: topFlopOpcvmsQueryError,
 
     currentOpcvmData: currentOpcvmQueryResult,
     isLoadingOpcvmById: isLoadingOpcvmByIdQuery,

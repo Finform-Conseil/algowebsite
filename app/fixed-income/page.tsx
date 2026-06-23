@@ -4,12 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import YieldCurveSection from '@/components/fixed-income/YieldCurveSection';
 
-const backgroundImages = [
-  '/images/screener-header-3.jpg',
-  '/images/exchanges-header-2.jpg',
-  '/images/exchanges-header-1.jpg',
-];
-
 type NewsCategory = 'news' | 'circulars' | 'press-releases' | 'consultations';
 type ViewMode = 'cards' | 'list';
 
@@ -53,15 +47,6 @@ export default function FixedIncomePage() {
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
-
-  // Background image carousel
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
   
   // Mapping between country names and ISO codes
   const countryIsoMap: Record<string, string> = {
@@ -432,7 +417,7 @@ export default function FixedIncomePage() {
         <div 
           className="fi-header"
           style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImages[currentBgIndex]})`,
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7))`,
             backgroundSize: 'cover',
             backgroundPosition: 'center center',
             transition: 'background-image 1s ease-in-out',

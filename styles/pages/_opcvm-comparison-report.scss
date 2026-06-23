@@ -774,10 +774,19 @@
               gap: 0.5rem;
 
               .legend-item {
-                display: flex;
+                display: grid;
+                grid-template-columns: 12px minmax(120px, 1.5fr) minmax(80px, 1fr) 80px 80px 95px;
                 align-items: center;
                 gap: 0.75rem;
-                font-size: 0.8125rem;
+                font-size: 0.75rem;
+
+                &.legend-header {
+                  color: var(--text-secondary);
+                  font-size: 0.5rem;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  letter-spacing: 0.04em;
+                }
 
                 .legend-color {
                   width: 12px;
@@ -794,8 +803,17 @@
                 }
 
                 .legend-label {
-                  flex: 1;
                   color: var(--text-color);
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                }
+
+                .legend-meta {
+                  color: var(--text-secondary);
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
                 }
 
                 .legend-value {

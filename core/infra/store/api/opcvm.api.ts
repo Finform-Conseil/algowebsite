@@ -1,7 +1,7 @@
 import { PaginatedResponse, QueryParams } from "@/core/domain/types/pagination.type";
 import { CreateOpcvmMetricType, CreateOpcvmType, OpcvmMetricQueryParams, OpcvmMetricType, OpcvmQueryParams, OpcvmType, UpdateOpcvmMetricType, UpdateOpcvmType } from "@/core/domain/types/opcvm.type";
 import api from "./base.api";
-import { OPCVMEntity, OPCVMMetricEntity } from "@/core/domain/entities/opcvm.entity";
+import { OPCVMEntity, OPCVMMetricEntity, TopFlopEntity } from "@/core/domain/entities/opcvm.entity";
 
 export const opcvmApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -50,6 +50,13 @@ export const opcvmApi = api.injectEndpoints({
               { type: "OPCVMs", id: `PAGE-${result.current_page}` },
             ]
           : [{ type: "OPCVMs", id: "LIST" }],
+    }),
+    getTopFlopOpcvms: builder.query<TopFlopEntity, OpcvmQueryParams | void>({
+      query: (params) => ({
+        url: "opcvms/topflop",
+        method: "GET",
+        params: params || {},
+      })
     }),
     getOpcvmById: builder.query<OPCVMEntity, { id: string }>({
       query: ({ id }) => `/opcvms/${id}/`,

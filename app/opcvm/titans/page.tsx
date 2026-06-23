@@ -1,24 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-// Types
-type ManagementCompany = {
-  id: string;
-  rank: number;
-  name: string;
-  logo?: string;
-  headquarters: string;
-  foundedYear: number;
-  mission: string;
-  philosophy: string;
-  aum: number; // Assets Under Management in millions
-  avgPerformance: number; // Average weighted performance
-  specialization: string;
-  website: string;
-  markets: string[];
-};
+import { useSgoRepository } from '@/core/infra/repositories/sgo.repository.impl';
 
 type ClassificationMode = 'market' | 'asset-nature' | 'opcvm-category' | 'continental';
 type ViewMode = 'overview' | 'table' | 'cards';
@@ -27,81 +10,17 @@ export default function OPCVMTitansPage() {
   const [selectedMarket, setSelectedMarket] = useState<string>('BRVM');
   const [classificationMode, setClassificationMode] = useState<ClassificationMode>('market');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
-  // Mock data - Top 5 Management Companies
-  const mockCompanies: ManagementCompany[] = [
+    const { allSgosData, getAllSgos } = useSgoRepository();
+    
+    useEffect(() => {
+      getAllSgos({view_type:'titans'});
+    }, []);
+  
+    useEffect(() =>
     {
-      id: 'mc1',
-      rank: 1,
-      name: 'NSIA Gestion',
-      headquarters: 'Abidjan, Ivory Coast',
-      foundedYear: 2010,
-      mission: 'Provide innovative and high-performing investment solutions',
-      philosophy: 'Value approach with focus on fundamentals',
-      aum: 45000,
-      avgPerformance: 12.5,
-      specialization: 'Banking and telecom sector expertise, active management',
-      website: 'https://nsia-gestion.com',
-      markets: ['BRVM', 'NSE']
-    },
-    {
-      id: 'mc2',
-      rank: 2,
-      name: 'Coris Asset Management',
-      headquarters: 'Ouagadougou, Burkina Faso',
-      foundedYear: 2012,
-      mission: 'Maximize value for our clients through rigorous management',
-      philosophy: 'Diversified management with quantitative approach',
-      aum: 38500,
-      avgPerformance: 11.8,
-      specialization: 'ESG thematic strategies, bond management',
-      website: 'https://coris-am.com',
-      markets: ['BRVM', 'GSE']
-    },
-    {
-      id: 'mc3',
-      rank: 3,
-      name: 'BOA Capital',
-      headquarters: 'Dakar, Senegal',
-      foundedYear: 2008,
-      mission: 'Support African economic growth',
-      philosophy: 'Growth investment with long-term vision',
-      aum: 32000,
-      avgPerformance: 10.2,
-      specialization: 'Infrastructure and energy focus, mixed management',
-      website: 'https://boa-capital.com',
-      markets: ['BRVM', 'CSE']
-    },
-    {
-      id: 'mc4',
-      rank: 4,
-      name: 'Ecobank Asset Management',
-      headquarters: 'Lomé, Togo',
-      foundedYear: 2015,
-      mission: 'Create sustainable value for our investors',
-      philosophy: 'Balanced risk-return approach',
-      aum: 28000,
-      avgPerformance: 9.7,
-      specialization: 'Money market and bond management, regional expertise',
-      website: 'https://ecobank-am.com',
-      markets: ['BRVM', 'NGX', 'GSE']
-    },
-    {
-      id: 'mc5',
-      rank: 5,
-      name: 'Société Générale Asset Management Africa',
-      headquarters: 'Abidjan, Ivory Coast',
-      foundedYear: 2006,
-      mission: 'Excellence in asset management with international standards',
-      philosophy: 'SRI management and responsible investment',
-      aum: 25500,
-      avgPerformance: 9.3,
-      specialization: 'SRI and sustainable finance, equity management',
-      website: 'https://sgam-africa.com',
-      markets: ['BRVM', 'JSE', 'NSE']
-    }
-  ];
+      console.log("All SGO Data", allSgosData)
+    }, [allSgosData])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -354,15 +273,23 @@ export default function OPCVMTitansPage() {
               </div>
               <div className="preview-stats">
                 <div className="stat-card">
-                  <div className="stat-value">{mockCompanies.length}</div>
+                  <div className="stat-value">{allSgosData?.data.length}</div>
                   <div className="stat-label">Leading Companies</div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-value">{formatCurrency(mockCompanies.reduce((sum, c) => sum + c.aum, 0))}</div>
+                  <div className="stat-value">
+                    {formatCurrency(allSgosData?.data.reduce((sum, c) => sum + (c.aum ?? 0), 0) ?? 0)}
+                  </div>
                   <div className="stat-label">Total Assets Managed</div>
                 </div>
+                
                 <div className="stat-card">
-                  <div className="stat-value">{(mockCompanies.reduce((sum, c) => sum + c.avgPerformance, 0) / mockCompanies.length).toFixed(1)}%</div>
+                  <div className="stat-value">
+                    {(
+                      (allSgosData?.data.reduce((sum, c) => sum + (c.performance ?? 0), 0) ?? 0) / (allSgosData?.data.length ?? 1)
+                    ).toFixed(1)}
+                    %
+                  </div>
                   <div className="stat-label">Average Performance</div>
                 </div>
               </div>
@@ -403,44 +330,44 @@ export default function OPCVMTitansPage() {
                     <th className="company-col">Management Company</th>
                     <th className="aum-col">Assets Under Management</th>
                     <th className="performance-col">Average Performance</th>
-                    <th className="specialization-col">Management Specialization</th>
+                    <th className="specialization-col">Investment Objective</th>
                     <th className="website-col">Website</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {mockCompanies.map((company) => (
-                    <tr key={company.id} className="company-row">
+                  {allSgosData?.data.map((sgo, index) => (
+                    <tr key={sgo.id} className="company-row">
                       <td className="rank-cell">
-                        <div className={`rank-badge rank-${company.rank}`}>
-                          {company.rank === 1 && (
+                        <div className={`rank-badge rank-${index + 1}`}>
+                          {index === 0 && (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                             </svg>
                           )}
-                          #{company.rank}
+                          #{index + 1}
                         </div>
                       </td>
                       <td className="company-cell">
                         <div className="company-info">
-                          <div className="company-name">{company.name}</div>
-                          <div className="company-location">{company.headquarters}</div>
+                          <div className="company-name">{sgo.name}</div>
+                          <div className="company-location">{sgo.geographic_address}</div>
                         </div>
                       </td>
                       <td className="aum-cell">
-                        <div className="aum-value">{formatCurrency(company.aum)}</div>
+                        <div className="aum-value">{formatCurrency(sgo?.aum ?? 0)}</div>
                         <div className="aum-label">Millions FCFA</div>
                       </td>
                       <td className="performance-cell">
-                        <div className={`performance-value ${company.avgPerformance >= 10 ? 'high' : 'medium'}`}>
-                          +{company.avgPerformance}%
+                        <div className={`performance-value ${sgo.performance ?? 0 >= 10 ? 'high' : 'medium'}`}>
+                          +{sgo.performance}%
                         </div>
                         <div className="performance-label">Over 12 months</div>
                       </td>
                       <td className="specialization-cell">
-                        <div className="specialization-text">{company.specialization}</div>
+                        <div className="specialization-text">{sgo.objectif_investissement}</div>
                       </td>
                       <td className="website-cell">
-                        <a href={company.website} target="_blank" rel="noopener noreferrer" className="website-link">
+                        <a href={sgo.website ?? "--"} target="_blank" rel="noopener noreferrer" className="website-link">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                             <polyline points="15 3 21 3 21 9" />
@@ -477,17 +404,17 @@ export default function OPCVMTitansPage() {
             </div> */}
 
             <div className="companies-grid">
-              {mockCompanies.map((company) => (
-                <div key={company.id} className={`company-card rank-${company.rank}`}>
+              {allSgosData?.data.map((sgo, index) => (
+                <div key={sgo.id} className={`company-card rank-${index + 1}`}>
                   <div className="card-header">
                     <div>
                       <div className="card-rank">
-                      {company.rank === 1 && (
+                      {index === 0 && (
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                         </svg>
                       )}
-                      <span>#{company.rank}</span>
+                      <span>#{index + 1}</span>
                     </div>
                     <div className="info-section">
                       <div className="info-label">
@@ -497,14 +424,14 @@ export default function OPCVMTitansPage() {
                           <line x1="8" y1="2" x2="8" y2="6" />
                           <line x1="3" y1="10" x2="21" y2="10" />
                         </svg>
-                        Founded in {company.foundedYear}
+                        {/* Founded in {company.foundedYear} */}
                       </div>
                     </div>
 
                     </div>
                     <div>
-                      <h3>{company.name}</h3>
-                      <p className="headquarters">{company.headquarters}</p>
+                      <h3>{sgo.name}</h3>
+                      <p className="headquarters">{sgo.geographic_address}</p>
                     </div>
                     
                   </div>
@@ -514,44 +441,43 @@ export default function OPCVMTitansPage() {
 
                     <div className="info-section">
                       <h4>Mission</h4>
-                      <p>{company.mission}</p>
+                      <p>{sgo.objectif_investissement}</p>
                     </div>
 
                     <div className="info-section">
                       <h4>Investment Philosophy</h4>
-                      <p>{company.philosophy}</p>
+                      <p>{sgo.orientation_strategique}</p>
                     </div>
 
                     <div className="metrics-grid">
                       <div className="metric-item">
                         <div className="metric-label">Assets Under Management</div>
-                        <div className="metric-value">{formatCurrency(company.aum)}</div>
+                        <div className="metric-value">{formatCurrency(sgo.aum ?? 0)}</div>
                       </div>
                       <div className="metric-item">
                         <div className="metric-label">Average Performance</div>
-                        <div className={`metric-value ${company.avgPerformance >= 10 ? 'positive' : 'neutral'}`}>
-                          +{company.avgPerformance}%
+                        <div className={`metric-value ${sgo.performance ?? 0 >= 10 ? 'positive' : 'neutral'}`}>
+                          +{sgo.performance}%
                         </div>
                       </div>
                     </div>
-
-                    <div className="info-section">
-                      <h4>Management Specialization</h4>
-                      <p className="specialization">{company.specialization}</p>
-                    </div>
+                    {/* 
+                      <div className="info-section">
+                        <h4>Management Specialization</h4>
+                        <p className="specialization">{company.specialization}</p>
+                      </div> 
+                    */}
 
                     <div className="info-section">
                       <h4>Markets of Operation</h4>
                       <div className="opcvm-markets-tags">
-                        {company.markets.map((market) => (
-                          <span key={market} className="opcvm-market-tag">{market}</span>
-                        ))}
+                          <span className="opcvm-market-tag">{sgo.bourse?.ticker}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="card-footer">
-                    <a href={company.website} target="_blank" rel="noopener noreferrer" className="visit-btn">
+                    <a href={sgo.website} target="_blank" rel="noopener noreferrer" className="visit-btn">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10" />
                         <line x1="2" y1="12" x2="22" y2="12" />

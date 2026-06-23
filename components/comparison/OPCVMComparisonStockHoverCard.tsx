@@ -46,7 +46,7 @@ export default function OPCVMComparisonStockHoverCard({ opcvm, children }: OPCVM
   };
 
   // Calculer min/max des valeurs liquidatives
-  const values = allOpcvmMetricsData?.data?.map(m => parseFloat(m.liquidative_value)) || [];
+  const values = allOpcvmMetricsData?.data?.map(m => m.liquidative_value) || [];
   const minPrice = values.length > 0 ? Math.min(...values) : 0;
   const maxPrice = values.length > 0 ? Math.max(...values) : 0;
 
@@ -113,7 +113,7 @@ export default function OPCVMComparisonStockHoverCard({ opcvm, children }: OPCVM
               <polyline
                 points={allOpcvmMetricsData?.data?.map((metric, i) => {
                     const x = (i / (allOpcvmMetricsData?.data?.length - 1)) * 100;
-                    const y = 30 - ((parseFloat(metric.liquidative_value) - minPrice) / (maxPrice - minPrice)) * 28;
+                    const y = 30 - ((metric.liquidative_value - minPrice) / (maxPrice - minPrice)) * 28;
                     return `${x},${y}`;
                   })
                   .join(' ')}

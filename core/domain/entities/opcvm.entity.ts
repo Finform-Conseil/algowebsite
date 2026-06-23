@@ -63,12 +63,13 @@ export interface OPCVMEntity {
 
 
 export interface OPCVMMetricEntity {
+    id: string;
     opcvm: string;
     timeframe: number;
     timestamp: string;
     
     // Valeur liquidative
-    liquidative_value: string;
+    liquidative_value: number;
     
     // Performance par période
     performance_1m?: number | null;
@@ -250,4 +251,21 @@ export interface OPCVMMetricEntity {
     net_flow_percent?: number | null;
     aum_growth?: number | null;
     redemption_to_subscription_ratio?: number | null;
+}
+
+export interface TopFlopElementEntity{
+    opcvm: OPCVMEntity;
+    performance: number;
+    volatility: number;
+    start_value: number;
+    end_value: number;
+    metrics: OPCVMMetricEntity[];
+    is_top: boolean;
+}
+
+export interface TopFlopEntity {
+    date_from: string;
+    date_to: string;
+    top_performers: TopFlopElementEntity[];
+    worst_performers: TopFlopElementEntity[];
 }

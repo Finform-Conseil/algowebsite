@@ -95,7 +95,7 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
         text: indicator.name,
         left: 'center',
         textStyle: {
-          color: 'var(--text-primary)',
+          color: '#fff',
           fontSize: 16,
           fontWeight: 600,
         },
@@ -111,7 +111,7 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
         backgroundColor: 'var(--card-background)',
         borderColor: 'var(--border-color)',
         textStyle: {
-          color: 'var(--text-primary)',
+          color: '#fff',
         },
         formatter: (params: any) => {
           let result = `<strong>${params[0].axisValue}</strong><br/>`;
@@ -140,11 +140,11 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
         type: 'category',
         data: years,
         axisLabel: {
-          color: 'var(--text-secondary)',
+          color: '#fff',
         },
         axisLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#fff',
           },
         },
       },
@@ -152,10 +152,10 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
         type: 'value',
         name: indicator.type,
         nameTextStyle: {
-          color: 'var(--text-secondary)',
+          color: '#fff',
         },
         axisLabel: {
-          color: 'var(--text-secondary)',
+          color: '#fff',
           formatter: (value: number) => {
             if (indicator.format) return indicator.format(value);
             if (indicator.type === 'percentage') return `${value.toFixed(1)}%`;
@@ -165,7 +165,7 @@ function HistogramChart({ indicator, stocks }: HistogramChartProps) {
         },
         splitLine: {
           lineStyle: {
-            color: 'var(--border-color)',
+            color: '#888',
             type: 'dashed',
           },
         },
