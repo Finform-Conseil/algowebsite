@@ -376,9 +376,9 @@ export class LineMeasureStrategy implements IDrawingStrategy {
             ctx.fillStyle = style.fillColor || style.color || "#2962FF";
             ctx.globalAlpha = style.fillOpacity ?? 0.15;
             if (drawing.type === "date_range") {
-                ctx.fillRect(xMin, 0, xMax - xMin, h.logicalHeight);
+                ctx.fillRect(xMin, yMin, xMax - xMin, yMax - yMin);
             } else if (drawing.type === "price_range") {
-                ctx.fillRect(0, yMin, h.logicalWidth, yMax - yMin);
+                ctx.fillRect(xMin, yMin, xMax - xMin, yMax - yMin);
             } else {
                 // date_price_range
                 ctx.fillRect(xMin, yMin, xMax - xMin, yMax - yMin);
@@ -390,14 +390,109 @@ export class LineMeasureStrategy implements IDrawingStrategy {
         ctx.save();
         h.applyStyle(style, false); // Re-apply for stroke consistency
         if (drawing.type === "date_range") {
-            h.drawSegment({ x: xMin, y: 0 }, { x: xMin, y: h.logicalHeight });
-            h.drawSegment({ x: xMax, y: 0 }, { x: xMax, y: h.logicalHeight });
+            h.drawSegment({ x: xMin, y: yMin }, { x: xMin, y: yMax });
+            h.drawSegment({ x: xMax, y: yMin }, { x: xMax, y: yMax });
+
+            // Horizontal measurement line with directional arrow
+            const midY = yMin + (yMax - yMin) / 2;
+            const arrowSize = 8;
+            h.drawSegment({ x: xMin, y: midY }, { x: xMax, y: midY });
+            // Arrow points towards p2 (direction of drawing)
+            const drawnLeftToRight = p1.x <= p2.x;
+            if (drawnLeftToRight) {
+                // Arrow pointing right at xMax (towards p2)
+                ctx.beginPath();
+                ctx.moveTo(xMax, midY);
+                ctx.lineTo(xMax - arrowSize, midY - arrowSize / 2);
+                ctx.lineTo(xMax - arrowSize, midY + arrowSize / 2);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            } else {
+                // Arrow pointing left at xMin (towards p2)
+                ctx.beginPath();
+                ctx.moveTo(xMin, midY);
+                ctx.lineTo(xMin + arrowSize, midY - arrowSize / 2);
+                ctx.lineTo(xMin + arrowSize, midY + arrowSize / 2);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            }
         } else if (drawing.type === "price_range") {
-            h.drawSegment({ x: 0, y: yMin }, { x: h.logicalWidth, y: yMin });
-            h.drawSegment({ x: 0, y: yMax }, { x: h.logicalWidth, y: yMax });
+            h.drawSegment({ x: xMin, y: yMin }, { x: xMax, y: yMin });
+            h.drawSegment({ x: xMin, y: yMax }, { x: xMax, y: yMax });
+
+            // Vertical measurement line with directional arrow
+            const midX = xMin + (xMax - xMin) / 2;
+            const arrowSize = 8;
+            h.drawSegment({ x: midX, y: yMin }, { x: midX, y: yMax });
+            // Arrow points towards p2 (direction of drawing)
+            const drawnTopToBottom = p1.y <= p2.y;
+            if (drawnTopToBottom) {
+                // Arrow pointing down at yMax (towards p2)
+                ctx.beginPath();
+                ctx.moveTo(midX, yMax);
+                ctx.lineTo(midX - arrowSize / 2, yMax - arrowSize);
+                ctx.lineTo(midX + arrowSize / 2, yMax - arrowSize);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            } else {
+                // Arrow pointing up at yMin (towards p2)
+                ctx.beginPath();
+                ctx.moveTo(midX, yMin);
+                ctx.lineTo(midX - arrowSize / 2, yMin + arrowSize);
+                ctx.lineTo(midX + arrowSize / 2, yMin + arrowSize);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            }
         } else {
-            // date_price_range: use strokeRect for proper corner rendering
-            ctx.strokeRect(xMin, yMin, xMax - xMin, yMax - yMin);
+            // date_price_range: both measurement lines
+            // Horizontal measurement line at midY with arrow
+            const midY = yMin + (yMax - yMin) / 2;
+            const midX = xMin + (xMax - xMin) / 2;
+            const arrowSize = 8;
+            h.drawSegment({ x: xMin, y: midY }, { x: xMax, y: midY });
+            const drawnLeftToRight = p1.x <= p2.x;
+            if (drawnLeftToRight) {
+                ctx.beginPath();
+                ctx.moveTo(xMax, midY);
+                ctx.lineTo(xMax - arrowSize, midY - arrowSize / 2);
+                ctx.lineTo(xMax - arrowSize, midY + arrowSize / 2);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(xMin, midY);
+                ctx.lineTo(xMin + arrowSize, midY - arrowSize / 2);
+                ctx.lineTo(xMin + arrowSize, midY + arrowSize / 2);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            }
+
+            // Vertical measurement line at midX with arrow
+            h.drawSegment({ x: midX, y: yMin }, { x: midX, y: yMax });
+            const drawnTopToBottom = p1.y <= p2.y;
+            if (drawnTopToBottom) {
+                ctx.beginPath();
+                ctx.moveTo(midX, yMax);
+                ctx.lineTo(midX - arrowSize / 2, yMax - arrowSize);
+                ctx.lineTo(midX + arrowSize / 2, yMax - arrowSize);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(midX, yMin);
+                ctx.lineTo(midX - arrowSize / 2, yMin + arrowSize);
+                ctx.lineTo(midX + arrowSize / 2, yMin + arrowSize);
+                ctx.closePath();
+                ctx.fillStyle = ctx.strokeStyle as string;
+                ctx.fill();
+            }
         }
         ctx.restore();
 
@@ -406,9 +501,11 @@ export class LineMeasureStrategy implements IDrawingStrategy {
         // Text rendering
         if (drawing.showText && drawing.text) {
             if (drawing.type === "date_range") {
-                h.drawTextOnLine({ x: xMin, y: h.logicalHeight / 2 }, { x: xMax, y: h.logicalHeight / 2 }, drawing);
+                const midY = yMin + (yMax - yMin) / 2;
+                h.drawTextOnLine({ x: xMin, y: midY }, { x: xMax, y: midY }, drawing);
             } else if (drawing.type === "price_range") {
-                h.drawTextOnLine({ x: h.logicalWidth / 2, y: yMin }, { x: h.logicalWidth / 2, y: yMax }, drawing);
+                const midX = xMin + (xMax - xMin) / 2;
+                h.drawTextOnLine({ x: midX, y: yMin }, { x: midX, y: yMax }, drawing);
             } else {
                 // date_price_range: centered text (matches DrawingRendererOld)
                 ctx.save();

@@ -104,7 +104,7 @@ export const PineEditorPanel = React.memo(({
     if (state.attachedOverlay && state.compileResult.isExecutable && state.source !== state.attachedOverlay.checksum) {
       void attachCurrentOverlay(state, chartData, dispatch, onAttachToChart);
     }
-  }, [state.source, state.compileResult.isExecutable, state.attachedOverlay, chartData, dispatch, onAttachToChart]);
+  }, [state, state.source, state.compileResult.isExecutable, state.attachedOverlay, chartData, dispatch, onAttachToChart]);
 
   return (
     <BrvmRailPanel auditTrail={auditTrail} rows={rows} subtitle="Editeur Pine local, diagnostics et attachement BRVM defensif" tags={["Pine", "Editor", "Local", "BRVM"]} title="Pine">

@@ -19,7 +19,7 @@ export const TV_ZOOM_DRIFT_BASE_RATIO = 0.015;
 export const TV_PAN_DRIFT_DAMPING = 0.85;
 export const TV_INITIAL_VISIBLE_BARS = 100;
 export const TV_RESET_VISIBLE_BARS = 120;
-export const MAIN_GRID_LEFT = 15;
+export const MAIN_GRID_LEFT = 35;
 
 const WHEEL_DELTA_LINE_MODE = 1;
 const WHEEL_DELTA_PAGE_MODE = 2;

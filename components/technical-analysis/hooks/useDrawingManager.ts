@@ -48,6 +48,8 @@ import {
 
 const saveDrawingToCloudDisabled = createDisabledDrawingCloudPersistence("save");
 const restoreDrawingsFromCloudDisabled = createDisabledDrawingCloudPersistence("restore");
+const FREEHAND_MIN_POINT_DISTANCE_PX = 3;
+const FREEHAND_MAX_POINTS = 900;
 
 // ============================================================================
 // TYPES
@@ -387,6 +389,19 @@ export const useDrawingManager = ({
     if (tool === "anchored_vwap") {
       return toolDefaults[tool] || { color: "#2962FF", lineWidth: 1, lineStyle: "solid", lineOpacity: 1 };
     }
+    if (tool === "brush" || tool === "highlighter") {
+      const isHighlighter = tool === "highlighter";
+      const defaultColor = isHighlighter ? "#f5f500" : "#2962FF";
+      return toolDefaults[tool] || {
+        color: defaultColor,
+        lineWidth: isHighlighter ? 14 : 2,
+        lineStyle: "solid",
+        lineOpacity: isHighlighter ? 0.28 : 1,
+        fillColor: defaultColor,
+        fillOpacity: 0.2,
+        fillEnabled: false
+      };
+    }
     return toolDefaults[tool] || { color: "#2962FF", lineWidth: 2, lineStyle: "solid", fillColor: "#2962FF", fillOpacity: 0.1 };
   }, [toolDefaults]);
 
@@ -394,6 +409,7 @@ export const useDrawingManager = ({
   const [gridRect, setGridRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const rendererRef = useRef<DrawingRenderer | null>(null);
   const rendererCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastFreehandPixelRef = useRef<{ x: number; y: number } | null>(null);
 
   // --- Initialize Renderer ---
   useEffect(() => {
@@ -658,6 +674,27 @@ export const useDrawingManager = ({
     return null;
   }, [chartInstanceRef, drawingCanvasRef]);
 
+  const getChartPointerPixel = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): { x: number; y: number } | null => {
+    if (!isChartUsable(chartInstanceRef.current)) return null;
+    const chartRect = chartInstanceRef.current.getDom().getBoundingClientRect();
+    const x = e.clientX - chartRect.left;
+    const y = e.clientY - chartRect.top;
+    if (x < 0 || y < 0 || x > chartRect.width || y > chartRect.height) return null;
+    if (!isInsideGridRect({ x, y }, getInteractiveGridRect(chartInstanceRef.current))) return null;
+    return { x, y };
+  }, [chartInstanceRef]);
+
+  const getFreehandCoordinates = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): DrawingPoint | null => {
+    const pointerPixel = getChartPointerPixel(e);
+    if (!pointerPixel || !isChartUsable(chartInstanceRef.current)) return null;
+    const point = safeConvertFromPixel(chartInstanceRef.current, [pointerPixel.x, pointerPixel.y], getPriceSeriesIndex(chartInstanceRef.current));
+    if (!point || point.length < 2) return null;
+    const time = Number(point[0]);
+    const value = Number(point[1]);
+    if (!Number.isFinite(time) || !Number.isFinite(value)) return null;
+    return { time, value };
+  }, [chartInstanceRef, getChartPointerPixel]);
+
   const resolveTimeToChartIndex = useCallback((time: string | number): number => {
     const data = chartDataRef.current;
     if (!data.length) return -1;
@@ -838,6 +875,23 @@ export const useDrawingManager = ({
     if (!coords) return;
     claimDrawingPointerEvent();
 
+    if (currentActiveTool === "brush" || currentActiveTool === "highlighter") {
+      const freehandCoords = getFreehandCoordinates(e);
+      if (!freehandCoords) return;
+      lastFreehandPixelRef.current = getChartPointerPixel(e);
+      const newDrawing: Drawing = {
+        id: generateId(),
+        type: currentActiveTool,
+        points: [freehandCoords],
+        style: { ...getToolDefault(currentActiveTool) },
+      };
+      currentDrawingRef.current = newDrawing;
+      setCurrentDrawing(newDrawing);
+      setIsDrawing(true);
+      markDirty();
+      return;
+    }
+
     if (SINGLE_CLICK_TOOLS.includes(currentActiveTool)) {
       const newDrawing: Drawing = {
         id: generateId(),
@@ -877,7 +931,7 @@ export const useDrawingManager = ({
         };
       }
 
-      if (newDrawing.type === "anchored_volume_profile") {
+      if (newDrawing.type === "anchored_volume_profile" || newDrawing.type === "fixed_range_volume_profile") {
         newDrawing.anchoredVolumeProfileProps = createDefaultAnchoredVolumeProfileProps();
       }
 
@@ -1082,7 +1136,7 @@ export const useDrawingManager = ({
           };
         }
 
-        if (newDrawing.type === "anchored_volume_profile") {
+        if (newDrawing.type === "anchored_volume_profile" || newDrawing.type === "fixed_range_volume_profile") {
           newDrawing.anchoredVolumeProfileProps = createDefaultAnchoredVolumeProfileProps();
         }
 
@@ -1360,7 +1414,7 @@ export const useDrawingManager = ({
       }
       return;
     }
-  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData]);
+  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
@@ -1381,9 +1435,9 @@ export const useDrawingManager = ({
       if (!d) return;
 
       let newPoints = [...d.points];
-
       if (type === 'shape') {
         const priceIdx = getPriceSeriesIndex(dragChart);
+        const isFreehand = d.type === 'brush' || d.type === 'highlighter';
         newPoints = initialPoints.map(p => {
           const startPix = safeConvertToPixel(dragChart, [p.time, p.value], priceIdx);
           if (!startPix) return p;
@@ -1392,7 +1446,7 @@ export const useDrawingManager = ({
           if (!newCoords) return p;
           const rawTime = newCoords[0];
           let finalTime: string | number = rawTime;
-          if (typeof rawTime === 'number') {
+          if (!isFreehand && typeof rawTime === 'number') {
             const idx = Math.round(rawTime);
             const clampedIdx = Math.max(0, Math.min(idx, chartDataRef.current.length - 1));
             finalTime = chartDataRef.current[clampedIdx].time;
@@ -1471,6 +1525,31 @@ export const useDrawingManager = ({
       return;
     }
 
+    if (isDrawingRef.current && currentDrawingRef.current && (currentDrawingRef.current.type === "brush" || currentDrawingRef.current.type === "highlighter")) {
+      const pointerPixel = getChartPointerPixel(e);
+      const lastPixel = lastFreehandPixelRef.current;
+      if (pointerPixel && lastPixel) {
+        const distance = Math.hypot(pointerPixel.x - lastPixel.x, pointerPixel.y - lastPixel.y);
+        if (distance < FREEHAND_MIN_POINT_DISTANCE_PX) return;
+      }
+
+      const coords = getFreehandCoordinates(e);
+      if (coords) {
+        lastFreehandPixelRef.current = pointerPixel;
+        const currentPoints = currentDrawingRef.current.points;
+        const nextPoints =
+          currentPoints.length >= FREEHAND_MAX_POINTS
+            ? [...currentPoints.filter((_, index) => index % 2 === 0), coords]
+            : [...currentPoints, coords];
+        currentDrawingRef.current = {
+          ...currentDrawingRef.current,
+          points: nextPoints
+        };
+        markDirty();
+      }
+      return;
+    }
+
     const mode = cursorModeRef.current;
     if ((mode === 'eraser' || mode === 'magic') && !activeToolRef.current && !isDrawingRef.current) {
       drawingCanvasRef.current.style.cursor = '';
@@ -1497,13 +1576,23 @@ export const useDrawingManager = ({
 
     if (!hoveringInt) cursor = (activeToolRef.current || isDrawingRef.current) ? "crosshair" : "default";
     drawingCanvasRef.current.style.cursor = cursor;
-  }, [chartInstanceRef, drawingCanvasRef, markDirty]);
+  }, [chartInstanceRef, drawingCanvasRef, getChartPointerPixel, getFreehandCoordinates, markDirty]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (drawingCanvasRef.current && e.pointerId !== undefined) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {}
+    }
+    if (isDrawingRef.current && currentDrawingRef.current && (currentDrawingRef.current.type === "brush" || currentDrawingRef.current.type === "highlighter")) {
+      const drawing = currentDrawingRef.current;
+      lastFreehandPixelRef.current = null;
+      if (drawing.points.length >= 1) {
+        completeDrawingSession(drawing);
+      } else {
+        cancelDrawingSession(true);
+      }
+      return;
     }
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
@@ -1519,7 +1608,7 @@ export const useDrawingManager = ({
       }
       dragTargetRef.current = null;
     }
-  }, [drawingCanvasRef, pushHistory, markDirty]);
+  }, [cancelDrawingSession, completeDrawingSession, drawingCanvasRef, pushHistory, markDirty]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLElement) {

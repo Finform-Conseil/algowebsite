@@ -36,6 +36,7 @@ Le bundle est stable et ne doit plus etre perfectionne hors bug reel:
 - Lock: `release` verifie agent/surface avant de nettoyer un stale lock; utiliser `SCRIBE_OWNER_PID` ou `--owner-pid` pour representer un processus proprietaire long-vivant.
 - Backup de reference: `~/backups/agent-scribe-stable-20260601.tar.gz`.
 - Ratio causal mesure: environ `17.5%`, cible `35%`; ne jamais creer de SCAR/GHOST/PAT cosmetique pour gonfler ce ratio.
+- Reflexe douleur reelle: bug resolu en plus de 2 tentatives, regression, rollback couteux ou smoke visuel casse => SCAR immediat avec `cause_racine`, `resolution` et `test_binding`; avant une tache proche, interroger `scribe-rag query/explain/challenge` pour exploiter ces cicatrices.
 
 Instruction operationnelle: STOP `.agent`. Revenir au vrai projet. Ne rouvrir
 le chantier SCRIBE que pour un bug SCRIBE observe, un test rouge, ou une derive

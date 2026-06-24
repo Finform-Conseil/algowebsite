@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import { GaugeChart } from 'echarts/charts';
+import { TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+import type { EChartsOption } from 'echarts';
 
 interface SentimentGaugeProps {
   buyPercent: number;
@@ -27,10 +31,18 @@ export function toSentimentGaugeParts(score: number): SentimentGaugeParts {
   return { buyPercent: 0, holdPercent, sellPercent: Math.abs(directionalScore) };
 }
 
+let modulesRegistered = false;
+function ensureModulesRegistered() {
+  if (modulesRegistered) return;
+  modulesRegistered = true;
+  echarts.use([CanvasRenderer, GaugeChart, TooltipComponent]);
+}
+
 export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }: SentimentGaugeProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    ensureModulesRegistered();
     if (!chartRef.current) return;
 
     const chart = echarts.init(chartRef.current);
@@ -38,7 +50,7 @@ export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }:
     // Global score from -100 to 100, where 100 means full buy pressure.
     const score = buyPercent - sellPercent;
 
-    const option: echarts.EChartsOption = {
+    const option: EChartsOption = {
       series: [
         {
           type: 'gauge',

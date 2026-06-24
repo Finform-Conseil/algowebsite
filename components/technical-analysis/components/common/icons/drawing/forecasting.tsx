@@ -91,10 +91,17 @@ export const AnchoredVWAPIcon = () => (
 );
 
 export const AnchoredVolumeProfileIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28">
+        <path fill="currentColor" fillRule="evenodd" d="M24 3h-1v4h-6v3h-5v3H8.95a2.5 2.5 0 1 0 0 1H15v3h5v3h3v4h1V3Zm-6 7h5V8h-5v2Zm-1 1h-4v2h10v-2h-6Zm4 5h-5v-2h7v2h-2Zm0 3v-2h2v2h-2ZM6.5 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"></path>
+    </svg>
+);
+
+export const FixedRangeVolumeProfileIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28" fill="none">
-        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M5 21.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM3.5 24a2.5 2.5 0 0 0 .5-4.95V3H3v16.05A2.5 2.5 0 0 0 3.5 24zM25 5.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0zM23.5 3a2.5 2.5 0 0 1 .5 4.95V24h-1V7.95A2.5 2.5 0 0 1 23.5 3z"> </path>
-        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M9 7H4v2h5V7zM3 6v4h7V6H3z"></path>
-        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M12 10H4v2h8v-2zM3 9v4h10V9H3z"></path>
-        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M7 13H4v2h3v-2zm-4-1v4h5v-4H3z"></path>
+        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M4 5.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM5.5 3A2.5 2.5 0 0 0 3 5.5V24h1V5.5A1.5 1.5 0 0 1 5.5 4h3v6.5h-1V4H5.5z"></path>
+        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M23 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM21.5 3A2.5 2.5 0 0 1 24 5.5V24h-1V5.5A1.5 1.5 0 0 0 21.5 4h-3v6.5h1V4h1.5z"></path>
+        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M9 10H4v2h5v-2zM3 9v4h7V9H3z"></path>
+        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M12 13H4v2h8v-2zM3 12v4h10v-4H3z"></path>
+        <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M7 16H4v2h3v-2zm-4-1v4h5v-4H3z"></path>
     </svg>
 );

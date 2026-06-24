@@ -1,4 +1,4 @@
-import type { ChartOptionPart, CustomRenderApi } from "./types";
+import type { ChartOptionPart, CustomRenderApi, CustomRenderParams } from "./types";
 
 export const PRICE_CUSTOM_SERIES_BINDING = {
   coordinateSystem: "cartesian2d",
@@ -23,6 +23,24 @@ export const getCategoryBandWidth = (api: CustomRenderApi): number => {
   const size = api.size?.([1, 0]);
   const width = Array.isArray(size) && Number.isFinite(size[0]) ? Number(size[0]) : 8;
   return Math.max(4, width);
+};
+
+export const makeGridClipPath = (params: CustomRenderParams) => {
+  const rect = params.coordSys;
+  if (
+    !rect
+    || !Number.isFinite(rect.x)
+    || !Number.isFinite(rect.y)
+    || !Number.isFinite(rect.width)
+    || !Number.isFinite(rect.height)
+  ) {
+    return undefined;
+  }
+
+  return {
+    type: "rect",
+    shape: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+  };
 };
 
 export const makeLineShape = (

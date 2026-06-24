@@ -73,6 +73,7 @@
 @include meta.load-css('pages/opcvm-simulator');
 @include meta.load-css('pages/mtp-screener');
 @include meta.load-css('pages/equity-home');
+@include meta.load-css('./pages/glossary');
 @include meta.load-css('pages/new-home');
 
 // Animations

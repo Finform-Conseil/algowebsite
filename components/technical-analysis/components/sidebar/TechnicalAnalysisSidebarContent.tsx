@@ -12,6 +12,7 @@ import type { AuditTrailItem } from "./data/sidebarDataTypes";
 import type { DisplaySecurity, LiveSnapshot } from "../../config/market/marketSnapshotTypes";
 import type { TechnicalAnalysisSidebarController } from "./hooks/useTechnicalAnalysisSidebarController";
 import { SidebarRail, type SidebarRailEntryId } from "./SidebarRail";
+import { SidebarRailSkeleton } from "./SidebarRailSkeleton";
 import { ProductsMenuPopover, DEFAULT_PINNED, type ProductsMenuEntryId } from "./panels/ProductsMenuPopover";
 import { BrvmRailPanel } from "./panels/BrvmRailPanel";
 import { CalendarRailPanel } from "./panels/CalendarRailPanel";
@@ -396,7 +397,11 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       {isDividendModalOpen && <DividendHistoryModal isOpen={isDividendModalOpen} onClose={() => actions.setIsDividendModalOpen(false)} ticker={security.ticker} dividends={feeds.validFundamentals?.dividends} />}
 
       <div className="gp-sidebar-toolbar" ref={toolbarRef}>
-        <SidebarRail activeEntry={activeEntry} isProductsMenuOpen={isProductsMenuOpen} onSelect={handleRailSelect} onProductsClick={handleProductsClick} pinnedItems={pinnedItems} />
+        {isLoading ? (
+          <SidebarRailSkeleton />
+        ) : (
+          <SidebarRail activeEntry={activeEntry} isProductsMenuOpen={isProductsMenuOpen} onSelect={handleRailSelect} onProductsClick={handleProductsClick} pinnedItems={pinnedItems} />
+        )}
       </div>
       {isProductsMenuOpen && ReactDOM.createPortal(
         <ProductsMenuPopover isOpen={isProductsMenuOpen} pinnedItems={pinnedItems} onSelect={handleRailSelect} onTogglePin={handleTogglePin} onClose={handleProductsMenuClose} positionStyle={popoverStyle} />,

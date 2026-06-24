@@ -799,6 +799,34 @@
       ],
       "description": "7 functional icons (Standard Ghost Feed Toolbar) + move/more. Supports multi-point path projection."
     },
+    "brush": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "TradingView freehand Brush selected-drawing toolbar: template, stroke color, fill/highlight style, thickness, settings, lock, delete, more."
+    },
+    "highlighter": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "TradingView freehand Highlighter selected-drawing toolbar: template, stroke color, fill/highlight style, thickness, settings, lock, delete, more."
+    },
     "sector": {
       "toolbar": [
         "move",
@@ -836,6 +864,17 @@
         "more"
       ],
       "description": "Fixed Range Volume Profile toolbar (HDR 2026)"
+    },
+    "fixed_range_volume_profile": {
+      "toolbar": [
+        "move",
+        "quick_options",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Fixed Range Volume Profile toolbar (HDR 2026)"
     }
   },
   "button_definitions": {
@@ -845,7 +884,7 @@
       "action": "openTemplatePopup"
     },
     "color": {
-      "icon": "bi-paint-bucket",
+      "icon": "bi-pencil",
       "title": "Couleur de ligne",
       "action": "openColorPopup"
     },

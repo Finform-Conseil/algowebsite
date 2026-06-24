@@ -9,6 +9,7 @@ import {
   TV_X_AXIS_HEIGHT,
   TV_Y_AXIS_WIDTH,
   TV_ZOOM_VELOCITY,
+  clamp,
   computeDirectionalZoomViewport,
   computeHorizontalPanViewport,
   normalizeWheelDeltaPx,
@@ -208,7 +209,7 @@ export const useChartViewport = ({
     });
 
     const viewportOption = {
-      yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax }],
+      yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax, scale: false }],
       dataZoom: [{
         id: 'time-zoom',
         xAxisIndex: resolveTimeDataZoomAxisIndexes(option),
@@ -460,7 +461,7 @@ export const useChartViewport = ({
 
       if (isOnYAxis) {
         const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
-        state.yScale *= zoomFactor;
+        state.yScale = Math.max(0.1, Math.min(5, state.yScale * zoomFactor));
         state.isYManual = true;
         scheduleViewportApply("immediate");
       } else if (isOnChart || isOnXAxis) {
@@ -647,7 +648,7 @@ export const useChartViewport = ({
         const deltaY = event.clientY - state.startY;
         state.startY = event.clientY;
         const scaleFactor = Math.exp(deltaY * 0.01);
-        state.yScale *= scaleFactor;
+        state.yScale = Math.max(0.1, Math.min(5, state.yScale * scaleFactor));
         state.isYManual = true;
         scheduleViewportApply("immediate");
       } else if (state.isDraggingChart || state.isDraggingXPan) {
@@ -686,7 +687,8 @@ export const useChartViewport = ({
             }
             const priceRange = (visibleMax - visibleMin) * state.yScale;
             const shiftY = (deltaY / gridHeight) * priceRange;
-            state.yPan += shiftY;
+            const maxPan = priceRange * 0.8;
+            state.yPan = clamp(state.yPan + shiftY, -maxPan, maxPan);
           }
         }
         scheduleViewportApply("immediate");

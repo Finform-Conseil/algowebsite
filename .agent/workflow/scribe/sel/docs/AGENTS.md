@@ -149,7 +149,7 @@ snapshots, not canonical rule surfaces.
 
 
 Rules:
-- At the start of a copied `.agent` installation, run `<SCRIBE> bootstrap`; it is idempotent and initializes only missing Graphify/SCRIBE/scribe-out surfaces.
+- At the start of a copied `.agent` installation, run `<SCRIBE> tenor-init --type <extension|cli|api|unknown>`; it is idempotent, runs bootstrap internally, records agent presence, acknowledges workflow, and proves SCRIBE retrieval through `scribe-rag`. If `tenor-init` is unavailable in an old bundle, run `<SCRIBE> bootstrap` as fallback.
 - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
@@ -163,6 +163,8 @@ Before closing a real coding session, ask:
 > "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
 
 If the answer is concrete pain, write a SCAR or GHOST. If there is no future pain, a JOURNAL entry is enough. This is the anti-drift rule that keeps SCRIBE causal instead of becoming a polished activity log.
+
+Hard reflex: when the session resolves a real bug after more than two attempts, fixes a regression, performs a costly rollback, or repairs a broken browser/visual smoke, write a SCAR immediately with `cause_racine`, `resolution`, and `test_binding`. Before any later task in the same domain, run `$SCRIBE_RAG query` or `explain` on the related symptom and challenge the plan so the scar is actively used, not merely archived.
 
 ## Causal density dashboard warning
 

@@ -1,5 +1,5 @@
-import type { ChartTypeRenderer, CustomRenderApi } from "./types";
-import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeLineShape } from "./helpers";
+import type { ChartTypeRenderer, CustomRenderApi, CustomRenderParams } from "./types";
+import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeGridClipPath, makeLineShape } from "./helpers";
 
 export const renderBars: ChartTypeRenderer = ({ id, name, result, palette, latestPrice, visible }) => {
   if (result.kind !== "ohlc") return [];
@@ -18,7 +18,7 @@ export const renderBars: ChartTypeRenderer = ({ id, name, result, palette, lates
       bar.close,
       bar.close >= bar.open ? 1 : -1,
     ]),
-    renderItem: (_params: unknown, api: CustomRenderApi) => {
+    renderItem: (params: CustomRenderParams, api: CustomRenderApi) => {
       const index = Number(api.value(0));
       const open = Number(api.value(1));
       const high = Number(api.value(2));
@@ -44,6 +44,7 @@ export const renderBars: ChartTypeRenderer = ({ id, name, result, palette, lates
           makeLineShape(x, yClose, x + tick, yClose, color),
         ],
         style: { opacity: visible ? 1 : 0 },
+        clipPath: makeGridClipPath(params),
       };
     },
     markLine: buildLatestPriceMarkLine(latestPrice, palette.liveColor),

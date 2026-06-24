@@ -2,8 +2,9 @@
 
 ## Role
 
-scribe-rag is the only memory read interface for agents. It calls SEL internally
-through the canonical CLI and JSON export. Agents must not read
+scribe-rag is the only memory read interface for agents. Its index rebuild path
+uses SEL native Python modules for low-latency export, while the canonical SEL CLI
+remains available for compatibility, doctor, and maintenance commands. Agents must not read
 `AGENT-MEMOIRE_PROJECT_STATUS.scribe` directly. `preflight` is the host-model
 proof command: it emits whoami, context, eval, and challenge in one compact gate.
 
@@ -14,6 +15,7 @@ state, export, archive, graph maintenance, and SCRIBE writes.
 
 - RAG tests: `25 OK`.
 - Protocol eval/gate: `8/8`.
+- Forced BM25 gate target: rebuild and eval should stay near single-digit seconds on the project SCRIBE; investigate if it regresses toward the old 18-26s CLI-export path.
 - BM25 remains canonical while eval stays `>= 7/8`.
 - Hybrid remains a fallback, not the default, and needs concrete recall-loss evidence before activation.
 - The current operational instruction is to stop improving SCRIBE and return to product work unless a real SCRIBE defect appears.
@@ -79,6 +81,8 @@ Benchmark decision data:
 - Query output: scribe-rag BM25 `12` lines vs SEL `34` lines.
 - Protocol eval: Graphify/SCRIBE separation, artifact boundary, scribe-rag interface, and SEL-direct rejection.
 - Hybrid rejected as default because its latency, dependency risk, and model footprint do not justify the marginal gain while BM25 retrieves the right memory.
+- BM25 index rebuild uses a native index export contract rather than the full SEL export payload; compatibility tests compare the native contract with the CLI export entity and tier contract.
+- A hybrid index must not satisfy a default BM25 request; default commands rebuild BM25 instead of silently loading the embedding model.
 
 ## Gate CI / Pre-Commit
 
@@ -127,6 +131,6 @@ pip install sentence-transformers --break-system-packages
 .agent/workflow/scribe/scribe-rag build --with-embeddings --force
 ```
 
-After that build, scribe-rag uses the hybrid index automatically. Keep BM25 when
+After that build, only commands explicitly run with `--with-embeddings` should use the hybrid index. Keep BM25 when
 the proof is only "a model exists"; switch only when retrieval quality actually
 fails.

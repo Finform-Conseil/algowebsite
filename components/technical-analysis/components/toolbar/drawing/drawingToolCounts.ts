@@ -13,6 +13,8 @@ export type DrawingToolCounts = {
   cycles: number;
   forecasting: number;
   volume: number;
+  measurers: number;
+  brush: number;
 };
 
 export const getDrawingToolCounts = (): DrawingToolCounts => ({
@@ -31,4 +33,6 @@ export const getDrawingToolCounts = (): DrawingToolCounts => ({
   cycles: DRAWING_TOOL_SPECS.filter((tool) => tool.category === TOOL_CATEGORIES.CYCLES).length,
   forecasting: DRAWING_TOOL_SPECS.filter((tool) => tool.category === TOOL_CATEGORIES.FORECASTING).length,
   volume: DRAWING_TOOL_SPECS.filter((tool) => tool.category === TOOL_CATEGORIES.VOLUME_BASED).length,
+  measurers: DRAWING_TOOL_SPECS.filter((tool) => tool.category === TOOL_CATEGORIES.MEASURERS).length,
+  brush: DRAWING_TOOL_SPECS.filter((tool) => tool.category === TOOL_CATEGORIES.BRUSH_DRAWING).length,
 });

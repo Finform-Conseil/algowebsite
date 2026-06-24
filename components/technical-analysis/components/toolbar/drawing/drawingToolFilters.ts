@@ -6,7 +6,8 @@ type DrawingToolConfig = (typeof DRAWING_TOOL_SPECS)[number];
 export type TrendDropdownView = "categories" | "drawing_tools" | "channels" | "pitchforks";
 export type FibDropdownView = "categories" | "fibonacci" | "gann";
 export type ChartPatternsDropdownView = "categories" | "patterns" | "elliott" | "cycles";
-export type ForecastingDropdownView = "categories" | "forecasting" | "volume";
+export type ForecastingDropdownView = "categories" | "forecasting" | "volume" | "measurers";
+export type BrushDropdownView = "categories" | "freehand";
 
 const includesToolQuery = (tool: DrawingToolConfig, query: string): boolean => {
   if (!query.trim()) return true;
@@ -56,6 +57,17 @@ export const filterChartPatternTools = (
   });
 };
 
+export const filterBrushTools = (
+  view: BrushDropdownView,
+  query: string,
+): DrawingToolConfig[] => {
+  return DRAWING_TOOL_SPECS.filter((tool) => {
+    if (!includesToolQuery(tool, query)) return false;
+    if (view === "freehand") return tool.category === TOOL_CATEGORIES.BRUSH_DRAWING;
+    return false;
+  });
+};
+
 export const filterForecastingTools = (
   view: ForecastingDropdownView,
   query: string,
@@ -64,6 +76,7 @@ export const filterForecastingTools = (
     if (!includesToolQuery(tool, query)) return false;
     if (view === "forecasting") return tool.category === TOOL_CATEGORIES.FORECASTING;
     if (view === "volume") return tool.category === TOOL_CATEGORIES.VOLUME_BASED;
+    if (view === "measurers") return tool.category === TOOL_CATEGORIES.MEASURERS;
     return false;
   });
 };

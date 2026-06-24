@@ -45,6 +45,7 @@ def main() -> int:
         print("  scribe guard [SCRIBE_PATH] -- <command> [args...]")
         print("  scribe install [TARGET_PATH] [--force] [--dry-run] [--with-root-adapters]")
         print("  scribe bootstrap [--root PATH]")
+        print("  scribe tenor-init [--root PATH] [--agent NAME] [--type cli|extension|api|unknown]")
         print("  scribe clean --dry-run|--apply [--graphify] [--agent-cache]")
         print("  scribe lock acquire|release|status")
         print("  scribe sync|whoami")
@@ -63,6 +64,7 @@ def main() -> int:
         "guard": "scribe_guard.py",
         "install": "scribe_install.py",
         "bootstrap": "scribe_bootstrap.py",
+        "tenor-init": "scribe_tenor_init.py",
         "clean": "scribe_clean.py",
         "lock": "scribe_lock.py",
         "sync": "scribe_state.py",
@@ -83,7 +85,7 @@ def main() -> int:
     if script is None:
         print(f"Unknown scribe command: {command}", file=sys.stderr)
         print(
-            "Available commands: doctor, guard, install, bootstrap, clean, hot, context, stats, explain, related, query, "
+            "Available commands: doctor, guard, install, bootstrap, tenor-init, clean, hot, context, stats, explain, related, query, "
             "challenge, eval, compact, review-hot, promote, export, archive, dashboard, lock, sync, whoami, workflow, coordination, graph, graphify-hooks, benchmark, worktree",
             file=sys.stderr,
         )

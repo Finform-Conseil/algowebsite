@@ -7,7 +7,7 @@ export interface ChartGridRect {
   height: number;
 }
 
-export const MAIN_GRID_LEFT = 15;
+export const MAIN_GRID_LEFT = 35;
 export const TV_Y_AXIS_WIDTH = 84;
 export const TV_X_AXIS_HEIGHT = 28;
 

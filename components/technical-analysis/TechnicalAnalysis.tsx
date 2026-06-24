@@ -910,6 +910,7 @@ const ChartUI: React.FC = () => {
     newTemplateName,
     setNewTemplateName,
     toolbarOffsetRef,
+    wasDraggingRef,
     handleToolbarDragStart,
     handleLockToggle,
     handleClone,
@@ -1544,7 +1545,6 @@ const ChartUI: React.FC = () => {
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
-                        onLostPointerCapture={handlePointerUp}
                         onDoubleClick={handleDoubleClick}
                         onContextMenu={(e) => e.preventDefault()}
                       />
@@ -1600,22 +1600,29 @@ const ChartUI: React.FC = () => {
                         ref={refs.drawingToolbarRef}
                         className="gp-drawing-quick-toolbar-box"
                         onPointerDown={handleToolbarDragStart}
+                        onClickCapture={(e) => {
+                          if (wasDraggingRef.current) {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            wasDraggingRef.current = false;
+                          }
+                        }}
                         style={{
                           display: "none",
                           position: "absolute",
                           transform: "translate(-50%, -100%)",
-                          backgroundColor: "rgba(16, 42, 67, 0.95)",
+                          backgroundColor: "#1e222d",
                           backdropFilter: "blur(10px)",
                           borderRadius: "6px",
-                          padding: "6px 8px",
+                          padding: "4px 6px",
                           zIndex: 1000,
                           flexDirection: "row",
                           alignItems: "center",
-                          gap: "4px",
-                          border: "1px solid rgba(255, 255, 255, 0.1)",
-                          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+                          gap: "2px",
+                          border: "1px solid #2a2e39",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
                           pointerEvents: "auto",
-                          cursor: "default",
+                          cursor: "grab",
                           touchAction: "none",
                         }}
                       >

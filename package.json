@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "postinstall": "node scripts/postinstall-echarts-clip.cjs",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "test": "npm run test:candlestick-patterns && npm run test:alerts-rail && npm run test:pine-editor",
     "test:candlestick-patterns": "node scripts/test-candlestick-patterns.cjs",

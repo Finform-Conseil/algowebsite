@@ -43,6 +43,10 @@ import {
   renderFixedRangeVolumeProfile,
   hitTestFixedRangeVolumeProfile,
 } from "../renderers/Forecasting/FixedRangeVolumeProfileRenderer";
+import {
+  renderAnchoredVolumeProfile,
+  hitTestAnchoredVolumeProfile,
+} from "../renderers/Forecasting/AnchoredVolumeProfileRenderer";
 import { distancePointToSegment } from "../renderers/Forecasting/ForecastingUtils";
 
 export class ForecastingStrategy implements IDrawingStrategy {
@@ -55,6 +59,7 @@ export class ForecastingStrategy implements IDrawingStrategy {
     "sector",
     "anchored_vwap",
     "anchored_volume_profile",
+    "fixed_range_volume_profile",
   ];
 
   public render(
@@ -91,6 +96,9 @@ export class ForecastingStrategy implements IDrawingStrategy {
         renderForecastingAnchoredVWAP(pts, dataPoints, drawing, chart, isSelected, h, chartData);
         break;
       case "anchored_volume_profile":
+        renderAnchoredVolumeProfile(pts, dataPoints, drawing, chart, isSelected, h, chartData);
+        break;
+      case "fixed_range_volume_profile":
         renderFixedRangeVolumeProfile(pts, dataPoints, drawing, chart, isSelected, h, chartData);
         break;
       default:
@@ -175,6 +183,9 @@ export class ForecastingStrategy implements IDrawingStrategy {
         result = hitTestForecastingAnchoredVWAP(mx, my, points, drawing, chartInstance, threshold);
         break;
       case "anchored_volume_profile":
+        result = hitTestAnchoredVolumeProfile(mx, my, points, drawing, chartInstance, threshold);
+        break;
+      case "fixed_range_volume_profile":
         result = hitTestFixedRangeVolumeProfile(mx, my, points, drawing, chartInstance, threshold);
         break;
     }

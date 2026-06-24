@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from rag_interface import DEFAULT_SCRIBE, RAG_INDEX_PATH, export_scribe, source_snapshot
+from rag_interface import DEFAULT_SCRIBE, RAG_INDEX_PATH, export_scribe_index, source_snapshot
 from rag_embeddings import MODEL_NAME, available as embeddings_available, encode_texts
 from rag_text import expand_tokens, tokenize
 
@@ -116,7 +116,7 @@ def build_index(index_path: Path = RAG_INDEX_PATH, scribe_path: Path = DEFAULT_S
         current = read_index(index_path)
         if is_fresh(current, snapshot, requested_mode):
             return current
-    export = export_scribe(include_values=True)
+    export = export_scribe_index(include_values=True)
     raw_entities = [item for item in export.get("entities", []) if isinstance(item, dict) and item.get("id")]
     entities = [normalize_entity(entity, position) for position, entity in enumerate(raw_entities)]
     embedding_error = ""
@@ -181,6 +181,10 @@ def is_fresh(index: dict[str, Any] | None, snapshot: dict[str, Any], requested_m
         and index.get("source_sha256") == snapshot["sha256"]
         and index.get("mode") == requested_mode
     )
+
+
+def requested_index_mode(with_embeddings: bool | None) -> str:
+    return "hybrid" if with_embeddings else "bm25"
 
 
 def write_index(index_path: Path, payload: dict[str, Any]) -> None:

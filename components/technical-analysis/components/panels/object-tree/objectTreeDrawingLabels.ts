@@ -61,6 +61,7 @@ const TOOL_LABELS: Record<string, string> = {
   anchored_vwap: "Anchored VWAP",
   sector: "Sector",
   anchored_volume_profile: "Anchored Volume Profile",
+  fixed_range_volume_profile: "Fixed Range Volume Profile",
 };
 
 export const getDrawingLabel = (type: string, index: number): string => `${TOOL_LABELS[type] ?? type} ${index + 1}`;

@@ -7,6 +7,7 @@ import { GannStrategy } from "./implementations/GannStrategy";
 import { AdvancedToolsStrategy } from "./implementations/AdvancedToolsStrategy";
 import { ChartPatternsStrategy } from "./implementations/ChartPatternsStrategy";
 import { ForecastingStrategy } from "./implementations/ForecastingStrategy";
+import { BrushStrategy } from "./implementations/BrushStrategy";
 
 /**
  * Strategy Registry - lazy instance construction.
@@ -39,6 +40,7 @@ class StrategyRegistry {
     register(new AdvancedToolsStrategy());
     register(new ChartPatternsStrategy());
     register(new ForecastingStrategy());
+    register(new BrushStrategy());
 
     return map;
   }

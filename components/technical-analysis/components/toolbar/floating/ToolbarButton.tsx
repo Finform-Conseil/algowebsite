@@ -86,7 +86,10 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
         drType === "gann_square" ||
         drType === "gann_square_fixed" ||
         drType === "gann_box" ||
-        drType === "anchored_volume_profile";
+        drType === "anchored_volume_profile" ||
+        drType === "fixed_range_volume_profile" ||
+        drType === "brush" ||
+        drType === "highlighter";
 
     // [TENOR 2026] All style tokens flattened to avoid ReferenceError with Bundler/Optimizers
     const lineColor = drawingStyle.color || "#2962FF";
@@ -100,7 +103,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
 
     const isActive = activeToolbarPopup === buttonId || (buttonId === "text" && activeToolbarPopup === "text_color");
     const isLocked = dr.locked;
-    const buttonTitle = buttonId === "visibility" ? (dr.hidden ? "Afficher" : "Masquer") : def.title;
+    const buttonTitle = buttonId === "visibility" 
+        ? (dr.hidden ? "Afficher" : "Masquer") 
+        : (buttonId === "thickness" && (drType === "brush" || drType === "highlighter") ? "Line tool width" : def.title);
 
 
 
@@ -193,7 +198,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                         gridTemplateRows: "repeat(3, 2px)",
                         gap: "3px",
                         cursor: "grab",
-                        color: "#d1d4dc", // [TENOR 2026] TV Gray for Dark Contrast
+                        color: "#787b86",
                         padding: "4px",
                         marginRight: "2px",
                         alignContent: "center",
@@ -215,7 +220,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                     style={{
                         width: "1px",
                         height: "16px",
-                        backgroundColor: "rgba(255, 255, 255, 0.15)", // [TENOR 2026] Separator for Dark Theme
+                        backgroundColor: "rgba(255, 255, 255, 0.15)",
                         margin: "0 4px",
                     }}
                 ></div>
@@ -265,14 +270,20 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
             >
                 {buttonId === "thickness" || buttonId === "line_style" || buttonId === "line" ? (
                     <div className="d-flex align-items-center justify-content-center px-1 gap-1" style={{ minWidth: "40px" }}>
-                        <div
-                            style={{
-                                width: "14px",
-                                height: `${Math.max(1, lineWidth)}px`,
-                                backgroundColor: "#d1d4dc",
-                                borderRadius: "1px",
-                            }}
-                        />
+                        {drType === "brush" || drType === "highlighter" ? (
+                            <svg viewBox="0 0 24 24" width="16" height="16" style={{ fill: "none", stroke: "#d1d4dc", strokeWidth: Math.min(4, Math.max(1.5, lineWidth / 3)), strokeLinecap: "round" }}>
+                                <path d="M4 14c2-3 4-3 6 0s4 3 6 0 2-3 4-3" />
+                            </svg>
+                        ) : (
+                            <div
+                                style={{
+                                    width: "14px",
+                                    height: `${Math.max(1, lineWidth)}px`,
+                                    backgroundColor: "#d1d4dc",
+                                    borderRadius: "1px",
+                                }}
+                            />
+                        )}
                         <span
                             style={{
                                 fontSize: "11px",
@@ -335,7 +346,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 ) : (
                     <div className="d-flex flex-column align-items-center justify-content-center" style={{ gap: "2px" }}>
                         <i
-                            className={`bi ${buttonId === "color" || buttonId === "fill" ? "bi-paint-bucket" : iconClass}`}
+                            className={`bi ${buttonId === "fill" ? "bi-paint-bucket" : iconClass}`}
                             style={{
                                 fontSize: "15px",
                                 color: (buttonId === "lock" && isLocked) || isActive ? "#2962ff" : "inherit",

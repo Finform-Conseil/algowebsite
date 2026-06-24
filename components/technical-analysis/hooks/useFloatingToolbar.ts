@@ -57,29 +57,47 @@ export const useFloatingToolbar = ({
     const toolbarOffsetRef = useRef({ x: 0, y: 0 });
     const isToolbarDraggingRef = useRef(false);
     const toolbarDragStartRef = useRef({ x: 0, y: 0 });
-
-    const isDragHandleTarget = useCallback((target: EventTarget | null) => {
-        if (!(target instanceof Element)) return false;
-        return target.closest('[data-toolbar-drag-handle="true"]') !== null;
-    }, []);
+    const isPointerDownRef = useRef(false);
+    const wasDraggingRef = useRef(false);
 
     // --- Drag Logic ---
     useEffect(() => {
         const handleDragMove = (e: PointerEvent) => {
-            if (!isToolbarDraggingRef.current) return;
+            if (!isPointerDownRef.current) return;
             if (!e.isPrimary) return;
+
             const dx = e.clientX - toolbarDragStartRef.current.x;
             const dy = e.clientY - toolbarDragStartRef.current.y;
+
+            if (!isToolbarDraggingRef.current) {
+                const dist = Math.hypot(dx, dy);
+                if (dist > 4) {
+                    isToolbarDraggingRef.current = true;
+                    wasDraggingRef.current = true;
+                    if (drawingToolbarRef.current) {
+                        drawingToolbarRef.current.style.cursor = "grabbing";
+                        try {
+                            drawingToolbarRef.current.setPointerCapture(e.pointerId);
+                        } catch {}
+                    }
+                } else {
+                    return;
+                }
+            }
 
             toolbarOffsetRef.current.x += dx;
             toolbarOffsetRef.current.y += dy;
             toolbarDragStartRef.current = { x: e.clientX, y: e.clientY };
         };
 
-        const handleDragEnd = () => {
+        const handleDragEnd = (e: PointerEvent) => {
+            isPointerDownRef.current = false;
             isToolbarDraggingRef.current = false;
             if (drawingToolbarRef.current) {
-                drawingToolbarRef.current.style.cursor = "default";
+                drawingToolbarRef.current.style.cursor = "grab";
+                try {
+                    drawingToolbarRef.current.releasePointerCapture(e.pointerId);
+                } catch {}
             }
         };
 
@@ -96,19 +114,18 @@ export const useFloatingToolbar = ({
 
     const handleToolbarDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
         if (!e.isPrimary) return;
-        if (!isDragHandleTarget(e.target)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        isToolbarDraggingRef.current = true;
-        toolbarDragStartRef.current = { x: e.clientX, y: e.clientY };
-        try {
-            e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {}
-
-        if (drawingToolbarRef.current) {
-            drawingToolbarRef.current.style.cursor = "grabbing";
+        const target = e.target as Element;
+        // Do not drag if clicking inside active popup or menu dropdown contents
+        if (target.closest("[class*='popup'], [class*='menu']")) {
+            return;
         }
-    }, [drawingToolbarRef, isDragHandleTarget]);
+
+        e.stopPropagation();
+        isPointerDownRef.current = true;
+        wasDraggingRef.current = false;
+        isToolbarDraggingRef.current = false;
+        toolbarDragStartRef.current = { x: e.clientX, y: e.clientY };
+    }, []);
 
     // --- Action Handlers ---
     const handleLockToggle = useCallback(() => {
@@ -304,6 +321,7 @@ export const useFloatingToolbar = ({
         setNewTemplateName,
         // Refs
         toolbarOffsetRef,
+        wasDraggingRef,
         // Handlers
         handleToolbarDragStart,
         handleLockToggle,

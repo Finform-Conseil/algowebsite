@@ -190,6 +190,8 @@
 #          "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
 #          Réponse concrète → SCAR/GHOST. Pas de réponse → JOURNAL seulement.
 #          Une alerte dashboard de densité causale ne déclenche aucune écriture sans douleur réelle.
+#          Bug > 2 tentatives, régression, rollback coûteux ou smoke visuel cassé → SCAR immédiat avec cause_racine, resolution, test_binding.
+#          Avant une tâche proche d une cicatrice connue → scribe-rag query/explain/challenge obligatoire pour exploiter la mémoire.
 #   9. Relancer scribe doctor pour vérifier la mémoire après écriture
 #      └── Les rapports Markdown doctor vont toujours dans `scribe-out/`.
 #
@@ -240,6 +242,7 @@
 #
 # 3.3 PHASE 3 : CONSOLIDATION (Fin de tâche)
 #   ├── SI BUG RÉSOLU      → SCAR (le POURQUOI, pas la structure)
+#   │   └── Si >2 tentatives, régression, rollback coûteux ou smoke visuel cassé: cause_racine + resolution + test_binding obligatoires.
 #   ├── SI ERREUR ÉVITÉE   → VAC
 #   ├── SI NOUVEAU PATTERN → PAT
 #   ├── SI DETTE TECHNIQUE → DEBT

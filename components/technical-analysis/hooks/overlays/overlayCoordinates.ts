@@ -1,6 +1,6 @@
 import type { ECharts } from "echarts/core";
 
-export const MAIN_GRID_LEFT = 15;
+export const MAIN_GRID_LEFT = 35;
 
 export interface OverlayChartUsabilityLike {
   isDisposed: () => boolean;

@@ -183,6 +183,7 @@ export const ToolbarButtonPopups: React.FC<ToolbarButtonPopupsProps> = ({
         lineWidth={lineWidth}
         lineStyle={lineStyle}
         handleLineStyleChange={handleLineStyleChange}
+        title={buttonId === "thickness" && (drawingType === "brush" || drawingType === "highlighter") ? "Line tool width" : undefined}
       />
     )}
 

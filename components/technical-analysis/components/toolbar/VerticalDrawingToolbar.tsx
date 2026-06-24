@@ -13,12 +13,14 @@ import { selectUiState } from "../../store/selectors";
 import type { AllToolType } from "../../config/drawing/drawingToolTypes";
 import type { CursorModeType } from "../../config/state/uiStateTypes";
 import {
+  BrushCategoryIcon,
   FibCategoryIcon,
   ForecastingCategoryIcon,
   PatternsCategoryIcon,
 } from "../common/icons/drawing/categories";
 import { CursorModeSelector } from "./drawing/CursorModeSelector";
 import {
+  BrushToolDropdown,
   ChartPatternsToolDropdown,
   FibToolDropdown,
   ForecastingToolDropdown,
@@ -30,6 +32,7 @@ import {
   createEmptyToolCategoryMemory,
   getActiveToolCategory,
   getToolMemoryBucket,
+  isBrushToolActiveForTool,
   isChartPatternsToolActiveForCategory,
   isFibToolActiveForTool,
   isForecastingToolActiveForTool,
@@ -157,6 +160,17 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setView: setForecastingDropdownView,
     toggle: toggleForecastingDropdown,
   } = toolbarMenus.forecasting;
+  const {
+    isOpen: isBrushDropdownOpen,
+    setIsOpen: setIsBrushDropdownOpen,
+    pos: brushDropdownPos,
+    anchorRef: brushDropdownRef,
+    searchQuery: brushSearchQuery,
+    setSearchQuery: setBrushSearchQuery,
+    view: brushDropdownView,
+    setView: setBrushDropdownView,
+    toggle: toggleBrushDropdown,
+  } = toolbarMenus.brush;
   const { closeAllDropdowns } = toolbarMenus;
   const [lastSelectedToolByCategory, setLastSelectedToolByCategory] = useState<ToolCategoryMemory>(createEmptyToolCategoryMemory);
 
@@ -181,7 +195,11 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     return isForecastingToolActiveForTool(activeTool);
   }, [activeTool]);
 
-  const isCursorActive = isCursorDropdownOpen || (activeTool === null && !isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && !isForecastingDropdownOpen && !isTrendToolActive && !isFibToolActive && !isChartPatternsToolActive && !isForecastingToolActive);
+  const isBrushToolActive = useMemo(() => {
+    return isBrushToolActiveForTool(activeTool);
+  }, [activeTool]);
+
+  const isCursorActive = isCursorDropdownOpen || (activeTool === null && !isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && !isForecastingDropdownOpen && !isBrushDropdownOpen && !isTrendToolActive && !isFibToolActive && !isChartPatternsToolActive && !isForecastingToolActive && !isBrushToolActive);
 
   // [TENOR 2026] Tool memory is now handled strictly via event handlers (handleSelectDrawingTool)
   // to prevent cascading renders and satisfy react-hooks/exhaustive-deps logic.
@@ -199,7 +217,8 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     closeAllDropdowns();
     setFibDropdownView("categories");
     setForecastingDropdownView("categories");
-  }, [closeAllDropdowns, dispatch, setActiveTool, setFibDropdownView, setForecastingDropdownView]);
+    setBrushDropdownView("categories");
+  }, [closeAllDropdowns, dispatch, setActiveTool, setFibDropdownView, setForecastingDropdownView, setBrushDropdownView]);
 
   const toggleCursorDropdown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -231,6 +250,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setFibDropdownView("categories");
     setChartPatternsDropdownView("categories");
     setForecastingDropdownView("categories");
+    setBrushDropdownView("categories");
   }, [
     closeAllDropdowns,
     dispatch,
@@ -239,6 +259,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setFibDropdownView,
     setChartPatternsDropdownView,
     setForecastingDropdownView,
+    setBrushDropdownView,
   ]);
 
   const isSplitTriggerClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
@@ -290,6 +311,17 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     reactivateRememberedTool(lastSelectedToolByCategory.forecasting);
   }, [isSplitTriggerClick, lastSelectedToolByCategory.forecasting, reactivateRememberedTool, toggleForecastingDropdown]);
 
+  const handleBrushButtonClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    if (isSplitTriggerClick(event) || !lastSelectedToolByCategory.brush) {
+      toggleBrushDropdown(event);
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    reactivateRememberedTool(lastSelectedToolByCategory.brush);
+  }, [isSplitTriggerClick, lastSelectedToolByCategory.brush, reactivateRememberedTool, toggleBrushDropdown]);
+
   const renderSplitDropdownTrigger = useCallback((isOpen: boolean) => (
     <span className="gp-toolbar-split-trigger" aria-hidden="true">
       <i
@@ -329,6 +361,9 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
       if (forecastingDropdownRef.current && !forecastingDropdownRef.current.contains(target) && !target.closest(".gp-cursor-dropdown-portal")) {
         setIsForecastingDropdownOpen(false);
       }
+      if (brushDropdownRef.current && !brushDropdownRef.current.contains(target) && !target.closest(".gp-cursor-dropdown-portal")) {
+        setIsBrushDropdownOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -338,10 +373,12 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setIsTrendDropdownOpen,
     setIsChartPatternsDropdownOpen,
     setIsForecastingDropdownOpen,
+    setIsBrushDropdownOpen,
     fibDropdownRef,
     trendDropdownRef,
     chartPatternsDropdownRef,
     forecastingDropdownRef,
+    brushDropdownRef,
   ]);
 
   if (isLoading) {
@@ -490,6 +527,40 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           onClose={() => setIsForecastingDropdownOpen(false)}
           view={forecastingDropdownView}
           onViewChange={setForecastingDropdownView}
+          activeTool={activeTool}
+          onSelectTool={handleSelectDrawingTool}
+        />
+
+
+        <button
+          ref={brushDropdownRef as React.RefObject<HTMLButtonElement>}
+          className={clsx(
+            "gp-toolbar-btn",
+            "gp-toolbar-btn-split",
+            "hover-lift",
+            (isBrushDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && !isForecastingDropdownOpen && isBrushToolActive)) ? "active" : "",
+          )}
+          title="Pinceau"
+          onClick={handleBrushButtonClick}
+        >
+          {renderCategoryToolIcon(
+            isBrushToolActive ? activeTool : lastSelectedToolByCategory.brush,
+            isBrushToolActive,
+            <BrushCategoryIcon />,
+          )}
+          {renderSplitDropdownTrigger(isBrushDropdownOpen)}
+        </button>
+
+
+        <BrushToolDropdown
+          counts={drawingCounts}
+          isOpen={isBrushDropdownOpen}
+          pos={brushDropdownPos}
+          searchQuery={brushSearchQuery}
+          onSearchChange={setBrushSearchQuery}
+          onClose={() => setIsBrushDropdownOpen(false)}
+          view={brushDropdownView}
+          onViewChange={setBrushDropdownView}
           activeTool={activeTool}
           onSelectTool={handleSelectDrawingTool}
         />

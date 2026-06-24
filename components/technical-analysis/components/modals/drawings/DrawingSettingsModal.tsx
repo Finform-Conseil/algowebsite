@@ -148,6 +148,14 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
     ];
   }
 
+  // [TENOR 2026] Brush/Highlighter: Style and Visibility only (no coordinates/text for freehand)
+  if (dr.type === "brush" || dr.type === "highlighter") {
+    tabs = [
+      { id: "style", label: "Style" },
+      { id: "visibility", label: "Visibilité" },
+    ];
+  }
+
   // [TENOR 2026 HDR] Ghost Feed Tabs (Fidèle à TradingView)
   if (dr.type === "ghost_feed") {
     tabs = [
@@ -3102,7 +3110,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   />
                 </div>
                 <SettingsNumberInput
-                  label="Épaisseur"
+                  label={dr.type === "brush" || dr.type === "highlighter" ? "Line tool width" : "Épaisseur"}
                   value={drStyle.lineWidth || 1}
                   onChange={(val) =>
                     updateDrawing(dr.id, {

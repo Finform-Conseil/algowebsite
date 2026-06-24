@@ -6,6 +6,7 @@ interface LineStylePopupProps {
   lineWidth: number;
   lineStyle: DrawingStyle["lineStyle"];
   handleLineStyleChange: (updates: Partial<DrawingStyle>) => void;
+  title?: string;
 }
 
 const lineWidths = [1, 2, 3, 4] as const;
@@ -19,6 +20,7 @@ export const LineStylePopup: React.FC<LineStylePopupProps> = ({
   lineWidth,
   lineStyle,
   handleLineStyleChange,
+  title,
 }) => (
   <div
     onMouseDown={stopFloatingPopupMouseDown}
@@ -41,7 +43,7 @@ export const LineStylePopup: React.FC<LineStylePopupProps> = ({
         letterSpacing: "0.5px",
       }}
     >
-      Épaisseur
+      {title || "Épaisseur"}
     </div>
     <div style={{ display: "flex", gap: "4px" }}>
       {lineWidths.map((width) => (

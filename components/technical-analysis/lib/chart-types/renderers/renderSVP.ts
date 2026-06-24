@@ -177,6 +177,7 @@ export const renderSVP: ChartTypeRenderer = ({ id, name, result, palette, latest
     id,
     name,
     type: "candlestick",
+    clip: true,
     data: result.bars.map((bar) => {
       const color = bar.close >= bar.open ? palette.upColor : palette.downColor;
       return {

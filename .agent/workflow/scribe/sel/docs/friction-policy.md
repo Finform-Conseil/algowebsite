@@ -39,10 +39,17 @@ interface.
 - `NANO`: run only `$SCRIBE_RAG context`; skip doctor, lock, worktree, sync, and SCRIBE writes unless a real bug or decision was discovered.
 - `QUICK`: keep validation focused; skip JOURNAL unless durable causal knowledge was learned.
 - Dashboard causal-density warnings are informational; never create SCAR/GHOST/PAT only to improve the ratio.
+- Real pain capture is mandatory: bug resolved after >2 attempts, regression, costly rollback, or broken browser/visual smoke => SCAR with `cause_racine`, `resolution`, and `test_binding`; before adjacent work, retrieve the related SCAR/VAC/GHOST with `scribe-rag query/explain/challenge`.
 - Escalate only when blast radius grows, validation fails, or a hot SCAR/VAC/GHOST directly applies.
 
 ## Guardrails
 
+- **REGLE ABSOLUE : preflight avant toute modification de fichier applicatif, sans exception.**
+  NANO  → `$SCRIBE_RAG context`
+  QUICK → `$SCRIBE_RAG preflight --tier QUICK "<plan>"`
+  STANDARD/CRITICAL → `$SCRIBE_RAG preflight --tier <TIER> --strict "<plan>"` + Graphify
+  Meme un fix lint de 30 secondes necessite au moins `$SCRIBE_RAG context`.
+  La sortie de preflight/context DOIT etre visible dans la reponse.
 - Use `$SCRIBE_RAG preflight --tier STANDARD "<plan>"` before significant implementation; its proof line must be surfaced to the user or working notes.
 - Use `$SCRIBE_RAG preflight` for grounding, then `$SCRIBE_RAG query/explain/challenge` for focused retrieval; do not use SEL direct `context`, `query`, or `explain` as an agent interface.
 - Use `$SCRIBE_RAG eval --force` before and after retrieval scoring/ranking changes; use `$SCRIBE_RAG gate` before delivery of bundle changes.

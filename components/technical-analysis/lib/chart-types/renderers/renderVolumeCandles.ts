@@ -1,5 +1,5 @@
-import type { ChartTypeRenderer, CustomRenderApi } from "./types";
-import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeLineShape, makeRectShape } from "./helpers";
+import type { ChartTypeRenderer, CustomRenderApi, CustomRenderParams } from "./types";
+import { PRICE_CUSTOM_SERIES_BINDING, buildLatestPriceMarkLine, getCategoryBandWidth, makeGridClipPath, makeLineShape, makeRectShape } from "./helpers";
 
 export const renderVolumeCandles: ChartTypeRenderer = ({ id, name, result, palette, latestPrice, visible }) => {
   if (result.kind !== "volume_candles") return [];
@@ -18,7 +18,7 @@ export const renderVolumeCandles: ChartTypeRenderer = ({ id, name, result, palet
       bar.close >= bar.open ? 1 : -1,
       bar.volumeWidthRatio,
     ]),
-    renderItem: (_params: unknown, api: CustomRenderApi) => {
+    renderItem: (params: CustomRenderParams, api: CustomRenderApi) => {
       const index = Number(api.value(0));
       const open = Number(api.value(1));
       const high = Number(api.value(2));
@@ -41,6 +41,7 @@ export const renderVolumeCandles: ChartTypeRenderer = ({ id, name, result, palet
 
       return {
         type: "group",
+        clipPath: makeGridClipPath(params),
         children: [
           makeLineShape(x, yHigh, x, yLow, color),
           makeRectShape(x - width / 2, top, width, height, color, color, visible ? 0.86 : 0),

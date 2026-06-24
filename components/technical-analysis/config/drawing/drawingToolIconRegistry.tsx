@@ -26,6 +26,7 @@ import {
 import {
     AnchoredVolumeProfileIcon,
     AnchoredVWAPIcon,
+    FixedRangeVolumeProfileIcon,
     ForecastingBarPatternIcon,
     ForecastingForecastIcon,
     ForecastingGhostFeedIcon,
@@ -52,6 +53,7 @@ import {
 import {
     ArrowIcon,
     ArrowMarkerIcon,
+    BrushIcon,
     CrosshairIcon,
     CurveIcon,
     DatePriceRangeIcon,
@@ -59,6 +61,7 @@ import {
     DisjointChannelIcon,
     ExtendedLineIcon,
     FlatTopBottomIcon,
+    HighlighterIcon,
     HorizontalLineIcon,
     HorizontalRayIcon,
     LineIcon,
@@ -136,6 +139,9 @@ export const DRAWING_TOOL_ICON_REGISTRY: Partial<Record<DrawingToolId, React.Rea
   sector: <ForecastingSectorIcon />,
   anchored_vwap: <AnchoredVWAPIcon />,
   anchored_volume_profile: <AnchoredVolumeProfileIcon />,
+  fixed_range_volume_profile: <FixedRangeVolumeProfileIcon />,
+  brush: <BrushIcon />,
+  highlighter: <HighlighterIcon />,
 };
 
 export const getDrawingToolIcon = (toolId: AllToolType | null): React.ReactNode | null => {

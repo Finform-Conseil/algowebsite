@@ -4,8 +4,8 @@
     "hash": "05340b67dba41c9dc2eb564187f8285f"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/next-env.d.ts": {
-    "mtime": 1781284664.741406,
-    "hash": "d0f8375ae1199dc7acd3977fc33b78b8"
+    "mtime": 1782223666.1829717,
+    "hash": "2a74d3909800ca5467fa83b0ab4a4890"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/shared/utils/fetchWithRetry.ts": {
     "mtime": 1777989763.8163688,
@@ -1832,8 +1832,8 @@
     "hash": "a089f31d5061e175f3b38f6347e17437"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical/SentimentGauge.tsx": {
-    "mtime": 1781202025.9378834,
-    "hash": "70e60f55d2393bc4223d201eb2bac460"
+    "mtime": 1782150690.485049,
+    "hash": "6cf0230137d92f94547a651c618c06fe"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical/DrawingTools.tsx": {
     "mtime": 1776152397.59299,
@@ -1908,8 +1908,8 @@
     "hash": "73de7bba1e32277e3b88c8741735176c"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/navigation/Navbar.tsx": {
-    "mtime": 1780416370.5999174,
-    "hash": "bd74b1533282d94d42a80ecff4e97332"
+    "mtime": 1782218192.5091627,
+    "hash": "d8d1d315e7760c279e8e30926742dba8"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/screener/FilterChip.tsx": {
     "mtime": 1776152397.5916755,
@@ -2168,8 +2168,8 @@
     "hash": "065e2e992234f6d9fc0b489a31b07ab9"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/TechnicalAnalysis.tsx": {
-    "mtime": 1781282141.3028436,
-    "hash": "d85b1ada071e83a7e82159eecc4acf85"
+    "mtime": 1782205408.1740828,
+    "hash": "81b50f2b36393274cb17ffb224350ddc"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/usePriceAxisMenu.ts": {
     "mtime": 1780652956.338923,
@@ -2184,20 +2184,20 @@
     "hash": "e9855b66c32db9f8d8d776621f1839f8"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useOverlayRenderer.ts": {
-    "mtime": 1780414479.7388587,
-    "hash": "06be8350fce6a6308d58fbca9d91ff5b"
+    "mtime": 1781870925.5565557,
+    "hash": "afda423d6179c74442983381b8581ccf"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useMultiChartSync.ts": {
     "mtime": 1780420635.7381032,
     "hash": "56c628ba7effee6025c047e25fdae352"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useEChartsRenderer.ts": {
-    "mtime": 1781276350.9211776,
-    "hash": "b9e8946d4d152608c0aca76fa94ed0f2"
+    "mtime": 1782216646.6557474,
+    "hash": "ffa45246904741b7dc1e393c4de2a32e"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useFloatingToolbar.ts": {
-    "mtime": 1780414479.737407,
-    "hash": "4c19b82a0b4171f55f20ded0c12af96f"
+    "mtime": 1782205856.9217129,
+    "hash": "f9661c1d4677e5d8f5e97fc965d7c362"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useMasterRenderLoop.ts": {
     "mtime": 1780475397.6689653,
@@ -2208,12 +2208,12 @@
     "hash": "8f2c10b48d9e4638c24d05d4c28a19a5"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useChartViewport.ts": {
-    "mtime": 1780650674.9972289,
-    "hash": "62d4ee0ef8de708c598ede2d5d67d4c8"
+    "mtime": 1782136151.9884958,
+    "hash": "dae6eb72c06715e64956694f24d5d82a"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useDrawingManager.ts": {
-    "mtime": 1781105767.9351254,
-    "hash": "109f88d31244b8826f59767cb89d3b10"
+    "mtime": 1782216430.0698686,
+    "hash": "c32f9362cdb8e2fc3d191c230b526dbf"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/useBrokerState.ts": {
     "mtime": 1780331181.8969443,
@@ -2276,8 +2276,8 @@
     "hash": "d0bf8bc465ee00746f093ff88bfb475b"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/viewport/viewportMath.ts": {
-    "mtime": 1780403903.4453533,
-    "hash": "a3730c205f53a3cdca00f84a10469bae"
+    "mtime": 1782215075.192527,
+    "hash": "67dafd65e2120dc179dda12b3a1a642f"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/viewport/viewportPriceRange.ts": {
     "mtime": 1780403903.4453533,
@@ -2288,16 +2288,16 @@
     "hash": "b2db8a3500ae6ba80189955fd1d7db39"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/drawing/drawingCoordinates.ts": {
-    "mtime": 1780420059.1214986,
-    "hash": "ed3c52f570367e5de2a7943d4ec5869a"
+    "mtime": 1782215080.1614552,
+    "hash": "accfab4f6c8cae5e57ed62aeedb0a7a5"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/drawing/drawingPersistence.ts": {
     "mtime": 1780403903.4400127,
     "hash": "c5373165f8c464fdffd8b6841e2cf9e7"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/drawing/drawingDefaults.ts": {
-    "mtime": 1780420141.5012093,
-    "hash": "08ab0f79073af09674c7822bcb76bb0a"
+    "mtime": 1781787620.8006992,
+    "hash": "5d0b1c2325f5ae54848b652f4da91d6a"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/sync/multiChartSyncTypes.ts": {
     "mtime": 1780420166.631825,
@@ -2312,8 +2312,8 @@
     "hash": "27b85497ea38e466d7d75fc4ac19152f"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/overlays/overlayCoordinates.ts": {
-    "mtime": 1780407715.5719347,
-    "hash": "a365eb2c7d44bb408a4fe11966a298e0"
+    "mtime": 1782215084.5613914,
+    "hash": "aaaf32e97793d7b466666864135272f9"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/hooks/overlays/cursorDom.ts": {
     "mtime": 1780659975.390513,
@@ -2424,11 +2424,11 @@
     "hash": "caf5b7f3325afc48bccfec9991b4bdc0"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/layout/FullPeerChart.tsx": {
-    "mtime": 1780584793.0657637,
+    "mtime": 1782215064.8016777,
     "hash": "029f1e083f822a1949bcf82359953522"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/layout/MiniChartCanvas.tsx": {
-    "mtime": 1780584793.0653288,
+    "mtime": 1782215069.543609,
     "hash": "c635a672d0ee480a5523097b970f87fb"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/layout/layoutChartData.ts": {
@@ -2468,8 +2468,8 @@
     "hash": "81f9a484fa470703ac13a07abc120d72"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/panels/object-tree/objectTreeDrawingLabels.ts": {
-    "mtime": 1780656042.3052433,
-    "hash": "e6442b174bb887c4c3f560e1f20abad4"
+    "mtime": 1781630175.4806156,
+    "hash": "92da4c1f7521767e1327e884cfbcbabd"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/panels/object-tree/objectTreeAdvancedChildItems.ts": {
     "mtime": 1781090101.4484813,
@@ -2504,8 +2504,8 @@
     "hash": "29d959ca4958d99d4319e0eb281b4d8f"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/VerticalDrawingToolbar.tsx": {
-    "mtime": 1780573012.7020044,
-    "hash": "fc71b4b3267d1f27ee646eeb86817fda"
+    "mtime": 1781791039.2437167,
+    "hash": "2870b8d0344e408b7d0ef9b37d24b533"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/chart/chartTypeIcons.tsx": {
     "mtime": 1780334686.8484495,
@@ -2528,12 +2528,12 @@
     "hash": "381b836674b982b3ffacfc517a94715b"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/floating/ToolbarButtonPopups.tsx": {
-    "mtime": 1780414479.728186,
-    "hash": "47f12a68754dc7bea8b18f608f35614e"
+    "mtime": 1782210913.0796368,
+    "hash": "f641deb2e2ed6e4b8b613fdc05e42142"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/floating/ToolbarButton.tsx": {
-    "mtime": 1780414479.7276847,
-    "hash": "2fbe3ba3923d79c1ac4aa9450761e4a5"
+    "mtime": 1782209947.2741983,
+    "hash": "0fa961b4d843cef210637bd478567199"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/floating/popupStyle.ts": {
     "mtime": 1780683337.4558961,
@@ -2544,52 +2544,52 @@
     "hash": "d4668887d87e6d6ca97caa4c696fc164"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/floating/QuickOptionsPopup.tsx": {
-    "mtime": 1780587865.6200933,
-    "hash": "b599b1608a60cb3e82cfd5aa6d1454a5"
+    "mtime": 1782209533.6036675,
+    "hash": "1a9a16954198d6c2746f523343078f64"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/floating/MorePopup.tsx": {
     "mtime": 1780474739.0663917,
     "hash": "2a6313e8639309d64ea1de7b406ea14e"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/floating/LineStylePopup.tsx": {
-    "mtime": 1780414479.7247605,
-    "hash": "cab5efde68daedfebcd102b9c89c565f"
+    "mtime": 1782210906.8926306,
+    "hash": "edb0ebd1370c8db374f918f5f510215a"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/DrawingToolDropdown.tsx": {
-    "mtime": 1780476639.1350293,
-    "hash": "69bdd8101c327401e8ccfabbcbfba9d5"
+    "mtime": 1781788974.7304213,
+    "hash": "e50f7d9e20839b1fbf55ed51b47edeb6"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/drawingToolMemory.ts": {
-    "mtime": 1780414479.7219863,
-    "hash": "c5742c1a0fd86ca873a040f9049f62f0"
+    "mtime": 1781789079.3730125,
+    "hash": "31d53b51a54fb72f402a9d372c68589d"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/drawingToolCounts.ts": {
-    "mtime": 1780404179.2782412,
-    "hash": "8843e035437d4ddcfb8ca18e248c2219"
+    "mtime": 1781787138.7469616,
+    "hash": "dd2a41eafb8da9d8d26e5145e5773b60"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/CursorModeSelector.tsx": {
     "mtime": 1780587750.9081748,
     "hash": "51f4aca4bd06c4d5e867b4968880b5b2"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/toolIconCatalog.tsx": {
-    "mtime": 1780475764.5116928,
-    "hash": "36db4331b70e1ca85d104d804ebfea96"
+    "mtime": 1781787085.2086868,
+    "hash": "c0ae6afcc510fb34bcad6700da2b718e"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/DrawingToolbarFooter.tsx": {
-    "mtime": 1780479922.0811431,
-    "hash": "8875983b5cbb63c7ed468b35a398d85b"
+    "mtime": 1781789156.296989,
+    "hash": "5a90d2017c137f070bed4fc74f180a35"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/drawingToolFilters.ts": {
-    "mtime": 1780407006.915377,
-    "hash": "cd0d0dc9329cf5afe7661712be0a6f4d"
+    "mtime": 1781788963.709571,
+    "hash": "5c42ca011972f16a542948c9f316e2e2"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/drawingToolbarTheme.ts": {
     "mtime": 1780335738.3745897,
     "hash": "b29db2e496a40bf1e8d4a1682fa44469"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/drawing/drawingToolbarMenuState.ts": {
-    "mtime": 1780403887.9697082,
-    "hash": "8b40c66d320ab97e41e54de88b9c805f"
+    "mtime": 1781788992.7781768,
+    "hash": "fd855cd111588b97b5b606ccb3f2a614"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/toolbar/time-axis/timeAxisControls.constants.ts": {
     "mtime": 1780406250.9474669,
@@ -2616,8 +2616,8 @@
     "hash": "6b9a163496ebf15755bb953b7aa5f9c2"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/modals/indicators/IndicatorsModal.tsx": {
-    "mtime": 1781193966.906222,
-    "hash": "c448c31b9e34a1a36ca2a460a6a55e95"
+    "mtime": 1781542963.621981,
+    "hash": "725a9ee6043251a774459b1cb6fab09a"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/modals/indicators/useIndicatorBacktestDashboard.ts": {
     "mtime": 1781195061.8894286,
@@ -2656,8 +2656,8 @@
     "hash": "b0c8c317f496527e8dded45c5ca9c8fa"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/modals/drawings/DrawingSettingsModal.tsx": {
-    "mtime": 1780414479.713284,
-    "hash": "d6aa82ecae6eee652537a84b0f678f10"
+    "mtime": 1782210958.6339207,
+    "hash": "767d2ad0d40ec25093fd568c5737a4c3"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/modals/replay/ReplayModal.tsx": {
     "mtime": 1780330052.3997383,
@@ -2724,16 +2724,16 @@
     "hash": "a4fca24cdd83cf7b54d084c78a0d3934"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/common/icons/drawing/forecasting.tsx": {
-    "mtime": 1780475764.510352,
-    "hash": "c04ee9a32f70e2e7a2f66723c2939249"
+    "mtime": 1781630175.4806156,
+    "hash": "5a9778290ec19bcf9bb2b34e96332e13"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/common/icons/drawing/trend.tsx": {
-    "mtime": 1780475764.5087042,
-    "hash": "c87feef4f96d0034d2450e142aea85f0"
+    "mtime": 1781787069.959895,
+    "hash": "b675f54ea2ecc094c55ca90b1c8372f2"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/common/icons/drawing/categories.tsx": {
-    "mtime": 1780475764.5091686,
-    "hash": "352589f51d84f4af603059578cb236ae"
+    "mtime": 1781789014.313886,
+    "hash": "ab0986f75ee8bcca065bb0e958861874"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/common/icons/drawing/fibonacci.tsx": {
     "mtime": 1780683337.4460413,
@@ -2748,8 +2748,8 @@
     "hash": "1738ce095e0e3145c262045111888837"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/TechnicalAnalysisSidebarContent.tsx": {
-    "mtime": 1781285312.908242,
-    "hash": "431e7a676092cab71d244bafffb48d36"
+    "mtime": 1781719404.7890258,
+    "hash": "6e54ce0db3c14855fa523d4fc596d1c5"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/SidebarRail.tsx": {
     "mtime": 1781285312.875781,
@@ -2758,6 +2758,10 @@
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar.tsx": {
     "mtime": 1780588137.0753894,
     "hash": "d9e9a2e42a5d9a8ec0fe210c5b616b63"
+  },
+  "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/SidebarRailSkeleton.tsx": {
+    "mtime": 1781716888.0141199,
+    "hash": "ee7ca6da5c4875e8d3bc211d3bb464e7"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/hooks/useSidebarSecondaryWorkReady.ts": {
     "mtime": 1780587424.6817343,
@@ -2920,8 +2924,8 @@
     "hash": "35c72a4ffe73ae5a7bcc570d3d9f176f"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/panels/PineEditorPanel.tsx": {
-    "mtime": 1781282696.9248223,
-    "hash": "88ce29e8d5dbe5fcd41f5bbde939fc06"
+    "mtime": 1781630175.4806156,
+    "hash": "e45cb4996f6484d450c32f931fc86312"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/components/sidebar/panels/SidebarNewsPanel.tsx": {
     "mtime": 1781100384.8460715,
@@ -3080,8 +3084,8 @@
     "hash": "0e56412e8e212024d2821f5b58f90bfe"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/indicators/candlestickPatternPresentation.ts": {
-    "mtime": 1781168836.763149,
-    "hash": "4bae4ecd0403eda214f6bb60117d24d4"
+    "mtime": 1781541106.6098409,
+    "hash": "eab90f2332f1d24d54283ce891811604"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/indicators/indicatorResearchGradePolicy.ts": {
     "mtime": 1781168460.0430727,
@@ -3140,8 +3144,8 @@
     "hash": "f008d61bbdadaf6c16689aebe2acbcce"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingConstants.ts": {
-    "mtime": 1780404179.2639716,
-    "hash": "3e6492a80ffe65903b24543c02a5c67e"
+    "mtime": 1781787049.436176,
+    "hash": "68c1ecebd1c81bb6d9fe34594e7e7d12"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingForecastTypes.ts": {
     "mtime": 1780683337.4592443,
@@ -3164,24 +3168,24 @@
     "hash": "df9a2c017ba7a5bf7ee39774dc7dc6c2"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingToolSpecs.ts": {
-    "mtime": 1780414565.3556979,
-    "hash": "7e547232eecfcbb9ac55f0c57c98ff1c"
+    "mtime": 1781787057.5670645,
+    "hash": "1677a03a0617a67d2a56f8f84e2a6640"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingPitchforkTypes.ts": {
     "mtime": 1780683337.462098,
     "hash": "7a4588ea055cbbe373a63c47f6b70929"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingToolTypes.ts": {
-    "mtime": 1780414455.5025814,
-    "hash": "babb18c9e8c961a8667c40519edd7972"
+    "mtime": 1781787041.0212917,
+    "hash": "ec4c1cd2cc049ff1d307952fb5337fc2"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingGannTypes.ts": {
     "mtime": 1780683337.460041,
     "hash": "cddfadd729d31180f196422c2b38d7f4"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/drawingToolIconRegistry.tsx": {
-    "mtime": 1780475764.5230634,
-    "hash": "6ffe84f1903aeefaf2c7121f680c844e"
+    "mtime": 1781787076.8568008,
+    "hash": "4f789ac1220a29c4fed952951e6e59c8"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/config/drawing/fibDefaults.ts": {
     "mtime": 1780404179.2641222,
@@ -3224,7 +3228,7 @@
     "hash": "b81ac7a3efa5b284d5a123ee7f00dbf6"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/DrawingRenderer.ts": {
-    "mtime": 1780493541.1293082,
+    "mtime": 1781631849.5276802,
     "hash": "b414aeee389f8465f412f1adf366a9a7"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart/directionalOhlcv.ts": {
@@ -3240,16 +3244,16 @@
     "hash": "daa82fc0309e5f287ddff61a125da1cf"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/Indicators/TechnicalIndicators.ts": {
-    "mtime": 1781017676.854969,
-    "hash": "e4ee6970f4ad6dd3f5ed543e9213c7fe"
+    "mtime": 1781541078.2634494,
+    "hash": "0e9685c06b7b41f8d78675da2da82abc"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/Indicators/movingAverageTrendSignals.ts": {
     "mtime": 1780414146.5168211,
     "hash": "628b0ea88f1ef11143a74b8bef787d89"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/DrawingStrategyRegistry.ts": {
-    "mtime": 1780493541.1591532,
-    "hash": "4aa2ac7d8455d0ab5a7e568074526bef"
+    "mtime": 1781787653.1802905,
+    "hash": "3bf245852e1dd681d711f4925b9b06fa"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/implementations/ChannelsStrategy.ts": {
     "mtime": 1780493627.6906998,
@@ -3264,8 +3268,8 @@
     "hash": "42adc0df0971f1d8058aee21279c835f"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/implementations/LineMeasureStrategy.ts": {
-    "mtime": 1780493627.6913567,
-    "hash": "a97e42df50a7435b643cb3135a076ac0"
+    "mtime": 1781717014.1360638,
+    "hash": "8c296732237ab0d3512e6e2146e89b90"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/implementations/FibonacciStrategy.ts": {
     "mtime": 1780493627.6900814,
@@ -3276,8 +3280,12 @@
     "hash": "8458b99722337fff336b051a967d3f88"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/implementations/ForecastingStrategy.ts": {
-    "mtime": 1780493627.6892133,
-    "hash": "9a74796f45816417bc687ae0dd454980"
+    "mtime": 1781630175.4836154,
+    "hash": "2c382ace9cb2369f72d090e7b0d47007"
+  },
+  "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/implementations/BrushStrategy.ts": {
+    "mtime": 1782210902.0236974,
+    "hash": "d591841a3325b38f871234dacc1b9f60"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/implementations/ChartPatternsStrategy.ts": {
     "mtime": 1780493627.68893,
@@ -3318,6 +3326,10 @@
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/renderers/Forecasting/ForecastingAnchoredVWAPRenderer.ts": {
     "mtime": 1780493627.6922963,
     "hash": "3bb59776b9ddecc59e8a0b96bd299982"
+  },
+  "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/renderers/Forecasting/AnchoredVolumeProfileRenderer.ts": {
+    "mtime": 1781687307.0705562,
+    "hash": "fc120ec45d7bfdf1653e2986420e9340"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/strategies/renderers/Forecasting/ForecastingBarPatternRenderer.ts": {
     "mtime": 1780479147.052609,
@@ -3508,8 +3520,8 @@
     "hash": "e7aa10daf04ab464bdeaa5b5bc07c6ae"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/workers/indicators.worker.ts": {
-    "mtime": 1781169449.8627665,
-    "hash": "0fb5a147038b218c640a260394453441"
+    "mtime": 1781541119.8805637,
+    "hash": "51d56dbd5db247052fa8075d508ed915"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/index.ts": {
     "mtime": 1779461045.9260836,
@@ -3592,8 +3604,8 @@
     "hash": "3bd78f57b8b6ce5e9235c8079d503d40"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderBars.ts": {
-    "mtime": 1780409770.6704178,
-    "hash": "d03b838506e55f94ebf55b4a2c34329b"
+    "mtime": 1782120570.5268464,
+    "hash": "a3ac9b9db6189bec0f04f2105b4af3cb"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderPointFigure.ts": {
     "mtime": 1779810460.0782077,
@@ -3620,16 +3632,16 @@
     "hash": "a3f2e6be1423faac533277b78554ec2d"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderHollowCandles.ts": {
-    "mtime": 1779810460.0672686,
-    "hash": "9676aa6b4221ada78eea25e4c506440f"
+    "mtime": 1782120581.4257588,
+    "hash": "2d3584f37182bd2f7b96b17f77f607ba"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderFootprint.ts": {
     "mtime": 1780325060.1460001,
     "hash": "f5d67ae26f5e459c9b02196b63404fb0"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderSVP.ts": {
-    "mtime": 1779472399.3271625,
-    "hash": "91fdb4a16a06f5b141c7f3adfcc4d2b7"
+    "mtime": 1781687551.8596706,
+    "hash": "05cb1497af5eab1bd34cb5384ff91a82"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/buildChartTypeSeries.ts": {
     "mtime": 1780046441.7015128,
@@ -3640,16 +3652,16 @@
     "hash": "c2802a88deda8c0242db3bac200fe6ed"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderCandles.ts": {
-    "mtime": 1780316448.021892,
-    "hash": "9c3e378e327b689ee6b53b38be76218d"
+    "mtime": 1782141145.603702,
+    "hash": "c4888d9839fd7dd7f7384c17b717c345"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderHlcArea.ts": {
     "mtime": 1779460471.828732,
     "hash": "edd083f8fd0bff6484a0e955dee9be21"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/renderVolumeCandles.ts": {
-    "mtime": 1779810460.0621722,
-    "hash": "280e70ce49bc84e32f1edaee92813748"
+    "mtime": 1782120591.9806745,
+    "hash": "b942be6806fbd01efec4f4baa01b64ab"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/types.ts": {
     "mtime": 1780046311.6548693,
@@ -3660,8 +3672,8 @@
     "hash": "f5e1c38759a6b61da7799f457beee0a6"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/renderers/helpers.ts": {
-    "mtime": 1780409738.1749845,
-    "hash": "b64db0414c5808722604bf445c818ccd"
+    "mtime": 1782120559.6204038,
+    "hash": "bfcac33f49d55f1917e7effb6d7bfd04"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/lib/chart-types/registry/chartTypeRegistry.ts": {
     "mtime": 1779460651.8876877,
@@ -3835,6 +3847,14 @@
     "mtime": 1776152397.5717213,
     "hash": "40879c87a14463dea59643ecd3976964"
   },
+  "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/app/glossary/page.tsx": {
+    "mtime": 1782229553.3786316,
+    "hash": "509b220d4eca711392f1d8312a16d17e"
+  },
+  "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/app/glossary/[slug]/page.tsx": {
+    "mtime": 1782223079.2034674,
+    "hash": "8fb137c2040983c9e0f0f5283af04b17"
+  },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/app/fixed-income/page.tsx": {
     "mtime": 1780328025.455702,
     "hash": "2e4e44c0b290f85d2248574edaaa966e"
@@ -3906,6 +3926,10 @@
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/core/infrastructure/security/rate/in-memory-rate-limiter.ts": {
     "mtime": 1776680259.0772874,
     "hash": "8340d4baa3f2a9d6c90c987b0a016547"
+  },
+  "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/core/data/GlossaryData.ts": {
+    "mtime": 1782228358.917847,
+    "hash": "16598efcdc5435598c5bece3ee6149b5"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/core/data/StockScreener.ts": {
     "mtime": 1776152397.5957208,
@@ -4008,8 +4032,8 @@
     "hash": "8f3302247be1235640c9a202d9a57e42"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/commandes.txt": {
-    "mtime": 1780312077.9857824,
-    "hash": "2bb9977382d9ab7c565c173a9582d591"
+    "mtime": 1782117706.4341645,
+    "hash": "d3612e5a44c2ac6d818ddabc061b2692"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/README.md": {
     "mtime": 1776152397.5607216,
@@ -4356,8 +4380,8 @@
     "hash": "46ed5dadb9dc5001b4ceedb2056fc0fb"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/TODO.md": {
-    "mtime": 1780567472.6922867,
-    "hash": "4e5cc347aba82ed76bff2d571433cda2"
+    "mtime": 1781532897.9099057,
+    "hash": "f7a223a86b1c012cd0587f7f5fdd5115"
   },
   "/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/components/technical-analysis/integration.md": {
     "mtime": 1780567563.7926526,

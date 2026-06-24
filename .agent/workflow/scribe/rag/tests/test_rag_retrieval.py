@@ -14,6 +14,7 @@ from rag_eval import run_eval
 from rag_gate import gate
 from rag_preflight import preflight
 from rag_test_fixtures import build_agent_protocol_test_index, build_auth_test_index
+from rag_index import is_fresh, requested_index_mode
 from rag_scoring import retrieve
 
 class RagRetrievalTests(unittest.TestCase):
@@ -60,6 +61,19 @@ class RagRetrievalTests(unittest.TestCase):
 
     def test_context_line_budget(self) -> None:
         self.assertLessEqual(len(context(self.index).splitlines()), 35)
+
+
+class RagIndexModeTests(unittest.TestCase):
+    def test_default_mode_requests_bm25(self) -> None:
+        self.assertEqual(requested_index_mode(None), "bm25")
+        self.assertEqual(requested_index_mode(False), "bm25")
+        self.assertEqual(requested_index_mode(True), "hybrid")
+
+    def test_hybrid_index_is_not_fresh_for_default_bm25_request(self) -> None:
+        snapshot = {"sha256": "sha256:test"}
+        index = {"version": 2, "source_sha256": "sha256:test", "mode": "hybrid"}
+        self.assertFalse(is_fresh(index, snapshot, requested_index_mode(None)))
+        self.assertTrue(is_fresh(index, snapshot, requested_index_mode(True)))
 
 
 class RagProtocolPreflightTests(unittest.TestCase):

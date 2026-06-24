@@ -15,6 +15,7 @@ export const renderCandles: ChartTypeRenderer = ({ id, name, result, palette, la
     id,
     name,
     type: "candlestick",
+    clip: true,
     large: false,
     barWidth: CANDLE_BODY_WIDTH,
     barMinWidth: MIN_CANDLE_BODY_WIDTH,

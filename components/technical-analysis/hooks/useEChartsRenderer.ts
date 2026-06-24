@@ -213,6 +213,31 @@ type RenderableSeriesOption = {
   type?: unknown;
 };
 
+const CARTESIAN_CLIPPED_SERIES_TYPES = new Set(["candlestick", "bar", "line", "scatter", "custom"]);
+const PANE_SHIELD_Z = 70;
+const PANE_CONTENT_MIN_Z = PANE_SHIELD_Z + 2;
+const PANE_SHIELD_GUTTER_PX = 34;
+
+const isPaneShieldSeries = (series: ChartOptionPart): boolean =>
+  typeof series.id === "string" && series.id.startsWith("pane-shield-");
+
+const shouldClipSeriesToGrid = (series: ChartOptionPart): boolean => {
+  const type = typeof series.type === "string" ? series.type : "";
+  if (!CARTESIAN_CLIPPED_SERIES_TYPES.has(type)) return false;
+  if (series.coordinateSystem && series.coordinateSystem !== "cartesian2d") return false;
+  if (isPaneShieldSeries(series)) return false;
+  return true;
+};
+
+const clipSeriesToOwnGrid = (series: ChartOptionPart): ChartOptionPart => {
+  if (!shouldClipSeriesToGrid(series)) return series;
+  const axisIndex = Number(series.yAxisIndex ?? series.xAxisIndex ?? 0);
+  const nextSeries = series.clip === true ? series : { ...series, clip: true };
+  if (axisIndex <= 0) return nextSeries;
+  const currentZ = Number(nextSeries.z ?? 0);
+  return currentZ >= PANE_CONTENT_MIN_Z ? nextSeries : { ...nextSeries, z: PANE_CONTENT_MIN_Z };
+};
+
 const hasRenderableSeriesData = (chart: EChartsInstance): boolean => {
   const option = chart.getOption();
   if (!option || typeof option !== "object") return false;
@@ -480,6 +505,99 @@ const formatAdxTrendStrength = (adx: number | null): string | null => {
   return "Very strong";
 };
 
+const pushPaneShieldSeries = (
+  seriesOptions: ChartOptionPart[],
+  gridIndex: number,
+  xAxisIndex: number,
+  yAxisIndex: number,
+  fill: string,
+): void => {
+  seriesOptions.push({
+    id: "pane-shield-" + gridIndex,
+    name: "Pane Shield " + gridIndex,
+    type: "custom",
+    xAxisIndex,
+    yAxisIndex,
+    coordinateSystem: "cartesian2d",
+    clip: false,
+    silent: true,
+    animation: false,
+    z: PANE_SHIELD_Z,
+    data: [0],
+    renderItem: (params: { coordSys?: { x: number; y: number; width: number; height: number } }) => {
+      const rect = params.coordSys;
+      if (!rect) return undefined;
+      // Use a transparent-to-opaque gradient so the shield masks series overflow
+      // at the panel boundary without showing a visible "ribbon" band.
+      return {
+        type: "rect",
+        shape: {
+          x: rect.x,
+          y: Math.max(0, rect.y - PANE_SHIELD_GUTTER_PX),
+          width: rect.width,
+          height: PANE_SHIELD_GUTTER_PX,
+        },
+        style: {
+          fill: {
+            type: "linear",
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: "transparent" },
+              { offset: 0.55, color: "transparent" },
+              { offset: 1, color: fill },
+            ],
+          },
+        },
+      };
+    },
+  });
+};
+
+const pushPaneBackgroundSeries = (
+  seriesOptions: ChartOptionPart[],
+  id: string,
+  xAxisIndex: number,
+  yAxisIndex: number,
+  fill: string,
+  z: number,
+  lineColor?: string,
+): void => {
+  seriesOptions.push({
+    id,
+    type: "custom",
+    xAxisIndex,
+    yAxisIndex,
+    coordinateSystem: "cartesian2d",
+    clip: false,
+    silent: true,
+    animation: false,
+    z,
+    data: [0],
+    renderItem: (params: { coordSys?: { x: number; y: number; width: number; height: number } }) => {
+      const rect = params.coordSys;
+      if (!rect) return undefined;
+      return {
+        type: "group",
+        children: [
+          {
+            type: "rect",
+            shape: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            style: { fill },
+          },
+          ...(lineColor ? [{
+            type: "line",
+            shape: { x1: rect.x, y1: rect.y, x2: rect.x + rect.width, y2: rect.y },
+            style: { stroke: lineColor, lineWidth: 1, opacity: 0.92 },
+          }] : []),
+        ],
+      };
+    },
+  });
+};
+
 const buildEChartsOption = ({
   dates,
   volumes,
@@ -506,6 +624,9 @@ const buildEChartsOption = ({
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
   const textColor = "#a0aec0";
+  const paneShieldFill = chartAppearance.backgroundColor && chartAppearance.backgroundColor !== "transparent"
+    ? chartAppearance.backgroundColor
+    : "#0d2136";
 
   const isObjectVisible = (id: string) => hiddenObjectIds[id] !== true;
   const isCci20Active = advancedIndicators.cci20 || advancedIndicators.cci;
@@ -925,7 +1046,7 @@ const buildEChartsOption = ({
   const bottomMarginPercent = 5;
 
   const panelCount = (shouldRenderVolumePanel ? 1 : 0) + oscillatorPanels.length;
-  const panelSpacingPercent = panelCount > 1 ? 2.5 : 6;
+  const panelSpacingPercent = 0;
   const panelHeightPercent = panelCount <= 1 ? 20 : Math.min(20, Math.max(7, (100 - topMarginPercent - bottomMarginPercent - 35 - panelSpacingPercent * panelCount) / panelCount));
   const mainGridHeightPercent = Math.max(
     panelCount <= 1 ? 30 : 35,
@@ -933,6 +1054,9 @@ const buildEChartsOption = ({
   );
 
   let nextPanelTopPercent = topMarginPercent + mainGridHeightPercent + panelSpacingPercent;
+  let lowerPanelOrdinal = 0;
+  const lowerPanelCount = panelCount;
+  const shouldShowLowerTimeAxis = (ordinal: number): boolean => ordinal === lowerPanelCount;
 
   const gridOptions: ChartOptionPart[] = [];
   const xAxisOptions: ChartOptionPart[] = [];
@@ -993,9 +1117,22 @@ const buildEChartsOption = ({
     id: "main-xaxis",
     type: "category",
     data: renderDates,
-    boundaryGap: false,
+    // [TENOR FIX] boundaryGap:true ensures the first/last category has a
+    // half-slot of padding on each edge, so candlesticks and axis labels are
+    // centered within their time slots — consistent with the volume-xaxis
+    // (also boundaryGap:true). With boundaryGap:false the date label for the
+    // first category overflows to the left of the grid edge.
+    boundaryGap: true,
     axisLine: { onZero: false, lineStyle: { color: textColor } },
-    axisLabel: { color: textColor, hideOverlap: true },
+    axisLabel: lowerPanelCount === 0
+      ? {
+          color: textColor,
+          hideOverlap: true,
+          align: "center",
+          alignMinLabel: "center",
+          alignMaxLabel: "center"
+        }
+      : { show: false },
     splitLine: { show: false },
     min: "dataMin",
     max: "dataMax",
@@ -1073,6 +1210,8 @@ const buildEChartsOption = ({
   }
 
   if (shouldRenderVolumePanel) {
+    lowerPanelOrdinal += 1;
+    const volumePanelOrdinal = lowerPanelOrdinal;
     const volumeGridIndex = gridOptions.length;
     const volumeXAxisIndex = xAxisOptions.length;
     const volumeYAxisIndex = yAxisOptions.length;
@@ -1090,8 +1229,22 @@ const buildEChartsOption = ({
       type: "category",
       gridIndex: volumeGridIndex,
       data: renderDates,
-      boundaryGap: false,
-      axisLabel: { show: false },
+      // [TENOR FIX] boundaryGap:true (ECharts default for bar series) ensures
+      // volume bars are centered in their slots with half-slot padding on each
+      // side. With boundaryGap:false the bar's left edge bleeds visually past
+      // the grid's left boundary, making the volume panel appear to start
+      // earlier than the candlestick panel above it.
+      boundaryGap: true,
+      axisLabel: shouldShowLowerTimeAxis(volumePanelOrdinal)
+        ? {
+            color: textColor,
+            hideOverlap: true,
+            margin: 8,
+            align: "center",
+            alignMinLabel: "center",
+            alignMaxLabel: "center"
+          }
+        : { show: false },
       axisTick: { show: false },
       splitLine: { show: false },
       min: "dataMin",
@@ -1102,6 +1255,7 @@ const buildEChartsOption = ({
       id: "volume-yaxis",
       position: "right",
       gridIndex: volumeGridIndex,
+      min: 0,
       scale: true,
       axisLabel: { show: false },
       axisLine: { show: false },
@@ -1109,7 +1263,18 @@ const buildEChartsOption = ({
       splitLine: { show: false },
       axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: false } },
       max: getVolumeAxisMax,
+      boundaryGap: [0, 0],
     });
+
+    pushPaneBackgroundSeries(
+      seriesOptions,
+      "volume-panel-background",
+      volumeXAxisIndex,
+      volumeYAxisIndex,
+      paneShieldFill,
+      PANE_CONTENT_MIN_Z + 3,
+      "rgba(203, 213, 225, 0.82)",
+    );
 
     seriesOptions.push({
       id: "volume-bar",
@@ -1120,6 +1285,8 @@ const buildEChartsOption = ({
       encode: { x: 0, y: 1 },
       data: buildDirectionalVolumeBarData(volumeSourceSeries.volumes, { upColor, downColor }, 0.8, renderDates.length, renderDates),
       barWidth: "65%",
+      clip: true,
+      z: PANE_CONTENT_MIN_Z + 4,
     });
 
     nextPanelTopPercent += panelHeightPercent + panelSpacingPercent;
@@ -3806,6 +3973,8 @@ const buildEChartsOption = ({
   };
 
   oscillatorPanels.forEach((panelName, index) => {
+    lowerPanelOrdinal += 1;
+    const oscillatorPanelOrdinal = lowerPanelOrdinal;
     const gridIndex = gridOptions.length;
     const xAxisIndex = xAxisOptions.length;
     const yAxisIndex = yAxisOptions.length;
@@ -3835,10 +4004,21 @@ const buildEChartsOption = ({
       type: "category",
       gridIndex,
       data: renderDates,
-      boundaryGap: false,
+      // [TENOR FIX] boundaryGap:true — consistent with main-xaxis and volume-xaxis
+      // so the time axis labels align with bar/candle centers across all panels.
+      boundaryGap: true,
       axisTick: { show: false },
       splitLine: { show: false },
-      axisLabel: { show: false },
+      axisLabel: shouldShowLowerTimeAxis(oscillatorPanelOrdinal)
+        ? {
+            color: textColor,
+            hideOverlap: true,
+            margin: 8,
+            align: "center",
+            alignMinLabel: "center",
+            alignMaxLabel: "center"
+          }
+        : { show: false },
       min: "dataMin",
       max: "dataMax"
     });
@@ -3856,6 +4036,18 @@ const buildEChartsOption = ({
       max: bounded0to100 ? 100 : boundedWillR ? 0 : boundedCmo || boundedAroonOsc ? 100 : boundedCmf ? 1 : undefined,
       axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: true } },
     });
+
+    pushPaneBackgroundSeries(
+      seriesOptions,
+      "osc-panel-background-" + index,
+      xAxisIndex,
+      yAxisIndex,
+      paneShieldFill,
+      PANE_CONTENT_MIN_Z + 3,
+      "rgba(203, 213, 225, 0.42)",
+    );
+
+    pushPaneShieldSeries(seriesOptions, gridIndex, xAxisIndex, yAxisIndex, paneShieldFill);
 
     if (panelName === "PPO") addPanelNote("PPO = MACD normalized %");
     if (panelName === "APO") addPanelNote("APO = MACD Line absolute");
@@ -4675,7 +4867,9 @@ const buildEChartsOption = ({
     });
   });
 
-  const seriesOptionsWithTooltipPolicy = seriesOptions.map((series) => {
+  const clippedSeriesOptions = seriesOptions.map(clipSeriesToOwnGrid);
+
+  const seriesOptionsWithTooltipPolicy = clippedSeriesOptions.map((series) => {
     const seriesId = typeof series.id === "string" ? series.id : "";
     if (ACTIONABLE_CANDLESTICK_PATTERN_TOOLTIP_SERIES_IDS.has(seriesId)) return series;
     return { ...series, tooltip: { show: false } };
@@ -4694,10 +4888,10 @@ const buildEChartsOption = ({
   ]);
 
   const legendData = Array.from(new Set(
-    seriesOptions
+    clippedSeriesOptions
       .filter((series) => {
         const seriesId = typeof series.id === "string" ? series.id : "";
-        return seriesId !== "main-series" && !hiddenLegendSeriesIds.has(seriesId);
+        return seriesId !== "main-series" && !seriesId.startsWith("pane-shield-") && !hiddenLegendSeriesIds.has(seriesId);
       })
       .map((series) => series.name)
       .filter((name): name is string => typeof name === "string"),

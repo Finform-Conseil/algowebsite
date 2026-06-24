@@ -6,11 +6,13 @@ import { getDrawingToolIcon } from "../../../config/drawing/drawingToolIconRegis
 import { ToolPortal } from "../../common/primitives/ToolPortal";
 import type { DrawingToolCounts } from "./drawingToolCounts";
 import {
+  filterBrushTools,
   filterChartPatternTools,
   filterForecastingTools,
   filterTrendTools,
   getFibDropdownTools,
   getTrendDropdownTools,
+  type BrushDropdownView,
   type ChartPatternsDropdownView,
   type FibDropdownView,
   type ForecastingDropdownView,
@@ -243,6 +245,22 @@ export const ChartPatternsToolDropdown: React.FC<BaseDropdownProps<ChartPatterns
   </ToolPortal>
 );
 
+export const BrushToolDropdown: React.FC<BaseDropdownProps<BrushDropdownView> & {
+  counts: DrawingToolCounts;
+}> = (props) => (
+  <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher un pinceau..." searchInputId="brush-tool-search" searchInputName="brushToolSearch" searchInputLabel="Rechercher un pinceau">
+    {props.view === "categories" && (
+      <>
+        <div style={headerStyle}>PINCEAU</div>
+        {renderCategoryRows([
+          { id: "freehand", label: "Dessin libre", count: props.counts.brush },
+        ], props.onViewChange)}
+      </>
+    )}
+    {props.view === "freehand" && <ToolList {...props} view={props.view} title="DESSIN LIBRE" getTools={(view) => filterBrushTools(view, props.searchQuery)} />}
+  </ToolPortal>
+);
+
 export const ForecastingToolDropdown: React.FC<BaseDropdownProps<ForecastingDropdownView> & {
   counts: DrawingToolCounts;
 }> = (props) => (
@@ -253,10 +271,11 @@ export const ForecastingToolDropdown: React.FC<BaseDropdownProps<ForecastingDrop
         {renderCategoryRows([
           { id: "forecasting", label: "Prévisions", count: props.counts.forecasting },
           { id: "volume", label: "Profils de volume", count: props.counts.volume },
+          { id: "measurers", label: "Mesureurs", count: props.counts.measurers },
         ], props.onViewChange)}
       </>
     )}
-    {["forecasting", "volume"].includes(props.view) && <ToolList {...props} view={props.view} title={props.view === "forecasting" ? "PRÉVISIONS" : "PROFILS DE VOLUME"} getTools={(view) => filterForecastingTools(view, props.searchQuery)} />}
+    {["forecasting", "volume", "measurers"].includes(props.view) && <ToolList {...props} view={props.view} title={props.view === "forecasting" ? "PRÉVISIONS" : props.view === "volume" ? "PROFILS DE VOLUME" : "MESUREURS"} getTools={(view) => filterForecastingTools(view, props.searchQuery)} />}
   </ToolPortal>
 );
 

@@ -76,6 +76,9 @@ export const useOverlayRenderer = ({
   // [TENOR 2026 FIX] SCAR-XSS-01: Dirty Checking Cache
   const lastTooltipHtmlRef = useRef<string>("");
 
+  // [TENOR 2026 FIX] isDegraded transition tracker — wakes dirty flag when degradation ends
+  const wasDegradedRef = useRef<boolean>(false);
+
   // [TENOR 2026 FIX] SCAR-PERF-03: Canvas Size Cache (OOM/Thrashing Shield)
   const canvasSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
 
@@ -201,6 +204,15 @@ export const useOverlayRenderer = ({
         x: toolbarOffsetRef.current.x,
         y: toolbarOffsetRef.current.y
       };
+    }
+
+    // [TENOR 2026 FIX] Wake dirty flag when degradation ends — BEFORE dirty flag check
+    if (wasDegradedRef.current && !meta.isDegraded) {
+      wasDegradedRef.current = false;
+      isDirtyRef.current = true;
+    }
+    if (meta.isDegraded) {
+      wasDegradedRef.current = true;
     }
 
     // [TENOR 2026 SRE FIX] SCAR-CPU-02: Dirty Flag Short-Circuit
@@ -423,6 +435,14 @@ export const useOverlayRenderer = ({
               <span></span>
             </div>
           `;
+        } else if (drawing.type === "brush" || drawing.type === "highlighter") {
+          const toolLabel = drawing.type === "brush" ? "Brush" : "Highlighter";
+          contentHtml = `
+            <div style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+              <span style="color: ${htmlColors.white}; font-weight: 600;">${toolLabel}</span>
+              <span style="color: ${htmlColors.slate}; font-weight: 400; font-size: 9px;">${drawing.points.length} pts</span>
+            </div>
+          `;
         } else {
           contentHtml = `
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center;">
@@ -452,8 +472,21 @@ export const useOverlayRenderer = ({
         const tipHeight = 85;
         const offset = 40;
 
-        const relTooltipX = p2Px.x - offsetX;
-        const relTooltipY = p2Px.y - offsetY;
+        let anchorPxX: number;
+        let anchorPxY: number;
+
+        if (drawing.type === "brush" || drawing.type === "highlighter") {
+          const bx = pixels.map(p => p.x);
+          const by = pixels.map(p => p.y);
+          anchorPxX = (Math.min(...bx) + Math.max(...bx)) / 2;
+          anchorPxY = (Math.min(...by) + Math.max(...by)) / 2;
+        } else {
+          anchorPxX = p2Px.x;
+          anchorPxY = p2Px.y;
+        }
+
+        const relTooltipX = anchorPxX - offsetX;
+        const relTooltipY = anchorPxY - offsetY;
 
         let finalX: number;
         let finalY: number;

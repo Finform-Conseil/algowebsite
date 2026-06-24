@@ -18,6 +18,9 @@ has_application_code = getattr(scribe_bootstrap, "has_application_code")
 scribe_state = load_script_module("scribe_state")
 update_state_after_write = getattr(scribe_state, "update_state_after_write")
 
+scribe_install_templates = load_script_module("scribe_install_templates")
+render_scribe_adapter = getattr(scribe_install_templates, "render_scribe_adapter")
+
 
 class ScribeBootstrapTests(unittest.TestCase):
     def run_bootstrap(self, root: Path):
@@ -79,6 +82,13 @@ class ScribeBootstrapTests(unittest.TestCase):
             self.assertEqual(report.doctor_code, 0)
             self.assertFalse(report.sync_repaired)
             self.assertEqual(scribe_path.read_text(encoding="utf-8"), before)
+
+    def test_installed_adapter_exposes_tenor_init(self) -> None:
+        adapter = render_scribe_adapter()
+
+        self.assertIn('scribe tenor-init [--root PATH]', adapter)
+        self.assertIn('"tenor-init": "scribe_tenor_init.py"', adapter)
+        self.assertIn('bootstrap, tenor-init, clean', adapter)
 
     def test_graphify_placeholder_is_info_on_empty_project(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -8,7 +8,9 @@ export const TOOL_CATEGORIES = {
     CYCLES: "Cycles",
     FORECASTING: "Forecasting",
     VOLUME_BASED: "Volume-Based",
+    MEASURERS: "Measurers",
     CURSOR: "Cursor",
+    BRUSH_DRAWING: "Brush Drawing",
 } as const;
 
 /**
@@ -31,6 +33,12 @@ export const MEASURE_TOOLS = [
     "date_price_range",
     "sector",
     "anchored_volume_profile",
+] as const;
+
+export const MEASURERS_TOOLS = [
+    "date_range",
+    "price_range",
+    "date_price_range",
 ] as const;
 
 /**
@@ -64,6 +72,14 @@ export const MULTI_POINT_TOOLS = [
 export const POSITION_TOOLS = [
     "long_position",
     "short_position",
+] as const;
+
+/**
+ * Brush/Highlighter freehand drawing tools
+ */
+export const BRUSH_DRAWING_TOOLS = [
+    "brush",
+    "highlighter",
 ] as const;
 
 /**

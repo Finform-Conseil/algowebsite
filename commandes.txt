@@ -7,4 +7,34 @@ la commande chirurgicale pour détruire tous les caches qui peuvent poser probl�
 
 
 
-========
+
+
+===============================================
+
+
+
+
+1. Reconstruire proprement les dépendances
+
+Supprimer complètement node_modules et le cache
+
+    Linux: rm -rf node_modules package-lock.json && npm cache clean --force && npm install
+    Windows: rmdir /s /q node_modules && del package-lock.json && npm cache clean --force && npm install
+2. Nettoyer le cache de Next.js
+
+Effacer .next/cache avant de relancer
+
+    Linux: rm -rf .next/cache && npm run build
+    Windows: rd /s /q .next\cache && npm run build
+3. Vérifier la version de Node.js
+
+Assurez-vous d'avoir la bonne version (20.x)
+
+    node --version
+4. Supprimer le fichier .next complètement
+
+C'est la méthode la plus radicale pour repartir de zéro
+
+    rm -rf node_modules .next
+    npm install
+    npm run build

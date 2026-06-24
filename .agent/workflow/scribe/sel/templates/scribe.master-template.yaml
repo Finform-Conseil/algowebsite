@@ -6,7 +6,7 @@ meta_project:
   scribe_version: "3.2-local-causal-retrieval"
   graphify_graph: "graphify-out/graph.json"
 tiers:
-  hot: ["PAT-GRAPH-001", "PAT-GIT-001", "PAT-SCRIBE-RAG-001", "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001", "GHOST-SCRIBE-RAG-SEL-DIRECT-001", "GHOST-SCRIBE-STRICT-MEMORY-001"]
+  hot: ["PAT-GRAPH-001", "PAT-GIT-001", "PAT-SCRIBE-RAG-001", "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001", "PAT-SCRIBE-PAIN-CAPTURE-REFLEX-001", "GHOST-SCRIBE-RAG-SEL-DIRECT-001", "GHOST-SCRIBE-STRICT-MEMORY-001"]
   warm: []
   cold: []
 invariants:
@@ -90,6 +90,28 @@ patterns:
       observable: "A low causal-density ratio is a quality reminder, not a write trigger."
     liens_causaux:
       source: "GHOST-SCRIBE-STRICT-MEMORY-001"
+  - id: "PAT-SCRIBE-PAIN-CAPTURE-REFLEX-001"
+    date: "{{DATE}}"
+    schema_patch_date: "{{DATE}}"
+    tier: "hot"
+    status: "ACTIVE"
+    titre: "Real pain must become an immediately reusable SCAR"
+    l0_abstract: "Do not chase causal-density ratios, but any resolved bug after more than two attempts, regression, costly rollback, or broken browser/visual smoke must be recorded immediately as a SCAR with cause_racine, resolution, and test_binding; before adjacent future work, retrieve and challenge against that memory."
+    scope: "dev bundle"
+    approved: true
+    evidence:
+      type: "REASONED"
+      source: "JOURNAL-000"
+      observable: "Bootstrap installs the pain-capture reflex so copied SCRIBE bundles keep the same host-agent behavior across projects."
+    regle_operationnelle:
+      - "Bug resolved after more than two attempts => SCAR immediately, not journal-only."
+      - "Regression, costly rollback, or broken browser/visual smoke => SCAR immediately with test_binding."
+      - "SCAR must include cause_racine, resolution, test_binding, and attention_future when relevant."
+      - "Before a task near a known scar, run scribe-rag query/explain/challenge so the memory is exploited at decision time."
+      - "Never create SCAR/GHOST/PAT solely to improve a causal-density ratio."
+    liens_causaux:
+      - "PAT-SCRIBE-STRICT-CAUSAL-DENSITY-001"
+      - "INV-F003"
 ghosts:
   - id: "GHOST-SCRIBE-RAG-SEL-DIRECT-001"
     titre: "No SEL direct retrieval for agents"

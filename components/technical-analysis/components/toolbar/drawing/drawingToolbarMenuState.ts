@@ -2,6 +2,7 @@ import { useCallback, useState, type MouseEvent, type RefObject } from "react";
 
 import { useFloatingMenu } from "../../../hooks/useFloatingMenu";
 import type {
+  BrushDropdownView,
   ChartPatternsDropdownView,
   FibDropdownView,
   ForecastingDropdownView,
@@ -15,6 +16,7 @@ export const useDrawingToolbarMenuState = (
   const fibMenu = useFloatingMenu(mainContainerRef);
   const chartPatternsMenu = useFloatingMenu(mainContainerRef);
   const forecastingMenu = useFloatingMenu(mainContainerRef);
+  const brushMenu = useFloatingMenu(mainContainerRef);
   const { isOpen: isTrendMenuOpen, setIsOpen: setTrendMenuOpen, toggle: toggleTrendMenu } = trendMenu;
   const { isOpen: isFibMenuOpen, setIsOpen: setFibMenuOpen, toggle: toggleFibMenu } = fibMenu;
   const {
@@ -27,6 +29,11 @@ export const useDrawingToolbarMenuState = (
     setIsOpen: setForecastingMenuOpen,
     toggle: toggleForecastingMenu,
   } = forecastingMenu;
+  const {
+    isOpen: isBrushMenuOpen,
+    setIsOpen: setBrushMenuOpen,
+    toggle: toggleBrushMenu,
+  } = brushMenu;
 
   const [trendSearchQuery, setTrendSearchQuery] = useState("");
   const [trendDropdownView, setTrendDropdownView] = useState<TrendDropdownView>("categories");
@@ -36,13 +43,16 @@ export const useDrawingToolbarMenuState = (
   const [chartPatternsDropdownView, setChartPatternsDropdownView] = useState<ChartPatternsDropdownView>("categories");
   const [forecastingSearchQuery, setForecastingSearchQuery] = useState("");
   const [forecastingDropdownView, setForecastingDropdownView] = useState<ForecastingDropdownView>("categories");
+  const [brushSearchQuery, setBrushSearchQuery] = useState("");
+  const [brushDropdownView, setBrushDropdownView] = useState<BrushDropdownView>("categories");
 
   const closeAllDropdowns = useCallback(() => {
     setTrendMenuOpen(false);
     setFibMenuOpen(false);
     setChartPatternsMenuOpen(false);
     setForecastingMenuOpen(false);
-  }, [setTrendMenuOpen, setFibMenuOpen, setChartPatternsMenuOpen, setForecastingMenuOpen]);
+    setBrushMenuOpen(false);
+  }, [setTrendMenuOpen, setFibMenuOpen, setChartPatternsMenuOpen, setForecastingMenuOpen, setBrushMenuOpen]);
 
   const toggleTrendDropdown = useCallback((event: MouseEvent) => {
     if (!isTrendMenuOpen) {
@@ -98,6 +108,7 @@ export const useDrawingToolbarMenuState = (
       setTrendMenuOpen(false);
       setFibMenuOpen(false);
       setChartPatternsMenuOpen(false);
+      setBrushMenuOpen(false);
     }
     toggleForecastingMenu(event);
   }, [
@@ -105,7 +116,26 @@ export const useDrawingToolbarMenuState = (
     setTrendMenuOpen,
     setFibMenuOpen,
     setChartPatternsMenuOpen,
+    setBrushMenuOpen,
     toggleForecastingMenu,
+  ]);
+
+  const toggleBrushDropdown = useCallback((event: MouseEvent) => {
+    if (!isBrushMenuOpen) {
+      setBrushDropdownView("categories");
+      setTrendMenuOpen(false);
+      setFibMenuOpen(false);
+      setChartPatternsMenuOpen(false);
+      setForecastingMenuOpen(false);
+    }
+    toggleBrushMenu(event);
+  }, [
+    isBrushMenuOpen,
+    setTrendMenuOpen,
+    setFibMenuOpen,
+    setChartPatternsMenuOpen,
+    setForecastingMenuOpen,
+    toggleBrushMenu,
   ]);
 
   return {
@@ -140,6 +170,14 @@ export const useDrawingToolbarMenuState = (
       view: forecastingDropdownView,
       setView: setForecastingDropdownView,
       toggle: toggleForecastingDropdown,
+    },
+    brush: {
+      ...brushMenu,
+      searchQuery: brushSearchQuery,
+      setSearchQuery: setBrushSearchQuery,
+      view: brushDropdownView,
+      setView: setBrushDropdownView,
+      toggle: toggleBrushDropdown,
     },
     closeAllDropdowns,
   };

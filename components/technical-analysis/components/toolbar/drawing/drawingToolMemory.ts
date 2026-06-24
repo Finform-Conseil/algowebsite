@@ -7,6 +7,7 @@ export type ToolCategoryMemory = {
   fib: AllToolType | null;
   chartPatterns: AllToolType | null;
   forecasting: AllToolType | null;
+  brush: AllToolType | null;
 };
 
 export const createEmptyToolCategoryMemory = (): ToolCategoryMemory => ({
@@ -14,6 +15,7 @@ export const createEmptyToolCategoryMemory = (): ToolCategoryMemory => ({
   fib: null,
   chartPatterns: null,
   forecasting: null,
+  brush: null,
 });
 
 export const getToolMemoryBucket = (toolId: AllToolType | null): keyof ToolCategoryMemory | null => {
@@ -31,8 +33,11 @@ export const getToolMemoryBucket = (toolId: AllToolType | null): keyof ToolCateg
   ) {
     return "chartPatterns";
   }
-  if (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED) {
+  if (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED || tool.category === TOOL_CATEGORIES.MEASURERS) {
     return "forecasting";
+  }
+  if (tool.category === TOOL_CATEGORIES.BRUSH_DRAWING) {
+    return "brush";
   }
 
   return null;
@@ -69,6 +74,13 @@ export const isForecastingToolActiveForTool = (activeTool: AllToolType | null): 
   return DRAWING_TOOL_SPECS.some(
     (tool) =>
       tool.id === activeTool &&
-      (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED),
+      (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED || tool.category === TOOL_CATEGORIES.MEASURERS),
+  );
+};
+
+export const isBrushToolActiveForTool = (activeTool: AllToolType | null): boolean => {
+  if (!activeTool) return false;
+  return DRAWING_TOOL_SPECS.some(
+    (tool) => tool.id === activeTool && tool.category === TOOL_CATEGORIES.BRUSH_DRAWING,
   );
 };

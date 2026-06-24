@@ -31,16 +31,9 @@ interface DrawingToolbarFooterProps extends DrawingToolbarControlsProps {
 export const DrawingToolbarUtilityActions: React.FC<DrawingToolbarControlsProps> = ({
   activeTool,
   onSelectTool,
-}) => (
-  <>
-    <button
-      className={clsx("gp-toolbar-btn", "opacity-50")}
-      title="Texte indisponible pour cette version"
-      aria-label="Texte indisponible pour cette version"
-      disabled
-    >
-      <i className="bi bi-fonts"></i>
-    </button>
+}) => {
+  return (
+    <>
     <button
       className={clsx("gp-toolbar-btn", "opacity-50")}
       title="Icônes indisponibles pour cette version"
@@ -72,6 +65,7 @@ export const DrawingToolbarUtilityActions: React.FC<DrawingToolbarControlsProps>
     </button>
   </>
 );
+};
 
 export const DrawingToolbarFooter: React.FC<DrawingToolbarFooterProps> = ({
   activeTool,

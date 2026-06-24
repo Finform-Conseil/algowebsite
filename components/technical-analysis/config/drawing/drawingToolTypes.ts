@@ -23,6 +23,8 @@ export type DrawingToolType =
   | "flat_top_bottom"
   | "disjoint_channel"
   | "pitchfork"
+  | "brush"
+  | "highlighter"
   | "schiff_pitchfork"
   | "modified_schiff_pitchfork"
   | "inside_pitchfork"
@@ -87,6 +89,7 @@ export type ForecastingToolType =
   | "anchored_vwap"
   | "sector"
   | "anchored_volume_profile"
+  | "fixed_range_volume_profile"
   | null;
 
 export type AllToolType =

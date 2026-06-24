@@ -15,6 +15,7 @@ SCRIBE bug, red test, or documentation drift is observed.
 - Coordination: claims have `ttl_seconds` and `expires_at`; expired or legacy no-TTL claims are stale.
 - Lock release: validates agent/surface before stale cleanup; use `SCRIBE_OWNER_PID` or `--owner-pid` for long-lived ownership.
 - Causal ratio last measured around `17.5%`; target is `35%`, improved only by real future SCAR/GHOST evidence.
+- Pain capture reflex: do not chase the ratio, but every resolved bug after >2 attempts, regression, costly rollback, or broken browser/visual smoke must become a SCAR with `cause_racine`, `resolution`, and `test_binding`, then be retrieved before similar work.
 - Reference backup: `~/backups/agent-scribe-stable-20260601.tar.gz`.
 
 Final operating rule: STOP `.agent`. Return to product work; use SCRIBE only as
@@ -22,11 +23,19 @@ memory and guardrail until a real SCRIBE defect appears.
 
 ## Canonical Commands
 
-Copy this directory into another project at `.agent/workflow/scribe/`, then run:
+When the full `.agent/` directory has been copied into a project, the first host-agent prompt should be:
+
+```text
+TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+```
+
+That prompt must make the agent read the project skill first, not global OpenCode/Codex/Gemini configs. The skill then runs the deterministic init proof. If operating manually after copying only the workflow directory, run:
 
 ```bash
-.agent/workflow/scribe/scribe bootstrap
+.agent/workflow/scribe/scribe tenor-init --type cli
 ```
+
+`tenor-init` runs bootstrap internally, records agent presence, acknowledges workflow, queries SCRIBE through `scribe-rag`, and prints `SCRIBE-CHECK TENOR V4 — MACHINE PROOF`. For very old bundles without `tenor-init`, fall back to `scribe bootstrap` plus `scribe-rag context`.
 
 Choose the smallest safe tier from `sel/docs/friction-policy.md`:
 
@@ -53,7 +62,7 @@ Run the gate for bundle changes:
 
 ## Layout
 
-- `scribe`: maintenance, bootstrap, doctor, lock, sync, graph, worktree, and SCRIBE writes.
+- `scribe`: maintenance, `tenor-init`, bootstrap, doctor, lock, sync, graph, worktree, and SCRIBE writes.
 - `scribe-rag`: canonical read/retrieval interface for agents.
 - `sel/`: internal SCRIBE engineering local causal retrieval engine.
 - `rag/`: BM25 retrieval layer that calls the local SEL engine.

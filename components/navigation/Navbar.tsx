@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { 
   MagnifyingGlass, 
   ChartLine, 
@@ -26,7 +27,8 @@ import {
   ChartPieSlice,
   CurrencyCircleDollar,
   Briefcase,
-  TrendDown
+  TrendDown,
+  BookOpen
 } from '@phosphor-icons/react';
 
 type SubMenuItem = {
@@ -39,11 +41,14 @@ type SubMenuItem = {
 type NavItem = {
   label: string;
   icon: React.ReactNode;
+  href?: string;
   items?: SubMenuItem[];
 };
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [activeNestedSubmenu, setActiveNestedSubmenu] = useState<string | null>(null);
@@ -191,6 +196,11 @@ export default function Navbar() {
         { href: '/macro/macro-analysis', label: 'Macro Analysis', icon: <ChartBar size={16} weight="duotone" /> },
       ]
     },
+    {
+      label: 'Glossaire',
+      icon: <BookOpen size={18} weight="duotone" />,
+      href: '/glossary'
+    }
   ];
 
   return (
@@ -250,14 +260,21 @@ export default function Navbar() {
           <li 
             key={item.label}
             className="nav-item"
-            onMouseEnter={() => handleMenuEnter(item.label)}
+            onMouseEnter={() => item.items && item.items.length > 0 && handleMenuEnter(item.label)}
             onMouseLeave={handleMenuLeave}
           >
-            <button className="nav-link">
-              {item.icon}
-              <span>{item.label}</span>
-              {item.items && item.items.length > 0 && <CaretDown size={14} weight="bold" />}
-            </button>
+            {item.href ? (
+              <Link href={item.href} className={`nav-link ${isActive(item.href) ? 'active' : ''}`}>
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            ) : (
+              <button className="nav-link">
+                {item.icon}
+                <span>{item.label}</span>
+                {item.items && item.items.length > 0 && <CaretDown size={14} weight="bold" />}
+              </button>
+            )}
             
             {item.items && item.items.length > 0 && activeMenu === item.label && (
               <div className="dropdown-menu">

@@ -80,7 +80,7 @@ export const QuickOptionsPopup: React.FC<QuickOptionsPopupProps> = ({
                     <SettingsToggle label="Haut" theme="light" checked={dr.gannBoxProps.showLabels?.top || false} onChange={(val) => updateDrawing(dr.id, { gannBoxProps: { ...dr.gannBoxProps!, showLabels: { ...dr.gannBoxProps!.showLabels, top: val } } })} />
                 </>
             )}
-            {drType === "anchored_volume_profile" && dr.anchoredVolumeProfileProps && (
+            {(drType === "anchored_volume_profile" || drType === "fixed_range_volume_profile") && dr.anchoredVolumeProfileProps && (
                 <>
                     <SettingsToggle label="Étendre à gauche" theme="light" checked={dr.anchoredVolumeProfileProps.extendLeft || false} onChange={(val) => updateDrawing(dr.id, { anchoredVolumeProfileProps: { ...dr.anchoredVolumeProfileProps!, extendLeft: val } })} />
                     <SettingsToggle label="Étendre à droite" theme="light" checked={dr.anchoredVolumeProfileProps.extendRight || false} onChange={(val) => updateDrawing(dr.id, { anchoredVolumeProfileProps: { ...dr.anchoredVolumeProfileProps!, extendRight: val } })} />
@@ -149,6 +149,18 @@ export const QuickOptionsPopup: React.FC<QuickOptionsPopupProps> = ({
                 <>
                     <SettingsToggle label="Fond" theme="light" checked={dr.pitchfanProps.fillBackground} onChange={(val) => updateDrawing(dr.id, { pitchfanProps: { ...dr.pitchfanProps!, fillBackground: val } })} />
                     <ReadOnlyOptionState label="Lignes" value="Actives" />
+                </>
+            )}
+            {drType === "brush" && (
+                <>
+                    <ReadOnlyOptionState label="Tracé" value="Libre" />
+                    <SettingsToggle label="Remplissage" theme="light" checked={dr.style.fillEnabled !== false} onChange={(val) => updateDrawing(dr.id, { style: { ...dr.style, fillEnabled: val } })} />
+                </>
+            )}
+            {drType === "highlighter" && (
+                <>
+                    <ReadOnlyOptionState label="Surlignage" value="Transparent" />
+                    <SettingsToggle label="Remplissage" theme="light" checked={dr.style.fillEnabled !== false} onChange={(val) => updateDrawing(dr.id, { style: { ...dr.style, fillEnabled: val } })} />
                 </>
             )}
         </div>

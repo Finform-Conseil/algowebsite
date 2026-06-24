@@ -17,7 +17,7 @@ from rag_compact import format_explain, format_results
 from rag_context import context as format_context
 from rag_eval import format_eval, run_eval
 from rag_gate import gate
-from rag_index import INDEX_VERSION, RAG_INDEX_PATH, build_index, read_index
+from rag_index import RAG_INDEX_PATH, build_index, is_fresh, read_index, requested_index_mode
 from rag_interface import DEFAULT_SCRIBE, doctor, source_snapshot
 from rag_preflight import preflight
 from rag_scoring import retrieve
@@ -25,10 +25,11 @@ from rag_whoami import format_whoami
 
 
 def current_index(force: bool = False, *, with_embeddings: bool | None = None):
-    if not force and with_embeddings is None:
+    requested_mode = requested_index_mode(with_embeddings)
+    if not force:
         index = read_index()
         snapshot = source_snapshot()
-        if index and index.get("version") == INDEX_VERSION and index.get("source_sha256") == snapshot["sha256"]:
+        if is_fresh(index, snapshot, requested_mode):
             return index
     return build_index(force=force, with_embeddings=bool(with_embeddings))
 
