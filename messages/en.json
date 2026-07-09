@@ -1,0 +1,317 @@
+{
+  "nav": {
+    "search": "Search stocks, bonds, funds...",
+    "getStarted": "Get Started",
+    "equity": "Equity",
+    "fixedIncome": "Fixed Income",
+    "funds": "Funds",
+    "macro": "Macro",
+    "equity_items": {
+      "stockScreener": "Stock Screener",
+      "stockComparison": "Stock Comparison",
+      "africanExchanges": "African Exchanges",
+      "marketMovers": "Market Movers",
+      "equityTools": "Equity Tools",
+      "technicalAnalysis": "Technical Analysis",
+      "financialAnalysis": "Financial Analysis",
+      "sectors": "Sectors",
+      "corporateEvents": "Corporate Events",
+      "ipo": "IPO & Listings",
+      "splits": "Splits",
+      "reverseSplit": "Reverse Split",
+      "merger": "Merger",
+      "acquisitions": "Acquisitions",
+      "delisting": "Delisting",
+      "bankruptcy": "Bankruptcy",
+      "spinOff": "Spin-off",
+      "dividend": "Dividend",
+      "rightsIssue": "Rights Issue",
+      "shareBuyback": "Share Buyback",
+      "watchlistPortfolio": "Watchlist & Portfolio"
+    },
+    "fixedIncome_items": {
+      "screener": "Fixed Income Screener",
+      "publicSecurities": "Public Securities Market",
+      "primaryScreener": "Primary Screener",
+      "secondaryScreener": "Secondary Screener",
+      "financialMarket": "Financial Market",
+      "amortization": "Amortization Table",
+      "bondSwap": "Bond Swap",
+      "simulator": "Bond Simulator",
+      "bondData": "Bond Data",
+      "investmentSummary": "Investment Summary",
+      "debtSecurities": "Debt securities"
+    },
+    "funds_items": {
+      "screener": "Funds Screener",
+      "comparison": "Funds Comparison",
+      "titans": "Titans Asset Management",
+      "topflop": "Top/Flop Funds",
+      "simulator": "Subscription Simulator",
+      "learn": "Learn Funds"
+    },
+    "macro_items": {
+      "keyIndicators": "Key Indicators",
+      "currencies": "Currencies & Central Banks",
+      "publicFinances": "Public Finances",
+      "externalSector": "External Sector & FX",
+      "economicCalendar": "Economic Calendar",
+      "macroAnalysis": "Macro Analysis"
+    }
+  },
+  "home": {
+    "ourUniverses": "Our Universes",
+    "universes": {
+      "equity": {
+        "title": "Equity",
+        "description": "Real-time stock market data across 6 African exchanges with advanced screening tools"
+      },
+      "fixedIncome": {
+        "title": "Fixed Income",
+        "description": "Comprehensive bond market intelligence and yield curve analysis"
+      },
+      "opcvm": {
+        "title": "OPCVM",
+        "description": "Mutual funds performance tracking and comparison tools"
+      },
+      "macro": {
+        "title": "Macro",
+        "description": "Macroeconomic indicators and country-level insights"
+      }
+    },
+    "exchange": {
+      "companies": "Companies",
+      "volume": "Volume",
+      "marketCap": "Market Cap"
+    },
+    "ai": {
+      "label": "AI INSIGHT",
+      "justNow": "Just now"
+    },
+    "insights": {
+      "marketAlert": "Market Alert",
+      "marketAlertMsg": "BRVM index up 2.3% - Strong momentum detected",
+      "aiRecommendation": "AI Recommendation",
+      "aiRecommendationMsg": "Equity sector showing bullish signals across 4 exchanges",
+      "opportunityDetected": "Opportunity Detected",
+      "opportunityMsg": "Fixed Income: High-yield bonds available in Senegal",
+      "portfolioInsight": "Portfolio Insight",
+      "portfolioMsg": "OPCVM diversification opportunity in West Africa",
+      "macroUpdate": "Macro Update",
+      "macroMsg": "GDP growth forecast revised upward for Nigeria"
+    }
+  },
+  "equity": {
+    "title": "African Equity Markets",
+    "subtitle": "Real-time market data and comprehensive equity analysis",
+    "tools": {
+      "sectionTitle": "Equity Analysis Tools",
+      "stockScreener": {
+        "title": "Stock Screener",
+        "description": "Advanced filtering and screening tools"
+      },
+      "marketMovers": {
+        "title": "Market Movers",
+        "description": "Top gainers and losers across markets"
+      },
+      "sectorsAnalysis": {
+        "title": "Sectors Analysis",
+        "description": "Sector performance and trends"
+      },
+      "ipoCalendar": {
+        "title": "IPO Calendar",
+        "description": "Upcoming and recent IPOs"
+      },
+      "corporateEvents": {
+        "title": "Corporate Events",
+        "description": "Earnings, dividends, and more"
+      },
+      "technicalAnalysis": {
+        "title": "Technical Analysis",
+        "description": "Charts and technical indicators"
+      }
+    },
+    "news": {
+      "recommended": "Recommended",
+      "readMore": "Read More",
+      "categories": {
+        "marketUpdate": "Market Update",
+        "corporateNews": "Corporate News",
+        "sectorAnalysis": "Sector Analysis",
+        "banking": "Banking"
+      }
+    }
+  },
+  "fixedIncome": {
+    "title": "African Fixed Income",
+    "subtitle": "Bond market intelligence, yield curves and primary market opportunities",
+    "sections": {
+      "yieldCurve": "Yield Curve",
+      "marketOpportunities": "Market Opportunities",
+      "countryOverview": "Country Overview",
+      "news": "Bond Market News"
+    },
+    "filters": {
+      "allCountries": "All Countries",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "category": "Category",
+      "all": "All",
+      "news": "News",
+      "circulars": "Circulars",
+      "pressReleases": "Press Releases",
+      "consultations": "Consultations"
+    },
+    "opportunity": {
+      "auction": "Auction",
+      "issuance": "Issuance",
+      "tender": "Tender",
+      "yield": "Yield",
+      "maturity": "Maturity",
+      "deadline": "Deadline",
+      "amount": "Amount"
+    },
+    "table": {
+      "country": "Country",
+      "avgYield": "Avg. Yield",
+      "change": "Change",
+      "volume": "Volume",
+      "activeIssues": "Active Issues"
+    }
+  },
+  "opcvm": {
+    "title": "African Funds Universe",
+    "subtitle": "Explore the African investment funds ecosystem",
+    "controls": {
+      "exchange": "Exchange",
+      "allExchanges": "All exchanges",
+      "sortBy": "Sort By",
+      "byRating": "By rating",
+      "byPerformance": "By performance",
+      "byRisk": "By risk",
+      "view": "View",
+      "performance": "Performance",
+      "count": "Count",
+      "navPerformance": "NAV Performance",
+      "numberOfFunds": "Number of Funds"
+    },
+    "stats": {
+      "trackedFunds": "Tracked Funds",
+      "exchanges": "Exchanges"
+    },
+    "funds": {
+      "topRated": "Top Rated Funds",
+      "performance": "Performance",
+      "score": "Score",
+      "methodology": "Methodology",
+      "topFunds": "Top Funds",
+      "ratingMethodology": "Rating Methodology",
+      "ratingDescription": "5★ rating based on risk-adjusted performance.",
+      "steps": {
+        "ratio": "Ratio",
+        "ratioDesc": "Performance / Volatility",
+        "ranking": "Ranking",
+        "rankingDesc": "Descending sort",
+        "groups": "Groups",
+        "groupsDesc": "5 balanced groups",
+        "assignment": "Assignment",
+        "assignmentDesc": "5★ to 1★"
+      }
+    },
+    "tools": {
+      "sectionTitle": "Funds Tools & Resources",
+      "screener": {
+        "title": "Funds Screener",
+        "description": "Filter and compare funds according to your investment criteria"
+      },
+      "comparison": {
+        "title": "Comparison",
+        "description": "Analyze side-by-side performance of multiple funds"
+      },
+      "titans": {
+        "title": "Funds Titans",
+        "description": "Discover leading managers and companies in the market"
+      },
+      "simulator": {
+        "title": "Simulator",
+        "description": "Simulate your investments and return projections"
+      },
+      "learn": {
+        "title": "Learn",
+        "description": "Guides and resources to master Funds investment"
+      }
+    }
+  },
+  "macro": {
+    "title": "African Macroeconomic Indicators",
+    "subtitle": "Track key economic metrics and trends across African markets",
+    "sectionTitle": "Macro Economy Universe",
+    "tools": {
+      "keyIndicators": {
+        "title": "Key Economic Indicators",
+        "description": "Growth, inflation, employment, and economic conditions"
+      },
+      "currencies": {
+        "title": "Currency & Central Banks",
+        "description": "Monetary policies and interest rates"
+      },
+      "publicFinance": {
+        "title": "Public Finance & Budget",
+        "description": "Deficits, Debt, and Fiscal Policy"
+      },
+      "foreignTrade": {
+        "title": "Foreign Trade & Currencies",
+        "description": "International Trade and Exchange Rates"
+      },
+      "macroAnalysis": {
+        "title": "Macro Analysis",
+        "description": "Macro Analysis"
+      },
+      "economicCalendar": {
+        "title": "Macroeconomic Calendar",
+        "description": "Macroeconomic Calendar"
+      }
+    },
+    "categories": {
+      "analysis": "Analysis",
+      "reports": "Report",
+      "insights": "Insights",
+      "updates": "Update"
+    },
+    "analysis": {
+      "recommended": "Recommended Analyses",
+      "readMore": "Read analysis →",
+      "readTime": "5 min"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "noData": "No data available",
+    "search": "Search...",
+    "filter": "Filter",
+    "reset": "Reset",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "viewAll": "View All",
+    "readMore": "Read More",
+    "seeMore": "See More",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "refresh": "Refresh",
+    "download": "Download",
+    "export": "Export",
+    "allExchanges": "All Exchanges",
+    "positive": "Positive",
+    "negative": "Negative",
+    "neutral": "Neutral",
+    "na": "N/A",
+    "yes": "Yes",
+    "no": "No"
+  }
+}

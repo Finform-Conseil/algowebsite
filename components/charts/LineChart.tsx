@@ -14,9 +14,10 @@ interface LineChartProps {
   };
   title?: string;
   height?: string;
+  legendPosition?: 'top' | 'bottom';
 }
 
-export default function LineChart({ data, title, height = '200px' }: LineChartProps) {
+export default function LineChart({ data, title, height = '200px', legendPosition = 'bottom' }: LineChartProps) {
   const option: EChartsOption = {
     backgroundColor: 'transparent',
     title: title ? {
@@ -109,7 +110,7 @@ export default function LineChart({ data, title, height = '200px' }: LineChartPr
         color: 'var(--text-secondary)',
         fontSize: 10,
       },
-      top: 'bottom',
+      top: legendPosition === 'top' ? 'top' : 'bottom',
     },
   };
 

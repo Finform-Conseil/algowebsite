@@ -397,3 +397,215 @@
     }
   }
 }
+
+// ============================================
+// LOCALE SWITCHER
+// ============================================
+.locale-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 3px;
+
+  .locale-btn {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'DM Mono', monospace;
+
+    &:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    &.active {
+      background: rgba(240, 165, 0, 0.15);
+      color: #f0a500;
+      border: 1px solid rgba(240, 165, 0, 0.3);
+    }
+  }
+}
+
+// ============================================
+// CURRENCY SWITCHER
+// ============================================
+.currency-switcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .currency-trigger {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'DM Mono', monospace;
+
+    &:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .currency-flag {
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    .currency-code {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .currency-caret {
+      transition: transform 0.2s ease;
+      color: rgba(255, 255, 255, 0.4);
+
+      &.open {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
+  .currency-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    background: var(--card-background, #1a1a2e);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    min-width: 260px;
+    z-index: 1000;
+    overflow: hidden;
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .currency-rates-label {
+      font-size: 0.65rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      color: rgba(255, 255, 255, 0.3);
+      font-family: 'DM Mono', monospace;
+    }
+
+    &__footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.25);
+      line-height: 1.4;
+    }
+  }
+
+  .currency-list {
+    list-style: none;
+    padding: 4px;
+    margin: 0;
+    max-height: 320px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+  }
+
+  .currency-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 0.8rem;
+    text-align: left;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+    }
+
+    &.active {
+      background: rgba(240, 165, 0, 0.1);
+      color: #f0a500;
+    }
+
+    &__flag {
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    &__code {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      min-width: 34px;
+    }
+
+    &__name {
+      flex: 1;
+      font-size: 0.78rem;
+      color: inherit;
+      opacity: 0.8;
+    }
+
+    &__symbol {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.35);
+      min-width: 28px;
+      text-align: right;
+    }
+
+    &__check {
+      color: #f0a500;
+      flex-shrink: 0;
+    }
+  }
+}

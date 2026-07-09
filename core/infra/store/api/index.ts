@@ -14,6 +14,8 @@ import { industryApi } from "./industry.api";
 import { activityApi } from "./activity.api";
 import { resultApi } from "./result.api";
 import { fileApi } from "./file.api";
+import { primaryApi } from "./primary.api";
+import { secondaryApi } from "./secondary.api";
 import { dividendApi } from "./dividend.api";
 import { actionnariatApi } from "./actionnariat.api";
 import { opcvmApi, opcvmMetricApi } from "./opcvm.api";
@@ -166,6 +168,30 @@ export const {
   useUpdateMacroMutation,
   endpoints: { createMacro, uploadSectorFinances, uploadSectorForeign, uploadSectorMonetary, uploadSectorReal, deleteMacro, getAllSectorFinances, getAllSectorForeign, getAllSectorMonetary, getAllSectorReal, getMacroById, updateMacro },
 } = macroApi;
+
+export const {
+  useCreatePrimaryMutation,
+  useUploadPrimariesMutation,
+  useDeletePrimaryMutation,
+  useGetAllPrimariesQuery,
+  useLazyGetAllPrimariesQuery,
+  useGetPrimaryByIdQuery,
+  useGetBondCashflowsBySecurityQuery,
+  useLazyGetBondCashflowsBySecurityQuery,
+  useUpdatePrimaryMutation,
+  endpoints: { createPrimary, uploadPrimaries, deletePrimary, getAllPrimaries, getPrimaryById, getBondCashflowsBySecurity, updatePrimary },
+} = primaryApi;
+
+export const {
+  useCreateSecondaryMutation,
+  useUploadSecondariesMutation,
+  useDeleteSecondaryMutation,
+  useGetAllSecondariesQuery,
+  useLazyGetAllSecondariesQuery,
+  useGetSecondaryByIdQuery,
+  useUpdateSecondaryMutation,
+  endpoints: { createSecondary, uploadSecondaries, deleteSecondary, getAllSecondaries, getSecondaryById, updateSecondary },
+} = secondaryApi;
 
 export const {
   useCreateSheetMutation,

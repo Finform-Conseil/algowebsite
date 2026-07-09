@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import LocaleSwitcher from './LocaleSwitcher';
+import CurrencySwitcher from './CurrencySwitcher';
 import { 
   MagnifyingGlass, 
   ChartLine, 
@@ -44,6 +47,7 @@ type NavItem = {
 };
 
 export default function Navbar() {
+  const t = useTranslations('nav');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
@@ -99,90 +103,90 @@ export default function Navbar() {
   const navItems: NavItem[] = [
     {
       href: '/equity',
-      label: 'Equity',
+      label: t('equity'),
       // icon: <ChartLine size={18} weight="duotone" />,
       items: [
-        { href: '/equity/screener', label: 'Stock Screener', icon: <Funnel size={16} weight="duotone" /> },
-        { href: '/equity/comparison', label: 'Stock Comparison', icon: <Scales size={16} weight="duotone" /> },
-        { href: '/equity/bourses', label: 'African Exchanges', icon: <Bank size={16} weight="duotone" /> },
-        { href: '/equity/market-movers', label: 'Market Movers', icon: <Rocket size={16} weight="duotone" /> },
+        { href: '/equity/screener', label: t('equity_items.stockScreener'), icon: <Funnel size={16} weight="duotone" /> },
+        { href: '/equity/comparison', label: t('equity_items.stockComparison'), icon: <Scales size={16} weight="duotone" /> },
+        { href: '/equity/bourses', label: t('equity_items.africanExchanges'), icon: <Bank size={16} weight="duotone" /> },
+        { href: '/equity/market-movers', label: t('equity_items.marketMovers'), icon: <Rocket size={16} weight="duotone" /> },
         { 
           href: '/equity/tools', 
-          label: 'Equity Tools', 
+          label: t('equity_items.equityTools'), 
           icon: <Wrench size={16} weight="duotone" />,
           subItems: [
-            { href: '/equity/technical-analysis', label: 'Technical Analysis', icon: <ChartLineUp size={16} weight="duotone" /> },
-            { href: '/equity/financial-analysis', label: 'Financial Analysis', icon: <ChartBar size={16} weight="duotone" /> },
+            { href: '/equity/technical-analysis', label: t('equity_items.technicalAnalysis'), icon: <ChartLineUp size={16} weight="duotone" /> },
+            { href: '/equity/financial-analysis', label: t('equity_items.financialAnalysis'), icon: <ChartBar size={16} weight="duotone" /> },
           ]
         },
-        { href: '/equity/sectors', label: 'Sectors', icon: <Factory size={16} weight="duotone" /> },
+        { href: '/equity/sectors', label: t('equity_items.sectors'), icon: <Factory size={16} weight="duotone" /> },
         { 
           href: '/equity/corporate-events', 
-          label: 'Corporate Events', 
+          label: t('equity_items.corporateEvents'), 
           icon: <CalendarDots size={16} weight="duotone" />,
           subItems: [
-            { href: '/equity/corporate-events/ipo', label: 'IPO & Listings', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/splits', label: 'Splits', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/reverse-split', label: 'Reverse Split', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/merger', label: 'Merger', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/acquisitions', label: 'Acquisitions', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/delisting', label: 'Delisting', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/bankruptcy', label: 'Bankruptcy', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/spin-off', label: 'Spin-off', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/dividend', label: 'Dividend', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/rights-issue', label: 'Rights Issue', icon: <Target size={16} weight="duotone" /> },
-            { href: '/equity/corporate-events/share-buyback', label: 'Share Buyback', icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/ipo', label: t('equity_items.ipo'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/splits', label: t('equity_items.splits'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/reverse-split', label: t('equity_items.reverseSplit'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/merger', label: t('equity_items.merger'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/acquisitions', label: t('equity_items.acquisitions'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/delisting', label: t('equity_items.delisting'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/bankruptcy', label: t('equity_items.bankruptcy'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/spin-off', label: t('equity_items.spinOff'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/dividend', label: t('equity_items.dividend'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/rights-issue', label: t('equity_items.rightsIssue'), icon: <Target size={16} weight="duotone" /> },
+            { href: '/equity/corporate-events/share-buyback', label: t('equity_items.shareBuyback'), icon: <Target size={16} weight="duotone" /> },
           ]
         },
-        { href: '/equity/watchlist-portfolio', label: 'Watchlist & Portfolio', icon: <Star size={16} weight="duotone" /> },
+        { href: '/equity/watchlist-portfolio', label: t('equity_items.watchlistPortfolio'), icon: <Star size={16} weight="duotone" /> },
       ]
     },
     {
       href: '/fixed-income',
-      label: 'Fixed Income',
+      label: t('fixedIncome'),
       // icon: <Vault size={18} weight="duotone" />,
       items: [
         { 
           href: '/fixed-income/screener', 
-          label: 'Fixed Income Screener', 
+          label: t('fixedIncome_items.screener'), 
           icon: <Funnel size={16} weight="duotone" />,
           subItems: [
             {
               href: '/fixed-income/screener/public-securities',
-              label: 'Public Securities Market',
+              label: t('fixedIncome_items.publicSecurities'),
               icon: <Bank size={16} weight="duotone" />,
               subItems: [
-                { href: '/fixed-income/screener/public-securities/primary', label: 'Primary Screener', icon: <ChartLineUp size={16} weight="duotone" /> },
-                { href: '/fixed-income/screener/public-securities/secondary', label: 'Secondary Screener', icon: <ChartBar size={16} weight="duotone" /> },
+                { href: '/fixed-income/screener/public-securities/primary', label: t('fixedIncome_items.primaryScreener'), icon: <ChartLineUp size={16} weight="duotone" /> },
+                { href: '/fixed-income/screener/public-securities/secondary', label: t('fixedIncome_items.secondaryScreener'), icon: <ChartBar size={16} weight="duotone" /> },
               ]
             },
             {
               href: '/fixed-income/screener/financial-market',
-              label: 'Financial Market',
+              label: t('fixedIncome_items.financialMarket'),
               icon: <TrendUp size={16} weight="duotone" />,
               subItems: [
-                { href: '/fixed-income/screener/financial-market/primary', label: 'Primary Screener', icon: <ChartLineUp size={16} weight="duotone" /> },
-                { href: '/fixed-income/screener/financial-market/secondary', label: 'Secondary Screener', icon: <ChartBar size={16} weight="duotone" /> },
+                { href: '/fixed-income/screener/financial-market/primary', label: t('fixedIncome_items.primaryScreener'), icon: <ChartLineUp size={16} weight="duotone" /> },
+                { href: '/fixed-income/screener/financial-market/secondary', label: t('fixedIncome_items.secondaryScreener'), icon: <ChartBar size={16} weight="duotone" /> },
               ]
             }
           ]
         },
-        { href: '/fixed-income/amortization', label: 'Amortization Table', icon: <ChartLine size={16} weight="duotone" /> },
-        { href: '/fixed-income/bond-swap', label: 'Bond Swap', icon: <Scales size={16} weight="duotone" /> },
-        { href: '/fixed-income/simulator', label: 'Bond Simulator', icon: <ChartLine size={16} weight="duotone" /> },
+        { href: '/fixed-income/amortization', label: t('fixedIncome_items.amortization'), icon: <ChartLine size={16} weight="duotone" /> },
+        { href: '/fixed-income/bond-swap', label: t('fixedIncome_items.bondSwap'), icon: <Scales size={16} weight="duotone" /> },
+        { href: '/fixed-income/simulator', label: t('fixedIncome_items.simulator'), icon: <ChartLine size={16} weight="duotone" /> },
         { 
           href: '/fixed-income/data', 
-          label: 'Bond Data', 
+          label: t('fixedIncome_items.bondData'), 
           icon: <Funnel size={16} weight="duotone" />,
           subItems: [
             {
               href: '/fixed-income/data/',
-              label: 'Investment Summary',
+              label: t('fixedIncome_items.investmentSummary'),
               icon: <Bank size={16} weight="duotone" />
             },
             {
               href: '/fixed-income/data',
-              label: 'Debt securities',
+              label: t('fixedIncome_items.debtSecurities'),
               icon: <TrendUp size={16} weight="duotone" />
             }
           ]
@@ -191,28 +195,28 @@ export default function Navbar() {
     },
     {
       href: '/opcvm',
-      label: 'Funds',
+      label: t('funds'),
       // icon: <ChartPieSlice size={18} weight="duotone" />,
       items: [
-        { href: '/opcvm/screener', label: 'Funds Screener', icon: <Funnel size={16} weight="duotone" /> },
-        { href: '/opcvm/comparison', label: 'Funds Comparison', icon: <Scales size={16} weight="duotone" /> },
-        { href: '/opcvm/titans', label: 'Titans Asset Management', icon: <Trophy size={16} weight="duotone" /> },
-        { href: '/opcvm/topflop', label: 'Top/Flop Funds', icon: <Trophy size={16} weight="duotone" /> },
-        { href: '/opcvm/simulator', label: 'Subscription Simulator', icon: <ChartLine size={16} weight="duotone" /> },
-        { href: '/opcvm/learn', label: 'Learn Funds', icon: <GraduationCap size={16} weight="duotone" /> },
+        { href: '/opcvm/screener', label: t('funds_items.screener'), icon: <Funnel size={16} weight="duotone" /> },
+        { href: '/opcvm/comparison', label: t('funds_items.comparison'), icon: <Scales size={16} weight="duotone" /> },
+        { href: '/opcvm/titans', label: t('funds_items.titans'), icon: <Trophy size={16} weight="duotone" /> },
+        { href: '/opcvm/topflop', label: t('funds_items.topflop'), icon: <Trophy size={16} weight="duotone" /> },
+        { href: '/opcvm/simulator', label: t('funds_items.simulator'), icon: <ChartLine size={16} weight="duotone" /> },
+        { href: '/opcvm/learn', label: t('funds_items.learn'), icon: <GraduationCap size={16} weight="duotone" /> },
       ]
     },
     {
       href: '/macro',
-      label: 'Macro',
+      label: t('macro'),
       // icon: <Globe size={18} weight="duotone" />,
       items: [
-        { href: '/macro/key-indicators', label: 'Key Indicators', icon: <ChartLineUp size={16} weight="duotone" /> },
-        { href: '/macro/currencies-central-banks', label: 'Currencies & Central Banks', icon: <CurrencyCircleDollar size={16} weight="duotone" /> },
-        { href: '/macro/public-finances', label: 'Public Finances', icon: <Briefcase size={16} weight="duotone" /> },
-        { href: '/macro/external-sector-fx', label: 'External Sector & FX', icon: <TrendUp size={16} weight="duotone" /> },
-        { href: '/macro/economic-calendar', label: 'Economic Calendar', icon: <CalendarDots size={16} weight="duotone" /> },
-        { href: '/macro/macro-analysis', label: 'Macro Analysis', icon: <ChartBar size={16} weight="duotone" /> },
+        { href: '/macro/key-indicators', label: t('macro_items.keyIndicators'), icon: <ChartLineUp size={16} weight="duotone" /> },
+        { href: '/macro/currencies-central-banks', label: t('macro_items.currencies'), icon: <CurrencyCircleDollar size={16} weight="duotone" /> },
+        { href: '/macro/public-finances', label: t('macro_items.publicFinances'), icon: <Briefcase size={16} weight="duotone" /> },
+        { href: '/macro/external-sector-fx', label: t('macro_items.externalSector'), icon: <TrendUp size={16} weight="duotone" /> },
+        { href: '/macro/economic-calendar', label: t('macro_items.economicCalendar'), icon: <CalendarDots size={16} weight="duotone" /> },
+        { href: '/macro/macro-analysis', label: t('macro_items.macroAnalysis'), icon: <ChartBar size={16} weight="duotone" /> },
       ]
     },
   ];
@@ -232,7 +236,7 @@ export default function Navbar() {
         </svg>
         <input
           type="text"
-          placeholder="Search stocks, bonds, funds..."
+          placeholder={t('search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
@@ -313,7 +317,9 @@ export default function Navbar() {
             )}
           </li>
         ))}
-        <li><Link href="#" className="nav-cta">Get Started →</Link></li>
+        <li><CurrencySwitcher /></li>
+        <li><LocaleSwitcher /></li>
+        <li><Link href="#" className="nav-cta">{t('getStarted')}</Link></li>
       </ul>
     </nav>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import TreemapChart, { TreemapNode } from '@/components/charts/TreemapChart';
 import { useBourseRepository } from '@/core/infra/repositories/bourse.repository.impl';
@@ -9,10 +10,9 @@ import { BourseQueryParams } from '@/core/domain/types/bourse.type';
 
 const exchanges = ['All', 'BRVM', 'CSE', 'GSE', 'JSE', 'NSE', 'NGX'];
 
-const equityTools = [
+const EQUITY_TOOL_DEFS = [
   {
-    title: 'Stock Screener',
-    description: 'Advanced filtering and screening tools',
+    key: 'stockScreener' as const,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="11" cy="11" r="8"/>
@@ -23,8 +23,7 @@ const equityTools = [
     color: '#00BFFF',
   },
   {
-    title: 'Market Movers',
-    description: 'Top gainers and losers across markets',
+    key: 'marketMovers' as const,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
@@ -35,8 +34,7 @@ const equityTools = [
     color: '#00BFFF',
   },
   {
-    title: 'Sectors Analysis',
-    description: 'Sector performance and trends',
+    key: 'sectorsAnalysis' as const,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="7" height="7"/>
@@ -49,8 +47,7 @@ const equityTools = [
     color: '#00BFFF',
   },
   {
-    title: 'IPO Calendar',
-    description: 'Upcoming and recent IPOs',
+    key: 'ipoCalendar' as const,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -63,8 +60,7 @@ const equityTools = [
     color: '#00BFFF',
   },
   {
-    title: 'Corporate Events',
-    description: 'Earnings, dividends, and more',
+    key: 'corporateEvents' as const,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
@@ -75,8 +71,7 @@ const equityTools = [
     color: '#00BFFF',
   },
   {
-    title: 'Technical Analysis',
-    description: 'Charts and technical indicators',
+    key: 'technicalAnalysis' as const,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <line x1="12" y1="20" x2="12" y2="10"/>
@@ -139,8 +134,16 @@ const newsArticles: NewsArticle[] = [
 ];
 
 export default function EquityHomePage() {
+  const t = useTranslations('equity');
+  const tCommon = useTranslations('common');
   const [selectedExchange, setSelectedExchange] = useState('All');
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
+
+  const equityTools = EQUITY_TOOL_DEFS.map((tool) => ({
+    ...tool,
+    title: t(`tools.${tool.key}.title` as Parameters<typeof t>[0]),
+    description: t(`tools.${tool.key}.description` as Parameters<typeof t>[0]),
+  }));
 
 
   const { params: queryParams } = useQueryParams<BourseQueryParams>({ view_type: "treemap", page: 1, page_size: 10 });
@@ -322,8 +325,8 @@ export default function EquityHomePage() {
         >
           <div className="header-main">
             <div className="header-content">
-              <h1>African Equity Markets</h1>
-              <p>Real-time market data and comprehensive equity analysis</p>
+              <h1>{t('title')}</h1>
+              <p>{t('subtitle')}</p>
             </div>
             
             {/* Exchange Filters */}
@@ -356,7 +359,7 @@ export default function EquityHomePage() {
 
           {/* Equity Tools Grid */}
           <div className="equity-tools-section">
-            <h2 className="section-title">Equity Analysis Tools</h2>
+            <h2 className="section-title">{t('tools.sectionTitle')}</h2>
             <div className="tools-grid">
               {equityTools.map((tool, idx) => (
                 <Link key={idx} href={tool.link} className="tool-card">
@@ -443,7 +446,7 @@ export default function EquityHomePage() {
               <h3 className="news-title">{currentNews.title}</h3>
               <p className="news-excerpt">{currentNews.excerpt}</p>
               <Link href="/equity/news-articles" className="read-more-btn">
-                Read More
+                {t('news.readMore')}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M5 12h14M12 5l7 7-7 7"/>
                 </svg>
@@ -453,7 +456,7 @@ export default function EquityHomePage() {
 
           {/* Recommended Articles */}
           <div className="recommended-news">
-            <h3 className="recommended-title">Recommended</h3>
+            <h3 className="recommended-title">{t('news.recommended')}</h3>
             <div className="recommended-grid">
               {recommendedNews.map((article) => (
                 <Link key={article.id} href="/equity/news-articles" className="recommended-card">

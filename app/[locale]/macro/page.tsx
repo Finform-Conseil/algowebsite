@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 
 type AnalysisCategory = "analysis" | "reports" | "insights" | "updates";
 interface MacroAnalysis {
@@ -14,8 +15,9 @@ interface MacroAnalysis {
   featured: boolean;
 }
 
-const macroPages = [
+const MACRO_TOOL_KEYS = [
   {
+    key: 'keyIndicators',
     title: "Key Economic Indicators",
     description: "Growth, inflation, employment, and economic conditions",
     icon: (
@@ -35,6 +37,7 @@ const macroPages = [
     color: "#00BFFF",
   },
   {
+    key: 'currencies',
     title: "Currency & Central Banks",
     description: "Monetary policies and interest rates",
     icon: (
@@ -54,6 +57,7 @@ const macroPages = [
     color: "#00BFFF",
   },
   {
+    key: 'publicFinance',
     title: "Public Finance & Budget",
     description: "Deficits, Debt, and Fiscal Policy",
     icon: (
@@ -75,6 +79,7 @@ const macroPages = [
     color: "#00BFFF",
   },
   {
+    key: 'foreignTrade',
     title: "Foreign Trade & Currencies",
     description: "International Trade and Exchange Rates",
     icon: (
@@ -96,6 +101,7 @@ const macroPages = [
     color: "#00BFFF",
   },
   {
+    key: 'macroAnalysis',
     title: "Macro Analysis",
     description: "Macro Analysis",
     icon: (
@@ -115,6 +121,7 @@ const macroPages = [
     color: "#00BFFF",
   },
   {
+    key: 'economicCalendar',
     title: "Macroeconomic Calendar",
     description: "Macroeconomic Calendar",
     icon: (
@@ -137,6 +144,7 @@ const macroPages = [
 ];
 
 export default function MacroHomePage() {
+  const t = useTranslations('macro');
   const [countdown, setCountdown] = useState(15);
 
   const [currentAnalysisIndex, setCurrentAnalysisIndex] = useState(0);
@@ -188,14 +196,14 @@ export default function MacroHomePage() {
   const featuredAnalyses = mockAnalyses.filter((a) => a.featured);
 
   const getCategoryLabel = (category: AnalysisCategory): string => {
-    const labels: Record<AnalysisCategory, string> = {
-      analysis: "Analyse",
-      reports: "Rapport",
-      insights: "Insights",
-      updates: "Mise à jour",
-    };
-    return labels[category];
+    return t(`categories.${category}` as Parameters<typeof t>[0]);
   };
+
+  const macroPages = MACRO_TOOL_KEYS.map((tool) => ({
+    ...tool,
+    title: t(`tools.${tool.key}.title` as Parameters<typeof t>[0]),
+    description: t(`tools.${tool.key}.description` as Parameters<typeof t>[0]),
+  }));
   const handleAnalysisNavigation = (direction: "prev" | "next") => {
     if (direction === "next") {
       setCurrentAnalysisIndex((prev) => (prev + 1) % featuredAnalyses.length);
@@ -220,8 +228,8 @@ export default function MacroHomePage() {
           }}
         >
           <div className="header-content">
-            <h1>African Macroeconomic Indicators</h1>
-            <p>Track key economic metrics and trends across African markets</p>
+            <h1>{t('title')}</h1>
+            <p>{t('subtitle')}</p>
           </div>
         </div>
       </div>
@@ -229,7 +237,7 @@ export default function MacroHomePage() {
       <div className="macro-content">
         <div className="left-column">
           <div className="macro-tools-section">
-            <h2 className="section-title">Macro Economy Universe</h2>
+            <h2 className="section-title">{t('sectionTitle')}</h2>
             <div className="tools-grid">
               {macroPages.map((tool, idx) => (
                 <Link key={idx} href={tool.link} className="tool-card">
@@ -364,7 +372,7 @@ export default function MacroHomePage() {
                       <span className="meta-read">5 min</span>
                     </div>
                     <Link href="/macro" className="read-more-btn">
-                      Lire l'analyse →
+                      {t('analysis.readMore')}
                     </Link>
                   </div>
                 </div>
@@ -372,7 +380,7 @@ export default function MacroHomePage() {
             </div>
 
             <div className="recommended-analysis-section">
-              <h3 className="recommended-title">Analyses Recommandées</h3>
+              <h3 className="recommended-title">{t('analysis.recommended')}</h3>
               <div className="recommended-analysis-grid">
                 {mockAnalyses.slice(0, 2).map((analysis) => (
                   <Link

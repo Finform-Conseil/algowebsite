@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import RadarChart from '@/components/charts/RadarChart';
 import HeatmapChart from '@/components/charts/HeatmapChart';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface ComparisonPanelProps {
   stocks: ActionEntity[];
@@ -11,6 +12,7 @@ interface ComparisonPanelProps {
 }
 
 export default function ComparisonPanel({ stocks, onClose }: ComparisonPanelProps) {
+  const { format, formatLarge } = useCurrency();
   const radarData = useMemo(() => {
     const colors = ['#00BFFF', '#FF9F04', '#4ade80', '#f87171', '#a78bfa'];
     
@@ -95,9 +97,7 @@ export default function ComparisonPanel({ stocks, onClose }: ComparisonPanelProp
                     <td className="metric-label">Prix</td>
                     {stocks.map((s) => (
                       <td key={s.id}>
-                        {s.latest_price_metric?.price 
-                          ? `${s.latest_price_metric.price.toFixed(2)} ${s.bourse.currency}` 
-                          : 'N/A'}
+                        {format(s.latest_price_metric?.price, s.bourse.currency?.code || 'XOF')}
                       </td>
                     ))}
                   </tr>
@@ -105,9 +105,7 @@ export default function ComparisonPanel({ stocks, onClose }: ComparisonPanelProp
                     <td className="metric-label">Capitalisation</td>
                     {stocks.map((s) => (
                       <td key={s.id}>
-                        {s.latest_valuation_ratio?.market_cap 
-                          ? `${(s.latest_valuation_ratio.market_cap / 1000000).toFixed(0)}M` 
-                          : 'N/A'}
+                        {formatLarge(s.latest_valuation_ratio?.market_cap, s.bourse.currency?.code || 'XOF')}
                       </td>
                     ))}
                   </tr>

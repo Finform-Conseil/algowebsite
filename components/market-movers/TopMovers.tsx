@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Stock } from '@/types/market-movers';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface TopMoversProps {
   stocks: Stock[];
@@ -72,12 +73,7 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
     return volume.toString();
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    if (currency === 'XOF' || currency === 'NGN') {
-      return price.toLocaleString('fr-FR');
-    }
-    return price.toFixed(2);
-  };
+  const { format, formatLarge } = useCurrency();
 
   return (
     <div className={`top-movers ${type}`}>
@@ -181,14 +177,13 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                       {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}%
                     </span>
                     <span className="change-value">
-                      {stock.change >= 0 ? '+' : ''}{formatPrice(stock.changeValue, stock.currency)}
+                      {stock.change >= 0 ? '+' : ''}{format(stock.changeValue, stock.currency)}
                     </span>
                   </div>
                 </td>
                 <td className="price">
                   <div className="price-content">
-                    <span className="current-price">{formatPrice(stock.price, stock.currency)}</span>
-                    <span className="currency">{stock.currency}</span>
+                    <span className="current-price">{format(stock.price, stock.currency)}</span>
                   </div>
                 </td>
                 <td className="volume">
@@ -251,19 +246,19 @@ export default function TopMovers({ stocks, type }: TopMoversProps) {
                   <div className="details-grid">
                     <div className="detail-item">
                       <span className="label">Open</span>
-                      <span className="value">{formatPrice(stock.open, stock.currency)}</span>
+                      <span className="value">{format(stock.open, stock.currency)}</span>
                     </div>
                     <div className="detail-item">
                       <span className="label">High</span>
-                      <span className="value positive">{formatPrice(stock.high, stock.currency)}</span>
+                      <span className="value positive">{format(stock.high, stock.currency)}</span>
                     </div>
                     <div className="detail-item">
                       <span className="label">Low</span>
-                      <span className="value negative">{formatPrice(stock.low, stock.currency)}</span>
+                      <span className="value negative">{format(stock.low, stock.currency)}</span>
                     </div>
                     <div className="detail-item">
                       <span className="label">Market Cap</span>
-                      <span className="value">{(stock.marketCap / 1000000000).toFixed(2)}B</span>
+                      <span className="value">{formatLarge(stock.marketCap, stock.currency)}</span>
                     </div>
                   </div>
                 </div>

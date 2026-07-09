@@ -5,115 +5,181 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
-import MultiSelect from '@/components/corporate-events/MultiSelect';
+import { usePrimaryRepository } from '@/core/infra/repositories/primary.repository.impl';
+import { useSecondaryRepository } from '@/core/infra/repositories/secondary.repository.impl';
+import { useRateRepository } from '@/core/infra/repositories/rate.repository.impl';
+import { SecondaryEntity } from '@/core/domain/entities/secondary.entity';
+import { RateEntity } from '@/core/domain/entities/rate.entity';
+import { BondCashflowEntity } from '@/core/domain/entities/bond-cashflow.entity';
+import { IssuerEntity } from '@/core/domain/entities/issuer.entity';
 
-type BondType = 'financial-primary' | 'financial-secondary' | 'mtp-secondary' | 'mtp-primary';
 
+const parseNumber = (value: string | number | null | undefined): number => {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = typeof value === 'string' ? parseFloat(value) : value;
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatPercent = (value: string | number | null | undefined): number => {
+  const num = parseNumber(value);
+  return num > 1 ? num : num * 100;
+};
+
+const getMaturityYear = (maturityDate?: string): string => {
+  if (!maturityDate) return '';
+  return maturityDate.split('-')[0];
+};
 
 export default function BondDetailPage() {
   const params = useParams();
-  const bondType = params.type as BondType;
-  const isin = params.isin as string;
+  const id = params.id as string;
 
-  // Mock bond data based on type
+  const {
+    currentPrimaryData,
+    getPrimaryById,
+    getBondCashflowsBySecurity,
+    bondCashflowsData,
+    isLoadingPrimaryById,
+  } = usePrimaryRepository();
+
+  const {
+    getAllSecondaries,
+    allSecondariesData: secondariesData,
+  } = useSecondaryRepository();
+
+  const {
+    getAllRates,
+    allRatesData: ratesData,
+  } = useRateRepository();
+
+  useEffect(() => { getPrimaryById(id); }, [id, getPrimaryById]);
+
+  useEffect(() => {
+    if (id) {
+      getAllSecondaries({ primary: id });
+      getBondCashflowsBySecurity(id);
+    }
+  }, [id, getAllSecondaries, getBondCashflowsBySecurity]);
+
+  const issuer = useMemo(() => {
+    if (!currentPrimaryData?.issuer) return undefined;
+    return typeof currentPrimaryData.issuer === 'string'
+      ? undefined
+      : (currentPrimaryData.issuer as IssuerEntity);
+  }, [currentPrimaryData]);
+
+  const issueLot = useMemo(() => currentPrimaryData?.issue_lots?.[0], [currentPrimaryData]);
+
+  const latestCashflow = useMemo(() => currentPrimaryData?.latest_cashflow, [currentPrimaryData]);
+
+  const secondaries = useMemo(
+    () => (secondariesData?.data ?? []) as SecondaryEntity[],
+    [secondariesData]
+  );
+
+  const cashflows = useMemo(
+    () => (bondCashflowsData?.data ?? []) as BondCashflowEntity[],
+    [bondCashflowsData]
+  );
+
+  const rates = useMemo(() => (ratesData?.data ?? []) as RateEntity[], [ratesData]);
+
+  useEffect(() => {
+    if (issuer?.country) {
+      getAllRates({ country: issuer.country });
+    }
+  }, [issuer?.country, getAllRates]);
+
   const bondData = useMemo(() => {
-    if (bondType === 'financial-primary') {
+    const primary = currentPrimaryData;
+    if (!primary) {
       return {
-        isin: isin || 'CIBRVM001',
-        name: 'Côte d\'Ivoire 6.5% 2028',
-        issuer: 'Republic of Côte d\'Ivoire',
-        country: 'Côte d\'Ivoire',
-        bondType: 'Corporate Bond',
-        currency: 'XOF',
+        isin: '',
+        name: '',
+        issuer: '',
+        country: '',
+        bondType: '',
+        currency: '',
         nominal: 10000,
-        coupon: 6.5,
-        couponFrequency: 'Semi-annual',
-        issueDate: '2024-01-15',
-        valueDate: '2024-01-20',
-        maturityDate: '2028-12-31',
-        issuePrice: 98.5,
-        currentPrice: 99.2,
-        ytm: 7.8,
-        spread: 2.5,
-        duration: 4.2,
-        convexity: 18.5,
+        coupon: 0,
+        couponFrequency: 'Semestriel',
+        issueDate: '',
+        valueDate: '',
+        maturityDate: '',
+        issuePrice: 100,
+        currentPrice: 100,
+        ytm: 0,
+        yield: 0,
+        spread: 0,
+        duration: 0,
+        convexity: 0,
         redemptionType: 'In fine',
-        dayCount: '30/360',
-        settlement: 'T+2',
-        outstanding: 50000000000,
-        minSubscription: 10000,
-      };
-    } else if (bondType === 'financial-secondary') {
-      return {
-        isin: isin || 'CIBRVM101',
-        name: 'Côte d\'Ivoire 6.5% 2028',
-        issuer: 'Republic of Côte d\'Ivoire',
-        country: 'Côte d\'Ivoire',
-        bondType: 'Corporate Bond',
-        currency: 'XOF',
-        nominal: 10000,
-        coupon: 6.5,
-        currentPrice: 99.5,
-        previousPrice: 98.8,
-        yield: 7.8,
-        previousYield: 7.5,
-        spread: 1.7,
-        tradedVolume: 15000000,
-        tradedValue: 14925000000,
-        exchangeRatio: 0.85,
-        transactionCount: 12,
-        maturityDate: '2028-01-15',
-      };
-    } else if (bondType === 'mtp-secondary') {
-      return {
-        isin: isin || 'TPCI0001',
-        name: 'Trésor Public CI 5.5% 2027',
-        issuer: 'Trésor Public de Côte d\'Ivoire',
-        country: 'Côte d\'Ivoire',
-        bondType: 'Treasury Bond',
-        currency: 'XOF',
-        nominal: 10000,
-        coupon: 5.5,
-        currentPrice: 100.2,
-        yield: 5.3,
-        spread: 1.2,
-        tradedVolume: 25000000,
-        exchangeRatio: 0.92,
-        transactionCount: 18,
-        maturityDate: '2027-06-30',
-      };
-    } else {
-      return {
-        isin: isin || 'TPCI0002',
-        name: 'Trésor Public CI 6.0% 2026',
-        issuer: 'Trésor Public de Côte d\'Ivoire',
-        country: 'Côte d\'Ivoire',
-        bondType: 'Treasury Bond',
-        currency: 'XOF',
-        nominal: 10000,
-        coupon: 6.0,
-        issuePrice: 99.0,
-        avgYield: 6.2,
-        marginalPrice: 98.8,
-        absorptionRate: 85.5,
-        participantCount: 22,
-        submissionCount: 45,
-        coverageRatio: 1.25,
-        maturityDate: '2026-12-15',
+        dayCount: '',
+        settlement: '',
+        outstanding: 0,
+        minSubscription: 0,
       };
     }
-  }, [bondType, isin]);
 
+    const latestSecondary = secondaries[secondaries.length - 1];
+    const cleanPrice = parseNumber(latestCashflow?.clean_price);
+    const dirtyPrice = parseNumber(latestCashflow?.dirty_price);
+    const marketPrice = cleanPrice > 0 ? cleanPrice : dirtyPrice > 0 ? dirtyPrice : 100;
+    const secondaryPrice = parseNumber(latestSecondary?.closing_price);
+    const currentPrice = secondaryPrice > 0 ? secondaryPrice : marketPrice;
+    const ytm = parseNumber(issueLot?.clearing_yield) * 100;
+    const yieldValue = parseNumber(latestSecondary?.traded_yield || latestSecondary?.closing_yield) * 100;
+    const couponRate = formatPercent(primary.coupon_rate);
+    const nominal = parseNumber(primary.initial_unit_nominal) || parseNumber(primary.minimum_trade_unit) || 10000;
+    const outstanding = parseNumber(latestCashflow?.outstanding_nominal);
+
+    return {
+      isin: primary.isin || '',
+      name: `${primary.reference || ''} ${couponRate.toFixed(2)}% ${getMaturityYear(issueLot?.maturity_date || latestCashflow?.timestamp)}`.trim(),
+      issuer: issuer?.name || '',
+      country: issuer?.country || '',
+      bondType: primary.type_name || primary.type || '',
+      currency: primary.currency || '',
+      nominal,
+      coupon: couponRate,
+      couponFrequency: primary.coupon_frequency === 1 ? 'Annuel' : primary.coupon_frequency === 4 ? 'Trimestriel' : 'Semestriel',
+      issueDate: issueLot?.auction_date || primary.created_at || '',
+      valueDate: issueLot?.settlement_date || '',
+      maturityDate: issueLot?.maturity_date || latestCashflow?.timestamp || '',
+      issuePrice: 100,
+      currentPrice,
+      ytm,
+      yield: yieldValue,
+      spread: parseNumber(primary.coupon_rate) > 0 ? ytm - couponRate : 0,
+      duration: parseNumber(latestCashflow?.duration_modigliani || latestCashflow?.duration_macaulay),
+      duration_macaulay: parseNumber(latestCashflow?.duration_macaulay),
+      duration_modigliani: parseNumber(latestCashflow?.duration_modigliani),
+      convexity: parseNumber(latestCashflow?.convexity),
+      redemptionType: primary.amortization_method === 'BULLET' ? 'In fine' : primary.amortization_method || 'In fine',
+      dayCount: primary.day_count_convention || '',
+      settlement: primary.payment_day_term || 'T+2',
+      outstanding,
+      minSubscription: parseNumber(primary.minimum_trade_unit) || nominal,
+    };
+  }, [currentPrimaryData, secondaries, latestCashflow, issueLot, issuer]);
 
   const getCountryFlag = (country: string): string => {
     const flags: { [key: string]: string } = {
       'Côte d\'Ivoire': '🇨🇮',
       'Senegal': '🇸🇳',
+      'Sénégal': '🇸🇳',
       'Benin': '🇧🇯',
+      'Bénin': '🇧🇯',
+      'Afrique du Sud': '🇿🇦',
+      'South Africa': '🇿🇦',
+      'Nigeria': '🇳🇬',
+      'Ghana': '🇬🇭',
+      'Kenya': '🇰🇪',
+      'Morocco': '🇲🇦',
+      'Maroc': '🇲🇦',
     };
     return flags[country] || '🏳️';
   };
-
 
   const [activeTab, setActiveTab] = useState('overview');
   const [purchasePrice, setPurchasePrice] = useState(bondData.currentPrice || 100);
@@ -121,65 +187,46 @@ export default function BondDetailPage() {
   const [reinvestmentRate, setReinvestmentRate] = useState(5.0);
   const [stressTestShock, setStressTestShock] = useState(0);
 
-  // Mock data pour les graphiques et tableaux
+  // Données réelles pour les graphiques et tableaux
   const priceHistoryData = useMemo(() => {
-    const data = [];
-    const startDate = new Date(bondData.issueDate || '2024-01-01');
-    const endDate = new Date(bondData.maturityDate);
-    const days = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    for (let i = 0; i <= Math.min(days, 365); i += 7) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const price = 98 + Math.random() * 4 + (i / days) * 2;
-      data.push({ date: date.toISOString().split('T')[0], price: price.toFixed(2) });
-    }
-    return data;
-  }, [bondData]);
+    if (!secondaries.length) return [];
+    const sorted = [...secondaries]
+      .filter((s) => s.timestamp)
+      .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
+    return sorted.map((s) => ({
+      date: s.timestamp!.split('T')[0],
+      price: parseNumber(s.closing_price).toFixed(2),
+      marketPrice: parseNumber(s.closing_price).toFixed(2),
+    }));
+  }, [secondaries]);
 
   const cashflowData = useMemo(() => {
-    const flows = [];
-    const startDate = new Date(bondData.issueDate || '2024-01-01');
-    const maturityDate = new Date(bondData.maturityDate);
-    const frequency = bondData.couponFrequency === 'Semi-annual' ? 6 : 12;
-    
-    let currentDate = new Date(startDate);
-    let flowNumber = 1;
-    
-    while (currentDate <= maturityDate) {
-      currentDate.setMonth(currentDate.getMonth() + frequency);
-      if (currentDate <= maturityDate) {
-        const couponAmount = (bondData.nominal || 10000) * (bondData.coupon || 6.5) / 100 / (12 / frequency);
-        const daysRemaining = Math.floor((currentDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        const discountedFlow = couponAmount / Math.pow(1 + (bondData.ytm || 7) / 100, daysRemaining / 365);
-        
-        flows.push({
-          date: currentDate.toISOString().split('T')[0],
-          type: 'Coupon',
-          coupon: couponAmount,
-          principal: 0,
-          total: couponAmount,
-          discounted: discountedFlow,
-          daysRemaining: daysRemaining > 0 ? daysRemaining : 0
-        });
-      }
-    }
-    
-    // Remboursement du principal à maturité
-    const principalAmount = bondData.nominal || 10000;
-    const daysToMaturity = Math.floor((maturityDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    flows.push({
-      date: bondData.maturityDate,
-      type: 'Principal + Coupon',
-      coupon: (bondData.nominal || 10000) * (bondData.coupon || 6.5) / 100 / (12 / frequency),
-      principal: principalAmount,
-      total: principalAmount + ((bondData.nominal || 10000) * (bondData.coupon || 6.5) / 100 / (12 / frequency)),
-      discounted: principalAmount / Math.pow(1 + (bondData.ytm || 7) / 100, daysToMaturity / 365),
-      daysRemaining: daysToMaturity > 0 ? daysToMaturity : 0
-    });
-    
-    return flows.filter(f => f.daysRemaining >= 0);
-  }, [bondData]);
+    if (!cashflows.length) return [];
+    const today = new Date().getTime();
+    return [...cashflows]
+      .filter((c) => c.timestamp)
+      .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime())
+      .map((c) => {
+        const couponRate = formatPercent(c.coupon_rate);
+        const coupon = (couponRate / 100) * bondData.nominal;
+        const principal = parseNumber(c.redemption) || parseNumber(c.amortization);
+        const computedTotal = coupon + principal;
+        const total = parseNumber(c.total_cashflow) || computedTotal;
+        const ts = new Date(c.timestamp!).getTime();
+        const daysRemaining = Math.floor((ts - today) / (1000 * 60 * 60 * 24));
+        const type = principal > 0 ? 'Principal + Coupon' : 'Coupon';
+        return {
+          date: c.timestamp!,
+          type,
+          coupon,
+          principal,
+          total,
+          discounted: total / Math.pow(1 + (bondData.ytm || 0) / 100, Math.max(daysRemaining, 0) / 365),
+          daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
+          status: c.status,
+        };
+      });
+  }, [cashflows, bondData.nominal, bondData.ytm]);
 
   const stressTestData = useMemo(() => {
     const baseYield = bondData.ytm || bondData.yield || 7;
@@ -202,34 +249,81 @@ export default function BondDetailPage() {
   }, [bondData]);
 
   const volumeHistoryData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months.map(month => ({
-      month,
-      volume: Math.floor(Math.random() * 50000000) + 10000000
-    }));
-  }, []);
+    if (!secondaries.length) return [];
+    const map = new Map<string, number>();
+    secondaries.forEach((s) => {
+      if (!s.timestamp) return;
+      const month = s.timestamp.slice(0, 7);
+      const volume = parseNumber(s.volume_traded) || parseNumber(s.value_traded);
+      map.set(month, (map.get(month) || 0) + volume);
+    });
+    return Array.from(map.entries()).map(([month, volume]) => ({ month, volume })).sort((a, b) => a.month.localeCompare(b.month));
+  }, [secondaries]);
 
   const spreadHistoryData = useMemo(() => {
-    const data = [];
-    for (let i = 12; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      data.push({
-        date: date.toISOString().split('T')[0].substring(0, 7),
-        spread: 150 + Math.random() * 100
-      });
-    }
-    return data;
-  }, []);
+    if (!secondaries.length) return [];
+    const sorted = [...secondaries]
+      .filter((s) => s.timestamp)
+      .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
+    return sorted.map((s) => ({
+      date: s.timestamp!.slice(0, 7),
+      spread: parseNumber(s.closing_yield) * 10000,
+    }));
+  }, [secondaries]);
+
+  const momentumData = useMemo(() => {
+    if (!secondaries.length) return { trend5d: 0, trend20d: 0, trend60d: 0, relativeVolume: 1, score: 3 };
+    const sorted = [...secondaries]
+      .filter((s) => s.timestamp && s.closing_price)
+      .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
+    const last = sorted[sorted.length - 1]?.closing_price;
+    const getPrice = (daysBack: number) => {
+      const target = new Date();
+      target.setDate(target.getDate() - daysBack);
+      const candidates = sorted.filter((s) => s.timestamp && new Date(s.timestamp) <= target);
+      return candidates[candidates.length - 1]?.closing_price;
+    };
+    const pct = (from?: number, to?: number) =>
+      from && to && from !== 0 ? ((to - from) / from) * 100 : 0;
+    const trend5d = pct(parseNumber(getPrice(5)), parseNumber(last));
+    const trend20d = pct(parseNumber(getPrice(20)), parseNumber(last));
+    const trend60d = pct(parseNumber(getPrice(60)), parseNumber(last));
+    const volumes = sorted.slice(-20).map((s) => parseNumber(s.volume_traded)).filter((v) => v > 0);
+    const avgVolume = volumes.reduce((a, b) => a + b, 0) / Math.max(volumes.length, 1);
+    const relativeVolume = avgVolume > 0 ? parseNumber(sorted[sorted.length - 1]?.volume_traded) / avgVolume : 1;
+    const score = Math.max(1, Math.min(5, 3 + (trend5d + trend20d > 0 ? 1 : -1)));
+    return { trend5d, trend20d, trend60d, relativeVolume, score };
+  }, [secondaries]);
 
   const issuerBondsData = useMemo(() => {
-    return [
-      { name: 'CI 5.5% 2026', maturity: 2.5, ytm: 6.2, isin: 'CIBRVM001' },
-      { name: 'CI 6.0% 2027', maturity: 3.5, ytm: 6.8, isin: 'CIBRVM002' },
-      { name: 'CI 6.5% 2028', maturity: 4.5, ytm: 7.2, isin: bondData.isin, current: true },
-      { name: 'CI 7.0% 2030', maturity: 6.5, ytm: 7.8, isin: 'CIBRVM004' },
+    if (!rates.length) return [];
+    const latestRate = rates[rates.length - 1];
+    const tenorYears = parseNumber(currentPrimaryData?.tenor);
+    const maturityLabels = [
+      { key: 'one_year', maturity: 1 },
+      { key: 'two_years', maturity: 2 },
+      { key: 'three_years', maturity: 3 },
+      { key: 'five_years', maturity: 5 },
+      { key: 'seven_years', maturity: 7 },
+      { key: 'ten_years', maturity: 10 },
+      { key: 'fifteen_years', maturity: 15 },
+      { key: 'twenty_years', maturity: 20 },
+      { key: 'thirty_years', maturity: 30 },
     ];
-  }, [bondData.isin]);
+    const bonds = maturityLabels
+      .map(({ key, maturity }) => ({
+        name: `${maturity}Y`,
+        maturity,
+        ytm: parseNumber((latestRate as any)[key]) * 100,
+        isin: '',
+      }))
+      .filter((b) => b.ytm > 0);
+    const closest = bonds.reduce((prev, curr) =>
+      Math.abs(curr.maturity - tenorYears) < Math.abs(prev.maturity - tenorYears) ? curr : prev,
+      bonds[0]
+    );
+    return bonds.map((b) => ({ ...b, current: b === closest }));
+  }, [rates, currentPrimaryData?.tenor]);
 
   const calculateRemainingDays = () => {
     const today = new Date();
@@ -242,6 +336,39 @@ export default function BondDetailPage() {
     const priceChange = ((bondData.currentPrice || 100) - price) / (bondData.currentPrice || 100);
     return baseYTM + priceChange * 10;
   };
+
+  const exportCashflowsToCSV = () => {
+    const headers = ['Date de paiement', 'Type', 'Coupon', 'Principal', 'Flux total', 'Flux actualise', 'Jours restants'];
+    const rows = cashflowData.map((flow) => [
+      new Date(flow.date).toLocaleDateString('fr-FR'),
+      flow.type,
+      flow.coupon.toString(),
+      flow.principal > 0 ? flow.principal.toString() : '0',
+      flow.total.toString(),
+      Math.round(flow.discounted).toString(),
+      flow.daysRemaining.toString(),
+    ]);
+    const csv = [headers, ...rows].map((r) => r.join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `echeancier_${bondData.isin || id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  if (isLoadingPrimaryById) {
+    return (
+      <div className="bond-detail-page d-flex align-items-center justify-content-center" style={{ minHeight: '60vh' }}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Chargement...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bond-detail-page">
@@ -256,7 +383,7 @@ export default function BondDetailPage() {
             <div className="title-row">
               <h1>
                 <span className="country-flag">{getCountryFlag(bondData.country)}</span>
-                {bondData.name}
+                {bondData.name || bondData.isin}
               </h1>
               <div className="bond-meta">
                 <span className="badge badge-isin">{bondData.isin}</span>
@@ -264,11 +391,11 @@ export default function BondDetailPage() {
               </div>
             </div>
             <div className="key-metrics">
-              {bondData.currentPrice && <div className="metric"><span>Price:</span> <strong>{bondData.currentPrice.toFixed(2)}%</strong></div>}
-              {bondData.ytm && <div className="metric"><span>YTM:</span> <strong>{bondData.ytm.toFixed(2)}%</strong></div>}
-              {bondData.yield && <div className="metric"><span>Yield:</span> <strong>{bondData.yield.toFixed(2)}%</strong></div>}
-              {bondData.spread && <div className="metric"><span>Spread:</span> <strong>{bondData.spread.toFixed(2)}%</strong></div>}
-              <div className="metric"><span>Maturity:</span> <strong>{new Date(bondData.maturityDate).toLocaleDateString('en-US')}</strong></div>
+              {bondData.currentPrice > 0 && <div className="metric"><span>Price:</span> <strong>{bondData.currentPrice.toFixed(2)}%</strong></div>}
+              {bondData.ytm > 0 &&  <div className="metric"><span>YTM:</span> <strong>{bondData.ytm.toFixed(2)}%</strong></div>}
+              {bondData.yield > 0 && <div className="metric"><span>Yield:</span> <strong>{bondData.yield.toFixed(2)}%</strong></div>}
+              {bondData.spread !== 0 && <div className="metric"><span>Spread:</span> <strong>{bondData.spread.toFixed(2)}%</strong></div>}
+              <div className="metric"><span>Maturity:</span> <strong>{bondData.maturityDate ? new Date(bondData.maturityDate).toLocaleDateString('en-US') : '-'}</strong></div>
             </div>
           </div>
         </div>
@@ -325,7 +452,7 @@ export default function BondDetailPage() {
                       </div>
                       <div className="info-item">
                         <span className="label">Pays</span>
-                        <span className="value">{getCountryFlag(bondData.country)} {bondData.country}</span>
+                        <span className="value">{getCountryFlag(bondData.country || bondData.issuer)} {bondData.issuer || bondData.country}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">ISIN</span>
@@ -333,23 +460,23 @@ export default function BondDetailPage() {
                       </div>
                       <div className="info-item">
                         <span className="label">Date d'émission</span>
-                        <span className="value">{new Date(bondData.issueDate || bondData.valueDate || '2024-01-01').toLocaleDateString('fr-FR')}</span>
+                        <span className="value">{bondData.issueDate ? new Date(bondData.issueDate).toLocaleDateString('fr-FR') : '-'}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">Date de maturité</span>
-                        <span className="value">{new Date(bondData.maturityDate).toLocaleDateString('fr-FR')}</span>
+                        <span className="value">{bondData.maturityDate ? new Date(bondData.maturityDate).toLocaleDateString('fr-FR') : '-'}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">Durée résiduelle</span>
-                        <span className="value">{calculateRemainingDays()} jours ({(calculateRemainingDays() / 365).toFixed(1)} ans)</span>
+                        <span className="value">{bondData.maturityDate ? `${calculateRemainingDays()} jours (${(calculateRemainingDays() / 365).toFixed(1)} ans)` : '-'}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">Valeur nominale</span>
-                        <span className="value">{(bondData.nominal || 10000).toLocaleString()} {bondData.currency}</span>
+                        <span className="value">{(bondData.nominal || 10000).toLocaleString()} {bondData.currency ? `(UUID: ${bondData.currency})` : ''}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">Type de taux</span>
-                        <span className="value">Fixe</span>
+                        <span className="value">{currentPrimaryData?.coupon_type || 'Fixe'}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">Taux facial</span>
@@ -373,7 +500,7 @@ export default function BondDetailPage() {
                       </div>
                       <div className="info-item">
                         <span className="label">Encours</span>
-                        <span className="value">{((bondData.outstanding || 50000000000) / 1000000000).toFixed(1)}B {bondData.currency}</span>
+                        <span className="value">{((bondData.outstanding || 0) / 1000000000).toFixed(1)}B {bondData.currency ? `(UUID: ${bondData.currency})` : ''}</span>
                       </div>
                     </div>
                   </div>
@@ -395,13 +522,21 @@ export default function BondDetailPage() {
                       <LineChart
                         data={{
                           categories: priceHistoryData.map(d => d.date),
-                          series: [{
-                            name: 'Prix théorique (%)',
-                            values: priceHistoryData.map(d => parseFloat(d.price)),
-                            color: 'rgb(37, 99, 235)'
-                          }]
+                          series: [
+                            {
+                              name: 'Valorisation indicative (%)',
+                              values: priceHistoryData.map(d => parseFloat(d.price)),
+                              color: 'rgb(37, 99, 235)'
+                            },
+                            {
+                              name: 'Cours de marché (%)',
+                              values: priceHistoryData.map(d => parseFloat(d.marketPrice)),
+                              color: 'rgb(234, 88, 12)'
+                            }
+                          ]
                         }}
-                        height="300px"
+                        height="350px"
+                        legendPosition="top"
                       />
                     </div>
                   </div>
@@ -425,27 +560,13 @@ export default function BondDetailPage() {
                       </div>
                       <div className="opportunity-gap">
                         <span className="gap-label">Écart</span>
-                        <span className="gap-value positive">+0.50% (+{((bondData.nominal || 10000) * 0.005).toFixed(0)} {bondData.currency})</span>
-                      </div>
-                      <div className="opportunity-signal">
-                        <span className="badge badge-opportunity">Légèrement sous-évalué</span>
+                        <span className={`gap-value ${momentumData.trend5d >= 0 ? 'positive' : 'negative'}`}>{momentumData.trend5d >= 0 ? '+' : ''}{momentumData.trend5d.toFixed(2)}%</span>
+                        <span className="badge badge-opportunity">{momentumData.trend5d >= 0 ? 'Tendance haussière' : 'Tendance baissière'}</span>
                       </div>
                       <p className="opportunity-text">
-                        Le titre se négocie légèrement au-dessus de sa valorisation théorique, 
-                        suggérant une demande soutenue. L'écart reste dans les normes du marché.
+                        Tendance sur 5 séances : {momentumData.trend5d >= 0 ? '+' : ''}{momentumData.trend5d.toFixed(2)}%.
+                        {momentumData.trend5d > 0 ? ' La demande semble soutenue.' : momentumData.trend5d < 0 ? ' Le titre est en léger recul.' : ' Le cours est stable.'}
                       </p>
-                      <div className="sparkline-container">
-                        <small className="text-muted">30 derniers jours</small>
-                        <div className="mini-chart">
-                          {priceHistoryData.slice(-30).map((d, i) => (
-                            <div 
-                              key={i} 
-                              className="bar" 
-                              style={{ height: `${(parseFloat(d.price) - 97) * 10}%` }}
-                            />
-                          ))}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -457,32 +578,28 @@ export default function BondDetailPage() {
                     <div className="momentum-grid">
                       <div className="momentum-item">
                         <span className="label">Tendance 5j</span>
-                        <span className="value positive">+0.8% ↗</span>
+                        <span className={`value ${momentumData.trend5d >= 0 ? 'positive' : 'negative'}`}>{momentumData.trend5d >= 0 ? '+' : ''}{momentumData.trend5d.toFixed(2)}%</span>
                       </div>
                       <div className="momentum-item">
                         <span className="label">Tendance 20j</span>
-                        <span className="value positive">+1.2% ↗</span>
+                        <span className={`value ${momentumData.trend20d >= 0 ? 'positive' : 'negative'}`}>{momentumData.trend20d >= 0 ? '+' : ''}{momentumData.trend20d.toFixed(2)}%</span>
                       </div>
                       <div className="momentum-item">
                         <span className="label">Tendance 60j</span>
-                        <span className="value negative">-0.5% ↘</span>
+                        <span className={`value ${momentumData.trend60d >= 0 ? 'positive' : 'negative'}`}>{momentumData.trend60d >= 0 ? '+' : ''}{momentumData.trend60d.toFixed(2)}%</span>
                       </div>
-                      <div className="momentum-item">
+                      <div className="momentum-item full-width">
                         <span className="label">Volume relatif</span>
-                        <span className="value">1.15x</span>
+                        <span className="value">{momentumData.relativeVolume.toFixed(2)}x</span>
                         <div className="progress-bar">
-                          <div className="progress-fill" style={{ width: '115%' }}></div>
+                          <div className="progress-fill" style={{ width: `${Math.min(momentumData.relativeVolume * 100, 100)}%` }}></div>
                         </div>
-                      </div>
-                      <div className="momentum-item">
-                        <span className="label">Séances sans cotation</span>
-                        <span className="value">0 jours</span>
                       </div>
                       <div className="momentum-item full-width">
                         <span className="label">Score Momentum</span>
                         <div className="momentum-stars">
                           {[1, 2, 3, 4, 5].map(star => (
-                            <span key={star} className={`star ${star <= 4 ? 'filled' : ''}`}>★</span>
+                            <span key={star} className={`star ${star <= momentumData.score ? 'filled' : ''}`}>★</span>
                           ))}
                         </div>
                       </div>
@@ -497,11 +614,11 @@ export default function BondDetailPage() {
             <div className="tab-pane active">
               <div className="row g-3">
                 {/* Échéancier */}
-                <div className="col-12">
+                <div className="col-md-8">
                   <div className="bond-card">
                     <div className="card-header-with-action">
                       <h3 className="card-title">Échéancier des Flux</h3>
-                      <button className="btn btn-sm btn-export">
+                      <button className="btn btn-sm btn-export" onClick={exportCashflowsToCSV}>
                         <span>📥</span> Export CSV
                       </button>
                     </div>
@@ -523,21 +640,21 @@ export default function BondDetailPage() {
                             <tr key={idx}>
                               <td>{new Date(flow.date).toLocaleDateString('fr-FR')}</td>
                               <td><span className={`badge badge-${flow.type === 'Coupon' ? 'info' : 'success'}`}>{flow.type}</span></td>
-                              <td className="text-end">{flow.coupon.toLocaleString()} {bondData.currency}</td>
-                              <td className="text-end">{flow.principal > 0 ? flow.principal.toLocaleString() : '-'} {flow.principal > 0 ? bondData.currency : ''}</td>
-                              <td className="text-end"><strong>{flow.total.toLocaleString()} {bondData.currency}</strong></td>
-                              <td className="text-end">{flow.discounted.toFixed(0).toLocaleString()} {bondData.currency}</td>
+                              <td className="text-end">{flow.coupon.toLocaleString()}</td>
+                              <td className="text-end">{flow.principal > 0 ? flow.principal.toLocaleString() : '-'}</td>
+                              <td className="text-end"><strong>{flow.total.toLocaleString()}</strong></td>
+                              <td className="text-end">{Math.round(flow.discounted).toLocaleString()}</td>
                               <td className="text-end">{flow.daysRemaining}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="table-total">
-                            <td colSpan={2}><strong>Total</strong></td>
-                            <td className="text-end"><strong>{cashflowData.reduce((sum, f) => sum + f.coupon, 0).toLocaleString()} {bondData.currency}</strong></td>
-                            <td className="text-end"><strong>{(bondData.nominal || 10000).toLocaleString()} {bondData.currency}</strong></td>
-                            <td className="text-end"><strong>{cashflowData.reduce((sum, f) => sum + f.total, 0).toLocaleString()} {bondData.currency}</strong></td>
-                            <td className="text-end"><strong>{cashflowData.reduce((sum, f) => sum + f.discounted, 0).toFixed(0).toLocaleString()} {bondData.currency}</strong></td>
+                            <td colSpan={2}>Total</td>
+                            <td className="text-end">{cashflowData.reduce((sum, f) => sum + f.coupon, 0).toLocaleString()}</td>
+                            <td className="text-end">{(bondData.nominal || 10000).toLocaleString()}</td>
+                            <td className="text-end">{cashflowData.reduce((sum, f) => sum + f.total, 0).toLocaleString()}</td>
+                            <td className="text-end">{Math.round(cashflowData.reduce((sum, f) => sum + f.discounted, 0)).toLocaleString()}</td>
                             <td></td>
                           </tr>
                         </tfoot>
@@ -547,7 +664,7 @@ export default function BondDetailPage() {
                 </div>
 
                 {/* Calculateur de rendement */}
-                <div className="col-12">
+                <div className="col-md-4">
                   <div className="bond-card">
                     <h3 className="card-title">Calculateur de Rendement & TRI</h3>
                     <div className="row g-3">
@@ -589,7 +706,7 @@ export default function BondDetailPage() {
                     </div>
                     
                     <div className="yield-results">
-                      <div className="row g-3 mt-3">
+                      <div className="row g-3">
                         <div className="col-md-4">
                           <div className="result-card">
                             <span className="result-label">YTM (Yield to Maturity)</span>
@@ -605,7 +722,13 @@ export default function BondDetailPage() {
                         <div className="col-md-4">
                           <div className="result-card">
                             <span className="result-label">Duration de Macaulay</span>
-                            <span className="result-value">{(bondData.duration || 4.2).toFixed(2)} ans</span>
+                            <span className="result-value">{bondData.duration_macaulay ? bondData.duration_macaulay.toFixed(2): 'N/A'} ans</span>
+                          </div>
+                        </div>
+                        <div className="col-md-4">
+                          <div className="result-card">
+                            <span className="result-label">Duration de Modigliani</span>
+                            <span className="result-value">{bondData.duration_modigliani ? bondData.duration_modigliani.toFixed(2) : 'N/A'} ans</span>
                           </div>
                         </div>
                         <div className="col-md-4">
@@ -638,7 +761,7 @@ export default function BondDetailPage() {
             <div className="tab-pane active">
               <div className="row g-3">
                 {/* Stress Testing - Taux */}
-                <div className="col-lg-8">
+                <div className="col-lg-8 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Stress Testing - Sensibilité aux Taux</h3>
                     <div className="table-responsive">
@@ -662,83 +785,70 @@ export default function BondDetailPage() {
                                 {row.changePercent}%
                               </td>
                               <td className={`text-end ${parseFloat(row.changeValue) > 0 ? 'positive' : parseFloat(row.changeValue) < 0 ? 'negative' : ''}`}>
-                                {parseFloat(row.changeValue) > 0 ? '+' : ''}{row.changeValue} {bondData.currency}
+                                {parseFloat(row.changeValue) > 0 ? '+' : ''}{row.changeValue}
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
-                    
-                    <div className="custom-shock mt-3">
-                      <label>Choc personnalisé: <strong>{stressTestShock} bps</strong></label>
-                      <input 
-                        type="range" 
-                        className="form-range" 
-                        min="-300" 
-                        max="300" 
-                        step="10"
-                        value={stressTestShock}
-                        onChange={(e) => setStressTestShock(parseInt(e.target.value))}
-                      />
-                      <div className="shock-result">
-                        Prix estimé: <strong>{((bondData.currentPrice || 100) * (1 - (bondData.duration || 4.2) * stressTestShock / 10000)).toFixed(2)}%</strong>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
                 {/* Stress Testing - Spread crédit */}
-                <div className="col-lg-4">
+                <div className="col-lg-4 p-0">
                   <div className="bond-card">
-                    <h3 className="card-title">Choc de Spread Crédit</h3>
-                    <div className="spread-stress-list">
-                      {[50, 100, 200].map(shock => {
-                        const priceImpact = -(bondData.duration || 4.2) * (shock / 100);
-                        const newPrice = (bondData.currentPrice || 100) * (1 + priceImpact / 100);
-                        return (
-                          <div key={shock} className="spread-stress-item">
-                            <div className="shock-label">+{shock} bps</div>
-                            <div className="shock-details">
-                              <div className="detail-row">
-                                <span>Prix:</span>
-                                <span className="negative">{newPrice.toFixed(2)}%</span>
-                              </div>
-                              <div className="detail-row">
-                                <span>Impact:</span>
-                                <span className="negative">{priceImpact.toFixed(2)}%</span>
-                              </div>
-                            </div>
+                    <h3 className="card-title">Risque Souverain</h3>
+                    <div className="risk-section">
+                        <div className="country-risk-info">
+                          <div className="info-row">
+                            <span>Pays émetteur</span>
+                            <span className="value">{getCountryFlag(bondData.country || bondData.issuer)} {bondData.country || bondData.issuer}</span>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="info-row">
+                            <span>Dette/PIB</span>
+                            <span className="value">N/A</span>
+                          </div>
+                          <div className="info-row">
+                            <span>Déficit budgétaire</span>
+                            <span className="value">N/A</span>
+                          </div>
+                          <div className="info-row">
+                            <span>Notation souveraine</span>
+                            <span className="value">N/A</span>
+                          </div>
+                          <div className="info-row">
+                            <span>Exposition devise</span>
+                            <span className="value">{bondData.currency ? `UUID: ${bondData.currency}` : '-'}</span>
+                          </div>
+                        </div>
+                      </div>
                   </div>
                 </div>
 
                 {/* Risque de liquidité */}
-                <div className="col-lg-6">
+                <div className="col-lg-6 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Risque de Liquidité</h3>
                     <div className="liquidity-stats">
                       <div className="stat-card">
                         <span className="stat-label">Bid-ask spread moyen (30j)</span>
-                        <span className="stat-value">0.25%</span>
+                        <span className="stat-value">N/A</span>
                       </div>
                       <div className="stat-card">
-                        <span className="stat-label">Fréquence de cotation</span>
-                        <span className="stat-value">28/30 jours (93%)</span>
+                        <span className="stat-label">Nombre de cotations</span>
+                        <span className="stat-value">{secondaries.length}</span>
                       </div>
                       <div className="stat-card">
-                        <span className="stat-label">Volume moyen journalier</span>
-                        <span className="stat-value">{((bondData.tradedVolume || 15000000) / 30).toFixed(0).toLocaleString()} {bondData.currency}</span>
+                        <span className="stat-label">Volume moyen par cotation</span>
+                        <span className="stat-value">{Math.round(secondaries.reduce((sum, s) => sum + parseNumber(s.volume_traded), 0) / Math.max(secondaries.length, 1)).toLocaleString()}</span>
                       </div>
                       <div className="stat-card">
                         <span className="stat-label">Volume total depuis émission</span>
-                        <span className="stat-value">{((bondData.outstanding || 50000000000) * 0.15 / 1000000000).toFixed(1)}B {bondData.currency}</span>
+                        <span className="stat-value">{secondaries.reduce((sum, s) => sum + parseNumber(s.volume_traded), 0).toLocaleString()}</span>
                       </div>
                     </div>
-                    <div className="chart-container mt-3">
+                    <div className="chart-container">
                       <h4 className="chart-subtitle">Volume mensuel (12 mois)</h4>
                       <BarChart
                         data={{
@@ -753,21 +863,25 @@ export default function BondDetailPage() {
                 </div>
 
                 {/* Risque crédit & souverain */}
-                <div className="col-lg-6">
+                <div className="col-lg-6 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Risque Crédit & Souverain</h3>
                     <div className="row g-3">
                       <div className="col-12">
                         <div className="risk-section">
-                          <h4 className="section-subtitle">Spread de crédit</h4>
+                          {/* <h4 className="section-subtitle">Spread de crédit</h4> */}
                           <div className="spread-info">
                             <div className="info-row">
                               <span>Spread actuel vs courbe souveraine</span>
-                              <span className="value">{((bondData.spread || 2.5) * 100).toFixed(0)} bps</span>
+                              <span className="value">{((bondData.spread || 0) * 100).toFixed(0)} bps</span>
                             </div>
                             <div className="info-row">
-                              <span>Percentile historique</span>
-                              <span className="value">65e percentile</span>
+                              <span>Spread min/max observé</span>
+                              <span className="value">
+                                {spreadHistoryData.length
+                                  ? `${Math.min(...spreadHistoryData.map((d) => d.spread)).toFixed(0)} / ${Math.max(...spreadHistoryData.map((d) => d.spread)).toFixed(0)} bps`
+                                  : 'N/A'}
+                              </span>
                             </div>
                           </div>
                           <div className="chart-container mt-2">
@@ -785,33 +899,6 @@ export default function BondDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="col-12">
-                        <div className="risk-section">
-                          <h4 className="section-subtitle">Risque pays</h4>
-                          <div className="country-risk-info">
-                            <div className="info-row">
-                              <span>Pays émetteur</span>
-                              <span className="value">{getCountryFlag(bondData.country)} {bondData.country}</span>
-                            </div>
-                            <div className="info-row">
-                              <span>Dette/PIB</span>
-                              <span className="value">52.3%</span>
-                            </div>
-                            <div className="info-row">
-                              <span>Déficit budgétaire</span>
-                              <span className="value negative">-4.2%</span>
-                            </div>
-                            <div className="info-row">
-                              <span>Notation souveraine</span>
-                              <span className="value">BB- (S&P)</span>
-                            </div>
-                            <div className="info-row">
-                              <span>Exposition devise</span>
-                              <span className="value">{bondData.currency} (Locale)</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -823,7 +910,7 @@ export default function BondDetailPage() {
             <div className="tab-pane active">
               <div className="row g-3">
                 {/* Courbe des taux émetteur */}
-                <div className="col-12">
+                <div className="col-md-8 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Courbe des Taux Émetteur</h3>
                     <div className="chart-container">
@@ -836,9 +923,13 @@ export default function BondDetailPage() {
                             color: 'rgb(37, 99, 235)'
                           }]
                         }}
-                        height="300px"
+                        height="50vh"
                       />
                     </div>
+                  </div>
+                </div>
+                <div className="col-md-4 p-0">
+                  <div className="bond-card">
                     <div className="bonds-list mt-3">
                       {issuerBondsData.map((bond, idx) => (
                         <div key={idx} className={`bond-item ${bond.current ? 'current' : ''}`}>
@@ -846,7 +937,7 @@ export default function BondDetailPage() {
                           <span className="bond-maturity">{bond.maturity.toFixed(1)} ans</span>
                           <span className="bond-ytm">{bond.ytm}%</span>
                           {!bond.current && (
-                            <Link href={`/fixed-income/bond-detail/${bondType}/${bond.isin}`} className="bond-link">
+                            <Link href={`#`} className="bond-link">
                               Voir →
                             </Link>
                           )}
@@ -864,7 +955,7 @@ export default function BondDetailPage() {
             <div className="tab-pane active">
               <div className="row g-3">
                 {/* Profil émetteur */}
-                <div className="col-lg-6">
+                <div className="col-lg-6 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Profil Émetteur</h3>
                     <div className="issuer-profile">
@@ -875,19 +966,19 @@ export default function BondDetailPage() {
                       <div className="profile-info">
                         <div className="info-row">
                           <span>Pays</span>
-                          <span>{getCountryFlag(bondData.country)} {bondData.country}</span>
+                          <span>{getCountryFlag(bondData.country || bondData.issuer)} {bondData.country || bondData.issuer}</span>
                         </div>
                         <div className="info-row">
-                          <span>Secteur</span>
-                          <span>Gouvernement / Trésor Public</span>
+                          <span>Type d'émetteur</span>
+                          <span>{issuer?.issuer_type || 'Souverain'}</span>
                         </div>
                         <div className="info-row">
                           <span>Encours total de dette</span>
-                          <span>2.5T {bondData.currency}</span>
+                          <span>{((bondData.outstanding || 0) / 1000000000).toFixed(1)}B</span>
                         </div>
                         <div className="info-row">
-                          <span>Ratio service dette/revenus</span>
-                          <span>18.5%</span>
+                          <span>Debt Manager</span>
+                          <span>{issuer?.debt_manager || '-'}</span>
                         </div>
                       </div>
                       
@@ -899,33 +990,29 @@ export default function BondDetailPage() {
                               <th>Date</th>
                               <th>Type</th>
                               <th className="text-end">Montant</th>
-                              <th>Statut</th>
+                              <th className="text-end">Statut</th>
                             </tr>
                           </thead>
                           <tbody>
-                            <tr>
-                              <td>15/12/2024</td>
-                              <td>Coupon</td>
-                              <td className="text-end">325M {bondData.currency}</td>
-                              <td><span className="badge badge-success">✓ Honoré</span></td>
-                            </tr>
-                            <tr>
-                              <td>15/06/2024</td>
-                              <td>Coupon</td>
-                              <td className="text-end">325M {bondData.currency}</td>
-                              <td><span className="badge badge-success">✓ Honoré</span></td>
-                            </tr>
-                            <tr>
-                              <td>31/12/2023</td>
-                              <td>Principal</td>
-                              <td className="text-end">10B {bondData.currency}</td>
-                              <td><span className="badge badge-success">✓ Honoré</span></td>
-                            </tr>
+                            {cashflowData
+                              .filter((f) => f.daysRemaining <= 0 || f.status === 'PAID')
+                              .slice(0, 10)
+                              .map((flow, idx) => (
+                                <tr key={idx}>
+                                  <td>{new Date(flow.date).toLocaleDateString('fr-FR')}</td>
+                                  <td>{flow.type}</td>
+                                  <td className="text-end">{flow.total.toLocaleString()}</td>
+                                  <td className="text-end"><span className="badge badge-success">✓ {flow.status || 'Honoré'}</span></td>
+                                </tr>
+                              ))}
+                            {cashflowData.filter((f) => f.daysRemaining <= 0 || f.status === 'PAID').length === 0 && (
+                              <tr><td colSpan={4} className="text-center">Aucun remboursement effectué</td></tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
                       
-                      <Link href={`/issuers/${bondData.issuer}`} className="btn btn-primary btn-sm mt-3">
+                      <Link href={`/issuers/${issuer?.id || bondData.issuer}`} className="btn btn-primary btn-sm mt-3">
                         Voir tous les titres de cet émetteur →
                       </Link>
                     </div>
@@ -933,7 +1020,7 @@ export default function BondDetailPage() {
                 </div>
 
                 {/* Historique & événements */}
-                <div className="col-lg-6">
+                <div className="col-lg-6 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Historique & Documents</h3>
                     
@@ -954,66 +1041,32 @@ export default function BondDetailPage() {
                       <div className="tab-content">
                         <div className="tab-pane fade show active" id="events">
                           <div className="timeline">
-                            <div className="timeline-item">
-                              <div className="timeline-marker"></div>
-                              <div className="timeline-content">
-                                <div className="timeline-date">15 Déc 2024</div>
-                                <div className="timeline-title">Paiement de coupon</div>
-                                <div className="timeline-description">
-                                  Paiement du coupon semestriel de 325M {bondData.currency}
+                            {currentPrimaryData?.issue_lots?.map((lot, idx) => (
+                              <div className="timeline-item" key={idx}>
+                                <div className="timeline-marker"></div>
+                                <div className="timeline-content">
+                                  <div className="timeline-date">{lot.auction_date ? new Date(lot.auction_date).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</div>
+                                  <div className="timeline-title">{lot.issue_type === 'NEW_ISSUE' ? 'Émission primaire' : 'Réouverture'}</div>
+                                  <div className="timeline-description">
+                                    Réf: {lot.reference} | Montant alloué: {parseNumber(lot.amount_allocated).toLocaleString()} | Taux de couverture: {parseNumber(lot.coverage_rate)}x | Clearing yield: {(parseNumber(lot.clearing_yield) * 100).toFixed(2)}%
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="timeline-item">
-                              <div className="timeline-marker"></div>
-                              <div className="timeline-content">
-                                <div className="timeline-date">15 Jan 2024</div>
-                                <div className="timeline-title">Adjudication réussie</div>
-                                <div className="timeline-description">
-                                  Taux retenu: 6.5% | Montant levé: 50B {bondData.currency} | Taux de couverture: 1.85x
-                                </div>
+                            ))}
+                            {(!currentPrimaryData?.issue_lots || currentPrimaryData.issue_lots.length === 0) && (
+                              <div className="timeline-item">
+                                <div className="timeline-content">Aucun événement d'émission disponible</div>
                               </div>
-                            </div>
-                            <div className="timeline-item">
-                              <div className="timeline-marker"></div>
-                              <div className="timeline-content">
-                                <div className="timeline-date">10 Jan 2024</div>
-                                <div className="timeline-title">Avis d'émission</div>
-                                <div className="timeline-description">
-                                  Publication de l'avis d'émission sur le marché primaire
-                                </div>
-                              </div>
-                            </div>
+                            )}
                           </div>
                         </div>
                         
                         <div className="tab-pane fade" id="documents">
                           <div className="documents-list">
-                            <div className="document-item">
-                              <div className="document-icon">📄</div>
-                              <div className="document-info">
-                                <div className="document-name">Prospectus d'émission</div>
-                                <div className="document-meta">PDF • 2.5 MB • 15 Jan 2024</div>
-                              </div>
-                              <button className="btn btn-sm btn-download">⬇</button>
-                            </div>
-                            <div className="document-item">
-                              <div className="document-icon">📄</div>
-                              <div className="document-info">
-                                <div className="document-name">Note d'information</div>
-                                <div className="document-meta">PDF • 1.8 MB • 15 Jan 2024</div>
-                              </div>
-                              <button className="btn btn-sm btn-download">⬇</button>
-                            </div>
-                            <div className="document-item">
-                              <div className="document-icon">📄</div>
-                              <div className="document-info">
-                                <div className="document-name">Circulaire BRVM</div>
-                                <div className="document-meta">PDF • 450 KB • 10 Jan 2024</div>
-                              </div>
-                              <button className="btn btn-sm btn-download">⬇</button>
-                            </div>
+                          <div className="document-item text-muted">
+                            Aucun document disponible pour le moment.
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>

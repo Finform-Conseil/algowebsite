@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Stock } from '@/types/market-movers';
 import { SECTOR_COLORS } from '@/core/data/MarketMoversData';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface QuickComparisonProps {
   availableStocks: Stock[];
@@ -26,12 +27,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
     }
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    if (currency === 'XOF' || currency === 'NGN') {
-      return price.toLocaleString('fr-FR');
-    }
-    return price.toFixed(2);
-  };
+  const { format, formatLarge } = useCurrency();
 
   const formatVolume = (volume: number) => {
     if (volume >= 1000000) {
@@ -308,7 +304,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                         <td>Price</td>
                         {selectedStocks.map(stock => (
                           <td key={stock.ticker}>
-                            {formatPrice(stock.price, stock.currency)} {stock.currency}
+                            {format(stock.price, stock.currency)}
                           </td>
                         ))}
                       </tr>
@@ -321,7 +317,7 @@ export default function QuickComparison({ availableStocks }: QuickComparisonProp
                       <tr>
                         <td>Market Cap</td>
                         {selectedStocks.map(stock => (
-                          <td key={stock.ticker}>{(stock.marketCap / 1000000000).toFixed(2)}B</td>
+                          <td key={stock.ticker}>{formatLarge(stock.marketCap, stock.currency)}</td>
                         ))}
                       </tr>
                       <tr>

@@ -1,23 +1,14 @@
 'use client';
 
 import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface CompanyOverviewProps {
   action: ActionEntity;
 }
 
 export default function CompanyOverview({ action }: CompanyOverviewProps) {
-  const formatMarketCap = (value: number | string) => {
-    if (typeof value === 'string') {
-      return value;
-    }
-    if (value >= 1000000000000) {
-      return `${(value / 1000000000000).toFixed(2)}T`;
-    } else if (value >= 1000000000) {
-      return `${(value / 1000000000).toFixed(2)}B`;
-    }
-    return `${(value / 1000000).toFixed(2)}M`;
-  };
+  const { formatLarge } = useCurrency();
 
   return (
     <div className="company-overview">
@@ -70,7 +61,7 @@ export default function CompanyOverview({ action }: CompanyOverviewProps) {
           </div>
           <div className="metric-content">
             <span className="metric-label">Capitalisation</span>
-            <span className="metric-value">{formatMarketCap(action.latest_valuation_ratio?.market_cap || "--")} {action.bourse.currency?.symbol}</span>
+            <span className="metric-value">{formatLarge(action.latest_valuation_ratio?.market_cap, action.bourse.currency?.code || 'XOF')}</span>
             <span className="metric-sublabel">{action.number_of_actions?.toLocaleString()} actions</span>
           </div>
         </div>

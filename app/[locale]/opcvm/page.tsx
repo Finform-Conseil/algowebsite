@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useBourseRepository } from '@/core/infra/repositories/bourse.repository.impl';
@@ -14,6 +15,7 @@ const AfricaOPCVMMap = dynamic(
 );
 
 export default function OPCVMHomePage() {
+  const t = useTranslations('opcvm');
   const [mapMode, setMapMode] = useState<'performance' | 'count'>('performance');
   const [viewMode, setViewMode] = useState<'map' | 'methodology'>('map');
   const [filterExchange, setFilterExchange] = useState<string>('all');
@@ -78,19 +80,19 @@ export default function OPCVMHomePage() {
         >
           <div className="header-top">
             <div className="header-title">
-              <h1>African Funds Universe</h1>
-              <p>Explore the African investment funds ecosystem</p>
+              <h1>{t('title')}</h1>
+              <p>{t('subtitle')}</p>
             </div>
             
             <div className="opcvm-controls">
               <div className="control-group">
-                <label>Exchange</label>
+                <label>{t('controls.exchange')}</label>
                 <select 
                   value={filterExchange} 
                   onChange={(e) => setFilterExchange(e.target.value)}
                   className="filter-select"
                 >
-                  <option value="all">All exchanges</option>
+                  <option value="all">{t('controls.allExchanges')}</option>
                   {allBoursesData?.data?.filter(e => e.name !== 'all').map(ex => (
                     <option key={ex.id} value={ex.ticker}>{ex.ticker}</option>
                   ))}
@@ -98,35 +100,35 @@ export default function OPCVMHomePage() {
               </div>
               
               <div className="control-group">
-                <label>Sort By</label>
+                <label>{t('controls.sortBy')}</label>
                 <select 
                   value={sortBy} 
                   onChange={(e) => setSortBy(e.target.value as 'rating' | 'performance' | 'risk')}
                   className="filter-select"
                 >
-                  <option value="rating">By rating</option>
-                  <option value="performance">By performance</option>
-                  <option value="risk">By risk</option>
+                  <option value="rating">{t('controls.byRating')}</option>
+                  <option value="performance">{t('controls.byPerformance')}</option>
+                  <option value="risk">{t('controls.byRisk')}</option>
                 </select>
               </div>
               
               <div className="control-group">
-                <label>View</label>
+                <label>{t('controls.view')}</label>
                 <div className="mode-toggle">
                   <button
                     className={mapMode === 'performance' ? 'active' : ''}
                     onClick={() => setMapMode('performance')}
-                    title="NAV Performance"
+                    title={t('controls.navPerformance')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                     </svg>
-                    Performance
+                    {t('controls.performance')}
                   </button>
                   <button
                     className={mapMode === 'count' ? 'active' : ''}
                     onClick={() => setMapMode('count')}
-                    title="Number of Funds"
+                    title={t('controls.numberOfFunds')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="7" height="7" />
@@ -134,7 +136,7 @@ export default function OPCVMHomePage() {
                       <rect x="14" y="14" width="7" height="7" />
                       <rect x="3" y="14" width="7" height="7" />
                     </svg>
-                    Count
+                    {t('controls.count')}
                   </button>
                 </div>
               </div>
@@ -150,7 +152,7 @@ export default function OPCVMHomePage() {
                   </svg>
                 </div>
                 <div className="stat-content">
-                  <div className="stat-label">Tracked Funds</div>
+                  <div className="stat-label">{t('stats.trackedFunds')}</div>
                   <div className="stat-value">{allOpcvmsData?.count}</div>
                 </div>
               </div>
@@ -163,7 +165,7 @@ export default function OPCVMHomePage() {
                   </svg>
                 </div>
                 <div className="stat-content">
-                  <div className="stat-label">Exchanges</div>
+                  <div className="stat-label">{t('stats.exchanges')}</div>
                   <div className="stat-value">{allBoursesData?.data.length}</div>
                 </div>
               </div>
@@ -217,20 +219,20 @@ export default function OPCVMHomePage() {
               className={viewMode === 'map' ? 'active' : ''}
               onClick={() => setViewMode('map')}
             >
-              Top Funds
+              {t('funds.topFunds')}
             </button>
             <button
               className={viewMode === 'methodology' ? 'active' : ''}
               onClick={() => setViewMode('methodology')}
             >
-              Methodology
+              {t('funds.methodology')}
             </button>
           </div>
 
           {viewMode === 'map' ? (
             <div className="top-funds-section">
               <div className="funds-header">
-                <h3>Top Rated Funds</h3>
+                <h3>{t('funds.topRated')}</h3>
               </div>
               
               <div className="funds-list">
@@ -247,13 +249,13 @@ export default function OPCVMHomePage() {
                     
                     <div className="fund-metrics">
                       <div className="metric">
-                        <span className="metric-label">Performance</span>
+                        <span className="metric-label">{t('funds.performance')}</span>
                         <span className={`metric-value ${fund.latest_metrics?.performance_1y && fund.latest_metrics.performance_1y >= 0 ? 'positive' : 'negative'}`}>
                           {fund?.latest_metrics?.performance_1y && fund.latest_metrics.performance_1y >= 0 ? '+' : ''}{Number(fund?.latest_metrics?.performance_1y)?.toFixed(2)}%
                         </span>
                       </div>
                       <div className="metric">
-                        <span className="metric-label">Score</span>
+                        <span className="metric-label">{t('funds.score')}</span>
                         <span className="metric-value">{fund?.latest_metrics?.performance_1y && fund.latest_metrics.volatility_1y ? (fund.latest_metrics.performance_1y / fund.latest_metrics.volatility_1y).toFixed(2) : 'N/A'}</span>
                       </div>
                     </div>
@@ -263,38 +265,38 @@ export default function OPCVMHomePage() {
             </div>
           ) : (
             <div className="rating-section">
-              <h3>Rating Methodology</h3>
+              <h3>{t('funds.ratingMethodology')}</h3>
               <p className="rating-description">
-                5★ rating based on risk-adjusted performance.
+                {t('funds.ratingDescription')}
               </p>
               
               <div className="rating-methodology">
                 <div className="method-step">
                   <div className="step-number">1</div>
                   <div className="step-content">
-                    <h4>Ratio</h4>
-                    <p>Performance / Volatility</p>
+                    <h4>{t('funds.steps.ratio')}</h4>
+                    <p>{t('funds.steps.ratioDesc')}</p>
                   </div>
                 </div>
                 <div className="method-step">
                   <div className="step-number">2</div>
                   <div className="step-content">
-                    <h4>Ranking</h4>
-                    <p>Descending sort</p>
+                    <h4>{t('funds.steps.ranking')}</h4>
+                    <p>{t('funds.steps.rankingDesc')}</p>
                   </div>
                 </div>
                 <div className="method-step">
                   <div className="step-number">3</div>
                   <div className="step-content">
-                    <h4>Groups</h4>
-                    <p>5 balanced groups</p>
+                    <h4>{t('funds.steps.groups')}</h4>
+                    <p>{t('funds.steps.groupsDesc')}</p>
                   </div>
                 </div>
                 <div className="method-step">
                   <div className="step-number">4</div>
                   <div className="step-content">
-                    <h4>Assignment</h4>
-                    <p>5★ to 1★</p>
+                    <h4>{t('funds.steps.assignment')}</h4>
+                    <p>{t('funds.steps.assignmentDesc')}</p>
                   </div>
                 </div>
               </div>
@@ -305,7 +307,7 @@ export default function OPCVMHomePage() {
 
       {/* Quick Access Section */}
       <div className="quick-access-section">
-        <h3>Funds Tools & Resources</h3>
+        <h3>{t('tools.sectionTitle')}</h3>
         <div className="tools-grid">
           <Link href="/opcvm/screener" className="tool-card">
             <div className="tool-icon">
@@ -317,8 +319,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Funds Screener</h4>
-              <p>Filter and compare funds according to your investment criteria</p>
+              <h4>{t('tools.screener.title')}</h4>
+              <p>{t('tools.screener.description')}</p>
             </div>
           </Link>
 
@@ -330,8 +332,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Comparison</h4>
-              <p>Analyze side-by-side performance of multiple funds</p>
+              <h4>{t('tools.comparison.title')}</h4>
+              <p>{t('tools.comparison.description')}</p>
             </div>
           </Link>
 
@@ -345,8 +347,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Funds Titans</h4>
-              <p>Discover leading managers and companies in the market</p>
+              <h4>{t('tools.titans.title')}</h4>
+              <p>{t('tools.titans.description')}</p>
             </div>
           </Link>
 
@@ -359,8 +361,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Simulator</h4>
-              <p>Simulate your investments and return projections</p>
+              <h4>{t('tools.simulator.title')}</h4>
+              <p>{t('tools.simulator.description')}</p>
             </div>
           </Link>
 
@@ -372,8 +374,8 @@ export default function OPCVMHomePage() {
               </svg>
             </div>
             <div className="tool-content">
-              <h4>Learn</h4>
-              <p>Guides and resources to master Funds investment</p>
+              <h4>{t('tools.learn.title')}</h4>
+              <p>{t('tools.learn.description')}</p>
             </div>
           </Link>
         </div>

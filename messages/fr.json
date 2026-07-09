@@ -1,0 +1,317 @@
+{
+  "nav": {
+    "search": "Rechercher actions, obligations, fonds...",
+    "getStarted": "Commencer →",
+    "equity": "Actions",
+    "fixedIncome": "Obligations",
+    "funds": "Fonds",
+    "macro": "Macro",
+    "equity_items": {
+      "stockScreener": "Screener d'Actions",
+      "stockComparison": "Comparaison d'Actions",
+      "africanExchanges": "Bourses Africaines",
+      "marketMovers": "Valeurs en Mouvement",
+      "equityTools": "Outils Actions",
+      "technicalAnalysis": "Analyse Technique",
+      "financialAnalysis": "Analyse Financière",
+      "sectors": "Secteurs",
+      "corporateEvents": "Événements Corporatifs",
+      "ipo": "IPO & Introductions",
+      "splits": "Divisions d'Actions",
+      "reverseSplit": "Regroupement d'Actions",
+      "merger": "Fusion",
+      "acquisitions": "Acquisitions",
+      "delisting": "Radiation de Cote",
+      "bankruptcy": "Faillite",
+      "spinOff": "Spin-off",
+      "dividend": "Dividende",
+      "rightsIssue": "Droit Préférentiel de Souscription",
+      "shareBuyback": "Rachat d'Actions",
+      "watchlistPortfolio": "Watchlist & Portefeuille"
+    },
+    "fixedIncome_items": {
+      "screener": "Screener Obligations",
+      "publicSecurities": "Marché des Titres Publics",
+      "primaryScreener": "Screener Primaire",
+      "secondaryScreener": "Screener Secondaire",
+      "financialMarket": "Marché Financier",
+      "amortization": "Tableau d'Amortissement",
+      "bondSwap": "Échange d'Obligations",
+      "simulator": "Simulateur Obligataire",
+      "bondData": "Données Obligataires",
+      "investmentSummary": "Résumé d'Investissement",
+      "debtSecurities": "Titres de Créance"
+    },
+    "funds_items": {
+      "screener": "Screener de Fonds",
+      "comparison": "Comparaison de Fonds",
+      "titans": "Titans de la Gestion d'Actifs",
+      "topflop": "Top/Flop Fonds",
+      "simulator": "Simulateur de Souscription",
+      "learn": "Apprendre les Fonds"
+    },
+    "macro_items": {
+      "keyIndicators": "Indicateurs Clés",
+      "currencies": "Devises & Banques Centrales",
+      "publicFinances": "Finances Publiques",
+      "externalSector": "Secteur Extérieur & FX",
+      "economicCalendar": "Calendrier Économique",
+      "macroAnalysis": "Analyse Macroéconomique"
+    }
+  },
+  "home": {
+    "ourUniverses": "Nos Univers",
+    "universes": {
+      "equity": {
+        "title": "Actions",
+        "description": "Données boursières en temps réel sur 6 bourses africaines avec des outils de screening avancés"
+      },
+      "fixedIncome": {
+        "title": "Obligations",
+        "description": "Intelligence complète du marché obligataire et analyse des courbes de rendement"
+      },
+      "opcvm": {
+        "title": "OPCVM",
+        "description": "Suivi des performances des fonds communs de placement et outils de comparaison"
+      },
+      "macro": {
+        "title": "Macro",
+        "description": "Indicateurs macroéconomiques et analyses pays par pays"
+      }
+    },
+    "exchange": {
+      "companies": "Sociétés",
+      "volume": "Volume",
+      "marketCap": "Capitalisation"
+    },
+    "ai": {
+      "label": "IA INSIGHT",
+      "justNow": "À l'instant"
+    },
+    "insights": {
+      "marketAlert": "Alerte Marché",
+      "marketAlertMsg": "L'indice BRVM en hausse de 2,3% - Fort momentum détecté",
+      "aiRecommendation": "Recommandation IA",
+      "aiRecommendationMsg": "Le secteur actions affiche des signaux haussiers sur 4 bourses",
+      "opportunityDetected": "Opportunité Détectée",
+      "opportunityMsg": "Obligations : Titres à haut rendement disponibles au Sénégal",
+      "portfolioInsight": "Analyse Portefeuille",
+      "portfolioMsg": "Opportunité de diversification OPCVM en Afrique de l'Ouest",
+      "macroUpdate": "Mise à jour Macro",
+      "macroMsg": "Prévision de croissance du PIB revue à la hausse pour le Nigéria"
+    }
+  },
+  "equity": {
+    "title": "Marchés Actions Africains",
+    "subtitle": "Données de marché en temps réel et analyse complète des actions",
+    "tools": {
+      "sectionTitle": "Outils d'Analyse Actions",
+      "stockScreener": {
+        "title": "Screener d'Actions",
+        "description": "Outils de filtrage et de screening avancés"
+      },
+      "marketMovers": {
+        "title": "Valeurs en Mouvement",
+        "description": "Meilleures hausses et baisses sur les marchés"
+      },
+      "sectorsAnalysis": {
+        "title": "Analyse Sectorielle",
+        "description": "Performance et tendances sectorielles"
+      },
+      "ipoCalendar": {
+        "title": "Calendrier IPO",
+        "description": "Introductions en bourse à venir et récentes"
+      },
+      "corporateEvents": {
+        "title": "Événements Corporatifs",
+        "description": "Résultats, dividendes et autres événements"
+      },
+      "technicalAnalysis": {
+        "title": "Analyse Technique",
+        "description": "Graphiques et indicateurs techniques"
+      }
+    },
+    "news": {
+      "recommended": "Recommandés",
+      "readMore": "Lire la suite",
+      "categories": {
+        "marketUpdate": "Actualité Marché",
+        "corporateNews": "Actualité Entreprise",
+        "sectorAnalysis": "Analyse Sectorielle",
+        "banking": "Banque"
+      }
+    }
+  },
+  "fixedIncome": {
+    "title": "Obligations Africaines",
+    "subtitle": "Intelligence du marché obligataire, courbes de rendement et opportunités du marché primaire",
+    "sections": {
+      "yieldCurve": "Courbe de Rendement",
+      "marketOpportunities": "Opportunités de Marché",
+      "countryOverview": "Vue par Pays",
+      "news": "Actualités Obligataires"
+    },
+    "filters": {
+      "allCountries": "Tous les pays",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "category": "Catégorie",
+      "all": "Tous",
+      "news": "Actualités",
+      "circulars": "Circulaires",
+      "pressReleases": "Communiqués de presse",
+      "consultations": "Consultations"
+    },
+    "opportunity": {
+      "auction": "Adjudication",
+      "issuance": "Émission",
+      "tender": "Appel d'offres",
+      "yield": "Rendement",
+      "maturity": "Maturité",
+      "deadline": "Date limite",
+      "amount": "Montant"
+    },
+    "table": {
+      "country": "Pays",
+      "avgYield": "Rendement Moy.",
+      "change": "Variation",
+      "volume": "Volume",
+      "activeIssues": "Émissions Actives"
+    }
+  },
+  "opcvm": {
+    "title": "Univers des Fonds Africains",
+    "subtitle": "Explorez l'écosystème des fonds d'investissement africains",
+    "controls": {
+      "exchange": "Bourse",
+      "allExchanges": "Toutes les bourses",
+      "sortBy": "Trier par",
+      "byRating": "Par note",
+      "byPerformance": "Par performance",
+      "byRisk": "Par risque",
+      "view": "Vue",
+      "performance": "Performance",
+      "count": "Nombre",
+      "navPerformance": "Performance VNI",
+      "numberOfFunds": "Nombre de Fonds"
+    },
+    "stats": {
+      "trackedFunds": "Fonds Suivis",
+      "exchanges": "Bourses"
+    },
+    "funds": {
+      "topRated": "Fonds les Mieux Notés",
+      "performance": "Performance",
+      "score": "Score",
+      "methodology": "Méthodologie",
+      "topFunds": "Meilleurs Fonds",
+      "ratingMethodology": "Méthodologie de Notation",
+      "ratingDescription": "Notation 5★ basée sur la performance ajustée au risque.",
+      "steps": {
+        "ratio": "Ratio",
+        "ratioDesc": "Performance / Volatilité",
+        "ranking": "Classement",
+        "rankingDesc": "Tri décroissant",
+        "groups": "Groupes",
+        "groupsDesc": "5 groupes équilibrés",
+        "assignment": "Attribution",
+        "assignmentDesc": "5★ à 1★"
+      }
+    },
+    "tools": {
+      "sectionTitle": "Outils & Ressources Fonds",
+      "screener": {
+        "title": "Screener de Fonds",
+        "description": "Filtrez et comparez les fonds selon vos critères d'investissement"
+      },
+      "comparison": {
+        "title": "Comparaison",
+        "description": "Analysez côte à côte les performances de plusieurs fonds"
+      },
+      "titans": {
+        "title": "Titans des Fonds",
+        "description": "Découvrez les gérants et sociétés leaders du marché"
+      },
+      "simulator": {
+        "title": "Simulateur",
+        "description": "Simulez vos investissements et projections de rendement"
+      },
+      "learn": {
+        "title": "Apprendre",
+        "description": "Guides et ressources pour maîtriser l'investissement en OPCVM"
+      }
+    }
+  },
+  "macro": {
+    "title": "Indicateurs Macroéconomiques Africains",
+    "subtitle": "Suivez les indicateurs économiques clés et les tendances des marchés africains",
+    "sectionTitle": "Univers Macroéconomique",
+    "tools": {
+      "keyIndicators": {
+        "title": "Indicateurs Économiques Clés",
+        "description": "Croissance, inflation, emploi et conditions économiques"
+      },
+      "currencies": {
+        "title": "Devises & Banques Centrales",
+        "description": "Politiques monétaires et taux d'intérêt"
+      },
+      "publicFinance": {
+        "title": "Finances Publiques & Budget",
+        "description": "Déficits, Dette et Politique Fiscale"
+      },
+      "foreignTrade": {
+        "title": "Commerce Extérieur & Devises",
+        "description": "Commerce International et Taux de Change"
+      },
+      "macroAnalysis": {
+        "title": "Analyse Macroéconomique",
+        "description": "Analyse Macroéconomique"
+      },
+      "economicCalendar": {
+        "title": "Calendrier Macroéconomique",
+        "description": "Calendrier Macroéconomique"
+      }
+    },
+    "categories": {
+      "analysis": "Analyse",
+      "reports": "Rapport",
+      "insights": "Insights",
+      "updates": "Mise à jour"
+    },
+    "analysis": {
+      "recommended": "Analyses Recommandées",
+      "readMore": "Lire l'analyse →",
+      "readTime": "5 min"
+    }
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "noData": "Aucune donnée disponible",
+    "search": "Rechercher...",
+    "filter": "Filtrer",
+    "reset": "Réinitialiser",
+    "apply": "Appliquer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "viewAll": "Voir tout",
+    "readMore": "Lire la suite",
+    "seeMore": "Voir plus",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "close": "Fermer",
+    "refresh": "Actualiser",
+    "download": "Télécharger",
+    "export": "Exporter",
+    "allExchanges": "Toutes les Bourses",
+    "positive": "Positif",
+    "negative": "Négatif",
+    "neutral": "Neutre",
+    "na": "N/D",
+    "yes": "Oui",
+    "no": "Non"
+  }
+}

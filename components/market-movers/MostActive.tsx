@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Stock } from '@/types/market-movers';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface MostActiveProps {
   stocks: Stock[];
@@ -23,12 +24,7 @@ export default function MostActive({ stocks }: MostActiveProps) {
     return volume.toString();
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    if (currency === 'XOF' || currency === 'NGN') {
-      return price.toLocaleString('fr-FR');
-    }
-    return price.toFixed(2);
-  };
+  const { format, formatLarge } = useCurrency();
 
   const getVolumePercentage = (volume: number, maxVolume: number) => {
     return (volume / maxVolume) * 100;
@@ -217,12 +213,12 @@ export default function MostActive({ stocks }: MostActiveProps) {
               <div className="price-section">
                 <div className="current-price">
                   <span className="label">Current Price</span>
-                  <span className="value">{formatPrice(selectedStock.price, selectedStock.currency)} {selectedStock.currency}</span>
+                  <span className="value">{format(selectedStock.price, selectedStock.currency)}</span>
                 </div>
                 <div className={`price-change ${selectedStock.change >= 0 ? 'positive' : 'negative'}`}>
                   {selectedStock.change >= 0 ? '+' : ''}{selectedStock.change.toFixed(2)}%
                   <span className="change-value">
-                    ({selectedStock.change >= 0 ? '+' : ''}{formatPrice(selectedStock.changeValue, selectedStock.currency)})
+                    ({selectedStock.change >= 0 ? '+' : ''}{format(selectedStock.changeValue, selectedStock.currency)})
                   </span>
                 </div>
               </div>
@@ -230,15 +226,15 @@ export default function MostActive({ stocks }: MostActiveProps) {
               <div className="stats-grid">
                 <div className="stat-item">
                   <span className="stat-label">Open</span>
-                  <span className="stat-value">{formatPrice(selectedStock.open, selectedStock.currency)}</span>
+                  <span className="stat-value">{format(selectedStock.open, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">High</span>
-                  <span className="stat-value positive">{formatPrice(selectedStock.high, selectedStock.currency)}</span>
+                  <span className="stat-value positive">{format(selectedStock.high, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Low</span>
-                  <span className="stat-value negative">{formatPrice(selectedStock.low, selectedStock.currency)}</span>
+                  <span className="stat-value negative">{format(selectedStock.low, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Volume</span>
@@ -250,7 +246,7 @@ export default function MostActive({ stocks }: MostActiveProps) {
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Market Cap</span>
-                  <span className="stat-value">{(selectedStock.marketCap / 1000000000).toFixed(2)}B</span>
+                  <span className="stat-value">{formatLarge(selectedStock.marketCap, selectedStock.currency)}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Sector</span>

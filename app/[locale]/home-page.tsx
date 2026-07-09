@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import TickerBar from '@/components/navigation/TickerBar';
 
 // AI Insights data
@@ -14,12 +15,12 @@ type AIInsight = {
   timestamp?: number;
 };
 
-const AI_INSIGHTS: AIInsight[] = [
-  { id: 1, title: 'Market Alert', message: 'BRVM index up 2.3% - Strong momentum detected', type: 'success' },
-  { id: 2, title: 'AI Recommendation', message: 'Equity sector showing bullish signals across 4 exchanges', type: 'info' },
-  { id: 3, title: 'Opportunity Detected', message: 'Fixed Income: High-yield bonds available in Senegal', type: 'warning' },
-  { id: 4, title: 'Portfolio Insight', message: 'OPCVM diversification opportunity in West Africa', type: 'info' },
-  { id: 5, title: 'Macro Update', message: 'GDP growth forecast revised upward for Nigeria', type: 'success' },
+const AI_INSIGHTS_KEYS = [
+  { id: 1, titleKey: 'insights.marketAlert', messageKey: 'insights.marketAlertMsg', type: 'success' },
+  { id: 2, titleKey: 'insights.aiRecommendation', messageKey: 'insights.aiRecommendationMsg', type: 'info' },
+  { id: 3, titleKey: 'insights.opportunityDetected', messageKey: 'insights.opportunityMsg', type: 'warning' },
+  { id: 4, titleKey: 'insights.portfolioInsight', messageKey: 'insights.portfolioMsg', type: 'info' },
+  { id: 5, titleKey: 'insights.macroUpdate', messageKey: 'insights.macroMsg', type: 'success' },
 ];
 
 
@@ -106,13 +107,20 @@ const EXCHANGES = [
 ];
 
 export default function NewHomePage() {
+  const t = useTranslations('home');
+  const tNav = useTranslations('nav');
   const [notifications, setNotifications] = useState<AIInsight[]>([]);
 
   // AI Insights notification system
   useEffect(() => {
     const showNotification = () => {
-      const randomInsight = AI_INSIGHTS[Math.floor(Math.random() * AI_INSIGHTS.length)];
-      const newNotification = { ...randomInsight, timestamp: Date.now() };
+      const randomKey = AI_INSIGHTS_KEYS[Math.floor(Math.random() * AI_INSIGHTS_KEYS.length)];
+      const newNotification = {
+        ...randomKey,
+        title: t(randomKey.titleKey as Parameters<typeof t>[0]),
+        message: t(randomKey.messageKey as Parameters<typeof t>[0]),
+        timestamp: Date.now(),
+      };
       
       setNotifications(prev => [...prev, newNotification]);
       
@@ -125,34 +133,34 @@ export default function NewHomePage() {
     showNotification();
 
     return () => clearInterval(interval);
-  }, []);
+  }, [t]);
 
   const universes = [
     {
       id: 'equity',
-      title: 'Equity',
-      description: 'Real-time stock market data across 6 African exchanges with advanced screening tools',
+      title: t('universes.equity.title'),
+      description: t('universes.equity.description'),
       color: '#f0a500',
       link: '/equity'
     },
     {
       id: 'fixed-income',
-      title: 'Fixed Income',
-      description: 'Comprehensive bond market intelligence and yield curve analysis',
+      title: t('universes.fixedIncome.title'),
+      description: t('universes.fixedIncome.description'),
       color: '#00d4aa',
       link: '/fixed-income'
     },
     {
       id: 'opcvm',
-      title: 'OPCVM',
-      description: 'Mutual funds performance tracking and comparison tools',
+      title: t('universes.opcvm.title'),
+      description: t('universes.opcvm.description'),
       color: '#6496ff',
       link: '/opcvm'
     },
     {
       id: 'macro',
-      title: 'Macro',
-      description: 'Macroeconomic indicators and country-level insights',
+      title: t('universes.macro.title'),
+      description: t('universes.macro.description'),
       color: '#ff4f5e',
       link: '/macro'
     }
@@ -187,7 +195,7 @@ export default function NewHomePage() {
 
         {/* 4 Universes in Row */}
         <section className="universes-section">
-          <h2 className="section-title">Our Universes</h2>
+          <h2 className="section-title">{t('ourUniverses')}</h2>
           
           <div className="universes-row">
             {universes.map((universe, index) => (
@@ -239,15 +247,15 @@ export default function NewHomePage() {
                 
                 <div className="exchange-metrics">
                   <div className="metric">
-                    <span className="metric-label">Companies</span>
+                    <span className="metric-label">{t('exchange.companies')}</span>
                     <span className="metric-value">{exchange.companies}</span>
                   </div>
                   <div className="metric">
-                    <span className="metric-label">Volume</span>
+                    <span className="metric-label">{t('exchange.volume')}</span>
                     <span className="metric-value">{exchange.volume}</span>
                   </div>
                   <div className="metric">
-                    <span className="metric-label">Market Cap</span>
+                    <span className="metric-label">{t('exchange.marketCap')}</span>
                     <span className="metric-value">{exchange.marketCap}</span>
                   </div>
                 </div>
@@ -272,8 +280,8 @@ export default function NewHomePage() {
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             >
               <div className="notif-header">
-                <div className="notif-ai">AI INSIGHT</div>
-                <div className="notif-time">Just now</div>
+                <div className="notif-ai">{t('ai.label')}</div>
+                <div className="notif-time">{t('ai.justNow')}</div>
               </div>
               <div className="notif-title">{notification.title}</div>
               <div className="notif-body">{notification.message}</div>

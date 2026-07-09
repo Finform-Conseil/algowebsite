@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface ComparisonStockHoverCardProps {
   stock: ActionEntity;
@@ -44,6 +45,7 @@ const MARKET_INFO: Record<string, { fullName: string; country: string; descripti
 export default function ComparisonStockHoverCard({ stock, children }: ComparisonStockHoverCardProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const { format, formatLarge } = useCurrency();
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -106,7 +108,7 @@ export default function ComparisonStockHoverCard({ stock, children }: Comparison
 
           <div className="stock-hover-card__price">
             <span className="stock-hover-card__price-value">
-              {stock.latest_price_metric?.price?.toFixed(2) || 'N/A'} {typeof stock.bourse?.currency === 'string' ? stock.bourse.currency : stock.bourse?.currency?.code || 'XOF'}
+              {format(stock.latest_price_metric?.price, stock.bourse?.currency?.code || 'XOF')}
             </span>
             <span className={`stock-hover-card__change ${(stock.latest_price_metric?.change_1d_pct ?? 0) >= 0 ? 'positive' : 'negative'}`}>
               {(stock.latest_price_metric?.change_1d_pct ?? 0) >= 0 ? '▲' : '▼'} {Math.abs(stock.latest_price_metric?.change_1d_pct ?? 0).toFixed(2)}%
@@ -120,7 +122,7 @@ export default function ComparisonStockHoverCard({ stock, children }: Comparison
             </div>
             <div className="metric">
               <span className="metric__label">Cap.</span>
-              <span className="metric__value">{stock.latest_valuation_ratio?.market_cap ? (stock.latest_valuation_ratio.market_cap / 1000000000).toFixed(1) + 'Md' : 'N/A'}</span>
+              <span className="metric__value">{formatLarge(stock.latest_valuation_ratio?.market_cap, stock.bourse?.currency?.code || 'XOF')}</span>
             </div>
             <div className="metric">
               <span className="metric__label">ROE</span>

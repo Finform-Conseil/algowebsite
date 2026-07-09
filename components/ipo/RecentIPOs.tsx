@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { IPO } from '@/types/ipo';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface RecentIPOsProps {
   ipos: IPO[];
@@ -11,6 +12,7 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
   const [sortBy, setSortBy] = useState<'date' | 'size' | 'return'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedIPO, setSelectedIPO] = useState<string | null>(null);
+  const { format } = useCurrency();
 
   const sortedIPOs = [...ipos].sort((a, b) => {
     let comparison = 0;
@@ -35,13 +37,6 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
       setSortBy(column);
       setSortOrder('desc');
     }
-  };
-
-  const formatCurrency = (value: number, currency: string) => {
-    if (currency === 'XOF') {
-      return `${(value / 1000000).toFixed(0)}M XOF`;
-    }
-    return `${value.toLocaleString()} ${currency}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -158,9 +153,9 @@ export default function RecentIPOs({ ipos }: RecentIPOsProps) {
                   <span className="exchange-badge">{ipo.exchange}</span>
                 </td>
                 <td className="date">{formatDate(ipo.ipoDate)}</td>
-                <td className="price">{formatCurrency(ipo.ipoPrice, ipo.currency)}</td>
+                <td className="price">{format(ipo.ipoPrice, ipo.currency)}</td>
                 <td className="current-price">
-                  {ipo.currentPrice ? formatCurrency(ipo.currentPrice, ipo.currency) : '-'}
+                  {ipo.currentPrice ? format(ipo.currentPrice, ipo.currency) : '-'}
                 </td>
                 <td className="size">
                   <div className="size-info">
