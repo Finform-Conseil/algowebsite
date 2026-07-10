@@ -6,10 +6,12 @@ import json
 import os
 import tempfile
 import time
+from pathlib import Path
 from typing import Any, Dict, List
 
 import server  # type: ignore
-from runtime import db, delete_ops, discipline, patch_queue, task_context  # type: ignore
+from runtime import db, delete_ops, discipline, patch_queue, root_hygiene, runtime_backup_retention, scribe_commit_gate, task_context, direct_fs_tripwire, canonical_memory_gate  # type: ignore
+from runtime.resource_locks import preflight_apply_patch as _preflight_lock  # type: ignore
 from runtime.state_paths import prepare_state_dirs  # type: ignore
 try:
     from runtime import portability  # type: ignore
@@ -19,6 +21,24 @@ try:
     from runtime import graphify_scribe_bridge as _gsb  # type: ignore
 except Exception:
     _gsb = None  # type: ignore
+
+# Graphify Mandatory Guard (V2.15) — blocks writes when Graphify is absent.
+try:
+    from runtime import graphify_guard as _gg  # type: ignore
+except Exception:
+    _gg = None  # type: ignore
+
+# TENOR task prompt generator (V2.15.4)
+# Uses __file__-relative import so it works even when .agent/ is not on sys.path
+try:
+    import sys as _ttp_sys
+    from pathlib import Path as _ttp_Path
+    _ttp_agent_dir = _ttp_Path(__file__).resolve().parent.parent
+    if str(_ttp_agent_dir) not in _ttp_sys.path:
+        _ttp_sys.path.insert(0, str(_ttp_agent_dir))
+    from host_adapter import tenor_task_prompt as _ttp  # type: ignore
+except Exception:
+    _ttp = None  # type: ignore
 
 # Proof signer — non-circular TENOR proof verification (v0.2.15+)
 try:
@@ -35,7 +55,6 @@ except Exception as _proof_import_exc:  # noqa: BLE001
 
 server.SERVER_VERSION = "0.2.15"
 if os.environ.get("AGENT_SCRIBE_GRAPHIFY_ROOT"):
-    from pathlib import Path
     server.ROOT = Path(os.environ["AGENT_SCRIBE_GRAPHIFY_ROOT"]).resolve()
     server.AGENT_DIR = server.ROOT / ".agent"
 _BASE_WORKFLOW_NEXT = server.workflow_next
@@ -51,9 +70,71 @@ _GRAPHIFY_VERDICTS = {"GRAPHIFY_QUERY_DONE", "GRAPHIFY_UNAVAILABLE"}
 _CONTEXT_VERDICTS = {"BEFORE_TASK_OK", *_SCRIBE_VERDICTS, *_GRAPHIFY_VERDICTS}
 _WRITE_DONE_VERDICTS = {"PATCH_APPLIED", "PATCH_APPLIED_CONFIRMED", "RESOURCE_DELETED"}
 _RECORD_REQUIRED_VERDICTS = {*_WRITE_DONE_VERDICTS, "CLAIM_RELEASED"}
-_RECORD_DONE_VERDICTS = {"SCRIBE_RECORD_WRITTEN"}
+_RECORD_DONE_VERDICTS = {"SCRIBE_RECORD_STAGED_ONLY", "SCRIBE_RECORD_WRITTEN"}
+_CANONICAL_MEMORY_TERMINAL_VERDICTS = {"CANONICAL_MEMORY_PROMOTED", "CANONICAL_MEMORY_SKIPPED_WITH_REASON"}
+_CANONICAL_MEMORY_BLOCKING_VERDICTS = {"CANONICAL_MEMORY_REQUIRED", "CANONICAL_MEMORY_SKIP_REJECTED"}
 _WRITE_OR_DECISION_INTENTS = {"write", "edit", "patch", "modify", "code", "fix", "refactor", "test", "create", "delete", "remove", "decision"}
 _MUTATING_CONTEXT_INTENTS = {"write", "edit", "patch", "modify", "code", "fix", "refactor", "test", "create", "delete", "remove"}
+
+_GENERIC_TOKENS: frozenset = frozenset({
+    "file", "files", "code", "main", "index", "core", "utils", "util",
+    "module", "modules", "api", "backend", "frontend", "component",
+    "components", "page", "pages", "service", "services", "helper",
+    "helpers", "common", "shared", "base", "config", "data", "docs",
+    "node", "public", "static", "assets", "media", "dist", "build",
+    "target", "bin", "obj", "cache", "temp", "logs", "migrations",
+    "middleware", "types", "type", "enum", "enums", "interfaces",
+    "model", "models", "view", "views", "controller", "controllers",
+    "input", "output", "result", "error", "errors", "handler",
+    "handlers", "style", "styles", "route", "routes", "schema",
+    "schemas", "table", "tables", "field", "fields", "column",
+    "columns", "value", "values", "param", "params", "method",
+    "methods", "event", "events", "state", "status", "rules",
+    "policy", "policies", "action", "actions", "name", "names",
+    "group", "groups", "role", "roles", "user", "users", "admin",
+    "token", "tokens", "key", "keys", "session", "sessions",
+})
+_EXTENSION_TOKENS: frozenset = frozenset({
+    "py", "ts", "tsx", "js", "jsx", "md", "json", "yaml", "yml",
+    "toml", "ini", "cfg", "conf", "xml", "html", "css", "scss",
+    "sass", "less", "svg", "png", "jpg", "jpeg", "gif", "ico",
+    "woff", "woff2", "ttf", "eot", "pdf", "doc", "docx", "xls",
+    "xlsx", "csv", "txt", "log", "env", "gitignore", "dockerfile",
+    "makefile", "sql", "db", "lock", "sum", "mod", "sum",
+})
+
+
+def _check_scribe_scope(task_resource: str, query: str, stdout: str) -> tuple[bool, str]:
+    if not task_resource:
+        return (True, "no resource to scope against")
+    q = query.strip().lower()
+    s = stdout.strip().lower()
+    r = task_resource.strip().lower()
+    r_name = Path(r).name.lower() if r else ""
+    r_parent = Path(r).parent.name.lower() if Path(r).parent.name else ""
+
+    if r_name and (r_name in q or r_name in s):
+        return (True, "resource name found in query or stdout")
+    if r_parent and (r_parent in q or r_parent in s):
+        return (True, "resource parent path found in query or stdout")
+    r_tokens: set[str] = set()
+    for sep in (".", "/", "-", "_"):
+        r_tokens.update(t for t in r.split(sep) if len(t) >= 4 and t not in _GENERIC_TOKENS and t not in _EXTENSION_TOKENS and not t.isdigit())
+    if r_name:
+        r_tokens.update(t for t in r_name.split(".") if len(t) >= 4 and t not in _GENERIC_TOKENS and t not in _EXTENSION_TOKENS and not t.isdigit())
+        r_tokens.update(t for t in r_name.split("-") if len(t) >= 4 and t not in _GENERIC_TOKENS and t not in _EXTENSION_TOKENS and not t.isdigit())
+    if r_parent:
+        r_tokens.update(t for t in r_parent.split("-") if len(t) >= 4 and t not in _GENERIC_TOKENS and t not in _EXTENSION_TOKENS and not t.isdigit())
+    matching_tokens = [t for t in r_tokens if t in q or t in s]
+    if matching_tokens:
+        return (True, f"resource token(s) found in query or stdout: {', '.join(matching_tokens[:3])}")
+    if "project-wide" in q or "global-context" in q:
+        has_reason = "because:" in q or "reason:" in q or (r_name and r_name in q)
+        if has_reason:
+            return (True, "project-wide/global-context scope with explicit reason or resource reference")
+    return (False, "SCRIBE context irrelevant for write task — query and stdout do not reference the target resource or any parent scope")
+
+
 _GRAPHIFY_KEYWORDS = {"api", "architecture", "backend", "base de données", "bug", "code", "database", "db", "frontend", "migration", "module", "production", "refactor", "sécurité", "security", "test"}
 _DEBUG_KEYWORDS = {"bug", "debug", "erreur", "error", "fail", "failure", "fix", "regression", "refactor", "test"}
 _LOOP_VERDICTS = {
@@ -89,6 +170,29 @@ def _requires_graphify(request: str, intent: str, resource: str) -> bool:
 def _requires_scribe_record(intent: str, last_verdict: str) -> bool:
     normalized = (intent or "").strip().lower()
     return _last(last_verdict) in _RECORD_REQUIRED_VERDICTS or normalized in _WRITE_OR_DECISION_INTENTS
+
+
+def _task_requires_canonical_promotion(task_data: dict[str, Any] | None) -> bool:
+    return bool(task_data and task_data.get("scribe_record_done") and task_data.get("scribe_record_required") and not task_data.get("scribe_record_promoted"))
+
+
+def _scribe_record_args(agent_id: str, task_id: str, context_token: str, request: str, intent: str, resource: str, task_data: dict[str, Any] | None = None) -> dict[str, Any]:
+    record_type = "task_summary"
+    if task_data and task_data.get("scribe_record_policy") == "canonical_required":
+        record_type = str(task_data.get("scribe_record_type") or "validation")
+    return {
+        "agent_id": agent_id,
+        "task_id": task_id,
+        "context_token": context_token,
+        "request": request or "task completed",
+        "summary": "record useful task outcome before finish",
+        "touched_resources": [resource] if resource else [],
+        "resources": [resource] if resource else [],
+        "verdict": "READ_TASK_NOTE" if (intent or "").strip().lower() == "read" else "READY_TO_FINISH",
+        "record_type": record_type,
+        "severity": "medium",
+        "tags": ["workflow_next"],
+    }
 
 
 def _require_action_lease(
@@ -267,6 +371,20 @@ def before_task(request: str, agent_id: str = "", intent: str = "", resource: st
             })
         raise _context_error(exc) from exc
     payload.update(context)
+    if direct_fs_tripwire.is_mutating_intent(intent or ""):
+        snapshot = direct_fs_tripwire.workspace_snapshot(
+            server.ROOT, context["task_id"], agent_id, resource or ""
+        )
+        payload["direct_fs_tripwire"] = {"verdict": snapshot["verdict"]}
+        canonical_snapshot = canonical_memory_gate.snapshot_before_task(
+            server.ROOT,
+            context["task_id"],
+            agent_id,
+            request=request,
+            intent=intent or "",
+            resource=resource or "",
+        )
+        payload["canonical_memory_gate"] = {"verdict": canonical_snapshot["verdict"]}
     return server.ok(payload)
 
 
@@ -364,6 +482,24 @@ def claim_resource(agent_id: str, resource: str, mode: str = "write", ttl_second
         db.require_agent_active(agent_id)
     except db.CoordinationError as exc:
         return _claim_context_not_ready(agent_id, resource, str(exc), ["agent_id"])
+
+    # V2.15.17: Block write/patch_queue claims on read-only tasks
+    if task_id:
+        _ci = _resolve_stored_task_intent(agent_id, task_id)
+        if _ci.get("ok") and (_ci.get("intent") or "") in _READ_ONLY_INTENTS:
+            requested_mode = "patch_queue" if mode in server.WRITE_MODES else mode
+            if requested_mode in server.WRITE_MODES:
+                return server.ok({
+                    "ok": False,
+                    "verdict": "READ_ONLY_CLAIM_FORBIDDEN",
+                    "state": "HARD_STOP",
+                    "reason": (
+                        f"Task '{task_id}' has intent "
+                        f"'{_ci.get('intent') or ''}' which is read-only. "
+                        "Write/patch_queue claims are forbidden on read tasks."
+                    ),
+                })
+
     requested_mode = "patch_queue" if mode in server.WRITE_MODES else mode
     if requested_mode in server.WRITE_MODES:
         missing = [name for name, value in {"task_id": task_id, "context_token": context_token}.items() if not value]
@@ -391,13 +527,60 @@ def claim_resource(agent_id: str, resource: str, mode: str = "write", ttl_second
 
 def scribe_query(query: str, limit: int = 5, agent_id: str = "", task_id: str = "", context_token: str = "") -> Dict[str, Any]:
     result = _BASE_SCRIBE_QUERY(query=query, limit=limit)
+    payload = json.loads(result["content"][0]["text"])
+    res = payload.get("result", {})
+    if res.get("returncode", 0) != 0:
+        return server.ok({
+            "ok": False,
+            "verdict": "SCRIBE_QUERY_FAILED",
+            "query": query,
+            "result": res,
+        })
     if agent_id or task_id or context_token:
+        task_intent = ""
+        task_resource = ""
+        base_verdict = payload.get("verdict", "")
+        if agent_id and task_id:
+            try:
+                task_data = task_context.get_task_context(agent_id, task_id)
+                task_intent = str(task_data.get("intent", "")).strip().lower()
+                task_resource = task_data.get("resource", "") or ""
+            except task_context.TaskContextError:
+                pass
+        if task_intent in _MUTATING_CONTEXT_INTENTS and base_verdict == "SCRIBE_QUERY_DONE":
+            stdout = (res.get("stdout") or "").strip()
+            if not stdout:
+                return server.ok({
+                    "ok": False,
+                    "verdict": "SCRIBE_CONTEXT_EMPTY",
+                    "query": query,
+                    "result": res,
+                    "reason": "SCRIBE returned no content. Write tasks require a non-empty SCRIBE result.",
+                })
+            scope_ok, scope_reason = _check_scribe_scope(task_resource, query, stdout)
+            if not scope_ok:
+                return server.ok({
+                    "ok": False,
+                    "verdict": "SCRIBE_CONTEXT_IRRELEVANT_FOR_WRITE",
+                    "query": query,
+                    "result": res,
+                    "reason": scope_reason,
+                })
         try:
-            task_context.mark_scribe_done(agent_id, task_id, context_token)
+            result_count = 1 if (res.get("stdout") or "").strip() else 0
+            ctx_result = task_context.mark_scribe_done(
+                agent_id, task_id, context_token,
+                result_count=result_count,
+                result_resources=task_resource,
+            )
         except task_context.TaskContextError as exc:
             raise _context_error(exc) from exc
-        payload = json.loads(result["content"][0]["text"])
-        payload["task_context"] = {"task_id": task_id, "scribe_done": True}
+        payload["task_context"] = {
+            "task_id": task_id,
+            "scribe_done": True,
+            "memory_hash": ctx_result.get("memory_hash"),
+            "scribe_result_count": ctx_result.get("scribe_result_count"),
+        }
         return server.ok(payload)
     return result
 
@@ -434,6 +617,9 @@ def propose_patch(agent_id: str, target: str, base_hash: str, diff_text: str, ta
 
 
 def apply_patch(agent_id: str, patch_id: str, task_id: str = "", context_token: str = "", action_lease_id: str = "") -> Dict[str, Any]:
+    preflight = _preflight_lock(agent_id, patch_id, task_id, context_token, action_lease_id)
+    if preflight is not None:
+        return server.ok(preflight)
     _require_context_ready(
         agent_id, task_id, context_token, "",
         strict_resource=False,
@@ -445,7 +631,16 @@ def apply_patch(agent_id: str, patch_id: str, task_id: str = "", context_token: 
     )
     if lease_check is not None:
         return lease_check
-    return server.ok(patch_queue.apply_patch(agent_id=agent_id, patch_id=patch_id))
+    applied = patch_queue.apply_patch(agent_id=agent_id, patch_id=patch_id)
+    if applied.get("verdict") == "PATCH_APPLIED":
+        direct_fs_tripwire.record_authorized_mutation(
+            task_id=task_id, agent_id=agent_id,
+            resource=str(applied.get("target_path") or ""),
+            tool="apply_patch", patch_id=patch_id,
+            after_hash=str(applied.get("new_hash") or ""),
+            project_root=server.ROOT,
+        )
+    return server.ok(applied)
 
 
 def delete_resource(
@@ -480,26 +675,299 @@ def delete_resource(
         strict_resource=True,
         allowed_intents=_MUTATING_CONTEXT_INTENTS,
     )
-    return server.ok(delete_ops.delete_resource(agent_id=agent_id, resource=resource, base_hash=base_hash, confirm_phrase=confirm_phrase, reason=reason))
+    deleted = delete_ops.delete_resource(agent_id=agent_id, resource=resource, base_hash=base_hash, confirm_phrase=confirm_phrase, reason=reason)
+    if deleted.get("verdict") == "RESOURCE_DELETED":
+        direct_fs_tripwire.record_authorized_mutation(
+            task_id=task_id, agent_id=agent_id, resource=resource,
+            tool="delete_resource", before_hash=base_hash,
+            project_root=server.ROOT,
+        )
+    return server.ok(deleted)
 
 
-def finish_task(agent_id: str, summary: str = "", task_id: str = "", context_token: str = "", action_lease_id: str = "") -> Dict[str, Any]:
+_READ_ONLY_INTENTS = {"read", "query", "ask", "explain", "list", "show", "status"}
+_SAFE_FINISH_INTENTS = {"read", "finish", "done", "complete", "end", "finalize"}
+
+
+def _resolve_stored_task_intent(agent_id: str, task_id: str) -> dict[str, Any]:
+    if not task_id:
+        return {"ok": True, "state": "NO_TASK_ID", "intent": None}
+    try:
+        status = task_context.task_status(task_id)
+    except task_context.TaskContextError:
+        return {
+            "ok": False, "state": "TASK_CONTEXT_UNKNOWN_TASK",
+            "verdict": "TASK_CONTEXT_UNKNOWN_TASK",
+            "reason": "task_id was provided but no task context exists.",
+        }
+    if status.get("agent_id") != agent_id:
+        return {
+            "ok": False, "state": "TASK_AGENT_MISMATCH",
+            "verdict": "TASK_AGENT_MISMATCH",
+            "reason": f"task_id belongs to agent '{status.get('agent_id')}' but caller is '{agent_id}'.",
+        }
+    stored = (status.get("intent") or "").strip().lower()
+    return {
+        "ok": True, "state": "TASK_CONTEXT_FOUND",
+        "intent": stored if stored else None,
+        "agent_id": status.get("agent_id"),
+    }
+
+
+def _scribe_gate_error(exc: scribe_commit_gate.ScribeCommitGateError) -> server.ToolError:
+    return server.ToolError(exc.code)
+
+
+def _write_gate_record(record: dict[str, Any]) -> dict[str, Any]:
+    result = scribe_record(
+        agent_id=str(record.get("agent_id") or ""),
+        request=str(record.get("summary") or "task completed"),
+        summary=str(record.get("summary") or ""),
+        touched_resources=list(record.get("touched_resources") or []),
+        verdict=str(record.get("verdict") or ""),
+        tags=list(record.get("tags") or []),
+        record_type=str(record.get("type") or "TASK_SUMMARY").lower(),
+        severity="medium",
+        resources=list(record.get("touched_resources") or []),
+    )
+    payload = json.loads(result["content"][0]["text"])
+    if payload.get("verdict") not in {"SCRIBE_RECORD_STAGED_ONLY", "SCRIBE_RECORD_WRITTEN"}:
+        raise server.ToolError("SCRIBE_COMMIT_GATE_RECORD_WRITE_FAILED")
+    return payload
+
+
+def _finish_ok_after_gate(agent_id: str, summary: str, task_id: str, context_token: str) -> Dict[str, Any]:
+    result = _BASE_FINISH_TASK(agent_id=agent_id, summary=summary)
+    payload = json.loads(result["content"][0]["text"])
+    if payload.get("verdict") == "TASK_FINISHED_OK" and (task_id or context_token):
+        try:
+            payload["task_context"] = task_context.finish_task_context(agent_id, task_id, context_token)
+        except task_context.TaskContextError as exc:
+            raise _context_error(exc) from exc
+        payload["next_state_hint"] = "READY_FOR_NEXT_TASK"
+        payload["terminal"] = True
+        return server.ok(payload)
+    return result
+
+
+def finish_task(agent_id: str, summary: str = "", task_id: str = "", context_token: str = "", action_lease_id: str = "", intent: str = "", canonical_memory_skip_reason: str = "") -> Dict[str, Any]:
+    ctx = _resolve_stored_task_intent(agent_id, task_id)
+    normalized_intent = (intent or "").strip().lower()
+
+    if not ctx["ok"]:
+        return server.ok({
+            "ok": False,
+            "verdict": ctx["verdict"],
+            "state": "HARD_STOP",
+            "reason": ctx["reason"],
+        })
+
+    if ctx["state"] == "TASK_CONTEXT_FOUND":
+        stored = ctx.get("intent") or ""
+        is_read_only = stored in _READ_ONLY_INTENTS
+    else:
+        is_read_only = normalized_intent in _SAFE_FINISH_INTENTS
+
+    task_memory_state: dict[str, Any] | None = None
+    if task_id:
+        try:
+            task_memory_state = task_context.get_task_context(agent_id, task_id)
+        except task_context.TaskContextError:
+            task_memory_state = None
+    if _task_requires_canonical_promotion(task_memory_state):
+        skip_reason = (canonical_memory_skip_reason or "").strip()
+        if skip_reason:
+            if not canonical_memory_gate._skip_reason_is_strong(skip_reason):
+                return server.ok({
+                    "ok": False,
+                    "verdict": "CANONICAL_MEMORY_SKIP_REJECTED",
+                    "state": "CANONICAL_MEMORY_SKIP_REJECTED",
+                    "reason": "Skip reason is too weak or generic to justify finishing a durable memory task without promotion.",
+                    "task_id": task_id,
+                    "agent_id": agent_id,
+                    "skip_reason": skip_reason,
+                    "forbidden": ["finish_task", "direct_file_edit"],
+                })
+            try:
+                task_context.mark_scribe_record_skipped(agent_id, task_id, context_token, skip_reason=skip_reason)
+            except task_context.TaskContextError as exc:
+                raise _context_error(exc) from exc
+            result = _finish_ok_after_gate(agent_id, summary, task_id, context_token)
+            payload = json.loads(result["content"][0]["text"])
+            payload.update({
+                "verdict": "CANONICAL_MEMORY_SKIPPED_WITH_REASON",
+                "state": "CANONICAL_MEMORY_SKIPPED_WITH_REASON",
+                "skip_reason": skip_reason,
+                "terminal": True,
+                "next_state_hint": "READY_FOR_NEXT_TASK",
+            })
+            return server.ok(payload)
+        return server.ok({
+            "ok": False,
+            "verdict": "CANONICAL_MEMORY_REQUIRED",
+            "state": "CANONICAL_MEMORY_REQUIRED",
+            "reason": "A staged durable record must be promoted before finish_task can close.",
+            "task_id": task_id,
+            "agent_id": agent_id,
+            "record_path": task_memory_state.get("scribe_record_path") or "",
+            "must_call": {
+                "tool": "scribe_promote_record",
+                "args": {
+                    "agent_id": agent_id,
+                    "task_id": task_id,
+                    "context_token": context_token,
+                    "record_path": task_memory_state.get("scribe_record_path") or "",
+                },
+            },
+            "forbidden": ["finish_task", "direct_file_edit"],
+        })
+
+    if is_read_only:
+        return _finish_ok_after_gate(agent_id, summary, task_id, context_token)
+
     lease_check = _require_action_lease(
         action_lease_id, "finish_task", agent_id, "finish_task",
         task_id=task_id,
     )
     if lease_check is not None:
         return lease_check
-    result = _BASE_FINISH_TASK(agent_id=agent_id, summary=summary)
-    if task_id or context_token:
-        payload = json.loads(result["content"][0]["text"])
-        if payload.get("verdict") == "TASK_FINISHED_OK":
-            try:
-                payload["task_context"] = task_context.finish_task_context(agent_id, task_id, context_token)
-            except task_context.TaskContextError as exc:
-                raise _context_error(exc) from exc
+
+    try:
+        task_context.require_context_ready(agent_id, task_id, context_token, allowed_intents=_MUTATING_CONTEXT_INTENTS)
+    except task_context.TaskContextError as exc:
+        raise _context_error(exc) from exc
+
+    tripwire = direct_fs_tripwire.assert_no_unauthorized_mutations(
+        server.ROOT, task_id, agent_id
+    )
+    if tripwire.get("verdict") == direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED:
+        return server.ok({
+            "ok": False,
+            "verdict": direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED,
+            "state": "WORKSPACE_AUDIT_REQUIRED",
+            "reason": "Unauthorized dirty workspace mutation detected outside MCP-authorized writes.",
+            "task_id": task_id,
+            "agent_id": agent_id,
+            "suspects": tripwire.get("suspects", []),
+            "git_status": tripwire.get("git_status", []),
+            "must_call": {"tool": "workspace_audit", "args": {"agent_id": agent_id, "task_id": task_id}},
+            "forbidden": ["finish_task", "git_commit", "git_push", "direct_file_edit"],
+        })
+
+    patch_ids = direct_fs_tripwire.applied_patch_ids(server.ROOT, task_id, agent_id, resource=direct_fs_tripwire.MEMOIRE_FILE)
+    if patch_ids:
+        memo_file = server.ROOT / direct_fs_tripwire.MEMOIRE_FILE
+        memory_content = memo_file.read_text(encoding="utf-8", errors="replace") if memo_file.is_file() else ""
+        memory_proven = any(pid and pid in memory_content for pid in patch_ids)
+        if not memory_proven:
+            return server.ok({
+                "ok": False,
+                "verdict": "MEMORY_PROOF_REQUIRED",
+                "state": "MEMORY_PROOF_REQUIRED",
+                "reason": (
+                    f"Canonical memory required: none of the {len(patch_ids)} MCP-applied "
+                    "patch_ids appear in AGENT-MEMOIRE_PROJECT_STATUS.scribe. "
+                    "Record a SCRIBE entry referencing at least one applied patch_id "
+                    "before finish_task."
+                ),
+                "applied_patch_ids": patch_ids,
+                "forbidden": ["finish_task", "git_commit", "git_push", "direct_file_edit"],
+            })
+
+    pending = server._agent_pending_patches(agent_id)
+    if pending:
+        return server.ok({"verdict": "FINISH_REFUSED_PENDING_PATCHES", "pending_patches": pending})
+
+    claims = server._active_claims_for(agent_id)
+    if claims["owned"]:
+        return server.ok({
+            "ok": False,
+            "verdict": "FINISH_REFUSED_ACTIVE_CLAIMS",
+            "state": "ACTIVE_CLAIM_BEFORE_FINISH",
+            "active_claims": claims["owned"],
+            "forbidden": ["finish_task", "direct_file_edit"],
+        })
+
+    if canonical_memory_gate.is_active(server.ROOT):
+        canonical = canonical_memory_gate.evaluate_finish(
+            server.ROOT,
+            task_id,
+            agent_id,
+            request=summary or "",
+            intent=stored or normalized_intent,
+            summary=summary or "",
+            skip_reason=canonical_memory_skip_reason or "",
+        )
+        verdict = canonical.get("verdict")
+        if verdict in _CANONICAL_MEMORY_BLOCKING_VERDICTS:
+            return server.ok({
+                "ok": False,
+                **canonical,
+                "state": canonical.get("state") or verdict,
+                "terminal": False,
+                "forbidden": ["finish_task", "direct_file_edit"],
+            })
+        if verdict in _CANONICAL_MEMORY_TERMINAL_VERDICTS:
+            result = _finish_ok_after_gate(agent_id, summary, task_id, context_token)
+            payload = json.loads(result["content"][0]["text"])
+            payload.update(canonical)
+            payload["terminal"] = True
+            payload["next_state_hint"] = "READY_FOR_NEXT_TASK"
             return server.ok(payload)
-    return result
+
+    try:
+        gate = scribe_commit_gate.require_or_create(agent_id, task_id, context_token, summary=summary)
+    except scribe_commit_gate.ScribeCommitGateError as exc:
+        raise _scribe_gate_error(exc) from exc
+    if gate["status"] == scribe_commit_gate.PENDING:
+        return server.ok({
+            "ok": True,
+            "verdict": "SCRIBE_COMMIT_GATE_REQUIRED",
+            "state": "SCRIBE_COMMIT_GATE_REQUIRED",
+            "gate_id": gate["gate_id"],
+            "task_id": task_id,
+            "proposed_record": gate["proposed_record"],
+            "allowed_decisions": gate["allowed_decisions"],
+            "terminal": False,
+            "must_call": {
+                "tool": "scribe_commit_gate_resolve",
+                "args": {"agent_id": agent_id, "task_id": task_id, "context_token": context_token, "decision": "commit"},
+            },
+            "forbidden": ["direct_file_edit"],
+        })
+    return _finish_ok_after_gate(agent_id, summary, task_id, context_token)
+
+
+def scribe_commit_gate_status(agent_id: str, task_id: str, context_token: str) -> Dict[str, Any]:
+    try:
+        return server.ok(scribe_commit_gate.get_status(agent_id, task_id, context_token))
+    except scribe_commit_gate.ScribeCommitGateError as exc:
+        raise _scribe_gate_error(exc) from exc
+
+
+def scribe_commit_gate_resolve(
+    agent_id: str,
+    task_id: str,
+    context_token: str,
+    decision: str,
+    edited_record: Dict[str, Any] | None = None,
+    proposed_record: Dict[str, Any] | None = None,
+    skip_reason: str = "",
+) -> Dict[str, Any]:
+    record = edited_record if edited_record is not None else proposed_record
+    try:
+        resolved = scribe_commit_gate.resolve(
+            agent_id,
+            task_id,
+            context_token,
+            decision,
+            _write_gate_record,
+            edited_record=record,
+            skip_reason=skip_reason,
+        )
+    except scribe_commit_gate.ScribeCommitGateError as exc:
+        raise _scribe_gate_error(exc) from exc
+    return server.ok(resolved)
 
 
 def scribe_record(
@@ -518,11 +986,16 @@ def scribe_record(
     related_errors: List[str] | None = None,
     related_tests: List[str] | None = None,
     resources: List[str] | None = None,
+    task_id: str = "",
+    context_token: str = "",
+    memory_policy: str = "",
 ) -> Dict[str, Any]:
     if not agent_id:
         raise server.ToolError("agent_id is required")
     now = int(time.time())
     merged_resources = resources if resources is not None else touched_resources
+    policy = canonical_memory_gate.derive_memory_policy(record_type or "", memory_policy or "", request or "", summary or "", verdict or "")
+    required = canonical_memory_gate.policy_requires_canonical_promotion(policy)
     payload = {
         "timestamp": now,
         "agent_id": agent_id,
@@ -540,6 +1013,10 @@ def scribe_record(
         "related_errors": related_errors or [],
         "related_tests": related_tests or [],
         "tags": tags or [],
+        "task_id": task_id or "",
+        "context_token": context_token or "",
+        "memory_policy": policy,
+        "canonical_memory_required": required,
     }
     paths = prepare_state_dirs(server.ROOT)
     records = paths["scribe_out"] / "records"
@@ -554,14 +1031,92 @@ def scribe_record(
             fh.flush()
             os.fsync(fh.fileno())
         os.replace(tmp_name, target)
+        if task_id and context_token:
+            try:
+                task_context.mark_scribe_record_staged(
+                    agent_id,
+                    task_id,
+                    context_token,
+                    required=required,
+                    policy=policy,
+                    record_path=str(target.relative_to(server.ROOT)),
+                    record_digest=digest,
+                )
+            except task_context.TaskContextError as exc:
+                try:
+                    target.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise _context_error(exc) from exc
     except Exception:
         try:
             os.unlink(tmp_name)
         except FileNotFoundError:
             pass
         raise
-    return server.ok({"verdict": "SCRIBE_RECORD_WRITTEN", "record": str(target.relative_to(server.ROOT)), "entry": payload})
+    return server.ok({
+        "verdict": "SCRIBE_RECORD_STAGED_ONLY",
+        "record_json_created": True,
+        "canonical_memory_updated": False,
+        "canonical_memory_required": required,
+        "promotion_required": required,
+        "promotion_tool": "scribe_promote_record" if required else "",
+        "memory_policy": policy,
+        "record_path": str(target.relative_to(server.ROOT)),
+        "entry": payload,
+    })
 
+
+def scribe_promote_record(
+    agent_id: str = "",
+    task_id: str = "",
+    context_token: str = "",
+    record_path: str = "",
+) -> Dict[str, Any]:
+    if not agent_id:
+        raise server.ToolError("agent_id is required")
+    if not task_id or not context_token:
+        raise server.ToolError("task_id and context_token are required")
+    try:
+        task_data = task_context.get_task_context(agent_id, task_id)
+    except task_context.TaskContextError as exc:
+        raise _context_error(exc) from exc
+    safe_record_path = record_path or str(task_data.get("scribe_record_path") or "")
+    if not safe_record_path:
+        raise server.ToolError("record_path is required")
+    source = Path(safe_record_path)
+    if not source.is_absolute():
+        source = (server.ROOT / source).resolve()
+    else:
+        source = source.resolve()
+    if not source.is_file():
+        raise server.ToolError("SCRIBE_RECORD_NOT_FOUND")
+    if not source.is_relative_to(server.ROOT):
+        raise server.ToolError("SCRIBE_RECORD_OUTSIDE_PROJECT")
+    record = json.loads(source.read_text(encoding="utf-8"))
+    policy = canonical_memory_gate.derive_memory_policy(
+        str(record.get("record_type") or record.get("type") or ""),
+        str(record.get("memory_policy") or task_data.get("scribe_record_policy") or ""),
+        str(record.get("request") or ""),
+        str(record.get("summary") or ""),
+        str(record.get("verdict") or ""),
+    )
+    scope = str(task_data.get("resource") or "") or ""
+    result = canonical_memory_gate.promote_record(
+        server.ROOT,
+        record,
+        source,
+        scope=scope,
+        memory_policy=policy,
+        agent_id=agent_id,
+        task_id=task_id,
+    )
+    if result.get("verdict") == "CANONICAL_MEMORY_PROMOTED":
+        try:
+            task_context.mark_scribe_record_promoted(agent_id, task_id, context_token, entry_id=str(result.get("entry_id") or ""))
+        except task_context.TaskContextError as exc:
+            raise _context_error(exc) from exc
+    return server.ok(result)
 
 def discipline_ping(
     agent_id: str = "",
@@ -649,6 +1204,13 @@ def pre_action_guard(
             "state": code,
             "forbidden": _LEASE_FORBIDDEN,
         })
+
+    # Graphify Mandatory Guard: block writes if Graphify is not ready.
+    normalized_intent = (intent or "").strip().lower()
+    if normalized_intent in discipline.WRITE_INTENTS or normalized_intent in _WRITE_OR_DECISION_INTENTS:
+        guard_block = _enforce_graphify_guard()
+        if guard_block is not None:
+            return guard_block
 
     if task_id:
         try:
@@ -777,8 +1339,8 @@ def workspace_audit(
     resource: str = "",
 ) -> Dict[str, Any]:
     try:
-        result = discipline.detect_direct_write_bypass(
-            agent_id=agent_id, task_id=task_id, resource=resource,
+        result = direct_fs_tripwire.detect_unauthorized_mutations(
+            server.ROOT, task_id, agent_id, resource=resource,
         )
     except db.CoordinationError as exc:
         return server.ok({
@@ -786,11 +1348,154 @@ def workspace_audit(
             "state": str(exc),
             "forbidden": _LEASE_FORBIDDEN,
         })
+    if result.get("verdict") == direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED:
+        result["state"] = "WORKSPACE_AUDIT_REQUIRED"
+        result["forbidden"] = ["finish_task", "git_commit", "git_push", "direct_file_edit"]
+    elif result.get("verdict") == direct_fs_tripwire.TRIPWIRE_CLEAN:
+        result["verdict"] = "WORKSPACE_AUDIT_OK"
+        result["state"] = "WORKSPACE_AUDIT_OK"
     return server.ok(result)
 
 
 def _claims_for(agent_id: str, resource: str) -> Dict[str, Any]:
     return server._active_claims_for(agent_id, resource)
+
+
+# ── V2.15.17: Read-only FSM — isolated from write reflexes ──────────
+_READ_ONLY_FORBIDDEN = [
+    "claim_resource", "propose_patch", "apply_patch",
+    "delete_resource", "direct_file_edit",
+    "resource_lock_claim", "resource_lock_release", "resource_lock_heartbeat",
+]
+
+
+def _read_only_workflow_next(
+    agent_id: str,
+    request: str,
+    intent: str,
+    resource: str,
+    task_id: str,
+    context_token: str,
+    last: str,
+    task_data: dict[str, Any],
+) -> dict[str, Any]:
+    if last == "TASK_FINISHED_OK":
+        return server.ok({
+            "ok": True,
+            "verdict": "READY_FOR_NEXT_TASK",
+            "state": "READY_FOR_NEXT_TASK",
+            "reason": "Read task finished. Awaiting next user task.",
+        })
+    if not task_data or task_data.get("status") != "active":
+        return server._next_payload(
+            state="BEFORE_TASK_REQUIRED",
+            tool="before_task",
+            args={"agent_id": agent_id, "request": request or "", "intent": intent or "", "resource": resource or ""},
+            reason="No active task context. Start a before_task first.",
+            forbidden=_READ_ONLY_FORBIDDEN,
+        )
+    # AFTER before_task — guide through scribe → graphify → record → finish
+    if not task_data.get("scribe_done") and last not in _SCRIBE_VERDICTS:
+        return server._next_payload(
+            state="SCRIBE_CONTEXT_REQUIRED",
+            tool="scribe_query",
+            args={"agent_id": agent_id, "task_id": task_id, "context_token": context_token,
+                  "query": _targeted_scribe_query(request, intent, resource), "limit": 5},
+            reason="Targeted SCRIBE RAG query is recommended for read task context.",
+            forbidden=_READ_ONLY_FORBIDDEN,
+        )
+    if task_data.get("requires_graphify") and not task_data.get("graphify_done") \
+            and last not in _GRAPHIFY_VERDICTS:
+        return server._next_payload(
+            state="GRAPHIFY_CONTEXT_REQUIRED",
+            tool="graphify_query",
+            args={"agent_id": agent_id, "task_id": task_id, "context_token": context_token,
+                  "query": _targeted_graphify_query(request, intent, resource),
+                  "resource": resource or ""},
+            reason="Targeted Graphify impact query is recommended for read task context.",
+            forbidden=_READ_ONLY_FORBIDDEN,
+        )
+    # Scribe or graphify done → scribe_record, then optional canonical promotion, then finish
+    if _task_requires_canonical_promotion(task_data):
+        return server._next_payload(
+            state="SCRIBE_PROMOTION_REQUIRED",
+            tool="scribe_promote_record",
+            args={
+                "agent_id": agent_id,
+                "task_id": task_id,
+                "context_token": context_token,
+                "record_path": str(task_data.get("scribe_record_path") or ""),
+            },
+            reason="The staged memory record is durable and must be promoted before finish_task.",
+            forbidden=_READ_ONLY_FORBIDDEN,
+        )
+    if task_data.get("scribe_record_done"):
+        return server._next_payload(
+            state="FINISH_TASK_RECOMMENDED",
+            tool="finish_task",
+            args={"agent_id": agent_id, "task_id": task_id, "context_token": context_token, "intent": "read"},
+            reason="Read task complete. Call finish_task to close.",
+            forbidden=_READ_ONLY_FORBIDDEN,
+        )
+    if last in _SCRIBE_VERDICTS | _GRAPHIFY_VERDICTS or last == "BEFORE_TASK_OK" or (task_data.get("scribe_done") and not task_data.get("scribe_record_done")):
+        return server._next_payload(
+            state="SCRIBE_RECORD_RECOMMENDED",
+            tool="scribe_record",
+            args=_scribe_record_args(agent_id, task_id, context_token, request, intent, resource, task_data),
+            reason="Typed memory recording is recommended before finishing the read task.",
+            forbidden=_READ_ONLY_FORBIDDEN,
+        )
+    # Safety fallback — guide toward finish_task
+    return server._next_payload(
+        state="FINISH_TASK_RECOMMENDED",
+        tool="finish_task",
+        args={"agent_id": agent_id, "task_id": task_id, "context_token": context_token, "intent": "read"},
+        reason="Read task ready for finish.",
+        forbidden=_READ_ONLY_FORBIDDEN,
+    )
+    return server._next_payload(
+        state="FINISH_TASK_RECOMMENDED",
+        tool="finish_task",
+        args={"agent_id": agent_id, "task_id": task_id, "context_token": context_token, "intent": "read"},
+        reason="Read task ready for finish.",
+        forbidden=_READ_ONLY_FORBIDDEN,
+    )
+
+
+# ── V2.15.18: Strict task context resolver for workflow_next ──────────
+# Must not fall through to legacy when task_id is provided but invalid.
+
+
+def _resolve_task_context_for_workflow_next(
+    agent_id: str,
+    task_id: str,
+) -> dict[str, Any]:
+    if not task_id:
+        return {"ok": True, "state": "NO_TASK_ID", "task_data": None}
+    try:
+        task_data = task_context.task_status(task_id)
+    except task_context.TaskContextError as exc:
+        return {
+            "ok": False,
+            "verdict": "TASK_CONTEXT_UNKNOWN_TASK",
+            "state": "HARD_STOP",
+            "reason": f"task_id was provided but no active task context exists: {exc}",
+        }
+    if task_data.get("agent_id") != agent_id:
+        return {
+            "ok": False,
+            "verdict": "TASK_AGENT_MISMATCH",
+            "state": "HARD_STOP",
+            "reason": (
+                f"task_id belongs to agent '{task_data.get('agent_id')}' "
+                f"but caller is '{agent_id}'."
+            ),
+        }
+    return {
+        "ok": True,
+        "state": "TASK_CONTEXT_FOUND",
+        "task_data": task_data,
+    }
 
 
 def workflow_next(
@@ -811,23 +1516,65 @@ def workflow_next(
     normalized = (intent or "").strip().lower()
     last = _last(last_verdict)
 
+    # TASK_FINISHED_OK is a terminal verdict — the workflow is done.
+    if last in {"TASK_FINISHED_OK", "CANONICAL_MEMORY_PROMOTED", "CANONICAL_MEMORY_SKIPPED_WITH_REASON"}:
+        return server.ok({
+            "ok": True,
+            "verdict": "READY_FOR_NEXT_TASK",
+            "state": "READY_FOR_NEXT_TASK",
+            "reason": "Previous task finished. No pending actions. Awaiting next user task.",
+        })
+    if last == direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED:
+        return server._next_payload(
+            state="BYPASS_BLOCKED",
+            tool="workspace_audit",
+            args={"agent_id": agent_id, "task_id": task_id, "resource": resource or ""},
+            reason="Direct write bypass was detected. Re-audit or resolve the dirty workspace before any new claim, patch or finish attempt.",
+            forbidden=["before_task", "claim_resource", "resource_lock_claim", "file_hash", "propose_patch", "apply_patch", "delete_resource", "finish_task", "git_commit", "git_push", "direct_file_edit"],
+        )
+    if last == "SCRIBE_COMMIT_GATE_REQUIRED":
+        return server._next_payload(
+            state="SCRIBE_COMMIT_GATE_REQUIRED",
+            tool="scribe_commit_gate_resolve",
+            args={"agent_id": agent_id, "task_id": task_id, "context_token": context_token, "decision": "commit"},
+            reason="Mutating finish_task is blocked until an explicit SCRIBE memory decision is resolved.",
+            forbidden=["finish_task", "direct_file_edit"],
+        )
+    if last in _CANONICAL_MEMORY_BLOCKING_VERDICTS:
+        return server._next_payload(
+            state=last,
+            tool="finish_task",
+            args={
+                "agent_id": agent_id,
+                "task_id": task_id,
+                "context_token": context_token,
+                "intent": intent or "",
+                "canonical_memory_skip_reason": "",
+            },
+            reason="Canonical memory must be promoted or an auditable skip reason must be provided before finish_task can close.",
+            forbidden=["direct_file_edit"],
+        )
+
     stop = _track_loop(agent_id, resource, last)
     if stop is not None:
         return stop
 
     task_data: Dict[str, Any] | None = None
     if task_id:
-        try:
-            task_data = task_context.task_status(task_id)
-        except task_context.TaskContextError as exc:
-            stop = _track_loop(agent_id, resource, exc.code)
-            if stop is not None:
-                return stop
-            # Unknown task: clear task_id so base workflow_next handles it
-            task_id = ""
-            task_data = None
-        if task_data and task_data.get("agent_id") != agent_id:
-            raise server.ToolError("TASK_CONTEXT_AGENT_MISMATCH")
+        ctx = _resolve_task_context_for_workflow_next(agent_id, task_id)
+        if not ctx["ok"]:
+            return server.ok({
+                "ok": False,
+                "verdict": ctx["verdict"],
+                "state": "HARD_STOP",
+                "reason": ctx["reason"],
+                "forbidden": [
+                    "before_task", "claim_resource", "scribe_query", "graphify_query",
+                    "propose_patch", "apply_patch", "delete_resource",
+                    "finish_task", "direct_file_edit",
+                ],
+            })
+        task_data = ctx.get("task_data")
         if task_data and task_data.get("status") == "active" and not context_token:
             return server.ok({
                 "verdict": "NEXT_ACTION_REQUIRED",
@@ -845,6 +1592,29 @@ def workflow_next(
                 last_verdict = "GRAPHIFY_QUERY_DONE" if task_data.get("requires_graphify") else "SCRIBE_QUERY_DONE"
             last = _last(last_verdict)
 
+    if task_data and task_data.get("status") == "active" and direct_fs_tripwire.is_mutating_intent(task_data.get("intent") or ""):
+        tripwire = direct_fs_tripwire.detect_unauthorized_mutations(
+            server.ROOT, task_id, agent_id, resource=resource or ""
+        )
+        if tripwire.get("verdict") == direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED:
+            return server._next_payload(
+                state="WORKSPACE_AUDIT_REQUIRED",
+                tool="workspace_audit",
+                args={"agent_id": agent_id, "task_id": task_id, "resource": resource or ""},
+                reason="Unauthorized dirty workspace mutation detected outside MCP-authorized writes.",
+                forbidden=["finish_task", "git_commit", "git_push", "direct_file_edit"],
+                context={"suspects": tripwire.get("suspects", []), "git_status": tripwire.get("git_status", [])},
+            )
+
+    # V2.15.17: Read-only FSM — stored intent isolates read path from write reflexes
+    if task_data and task_data.get("status") == "active":
+        _ri = _resolve_stored_task_intent(agent_id, task_id)
+        if _ri.get("ok") and (_ri.get("intent") or "") in _READ_ONLY_INTENTS:
+            return _read_only_workflow_next(
+                agent_id, request, _ri["intent"], resource,
+                task_id, context_token, last, task_data,
+            )
+
     if not agent_id or agent_id not in server._active_agent_ids():
         return _BASE_WORKFLOW_NEXT(
             agent_id=agent_id,
@@ -860,32 +1630,34 @@ def workflow_next(
             model_name=model_name,
         )
 
-    if normalized in server.FINISH_INTENTS and last not in _RECORD_DONE_VERDICTS:
+    if normalized in server.FINISH_INTENTS:
+        if _task_requires_canonical_promotion(task_data):
+            return server._next_payload(
+                state="SCRIBE_PROMOTION_REQUIRED",
+                tool="scribe_promote_record",
+                args={
+                    "agent_id": agent_id,
+                    "task_id": task_id,
+                    "context_token": context_token,
+                    "record_path": str(task_data.get("scribe_record_path") or ""),
+                },
+                reason="The staged memory record is durable and must be promoted before finish_task.",
+                forbidden=["finish_task", "direct_file_edit"],
+            )
         pending = server._agent_pending_patches(agent_id, resource)
         if pending:
             return _BASE_WORKFLOW_NEXT(agent_id=agent_id, request=request, intent=intent, resource=resource, mode=mode, base_hash=base_hash, patch_id=patch_id, claim_id=claim_id, last_verdict=last_verdict, host_tool=host_tool, model_name=model_name)
         claims = server._active_claims_for(agent_id)
         if claims["owned"]:
             return _BASE_WORKFLOW_NEXT(agent_id=agent_id, request=request, intent=intent, resource=resource, mode=mode, base_hash=base_hash, patch_id=patch_id, claim_id=claim_id, last_verdict=last_verdict, host_tool=host_tool, model_name=model_name)
-        if _requires_scribe_record(intent, last_verdict):
+        if _requires_scribe_record(intent, last_verdict) and not (task_data or {}).get("scribe_record_done"):
             return server._next_payload(
                 state="SCRIBE_RECORD_REQUIRED",
                 tool="scribe_record",
-                args={
-                    "agent_id": agent_id,
-                    "request": request or "task completed",
-                    "summary": "record useful task outcome before finish",
-                    "touched_resources": [resource] if resource else [],
-                    "resources": [resource] if resource else [],
-                    "verdict": last or "READY_TO_FINISH",
-                    "record_type": "task_summary",
-                    "severity": "medium",
-                    "tags": ["workflow_next"],
-                },
+                args=_scribe_record_args(agent_id, task_id, context_token, request, intent, resource, task_data),
                 reason="Typed memory recording is required before finish_task when useful: writes, deletions, tests, refactors, decisions, scars, debt or conflicts.",
                 forbidden=["finish_task", "direct_file_edit"],
             )
-
     gate = _context_gate(agent_id, request, intent, resource, last_verdict, task_id, context_token)
     if gate is not None:
         return gate
@@ -913,6 +1685,9 @@ def workflow_next(
         must_tool = (payload.get("must_call") or {}).get("tool")
         if must_tool in {"claim_resource", "propose_patch"}:
             payload["must_call"]["args"].update({"task_id": task_id, "context_token": context_token})
+            if must_tool == "claim_resource":
+                payload["must_call"]["tool"] = "resource_lock_claim"
+                payload["reason"] = "Exclusive resource lock is recommended before apply_patch."
             return server.ok(payload)
         if must_tool == "before_task" and task_id:
             return server.ok({
@@ -981,6 +1756,30 @@ def task_status(task_id: str) -> Dict[str, Any]:
         raise _context_error(exc) from exc
 
 
+def root_hygiene_status(max_parent_depth: int = 4, strict: bool = False) -> Dict[str, Any]:
+    try:
+        report = root_hygiene.assert_safe_project_root(server.ROOT, strict=bool(strict), max_parent_depth=max_parent_depth)
+    except RuntimeError as exc:
+        report = root_hygiene.inspect_root_hygiene(server.ROOT, max_parent_depth=max_parent_depth)
+        report["strict_error"] = str(exc)
+    if max_parent_depth != 4:
+        report = root_hygiene.inspect_root_hygiene(server.ROOT, max_parent_depth=max_parent_depth)
+    report["formatted"] = root_hygiene.format_root_hygiene_report(report)
+    return server.ok(report)
+
+
+def runtime_backup_status(keep_last: int = 20) -> Dict[str, Any]:
+    return server.ok(runtime_backup_retention.runtime_backup_report(server.ROOT, keep_last=keep_last))
+
+
+def runtime_backup_cleanup(keep_last: int = 20, apply: bool = False, organize: bool = False, cleanup: bool = False) -> Dict[str, Any]:
+    if organize:
+        return server.ok(runtime_backup_retention.organize_runtime_backups(server.ROOT, apply=bool(apply)))
+    if cleanup:
+        return server.ok(runtime_backup_retention.cleanup_runtime_backups(server.ROOT, keep_last=keep_last, apply=bool(apply)))
+    return server.ok(runtime_backup_retention.runtime_backup_report(server.ROOT, keep_last=keep_last))
+
+
 def wait_for_tasks(
     task_ids: List[str] | None = None,
     agent_id: str = "",
@@ -1021,6 +1820,8 @@ def tool_schema(name: str) -> Dict[str, Any]:
         return _schema_props(_BASE_TOOL_SCHEMA(name), {"task_id": "string", "context_token": "string"})
     if name == "resume_task_context":
         return {"type": "object", "properties": {"agent_id": {"type": "string"}, "task_id": {"type": "string"}}, "additionalProperties": False}
+    if name == "root_hygiene_status":
+        return {"type": "object", "properties": {"max_parent_depth": {"type": "integer"}, "strict": {"type": "boolean"}}, "additionalProperties": False}
     if name in {"scribe_query", "graphify_query"}:
         return _schema_props(_BASE_TOOL_SCHEMA(name), {"agent_id": "string", "task_id": "string", "context_token": "string"})
     if name == "claim_resource":
@@ -1039,7 +1840,11 @@ def tool_schema(name: str) -> Dict[str, Any]:
             }, "additionalProperties": False,
         }, {})
     if name == "finish_task":
-        return _schema_props(_BASE_TOOL_SCHEMA(name), {"task_id": "string", "context_token": "string", "action_lease_id": "string"})
+        return _schema_props(_BASE_TOOL_SCHEMA(name), {"task_id": "string", "context_token": "string", "action_lease_id": "string", "intent": "string", "canonical_memory_skip_reason": "string"})
+    if name == "scribe_commit_gate_status":
+        return {"type": "object", "properties": {"agent_id": {"type": "string"}, "task_id": {"type": "string"}, "context_token": {"type": "string"}}, "required": ["agent_id", "task_id", "context_token"], "additionalProperties": False}
+    if name == "scribe_commit_gate_resolve":
+        return {"type": "object", "properties": {"agent_id": {"type": "string"}, "task_id": {"type": "string"}, "context_token": {"type": "string"}, "decision": {"type": "string"}, "edited_record": {"type": "object"}, "proposed_record": {"type": "object"}, "skip_reason": {"type": "string"}}, "required": ["agent_id", "task_id", "context_token", "decision"], "additionalProperties": False}
     if name == "scribe_record":
         return {
             "type": "object",
@@ -1059,14 +1864,33 @@ def tool_schema(name: str) -> Dict[str, Any]:
                 "related_errors": {"type": "array", "items": {"type": "string"}},
                 "related_tests": {"type": "array", "items": {"type": "string"}},
                 "resources": {"type": "array", "items": {"type": "string"}},
+                "task_id": {"type": "string"},
+                "context_token": {"type": "string"},
+                "memory_policy": {"type": "string"},
             },
             "required": ["agent_id", "request", "summary", "touched_resources", "verdict"],
+            "additionalProperties": False,
+        }
+    if name == "scribe_promote_record":
+        return {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "task_id": {"type": "string"},
+                "context_token": {"type": "string"},
+                "record_path": {"type": "string"},
+            },
+            "required": ["agent_id", "task_id", "context_token"],
             "additionalProperties": False,
         }
     if name == "list_tasks":
         return {"type": "object", "properties": {"agent_id": {"type": "string"}, "status": {"type": "string"}}, "additionalProperties": False}
     if name == "task_status":
         return {"type": "object", "properties": {"task_id": {"type": "string"}}, "additionalProperties": False}
+    if name == "runtime_backup_status":
+        return {"type": "object", "properties": {"keep_last": {"type": "integer"}}, "additionalProperties": False}
+    if name == "runtime_backup_cleanup":
+        return {"type": "object", "properties": {"keep_last": {"type": "integer"}, "apply": {"type": "boolean"}, "organize": {"type": "boolean"}, "cleanup": {"type": "boolean"}}, "additionalProperties": False}
     if name == "wait_for_tasks":
         return {
             "type": "object",
@@ -1121,9 +1945,10 @@ def tool_schema(name: str) -> Dict[str, Any]:
                 "agent_id": {"type": "string"},
                 "resource": {"type": "string"},
                 "task_id": {"type": "string"},
+                "context_token": {"type": "string"},
                 "ttl_seconds": {"type": "integer"},
             },
-            "required": ["agent_id", "resource"],
+            "required": ["agent_id", "resource", "task_id", "context_token"],
             "additionalProperties": False,
         }
     if name == "resource_lock_release":
@@ -1142,6 +1967,17 @@ def tool_schema(name: str) -> Dict[str, Any]:
             "type": "object",
             "properties": {"resource": {"type": "string"}},
             "required": ["resource"],
+            "additionalProperties": False,
+        }
+    if name == "resource_lock_heartbeat":
+        return {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "resource": {"type": "string"},
+                "ttl_seconds": {"type": "integer"},
+            },
+            "required": ["agent_id", "resource"],
             "additionalProperties": False,
         }
     if name == "portability_check":
@@ -1169,6 +2005,40 @@ def tool_schema(name: str) -> Dict[str, Any]:
                 "workspace_root": {"type": "string"},
             },
             "required": ["token", "agent_id"],
+            "additionalProperties": False,
+        }
+    if name == "graphify_required_check":
+        return {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "workspace_root": {"type": "string"},
+            },
+            "additionalProperties": False,
+        }
+    if name == "tenor_task_prompt":
+        return {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string"},
+                "mode": {"type": "string"},
+                "intent": {"type": "string"},
+                "resource": {"type": "string"},
+                "model_tier": {"type": "string"},
+            },
+            "required": ["task"],
+            "additionalProperties": False,
+        }
+    if name == "tenor_init_bridge":
+        return {
+            "type": "object",
+            "properties": {
+                "agent_session_id": {"type": "string"},
+                "host_tool": {"type": "string"},
+                "model_name": {"type": "string"},
+                "proof_token": {"type": "string"},
+            },
+            "required": ["agent_session_id", "proof_token"],
             "additionalProperties": False,
         }
     return _BASE_TOOL_SCHEMA(name)
@@ -1290,39 +2160,14 @@ def resource_lock_claim(
     agent_id: str = "",
     resource: str = "",
     task_id: str = "",
-    ttl_seconds: int | None = None,
+    context_token: str = "",
+    ttl_seconds: int = 300,
 ) -> Dict[str, Any]:
-    """Claim an exclusive write lock on a resource.
-
-    Prevents N agents (including orchestrator sub-agents) from writing
-    to the same resource concurrently. Use before long multi-file operations.
-
-    Returns lock_id on success. Raises RESOURCE_ALREADY_LOCKED with owner
-    details if another agent holds the lock. Same agent calling again is
-    idempotent (returns existing lock).
-    """
-    if not agent_id:
-        return server.ok({"verdict": "AGENT_ID_REQUIRED", "state": "AGENT_ID_REQUIRED", "forbidden": _LEASE_FORBIDDEN})
-    if not resource:
-        return server.ok({"verdict": "RESOURCE_REQUIRED", "state": "RESOURCE_REQUIRED",
-                          "reason": "resource_lock_claim requires a resource path.", "forbidden": _LEASE_FORBIDDEN})
-    try:
-        result = discipline.resource_lock_claim(
-            agent_id=agent_id, resource=resource, task_id=task_id or "",
-            ttl_seconds=ttl_seconds,
-        )
-    except discipline.DisciplineError as exc:
-        return server.ok({
-            "verdict": exc.code,
-            "state": exc.code,
-            "reason": f"Resource is locked by another agent. Details: {exc.details}",
-            "details": exc.details,
-            "next_step": "Wait for the lock to expire or ask the owning agent to call resource_lock_release.",
-            "forbidden": _LEASE_FORBIDDEN,
-        })
-    except db.CoordinationError as exc:
-        return server.ok({"verdict": str(exc), "state": str(exc), "forbidden": _LEASE_FORBIDDEN})
-    return server.ok(result)
+    from runtime.resource_locks import resource_lock_claim as _rl_claim  # type: ignore
+    return server.ok(_rl_claim(
+        agent_id=agent_id, resource=resource, task_id=task_id,
+        context_token=context_token, ttl_seconds=ttl_seconds,
+    ))
 
 
 def resource_lock_release(
@@ -1330,37 +2175,23 @@ def resource_lock_release(
     resource: str = "",
     lock_id: str = "",
 ) -> Dict[str, Any]:
-    """Release an active resource lock held by this agent.
+    from runtime.resource_locks import resource_lock_release as _rl_release  # type: ignore
+    return server.ok(_rl_release(agent_id=agent_id, resource=resource, lock_id=lock_id))
 
-    Only the owning agent can release its own lock.
-    Releasing an already-released lock is idempotent (no error).
-    """
-    if not agent_id:
-        return server.ok({"verdict": "AGENT_ID_REQUIRED", "state": "AGENT_ID_REQUIRED", "forbidden": _LEASE_FORBIDDEN})
-    if not resource:
-        return server.ok({"verdict": "RESOURCE_REQUIRED", "state": "RESOURCE_REQUIRED", "forbidden": _LEASE_FORBIDDEN})
-    try:
-        result = discipline.resource_lock_release(agent_id=agent_id, resource=resource, lock_id=lock_id or "")
-    except discipline.DisciplineError as exc:
-        return server.ok({"verdict": exc.code, "state": exc.code, "details": exc.details, "forbidden": _LEASE_FORBIDDEN})
-    except db.CoordinationError as exc:
-        return server.ok({"verdict": str(exc), "state": str(exc), "forbidden": _LEASE_FORBIDDEN})
-    return server.ok(result)
+
+def resource_lock_heartbeat(
+    agent_id: str = "",
+    resource: str = "",
+    ttl_seconds: int = 300,
+) -> Dict[str, Any]:
+    from runtime.resource_locks import resource_lock_heartbeat as _rl_hb  # type: ignore
+    return server.ok(_rl_hb(agent_id=agent_id, resource=resource, ttl_seconds=ttl_seconds))
 
 
 def resource_lock_status(resource: str = "") -> Dict[str, Any]:
-    """Check who holds the lock on a resource.
-
-    Safe to call from any agent. Does not mutate state.
-    Use before long operations to confirm the resource is free.
-    """
-    if not resource:
-        return server.ok({"verdict": "RESOURCE_REQUIRED", "state": "RESOURCE_REQUIRED", "forbidden": _LEASE_FORBIDDEN})
-    try:
-        result = discipline.resource_lock_status(resource=resource)
-    except discipline.DisciplineError as exc:
-        return server.ok({"verdict": exc.code, "state": exc.code, "forbidden": _LEASE_FORBIDDEN})
-    return server.ok(result)
+    from runtime.resource_locks import resource_lock_status as _rl_status  # type: ignore
+    result = _rl_status(resource=resource)
+    return server.ok(result) if result.get("ok") else server.ok(result)
 
 
 def portability_check(workspace_root: str = "") -> Dict[str, Any]:
@@ -1491,58 +2322,437 @@ def verify_proof(
     except Exception:  # noqa: BLE001
         pass
     try:
-        result = _verify_proof(root, token, agent_id)
+        result = _verify_proof(root, token, agent_id, mark_consumed=False)
     except Exception as exc:  # noqa: BLE001
         return server.ok({"ok": False, "verdict": "PROOF_INTERNAL_ERROR", "detail": str(exc)})
     return server.ok(result)
 
 
 # ─────────────────────────────────────────────────────────────
+# tenor_task_prompt (V2.15.4) — generate disciplined TENOR task prompt
+# ─────────────────────────────────────────────────────────────
+
+def tenor_task_prompt(
+    task: str = "",
+    mode: str = "STANDARD",
+    intent: str = "write",
+    resource: str = "",
+    model_tier: str = "large",
+) -> dict[str, Any]:
+    if _ttp is None:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_TASK_PROMPT_MODULE_UNAVAILABLE",
+            "state": "HARD_STOP",
+            "reason": (
+                "tenor_task_prompt.py module not loaded. "
+                "HARD STOP: do not continue, do not improvise, do not answer directly. "
+                "Use the TENOR TASK CLI instead: "
+                "python3 .agent/scripts/tenor_task.py --task '...'"
+            ),
+            "prompt": "",
+        })
+    if not task or not task.strip():
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_TASK_PROMPT_INVALID",
+            "reason": "task is required and must not be empty.",
+            "prompt": "",
+        })
+    try:
+        result = _ttp.generate_task_prompt(
+            task=task,
+            mode=mode,
+            intent=intent,
+            resource=resource,
+            model_tier=model_tier,
+        )
+    except Exception as exc:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_TASK_PROMPT_ERROR",
+            "reason": str(exc),
+            "prompt": "",
+        })
+    return server.ok(result)
+
+
+# ─────────────────────────────────────────────────────────────
+# tenor_init_bridge (V2.15.5) — bridge TENOR session to MCP agent registry
+# ─────────────────────────────────────────────────────────────
+
+def _retire_ghost_agents(aid: str, host_tool: str) -> dict[str, Any]:
+    retired: list[dict[str, str]] = []
+    status = "ok"
+    error_msg = ""
+    if not host_tool or host_tool == "unknown":
+        return {"retired": retired, "status": "skipped", "error": "no host_tool"}
+    try:
+        all_agents = db.list_agents().get("agents", [])
+        for agent in all_agents:
+            gid = agent.get("agent_id", "")
+            gstatus = agent.get("status", "")
+            ghost = agent.get("host_tool", "")
+            if gid != aid and gstatus == "active" and ghost == host_tool:
+                tasks = task_context.list_tasks(agent_id=gid, status="active")
+                if tasks.get("count", 0) == 0:
+                    db.retire_agent(gid, reason=f"ghost replaced by {aid}")
+                    retired.append({"agent_id": gid, "host_tool": host_tool})
+    except Exception as exc:
+        status = "failed"
+        error_msg = str(exc)
+    return {"retired": retired, "status": status, "error": error_msg}
+
+
+def tenor_init_bridge(
+    agent_session_id: str = "",
+    host_tool: str = "unknown",
+    model_name: str = "",
+    proof_token: str = "",
+) -> dict[str, Any]:
+    if not agent_session_id or not agent_session_id.strip():
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_INVALID",
+            "state": "AGENT_SESSION_ID_REQUIRED",
+            "reason": "agent_session_id from TENOR INIT SCRIBE-CHECK output is required.",
+        })
+
+    steps: list[dict[str, Any]] = []
+    aid = agent_session_id.strip()
+
+    # Step 0 — proof_token is MANDATORY (V2.15.12)
+    if not proof_token or not proof_token.strip():
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_PROOF_REQUIRED",
+            "state": "HARD_STOP",
+            "reason": (
+                "proof_token is required. "
+                "Pass the proof_token directly to tenor_init_bridge (standalone verify_proof is diagnostic-only)."
+            ),
+            "steps": steps,
+        })
+    if not _PROOF_SIGNER_AVAILABLE:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_PROOF_UNVERIFIABLE",
+            "state": "HARD_STOP",
+            "reason": (
+                "proof_token provided but proof_signer.py is not loaded. "
+                "Cannot verify TENOR proof. Host must NOT continue."
+            ),
+            "steps": steps,
+        })
+    try:
+        proof_result = _verify_proof(server.ROOT.resolve(), proof_token, aid)
+        if not proof_result.get("ok"):
+            return server.ok({
+                "ok": False,
+                "verdict": "TENOR_INIT_BRIDGE_PROOF_FAILED",
+                "state": "HARD_STOP",
+                "reason": (
+                    f"Proof verification failed: {proof_result.get('verdict', 'UNKNOWN')} "
+                    f"— {proof_result.get('detail', '')}"
+                ),
+                "steps": steps,
+            })
+        steps.append({
+            "step": "verify_proof",
+            "ok": True,
+            "verdict": proof_result.get("verdict", "PROOF_VALID"),
+        })
+    except Exception as exc:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_PROOF_ERROR",
+            "state": "HARD_STOP",
+            "reason": f"Proof verification raised exception: {exc}",
+            "steps": steps,
+        })
+
+    # Step 1 — register_agent
+    try:
+        agent_data = db.register_agent(
+            host_tool=host_tool or "unknown",
+            model_name=model_name or "",
+            agent_id=aid,
+        )
+        steps.append({
+            "step": "register_agent",
+            "ok": True,
+            "agent_id": agent_data.get("agent_id", aid),
+            "status": agent_data.get("status", ""),
+        })
+    except Exception as exc:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_REGISTER_FAILED",
+            "state": "INIT_BLOCKED_MCP_AGENT_UNREGISTERED",
+            "reason": f"register_agent failed for agent_session_id={aid}: {exc}",
+            "steps": steps,
+        })
+
+    # Step 2 — agent_status
+    try:
+        status_data = db.agent_status(aid)
+        status_val = str(status_data.get("status", "") or "")
+        steps.append({
+            "step": "agent_status",
+            "ok": status_val == "active",
+            "status": status_val,
+        })
+        if status_val != "active":
+            return server.ok({
+                "ok": False,
+                "verdict": "TENOR_INIT_BRIDGE_AGENT_NOT_ACTIVE",
+                "state": "MCP_AGENT_NOT_ACTIVE",
+                "reason": f"Agent {aid} status is '{status_val}', expected 'active'.",
+                "steps": steps,
+            })
+    except Exception as exc:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_STATUS_FAILED",
+            "state": "MCP_AGENT_STATUS_FAILED",
+            "reason": f"agent_status failed for {aid}: {exc}",
+            "steps": steps,
+        })
+
+    # Step 3 — discipline_ping
+    try:
+        discipline.record_guard_ping(aid, phase="post-init", resource="")
+        steps.append({
+            "step": "discipline_ping",
+            "ok": True,
+            "phase": "post-init",
+        })
+    except Exception as exc:
+        return server.ok({
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_DISCIPLINE_PING_FAILED",
+            "state": "DISCIPLINE_PING_FAILED",
+            "reason": f"discipline_ping failed for {aid}: {exc}",
+            "steps": steps,
+        })
+
+    # Step 4 — retire ghost agents from same host_tool (V2.15.12)
+    ghost_result = _retire_ghost_agents(aid, host_tool or "unknown")
+    steps.append({
+        "step": "retire_ghosts",
+        "ok": ghost_result["status"] == "ok",
+        "count": len(ghost_result["retired"]),
+        "ghosts": ghost_result["retired"],
+        "status": ghost_result["status"],
+        "error": ghost_result.get("error", ""),
+    })
+
+    # TENOR INIT does NOT create a user task — no workflow_next here.
+    # The host calls workflow_next on its own during the first TENOR TASK.
+
+    return server.ok({
+        "ok": True,
+        "verdict": "TENOR_INIT_BRIDGE_OK",
+        "state": "INIT_MCP_BRIDGE_COMPLETE",
+        "agent_session_id": aid,
+        "host_tool": host_tool or "unknown",
+        "model_name": model_name or "",
+        "steps": steps,
+        "retired_ghosts": [g["agent_id"] for g in ghost_result["retired"]] if ghost_result["retired"] else [],
+        "ghost_cleanup_status": ghost_result["status"],
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Graphify Mandatory Guard (V2.15) — enforce Graphify presence
+# ─────────────────────────────────────────────────────────────
+
+_GRAPHIFY_FORBIDDEN = [
+    "claim_resource", "file_hash", "propose_patch", "apply_patch",
+    "delete_resource", "finish_task", "direct_file_edit",
+]
+
+_GRAPHIFY_GUARD_CACHE: dict[str, Any] = {}
+
+
+def _enforce_graphify_guard(
+    workspace_root: Path | str | None = None,
+    agent_id: str = "",
+) -> dict[str, Any] | None:
+    """Check Graphify mandatory guard; return blocking payload or None.
+
+    Uses a simple module-level cache to avoid re-checking every call
+    within the same server invocation. The cache is reset on each
+    graphify_required_check() call.
+    """
+    if _gg is None:
+        return server.ok({
+            "ok": False,
+            "verdict": "GRAPHIFY_GUARD_MODULE_UNAVAILABLE",
+            "state": "GRAPHIFY_GUARD_MODULE_UNAVAILABLE",
+            "reason": "graphify_guard.py runtime module not loaded.",
+            "blocking": True,
+            "write_allowed": False,
+            "forbidden": _GRAPHIFY_FORBIDDEN,
+        })
+
+    cached = _GRAPHIFY_GUARD_CACHE.get("result")
+    if cached is not None:
+        if not cached.get("ok") and cached.get("blocking"):
+            return server.ok({
+                **cached,
+                "state": cached.get("verdict", "GRAPHIFY_BLOCKED"),
+                "forbidden": _GRAPHIFY_FORBIDDEN,
+            })
+        return None
+
+    result = _gg.check_graphify_required(
+        workspace_root=workspace_root,
+        host_type="opencode",
+        auto_write_guide=True,
+    )
+    _GRAPHIFY_GUARD_CACHE["result"] = result
+
+    if not result.get("ok") and result.get("blocking"):
+        return server.ok({
+            **result,
+            "state": result.get("verdict", "GRAPHIFY_BLOCKED"),
+            "forbidden": _GRAPHIFY_FORBIDDEN,
+        })
+    return None
+
+
+def graphify_required_check(
+    agent_id: str = "",
+    workspace_root: str = "",
+) -> dict[str, Any]:
+    """Run the Graphify mandatory guard check and return structured verdict.
+
+    Checks:
+      1. Is the graphify CLI installed on PATH?
+      2. Are graphify-out/graph.json, GRAPH_REPORT.md, graph.html present?
+
+    If Graphify is missing or outputs are incomplete, write operations
+    are blocked. Use this tool proactively at session start to verify
+    Graphify readiness.
+
+    Returns a blocking payload with next_actions when Graphify is not ready.
+    """
+    # Reset the cache so this call is always fresh.
+    _GRAPHIFY_GUARD_CACHE.clear()
+
+    if _gg is None:
+        return server.ok({
+            "ok": False,
+            "verdict": "GRAPHIFY_GUARD_MODULE_UNAVAILABLE",
+            "state": "GRAPHIFY_GUARD_MODULE_UNAVAILABLE",
+            "reason": "graphify_guard.py runtime module not loaded.",
+            "blocking": True,
+            "write_allowed": False,
+            "forbidden": _GRAPHIFY_FORBIDDEN,
+        })
+
+    root_path: Path | None = None
+    root_str = workspace_root.strip() if workspace_root else ""
+    if root_str:
+        root_path = Path(root_str).resolve()
+    elif os.environ.get("AGENT_SCRIBE_GRAPHIFY_ROOT"):
+        root_path = Path(os.environ["AGENT_SCRIBE_GRAPHIFY_ROOT"]).resolve()
+    else:
+        root_path = server.ROOT if hasattr(server, "ROOT") else Path.cwd()
+
+    result = _gg.check_graphify_required(
+        workspace_root=root_path,
+        host_type="opencode",
+        auto_write_guide=True,
+    )
+    _GRAPHIFY_GUARD_CACHE["result"] = result
+
+    if result.get("ok") and result.get("write_allowed"):
+        return server.ok({
+            **result,
+            "verdict": result.get("verdict", "GRAPHIFY_READY"),
+            "state": "WRITE_ALLOWED",
+            "forbidden": _GRAPHIFY_FORBIDDEN,
+        })
+
+    return server.ok({
+        **result,
+        "state": result.get("verdict", "GRAPHIFY_BLOCKED"),
+        "forbidden": _GRAPHIFY_FORBIDDEN,
+    })
+
+
+# ─────────────────────────────────────────────────────────────
 # Wire all tools into the server
 # ─────────────────────────────────────────────────────────────
 
-server.workflow_next = workflow_next
-server.workflow_snapshot = workflow_snapshot
-server.before_task = before_task
-server.resume_task_context = resume_task_context
-server.claim_resource = claim_resource
-server.scribe_query = scribe_query
-server.graphify_query = graphify_query
-server.propose_patch = propose_patch
-server.delete_resource = delete_resource
-server.finish_task = finish_task
-server.scribe_record = scribe_record
-server.list_tasks = list_tasks
-server.task_status = task_status
-server.wait_for_tasks = wait_for_tasks
-server.tool_schema = tool_schema
-server.TOOLS["workflow_next"] = workflow_next
-server.TOOLS["workflow_snapshot"] = workflow_snapshot
-server.TOOLS["before_task"] = before_task
-server.TOOLS["resume_task_context"] = resume_task_context
-server.TOOLS["claim_resource"] = claim_resource
-server.TOOLS["scribe_query"] = scribe_query
-server.TOOLS["graphify_query"] = graphify_query
-server.TOOLS["propose_patch"] = propose_patch
-server.TOOLS["apply_patch"] = apply_patch
-server.TOOLS["delete_resource"] = delete_resource
-server.TOOLS["finish_task"] = finish_task
-server.TOOLS["scribe_record"] = scribe_record
-server.TOOLS["list_tasks"] = list_tasks
-server.TOOLS["task_status"] = task_status
-server.TOOLS["wait_for_tasks"] = wait_for_tasks
-server.TOOLS["discipline_ping"] = discipline_ping
-server.TOOLS["pre_action_guard"] = pre_action_guard
-server.TOOLS["workspace_audit"] = workspace_audit
-# V2.14 new tools
-server.TOOLS["lease_extend"] = lease_extend
-server.TOOLS["resource_lock_claim"] = resource_lock_claim
-server.TOOLS["resource_lock_release"] = resource_lock_release
-server.TOOLS["resource_lock_status"] = resource_lock_status
-server.TOOLS["portability_check"] = portability_check
-server.TOOLS["graphify_scribe_bridge"] = graphify_scribe_bridge
-# V2.15 new tools
-server.TOOLS["verify_proof"] = verify_proof
+# Guard: only register once (prevents module reload from overwriting
+# server.TOOLS with functions from a different module instance).
+if not getattr(server, "_EXT_REGISTERED", False):
+    server._EXT_REGISTERED = True
+
+    server.workflow_next = workflow_next
+    server.workflow_snapshot = workflow_snapshot
+    server.before_task = before_task
+    server.resume_task_context = resume_task_context
+    server.claim_resource = claim_resource
+    server.scribe_query = scribe_query
+    server.graphify_query = graphify_query
+    server.propose_patch = propose_patch
+    server.delete_resource = delete_resource
+    server.finish_task = finish_task
+    server.scribe_commit_gate_status = scribe_commit_gate_status
+    server.scribe_commit_gate_resolve = scribe_commit_gate_resolve
+    server.scribe_record = scribe_record
+    server.scribe_promote_record = scribe_promote_record
+    server.list_tasks = list_tasks
+    server.task_status = task_status
+    server.wait_for_tasks = wait_for_tasks
+    server.runtime_backup_status = runtime_backup_status
+    server.runtime_backup_cleanup = runtime_backup_cleanup
+    server.root_hygiene_status = root_hygiene_status
+    server.tool_schema = tool_schema
+    server.TOOLS["workflow_next"] = workflow_next
+    server.TOOLS["workflow_snapshot"] = workflow_snapshot
+    server.TOOLS["before_task"] = before_task
+    server.TOOLS["resume_task_context"] = resume_task_context
+    server.TOOLS["claim_resource"] = claim_resource
+    server.TOOLS["scribe_query"] = scribe_query
+    server.TOOLS["graphify_query"] = graphify_query
+    server.TOOLS["propose_patch"] = propose_patch
+    server.TOOLS["apply_patch"] = apply_patch
+    server.TOOLS["delete_resource"] = delete_resource
+    server.TOOLS["finish_task"] = finish_task
+    server.TOOLS["scribe_commit_gate_status"] = scribe_commit_gate_status
+    server.TOOLS["scribe_commit_gate_resolve"] = scribe_commit_gate_resolve
+    server.TOOLS["scribe_record"] = scribe_record
+    server.TOOLS["scribe_promote_record"] = scribe_promote_record
+    server.TOOLS["list_tasks"] = list_tasks
+    server.TOOLS["task_status"] = task_status
+    server.TOOLS["wait_for_tasks"] = wait_for_tasks
+    server.TOOLS["runtime_backup_status"] = runtime_backup_status
+    server.TOOLS["runtime_backup_cleanup"] = runtime_backup_cleanup
+    server.TOOLS["root_hygiene_status"] = root_hygiene_status
+    server.TOOLS["discipline_ping"] = discipline_ping
+    server.TOOLS["pre_action_guard"] = pre_action_guard
+    server.TOOLS["workspace_audit"] = workspace_audit
+    # V2.14 new tools
+    server.TOOLS["lease_extend"] = lease_extend
+    server.TOOLS["resource_lock_claim"] = resource_lock_claim
+    server.TOOLS["resource_lock_release"] = resource_lock_release
+    server.TOOLS["resource_lock_status"] = resource_lock_status
+    server.TOOLS["portability_check"] = portability_check
+    server.TOOLS["graphify_scribe_bridge"] = graphify_scribe_bridge
+    # V2.15 new tools
+    server.TOOLS["verify_proof"] = verify_proof
+    server.TOOLS["graphify_required_check"] = graphify_required_check
+    # V2.15.4 new tool
+    server.TOOLS["tenor_task_prompt"] = tenor_task_prompt
+    # V2.15.5 new tool
+    server.TOOLS["tenor_init_bridge"] = tenor_init_bridge
+    # V2.15.19 new tools
+    server.TOOLS["resource_lock_heartbeat"] = resource_lock_heartbeat
 
 handle = server.handle
 list_tools = server.list_tools
