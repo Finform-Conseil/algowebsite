@@ -9,6 +9,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+MCP_DIR_FOR_LOCK = Path(__file__).resolve().parents[1] / "mcp"
+if str(MCP_DIR_FOR_LOCK) not in sys.path:
+    sys.path.insert(0, str(MCP_DIR_FOR_LOCK))
+from runtime.validation_lock import ValidationRuntimeBusy, validation_runtime_busy_message, validation_runtime_lock
+
 ROOT = Path(__file__).resolve().parents[2]
 ENTRY = ROOT / ".agent" / "mcp" / "server_entry.py"
 REDTEAM_DIR = ROOT / ".agent" / "state" / "redteam"
@@ -118,9 +123,10 @@ def mark_graphify(agent_id: str, target: str, ctx: dict[str, str], query: str = 
 
 def ready_context(agent_id: str, target: str, request: str = "redteam write", intent: str = "write") -> dict[str, str]:
     ctx = start_context(agent_id, target, request, intent=intent)
-    mark_scribe(agent_id, ctx, request)
+    scoped_query = f"{request} resource:{target}" if target else request
+    mark_scribe(agent_id, ctx, scoped_query)
     if intent != "read":
-        mark_graphify(agent_id, target, ctx, request)
+        mark_graphify(agent_id, target, ctx, scoped_query)
     return ctx
 
 
@@ -148,6 +154,15 @@ def claim(agent_id: str, target: str, ctx: dict[str, str]) -> str:
     return result["claim_id"]
 
 
+def hard_lock(agent_id: str, target: str, ctx: dict[str, str]) -> str:
+    result = call_tool("resource_lock_claim", {
+        "agent_id": agent_id, "resource": target, "ttl_seconds": 600, **ctx,
+    })
+    if result.get("verdict") != "RESOURCE_LOCK_ACQUIRED":
+        fail(f"resource_lock_claim failed: {result}")
+    return result["lock_id"]
+
+
 def propose(agent_id: str, target: str, base_hash: str, ctx: dict[str, str], replacement: str = "redteam-updated\n") -> dict[str, Any]:
     lease_id = acquire_lease(agent_id, "propose_patch", ctx, resource=target)
     return call_tool("propose_patch", {
@@ -173,6 +188,7 @@ def test_positive_context_path() -> None:
     ctx = ready_context(agent, target, "redteam positive context path")
     claim(agent, target, ctx)
     patch_id = expect_patch(agent, target, file_hash(target), ctx, replacement="positive-context-applied\n")
+    hard_lock(agent, target, ctx)
     lease_id = acquire_lease(agent, "apply_patch", ctx)
     applied = call_tool("apply_patch", {"agent_id": agent, "patch_id": patch_id, **ctx, "action_lease_id": lease_id})
     if applied.get("verdict") != "PATCH_APPLIED":
@@ -205,7 +221,7 @@ def test_fake_token_and_read_intent_refused_at_claim() -> None:
     agent = bootstrap("redteam-read-intent")
     read_ctx = ready_context(agent, target, "redteam read intent", intent="read")
     result = call_tool("claim_resource", {"agent_id": agent, "resource": target, "mode": "patch_queue", "ttl_seconds": 600, **read_ctx})
-    assert_refused(result, "READ_INTENT_CANNOT_WRITE", "claim_resource with read intent")
+    assert_refused(result, "READ_ONLY_CLAIM_FORBIDDEN", "claim_resource with read intent")
 
 
 def test_propose_apply_and_delete_guards() -> None:
@@ -221,10 +237,11 @@ def test_propose_apply_and_delete_guards() -> None:
     intruder_ctx = ready_context(intruder, target, "redteam intruder apply")
     intruder_lease = acquire_lease(intruder, "apply_patch", intruder_ctx)
     result = call_tool("apply_patch", {"agent_id": intruder, "patch_id": patch_id, **intruder_ctx, "action_lease_id": intruder_lease})
-    assert_refused(result, "only patch owner can apply it", "apply_patch wrong agent")
+    assert_refused(result, "PATCH_NOT_FOUND", "apply_patch wrong agent")
     released = call_tool("release_claim", {"agent_id": agent, "claim_id": claim_id, "summary": "release before apply"})
     if released.get("verdict") != "CLAIM_RELEASED":
         fail(f"release_claim failed: {released}")
+    hard_lock(agent, target, ctx)
     apply_lease = acquire_lease(agent, "apply_patch", ctx)
     result = call_tool("apply_patch", {"agent_id": agent, "patch_id": patch_id, **ctx, "action_lease_id": apply_lease})
     assert_refused(result, "claim required", "apply_patch without active claim")
@@ -291,6 +308,25 @@ def test_direct_fs_write() -> str:
         return "BLOCKED"
 
 
+def test_direct_fs_bypass_detection() -> str:
+    clean_runtime(); clean_redteam()
+    target = "hostile-direct.txt"
+    direct = ROOT / target
+    try:
+        direct.write_text("hostile original\n", encoding="utf-8")
+        agent = bootstrap("redteam-tripwire-bypass")
+        ctx = ready_context(agent, target, "redteam tripwire bypass")
+        direct.write_text("tamper after snapshot\n", encoding="utf-8")
+        result = call_tool("workspace_audit", {"agent_id": agent, "task_id": ctx["task_id"], "resource": target})
+        if result.get("verdict") == "DIRECT_WRITE_BYPASS_DETECTED":
+            print("DIRECT_FS_BYPASS_DETECTED_BY_TRIPWIRE")
+            return "DETECTED"
+        print("DIRECT_FS_BYPASS_NOT_DETECTED")
+        return "MISSED"
+    finally:
+        direct.unlink(missing_ok=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict-context", action="store_true", help="fail if direct MCP write path bypasses before_task/scribe_query/graphify_query")
@@ -305,7 +341,8 @@ def main() -> int:
         test_resource_mismatch_refused_at_claim()
         context_bypass = test_context_bypass()
         direct_fs = test_direct_fs_write()
-        print(f"MCP_ENFORCEMENT_REDTEAM_OK context_bypass={context_bypass} direct_fs_outside_sandbox={direct_fs}")
+        tripwire = test_direct_fs_bypass_detection()
+        print(f"MCP_ENFORCEMENT_REDTEAM_OK context_bypass={context_bypass} direct_fs_outside_sandbox={direct_fs} direct_fs_tripwire={tripwire}")
         if args.strict_context and context_bypass == "OPEN":
             return 2
         return 0
@@ -315,4 +352,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        with validation_runtime_lock(ROOT, timeout_seconds=0, poll_interval=0.01):
+            print("VALIDATION_RUNTIME_LOCK_ACQUIRED")
+            exit_code = main()
+            print("VALIDATION_RUNTIME_LOCK_RELEASED")
+            raise SystemExit(exit_code)
+    except ValidationRuntimeBusy as exc:
+        raise SystemExit(validation_runtime_busy_message(exc.lock_path))

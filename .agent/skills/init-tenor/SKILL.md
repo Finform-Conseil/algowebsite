@@ -20,6 +20,42 @@ cela équivaut à :
 TENOR INIT V2
 ```
 
+## 🔵 TENOR TASK:: — RACCOURCI DE TÂCHE DISCIPLINÉE (V2.15.4)
+
+Après `TENOR INIT` conforme, l'utilisateur peut écrire :
+
+```text
+TENOR TASK:: corrige le bug auth dans src/auth/login.ts
+```
+
+Cela équivaut à :
+
+1. L'agent hôte appelle le tool MCP `tenor_task_prompt` avec les arguments extraits.
+2. Le tool retourne un prompt discipliné complet avec `required_first_actions`, `required_finish_actions` et `forbidden`.
+3. L'agent hôte affiche `TENOR_TASK_PROMPT_READY`, puis exécute `discipline_ping` → `workflow_next` → suit le workflow.
+4. Aucune écriture directe avant `TENOR_TASK_PROMPT_READY` confirmé.
+
+Si le MCP n'est pas visible au LLM : l'agent doit afficher `HOST_MCP_UNBOUND` et ne pas modifier de fichier. L'utilisateur peut alors utiliser le CLI directement :
+
+```bash
+python3 .agent/scripts/tenor_task.py --task "corrige le bug auth" --mode STANDARD --intent write --resource src/auth/login.ts
+```
+
+Et coller la sortie comme prompt de tâche.
+
+**Règles :**
+- `TENOR TASK::` ne remplace PAS `before_task`, `discipline_ping`, `workflow_next`, `pre_action_guard`, SCRIBE, Graphify, `workspace_audit`, `scribe_record` ni `finish_task`.
+- `TENOR TASK::` ne modifie AUCUN fichier.
+- `TENOR TASK::` est un générateur de prompt standardisé, pas un outil d'exécution.
+- Tout LLM qui modifie un fichier après `TENOR TASK::` sans avoir confirmé `TENOR_TASK_PROMPT_READY` ET appelé `discipline_ping` + `workflow_next` est NON CONFORME.
+
+Arguments implicites (extraits de la phrase) :
+- `task` : tout le texte après `TENOR TASK::`
+- `mode` : STANDARD (défaut, ajustable)
+- `intent` : write (défaut, ajustable selon le verbe)
+- `resource` : le chemin de fichier si présent
+- `model_tier` : large (défaut)
+
 Après avoir lu ce fichier depuis la ligne 1, l'agent doit immédiatement lire et appliquer le protocole machine :
 
 ```text
@@ -63,6 +99,85 @@ d'être copié: la commande est idempotente, donc elle est le test et la
 réparation portable. Elle initialise ou vérifie le SCRIBE projet, `scribe-out/`,
 `.agent/rules/scribe.md`, le bloc `AGENTS.md`, `.graphifyignore` et les
 surfaces portables attendues.
+
+## 🔴 TENOR INIT MCP BRIDGE (V2.15.5) — OBLIGATOIRE APRÈS INIT CONFORME
+
+Après avoir affiché `INIT_CONFORME` ou `FILESYSTEM_INIT_OK_MCP_UNBOUND`,
+l'agent DOIT exécuter le bridge MCP pour enregistrer la session SCRIBE côté runtime.
+
+### 1. Si MCP visible (MCP_BOUND_TO_CURRENT_PROJECT)
+
+```bash
+python3 .agent/scripts/tenor_init_bridge.py \
+  --agent-session-id "<Agent session du SCRIBE-CHECK>" \
+  --host-tool "<host détecté>" \
+  --model-name "<modèle si connu>"
+```
+
+Ou appeler le tool MCP directement :
+
+```text
+tenor_init_bridge(
+  agent_session_id="<Agent session>",
+  host_tool="<host>",
+  model_name="<modèle>"
+)
+```
+
+### 2. Résultat attendu
+
+```text
+Verdict : TENOR_INIT_BRIDGE_OK
+Agent   : cli-20260625-a3f9c1
+Etapes  : 4
+  [OK] register_agent : active
+  [OK] agent_status : active
+  [OK] discipline_ping : post-init
+  [OK] workflow_next : BEFORE_TASK_OK
+```
+
+### 3. Champs finaux ajoutés au rapport TENOR INIT
+
+```
+MCP agent registered: YES / NO
+MCP agent status    : active / unknown / idle
+MCP discipline ping : OK / FAIL
+```
+
+### 4. Échec du bridge
+
+Si `register_agent` échoue → afficher `INIT_BLOCKED_MCP_AGENT_UNREGISTERED`.
+Si `discipline_ping` retourne agent inconnu → STOP.
+Ne pas continuer vers `scribe_query`.
+
+### 5. Si MCP non visible (FILESYSTEM_INIT_OK_MCP_UNBOUND)
+
+Le bridge est impossible car les tools MCP ne sont pas exposés.
+Afficher :
+
+```text
+MCP bridge: SKIPPED (MCP not visible to LLM)
+MCP agent registered: N/A
+```
+
+L'utilisateur devra lancer manuellement après configuration MCP :
+
+```bash
+python3 .agent/scripts/tenor_init_bridge.py \
+  --agent-session-id "<Agent session>" \
+  --host-tool "<host>"
+```
+
+### 6. Règles
+
+- `tenor_init_bridge` ne modifie PAS `workflow_next` : `workflow_next` reste strict,
+  agent inconnu = `AGENT_UNKNOWN_OR_UNREGISTERED`.
+- `tenor_init_bridge` est idempotent : appeler deux fois le même agent_session_id
+  ne crée pas de duplicata.
+- Si `register_agent` échoue, le TENOR INIT est considéré incomplet.
+  L'utilisateur doit voir l'erreur et les steps partielles.
+
+---
 
 ## 🔴 HOST MCP PREFLIGHT — AVANT TENOR-INIT
 

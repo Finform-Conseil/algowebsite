@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -16,8 +17,20 @@ class WorkflowFsmStabilityTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name) / "project"
         shutil.copytree(ROOT / ".agent" / "mcp", self.root / ".agent" / "mcp")
+        (self.root / ".agent" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+        graphify_dir = self.root / "graphify-out"
+        graphify_dir.mkdir(parents=True)
+        (graphify_dir / "graph.json").write_text('{"nodes":[],"edges":[]}', encoding="utf-8")
+        (graphify_dir / "GRAPH_REPORT.md").write_text("# Graphify Report\n\nEmpty.\n", encoding="utf-8")
+        (graphify_dir / "graph.html").write_text("<html><body></body></html>\n", encoding="utf-8")
         (self.root / "README.md").write_text("test project\n", encoding="utf-8")
         self.entry = self.root / ".agent" / "mcp" / "server_entry.py"
+        # Pin workspace root so server_entry.py ignores leaked env var from
+        # earlier test modules (e.g. test_lease_extend.py).
+        self._sub_env = {**os.environ, "AGENT_SCRIBE_GRAPHIFY_ROOT": str(self.root)}
+        subprocess.run(["git", "init"], cwd=str(self.root), capture_output=True, env=self._sub_env)
+        subprocess.run(["git", "config", "user.email", "t@t"], cwd=str(self.root), capture_output=True, env=self._sub_env)
+        subprocess.run(["git", "config", "user.name", "T"], cwd=str(self.root), capture_output=True, env=self._sub_env)
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -26,6 +39,7 @@ class WorkflowFsmStabilityTest(unittest.TestCase):
         proc = subprocess.run(
             ["python3", str(self.entry), "--call", tool, "--args", json.dumps(args)],
             cwd=str(self.root),
+            env=self._sub_env,
             text=True,
             capture_output=True,
             timeout=20,
@@ -106,6 +120,148 @@ class WorkflowFsmStabilityTest(unittest.TestCase):
         result = self.call("workflow_next", **args)
         self.assertEqual(result["verdict"], "STOP_WORKFLOW_LOOP_DIRECT_WRITE_FORBIDDEN")
         self.assertIn("direct_file_edit", result["forbidden"])
+
+    # ── V2.15.17: read-only FSM purity ─────────────────────────
+
+    def test_resume_agent_not_recommended_during_active_read_task(self) -> None:
+        """workflow_next never returns resume_agent during an active read task."""
+        agent_id = "no-resume-agent"
+        self.register(agent_id)
+
+        bt = self.call("before_task", agent_id=agent_id, request="inspect", intent="read", resource="README.md")
+        self.assertEqual(bt.get("verdict"), "BEFORE_TASK_OK")
+        task_id = bt["task_id"]
+        ctx = bt["context_token"]
+
+        for i in range(5):
+            wn = self.call("workflow_next", agent_id=agent_id, request="inspect", intent="read",
+                            task_id=task_id, context_token=ctx, last_verdict="BEFORE_TASK_OK")
+            must_tool = wn.get("must_call", {}).get("tool", "")
+            self.assertNotEqual(must_tool, "resume_agent",
+                                f"iteration {i}: unexpected resume_agent during read task: {wn}")
+
+    def test_write_task_still_requires_claim_and_lease(self) -> None:
+        """Write task still requires claim + pre_action_guard for finish."""
+        agent_id = "write-lease-agent"
+        self.register(agent_id)
+
+        bt = self.call("before_task", agent_id=agent_id, request="edit tracked", intent="write", resource="README.md")
+        self.assertEqual(bt.get("verdict"), "BEFORE_TASK_OK")
+        task_id = bt["task_id"]
+        ctx = bt["context_token"]
+
+        self.call("scribe_query", agent_id=agent_id, task_id=task_id, context_token=ctx, query="edit", limit=1)
+        self.call("graphify_query", agent_id=agent_id, task_id=task_id, context_token=ctx, query="impact", resource="README.md")
+
+        wn = self.call("workflow_next", agent_id=agent_id, request="edit tracked", intent="write",
+                        resource="README.md",
+                        task_id=task_id, context_token=ctx, last_verdict="GRAPHIFY_QUERY_DONE")
+        self.assertEqual(wn.get("must_call", {}).get("tool"), "resource_lock_claim",
+                         f"write workflow_next should require resource_lock_claim, got {wn}")
+
+    def test_fake_read_cannot_downgrade_write_task(self) -> None:
+        """Stored write intent wins over declared read — claim still required."""
+        agent_id = "fake-read-agent"
+        self.register(agent_id)
+
+        bt = self.call("before_task", agent_id=agent_id, request="edit tracked", intent="write", resource="README.md")
+        self.assertEqual(bt.get("verdict"), "BEFORE_TASK_OK")
+        task_id = bt["task_id"]
+        ctx = bt["context_token"]
+
+        self.call("scribe_query", agent_id=agent_id, task_id=task_id, context_token=ctx, query="edit", limit=1)
+        self.call("graphify_query", agent_id=agent_id, task_id=task_id, context_token=ctx, query="impact", resource="README.md")
+
+        wn = self.call("workflow_next", agent_id=agent_id, request="inspect", intent="read",
+                        resource="README.md",
+                        task_id=task_id, context_token=ctx, last_verdict="GRAPHIFY_QUERY_DONE")
+        self.assertEqual(wn.get("must_call", {}).get("tool"), "resource_lock_claim",
+                         f"stored write intent should win over declared read, got {wn}")
+
+    # ── V2.15.18: strict workflow_next task context + file_hash cleanup ──
+
+    def test_workflow_next_unknown_task_id_hard_stops(self) -> None:
+        """Unknown task_id returns TASK_CONTEXT_UNKNOWN_TASK / HARD_STOP."""
+        agent_id = "strict-ctx-agent"
+        self.register(agent_id)
+
+        wn = self.call("workflow_next", agent_id=agent_id,
+                        task_id="missing-task-42", context_token="fake",
+                        intent="read")
+        self.assertFalse(wn.get("ok"), f"should fail, got {wn}")
+        self.assertEqual(wn.get("verdict"), "TASK_CONTEXT_UNKNOWN_TASK",
+                         f"expected TASK_CONTEXT_UNKNOWN_TASK, got {wn.get('verdict')}")
+        self.assertEqual(wn.get("state"), "HARD_STOP")
+        self.assertNotIn("must_call", wn,
+                         "must_call should be absent on unknown task_id")
+        forbidden = wn.get("forbidden", [])
+        self.assertIn("before_task", forbidden)
+        self.assertIn("claim_resource", forbidden)
+        self.assertIn("finish_task", forbidden)
+
+    def test_workflow_next_agent_mismatch_hard_stops(self) -> None:
+        """Agent B calling workflow_next with Agent A's task_id returns TASK_AGENT_MISMATCH."""
+        agent_a = "mismatch-a"
+        agent_b = "mismatch-b"
+        self.register(agent_a)
+        self.register(agent_b)
+
+        bt = self.call("before_task", agent_id=agent_a, request="edit", intent="write", resource="README.md")
+        self.assertEqual(bt.get("verdict"), "BEFORE_TASK_OK")
+        task_id = bt["task_id"]
+
+        wn = self.call("workflow_next", agent_id=agent_b,
+                        task_id=task_id, context_token="irrelevant",
+                        intent="read")
+        self.assertFalse(wn.get("ok"), f"should fail, got {wn}")
+        self.assertEqual(wn.get("verdict"), "TASK_AGENT_MISMATCH",
+                         f"expected TASK_AGENT_MISMATCH, got {wn.get('verdict')}")
+        self.assertEqual(wn.get("state"), "HARD_STOP")
+
+    def test_workflow_next_unknown_task_does_not_clear_task_id_to_legacy(self) -> None:
+        """Unknown task_id with valid request/intent/resource still hard-stops."""
+        agent_id = "no-legacy-agent"
+        self.register(agent_id)
+
+        wn = self.call("workflow_next", agent_id=agent_id,
+                        task_id="ghost-task", context_token="irrelevant",
+                        request="inspect", intent="read", resource=".")
+        self.assertFalse(wn.get("ok"), f"should hard-stop, got {wn}")
+        self.assertEqual(wn.get("verdict"), "TASK_CONTEXT_UNKNOWN_TASK",
+                         f"expected TASK_CONTEXT_UNKNOWN_TASK, got {wn.get('verdict')}")
+        self.assertNotEqual(wn.get("verdict"), "INPUT_REQUIRED",
+                            "must not fall back to INPUT_REQUIRED")
+        self.assertNotEqual(wn.get("verdict"), "BEFORE_TASK_REQUIRED",
+                            "must not fall back to BEFORE_TASK_REQUIRED")
+
+    def test_read_only_forbidden_does_not_include_file_hash(self) -> None:
+        """file_hash is not in the forbidden list during read task workflow_next."""
+        agent_id = "no-fh-forbid-agent"
+        self.register(agent_id)
+
+        bt = self.call("before_task", agent_id=agent_id, request="inspect", intent="read", resource=".")
+        self.assertEqual(bt.get("verdict"), "BEFORE_TASK_OK")
+        task_id = bt["task_id"]
+        ctx = bt["context_token"]
+
+        wn = self.call("workflow_next", agent_id=agent_id, request="inspect", intent="read",
+                        task_id=task_id, context_token=ctx, last_verdict="BEFORE_TASK_OK")
+        forbidden = wn.get("forbidden", [])
+        self.assertNotIn("file_hash", forbidden,
+                         f"file_hash should be allowed in read-only, got forbidden={forbidden}")
+
+    def test_file_hash_allowed_during_read_task(self) -> None:
+        """file_hash call succeeds during a read task."""
+        agent_id = "fh-allowed-agent"
+        self.register(agent_id)
+
+        bt = self.call("before_task", agent_id=agent_id, request="hash check", intent="read", resource="README.md")
+        self.assertEqual(bt.get("verdict"), "BEFORE_TASK_OK")
+
+        fh = self.call("file_hash", resource="README.md")
+        self.assertTrue(fh.get("ok", True), f"file_hash should work, got {fh}")
+        self.assertIn("hash", fh, f"file_hash response should include hash, got {fh}")
+        self.assertIn("verdict", fh, f"file_hash response should include verdict, got {fh}")
 
 
 if __name__ == "__main__":

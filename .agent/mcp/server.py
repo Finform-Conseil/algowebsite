@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as _datetime
 import json
 import subprocess
 import sys
@@ -63,8 +64,14 @@ class ToolError(RuntimeError):
     pass
 
 
+def _json_default(value: Any) -> str:
+    if isinstance(value, (_datetime.date, _datetime.datetime)):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def dumps(data: Any) -> str:
-    return json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True)
+    return json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True, default=_json_default)
 
 
 def ok(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -409,7 +416,7 @@ def scribe_query(query: str, limit: int = 5) -> Dict[str, Any]:
     scribe_rag = AGENT_DIR / "workflow" / "scribe" / "scribe-rag"
     if not scribe_rag.exists():
         return ok({"verdict": "SCRIBE_UNAVAILABLE", "query": query, "reason": "scribe-rag not found"})
-    res = run_cmd([str(scribe_rag), "query", query, "--top", str(max(1, min(int(limit), 20)))], timeout=30)
+    res = run_cmd([str(scribe_rag), "query", query, "--limit", str(max(1, min(int(limit), 20)))], timeout=30)
     return ok({"verdict": "SCRIBE_QUERY_DONE", "query": query, "result": res})
 
 

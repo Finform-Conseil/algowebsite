@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import os
 import secrets
+import sqlite3
 import time
 import uuid
 from typing import Any
@@ -11,9 +12,11 @@ from typing import Any
 try:
     from . import patch_queue
     from .db import add_event, connect, init_db, now_ts as db_now_ts, require_agent_active
+    from .state_paths import project_root_from
 except Exception:
     import patch_queue  # type: ignore
     from db import add_event, connect, init_db, now_ts as db_now_ts, require_agent_active  # type: ignore
+    from state_paths import project_root_from  # type: ignore
 
 DEFAULT_TTL_SECONDS = 900
 
@@ -58,7 +61,16 @@ def ensure_schema() -> None:
               requires_graphify INTEGER NOT NULL DEFAULT 0,
               before_done INTEGER NOT NULL DEFAULT 1,
               scribe_done INTEGER NOT NULL DEFAULT 0,
+              scribe_record_done INTEGER NOT NULL DEFAULT 0,
+              scribe_record_required INTEGER NOT NULL DEFAULT 0,
+              scribe_record_policy TEXT,
+              scribe_record_path TEXT,
+              scribe_record_digest TEXT,
+              scribe_record_promoted INTEGER NOT NULL DEFAULT 0,
+              scribe_record_entry_id TEXT,
+              scribe_record_skip_reason TEXT,
               graphify_done INTEGER NOT NULL DEFAULT 0,
+              memory_hash TEXT,
               status TEXT NOT NULL DEFAULT 'active',
               created_at INTEGER NOT NULL,
               expires_at INTEGER NOT NULL,
@@ -68,6 +80,35 @@ def ensure_schema() -> None:
               ON task_context_v2(agent_id,status,expires_at);
             CREATE INDEX IF NOT EXISTS idx_task_context_v2_agent_resource
               ON task_context_v2(agent_id,resource,status,request_hash);
+            """)
+        try:
+            con.execute("ALTER TABLE task_context_v2 ADD COLUMN memory_hash TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            con.execute("ALTER TABLE task_context_v2 ADD COLUMN scribe_result_count INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            con.execute("ALTER TABLE task_context_v2 ADD COLUMN scribe_result_resources TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+        for ddl in (
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_done INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_required INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_policy TEXT",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_path TEXT",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_digest TEXT",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_promoted INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_entry_id TEXT",
+            "ALTER TABLE task_context_v2 ADD COLUMN scribe_record_skip_reason TEXT",
+        ):
+            try:
+                con.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
+        con.executescript("""
+
             CREATE TABLE IF NOT EXISTS workflow_retry_v1(
               retry_id TEXT PRIMARY KEY,
               agent_id TEXT NOT NULL,
@@ -107,7 +148,22 @@ def _normalize_intent(intent: str) -> str:
     return value
 
 
+MEMOIRE_FILE = "AGENT-MEMOIRE_PROJECT_STATUS.scribe"
+
+
+def _compute_memory_hash() -> str | None:
+    root = project_root_from()
+    memo = root / MEMOIRE_FILE
+    if not memo.is_file():
+        return None
+    return hashlib.sha256(memo.read_bytes()).hexdigest()
+
+
 def _task_public(row: Any) -> dict[str, Any]:
+    try:
+        memory_hash = row["memory_hash"]
+    except (KeyError, IndexError, TypeError):
+        memory_hash = None
     return {
         "task_id": row["task_id"],
         "agent_id": row["agent_id"],
@@ -117,7 +173,16 @@ def _task_public(row: Any) -> dict[str, Any]:
         "requires_graphify": bool(row["requires_graphify"]),
         "before_done": bool(row["before_done"]),
         "scribe_done": bool(row["scribe_done"]),
+        "scribe_record_done": bool(row["scribe_record_done"]),
+        "scribe_record_required": bool(row["scribe_record_required"]),
+        "scribe_record_policy": row["scribe_record_policy"],
+        "scribe_record_path": row["scribe_record_path"],
+        "scribe_record_digest": row["scribe_record_digest"],
+        "scribe_record_promoted": bool(row["scribe_record_promoted"]),
+        "scribe_record_entry_id": row["scribe_record_entry_id"],
+        "scribe_record_skip_reason": row["scribe_record_skip_reason"],
         "graphify_done": bool(row["graphify_done"]),
+        "memory_hash": memory_hash,
         "status": row["status"],
         "created_at": row["created_at"],
         "expires_at": row["expires_at"],
@@ -177,9 +242,9 @@ def create_task_context(
             """
             INSERT INTO task_context_v2(
               task_id,token_hash,agent_id,request_hash,request,intent,resource,
-              requires_graphify,before_done,scribe_done,graphify_done,status,
+              requires_graphify,before_done,scribe_done,graphify_done,memory_hash,status,
               created_at,expires_at,finished_at
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 task_id,
@@ -193,6 +258,7 @@ def create_task_context(
                 1,
                 0,
                 0,
+                None,
                 "active",
                 created,
                 expires,
@@ -250,12 +316,135 @@ def _load_ready(agent_id: str, task_id: str, context_token: str) -> dict[str, An
     return data
 
 
-def mark_scribe_done(agent_id: str, task_id: str, context_token: str) -> dict[str, Any]:
+def mark_scribe_done(agent_id: str, task_id: str, context_token: str, result_count: int = 0, result_resources: str = "") -> dict[str, Any]:
+    data = _load_ready(agent_id, task_id, context_token)
+    memory_hash = _compute_memory_hash()
+    with connect() as con:
+        con.execute(
+            "UPDATE task_context_v2 SET scribe_done=1, memory_hash=?, scribe_result_count=?, scribe_result_resources=? WHERE task_id=?",
+            (memory_hash, result_count, result_resources, task_id),
+        )
+    data["scribe_done"] = 1
+    data["memory_hash"] = memory_hash
+    data["scribe_result_count"] = result_count
+    data["scribe_result_resources"] = result_resources
+    return {
+        "task_id": task_id,
+        "scribe_done": True,
+        "memory_hash": memory_hash,
+        "requires_graphify": bool(data["requires_graphify"]),
+        "scribe_result_count": result_count,
+        "scribe_result_resources": result_resources,
+    }
+
+
+def mark_scribe_record_staged(
+    agent_id: str,
+    task_id: str,
+    context_token: str,
+    *,
+    required: bool,
+    policy: str,
+    record_path: str,
+    record_digest: str,
+) -> dict[str, Any]:
     data = _load_ready(agent_id, task_id, context_token)
     with connect() as con:
-        con.execute("UPDATE task_context_v2 SET scribe_done=1 WHERE task_id=?", (task_id,))
-    data["scribe_done"] = 1
-    return {"task_id": task_id, "scribe_done": True, "requires_graphify": bool(data["requires_graphify"])}
+        con.execute(
+            """
+            UPDATE task_context_v2
+            SET scribe_record_done=1,
+                scribe_record_required=?,
+                scribe_record_policy=?,
+                scribe_record_path=?,
+                scribe_record_digest=?,
+                scribe_record_promoted=0,
+                scribe_record_entry_id=NULL,
+                scribe_record_skip_reason=NULL
+            WHERE task_id=?
+            """,
+            (1 if required else 0, policy or "", record_path or "", record_digest or "", task_id),
+        )
+    data.update({
+        "scribe_record_done": 1,
+        "scribe_record_required": 1 if required else 0,
+        "scribe_record_policy": policy or "",
+        "scribe_record_path": record_path or "",
+        "scribe_record_digest": record_digest or "",
+        "scribe_record_promoted": 0,
+        "scribe_record_entry_id": "",
+        "scribe_record_skip_reason": "",
+    })
+    return {
+        "task_id": task_id,
+        "scribe_record_done": True,
+        "scribe_record_required": bool(required),
+        "scribe_record_policy": policy or "",
+        "scribe_record_path": record_path or "",
+        "scribe_record_digest": record_digest or "",
+        "scribe_record_promoted": False,
+        "requires_graphify": bool(data["requires_graphify"]),
+    }
+
+
+def mark_scribe_record_promoted(
+    agent_id: str,
+    task_id: str,
+    context_token: str,
+    *,
+    entry_id: str,
+) -> dict[str, Any]:
+    data = _load_ready(agent_id, task_id, context_token)
+    with connect() as con:
+        con.execute(
+            """
+            UPDATE task_context_v2
+            SET scribe_record_promoted=1,
+                scribe_record_entry_id=?,
+                scribe_record_skip_reason=NULL
+            WHERE task_id=?
+            """,
+            (entry_id or "", task_id),
+        )
+    data.update({
+        "scribe_record_promoted": 1,
+        "scribe_record_entry_id": entry_id or "",
+        "scribe_record_skip_reason": "",
+    })
+    return {
+        "task_id": task_id,
+        "scribe_record_promoted": True,
+        "scribe_record_entry_id": entry_id or "",
+    }
+
+
+def mark_scribe_record_skipped(
+    agent_id: str,
+    task_id: str,
+    context_token: str,
+    *,
+    skip_reason: str,
+) -> dict[str, Any]:
+    data = _load_ready(agent_id, task_id, context_token)
+    with connect() as con:
+        con.execute(
+            """
+            UPDATE task_context_v2
+            SET scribe_record_required=0,
+                scribe_record_skip_reason=?
+            WHERE task_id=?
+            """,
+            (skip_reason or "", task_id),
+        )
+    data.update({
+        "scribe_record_required": 0,
+        "scribe_record_skip_reason": skip_reason or "",
+    })
+    return {
+        "task_id": task_id,
+        "scribe_record_required": False,
+        "scribe_record_skip_reason": skip_reason or "",
+    }
 
 
 def mark_graphify_done(agent_id: str, task_id: str, context_token: str) -> dict[str, Any]:
@@ -296,6 +485,18 @@ def require_context_ready(
             raise TaskContextError("READ_INTENT_CANNOT_WRITE" if context_intent == "read" else "TASK_CONTEXT_INTENT_MISMATCH")
     if not data.get("before_done"):
         raise TaskContextError("TASK_CONTEXT_NOT_READY: before_task is not done")
+    stored_memory_hash = data.get("memory_hash")
+    if stored_memory_hash:
+        current_memory_hash = _compute_memory_hash()
+        if current_memory_hash and current_memory_hash != stored_memory_hash:
+            with connect() as con:
+                con.execute(
+                    "UPDATE task_context_v2 SET scribe_done=0, memory_hash=NULL WHERE task_id=?",
+                    (task_id,),
+                )
+            raise TaskContextError(
+                "TASK_CONTEXT_NOT_READY: scribe_query is required (memory changed since scribe_query)"
+            )
     if not data.get("scribe_done"):
         raise TaskContextError("TASK_CONTEXT_NOT_READY: scribe_query is required")
     graphify_required = bool(data.get("requires_graphify")) if require_graphify is None else bool(require_graphify)
@@ -325,7 +526,7 @@ def list_tasks(agent_id: str = "", status: str = "") -> dict[str, Any]:
     if status:
         where.append("status=?")
         params.append(status)
-    query = "SELECT task_id,agent_id,request,intent,resource,requires_graphify,before_done,scribe_done,graphify_done,status,created_at,expires_at,finished_at FROM task_context_v2"
+    query = "SELECT task_id,agent_id,request,intent,resource,requires_graphify,before_done,scribe_done,scribe_record_done,scribe_record_required,scribe_record_policy,scribe_record_path,scribe_record_digest,scribe_record_promoted,scribe_record_entry_id,scribe_record_skip_reason,graphify_done,memory_hash,scribe_result_count,scribe_result_resources,status,created_at,expires_at,finished_at FROM task_context_v2"
     if where:
         query += " WHERE " + " AND ".join(where)
     query += " ORDER BY created_at DESC"
@@ -339,7 +540,21 @@ def task_status(task_id: str) -> dict[str, Any]:
         raise TaskContextError("TASK_CONTEXT_REQUIRED: task_id is required")
     ensure_schema()
     with connect() as con:
-        row = con.execute("SELECT task_id,agent_id,request,intent,resource,requires_graphify,before_done,scribe_done,graphify_done,status,created_at,expires_at,finished_at FROM task_context_v2 WHERE task_id=?", (task_id,)).fetchone()
+        row = con.execute("SELECT task_id,agent_id,request,intent,resource,requires_graphify,before_done,scribe_done,scribe_record_done,scribe_record_required,scribe_record_policy,scribe_record_path,scribe_record_digest,scribe_record_promoted,scribe_record_entry_id,scribe_record_skip_reason,graphify_done,memory_hash,scribe_result_count,scribe_result_resources,status,created_at,expires_at,finished_at FROM task_context_v2 WHERE task_id=?", (task_id,)).fetchone()
+    if not row:
+        raise TaskContextError("TASK_CONTEXT_UNKNOWN_TASK")
+    return dict(row)
+
+
+def get_task_context(agent_id: str, task_id: str) -> dict[str, Any]:
+    if not agent_id or not task_id:
+        raise TaskContextError("TASK_CONTEXT_REQUIRED: agent_id and task_id are required")
+    ensure_schema()
+    with connect() as con:
+        row = con.execute(
+            "SELECT * FROM task_context_v2 WHERE task_id=? AND agent_id=?",
+            (task_id, agent_id),
+        ).fetchone()
     if not row:
         raise TaskContextError("TASK_CONTEXT_UNKNOWN_TASK")
     return dict(row)

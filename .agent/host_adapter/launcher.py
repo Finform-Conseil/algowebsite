@@ -128,10 +128,11 @@ def call_mcp_tool(
 
     env = dict(os.environ)
     env["AGENT_SCRIBE_GRAPHIFY_ROOT"] = str(workspace_root)
-    # Ensure mcp dir is on PYTHONPATH so server_entry imports succeed.
     mcp_dir = str(workspace_root / ".agent" / "mcp")
     existing_pp = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = f"{mcp_dir}{os.pathsep}{existing_pp}" if existing_pp else mcp_dir
+    parent_paths = [str(p) for p in sys.path if p and Path(p).is_dir()]
+    all_mcp_pp = os.pathsep.join([mcp_dir] + parent_paths)
+    env["PYTHONPATH"] = f"{all_mcp_pp}{os.pathsep}{existing_pp}" if existing_pp else all_mcp_pp
     if "agent_id" in args:
         env["AGENT_ID"] = str(args["agent_id"])
 
@@ -326,6 +327,11 @@ def run_preflight(
             instruction_block_ok = bool(instruction_repair_result and instruction_repair_result.get("ok"))
         else:
             instruction_block_ok = False
+
+    if instruction_block_ok is True:
+        verdict = policy.decide_host_safety_level(
+            tools_list, capabilities, instructions_installed=True,
+        )
 
     return {
         "ok": True,
@@ -615,6 +621,41 @@ def run_resource_lock_status(
         {"resource": resource},
         config.workspace_root,
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# TENOR init bridge — register SCRIBE agent session in MCP (V2.15.5)
+# ─────────────────────────────────────────────────────────────
+
+def run_tenor_init_bridge(
+    config: HostLaunchConfig,
+    agent_session_id: str,
+    host_tool: str = "",
+    model_name: str = "",
+    proof_token: str = "",
+) -> dict[str, Any]:
+    if not agent_session_id:
+        return {
+            "ok": False,
+            "verdict": "TENOR_INIT_BRIDGE_INVALID",
+            "reason": "agent_session_id from TENOR INIT is required.",
+        }
+
+    params: dict[str, Any] = {
+        "agent_session_id": agent_session_id,
+        "host_tool": host_tool or config.host_type or "unknown",
+        "model_name": model_name or "",
+    }
+    if proof_token:
+        params["proof_token"] = proof_token
+
+    result = call_mcp_tool(
+        "tenor_init_bridge",
+        params,
+        config.workspace_root,
+        timeout=30.0,
+    )
+    return result
 
 
 # ─────────────────────────────────────────────────────────────

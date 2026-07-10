@@ -32,6 +32,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+try:
+    from .state_paths import prepare_state_dirs
+except Exception:
+    try:
+        from state_paths import prepare_state_dirs  # type: ignore
+    except Exception:
+        prepare_state_dirs = None  # type: ignore
+
 # ─────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────
@@ -88,16 +96,21 @@ class BridgeError(RuntimeError):
 # ─────────────────────────────────────────────────────────────
 
 def load_graph(workspace_root: Path) -> dict[str, Any]:
-    """Load graphify-out/graph.json.
+    """Load the canonical graphify graph, with read-only legacy fallback.
 
     Returns the parsed graph dict, or raises BridgeError if unavailable.
     Tolerates missing file (Graphify not yet run) with a clear error.
     """
     graph_path = workspace_root / GRAPH_JSON_PATH
+    if prepare_state_dirs is not None:
+        paths = prepare_state_dirs(workspace_root)
+        canonical = paths["graphify_out"] / "graph.json"
+        legacy = workspace_root / GRAPH_JSON_PATH
+        graph_path = canonical if canonical.is_file() else legacy
     if not graph_path.is_file():
         raise BridgeError(
             "GRAPH_JSON_MISSING",
-            f"graphify-out/graph.json not found at {graph_path}. Run `graphify update .` first.",
+            f"graphify graph.json not found at {graph_path}. Run `graphify update .` first.",
         )
     try:
         raw = graph_path.read_text(encoding="utf-8")
@@ -190,12 +203,6 @@ _NODE_REF_PATTERN = re.compile(
     r"(?:\*\*)?(?:function|fonction|node|n\u0153ud|class|module|def|method|m\u00e9thode)(?:\*\*)?[:\s]+[`'\"]?([\w][\w.:-]*)",
     re.IGNORECASE,
 )
-
-_GHOST_MARKER_PATTERN = re.compile(
-    r"GHOST-([a-f0-9]{12})-graphify-drift",
-    re.IGNORECASE,
-)
-
 
 def _extract_structured_nodes(block_text: str) -> list[tuple[str, float | None]]:
     """PRIMARY parser: extract (node_name, centrality) from structured HTML comment tags.
@@ -333,8 +340,7 @@ def _existing_ghost_ids(workspace_root: Path) -> set[str]:
         content = scribe_path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return set()
-    return set(GHOST_MARKER_PATTERN.findall(content) if False else
-               _GHOST_MARKER_PATTERN.findall(content))
+    return set(_GHOST_MARKER_PATTERN.findall(content))
 
 
 # ─────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ if str(MCP_DIR) not in sys.path:
     sys.path.insert(0, str(MCP_DIR))
 
 import server_ext as mcp  # type: ignore
-from runtime import db, discipline, patch_queue, task_context  # type: ignore
+from runtime import db, direct_fs_tripwire, discipline, patch_queue, task_context  # type: ignore
 
 
 RESOURCE = "tracked.txt"
@@ -55,8 +55,14 @@ class HostDisciplineGuardE2ETest(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp(prefix="host-discipline-e2e-"))
         self.old_cwd = Path.cwd()
         os.chdir(self.root)
+        os.environ["AGENT_SCRIBE_GRAPHIFY_ROOT"] = str(self.root)
         (self.root / ".agent" / "state").mkdir(parents=True, exist_ok=True)
         (self.root / ".agent" / "state" / "patch_queue").mkdir(parents=True, exist_ok=True)
+        graphify_dir = self.root / "graphify-out"
+        graphify_dir.mkdir(parents=True, exist_ok=True)
+        (graphify_dir / "graph.json").write_text('{"nodes":[],"edges":[]}', encoding="utf-8")
+        (graphify_dir / "GRAPH_REPORT.md").write_text("# Graphify Report\n\nEmpty.\n", encoding="utf-8")
+        (graphify_dir / "graph.html").write_text("<html><body></body></html>\n", encoding="utf-8")
         (self.root / RESOURCE).write_text("line1\n", encoding="utf-8")
         git(self.root, "init")
         git(self.root, "config", "user.email", "test@example.invalid")
@@ -73,6 +79,9 @@ class HostDisciplineGuardE2ETest(unittest.TestCase):
         mcp.patch_queue = patch_queue
         mcp.task_context = task_context
         mcp.discipline = discipline
+        # Clear the graphify guard global cache so a blocking result from an
+        # earlier test in the suite does not poison this test's guard check.
+        mcp._GRAPHIFY_GUARD_CACHE.clear()
         db.init_db(self.root)
         discipline.ensure_schema()
 
@@ -197,16 +206,24 @@ class HostDisciplineGuardE2ETest(unittest.TestCase):
 
     def test_workspace_audit_detects_real_direct_write_on_tracked_file(self) -> None:
         self.register()
+        ctx = self.before_task()
+        call_tool("scribe_query", agent_id=AGENT, **ctx, query="x", limit=3)
+        call_tool("graphify_query", agent_id=AGENT, **ctx, query="x", resource=RESOURCE)
+        direct_fs_tripwire.workspace_snapshot(Path(mcp.server.ROOT), ctx["task_id"], AGENT)
         (self.root / RESOURCE).write_text("direct edit\n", encoding="utf-8")
-        payload = call_tool("workspace_audit", agent_id=AGENT, resource=RESOURCE)
+        payload = call_tool("workspace_audit", agent_id=AGENT, task_id=ctx["task_id"], resource=RESOURCE)
         self.assertEqual(payload["verdict"], "DIRECT_WRITE_BYPASS_DETECTED", payload)
-        self.assertEqual(payload["state"], "DIRECT_WRITE_BYPASS_DETECTED", payload)
-        self.assertIn(RESOURCE, payload["modified_files"])
+        self.assertEqual(payload["state"], "WORKSPACE_AUDIT_REQUIRED", payload)
+        self.assertTrue(any(s.get("path") == RESOURCE for s in payload.get("suspects", [])), f"{RESOURCE} not in suspects: {payload.get('suspects')}")
         self.assertIn("direct_file_edit", payload["forbidden"])
 
     def test_workspace_audit_ok_after_no_direct_write(self) -> None:
         self.register()
-        payload = call_tool("workspace_audit", agent_id=AGENT, resource=RESOURCE)
+        ctx = self.before_task()
+        call_tool("scribe_query", agent_id=AGENT, **ctx, query="x", limit=3)
+        call_tool("graphify_query", agent_id=AGENT, **ctx, query="x", resource=RESOURCE)
+        direct_fs_tripwire.workspace_snapshot(Path(mcp.server.ROOT), ctx["task_id"], AGENT)
+        payload = call_tool("workspace_audit", agent_id=AGENT, task_id=ctx["task_id"], resource=RESOURCE)
         self.assertEqual(payload["verdict"], "WORKSPACE_AUDIT_OK", payload)
         self.assertEqual(payload["state"], "WORKSPACE_AUDIT_OK", payload)
 

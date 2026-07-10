@@ -151,7 +151,7 @@ Le host ne doit pas écrire directement dans `scribe-out/`. La seule écriture m
 scribe_record
 ```
 
-`scribe_record` écrit une note structurée dans `scribe-out/records/`. Il sert aussi aux cicatrices, patterns, erreurs, décisions, dettes, invariants, conflits et approches interdites, pas seulement aux fins de tâche.
+`scribe_record` écrit un record local de staging dans `scribe-out/records/`. Ce verdict ne signifie pas que la mémoire durable a été mise à jour. Si le record est durable, le host doit ensuite appeler `scribe_promote_record` avant `finish_task`.
 
 ## Fin de tâche
 
@@ -166,5 +166,23 @@ Quand tu penses avoir terminé, appelle encore `workflow_next` avec :
 ```
 
 Exécute le `must_call` retourné.
+
+### Preuve mémoire `AGENT-MEMOIRE_PROJECT_STATUS.scribe`
+
+Si `finish_task` retourne `MEMORY_PROOF_REQUIRED`, le système exige la preuve que
+les patches MCP appliqués ont bien été retenus dans la mémoire canonique.
+
+1. Modifie `AGENT-MEMOIRE_PROJECT_STATUS.scribe` via le protocole MCP contrôlé
+   (`file_hash` → `propose_patch` → `apply_patch`) avec les `patch_id` retournés
+   dans `applied_patch_ids`.
+2. Rappelle `scribe_query` pour rafraîchir le hash mémoire.
+3. Rappelle `finish_task`.
+
+Le commit du fichier mémoire n'est pas automatiquement requis. Si l'utilisateur
+demande explicitement le versioning, `git add` et `git commit` sont autorisés.
+
+Le système vérifie par substring exact-match qu'au moins un `patch_id` des mutations
+autorisées apparaît dans le texte du fichier mémoire. La modification directe de
+`AGENT-MEMOIRE_PROJECT_STATUS.scribe` est détectée comme `DIRECT_WRITE_BYPASS_DETECTED`.
 
 Tu n'as fini que lorsque `finish_task` retourne `TASK_FINISHED_OK`.
