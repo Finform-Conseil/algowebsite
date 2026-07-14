@@ -10,7 +10,8 @@ export interface BondCashflowEntity {
     redemption?: number;
     total_cashflow?: number;
 
-    valorization?: number;
+    valorization?: number | string;
+    z_spread?: number | string;
     economic_value_plus_100bps?: number;
     economic_value_minus_100bps?: number;
     economic_value_steepening_shock?: number;
@@ -24,8 +25,8 @@ export interface BondCashflowEntity {
 
     outstanding_nominal?: number;
     accrued_interest?: number;
-    dirty_price?: number;
-    clean_price?: number;
+    dirty_price?: number | string;
+    clean_price?: number | string;
     dv01?: number;
     convexity?: number;
 

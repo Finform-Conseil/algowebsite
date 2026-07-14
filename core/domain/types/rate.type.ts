@@ -7,5 +7,6 @@ export type CreateRateType = z.infer<typeof createRateSchema>;
 export type UpdateRateType = z.infer<typeof updateRateSchema>;
 
 export interface RateQueryParams extends QueryParams {
-    country?: string;
+    country_name?: string;
+    select?: "first" | "last"
 }

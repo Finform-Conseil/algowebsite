@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
@@ -12,6 +12,7 @@ import { SecondaryEntity } from '@/core/domain/entities/secondary.entity';
 import { RateEntity } from '@/core/domain/entities/rate.entity';
 import { BondCashflowEntity } from '@/core/domain/entities/bond-cashflow.entity';
 import { IssuerEntity } from '@/core/domain/entities/issuer.entity';
+import { PrimaryEntity } from '@/core/domain/entities/primary.entity';
 
 
 const parseNumber = (value: string | number | null | undefined): number => {
@@ -34,12 +35,20 @@ export default function BondDetailPage() {
   const params = useParams();
   const id = params.id as string;
 
+  const router = useRouter();
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [bondSearchQuery, setBondSearchQuery] = useState('');
+  const [bondSearchResults, setBondSearchResults] = useState<PrimaryEntity[]>([]);
+  const [isBondSearchFocused, setIsBondSearchFocused] = useState(false);
+
   const {
     currentPrimaryData,
     getPrimaryById,
     getBondCashflowsBySecurity,
     bondCashflowsData,
     isLoadingPrimaryById,
+    getAllPrimaries,
+    allPrimariesData,
   } = usePrimaryRepository();
 
   const {
@@ -55,11 +64,54 @@ export default function BondDetailPage() {
   useEffect(() => { getPrimaryById(id); }, [id, getPrimaryById]);
 
   useEffect(() => {
-    if (id) {
-      getAllSecondaries({ primary: id });
-      getBondCashflowsBySecurity(id);
+    if (bondSearchQuery.trim().length >= 2) {
+      getAllPrimaries({ search: bondSearchQuery, page_size: 8 });
+    } else {
+      setBondSearchResults([]);
     }
-  }, [id, getAllSecondaries, getBondCashflowsBySecurity]);
+  }, [bondSearchQuery, getAllPrimaries]);
+
+  useEffect(() => {
+    if (!bondSearchQuery.trim() || bondSearchQuery.trim().length < 2) return;
+    const q = bondSearchQuery.toLowerCase();
+    const filtered = (allPrimariesData?.data ?? []).filter((p) =>
+      p.isin?.toLowerCase().includes(q) ||
+      p.ticker?.toLowerCase().includes(q) ||
+      p.reference?.toLowerCase().includes(q)
+    ).slice(0, 8);
+    setBondSearchResults(filtered);
+  }, [allPrimariesData, bondSearchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsBondSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      getAllSecondaries({ primary: id, page_size: 100 });
+    }
+  }, [id, getAllSecondaries]);
+
+  const secondariesStartDate = useMemo(() => {
+    if (!secondariesData?.data?.length) return undefined;
+    const sorted = [...secondariesData.data]
+      .filter((s) => s.timestamp)
+      .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
+    return sorted[0]?.timestamp?.split('T')[0];
+  }, [secondariesData]);
+
+  useEffect(() => {
+    if (id && secondariesStartDate) {
+      getBondCashflowsBySecurity(id, { page: -1 });
+      // getBondCashflowsBySecurity(id, { page: -1, start_date: secondariesStartDate });
+    }
+  }, [id, secondariesStartDate, getBondCashflowsBySecurity]);
 
   const issuer = useMemo(() => {
     if (!currentPrimaryData?.issuer) return undefined;
@@ -86,7 +138,7 @@ export default function BondDetailPage() {
 
   useEffect(() => {
     if (issuer?.country) {
-      getAllRates({ country: issuer.country });
+      getAllRates({ country_name: issuer.country, select: "last" });
     }
   }, [issuer?.country, getAllRates]);
 
@@ -157,7 +209,7 @@ export default function BondDetailPage() {
       convexity: parseNumber(latestCashflow?.convexity),
       redemptionType: primary.amortization_method === 'BULLET' ? 'In fine' : primary.amortization_method || 'In fine',
       dayCount: primary.day_count_convention || '',
-      settlement: primary.payment_day_term || 'T+2',
+      settlement: primary.payment_day_term || 'MON_TO_FRI',
       outstanding,
       minSubscription: parseNumber(primary.minimum_trade_unit) || nominal,
     };
@@ -177,6 +229,7 @@ export default function BondDetailPage() {
       'Kenya': '🇰🇪',
       'Morocco': '🇲🇦',
       'Maroc': '🇲🇦',
+      'Togo': '🇹🇬',
     };
     return flags[country] || '🏳️';
   };
@@ -186,25 +239,52 @@ export default function BondDetailPage() {
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [reinvestmentRate, setReinvestmentRate] = useState(5.0);
   const [stressTestShock, setStressTestShock] = useState(0);
+  const [historyTab, setHistoryTab] = useState<'events' | 'documents'>('events');
 
   // Données réelles pour les graphiques et tableaux
   const priceHistoryData = useMemo(() => {
     if (!secondaries.length) return [];
-    const sorted = [...secondaries]
+
+    const sortedSecondaries = [...secondaries]
       .filter((s) => s.timestamp)
       .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
-    return sorted.map((s) => ({
-      date: s.timestamp!.split('T')[0],
-      price: parseNumber(s.closing_price).toFixed(2),
-      marketPrice: parseNumber(s.closing_price).toFixed(2),
-    }));
-  }, [secondaries]);
+
+    const minDate = new Date(sortedSecondaries[0].timestamp!);
+    const maxDate = new Date(sortedSecondaries[sortedSecondaries.length - 1].timestamp!);
+
+    // Cashflows filtrés sur la période secondaire, triés par date
+    const sortedCashflows = cashflows
+      .filter((c) => c.timestamp && c.clean_price !== undefined && c.clean_price !== null)
+      .map((c) => ({ date: c.timestamp!.split('T')[0], ts: new Date(c.timestamp!.split('T')[0]).getTime(), cleanPrice: parseNumber(c.clean_price) }))
+      .filter((c) => c.ts >= minDate.getTime() && c.ts <= maxDate.getTime())
+      .sort((a, b) => a.ts - b.ts);
+
+    // Pour chaque date secondaire, trouver le cashflow le plus proche
+    const getNearestValuation = (dateStr: string): number | null => {
+      if (!sortedCashflows.length) return null;
+      const ts = new Date(dateStr).getTime();
+      let nearest = sortedCashflows[0];
+      for (const c of sortedCashflows) {
+        if (Math.abs(c.ts - ts) < Math.abs(nearest.ts - ts)) nearest = c;
+      }
+      return nearest.cleanPrice > 0 ? nearest.cleanPrice : null;
+    };
+
+    return sortedSecondaries.map((s) => {
+      const date = s.timestamp!.split('T')[0];
+      return {
+        date,
+        secondaryPrice: parseNumber(s.closing_price),
+        valuationPrice: getNearestValuation(date),
+      };
+    });
+  }, [secondaries, cashflows]);
 
   const cashflowData = useMemo(() => {
     if (!cashflows.length) return [];
     const today = new Date().getTime();
     return [...cashflows]
-      .filter((c) => c.timestamp)
+      .filter((c) => c.timestamp && c.is_payment_date === true && new Date(c.timestamp).getTime() > new Date().getTime())
       .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime())
       .map((c) => {
         const couponRate = formatPercent(c.coupon_rate);
@@ -228,25 +308,96 @@ export default function BondDetailPage() {
       });
   }, [cashflows, bondData.nominal, bondData.ytm]);
 
+  const pastCashflowData = useMemo(() => {
+    if (!cashflows.length) return [];
+    const today = new Date().getTime();
+    return [...cashflows]
+      .filter((c) => c.timestamp && c.is_payment_date === true && new Date(c.timestamp).getTime() <= today)
+      .sort((a, b) => new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime())
+      .map((c) => {
+        const couponRate = formatPercent(c.coupon_rate);
+        const coupon = (couponRate / 100) * bondData.nominal;
+        const principal = parseNumber(c.redemption) || parseNumber(c.amortization);
+        const total = parseNumber(c.total_cashflow) || coupon + principal;
+        const type = principal > 0 ? 'Principal + Coupon' : 'Coupon';
+        return { date: c.timestamp!, type, coupon, principal, total, status: c.status };
+      });
+  }, [cashflows, bondData.nominal]);
+
+  const todayCashflow = useMemo(() => {
+    if (!cashflows.length) return null;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const exact = cashflows.find((c) => c.timestamp?.startsWith(todayStr));
+    if (exact) return exact;
+    const today = new Date().getTime();
+    const recent = [...cashflows]
+      .filter((c) => c.timestamp && today - new Date(c.timestamp).getTime() <= 7 * 24 * 60 * 60 * 1000)
+      .sort((a, b) => new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime());
+    return recent[0] ?? null;
+  }, [cashflows]);
+
+  const latestRiskMetrics = useMemo(() => {
+    if (!cashflows.length) return null;
+    const sorted = [...cashflows]
+      .filter((c) => c.timestamp)
+      .sort((a, b) => new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime());
+    return sorted[0] ?? null;
+  }, [cashflows]);
+
+  const isBondAlive = useMemo(() => {
+    if (!bondData.maturityDate) return true;
+    return new Date(bondData.maturityDate).getTime() > Date.now();
+  }, [bondData.maturityDate]);
+
+  const activeMetrics = useMemo(() => {
+    if (isBondAlive) {
+      return todayCashflow ?? latestRiskMetrics;
+    }
+    return latestRiskMetrics;
+  }, [isBondAlive, todayCashflow, latestRiskMetrics]);
+
   const stressTestData = useMemo(() => {
+    const base = activeMetrics;
+    const basePrice = base ? parseNumber(base.valorization) : (bondData.currentPrice || 100);
     const baseYield = bondData.ytm || bondData.yield || 7;
-    const shocks = [-200, -100, -50, 0, 50, 100, 200];
-    
+
+    if (base && parseNumber(base.valorization) > 0) {
+      return [
+        { shock: -100, label: '-100 bps', price: parseNumber(base.economic_value_minus_100bps), changePercent: ((parseNumber(base.economic_value_minus_100bps) - basePrice) / basePrice * 100) },
+        { shock: -50,  label: 'Flatten.',  price: parseNumber(base.economic_value_flattening_shock), changePercent: ((parseNumber(base.economic_value_flattening_shock) - basePrice) / basePrice * 100) },
+        { shock: -10,  label: 'ST rates ↓', price: parseNumber(base.economic_value_short_rates_shock_down), changePercent: ((parseNumber(base.economic_value_short_rates_shock_down) - basePrice) / basePrice * 100) },
+        { shock: 0,    label: 'Base',       price: basePrice, changePercent: 0 },
+        { shock: 10,   label: 'ST rates ↑', price: parseNumber(base.economic_value_short_rates_shock_up), changePercent: ((parseNumber(base.economic_value_short_rates_shock_up) - basePrice) / basePrice * 100) },
+        { shock: 50,   label: 'Steepen.',   price: parseNumber(base.economic_value_steepening_shock), changePercent: ((parseNumber(base.economic_value_steepening_shock) - basePrice) / basePrice * 100) },
+        { shock: 100,  label: '+100 bps',   price: parseNumber(base.economic_value_plus_100bps), changePercent: ((parseNumber(base.economic_value_plus_100bps) - basePrice) / basePrice * 100) },
+      ].map((row) => ({
+        ...row,
+        newYield: (baseYield + row.shock / 100).toFixed(2),
+        priceStr: row.price.toFixed(3),
+        changePercentStr: row.changePercent.toFixed(3),
+        changeValue: ((row.price - basePrice) * parseNumber(base.outstanding_nominal) / 100).toFixed(0),
+        isBase: row.shock === 0,
+      }));
+    }
+
+    // Fallback si pas encore de métriques chargées
+    const shocks = [-200, -100, 0, 100, 200];
     return shocks.map(shock => {
-      const newYield = baseYield + (shock / 100);
-      const basePrice = bondData.currentPrice || 100;
       const priceChange = -(bondData.duration || 4.2) * (shock / 100);
       const newPrice = basePrice * (1 + priceChange / 100);
-      
       return {
         shock,
-        newYield: newYield.toFixed(2),
-        price: newPrice.toFixed(2),
-        changePercent: priceChange.toFixed(2),
-        changeValue: ((newPrice - basePrice) * (bondData.nominal || 10000) / 100).toFixed(0)
+        label: shock === 0 ? 'Base' : `${shock > 0 ? '+' : ''}${shock} bps`,
+        price: newPrice,
+        priceStr: newPrice.toFixed(2),
+        newYield: (baseYield + shock / 100).toFixed(2),
+        changePercent: priceChange,
+        changePercentStr: priceChange.toFixed(2),
+        changeValue: ((newPrice - basePrice) * (bondData.nominal || 10000) / 100).toFixed(0),
+        isBase: shock === 0,
       };
     });
-  }, [bondData]);
+  }, [activeMetrics, bondData]);
 
   const volumeHistoryData = useMemo(() => {
     if (!secondaries.length) return [];
@@ -267,7 +418,7 @@ export default function BondDetailPage() {
       .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
     return sorted.map((s) => ({
       date: s.timestamp!.slice(0, 7),
-      spread: parseNumber(s.closing_yield) * 10000,
+      spread: parseNumber(s.traded_yield) * 10000,
     }));
   }, [secondaries]);
 
@@ -276,9 +427,11 @@ export default function BondDetailPage() {
     const sorted = [...secondaries]
       .filter((s) => s.timestamp && s.closing_price)
       .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
-    const last = sorted[sorted.length - 1]?.closing_price;
+    const lastObs = sorted[sorted.length - 1];
+    const last = lastObs?.closing_price;
+    const lastDate = lastObs?.timestamp ? new Date(lastObs.timestamp) : new Date();
     const getPrice = (daysBack: number) => {
-      const target = new Date();
+      const target = new Date(lastDate);
       target.setDate(target.getDate() - daysBack);
       const candidates = sorted.filter((s) => s.timestamp && new Date(s.timestamp) <= target);
       return candidates[candidates.length - 1]?.closing_price;
@@ -324,6 +477,12 @@ export default function BondDetailPage() {
     );
     return bonds.map((b) => ({ ...b, current: b === closest }));
   }, [rates, currentPrimaryData?.tenor]);
+
+  const ratesCurveDate = useMemo(() => {
+    if (!rates.length) return null;
+    const ts = rates[rates.length - 1]?.timestamp;
+    return ts ? new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+  }, [rates]);
 
   const calculateRemainingDays = () => {
     const today = new Date();
@@ -381,10 +540,48 @@ export default function BondDetailPage() {
         >
           <div className="bond-title-section">
             <div className="title-row">
-              <h1>
-                <span className="country-flag">{getCountryFlag(bondData.country)}</span>
-                {bondData.name || bondData.isin}
-              </h1>
+              <div className="bond-title-search" ref={searchRef}>
+                <div className="bond-title-input-wrapper">
+                  <span className="country-flag">{getCountryFlag(bondData.country)}</span>
+                  <input
+                    type="text"
+                    className="bond-title-input"
+                    value={isBondSearchFocused ? bondSearchQuery : ''}
+                    placeholder={bondData.name || bondData.isin || 'Rechercher un titre...'}
+                    onChange={(e) => setBondSearchQuery(e.target.value)}
+                    onFocus={() => { setIsBondSearchFocused(true); setBondSearchQuery(''); }}
+                    onBlur={() => setTimeout(() => setIsBondSearchFocused(false), 150)}
+                  />
+                  {!isBondSearchFocused && (
+                    <svg className="search-hint-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                  )}
+                </div>
+                {isBondSearchFocused && bondSearchResults.length > 0 && (
+                  <div className="bond-search-dropdown">
+                    {bondSearchResults.map((p) => (
+                      <div
+                        key={p.id}
+                        className="bond-search-result-item"
+                        onMouseDown={() => {
+                          setIsBondSearchFocused(false);
+                          setBondSearchQuery('');
+                          router.push(`/fixed-income/bond-detail/${p.id}`);
+                        }}
+                      >
+                        <span className="bond-search-isin">{p.isin}</span>
+                        <span className="bond-search-ref">{p.ticker || p.reference}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {isBondSearchFocused && bondSearchQuery.length >= 2 && bondSearchResults.length === 0 && (
+                  <div className="bond-search-dropdown">
+                    <div className="bond-search-empty">Aucun résultat pour &ldquo;{bondSearchQuery}&rdquo;</div>
+                  </div>
+                )}
+              </div>
               <div className="bond-meta">
                 <span className="badge badge-isin">{bondData.isin}</span>
                 <span className="badge badge-type">{bondData.bondType}</span>
@@ -451,8 +648,16 @@ export default function BondDetailPage() {
                         <span className="value">{bondData.issuer}</span>
                       </div>
                       <div className="info-item">
+                        <span className="label">Type d'Émetteur</span>
+                        <span className="value">{issuer?.issuer_type || '-'}</span>
+                      </div>
+                      <div className="info-item">
                         <span className="label">Pays</span>
                         <span className="value">{getCountryFlag(bondData.country || bondData.issuer)} {bondData.issuer || bondData.country}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="label">Gestionnaire de dette</span>
+                        <span className="value">{issuer?.debt_manager || '-'}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">ISIN</span>
@@ -470,10 +675,10 @@ export default function BondDetailPage() {
                         <span className="label">Durée résiduelle</span>
                         <span className="value">{bondData.maturityDate ? `${calculateRemainingDays()} jours (${(calculateRemainingDays() / 365).toFixed(1)} ans)` : '-'}</span>
                       </div>
-                      <div className="info-item">
+                      {/* <div className="info-item">
                         <span className="label">Valeur nominale</span>
-                        <span className="value">{(bondData.nominal || 10000).toLocaleString()} {bondData.currency ? `(UUID: ${bondData.currency})` : ''}</span>
-                      </div>
+                        <span className="value">{(bondData.nominal || 10000).toLocaleString()} {bondData.currency ? `${bondData.currency}` : ''}</span>
+                      </div> */}
                       <div className="info-item">
                         <span className="label">Type de taux</span>
                         <span className="value">{currentPrimaryData?.coupon_type || 'Fixe'}</span>
@@ -495,12 +700,12 @@ export default function BondDetailPage() {
                         <span className="value">{bondData.dayCount || '30/360'}</span>
                       </div>
                       <div className="info-item">
-                        <span className="label">Settlement</span>
-                        <span className="value">{bondData.settlement || 'T+2'}</span>
+                        <span className="label">Payment Day Term</span>
+                        <span className="value">{bondData.settlement == 'MON_TO_FRI' ? 'Monday to Friday' : 'Monday to Saturday'}</span>
                       </div>
                       <div className="info-item">
                         <span className="label">Encours</span>
-                        <span className="value">{((bondData.outstanding || 0) / 1000000000).toFixed(1)}B {bondData.currency ? `(UUID: ${bondData.currency})` : ''}</span>
+                        <span className="value">{((bondData.outstanding || 0) / 1000000000).toFixed(1)}B {bondData.currency ? `${bondData.currency}` : ''}</span>
                       </div>
                     </div>
                   </div>
@@ -513,9 +718,9 @@ export default function BondDetailPage() {
                       <h3 className="card-title">Historique de Valorisation</h3>
                       <div className="filter-buttons">
                         <button className="btn-filter active">Depuis émission</button>
-                        <button className="btn-filter">1 an</button>
+                        {/* <button className="btn-filter">1 an</button>
                         <button className="btn-filter">6 mois</button>
-                        <button className="btn-filter">Résiduel</button>
+                        <button className="btn-filter">Résiduel</button> */}
                       </div>
                     </div>
                     <div className="chart-container">
@@ -524,13 +729,13 @@ export default function BondDetailPage() {
                           categories: priceHistoryData.map(d => d.date),
                           series: [
                             {
-                              name: 'Valorisation indicative (%)',
-                              values: priceHistoryData.map(d => parseFloat(d.price)),
+                              name: 'Valorisation (clean price) (%)',
+                              values: priceHistoryData.map(d => d.valuationPrice ?? 0),
                               color: 'rgb(37, 99, 235)'
                             },
                             {
-                              name: 'Cours de marché (%)',
-                              values: priceHistoryData.map(d => parseFloat(d.marketPrice)),
+                              name: 'Cours secondaire (%)',
+                              values: priceHistoryData.map(d => d.secondaryPrice),
                               color: 'rgb(234, 88, 12)'
                             }
                           ]
@@ -555,14 +760,35 @@ export default function BondDetailPage() {
                         <div className="vs-separator">vs</div>
                         <div className="price-block">
                           <span className="label">Valorisation indicative</span>
-                          <span className="value">{((bondData.currentPrice || 100) - 0.5).toFixed(2)}%</span>
+                          <span className="value">
+                            {todayCashflow?.clean_price
+                              ? parseNumber(todayCashflow.clean_price).toFixed(3)
+                              : todayCashflow?.dirty_price
+                                ? parseNumber(todayCashflow.dirty_price).toFixed(3)
+                                : 'N/A'}%
+                          </span>
                         </div>
                       </div>
-                      <div className="opportunity-gap">
-                        <span className="gap-label">Écart</span>
-                        <span className={`gap-value ${momentumData.trend5d >= 0 ? 'positive' : 'negative'}`}>{momentumData.trend5d >= 0 ? '+' : ''}{momentumData.trend5d.toFixed(2)}%</span>
-                        <span className="badge badge-opportunity">{momentumData.trend5d >= 0 ? 'Tendance haussière' : 'Tendance baissière'}</span>
-                      </div>
+                      {(() => {
+                        const marketPrice = bondData.currentPrice || 100;
+                        const valuation = todayCashflow?.clean_price
+                          ? parseNumber(todayCashflow.clean_price)
+                          : todayCashflow?.dirty_price
+                            ? parseNumber(todayCashflow.dirty_price)
+                            : null;
+                        const gap = valuation !== null ? marketPrice - valuation : null;
+                        return (
+                          <div className="opportunity-gap">
+                            <span className="gap-label">Écart</span>
+                            <span className={`gap-value ${gap === null ? '' : gap > 0 ? 'negative' : gap < 0 ? 'positive' : ''}`}>
+                              {gap !== null ? `${gap > 0 ? '+' : ''}${gap.toFixed(3)}%` : 'N/A'}
+                            </span>
+                            <span className={`badge ${gap === null ? 'badge-secondary' : gap > 0 ? 'badge-danger' : gap < 0 ? 'badge-success' : 'badge-secondary'}`}>
+                              {gap === null ? 'Données insuffisantes' : gap > 0 ? 'Potentiellement surévalué' : gap < 0 ? 'Potentiellement sous-évalué' : 'Valorisation équilibrée'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                       <p className="opportunity-text">
                         Tendance sur 5 séances : {momentumData.trend5d >= 0 ? '+' : ''}{momentumData.trend5d.toFixed(2)}%.
                         {momentumData.trend5d > 0 ? ' La demande semble soutenue.' : momentumData.trend5d < 0 ? ' Le titre est en léger recul.' : ' Le cours est stable.'}
@@ -636,7 +862,13 @@ export default function BondDetailPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {cashflowData.map((flow, idx) => (
+                          {cashflowData.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="text-center" style={{padding:'2rem', color:'var(--text-secondary)', fontStyle:'italic'}}>
+                                Aucun échéance à venir
+                              </td>
+                            </tr>
+                          ) : cashflowData.map((flow, idx) => (
                             <tr key={idx}>
                               <td>{new Date(flow.date).toLocaleDateString('fr-FR')}</td>
                               <td><span className={`badge badge-${flow.type === 'Coupon' ? 'info' : 'success'}`}>{flow.type}</span></td>
@@ -763,29 +995,37 @@ export default function BondDetailPage() {
                 {/* Stress Testing - Taux */}
                 <div className="col-lg-8 p-0">
                   <div className="bond-card">
-                    <h3 className="card-title">Stress Testing - Sensibilité aux Taux</h3>
+                    <div className="card-title-row">
+                      <h3 className="card-title">Stress Testing - Scénarios de taux</h3>
+                      {activeMetrics && (
+                        <p className="card-subtitle text-muted">
+                          Base : valorisation au {new Date(activeMetrics.timestamp!).toLocaleDateString('fr-FR')} — {parseNumber(activeMetrics.valorization).toFixed(3)}%
+                          {!isBondAlive && <span className="text-muted" style={{marginLeft:'0.4rem', fontSize:'0.75rem'}}>(dernière valeur — titre échu)</span>}
+                        </p>
+                      )}
+                    </div>
                     <div className="table-responsive">
                       <table className="table table-stress">
                         <thead>
                           <tr>
-                            <th>Choc (bps)</th>
-                            <th className="text-end">Nouveau taux</th>
-                            <th className="text-end">Prix théorique</th>
+                            <th>Scénario</th>
+                            <th className="text-end">Taux</th>
+                            <th className="text-end">Prix (%)</th>
                             <th className="text-end">Variation (%)</th>
-                            <th className="text-end">Variation (valeur)</th>
+                            <th className="text-end">Impact (encours)</th>
                           </tr>
                         </thead>
                         <tbody>
                           {stressTestData.map((row, idx) => (
-                            <tr key={idx} className={row.shock === 0 ? 'reference-row' : ''}>
-                              <td><strong>{row.shock > 0 ? '+' : ''}{row.shock}</strong></td>
+                            <tr key={idx} className={row.isBase ? 'reference-row' : ''}>
+                              <td><strong>{row.label}</strong></td>
                               <td className="text-end">{row.newYield}%</td>
-                              <td className="text-end">{row.price}%</td>
-                              <td className={`text-end ${parseFloat(row.changePercent) > 0 ? 'positive' : parseFloat(row.changePercent) < 0 ? 'negative' : ''}`}>
-                                {row.changePercent}%
+                              <td className="text-end">{row.priceStr}%</td>
+                              <td className={`text-end ${row.changePercent > 0 ? 'positive' : row.changePercent < 0 ? 'negative' : ''}`}>
+                                {row.changePercent > 0 ? '+' : ''}{row.changePercentStr}%
                               </td>
-                              <td className={`text-end ${parseFloat(row.changeValue) > 0 ? 'positive' : parseFloat(row.changeValue) < 0 ? 'negative' : ''}`}>
-                                {parseFloat(row.changeValue) > 0 ? '+' : ''}{row.changeValue}
+                              <td className={`text-end ${Number(row.changeValue) > 0 ? 'positive' : Number(row.changeValue) < 0 ? 'negative' : ''}`}>
+                                {Number(row.changeValue) > 0 ? '+' : ''}{Number(row.changeValue).toLocaleString('fr-FR')}
                               </td>
                             </tr>
                           ))}
@@ -795,7 +1035,7 @@ export default function BondDetailPage() {
                   </div>
                 </div>
 
-                {/* Stress Testing - Spread crédit */}
+                {/* Risque Souverain */}
                 <div className="col-lg-4 p-0">
                   <div className="bond-card">
                     <h3 className="card-title">Risque Souverain</h3>
@@ -902,6 +1142,97 @@ export default function BondDetailPage() {
                     </div>
                   </div>
                 </div>
+
+
+                {/* Métriques de sensibilité */}
+                <div className="col-12 p-0">
+                  <div className="bond-card">
+                    <div className="card-title-row">
+                      <h3 className="card-title">Métriques de Sensibilité</h3>
+                      {activeMetrics && (
+                        <p className="card-subtitle text-muted">
+                          Données au {new Date(activeMetrics.timestamp!).toLocaleDateString('fr-FR')}
+                          {!isBondAlive && <span className="text-muted" style={{marginLeft:'0.4rem', fontSize:'0.75rem'}}>(dernière valeur — titre échu)</span>}
+                        </p>
+                      )}
+                    </div>
+                    <div className="row g-3">
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Duration Macaulay</span>
+                          <span className="result-value">
+                            {activeMetrics?.duration_macaulay ? parseNumber(activeMetrics.duration_macaulay).toFixed(2) : (bondData.duration_macaulay ? bondData.duration_macaulay.toFixed(2) : 'N/A')} ans
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Durée de vie moyenne pondérée</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Duration Modifiée</span>
+                          <span className="result-value">
+                            {activeMetrics?.duration_modigliani ? parseNumber(activeMetrics.duration_modigliani).toFixed(2) : (bondData.duration_modigliani ? bondData.duration_modigliani.toFixed(2) : 'N/A')}
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Sensibilité prix / taux</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">DV01</span>
+                          <span className="result-value">
+                            {activeMetrics?.dv01 ? parseNumber(activeMetrics.dv01).toFixed(4) : 'N/A'}
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Variation prix pour 1 bp</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Convexité</span>
+                          <span className="result-value">
+                            {activeMetrics?.convexity ? parseNumber(activeMetrics.convexity).toFixed(2) : (bondData.convexity ? bondData.convexity.toFixed(2) : 'N/A')}
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Courbure de la relation prix/taux</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Z-Spread</span>
+                          <span className="result-value">
+                            {activeMetrics?.z_spread ? (parseNumber(activeMetrics.z_spread) * 10000).toFixed(0) : 'N/A'} bps
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Spread vs courbe zéro-coupon</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Cours pied de coupon</span>
+                          <span className="result-value">
+                            {activeMetrics?.clean_price ? parseNumber(activeMetrics.clean_price).toFixed(3) : 'N/A'}%
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Clean price (sans intérêts courus)</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Cours coupon couru</span>
+                          <span className="result-value">
+                            {activeMetrics?.dirty_price ? parseNumber(activeMetrics.dirty_price).toFixed(3) : 'N/A'}%
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Dirty price (avec intérêts courus)</span>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="result-card">
+                          <span className="result-label">Intérêts courus</span>
+                          <span className="result-value">
+                            {activeMetrics?.accrued_interest ? parseNumber(activeMetrics.accrued_interest).toFixed(4) : 'N/A'}%
+                          </span>
+                          <span className="result-hint text-muted" style={{fontSize:'0.7rem'}}>Coupon accumulé depuis dernier paiement</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           )}
@@ -912,7 +1243,12 @@ export default function BondDetailPage() {
                 {/* Courbe des taux émetteur */}
                 <div className="col-md-8 p-0">
                   <div className="bond-card">
-                    <h3 className="card-title">Courbe des Taux Émetteur</h3>
+                    <div className="card-title-row">
+                      <h3 className="card-title">Courbe des Taux Émetteur</h3>
+                      {ratesCurveDate && (
+                        <p className="card-subtitle text-muted">au {ratesCurveDate}</p>
+                      )}
+                    </div>
                     <div className="chart-container">
                       <LineChart
                         data={{
@@ -935,7 +1271,7 @@ export default function BondDetailPage() {
                         <div key={idx} className={`bond-item ${bond.current ? 'current' : ''}`}>
                           <span className="bond-name">{bond.name}</span>
                           <span className="bond-maturity">{bond.maturity.toFixed(1)} ans</span>
-                          <span className="bond-ytm">{bond.ytm}%</span>
+                          <span className="bond-ytm">{bond.ytm.toFixed(5)}%</span>
                           {!bond.current && (
                             <Link href={`#`} className="bond-link">
                               Voir →
@@ -994,10 +1330,9 @@ export default function BondDetailPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {cashflowData
-                              .filter((f) => f.daysRemaining <= 0 || f.status === 'PAID')
-                              .slice(0, 10)
-                              .map((flow, idx) => (
+                            {pastCashflowData.length === 0 ? (
+                              <tr><td colSpan={4} className="text-center" style={{padding:'1.5rem', color:'var(--text-secondary)', fontStyle:'italic'}}>Aucun coupon versé à ce jour</td></tr>
+                            ) : pastCashflowData.slice(0, 10).map((flow, idx) => (
                                 <tr key={idx}>
                                   <td>{new Date(flow.date).toLocaleDateString('fr-FR')}</td>
                                   <td>{flow.type}</td>
@@ -1005,9 +1340,6 @@ export default function BondDetailPage() {
                                   <td className="text-end"><span className="badge badge-success">✓ {flow.status || 'Honoré'}</span></td>
                                 </tr>
                               ))}
-                            {cashflowData.filter((f) => f.daysRemaining <= 0 || f.status === 'PAID').length === 0 && (
-                              <tr><td colSpan={4} className="text-center">Aucun remboursement effectué</td></tr>
-                            )}
                           </tbody>
                         </table>
                       </div>
@@ -1027,47 +1359,70 @@ export default function BondDetailPage() {
                     <div className="history-tabs">
                       <ul className="nav nav-tabs" role="tablist">
                         <li className="nav-item">
-                          <button className="nav-link active" data-bs-toggle="tab" data-bs-target="#events">
+                          <button className={`nav-link ${historyTab === 'events' ? 'active' : ''}`} onClick={() => setHistoryTab('events')}>
                             Événements
                           </button>
                         </li>
                         <li className="nav-item">
-                          <button className="nav-link" data-bs-toggle="tab" data-bs-target="#documents">
+                          <button className={`nav-link ${historyTab === 'documents' ? 'active' : ''}`} onClick={() => setHistoryTab('documents')}>
                             Documents
                           </button>
                         </li>
                       </ul>
                       
                       <div className="tab-content">
-                        <div className="tab-pane fade show active" id="events">
-                          <div className="timeline">
-                            {currentPrimaryData?.issue_lots?.map((lot, idx) => (
-                              <div className="timeline-item" key={idx}>
-                                <div className="timeline-marker"></div>
-                                <div className="timeline-content">
-                                  <div className="timeline-date">{lot.auction_date ? new Date(lot.auction_date).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</div>
-                                  <div className="timeline-title">{lot.issue_type === 'NEW_ISSUE' ? 'Émission primaire' : 'Réouverture'}</div>
-                                  <div className="timeline-description">
-                                    Réf: {lot.reference} | Montant alloué: {parseNumber(lot.amount_allocated).toLocaleString()} | Taux de couverture: {parseNumber(lot.coverage_rate)}x | Clearing yield: {(parseNumber(lot.clearing_yield) * 100).toFixed(2)}%
+                        {historyTab === 'events' && (
+                          <div className="tab-pane show active">
+                            <div className="timeline">
+                              {currentPrimaryData?.issue_lots?.map((lot, idx) => (
+                                <div className="timeline-item" key={idx}>
+                                  <div className="timeline-marker"></div>
+                                  <div className="timeline-content">
+                                    <div className="timeline-date">{lot.auction_date ? new Date(lot.auction_date).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</div>
+                                    <div className="timeline-title">{lot.issue_type === 'NEW_ISSUE' ? 'Émission primaire' : 'Réouverture'}</div>
+                                    <div className="timeline-description">
+                                      Réf: {lot.reference} | Montant alloué: {parseNumber(lot.amount_allocated).toLocaleString()} | Taux de couverture: {parseNumber(lot.coverage_rate)}x | Clearing yield: {(parseNumber(lot.clearing_yield) * 100).toFixed(2)}%
+                                    </div>
                                   </div>
                                 </div>
+                              ))}
+                              {(!currentPrimaryData?.issue_lots || currentPrimaryData.issue_lots.length === 0) && (
+                                <div className="timeline-item">
+                                  <div className="timeline-content">Aucun événement d'émission disponible</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {historyTab === 'documents' && (
+                          <div className="tab-pane show active">
+                            {currentPrimaryData?.issue_lots?.length ? (
+                              <div className="file-explorer">
+                                {currentPrimaryData.issue_lots.map((lot, idx) => {
+                                  const label = lot.reference || `Lot ${idx + 1}`;
+                                  const date = lot.auction_date ? new Date(lot.auction_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+                                  const docs = [
+                                    { ext: 'pdf', name: `Avis_${label}.pdf`, icon: '📄' },
+                                    { ext: 'xlsx', name: `Résultats_${label}.xlsx`, icon: '📊' },
+                                  ];
+                                  return docs.map((doc, dIdx) => (
+                                    <div key={`${idx}-${dIdx}`} className="file-item" title={doc.name}>
+                                      <div className="file-icon" data-ext={doc.ext}>
+                                        <span className="file-icon-emoji">{doc.icon}</span>
+                                        <span className={`file-ext-badge ext-${doc.ext}`}>{doc.ext.toUpperCase()}</span>
+                                      </div>
+                                      <span className="file-name">{doc.name}</span>
+                                      {date && <span className="file-date">{date}</span>}
+                                    </div>
+                                  ));
+                                })}
                               </div>
-                            ))}
-                            {(!currentPrimaryData?.issue_lots || currentPrimaryData.issue_lots.length === 0) && (
-                              <div className="timeline-item">
-                                <div className="timeline-content">Aucun événement d'émission disponible</div>
-                              </div>
+                            ) : (
+                              <p className="text-muted" style={{padding:'1rem', fontStyle:'italic', fontSize:'0.85rem'}}>Aucun document disponible pour le moment.</p>
                             )}
                           </div>
-                        </div>
-                        
-                        <div className="tab-pane fade" id="documents">
-                          <div className="documents-list">
-                          <div className="document-item text-muted">
-                            Aucun document disponible pour le moment.
-                          </div>
-                        </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
