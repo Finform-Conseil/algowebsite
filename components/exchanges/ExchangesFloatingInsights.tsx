@@ -47,7 +47,7 @@ export default function ExchangesFloatingInsights({ exchanges, allExchanges }: E
     });
   }
 
-  const emergingExchanges = exchanges.filter((e) => e.marketMaturity.level === 'developing').length;
+  const emergingExchanges = exchanges.filter((e) => e.marketMaturity?.level === 'developing').length;
   if (emergingExchanges > 0) {
     insights.push({
       type: 'neutral',
@@ -55,7 +55,7 @@ export default function ExchangesFloatingInsights({ exchanges, allExchanges }: E
     });
   }
 
-  const matureExchanges = exchanges.filter((e) => e.marketMaturity.level === 'mature').length;
+  const matureExchanges = exchanges.filter((e) => e.marketMaturity?.level === 'mature').length;
   if (matureExchanges > 0) {
     insights.push({
       type: 'positive',

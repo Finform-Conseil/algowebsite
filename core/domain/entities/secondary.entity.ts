@@ -11,7 +11,7 @@ export interface SecondaryEntity {
     opening_price?  : number;
     closing_price?  : number;
     traded_yield?   : number;
-    number_of_trades: number;
+    number_of_trades?: number;
     volume_traded?  : number;
     value_traded?   : number;
 }

@@ -27,6 +27,7 @@ export interface StockExchange {
   
   // Structure
   dominantSectors: string[];
+  marketMaturity?: MaturityLevel;
   
   // Metrics
   liquidity: LiquidityLevel;

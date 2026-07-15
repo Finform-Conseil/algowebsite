@@ -12,7 +12,6 @@ export const opcvmSchema = z.object({
     isin: z.string().min(1, "ISIN is required").max(50, "ISIN must be less than 50 characters"),
     nature: z.enum([
         OPCVMNatureEnum.FCP,
-        OPCVMNatureEnum.HEDGE_FUND,
         OPCVMNatureEnum.SICAV,
     ]),
     type: z.enum([
