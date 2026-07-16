@@ -25,7 +25,8 @@ export const familiesConfig: FamilyConfig[] = [
     label: "Overview",
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>,
     columns: [
-      { key: "sector", label: "Sector", accessor: (action) => action.society?.sector || 'N/A', sortable: false },
+      { key: "sector", label: "Sector", accessor: (action) => action.society?.activity?.name || 'N/A', sortable: false },
+      { key: "industry", label: "Industry", accessor: (action) => action.society?.industry?.name || 'N/A', sortable: false },
       { key: "price", label: "Price", accessor: (action) => action.latest_price_metric?.price, className: "number-col", format: (val) => val != null ? `${val.toFixed(2)}` : 'N/A', sortKey: "latest_price_metric__price", sortable: true },
       { key: "market_cap", label: "Market Cap", accessor: (action) => action.latest_valuation_ratio?.market_cap, className: "number-col", format: (val) => val != null ? `${(val / 1000000).toFixed(0)}M` : 'N/A', sortKey: "latest_valuation_ratio__market_cap", sortable: true },
       { key: "volume", label: "Volume", accessor: (action) => action.latest_price_metric?.volume, className: "number-col", format: (val) => val != null ? `${(val / 1000).toFixed(0)}K` : 'N/A', sortKey: "latest_price_metric__volume", sortable: true },
