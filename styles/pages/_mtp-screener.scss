@@ -1,4 +1,4 @@
-@import '../abstracts/variables';
+@use '../abstracts/tokens' as *;
 
 .mtp-screener-page {
   display: flex;

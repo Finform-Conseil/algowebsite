@@ -1,0 +1,128 @@
+/* src/core/presentation/components/design-system/commons/NewsSection/style.module.css */
+
+/* News Container */
+.equity-article-research-news-container {
+  flex-grow: 1;
+  display: flex;
+  gap: 1.5rem;
+  min-width: 0;
+  height: 100%;
+}
+
+.equity-article-research-news-list-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-basis: 0;
+  min-height: 0;
+  position: relative;
+  max-height: 100%;
+  height: 100%;
+  border-radius: var(--bs-border-radius-sm);
+  overflow: hidden;
+}
+
+.equity-article-research-news-scroll-wrapper {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-grow: 1;
+  border-radius: var(--bs-border-radius-sm);
+}
+
+.equity-article-research-news-scroll-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.equity-article-research-news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.equity-article-research-news-item {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  will-change: transform, opacity;
+}
+
+.equity-article-research-news-item:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  transform: translateX(2px);
+  transition:
+    background-color 0.25s ease-in-out,
+    transform 0.25s ease-in-out;
+}
+
+.equity-article-research-news-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.equity-article-research-news-header {
+  display: flex !important;
+  align-items: center;
+  font-size: 0.75rem;
+  font-family: "DM Sans", sans-serif;
+}
+
+.equity-article-research-news-timestamp {
+  color: #ffffff !important;
+}
+
+.equity-article-research-news-bullet {
+  width: 0.4em;
+  height: 0.4em;
+  background-color: #ffffff;
+  border-radius: 50%;
+  margin-bottom: 0.1em;
+  vertical-align: middle;
+}
+
+.equity-article-research-news-country {
+  text-transform: uppercase;
+  font-weight: bold !important;
+  color: #ffffff !important;
+}
+
+.equity-article-research-news-country.is-gold,
+.is-gold {
+  color: #ff9f04 !important;
+}
+
+.equity-article-research-news-body-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.equity-article-research-news-body {
+  font-size: 0.55rem;
+  font-family: "DM Sans", sans-serif;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #ffffff !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: calc(1.5 * 0.55rem * 2);
+  margin-bottom: 0.2rem !important;
+}
+
+.equity-article-research-news-body strong {
+  color: #ffffff !important;
+}
+
+.equity-article-research-news-read-more {
+  font-size: 0.75rem;
+  color: #ff9f04 !important;
+  text-decoration: none;
+  font-weight: 600;
+  font-family: "Mulish", sans-serif;
+}
+
+.equity-article-research-news-read-more.text-white {
+  color: #ffffff !important;
+}

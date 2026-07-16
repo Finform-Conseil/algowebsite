@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import { GaugeChart } from 'echarts/charts';
+import { TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+import type { EChartsOption } from 'echarts';
 
 interface SentimentGaugeProps {
   buyPercent: number;
@@ -9,18 +13,44 @@ interface SentimentGaugeProps {
   sellPercent: number;
 }
 
+export interface SentimentGaugeParts {
+  buyPercent: number;
+  holdPercent: number;
+  sellPercent: number;
+}
+
+export function toSentimentGaugeParts(score: number): SentimentGaugeParts {
+  const normalizedScore = Number.isFinite(score) ? Math.min(100, Math.max(0, score)) : 50;
+  const directionalScore = Math.round(normalizedScore * 2 - 100);
+  const holdPercent = Math.max(0, Math.round(100 - Math.abs(directionalScore)));
+
+  if (directionalScore >= 0) {
+    return { buyPercent: directionalScore, holdPercent, sellPercent: 0 };
+  }
+
+  return { buyPercent: 0, holdPercent, sellPercent: Math.abs(directionalScore) };
+}
+
+let modulesRegistered = false;
+function ensureModulesRegistered() {
+  if (modulesRegistered) return;
+  modulesRegistered = true;
+  echarts.use([CanvasRenderer, GaugeChart, TooltipComponent]);
+}
+
 export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }: SentimentGaugeProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    ensureModulesRegistered();
     if (!chartRef.current) return;
 
     const chart = echarts.init(chartRef.current);
 
-    // Calculer le score global (0-100, où 100 = 100% Buy)
+    // Global score from -100 to 100, where 100 means full buy pressure.
     const score = buyPercent - sellPercent;
 
-    const option: echarts.EChartsOption = {
+    const option: EChartsOption = {
       series: [
         {
           type: 'gauge',
@@ -28,8 +58,8 @@ export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }:
           endAngle: 0,
           min: -100,
           max: 100,
-          center: ['50%', '75%'],
-          radius: '120%',
+          center: ['50%', '76%'],
+          radius: '112%',
           axisLine: {
             lineStyle: {
               width: 20,
@@ -46,7 +76,7 @@ export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }:
             width: 8,
             offsetCenter: [0, '-5%'],
             itemStyle: {
-              color: 'auto',
+              color: 'inherit',
             },
           },
           axisTick: {
@@ -56,14 +86,20 @@ export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }:
             distance: -20,
             length: 12,
             lineStyle: {
-              color: 'var(--border-color)',
+              color: '#363a45',
               width: 2,
             },
           },
           axisLabel: {
-            distance: 15,
-            color: 'var(--text-secondary)',
-            fontSize: 10,
+            distance: 6,
+            color: '#e2e8f0',
+            fontSize: 11,
+            fontWeight: 700,
+            backgroundColor: 'rgba(8, 20, 38, 0.78)',
+            borderColor: 'rgba(148, 163, 184, 0.28)',
+            borderRadius: 4,
+            borderWidth: 1,
+            padding: [2, 5],
             formatter: (value: number) => {
               if (value === -100) return 'Sell';
               if (value === 0) return 'Hold';
@@ -78,7 +114,7 @@ export default function SentimentGauge({ buyPercent, holdPercent, sellPercent }:
               if (value < -30) return 'Bearish';
               return 'Neutral';
             },
-            color: 'auto',
+            color: 'inherit',
             fontSize: 16,
             fontWeight: 700,
             offsetCenter: [0, '10%'],

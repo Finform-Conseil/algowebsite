@@ -36,3 +36,29 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# AI Agent
+
+.agent/workflow/scribe/**/__pycache__/
+.agent/workflow/scribe/**/*.pyc
+.agent/workflow/scribe/**/*.pyo
+
+
+
+# Graphify — cache local uniquement
+graphify-out/cache/
+graphify-out/.graphify_analysis.json
+graphify-out/.graphify_ast.json
+graphify-out/.graphify_detect.json
+graphify-out/.graphify_extract.json
+graphify-out/.graphify_labels.json
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_uncached.txt
+graphify-out/needs_update
+
+# SCRIBE local runtime
+scribe-out/
+
+# Local rollback snapshots
+_Rollback/

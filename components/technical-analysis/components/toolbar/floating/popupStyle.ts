@@ -1,0 +1,60 @@
+import type { CSSProperties, MouseEvent } from "react";
+
+interface FloatingPopupStyleOptions {
+  left: string;
+  width: string;
+  top?: string;
+  bottom?: string;
+  background?: string;
+  border?: string;
+  borderRadius?: string;
+  boxShadow?: string;
+  color?: string;
+  display?: CSSProperties["display"];
+  flexDirection?: CSSProperties["flexDirection"];
+  fontSize?: string;
+  gap?: string;
+  overflow?: CSSProperties["overflow"];
+  padding?: string;
+}
+
+export const stopFloatingPopupMouseDown = (event: MouseEvent<HTMLElement>) => {
+  event.stopPropagation();
+};
+
+export const buildFloatingPopupStyle = ({
+  left,
+  width,
+  top = "var(--popup-top, 36px)",
+  bottom = "var(--popup-bottom, auto)",
+  background = "#1c2030",
+  border = "1px solid rgba(255, 255, 255, 0.1)",
+  borderRadius = "6px",
+  boxShadow = "0 4px 12px rgba(0, 0, 0, 0.5)",
+  color,
+  display,
+  flexDirection,
+  fontSize,
+  gap,
+  overflow,
+  padding,
+}: FloatingPopupStyleOptions): CSSProperties => ({
+  position: "absolute",
+  top,
+  bottom,
+  left,
+  background,
+  border,
+  borderRadius,
+  zIndex: 1100,
+  width,
+  boxShadow,
+  transform: "var(--popup-transform, none)",
+  ...(color ? { color } : {}),
+  ...(display ? { display } : {}),
+  ...(flexDirection ? { flexDirection } : {}),
+  ...(fontSize ? { fontSize } : {}),
+  ...(gap ? { gap } : {}),
+  ...(overflow ? { overflow } : {}),
+  ...(padding ? { padding } : {}),
+});

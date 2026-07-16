@@ -1,3 +1,7 @@
+@use '../abstracts/tokens' as *;
+
+@use "sass:math";
+
 // ============================================
 // Bootstrap 5 Grid System (Extract)
 // ============================================
@@ -33,7 +37,7 @@
 @for $i from 1 through 12 {
   .col-#{$i} {
     flex: 0 0 auto;
-    width: percentage($i / 12);
+    width: math.percentage(math.div($i, 12));
   }
 }
 
@@ -73,7 +77,7 @@
   @for $i from 1 through 12 {
     .col-sm-#{$i} {
       flex: 0 0 auto;
-      width: percentage($i / 12);
+      width: math.percentage(math.div($i, 12));
     }
   }
 }
@@ -82,7 +86,7 @@
   @for $i from 1 through 12 {
     .col-md-#{$i} {
       flex: 0 0 auto;
-      width: percentage($i / 12);
+      width: math.percentage(math.div($i, 12));
     }
   }
 }
@@ -91,7 +95,7 @@
   @for $i from 1 through 12 {
     .col-lg-#{$i} {
       flex: 0 0 auto;
-      width: percentage($i / 12);
+      width: math.percentage(math.div($i, 12));
     }
   }
 }
@@ -100,7 +104,7 @@
   @for $i from 1 through 12 {
     .col-xl-#{$i} {
       flex: 0 0 auto;
-      width: percentage($i / 12);
+      width: math.percentage(math.div($i, 12));
     }
   }
 }

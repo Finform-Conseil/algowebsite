@@ -1,0 +1,4 @@
+export const HOLD_START_DELAY_MS = 260;
+export const HOLD_REPEAT_INTERVAL_MS = 72;
+export const TIME_AXIS_HOVER_BOTTOM_OFFSET_PX = 150;
+export const TIME_AXIS_HOVER_TOP_EXTENSION_PX = 20;

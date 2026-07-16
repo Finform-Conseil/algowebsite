@@ -1,5 +1,7 @@
 @import '../abstracts/variables';
 
+@use '../abstracts/tokens' as *;
+
 .opcvm-detail-page {
   height: $content-height; // 100vh - navbar (64px) - tickerbar (36px)
   display: flex;

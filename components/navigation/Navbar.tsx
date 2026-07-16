@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import LocaleSwitcher from './LocaleSwitcher';
 import CurrencySwitcher from './CurrencySwitcher';
@@ -30,6 +31,7 @@ import {
   CurrencyCircleDollar,
   Briefcase,
   TrendDown,
+  BookOpen,
   Presentation
 } from '@phosphor-icons/react';
 
@@ -41,15 +43,17 @@ type SubMenuItem = {
 };
 
 type NavItem = {
-  href: string;
   label: string;
   icon?: React.ReactNode;
+  href?: string;
   items?: SubMenuItem[];
 };
 
 export default function Navbar() {
   const t = useTranslations('nav');
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [activeNestedSubmenu, setActiveNestedSubmenu] = useState<string | null>(null);
@@ -225,6 +229,11 @@ export default function Navbar() {
         // { href: '/macro/macro-analysis', label: t('macro_items.macroAnalysis'), icon: <ChartBar size={16} weight="duotone" /> },
       ]
     },
+    {
+      label: 'Glossaire',
+      icon: <BookOpen size={18} weight="duotone" />,
+      href: '/glossary'
+    }
   ];
 
   return (
@@ -240,8 +249,28 @@ export default function Navbar() {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
+        <label
+          htmlFor="global-market-search"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          Search stocks, bonds, and funds
+        </label>
         <input
-          type="text"
+          id="global-market-search"
+          name="globalMarketSearch"
+          type="search"
+          aria-label="Search stocks, bonds, and funds"
+          autoComplete="off"
           placeholder={t('search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -251,6 +280,7 @@ export default function Navbar() {
           <button
             type="button"
             className="search-clear"
+            aria-label="Clear global market search"
             onClick={() => setSearchQuery('')}
           >
             ×
@@ -263,15 +293,21 @@ export default function Navbar() {
           <li 
             key={item.label}
             className="nav-item"
-            onMouseEnter={() => handleMenuEnter(item.label)}
+            onMouseEnter={() => item.items && item.items.length > 0 && handleMenuEnter(item.label)}
             onMouseLeave={handleMenuLeave}
           >
-            <Link href={item.href} className="nav-link dropdown-item">
+            {item.href ? (
+              <Link href={item.href} className={`nav-link ${isActive(item.href) ? 'active' : ''}`}>
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            ) : (
+              <button className="nav-link">
                 {item.icon}
                 <span>{item.label}</span>
                 {item.items && item.items.length > 0 && <CaretDown size={14} weight="bold" />}
-            </Link>
-
+              </button>
+            )}
             
             {item.items && item.items.length > 0 && activeMenu === item.label && (
               <div className="dropdown-menu">

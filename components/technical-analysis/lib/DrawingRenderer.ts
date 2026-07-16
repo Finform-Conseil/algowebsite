@@ -1,0 +1,573 @@
+import type { AllToolType } from "../config/drawing/drawingToolTypes";
+import type { DrawingPoint, DrawingStyle } from "../config/drawing/drawingPrimitiveTypes";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
+import type { DrawingHelpers, HitTestResult } from "../config/drawing/drawingInteractionTypes";
+import type { Alert, Order } from "../config/state/technicalAnalysisStateTypes";
+import type { ChartDataPoint } from "./Indicators/TechnicalIndicators";
+import { drawingStrategyRegistry } from "./strategies/DrawingStrategyRegistry";
+import type { EChartsType } from "echarts/core";
+import { sanitizeCanvasText } from "./utils/sanitize";
+
+// ============================================================================
+// DRAWING RENDERER CLASS (POOLED CANVAS RENDERER)
+// ============================================================================
+export class DrawingRenderer {
+  private ctx: CanvasRenderingContext2D;
+
+  // Object pooling and reusable buffers.
+  // These buffers reduce avoidable GC pressure during the drawing RAF loop.
+  private pointPool: { x: number; y: number }[] = [];
+  private pixelBuffer: { x: number; y: number }[] = [];
+  private dataBuffer: DrawingPoint[] = [];
+  private cachedHelpers: DrawingHelpers;
+
+  // Reusable constants
+  private static readonly NO_HIT: HitTestResult = { isHit: false, hitType: null };
+  private static readonly DASH_PATTERN = [10, 5];
+  private static readonly DOT_PATTERN = [2, 5];
+  private static readonly SOLID_PATTERN: number[] = [];
+
+  // Reusable preview objects to reduce avoidable GC pressure
+  private previewPixPool = { x: 0, y: 0 };
+  private virtualDataPointPool: DrawingPoint = { time: 0, value: 0 };
+
+  constructor(ctx: CanvasRenderingContext2D) {
+    this.ctx = ctx;
+
+    // Pre-allocate a reasonable pool size to avoid initial growth stutter
+    for (let i = 0; i < 200; i++) {
+      this.pointPool.push({ x: 0, y: 0 });
+    }
+
+    // Cache the helpers object and bind methods ONCE.
+    // This prevents creating 5 new closures per drawing per frame.
+    this.cachedHelpers = {
+      drawSegment: this.drawSegment.bind(this),
+      drawHandle: this.drawHandle.bind(this),
+      drawTextOnLine: this.drawTextOnLine.bind(this),
+      applyStyle: this.applyStyle.bind(this),
+      applyLineDash: this.applyLineDash.bind(this),
+      ctx: this.ctx,
+      logicalWidth: 0,
+      logicalHeight: 0,
+    };
+  }
+
+  private static isChartRenderable(chart: EChartsType | null): chart is EChartsType {
+    if (!chart) return false;
+    try {
+      if (chart.isDisposed()) return false;
+      const dom = chart.getDom();
+      return Boolean(dom?.isConnected && chart.getWidth() > 0 && chart.getHeight() > 0);
+    } catch {
+      return false;
+    }
+  }
+
+  private static safeConvertToPixel(
+    chart: EChartsType,
+    point: [string | number, number]
+  ): [number, number] | null {
+    try {
+      const pos = chart.convertToPixel({ seriesIndex: 0 }, point);
+      if (!Array.isArray(pos) || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
+        return null;
+      }
+      return [pos[0], pos[1]];
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Main render loop - clears canvas and draws all items
+   * Uses pooled helpers and reusable buffers where possible.
+   */
+  public render(
+    drawings: Drawing[],
+    currentDrawing: Drawing | null,
+    chart: EChartsType,
+    mousePos: { x: number; y: number } | null = null,
+    _activeTool: AllToolType = null,
+    selectedDrawingId: string | null = null,
+    gridRect: { x: number; y: number; width: number; height: number } | null = null,
+    chartData: ChartDataPoint[] = [],
+    alerts: Alert[] = [],
+    orders: Order[] = []
+  ) {
+    if (!DrawingRenderer.isChartRenderable(chart)) return;
+
+    const dpr = window.devicePixelRatio || 1;
+
+    // 1. Reset & Clear (Use full canvas size)
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+
+    // 2. Apply Unified Scale
+    this.ctx.scale(dpr, dpr);
+
+    // Update cached helpers context and dimensions
+    this.cachedHelpers.ctx = this.ctx;
+    this.cachedHelpers.logicalWidth = this.ctx.canvas.width / dpr;
+    this.cachedHelpers.logicalHeight = this.ctx.canvas.height / dpr;
+
+    // [GRID CLIP] Shield axes and legend
+    if (gridRect) {
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(gridRect.x, gridRect.y, gridRect.width, gridRect.height);
+      this.ctx.clip();
+    }
+
+    // 3. Render saved drawings
+    for (let i = 0; i < drawings.length; i++) {
+      const drawing = drawings[i];
+      if (drawing.hidden) continue;
+      if (!DrawingRenderer.isChartRenderable(chart)) return;
+      try {
+        this.drawItem(drawing, chart, false, null, drawing.id === selectedDrawingId, chartData);
+      } catch (err) {
+        console.error(`Drawing render error for tool ${drawing.type}:`, err);
+      }
+    }
+
+    // [ALERTS & ORDERS] Draw active alerts & active orders on grid
+    if (gridRect) {
+      this.drawAlertsAndOrders(chart, gridRect, chartData, alerts, orders);
+    }
+
+    // 4. Render current drawing in progress (preview mode)
+    if (currentDrawing) {
+      if (!DrawingRenderer.isChartRenderable(chart)) return;
+      try {
+        this.drawItem(currentDrawing, chart, true, mousePos, true, chartData);
+      } catch (err) {
+        console.error(`Drawing preview render error:`, err);
+      }
+    }
+
+    if (gridRect) {
+      this.ctx.restore();
+    }
+  }
+
+  /**
+   * Orchestrates hit-testing for a collection of drawings.
+   * Delegates to individual strategies for high-fidelity detection.
+   */
+  public hitTest(
+    mx: number,
+    my: number,
+    drawing: Drawing,
+    chart: EChartsType,
+    threshold: number = 20
+  ): HitTestResult {
+    if (drawing.hidden) {
+      return DrawingRenderer.NO_HIT;
+    }
+
+    const strategy = drawingStrategyRegistry.getStrategy(drawing.type);
+    if (!strategy) {
+      return DrawingRenderer.NO_HIT;
+    }
+
+    // Note: Pixel conversion for hitTest is handled inside the strategies
+    // to allow them to optimize their own hit-testing logic.
+    return strategy.hitTest(mx, my, drawing, chart, threshold);
+  }
+
+  /**
+   * Convert pixel coordinates to data coordinates
+   * Used only during preview (mouse move), so allocation is negligible,
+   * but optimized with Object Pooling anyway.
+   */
+  private fromPixel(
+    pos: { x: number; y: number },
+    chart: EChartsType,
+    seriesIndex: number = 0
+  ): DrawingPoint | null {
+    if (!DrawingRenderer.isChartRenderable(chart)) return null;
+    let point: unknown;
+    try {
+      point = chart.convertFromPixel({ seriesIndex }, [pos.x, pos.y]);
+    } catch {
+      return null;
+    }
+    if (Array.isArray(point) && point.length >= 2) {
+      const coordinates = point as unknown[];
+      this.virtualDataPointPool.time = coordinates[0] as string | number;
+      this.virtualDataPointPool.value = coordinates[1] as number;
+      return this.virtualDataPointPool;
+    }
+    return null;
+  }
+
+  /**
+   * Apply line dash configuration to context using static arrays.
+   */
+  private applyLineDash(lineStyle: "solid" | "dashed" | "dotted", lineWidth: number) {
+    this.ctx.lineWidth = lineWidth;
+    if (lineStyle === "dashed") this.ctx.setLineDash(DrawingRenderer.DASH_PATTERN);
+    else if (lineStyle === "dotted") this.ctx.setLineDash(DrawingRenderer.DOT_PATTERN);
+    else this.ctx.setLineDash(DrawingRenderer.SOLID_PATTERN);
+  }
+
+  /**
+   * Apply line style to context
+   */
+  private applyStyle(style: DrawingStyle, isPreview: boolean) {
+    this.ctx.strokeStyle = style.color;
+    this.applyLineDash(style.lineStyle || "solid", style.lineWidth || 2);
+    const lineOpacity = style.lineOpacity ?? 1;
+    if (isPreview) this.ctx.globalAlpha = lineOpacity * 0.7;
+    else this.ctx.globalAlpha = lineOpacity;
+  }
+
+  /**
+   * Draw a single drawing item using Object Pooling
+   */
+  private drawItem(
+    drawing: Drawing,
+    chart: EChartsType,
+    isPreview: boolean,
+    mousePos: { x: number; y: number } | null = null,
+    isSelected: boolean = false,
+    chartData: ChartDataPoint[] = []
+  ) {
+    const { points, style, type } = drawing;
+    if (points.length < 1 && !mousePos) return;
+    if (!DrawingRenderer.isChartRenderable(chart)) return;
+
+    // Reusable buffer reset
+    // Mutating length to 0 clears the array without reallocating memory.
+    this.pixelBuffer.length = 0;
+    this.dataBuffer.length = 0;
+    let validCount = 0;
+
+    // Convert points to pixels using the Object Pool
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const pos = DrawingRenderer.safeConvertToPixel(chart, [p.time, p.value]);
+      if (pos) {
+        // Retrieve or expand pool
+        let pooledPt = this.pointPool[validCount];
+        if (!pooledPt) {
+          pooledPt = { x: pos[0], y: pos[1] };
+          this.pointPool.push(pooledPt);
+        } else {
+          pooledPt.x = pos[0];
+          pooledPt.y = pos[1];
+        }
+        this.pixelBuffer.push(pooledPt);
+        this.dataBuffer.push(p);
+        validCount++;
+      }
+    }
+
+    // [VIRTUAL PREVIEW] Low-latency elastic-band preview
+    if (isPreview && mousePos) {
+      let previewPix = mousePos;
+
+      // Sector preview: keep the radius stable while rotating the pending angle.
+      if (type === 'sector' && this.pixelBuffer.length === 2) {
+        const p1 = this.pixelBuffer[0]; // Center
+        const p2 = this.pixelBuffer[1]; // Radius anchor
+        const radius = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        const angleToMouse = Math.atan2(mousePos.y - p1.y, mousePos.x - p1.x);
+        
+        this.previewPixPool.x = p1.x + radius * Math.cos(angleToMouse);
+        this.previewPixPool.y = p1.y + radius * Math.sin(angleToMouse);
+        previewPix = this.previewPixPool;
+      }
+
+      // Add preview point to buffers
+      let pooledPreview = this.pointPool[validCount];
+      if (!pooledPreview) {
+        pooledPreview = { x: previewPix.x, y: previewPix.y };
+        this.pointPool.push(pooledPreview);
+      } else {
+        pooledPreview.x = previewPix.x;
+        pooledPreview.y = previewPix.y;
+      }
+      this.pixelBuffer.push(pooledPreview);
+
+      const virtualDataPoint = this.fromPixel(previewPix, chart);
+      if (virtualDataPoint) {
+        this.dataBuffer.push(virtualDataPoint);
+      }
+    }
+
+    if (this.pixelBuffer.length === 0) return;
+
+    this.ctx.save();
+    this.applyStyle(style, isPreview);
+
+    // StrategyRegistry delegation
+    const strategy = drawingStrategyRegistry.getStrategy(type);
+    if (strategy) {
+      // Pass the shared buffers. Strategies are synchronous and will not store references.
+      strategy.render(
+        this.pixelBuffer,
+        this.dataBuffer,
+        drawing,
+        chart,
+        isSelected,
+        this.cachedHelpers,
+        chartData
+      );
+    } else {
+      // Fallback for unknown tools
+      console.warn(`[DrawingRenderer] No strategy found for tool: ${type}`);
+    }
+
+    this.ctx.restore();
+  }
+
+  // ============================================================================
+  // HELPERS (Used by strategies via cachedHelpers)
+  // ============================================================================
+
+  private drawSegment(p1: { x: number; y: number }, p2: { x: number; y: number }) {
+    this.ctx.beginPath();
+    this.ctx.moveTo(p1.x, p1.y);
+    this.ctx.lineTo(p2.x, p2.y);
+    this.ctx.stroke();
+  }
+
+  private drawHandle(
+    p: { x: number; y: number },
+    color: string = "#fff",
+    radius: number = 4,
+    shape: 'circle' | 'square' = 'circle'
+  ) {
+    this.ctx.save();
+    this.ctx.beginPath();
+    if (shape === 'square') {
+      const size = radius * 2;
+      this.ctx.rect(p.x - radius, p.y - radius, size, size);
+    } else {
+      this.ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    }
+    this.ctx.fillStyle = color;
+    this.ctx.fill();
+    this.ctx.strokeStyle = "#2962ff";
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  /**
+   * Sanitizes user text before Canvas and DOM-backed overlay rendering paths.
+   */
+  private drawTextOnLine(p1: { x: number; y: number }, p2: { x: number; y: number }, drawing: Drawing) {
+    const {
+      text,
+      textColor,
+      fontSize,
+      textBold,
+      textItalic,
+      textOrientation,
+      textAlignmentHorizontal,
+      textAlignmentVertical,
+    } = drawing;
+
+    if (!text || drawing.showText === false) return;
+
+    // Normalize user-controlled text before rendering
+    const sanitizedText = sanitizeCanvasText(text);
+
+    this.ctx.save();
+    const style = textItalic ? "italic " : "";
+    const weight = textBold ? "bold " : "";
+    const size = fontSize || 14;
+    this.ctx.font = `${style}${weight}${size}px Inter, sans-serif`;
+    
+    // [SNIPER V5.0] Fidelity Fix: Text should default to White for multi-colored tools
+    this.ctx.fillStyle = textColor || "#FFFFFF";
+    this.ctx.globalAlpha = 1;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const angle = Math.atan2(dy, dx);
+
+    let ratio = 0.5;
+    if (textAlignmentHorizontal === "left") ratio = 0.1;
+    if (textAlignmentHorizontal === "right") ratio = 0.9;
+
+    const isVertical = Math.abs(dx) < 0.1;
+    let posX = p1.x + dx * ratio;
+    let posY = p1.y + dy * ratio;
+
+    if (isVertical) {
+      let vRatio = 0.5;
+      if (textAlignmentVertical === "top") vRatio = 0.1;
+      if (textAlignmentVertical === "bottom") vRatio = 0.9;
+      posX = p1.x;
+      posY = p1.y + dy * vRatio;
+
+      this.ctx.translate(posX, posY);
+      let sideOffset = 0;
+      if (textAlignmentHorizontal === "left") {
+        this.ctx.textAlign = "right";
+        sideOffset = -10;
+      } else if (textAlignmentHorizontal === "right") {
+        this.ctx.textAlign = "left";
+        sideOffset = 10;
+      } else {
+        this.ctx.textAlign = "center";
+      }
+
+      if (textOrientation === "vertical") {
+        this.ctx.rotate(-Math.PI / 2);
+      } else if (textOrientation === "aligned") {
+        this.ctx.rotate(Math.PI / 2);
+      }
+
+      this.ctx.fillText(sanitizedText, sideOffset, 0);
+    } else {
+      this.ctx.translate(posX, posY);
+      if (textOrientation === "aligned") {
+        let finalAngle = angle;
+        if (finalAngle > Math.PI / 2 || finalAngle < -Math.PI / 2) finalAngle += Math.PI;
+        this.ctx.rotate(finalAngle);
+      } else if (textOrientation === "vertical") {
+        this.ctx.rotate(-Math.PI / 2);
+      }
+
+      this.ctx.textAlign = "center";
+      let baseline: CanvasTextBaseline = "middle";
+      let offsetY = 0;
+
+      if (textAlignmentVertical === "top") {
+        baseline = "bottom";
+        offsetY = -5;
+      } else if (textAlignmentVertical === "bottom") {
+        baseline = "top";
+        offsetY = 10;
+      } else {
+        offsetY = -size / 2 - 2;
+      }
+
+      this.ctx.textBaseline = baseline;
+      this.ctx.fillText(sanitizedText, 0, offsetY);
+    }
+    this.ctx.restore();
+  }
+
+  private drawAlertsAndOrders(
+    chart: EChartsType,
+    gridRect: { x: number; y: number; width: number; height: number },
+    chartData: ChartDataPoint[],
+    alerts: Alert[],
+    orders: Order[]
+  ) {
+    if (chartData.length === 0) return;
+    const refTime = chartData[chartData.length - 1].time;
+
+    this.ctx.save();
+
+    // --- DRAW ACTIVE ALERTS ---
+    for (let i = 0; i < alerts.length; i++) {
+      const alert = alerts[i];
+      if (!alert.active) continue;
+
+      const pos = DrawingRenderer.safeConvertToPixel(chart, [refTime, alert.value]);
+      if (!pos) continue;
+
+      const y = pos[1];
+      if (y < gridRect.y || y > gridRect.y + gridRect.height) continue;
+
+      // Draw dashed orange line
+      this.ctx.strokeStyle = "#ff9800";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([6, 4]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(gridRect.x, y);
+      this.ctx.lineTo(gridRect.x + gridRect.width, y);
+      this.ctx.stroke();
+
+      // Draw label
+      this.ctx.setLineDash([]);
+      const labelText = `🔔 ALERTE: ${alert.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      this.ctx.font = "bold 11px Inter, sans-serif";
+      const textWidth = this.ctx.measureText(labelText).width;
+
+      // Draw background pill
+      this.ctx.fillStyle = "#1e1e2d";
+      this.ctx.strokeStyle = "#ff9800";
+      this.ctx.lineWidth = 1;
+
+      const rx = gridRect.x + gridRect.width - textWidth - 20;
+      const ry = y - 10;
+      const rw = textWidth + 12;
+      const rh = 20;
+
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) this.ctx.roundRect(rx, ry, rw, rh, 4);
+      else this.ctx.rect(rx, ry, rw, rh);
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      // Draw text
+      this.ctx.fillStyle = "#ff9800";
+      this.ctx.textAlign = "left";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(labelText, rx + 6, ry + rh / 2);
+    }
+
+    // --- DRAW ACTIVE ORDERS ---
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      if (order.status !== "active") continue;
+
+      const pos = DrawingRenderer.safeConvertToPixel(chart, [refTime, order.triggerPrice]);
+      if (!pos) continue;
+
+      const y = pos[1];
+      if (y < gridRect.y || y > gridRect.y + gridRect.height) continue;
+
+      const isBuy = order.side === "buy";
+      const color = isBuy ? "#00da3c" : "#ec0000";
+
+      // Draw solid/dashed color line
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([4, 2]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(gridRect.x, y);
+      this.ctx.lineTo(gridRect.x + gridRect.width, y);
+      this.ctx.stroke();
+
+      // Draw label
+      this.ctx.setLineDash([]);
+      const labelText = `${order.side.toUpperCase()} ${order.orderType.toUpperCase()} - ${order.qty} Qty @ ${order.triggerPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      this.ctx.font = "bold 11px Inter, sans-serif";
+      const textWidth = this.ctx.measureText(labelText).width;
+
+      // Draw background pill
+      this.ctx.fillStyle = "#1e1e2d";
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 1;
+
+      const rx = gridRect.x + 10;
+      const ry = y - 10;
+      const rw = textWidth + 12;
+      const rh = 20;
+
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) this.ctx.roundRect(rx, ry, rw, rh, 4);
+      else this.ctx.rect(rx, ry, rw, rh);
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      // Draw text
+      this.ctx.fillStyle = color;
+      this.ctx.textAlign = "left";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(labelText, rx + 6, ry + rh / 2);
+    }
+
+    this.ctx.restore();
+  }
+}
+// --- EOF ---

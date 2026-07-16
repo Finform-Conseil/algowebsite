@@ -1,0 +1,2220 @@
+{
+  "communities": {
+    "0": [
+      "chartpatterns_abcdpatternrenderer_renderabcd",
+      "chartpatterns_cycliclinesrenderer_hittestcycliclines",
+      "chartpatterns_cycliclinesrenderer_rendercycliclines",
+      "chartpatterns_cypherpatternrenderer_rendercypher",
+      "chartpatterns_elliottcorrectionwaverenderer_hittestelliottcorrectionwave",
+      "chartpatterns_elliottcorrectionwaverenderer_renderelliottcorrectionwave",
+      "chartpatterns_elliottdoublecombowaverenderer_hittestelliottdoublecombowave",
+      "chartpatterns_elliottdoublecombowaverenderer_renderelliottdoublecombowave",
+      "chartpatterns_elliottimpulsewaverenderer_hittestelliottimpulsewave",
+      "chartpatterns_elliottimpulsewaverenderer_renderelliottimpulsewave",
+      "chartpatterns_elliotttrianglewaverenderer_hittestelliotttrianglewave",
+      "chartpatterns_elliotttrianglewaverenderer_renderelliotttrianglewave",
+      "chartpatterns_elliotttriplecombowaverenderer_hittestelliotttriplecombowave",
+      "chartpatterns_elliotttriplecombowaverenderer_renderelliotttriplecombowave",
+      "chartpatterns_headandshouldersrenderer_renderheadandshoulders",
+      "chartpatterns_sinelinerenderer_hittestsineline",
+      "chartpatterns_sinelinerenderer_rendersineline",
+      "chartpatterns_threedrivespatternrenderer_renderthreedrivespattern",
+      "chartpatterns_timecyclesrenderer_hittesttimecycles",
+      "chartpatterns_timecyclesrenderer_rendertimecycles",
+      "chartpatterns_trianglepatternrenderer_rendertrianglepattern",
+      "chartpatterns_xabcdpatternrenderer_renderxabcd",
+      "components_technical_analysis_lib_drawingrenderer_ts",
+      "components_technical_analysis_lib_strategies_implementations_chartpatternsstrategy_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_abcdpatternrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_cycliclinesrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_cypherpatternrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_elliottcorrectionwaverenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_elliottdoublecombowaverenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_elliottimpulsewaverenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_elliotttrianglewaverenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_elliotttriplecombowaverenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_headandshouldersrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_sinelinerenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_support_baserendererutils_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_support_elliottwaveutils_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_support_geometricpatternutils_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_threedrivespatternrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_timecyclesrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_trianglepatternrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_chartpatterns_xabcdpatternrenderer_ts",
+      "components_technical_analysis_lib_utils_sanitize_ts",
+      "implementations_chartpatternsstrategy_chartpatternsstrategy",
+      "implementations_chartpatternsstrategy_chartpatternsstrategy_hittest",
+      "implementations_chartpatternsstrategy_chartpatternsstrategy_render",
+      "lib_drawingrenderer_drawingrenderer",
+      "lib_drawingrenderer_drawingrenderer_applylinedash",
+      "lib_drawingrenderer_drawingrenderer_applystyle",
+      "lib_drawingrenderer_drawingrenderer_constructor",
+      "lib_drawingrenderer_drawingrenderer_drawhandle",
+      "lib_drawingrenderer_drawingrenderer_drawitem",
+      "lib_drawingrenderer_drawingrenderer_drawsegment",
+      "lib_drawingrenderer_drawingrenderer_drawtextonline",
+      "lib_drawingrenderer_drawingrenderer_frompixel",
+      "lib_drawingrenderer_drawingrenderer_hittest",
+      "lib_drawingrenderer_drawingrenderer_render",
+      "support_baserendererutils_drawhollowhandle",
+      "support_baserendererutils_fixedroundrect",
+      "support_baserendererutils_ispointnearlineinfinite",
+      "support_baserendererutils_ispointnearsegment",
+      "support_baserendererutils_rendercustomtext",
+      "support_elliottwaveutils_hittestelliottwavebase",
+      "support_elliottwaveutils_renderelliottwavebase",
+      "support_geometricpatternutils_drawdiagonalwithratio",
+      "support_geometricpatternutils_drawpointlabelsboxed",
+      "utils_sanitize_sanitizecanvastext"
+    ],
+    "1": [
+      "components_technical_analysis_lib_math_geometry_ts",
+      "components_technical_analysis_lib_strategies_implementations_linemeasurestrategy_ts",
+      "components_technical_analysis_lib_strategies_implementations_pitchforkstrategy_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibcirclesrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibspiralrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibwedgerenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_pitchfanrenderer_ts",
+      "fibonacci_fibcirclesrenderer_hittestfibcircles",
+      "fibonacci_fibcirclesrenderer_renderfibcircles",
+      "fibonacci_fibspiralrenderer_hittestfibspiral",
+      "fibonacci_fibspiralrenderer_renderfibspiral",
+      "fibonacci_fibwedgerenderer_hittestfibwedge",
+      "fibonacci_fibwedgerenderer_renderfibwedge",
+      "fibonacci_pitchfanrenderer_hittestpitchfan",
+      "fibonacci_pitchfanrenderer_renderpitchfan",
+      "implementations_linemeasurestrategy_linemeasurestrategy",
+      "implementations_linemeasurestrategy_linemeasurestrategy_drawarrowhead",
+      "implementations_linemeasurestrategy_linemeasurestrategy_extendlinetoedge",
+      "implementations_linemeasurestrategy_linemeasurestrategy_render",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderarrow",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderarrowmarker",
+      "implementations_linemeasurestrategy_linemeasurestrategy_rendercrosshair",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderhorizontalline",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderhorizontalray",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderline",
+      "implementations_linemeasurestrategy_linemeasurestrategy_rendermeasurebox",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderray",
+      "implementations_linemeasurestrategy_linemeasurestrategy_rendertrendangle",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderverticalline",
+      "implementations_linemeasurestrategy_linemeasurestrategy_renderxline",
+      "implementations_pitchforkstrategy_pitchforkstrategy",
+      "implementations_pitchforkstrategy_pitchforkstrategy_drawdashline",
+      "implementations_pitchforkstrategy_pitchforkstrategy_drawpoint",
+      "implementations_pitchforkstrategy_pitchforkstrategy_hittest",
+      "implementations_pitchforkstrategy_pitchforkstrategy_render",
+      "math_geometry_anglebetweenpoints",
+      "math_geometry_calculatefibspiralradius",
+      "math_geometry_calculatepitchforkorigin",
+      "math_geometry_diagonal",
+      "math_geometry_extendtoray",
+      "math_geometry_interpolatewedge",
+      "math_geometry_isleft",
+      "math_geometry_ispointinpolygon",
+      "math_geometry_ispointintriangle",
+      "math_geometry_linearvalue",
+      "math_geometry_lineintersection",
+      "math_geometry_logvalue",
+      "math_geometry_projectpoint",
+      "support_geometricpatternutils_hittestgeometric"
+    ],
+    "2": [
+      "components_technical_analysis_lib_strategies_implementations_forecastingstrategy_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_fixedrangevolumeprofilerenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastinganchoredvwaprenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastingbarpatternrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastingpositionforecastrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastingsectorrenderer_ts",
+      "forecasting_fixedrangevolumeprofilerenderer_addtocache",
+      "forecasting_fixedrangevolumeprofilerenderer_calculatevolumeprofilehdr",
+      "forecasting_fixedrangevolumeprofilerenderer_formatvolume",
+      "forecasting_fixedrangevolumeprofilerenderer_getgridrect",
+      "forecasting_fixedrangevolumeprofilerenderer_getpriceaxisinfo",
+      "forecasting_fixedrangevolumeprofilerenderer_hittestfixedrangevolumeprofile",
+      "forecasting_fixedrangevolumeprofilerenderer_renderfixedrangevolumeprofile",
+      "forecasting_fixedrangevolumeprofilerenderer_resolvebarindex",
+      "forecasting_forecastinganchoredvwaprenderer_buildanchoredvwapseries",
+      "forecasting_forecastinganchoredvwaprenderer_clamp",
+      "forecasting_forecastinganchoredvwaprenderer_distancetosegment",
+      "forecasting_forecastinganchoredvwaprenderer_getanchoredvwapsourceprice",
+      "forecasting_forecastinganchoredvwaprenderer_hittestforecastinganchoredvwap",
+      "forecasting_forecastinganchoredvwaprenderer_renderforecastinganchoredvwap",
+      "forecasting_forecastinganchoredvwaprenderer_resolveanchorindex",
+      "forecasting_forecastingbarpatternrenderer_hittestforecastingbarpattern",
+      "forecasting_forecastingbarpatternrenderer_renderforecastingbarpattern",
+      "forecasting_forecastingghostfeedrenderer_hittestforecastingghostfeed",
+      "forecasting_forecastinglongpositionrenderer_hittestforecastinglongposition",
+      "forecasting_forecastingpositionforecastrenderer_crisp",
+      "forecasting_forecastingpositionforecastrenderer_drawresultlabel",
+      "forecasting_forecastingpositionforecastrenderer_drawsourcelabel",
+      "forecasting_forecastingpositionforecastrenderer_evaluateoutcome",
+      "forecasting_forecastingpositionforecastrenderer_getcurvecontrolpoint",
+      "forecasting_forecastingpositionforecastrenderer_hittestforecastingpositionforecast",
+      "forecasting_forecastingpositionforecastrenderer_renderforecastingpositionforecast",
+      "forecasting_forecastingpositionforecastrenderer_resolvetimetoms",
+      "forecasting_forecastingsectorrenderer_hittestforecastingsector",
+      "forecasting_forecastingsectorrenderer_isangleinsector",
+      "forecasting_forecastingsectorrenderer_renderforecastingsector",
+      "forecasting_forecastingshortpositionrenderer_hittestforecastingshortposition",
+      "forecasting_forecastingutils_distancepointtosegment",
+      "implementations_forecastingstrategy_forecastingstrategy",
+      "implementations_forecastingstrategy_forecastingstrategy_hittest",
+      "implementations_forecastingstrategy_forecastingstrategy_render",
+      "implementations_gannstrategy_gannstrategy_hittest",
+      "math_geometry_distancebetweenpoints",
+      "math_geometry_ispointinrect"
+    ],
+    "3": [
+      "advancedtools_curverenderer_hittestcurve",
+      "advancedtools_curverenderer_rendercurve",
+      "advancedtools_pathrenderer_drawarrowhead",
+      "advancedtools_pathrenderer_hittestpath",
+      "advancedtools_pathrenderer_renderpath",
+      "advancedtools_polylinerenderer_hittestpolyline",
+      "advancedtools_polylinerenderer_renderpolyline",
+      "advancedtools_projectionrenderer_hittestprojection",
+      "advancedtools_projectionrenderer_renderprojection",
+      "channels_disjointchannelrenderer_hittestdisjointchannel",
+      "channels_disjointchannelrenderer_renderdisjointchannel",
+      "channels_flattopbottomrenderer_hittestflattopbottom",
+      "channels_flattopbottomrenderer_renderflattopbottom",
+      "channels_parallelchannelrenderer_hittestparallelchannel",
+      "channels_parallelchannelrenderer_renderparallelchannel",
+      "channels_regressiontrendrenderer_hittestregressiontrend",
+      "channels_regressiontrendrenderer_renderregressiontrend",
+      "components_technical_analysis_lib_strategies_implementations_advancedtoolsstrategy_ts",
+      "components_technical_analysis_lib_strategies_implementations_channelsstrategy_ts",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_curverenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_pathrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_polylinerenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_projectionrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_channels_disjointchannelrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_channels_flattopbottomrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_channels_parallelchannelrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_channels_regressiontrendrenderer_ts",
+      "implementations_advancedtoolsstrategy_advancedtoolsstrategy",
+      "implementations_advancedtoolsstrategy_advancedtoolsstrategy_hittest",
+      "implementations_advancedtoolsstrategy_advancedtoolsstrategy_render",
+      "implementations_channelsstrategy_channelsstrategy",
+      "implementations_channelsstrategy_channelsstrategy_hittest",
+      "implementations_channelsstrategy_channelsstrategy_render",
+      "implementations_linemeasurestrategy_linemeasurestrategy_hittest",
+      "math_geometry_calculatelinearregression",
+      "math_geometry_disttosegment"
+    ],
+    "4": [
+      "app_api_market_data_brvm_bonds_route_ts",
+      "app_api_market_data_brvm_fundamentals_route_ts",
+      "app_api_market_data_brvm_live_capitalisation_route_ts",
+      "app_api_market_data_brvm_live_route_ts",
+      "app_api_market_data_brvm_news_route_ts",
+      "app_api_market_data_indices_route_ts",
+      "brvm_bonds_route_get",
+      "brvm_bonds_route_parsematuritydate",
+      "brvm_bonds_route_parsepercent",
+      "brvm_fundamentals_route_cleannumber",
+      "brvm_fundamentals_route_extractfrompage",
+      "brvm_fundamentals_route_fetchdividenddetails",
+      "brvm_fundamentals_route_get",
+      "brvm_fundamentals_route_lookupticker",
+      "brvm_fundamentals_route_removeaccents",
+      "brvm_fundamentals_route_stripsuffix",
+      "brvm_live_capitalisation_route_get",
+      "brvm_live_capitalisation_route_getbrvmcaphtml",
+      "brvm_live_capitalisation_route_processrow",
+      "brvm_live_capitalisation_route_processrowdata",
+      "brvm_live_route_extractcells",
+      "brvm_live_route_extractrows",
+      "brvm_live_route_get",
+      "brvm_live_route_getbrvmlivehtml",
+      "brvm_live_route_processbrvmrow",
+      "brvm_news_route_get",
+      "indices_route_get",
+      "indices_route_getbrvmindiceshtml",
+      "shared_utils_resilient_scraper_ts",
+      "utils_resilient_scraper_checkredisstatus",
+      "utils_resilient_scraper_executefetch",
+      "utils_resilient_scraper_fetchbrvmpage",
+      "utils_resilient_scraper_fetchwithresilience",
+      "utils_resilient_scraper_getdispatcher",
+      "utils_resilient_scraper_setl1cachesafe",
+      "utils_resilient_scraper_withredistimeout"
+    ],
+    "5": [
+      "app_api_proxy_cache_ts",
+      "app_api_proxy_path_route_ts",
+      "app_api_proxy_security_ts",
+      "core_infrastructure_security_rate_redis_rate_limiter_ts",
+      "path_route_delete",
+      "path_route_get",
+      "path_route_handlerequest",
+      "path_route_head",
+      "path_route_options",
+      "path_route_patch",
+      "path_route_post",
+      "path_route_put",
+      "proxy_cache_checkredisstatus",
+      "proxy_cache_getcachedresponse",
+      "proxy_cache_markredisdown",
+      "proxy_cache_setcachedresponse",
+      "proxy_security_arepathsegmentssafe",
+      "proxy_security_createsecureheaders",
+      "proxy_security_isvalidapiidentifier",
+      "proxy_security_isvalidtargeturl",
+      "proxy_security_sanitizepath",
+      "rate_redis_rate_limiter_checkratelimit",
+      "rate_redis_rate_limiter_checkredisratelimit",
+      "shared_utils_circuit_breaker_ts",
+      "utils_circuit_breaker_circuitbreaker",
+      "utils_circuit_breaker_circuitbreaker_canattempt",
+      "utils_circuit_breaker_circuitbreaker_constructor",
+      "utils_circuit_breaker_circuitbreaker_execute",
+      "utils_circuit_breaker_circuitbreaker_getmetrics",
+      "utils_circuit_breaker_circuitbreaker_getstate",
+      "utils_circuit_breaker_circuitbreaker_onfailure",
+      "utils_circuit_breaker_circuitbreaker_onsuccess",
+      "utils_circuit_breaker_circuitbreaker_reset",
+      "utils_circuit_breaker_circuitbreaker_transitionto",
+      "utils_circuit_breaker_getcircuitbreaker"
+    ],
+    "6": [
+      "components_technical_analysis_lib_strategies_implementations_fibonaccistrategy_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibchannelrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibretracementrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibspeedresistancearcsrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibspeedresistancefanrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_fibtimezonerenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_support_fibonacciutils_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_trendbasedfibextensionrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_fibonacci_trendbasedfibtimerenderer_ts",
+      "fibonacci_fibchannelrenderer_hittestfibchannel",
+      "fibonacci_fibchannelrenderer_renderfibchannel",
+      "fibonacci_fibretracementrenderer_hittestfibretracement",
+      "fibonacci_fibretracementrenderer_renderfibretracement",
+      "fibonacci_fibspeedresistancearcsrenderer_hittestfibspeedresistancearcs",
+      "fibonacci_fibspeedresistancearcsrenderer_renderfibspeedresistancearcs",
+      "fibonacci_fibspeedresistancefanrenderer_getrenderrect",
+      "fibonacci_fibspeedresistancefanrenderer_hittestfibspeedresistancefan",
+      "fibonacci_fibspeedresistancefanrenderer_rayrectintersection",
+      "fibonacci_fibspeedresistancefanrenderer_renderfibspeedresistancefan",
+      "fibonacci_fibspeedresistancefanrenderer_resolveraysegment",
+      "fibonacci_fibtimezonerenderer_hittestfibtimezone",
+      "fibonacci_fibtimezonerenderer_renderfibtimezone",
+      "fibonacci_trendbasedfibextensionrenderer_hittesttrendbasedfibextension",
+      "fibonacci_trendbasedfibextensionrenderer_rendertrendbasedfibextension",
+      "fibonacci_trendbasedfibtimerenderer_hittesttrendbasedfibtime",
+      "fibonacci_trendbasedfibtimerenderer_rendertrendbasedfibtime",
+      "implementations_fibonaccistrategy_fibonaccistrategy",
+      "implementations_fibonaccistrategy_fibonaccistrategy_hittest",
+      "implementations_fibonaccistrategy_fibonaccistrategy_render",
+      "support_fibonacciutils_getenabledfiblevels",
+      "support_fibonacciutils_getgridrect",
+      "support_fibonacciutils_getsortedenabledlevels",
+      "support_fibonacciutils_timetox",
+      "support_fibonacciutils_ytovalue"
+    ],
+    "7": [
+      "common_toolicons_arrowicon",
+      "common_toolicons_arrowmarkericon",
+      "common_toolicons_crosshairicon",
+      "common_toolicons_curveicon",
+      "common_toolicons_datepricerangeicon",
+      "common_toolicons_daterangeicon",
+      "common_toolicons_disjointchannelicon",
+      "common_toolicons_extendedlineicon",
+      "common_toolicons_fibcategoryicon",
+      "common_toolicons_fibchannelicon",
+      "common_toolicons_fibextensionicon",
+      "common_toolicons_fibretracementicon",
+      "common_toolicons_fibtimezoneicon",
+      "common_toolicons_flattopbottomicon",
+      "common_toolicons_forecastingcategoryicon",
+      "common_toolicons_horizontallineicon",
+      "common_toolicons_horizontalrayicon",
+      "common_toolicons_lineicon",
+      "common_toolicons_longpositionicon",
+      "common_toolicons_pathicon",
+      "common_toolicons_patternscategoryicon",
+      "common_toolicons_polylineicon",
+      "common_toolicons_pricerangeicon",
+      "common_toolicons_projectionicon",
+      "common_toolicons_rayicon",
+      "common_toolicons_regressiontrendicon",
+      "common_toolicons_trendangleicon",
+      "common_toolicons_trendcategoryicon",
+      "components_technical_analysis_components_common_toolicons_tsx"
+    ],
+    "8": [
+      "advancedtools_longpositionrenderer_hittestlongposition",
+      "advancedtools_longpositionrenderer_renderlongposition",
+      "advancedtools_shortpositionrenderer_hittestshortposition",
+      "advancedtools_shortpositionrenderer_rendershortposition",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_longpositionrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_shortpositionrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_advancedtools_support_positionutils_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastinglongpositionrenderer_ts",
+      "forecasting_forecastinglongpositionrenderer_crisp",
+      "forecasting_forecastinglongpositionrenderer_drawcirclehandle",
+      "forecasting_forecastinglongpositionrenderer_drawlabelbar",
+      "forecasting_forecastinglongpositionrenderer_drawrrpill",
+      "forecasting_forecastinglongpositionrenderer_drawsqhandle",
+      "forecasting_forecastinglongpositionrenderer_getlatestclosedata",
+      "forecasting_forecastinglongpositionrenderer_getmaingridrect",
+      "forecasting_forecastinglongpositionrenderer_renderforecastinglongposition",
+      "math_geometry_calculatepositionstats",
+      "support_fibonacciutils_valuetoy",
+      "support_positionutils_renderpositionstats",
+      "support_positionutils_renderpricetag"
+    ],
+    "9": [
+      "core_domain_schemas_mini_zod_ts",
+      "schemas_mini_zod_baseschema",
+      "schemas_mini_zod_baseschema_constructor",
+      "schemas_mini_zod_baseschema_nullable",
+      "schemas_mini_zod_baseschema_optional",
+      "schemas_mini_zod_baseschema_parse",
+      "schemas_mini_zod_baseschema_safeparse",
+      "schemas_mini_zod_booleanschema",
+      "schemas_mini_zod_nativeenumschema",
+      "schemas_mini_zod_objectschema",
+      "schemas_mini_zod_objectschema_constructor",
+      "schemas_mini_zod_objectschema_pipe",
+      "schemas_mini_zod_objectschema_refine",
+      "schemas_mini_zod_stringschema",
+      "schemas_mini_zod_stringschema_datetime",
+      "schemas_mini_zod_stringschema_email",
+      "schemas_mini_zod_stringschema_min",
+      "schemas_mini_zod_stringschema_url",
+      "schemas_mini_zod_stringschema_uuid"
+    ],
+    "10": [
+      "components_design_system_layouts_headerhome_context_globalnotificationcontext_tsx",
+      "components_design_system_layouts_headerhome_lib_mock_notifications_ts",
+      "components_technical_analysis_components_modals_alertsmodal_tsx",
+      "components_technical_analysis_hooks_marketdata_usemarketdata_ts",
+      "components_technical_analysis_hooks_usemodalorchestrator_ts",
+      "components_technical_analysis_hooks_usetechnicalanalysisactions_ts",
+      "context_globalnotificationcontext_globalnotificationprovider",
+      "context_globalnotificationcontext_useglobalnotification",
+      "hooks_usemodalorchestrator_usemodalorchestrator",
+      "hooks_usetechnicalanalysisactions_usetechnicalanalysisactions",
+      "lib_mock_notifications_formatrelativetime",
+      "lib_mock_notifications_getmocknotifications",
+      "marketdata_usemarketdata_parsebrvmcsv",
+      "marketdata_usemarketdata_parsecsvline",
+      "marketdata_usemarketdata_parseindicatorcsv",
+      "marketdata_usemarketdata_usemarketdata",
+      "modals_alertsmodal_alertsmodal"
+    ],
+    "11": [
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastingghostfeedrenderer_ts",
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastingutils_ts",
+      "forecasting_forecastingghostfeedrenderer_buildpricedrivengeometry",
+      "forecasting_forecastingghostfeedrenderer_convertdatapointtopixel",
+      "forecasting_forecastingghostfeedrenderer_convertpixeltodatapoint",
+      "forecasting_forecastingghostfeedrenderer_renderforecastingghostfeed",
+      "forecasting_forecastingghostfeedrenderer_resolveanchorindex",
+      "forecasting_forecastingghostfeedrenderer_resolveanchorprice",
+      "forecasting_forecastingutils_analyzeprofile",
+      "forecasting_forecastingutils_asfinitenumber",
+      "forecasting_forecastingutils_clamp",
+      "forecasting_forecastingutils_colorwithopacity",
+      "forecasting_forecastingutils_estimateticksize",
+      "forecasting_forecastingutils_interpolateprice",
+      "forecasting_forecastingutils_pseudorandom",
+      "forecasting_forecastingutils_safepositive",
+      "forecasting_forecastingutils_snaptotick"
+    ],
+    "12": [
+      "common_charticons_conditioncrossingdownicon",
+      "common_charticons_conditioncrossingicon",
+      "common_charticons_conditioncrossingupicon",
+      "common_charticons_conditiongreatericon",
+      "common_charticons_conditionlessicon",
+      "common_charticons_fibchannelicon",
+      "common_charticons_fibextensionicon",
+      "common_charticons_fibretracementicon",
+      "common_charticons_fibtimezoneicon",
+      "common_charticons_flattopbottomicon",
+      "common_charticons_insidepitchforkicon",
+      "common_charticons_pitchforkicon",
+      "common_charticons_regressiontrendicon",
+      "common_charticons_schiffpitchforkicon",
+      "components_technical_analysis_components_common_charticons_tsx"
+    ],
+    "13": [
+      "components_opcvm_opcvmchartview_tsx",
+      "opcvm_opcvmchartview_calculatesma",
+      "opcvm_opcvmchartview_generatemocknavdata",
+      "opcvm_opcvmchartview_handleaddindicator",
+      "opcvm_opcvmchartview_handlechartclick",
+      "opcvm_opcvmchartview_handleeditindicator",
+      "opcvm_opcvmchartview_handleglobalout",
+      "opcvm_opcvmchartview_handlekeydown",
+      "opcvm_opcvmchartview_handlemousemove",
+      "opcvm_opcvmchartview_handleremovealldrawings",
+      "opcvm_opcvmchartview_handleremoveindicator",
+      "opcvm_opcvmchartview_handleresize",
+      "opcvm_opcvmchartview_handlesaveindicator"
+    ],
+    "14": [
+      "components_technical_analysis_hooks_usechartviewport_ts",
+      "components_technical_analysis_hooks_useechartsrenderer_ts",
+      "hooks_usechartviewport_clamp",
+      "hooks_usechartviewport_clampviewportwindow",
+      "hooks_usechartviewport_computedirectionalzoomviewport",
+      "hooks_usechartviewport_computehorizontalpanviewport",
+      "hooks_usechartviewport_getviewportspanbounds",
+      "hooks_usechartviewport_lerp",
+      "hooks_usechartviewport_usechartviewport",
+      "hooks_useechartsrenderer_formataxispricevalue",
+      "hooks_useechartsrenderer_usechartbadges",
+      "hooks_useechartsrenderer_usechartindicators",
+      "hooks_useechartsrenderer_useechartsrenderer"
+    ],
+    "15": [
+      "components_technical_analysis_lib_indicators_technicalindicators_ts",
+      "indicators_technicalindicators_calculateatr",
+      "indicators_technicalindicators_calculatebollinger",
+      "indicators_technicalindicators_calculatecci",
+      "indicators_technicalindicators_calculateema",
+      "indicators_technicalindicators_calculatemacd",
+      "indicators_technicalindicators_calculateobv",
+      "indicators_technicalindicators_calculateroc",
+      "indicators_technicalindicators_calculatersi",
+      "indicators_technicalindicators_calculatesma",
+      "indicators_technicalindicators_calculatestochastic",
+      "indicators_technicalindicators_calculatewilliamsr",
+      "indicators_technicalindicators_generateinitialdata"
+    ],
+    "16": [
+      "components_technical_analysis_store_technicalanalysisslice_ts",
+      "store_technicalanalysisslice_selectadvancedindicators",
+      "store_technicalanalysisslice_selectalerts",
+      "store_technicalanalysisslice_selectchartappearance",
+      "store_technicalanalysisslice_selectchartconfig",
+      "store_technicalanalysisslice_selectdatamode",
+      "store_technicalanalysisslice_selectindicatorperiods",
+      "store_technicalanalysisslice_selectmarketdata",
+      "store_technicalanalysisslice_selectmarketsnapshots",
+      "store_technicalanalysisslice_selectmodals",
+      "store_technicalanalysisslice_selectta",
+      "store_technicalanalysisslice_selectuistate"
+    ],
+    "17": [
+      "app_equity_stock_screener_v2_page_tsx",
+      "stock_screener_v2_page_handleaddfilter",
+      "stock_screener_v2_page_handleclearallfilters",
+      "stock_screener_v2_page_handlecompare",
+      "stock_screener_v2_page_handleeditfilter",
+      "stock_screener_v2_page_handleremovefilter",
+      "stock_screener_v2_page_handlesavetemplate",
+      "stock_screener_v2_page_handleselectcriterion",
+      "stock_screener_v2_page_handleselectscenario",
+      "stock_screener_v2_page_handleshare"
+    ],
+    "18": [
+      "app_equity_stock_comparison_page_tsx",
+      "stock_comparison_page_handleaddstock",
+      "stock_comparison_page_handleapplytemplate",
+      "stock_comparison_page_handleexport",
+      "stock_comparison_page_handlefilterchange",
+      "stock_comparison_page_handleremovestock",
+      "stock_comparison_page_handleshare",
+      "stock_comparison_page_handletoggleindicator",
+      "stock_comparison_page_rendertabicon"
+    ],
+    "19": [
+      "components_technical_analysis_components_modals_objecttreepanel_tsx",
+      "modals_objecttreepanel_fmtprice",
+      "modals_objecttreepanel_fmtvol",
+      "modals_objecttreepanel_getdrawinglabel",
+      "modals_objecttreepanel_globalhideall",
+      "modals_objecttreepanel_globallockall",
+      "modals_objecttreepanel_globalshowall",
+      "modals_objecttreepanel_globalunlockall",
+      "modals_objecttreepanel_togglegroupcollapse"
+    ],
+    "20": [
+      "components_technical_analysis_lib_strategies_renderers_forecasting_forecastingshortpositionrenderer_ts",
+      "forecasting_forecastingshortpositionrenderer_crisp",
+      "forecasting_forecastingshortpositionrenderer_drawcirclehandle",
+      "forecasting_forecastingshortpositionrenderer_drawlabelbar",
+      "forecasting_forecastingshortpositionrenderer_drawrrpill",
+      "forecasting_forecastingshortpositionrenderer_drawsqhandle",
+      "forecasting_forecastingshortpositionrenderer_getlatestclosedata",
+      "forecasting_forecastingshortpositionrenderer_getmaingridrect",
+      "forecasting_forecastingshortpositionrenderer_renderforecastingshortposition"
+    ],
+    "21": [
+      "core_data_marketmoversdata_ts",
+      "data_marketmoversdata_calculatemarketindicators",
+      "data_marketmoversdata_filterstocks",
+      "data_marketmoversdata_generateheatmapdata",
+      "data_marketmoversdata_generateinsights",
+      "data_marketmoversdata_generatesparkline",
+      "data_marketmoversdata_getmostactive",
+      "data_marketmoversdata_gettopgainers",
+      "data_marketmoversdata_gettoplosers"
+    ],
+    "22": [
+      "app_equity_bourses_page_tsx",
+      "bourses_page_handleanalyzeexchange",
+      "bourses_page_handleanalyzeinscreener",
+      "bourses_page_handlecompareclick",
+      "bourses_page_handleexchangetoggle",
+      "bourses_page_handleselectexchange",
+      "bourses_page_handlestockselect",
+      "bourses_page_handleviewstocks"
+    ],
+    "23": [
+      "components_technical_independentchartview_tsx",
+      "technical_independentchartview_handleaddindicator",
+      "technical_independentchartview_handlecreatealert",
+      "technical_independentchartview_handleeditindicator",
+      "technical_independentchartview_handleremoveindicator",
+      "technical_independentchartview_handleremovesymbol",
+      "technical_independentchartview_handlesaveindicator",
+      "technical_independentchartview_handleselectsymbol"
+    ],
+    "24": [
+      "components_navigation_navbar_tsx",
+      "navigation_navbar_handlemenuenter",
+      "navigation_navbar_handlemenuleave",
+      "navigation_navbar_handlenestedsubmenuenter",
+      "navigation_navbar_handlenestedsubmenuleave",
+      "navigation_navbar_handlesearch",
+      "navigation_navbar_handlesubmenuenter",
+      "navigation_navbar_handlesubmenuleave"
+    ],
+    "25": [
+      "components_corporate_events_multiselect_tsx",
+      "corporate_events_multiselect_clearall",
+      "corporate_events_multiselect_getoptionlabel",
+      "corporate_events_multiselect_getoptionvalue",
+      "corporate_events_multiselect_getselectedlabel",
+      "corporate_events_multiselect_handleclickoutside",
+      "corporate_events_multiselect_removeoption",
+      "corporate_events_multiselect_toggleoption"
+    ],
+    "26": [
+      "components_technical_analysis_technicalanalysis_tsx",
+      "technical_analysis_technicalanalysis_createuiid",
+      "technical_analysis_technicalanalysis_formatpriceaxislabel",
+      "technical_analysis_technicalanalysis_formatpriceaxistimelabel",
+      "technical_analysis_technicalanalysis_handleclickoutside",
+      "technical_analysis_technicalanalysis_handletoggleclick",
+      "technical_analysis_technicalanalysis_initialsetup",
+      "technical_analysis_technicalanalysis_updatemenuposition"
+    ],
+    "27": [
+      "components_technical_analysis_components_toolbar_verticaldrawingtoolbar_tsx",
+      "toolbar_verticaldrawingtoolbar_cloneiconwithactivestate",
+      "toolbar_verticaldrawingtoolbar_clsx",
+      "toolbar_verticaldrawingtoolbar_getactiveoptionstyle",
+      "toolbar_verticaldrawingtoolbar_handleclickoutside",
+      "toolbar_verticaldrawingtoolbar_handlevisibilitytoggle",
+      "toolbar_verticaldrawingtoolbar_rendercategorytoolicon",
+      "toolbar_verticaldrawingtoolbar_rendertrendtoolicon"
+    ],
+    "28": [
+      "common_procolorpicker_handlealphachange",
+      "common_procolorpicker_handlehexchange",
+      "common_procolorpicker_handlehuechange",
+      "common_procolorpicker_handlemove",
+      "common_procolorpicker_handlesatvalchange",
+      "common_procolorpicker_onmousedown",
+      "common_procolorpicker_switch",
+      "components_technical_analysis_components_common_procolorpicker_tsx"
+    ],
+    "29": [
+      "components_technical_analysis_components_sidebar_technicalanalysissidebar_tsx",
+      "sidebar_technicalanalysissidebar_clsx",
+      "sidebar_technicalanalysissidebar_fetchbonds",
+      "sidebar_technicalanalysissidebar_fetchfundamentals",
+      "sidebar_technicalanalysissidebar_fetchnews",
+      "sidebar_technicalanalysissidebar_formatnewsdate",
+      "sidebar_technicalanalysissidebar_formatnewstitle",
+      "sidebar_technicalanalysissidebar_getrealperf"
+    ],
+    "30": [
+      "app_api_proxy_rate_limiter_ts",
+      "proxy_rate_limiter_checkratelimit",
+      "proxy_rate_limiter_checkredisstatus",
+      "proxy_rate_limiter_inmemoryratelimiter",
+      "proxy_rate_limiter_inmemoryratelimiter_check",
+      "proxy_rate_limiter_inmemoryratelimiter_cleanup",
+      "proxy_rate_limiter_markredisdown"
+    ],
+    "31": [
+      "app_fixed_income_bond_swap_page_tsx",
+      "bond_swap_page_calculatematchscore",
+      "bond_swap_page_getcountryflag",
+      "bond_swap_page_getstatusbadge",
+      "bond_swap_page_handlereset",
+      "bond_swap_page_handlesearch",
+      "bond_swap_page_togglesection"
+    ],
+    "32": [
+      "components_market_movers_marketheatmap_tsx",
+      "market_movers_marketheatmap_formatprice",
+      "market_movers_marketheatmap_formatvolume",
+      "market_movers_marketheatmap_getcolor",
+      "market_movers_marketheatmap_getcolorintensity",
+      "market_movers_marketheatmap_getsize",
+      "market_movers_marketheatmap_rendersparkline"
+    ],
+    "33": [
+      "components_news_livenewstimeline_tsx",
+      "news_livenewstimeline_formattime",
+      "news_livenewstimeline_getcategoryinfo",
+      "news_livenewstimeline_getdefaultimage",
+      "news_livenewstimeline_getimpactcolor",
+      "news_livenewstimeline_getsentimentcolor",
+      "news_livenewstimeline_getsentimenticon"
+    ],
+    "34": [
+      "comparison_indicatorchartpopup_handleclick",
+      "comparison_indicatorchartpopup_handleclickoutside",
+      "comparison_indicatorchartpopup_handleclose",
+      "components_comparison_indicatorchartpopup_tsx",
+      "components_technical_analysis_components_modals_searchsymbolmodal_tsx",
+      "modals_searchsymbolmodal_handleesc",
+      "modals_searchsymbolmodal_handlesearchsubmit"
+    ],
+    "35": [
+      "components_technical_analysis_lib_strategies_implementations_gannstrategy_ts",
+      "implementations_gannstrategy_gannstrategy",
+      "implementations_gannstrategy_gannstrategy_render",
+      "implementations_gannstrategy_gannstrategy_rendergannbox",
+      "implementations_gannstrategy_gannstrategy_rendergannfan",
+      "implementations_gannstrategy_gannstrategy_rendergannsquare",
+      "implementations_gannstrategy_gannstrategy_rendergannsquarefixed"
+    ],
+    "36": [
+      "core_data_watchlistportfoliodata_ts",
+      "data_watchlistportfoliodata_calculateportfoliovalue",
+      "data_watchlistportfoliodata_calculatetotalgain",
+      "data_watchlistportfoliodata_formatcurrency",
+      "data_watchlistportfoliodata_formatpercent",
+      "data_watchlistportfoliodata_getalertcolor",
+      "data_watchlistportfoliodata_getalerticon"
+    ],
+    "37": [
+      "core_data_stockcomparison_ts",
+      "data_stockcomparison_getallindicators",
+      "data_stockcomparison_getindicatorbyid",
+      "data_stockcomparison_getstocksbycountry",
+      "data_stockcomparison_getstocksbymarket",
+      "data_stockcomparison_getstocksbysector",
+      "data_stockcomparison_gettemplatebyid"
+    ],
+    "38": [
+      "components_africa_formatcurrency",
+      "components_africa_formatnumber",
+      "components_africa_getcountrycolor",
+      "components_africa_handlebacktoafrica",
+      "components_africa_handleexchangeclick",
+      "components_africa_tsx"
+    ],
+    "39": [
+      "components_africa_copy_2_formatcurrency",
+      "components_africa_copy_2_formatnumber",
+      "components_africa_copy_2_getcountrycolor",
+      "components_africa_copy_2_handlebacktoafrica",
+      "components_africa_copy_2_handleexchangeclick",
+      "components_africa_copy_2_tsx"
+    ],
+    "40": [
+      "components_financial_analysis_financialratios_tsx",
+      "financial_analysis_financialratios_getratiotrend",
+      "financial_analysis_financialratios_renderefficiency",
+      "financial_analysis_financialratios_renderleverage",
+      "financial_analysis_financialratios_renderliquidity",
+      "financial_analysis_financialratios_renderprofitability"
+    ],
+    "41": [
+      "components_exchanges_performancecharts_tsx",
+      "exchanges_performancecharts_formatcurrency",
+      "exchanges_performancecharts_generatechartdata",
+      "exchanges_performancecharts_getexchangecolor",
+      "exchanges_performancecharts_renderchart",
+      "exchanges_performancecharts_rendervolumechart"
+    ],
+    "42": [
+      "components_design_system_commons_tickerselectormodal_tickerselectormodal_tsx",
+      "tickerselectormodal_tickerselectormodal_charticon",
+      "tickerselectormodal_tickerselectormodal_closeicon",
+      "tickerselectormodal_tickerselectormodal_emptyicon",
+      "tickerselectormodal_tickerselectormodal_highlightmatch",
+      "tickerselectormodal_tickerselectormodal_searchicon"
+    ],
+    "43": [
+      "components_opcvm_learn_interactivequiz_tsx",
+      "learn_interactivequiz_getscoremessage",
+      "learn_interactivequiz_handleanswerselect",
+      "learn_interactivequiz_handlenextquestion",
+      "learn_interactivequiz_handlerestartquiz",
+      "learn_interactivequiz_handlesubmitanswer"
+    ],
+    "44": [
+      "components_technical_technicalchart_tsx",
+      "technical_technicalchart_calculatesma",
+      "technical_technicalchart_getmainseries",
+      "technical_technicalchart_handlefullscreenchange",
+      "technical_technicalchart_handleresize",
+      "technical_technicalchart_togglefullscreen"
+    ],
+    "45": [
+      "components_ipo_upcomingipos_tsx",
+      "ipo_upcomingipos_formatcurrency",
+      "ipo_upcomingipos_formatdate",
+      "ipo_upcomingipos_getdaysuntilcolor",
+      "ipo_upcomingipos_getstatusbadge",
+      "ipo_upcomingipos_handleiposelect"
+    ],
+    "46": [
+      "common_alertconditionicons_conditioncrossingdownicon",
+      "common_alertconditionicons_conditioncrossingicon",
+      "common_alertconditionicons_conditioncrossingupicon",
+      "common_alertconditionicons_conditiongreatericon",
+      "common_alertconditionicons_conditionlessicon",
+      "components_technical_analysis_components_common_alertconditionicons_tsx"
+    ],
+    "47": [
+      "core_data_sectorsdata_ts",
+      "data_sectorsdata_getsectorbyid",
+      "data_sectorsdata_getsectorsbycriteria",
+      "data_sectorsdata_getsectorsbyexchange",
+      "data_sectorsdata_gettotalmarketcap",
+      "data_sectorsdata_gettotalstockcount"
+    ],
+    "48": [
+      "core_data_brvm_securities_ts",
+      "data_brvm_securities_getbrvmsecuritiesbysector",
+      "data_brvm_securities_getbrvmsecuritybyticker",
+      "data_brvm_securities_getmostvolatile",
+      "data_brvm_securities_gettopperformers",
+      "data_brvm_securities_searchbrvmsecurities"
+    ],
+    "49": [
+      "core_data_financialdata_ts",
+      "data_financialdata_calculatecagr",
+      "data_financialdata_calculategrowthrate",
+      "data_financialdata_formatcurrency",
+      "data_financialdata_formatpercentage",
+      "data_financialdata_formatratio"
+    ],
+    "50": [
+      "app_equity_news_articles_page_tsx",
+      "news_articles_page_handlearticleclick",
+      "news_articles_page_handlefilterchange",
+      "news_articles_page_handlesearch",
+      "news_articles_page_handletickerclick"
+    ],
+    "51": [
+      "app_fixed_income_financial_secondary_screener_page_tsx",
+      "financial_secondary_screener_page_getcountryflag",
+      "financial_secondary_screener_page_handleresetfilters",
+      "financial_secondary_screener_page_handletogglebondselection",
+      "financial_secondary_screener_page_toshortlabel"
+    ],
+    "52": [
+      "components_exchanges_rankingdashboard_tsx",
+      "exchanges_rankingdashboard_formatvalue",
+      "exchanges_rankingdashboard_getrankingcolor",
+      "exchanges_rankingdashboard_getvaluecolor",
+      "exchanges_rankingdashboard_handlesort"
+    ],
+    "53": [
+      "components_exchanges_exchangesheader_tsx",
+      "exchanges_exchangesheader_getaverageytdreturn",
+      "exchanges_exchangesheader_getselectedexchangesdata",
+      "exchanges_exchangesheader_gettotalmarketcap",
+      "exchanges_exchangesheader_gettotalvolume"
+    ],
+    "54": [
+      "components_market_movers_quickcomparison_tsx",
+      "market_movers_quickcomparison_formatprice",
+      "market_movers_quickcomparison_formatvolume",
+      "market_movers_quickcomparison_normalize",
+      "market_movers_quickcomparison_togglestock"
+    ],
+    "55": [
+      "components_market_movers_topmovers_tsx",
+      "market_movers_topmovers_formatprice",
+      "market_movers_topmovers_formatvolume",
+      "market_movers_topmovers_handlesort",
+      "market_movers_topmovers_rendersparkline"
+    ],
+    "56": [
+      "components_market_movers_mostactive_tsx",
+      "market_movers_mostactive_formatprice",
+      "market_movers_mostactive_formatvolume",
+      "market_movers_mostactive_getvolumepercentage",
+      "market_movers_mostactive_renderminicandlestick"
+    ],
+    "57": [
+      "components_opcvm_africaopcvmmap_tsx",
+      "opcvm_africaopcvmmap_getcolorforexchange",
+      "opcvm_africaopcvmmap_getcountrycolor",
+      "opcvm_africaopcvmmap_handlebacktoafrica",
+      "opcvm_africaopcvmmap_handleexchangeclick"
+    ],
+    "58": [
+      "components_watchlist_portfolio_alertscalendar_tsx",
+      "watchlist_portfolio_alertscalendar_gotonextmonth",
+      "watchlist_portfolio_alertscalendar_gotopreviousmonth",
+      "watchlist_portfolio_alertscalendar_gototoday",
+      "watchlist_portfolio_alertscalendar_istoday"
+    ],
+    "59": [
+      "components_technical_drawingtoolsv2_tsx",
+      "technical_drawingtoolsv2_geticonsvg",
+      "technical_drawingtoolsv2_handlegroupclick",
+      "technical_drawingtoolsv2_handlemagnettoggle",
+      "technical_drawingtoolsv2_handletoolselect"
+    ],
+    "60": [
+      "components_technical_alertsmodal_tsx",
+      "technical_alertsmodal_addcondition",
+      "technical_alertsmodal_handlesubmit",
+      "technical_alertsmodal_removecondition",
+      "technical_alertsmodal_updatecondition"
+    ],
+    "61": [
+      "components_news_analysisgrid_tsx",
+      "news_analysisgrid_formatdate",
+      "news_analysisgrid_formatreadtime",
+      "news_analysisgrid_getcategoryinfo",
+      "news_analysisgrid_togglesavearticle"
+    ],
+    "62": [
+      "comparison_comparisontable_formatvalue",
+      "comparison_comparisontable_generatesparkline",
+      "comparison_comparisontable_isbestvalue",
+      "comparison_comparisontable_isworstvalue",
+      "components_comparison_comparisontable_tsx"
+    ],
+    "63": [
+      "components_corporate_events_eventscalendar_tsx",
+      "corporate_events_eventscalendar_gotonextmonth",
+      "corporate_events_eventscalendar_gotopreviousmonth",
+      "corporate_events_eventscalendar_gototoday",
+      "corporate_events_eventscalendar_istoday"
+    ],
+    "64": [
+      "components_ipo_ipocalendar_tsx",
+      "ipo_ipocalendar_gotonextmonth",
+      "ipo_ipocalendar_gotopreviousmonth",
+      "ipo_ipocalendar_gototoday",
+      "ipo_ipocalendar_istoday"
+    ],
+    "65": [
+      "components_ipo_recentipos_tsx",
+      "ipo_recentipos_formatcurrency",
+      "ipo_recentipos_formatdate",
+      "ipo_recentipos_getreturncolor",
+      "ipo_recentipos_handlesort"
+    ],
+    "66": [
+      "api_brvm_intraday",
+      "arch_market_data",
+      "proxy_gardien_messager",
+      "service_upstash_redis",
+      "source_fredysessie_github"
+    ],
+    "67": [
+      "app_opcvm_screener_page_tsx",
+      "screener_page_handleapplypreset",
+      "screener_page_handleresetfilters",
+      "screener_page_handletogglefundselection"
+    ],
+    "68": [
+      "app_opcvm_learn_page_tsx",
+      "learn_page_calculatequizscore",
+      "learn_page_handlequizanswer",
+      "learn_page_resetquiz"
+    ],
+    "69": [
+      "app_fixed_income_financial_primary_screener_page_tsx",
+      "financial_primary_screener_page_getcountryflag",
+      "financial_primary_screener_page_handleresetfilters",
+      "financial_primary_screener_page_handletogglebondselection"
+    ],
+    "70": [
+      "app_fixed_income_mtp_screener_page_tsx",
+      "mtp_screener_page_getcountryflag",
+      "mtp_screener_page_handleresetfilters",
+      "mtp_screener_page_handletogglebondselection"
+    ],
+    "71": [
+      "app_fixed_income_mtp_secondary_screener_page_tsx",
+      "mtp_secondary_screener_page_getcountryflag",
+      "mtp_secondary_screener_page_handleresetfilters",
+      "mtp_secondary_screener_page_handletogglebondselection"
+    ],
+    "72": [
+      "components_africa_copy_formatcurrency",
+      "components_africa_copy_formatnumber",
+      "components_africa_copy_getcountrycolor",
+      "components_africa_copy_tsx"
+    ],
+    "73": [
+      "components_exchanges_stockdirectory_tsx",
+      "exchanges_stockdirectory_formatmarketcap",
+      "exchanges_stockdirectory_formatnumber",
+      "exchanges_stockdirectory_handlesort"
+    ],
+    "74": [
+      "commonnewssection_newssection_handlemouseenter",
+      "commonnewssection_newssection_handlemouseleave",
+      "commonnewssection_newssection_runloop",
+      "components_design_system_commons_commonnewssection_newssection_tsx"
+    ],
+    "75": [
+      "components_screener_filtersidepanel_tsx",
+      "screener_filtersidepanel_handleapply",
+      "screener_filtersidepanel_handleselectcriterion",
+      "screener_filtersidepanel_handletogglefamily"
+    ],
+    "76": [
+      "components_screener_savedscreenspanel_tsx",
+      "screener_savedscreenspanel_handledeletescreen",
+      "screener_savedscreenspanel_handleloadscreen",
+      "screener_savedscreenspanel_handlesavecurrentscreen"
+    ],
+    "77": [
+      "components_sectors_sectorrankings_tsx",
+      "sectors_sectorrankings_formatvalue",
+      "sectors_sectorrankings_getrankingvalue",
+      "sectors_sectorrankings_getvaluelabel"
+    ],
+    "78": [
+      "components_corporate_events_eventstimeline_tsx",
+      "corporate_events_eventstimeline_formatdate",
+      "corporate_events_eventstimeline_handleeventselect",
+      "corporate_events_eventstimeline_rendericon"
+    ],
+    "79": [
+      "components_fixed_income_africafimap_tsx",
+      "fixed_income_africafimap_getcountrycolor",
+      "fixed_income_africafimap_getcountrystyle",
+      "fixed_income_africafimap_handlepathclick"
+    ],
+    "80": [
+      "components_technical_analysis_hooks_usedrawingmanager_ts",
+      "hooks_usedrawingmanager_fastdeepclone",
+      "hooks_usedrawingmanager_getpriceseriesindex",
+      "hooks_usedrawingmanager_usedrawingmanager"
+    ],
+    "81": [
+      "components_technical_analysis_components_toolbar_charttoolbar_tsx",
+      "toolbar_charttoolbar_clsx",
+      "toolbar_charttoolbar_handleclickoutside",
+      "toolbar_charttoolbar_handletogglepseudodropdown"
+    ],
+    "82": [
+      "components_technical_analysis_components_modals_drawingsettingsmodal_tsx",
+      "components_technical_analysis_components_toolbar_toolbarbutton_tsx",
+      "modals_drawingsettingsmodal_updatedrawing",
+      "toolbar_toolbarbutton_handleclick"
+    ],
+    "83": [
+      "common_errorboundary_componentdidcatch",
+      "common_errorboundary_constructor",
+      "common_errorboundary_getderivedstatefromerror",
+      "components_technical_analysis_components_common_errorboundary_tsx"
+    ],
+    "84": [
+      "components_technical_analysis_lib_strategies_drawingstrategyregistry_ts",
+      "strategies_drawingstrategyregistry_strategyregistry",
+      "strategies_drawingstrategyregistry_strategyregistry_getstrategy",
+      "strategies_drawingstrategyregistry_strategyregistry_initialize"
+    ],
+    "85": [
+      "shared_utils_volatility_engine_ts",
+      "utils_volatility_engine_calculateannualizedvolatility",
+      "utils_volatility_engine_getvolatilityskew",
+      "utils_volatility_engine_getvolatilitytermstructure"
+    ],
+    "86": [
+      "core_data_stockscreener_ts",
+      "data_stockscreener_getratingdistribution",
+      "data_stockscreener_getscreenerstats",
+      "data_stockscreener_getsectordistribution"
+    ],
+    "87": [
+      "core_data_portfolio_ts",
+      "data_portfolio_calculateportfolioholdings",
+      "data_portfolio_getportfoliobyid",
+      "data_portfolio_gettotalportfoliovalue"
+    ],
+    "88": [
+      "core_data_ipodata_ts",
+      "data_ipodata_calculateipostatistics",
+      "data_ipodata_filteripos",
+      "data_ipodata_sortipos"
+    ],
+    "89": [
+      "core_infrastructure_store_index_ts",
+      "core_presentation_components_providers_storeprovider_tsx",
+      "providers_storeprovider_storeprovider",
+      "store_index_makestore"
+    ],
+    "90": [
+      "app_opcvm_page_tsx",
+      "opcvm_page_calculateratings",
+      "opcvm_page_formatcurrency"
+    ],
+    "91": [
+      "app_opcvm_id_page_tsx",
+      "id_page_formatcurrency",
+      "id_page_formatlargecurrency"
+    ],
+    "92": [
+      "app_opcvm_titans_page_tsx",
+      "titans_page_formatcurrency",
+      "titans_page_getclassificationtitle"
+    ],
+    "93": [
+      "app_fixed_income_bond_detail_type_isin_page_tsx",
+      "isin_page_generatetimeseriesdata",
+      "isin_page_getcountryflag"
+    ],
+    "94": [
+      "app_fixed_income_simulator_page_tsx",
+      "simulator_page_handlecalculate",
+      "simulator_page_handlereset"
+    ],
+    "95": [
+      "components_exchanges_insightspanel_tsx",
+      "exchanges_insightspanel_getinsighticon",
+      "exchanges_insightspanel_gettrendicon"
+    ],
+    "96": [
+      "components_market_movers_marketheader_tsx",
+      "market_movers_marketheader_getsentimentcolor",
+      "market_movers_marketheader_getsentimenticon"
+    ],
+    "97": [
+      "components_market_movers_marketinsights_tsx",
+      "market_movers_marketinsights_getseveritycolor",
+      "market_movers_marketinsights_rendericon"
+    ],
+    "98": [
+      "components_design_system_commons_tickerselectormodal_tickerbreadcrumbtrigger_tsx",
+      "tickerselectormodal_tickerbreadcrumbtrigger_chevrondownicon",
+      "tickerselectormodal_tickerbreadcrumbtrigger_searchicon"
+    ],
+    "99": [
+      "components_design_system_commons_tickerselectormodal_context_tickerselectorcontext_tsx",
+      "context_tickerselectorcontext_tickerselectorprovider",
+      "context_tickerselectorcontext_usetickerselector"
+    ],
+    "100": [
+      "components_watchlist_portfolio_alertsmanager_tsx",
+      "watchlist_portfolio_alertsmanager_getalerttypelabel",
+      "watchlist_portfolio_alertsmanager_handlealertselect"
+    ],
+    "101": [
+      "components_technical_activeindicatorslist_tsx",
+      "technical_activeindicatorslist_formatparametervalue",
+      "technical_activeindicatorslist_getmainparameters"
+    ],
+    "102": [
+      "components_technical_symbolsearchmodal_tsx",
+      "technical_symbolsearchmodal_handleapplyexpression",
+      "technical_symbolsearchmodal_handleselectsymbol"
+    ],
+    "103": [
+      "components_news_watchlistintelligence_tsx",
+      "news_watchlistintelligence_formateventdate",
+      "news_watchlistintelligence_getimpactcolor"
+    ],
+    "104": [
+      "components_screener_stockhovercard_tsx",
+      "screener_stockhovercard_handlemouseenter",
+      "screener_stockhovercard_handlemouseleave"
+    ],
+    "105": [
+      "comparison_comparisonchartstab_formatvalue",
+      "comparison_comparisonchartstab_handleresize",
+      "components_comparison_comparisonchartstab_tsx"
+    ],
+    "106": [
+      "comparison_comparisonstockhovercard_handlemouseenter",
+      "comparison_comparisonstockhovercard_handlemouseleave",
+      "components_comparison_comparisonstockhovercard_tsx"
+    ],
+    "107": [
+      "components_home_homepage_tsx",
+      "home_homepage_handleanalyzeexchange",
+      "home_homepage_handlesectorselect"
+    ],
+    "108": [
+      "components_corporate_events_eventstable_tsx",
+      "corporate_events_eventstable_formatdate",
+      "corporate_events_eventstable_handlesort"
+    ],
+    "109": [
+      "components_ipo_iposcreener_tsx",
+      "ipo_iposcreener_clearfilters",
+      "ipo_iposcreener_handlefilterchange"
+    ],
+    "110": [
+      "common_financialtooltip_handlemouseenter",
+      "common_financialtooltip_handlemouseleave",
+      "components_common_financialtooltip_tsx"
+    ],
+    "111": [
+      "components_technical_analysis_hooks_usefloatingtoolbar_ts",
+      "hooks_usefloatingtoolbar_createtoolbarnotification",
+      "hooks_usefloatingtoolbar_usefloatingtoolbar"
+    ],
+    "112": [
+      "components_technical_analysis_hooks_useobjecttreepanel_ts",
+      "hooks_useobjecttreepanel_formatdatawindowdate",
+      "hooks_useobjecttreepanel_useobjecttreepanel"
+    ],
+    "113": [
+      "components_technical_analysis_hooks_marketdata_useintradaydata_ts",
+      "marketdata_useintradaydata_ismarketopen",
+      "marketdata_useintradaydata_useintradaydata"
+    ],
+    "114": [
+      "components_technical_analysis_components_modals_indicatorsmodal_tsx",
+      "modals_indicatorsmodal_handletoggleadvanced",
+      "modals_indicatorsmodal_handletogglema"
+    ],
+    "115": [
+      "components_technical_analysis_components_modals_datepickermodal_tsx",
+      "modals_datepickermodal_getdaysinmonth",
+      "modals_datepickermodal_handleapply"
+    ],
+    "116": [
+      "components_technical_analysis_lib_workers_createindicatorsworker_ts",
+      "workers_createindicatorsworker_createindicatorsworker",
+      "workers_createindicatorsworker_getbloburl"
+    ],
+    "117": [
+      "core_data_corporateeventsdata_ts",
+      "data_corporateeventsdata_calculateeventstats",
+      "data_corporateeventsdata_filterevents"
+    ],
+    "118": [
+      "core_data_asset_ts",
+      "data_asset_getassetbyid",
+      "data_asset_getassetsbytype"
+    ],
+    "119": [
+      "core_data_opcvmhomedata_ts",
+      "data_opcvmhomedata_calculateopcvmexchangedata",
+      "data_opcvmhomedata_gettopopcvmfunds"
+    ],
+    "120": [
+      "lib_leaflet",
+      "page_opcvm_detail",
+      "page_opcvm_learn"
+    ],
+    "121": [
+      "app_home_page_newhomepage",
+      "app_home_page_tsx"
+    ],
+    "122": [
+      "app_page_dashboard",
+      "app_page_tsx"
+    ],
+    "123": [
+      "app_layout_rootlayout",
+      "app_layout_tsx"
+    ],
+    "124": [
+      "app_api_market_data_brvm_intraday_route_ts",
+      "brvm_intraday_route_get"
+    ],
+    "125": [
+      "app_equity_layout_tsx",
+      "equity_layout_equitylayout"
+    ],
+    "126": [
+      "app_equity_watchlist_portfolio_page_tsx",
+      "watchlist_portfolio_page_watchlistportfoliopage"
+    ],
+    "127": [
+      "app_equity_sectors_page_tsx",
+      "sectors_page_handleexchangetoggle"
+    ],
+    "128": [
+      "app_equity_corporate_events_page_tsx",
+      "corporate_events_page_rendericon"
+    ],
+    "129": [
+      "app_equity_technical_analysis_page_tsx",
+      "technical_analysis_page_technicalanalysisroute"
+    ],
+    "130": [
+      "app_opcvm_layout_tsx",
+      "opcvm_layout_ucitslayout"
+    ],
+    "131": [
+      "app_opcvm_comparison_report_page_tsx",
+      "comparison_report_page_generatehistoricaldata"
+    ],
+    "132": [
+      "app_opcvm_simulator_page_tsx",
+      "simulator_page_formatcurrency"
+    ],
+    "133": [
+      "app_macro_page_tsx",
+      "macro_page_macrohomepage"
+    ],
+    "134": [
+      "app_macro_layout_tsx",
+      "macro_layout_macrolayout"
+    ],
+    "135": [
+      "app_fixed_income_page_tsx",
+      "fixed_income_page_fixedincomepage"
+    ],
+    "136": [
+      "app_fixed_income_layout_tsx",
+      "fixed_income_layout_fixedincomelayout"
+    ],
+    "137": [
+      "components_newscard_newscard",
+      "components_newscard_tsx"
+    ],
+    "138": [
+      "components_performancetable_performancetable",
+      "components_performancetable_tsx"
+    ],
+    "139": [
+      "components_themeswitcher_toggletheme",
+      "components_themeswitcher_tsx"
+    ],
+    "140": [
+      "components_financial_analysis_financialstatements_tsx",
+      "financial_analysis_financialstatements_formatvalue"
+    ],
+    "141": [
+      "components_financial_analysis_companyoverview_tsx",
+      "financial_analysis_companyoverview_formatmarketcap"
+    ],
+    "142": [
+      "components_exchanges_exchangecard_tsx",
+      "exchanges_exchangecard_exchangecard"
+    ],
+    "143": [
+      "commonpageheader_commonpageheader_clsx",
+      "components_design_system_commons_commonpageheader_commonpageheader_tsx"
+    ],
+    "144": [
+      "components_opcvm_multilinechart_tsx",
+      "opcvm_multilinechart_multilinechart"
+    ],
+    "145": [
+      "components_opcvm_learn_learnheader_tsx",
+      "learn_learnheader_learnheader"
+    ],
+    "146": [
+      "components_opcvm_learn_fiasection_tsx",
+      "learn_fiasection_fiasection"
+    ],
+    "147": [
+      "components_watchlist_portfolio_watchlistview_tsx",
+      "watchlist_portfolio_watchlistview_handlesort"
+    ],
+    "148": [
+      "components_technical_sentimentgauge_tsx",
+      "technical_sentimentgauge_sentimentgauge"
+    ],
+    "149": [
+      "components_technical_drawingtools_tsx",
+      "technical_drawingtools_drawingtools"
+    ],
+    "150": [
+      "components_technical_stockheader_tsx",
+      "technical_stockheader_stockheader"
+    ],
+    "151": [
+      "components_technical_chartpanel_tsx",
+      "technical_chartpanel_chartpanel"
+    ],
+    "152": [
+      "components_technical_indicatorconfigmodal_tsx",
+      "technical_indicatorconfigmodal_indicatorconfigmodal"
+    ],
+    "153": [
+      "components_news_newsheader_tsx",
+      "news_newsheader_newsheader"
+    ],
+    "154": [
+      "components_screener_filterchip_tsx",
+      "screener_filterchip_filterchip"
+    ],
+    "155": [
+      "components_screener_screenerheader_tsx",
+      "screener_screenerheader_formatmarketcap"
+    ],
+    "156": [
+      "components_screener_autoinsights_tsx",
+      "screener_autoinsights_autoinsights"
+    ],
+    "157": [
+      "components_screener_scenariobuttons_tsx",
+      "screener_scenariobuttons_scenariobuttons"
+    ],
+    "158": [
+      "components_screener_filtersummary_tsx",
+      "screener_filtersummary_filtersummary"
+    ],
+    "159": [
+      "components_sectors_sectorsheader_tsx",
+      "sectors_sectorsheader_formatmarketcap"
+    ],
+    "160": [
+      "components_sectors_sectorperformance_tsx",
+      "sectors_sectorperformance_getperformancebyperiod"
+    ],
+    "161": [
+      "components_sectors_sectoricon_tsx",
+      "sectors_sectoricon_geticon"
+    ],
+    "162": [
+      "charts_gaugechart_gaugechart",
+      "components_charts_gaugechart_tsx"
+    ],
+    "163": [
+      "charts_scatterchart_scatterchart",
+      "components_charts_scatterchart_tsx"
+    ],
+    "164": [
+      "charts_linechart_linechart",
+      "components_charts_linechart_tsx"
+    ],
+    "165": [
+      "charts_piechart_piechart",
+      "components_charts_piechart_tsx"
+    ],
+    "166": [
+      "charts_barchart_barchart",
+      "components_charts_barchart_tsx"
+    ],
+    "167": [
+      "charts_heatmapchart_heatmapchart",
+      "components_charts_heatmapchart_tsx"
+    ],
+    "168": [
+      "charts_radarchart_radarchart",
+      "components_charts_radarchart_tsx"
+    ],
+    "169": [
+      "comparison_comparisonhistogramstab_handleresize",
+      "components_comparison_comparisonhistogramstab_tsx"
+    ],
+    "170": [
+      "comparison_stockselector_handleselectstock",
+      "components_comparison_stockselector_tsx"
+    ],
+    "171": [
+      "comparison_priceevolutionchart_priceevolutionchart",
+      "components_comparison_priceevolutionchart_tsx"
+    ],
+    "172": [
+      "comparison_insightspanel_insightspanel",
+      "components_comparison_insightspanel_tsx"
+    ],
+    "173": [
+      "comparison_indicatorsidebar_togglecategory",
+      "components_comparison_indicatorsidebar_tsx"
+    ],
+    "174": [
+      "components_map_brvmregion_tsx",
+      "map_brvmregion_brvmregion"
+    ],
+    "175": [
+      "components_map_nseregion_tsx",
+      "map_nseregion_nseregion"
+    ],
+    "176": [
+      "components_map_cseregion_tsx",
+      "map_cseregion_cseregion"
+    ],
+    "177": [
+      "components_map_ngxregion_tsx",
+      "map_ngxregion_ngxregion"
+    ],
+    "178": [
+      "components_map_jseregion_tsx",
+      "map_jseregion_jseregion"
+    ],
+    "179": [
+      "components_map_gseregion_tsx",
+      "map_gseregion_gseregion"
+    ],
+    "180": [
+      "components_corporate_events_eventsalerts_tsx",
+      "corporate_events_eventsalerts_eventsalerts"
+    ],
+    "181": [
+      "components_ipo_ipostatistics_tsx",
+      "ipo_ipostatistics_ipostatistics"
+    ],
+    "182": [
+      "components_ipo_ipoheader_tsx",
+      "ipo_ipoheader_ipoheader"
+    ],
+    "183": [
+      "components_technical_analysis_hooks_useoverlayrenderer_ts",
+      "hooks_useoverlayrenderer_useoverlayrenderer"
+    ],
+    "184": [
+      "components_technical_analysis_hooks_usecursorrenderer_ts",
+      "hooks_usecursorrenderer_usecursorrenderer"
+    ],
+    "185": [
+      "components_technical_analysis_hooks_usefloatingmenu_ts",
+      "hooks_usefloatingmenu_usefloatingmenu"
+    ],
+    "186": [
+      "components_technical_analysis_hooks_usetoolbarhandlers_ts",
+      "hooks_usetoolbarhandlers_usetoolbarhandlers"
+    ],
+    "187": [
+      "components_technical_analysis_hooks_usealertmonitor_ts",
+      "hooks_usealertmonitor_usealertmonitor"
+    ],
+    "188": [
+      "components_technical_analysis_hooks_marketdata_usecurrencyconverter_ts",
+      "marketdata_usecurrencyconverter_usecurrencyconverter"
+    ],
+    "189": [
+      "components_technical_analysis_components_header_chartheader_tsx",
+      "header_chartheader_chartheader"
+    ],
+    "190": [
+      "components_technical_analysis_components_toolbar_timeaxiscontrols_timeaxiscontrols_tsx",
+      "timeaxiscontrols_timeaxiscontrols_timeaxiscontrols"
+    ],
+    "191": [
+      "components_technical_analysis_components_overlays_priceaxisoverlay_tsx",
+      "overlays_priceaxisoverlay_getactionlabel"
+    ],
+    "192": [
+      "components_technical_analysis_components_modals_alertdetailsmodal_tsx",
+      "modals_alertdetailsmodal_alertdetailsmodal"
+    ],
+    "193": [
+      "components_technical_analysis_components_modals_brokermodal_tsx",
+      "modals_brokermodal_resetmodal"
+    ],
+    "194": [
+      "components_technical_analysis_components_modals_moreoptionsmodal_tsx",
+      "modals_moreoptionsmodal_moreoptionsmodal"
+    ],
+    "195": [
+      "components_technical_analysis_components_modals_globalsettingsmodal_tsx",
+      "modals_globalsettingsmodal_handleconfirm"
+    ],
+    "196": [
+      "common_floatingmenu_floatingmenu",
+      "components_technical_analysis_components_common_floatingmenu_tsx"
+    ],
+    "197": [
+      "components_technical_analysis_lib_workers_indicators_worker_ts",
+      "workers_indicators_worker_tofloatarray"
+    ],
+    "198": [
+      "shared_utils_fetchwithretry_ts",
+      "utils_fetchwithretry_fetchwithretry"
+    ],
+    "199": [
+      "core_infrastructure_security_rate_in_memory_rate_limiter_ts",
+      "rate_in_memory_rate_limiter_checkinmemoryratelimit"
+    ],
+    "200": [
+      "core_data_technicalanalysis_ts",
+      "data_technicalanalysis_generatecandledata"
+    ],
+    "201": [
+      "core_data_portfoliotransaction_ts",
+      "data_portfoliotransaction_gettransactionsbyids"
+    ],
+    "202": [
+      "core_presentation_components_providers_sessionprovider_wrapper_tsx",
+      "providers_sessionprovider_wrapper_sessionproviderwrapper"
+    ],
+    "203": [
+      "core_presentation_components_providers_appprovider_wrapper_tsx",
+      "providers_appprovider_wrapper_appproviders"
+    ],
+    "204": [
+      "middleware_gardien",
+      "route_messager"
+    ],
+    "205": [
+      "mod_technical_analysis",
+      "worker_indicators"
+    ],
+    "206": [
+      "app_api_proxy_config_ts"
+    ],
+    "207": [
+      "app_equity_page_old_tsx"
+    ],
+    "208": [
+      "app_equity_page_tsx"
+    ],
+    "209": [
+      "app_equity_page_new_tsx"
+    ],
+    "210": [
+      "app_equity_financial_analysis_page_tsx"
+    ],
+    "211": [
+      "app_equity_market_movers_page_tsx"
+    ],
+    "212": [
+      "app_equity_id_page_tsx"
+    ],
+    "213": [
+      "app_equity_ipo_page_tsx"
+    ],
+    "214": [
+      "app_equity_technical_analysis_old_page_tsx"
+    ],
+    "215": [
+      "components_statcard_tsx"
+    ],
+    "216": [
+      "components_financial_analysis_companyprofile_tsx"
+    ],
+    "217": [
+      "components_exchanges_structureanalysis_tsx"
+    ],
+    "218": [
+      "components_exchanges_exchangesfloatinginsights_tsx"
+    ],
+    "219": [
+      "components_design_system_commons_commontickerpanel_commontickerpanel_tsx"
+    ],
+    "220": [
+      "components_design_system_commons_tickerselectormodal_index_tsx"
+    ],
+    "221": [
+      "components_design_system_commons_commonpageheader_index_ts"
+    ],
+    "222": [
+      "components_opcvm_learn_opcsection_tsx"
+    ],
+    "223": [
+      "components_opcvm_learn_keytakeaways_tsx"
+    ],
+    "224": [
+      "components_opcvm_learn_opcvmsection_tsx"
+    ],
+    "225": [
+      "components_opcvm_learn_introductionsection_tsx"
+    ],
+    "226": [
+      "components_watchlist_portfolio_portfoliocharts_tsx"
+    ],
+    "227": [
+      "components_watchlist_portfolio_portfolioview_tsx"
+    ],
+    "228": [
+      "components_technical_indicatorsmodal_tsx"
+    ],
+    "229": [
+      "components_technical_compactheader_tsx"
+    ],
+    "230": [
+      "components_technical_replaymodal_tsx"
+    ],
+    "231": [
+      "components_navigation_tickerbar_tsx"
+    ],
+    "232": [
+      "components_screener_advancedtable_tsx"
+    ],
+    "233": [
+      "components_screener_comparisonpanel_tsx"
+    ],
+    "234": [
+      "components_screener_splitview_tsx"
+    ],
+    "235": [
+      "components_screener_filterbar_tsx"
+    ],
+    "236": [
+      "components_screener_floatinginsights_tsx"
+    ],
+    "237": [
+      "components_sectors_sectordistribution_tsx"
+    ],
+    "238": [
+      "components_comparison_comparisoncharts_tsx"
+    ],
+    "239": [
+      "components_comparison_indicatorselector_tsx"
+    ],
+    "240": [
+      "components_comparison_quickfilters_tsx"
+    ],
+    "241": [
+      "components_comparison_exportmenu_tsx"
+    ],
+    "242": [
+      "components_comparison_comparisonfloatinginsights_tsx"
+    ],
+    "243": [
+      "components_map_baseafricamap_tsx"
+    ],
+    "244": [
+      "components_corporate_events_eventsmap_tsx"
+    ],
+    "245": [
+      "components_corporate_events_eventsimpact_tsx"
+    ],
+    "246": [
+      "components_corporate_events_eventsstats_tsx"
+    ],
+    "247": [
+      "components_corporate_events_eventsheader_tsx"
+    ],
+    "248": [
+      "components_technical_analysis_components_footer_technicalanalysisfooter_tsx"
+    ],
+    "249": [
+      "components_technical_analysis_components_toolbar_quickoptionspopup_tsx"
+    ],
+    "250": [
+      "components_technical_analysis_components_modals_modalorchestrator_tsx"
+    ],
+    "251": [
+      "components_technical_analysis_components_modals_publishoptionsmodal_tsx"
+    ],
+    "252": [
+      "components_technical_analysis_components_modals_indicatortemplatesmodal_tsx"
+    ],
+    "253": [
+      "components_technical_analysis_components_modals_loadanalysismodal_tsx"
+    ],
+    "254": [
+      "components_technical_analysis_components_modals_replaymodal_tsx"
+    ],
+    "255": [
+      "components_technical_analysis_components_common_modaltabs_tsx"
+    ],
+    "256": [
+      "components_technical_analysis_components_common_basemodal_tsx"
+    ],
+    "257": [
+      "components_technical_analysis_components_common_currencyselector_tsx"
+    ],
+    "258": [
+      "components_technical_analysis_components_common_settingsfield_tsx"
+    ],
+    "259": [
+      "components_technical_analysis_components_common_securitybadge_tsx"
+    ],
+    "260": [
+      "components_technical_analysis_components_common_toolportal_tsx"
+    ],
+    "261": [
+      "components_technical_analysis_components_sidebar_dividendhistorymodal_tsx"
+    ],
+    "262": [
+      "components_technical_analysis_config_drawingtoolsconfig_tsx"
+    ],
+    "263": [
+      "components_technical_analysis_config_technicalanalysisconstants_ts"
+    ],
+    "264": [
+      "components_technical_analysis_config_technicalanalysistypes_ts"
+    ],
+    "265": [
+      "components_technical_analysis_lib_strategies_interfaces_idrawingstrategy_ts"
+    ],
+    "266": [
+      "components_technical_analysis_lib_types_echarts_d_ts"
+    ],
+    "267": [
+      "shared_utils_brvm_mapping_ts"
+    ],
+    "268": [
+      "core_domain_enums_user_enum_ts"
+    ],
+    "269": [
+      "core_domain_schemas_user_schema_ts"
+    ],
+    "270": [
+      "core_infrastructure_store_config_ts"
+    ],
+    "271": [
+      "core_infrastructure_store_api_rtkapi_query_baseapi_ts"
+    ],
+    "272": [
+      "core_infrastructure_store_api_rtkapi_query_basequery_ts"
+    ],
+    "273": [
+      "core_data_stockscreenerv2_ts"
+    ],
+    "274": [
+      "core_data_newsdata_ts"
+    ],
+    "275": [
+      "core_data_exchangeshomedata_ts"
+    ],
+    "276": [
+      "core_data_homepagedata_ts"
+    ],
+    "277": [
+      "core_data_news_ts"
+    ],
+    "278": [
+      "core_data_exchangesdata_ts"
+    ],
+    "279": [
+      "next_config_js"
+    ],
+    "280": [
+      "next_env_d_ts"
+    ],
+    "281": [
+      "comp_tickerbar"
+    ]
+  },
+  "cohesion": {
+    "0": 0.05,
+    "1": 0.07,
+    "2": 0.09,
+    "3": 0.08,
+    "4": 0.09,
+    "5": 0.09,
+    "6": 0.1,
+    "7": 0.07,
+    "8": 0.17,
+    "9": 0.12,
+    "10": 0.13,
+    "11": 0.26,
+    "12": 0.13,
+    "13": 0.15,
+    "14": 0.24,
+    "15": 0.17,
+    "16": 0.17,
+    "17": 0.2,
+    "18": 0.22,
+    "19": 0.22,
+    "20": 0.53,
+    "21": 0.28,
+    "22": 0.25,
+    "23": 0.25,
+    "24": 0.25,
+    "25": 0.32,
+    "26": 0.25,
+    "27": 0.32,
+    "28": 0.29,
+    "29": 0.25,
+    "30": 0.48,
+    "31": 0.29,
+    "32": 0.29,
+    "33": 0.29,
+    "34": 0.33,
+    "35": 0.48,
+    "36": 0.33,
+    "37": 0.33,
+    "38": 0.33,
+    "39": 0.33,
+    "40": 0.4,
+    "41": 0.4,
+    "42": 0.33,
+    "43": 0.33,
+    "44": 0.33,
+    "45": 0.33,
+    "46": 0.33,
+    "47": 0.33,
+    "48": 0.33,
+    "49": 0.33,
+    "50": 0.4,
+    "51": 0.4,
+    "52": 0.4,
+    "53": 0.7,
+    "54": 0.4,
+    "55": 0.4,
+    "56": 0.4,
+    "57": 0.5,
+    "58": 0.4,
+    "59": 0.4,
+    "60": 0.4,
+    "61": 0.4,
+    "62": 0.4,
+    "63": 0.4,
+    "64": 0.4,
+    "65": 0.4,
+    "66": 0.4,
+    "67": 0.5,
+    "68": 0.5,
+    "69": 0.5,
+    "70": 0.5,
+    "71": 0.5,
+    "72": 0.5,
+    "73": 0.5,
+    "74": 0.5,
+    "75": 0.5,
+    "76": 0.5,
+    "77": 0.5,
+    "78": 0.5,
+    "79": 0.5,
+    "80": 0.5,
+    "81": 0.5,
+    "82": 0.5,
+    "83": 0.5,
+    "84": 0.67,
+    "85": 0.5,
+    "86": 0.5,
+    "87": 0.5,
+    "88": 0.5,
+    "89": 0.5,
+    "90": 0.67,
+    "91": 1.0,
+    "92": 0.67,
+    "93": 0.67,
+    "94": 0.67,
+    "95": 0.67,
+    "96": 0.67,
+    "97": 0.67,
+    "98": 0.67,
+    "99": 0.67,
+    "100": 0.67,
+    "101": 0.67,
+    "102": 0.67,
+    "103": 0.67,
+    "104": 0.67,
+    "105": 0.67,
+    "106": 0.67,
+    "107": 0.67,
+    "108": 0.67,
+    "109": 0.67,
+    "110": 0.67,
+    "111": 0.67,
+    "112": 0.67,
+    "113": 0.67,
+    "114": 0.67,
+    "115": 0.67,
+    "116": 1.0,
+    "117": 0.67,
+    "118": 0.67,
+    "119": 0.67,
+    "120": 0.67,
+    "121": 1.0,
+    "122": 1.0,
+    "123": 1.0,
+    "124": 1.0,
+    "125": 1.0,
+    "126": 1.0,
+    "127": 1.0,
+    "128": 1.0,
+    "129": 1.0,
+    "130": 1.0,
+    "131": 1.0,
+    "132": 1.0,
+    "133": 1.0,
+    "134": 1.0,
+    "135": 1.0,
+    "136": 1.0,
+    "137": 1.0,
+    "138": 1.0,
+    "139": 1.0,
+    "140": 1.0,
+    "141": 1.0,
+    "142": 1.0,
+    "143": 1.0,
+    "144": 1.0,
+    "145": 1.0,
+    "146": 1.0,
+    "147": 1.0,
+    "148": 1.0,
+    "149": 1.0,
+    "150": 1.0,
+    "151": 1.0,
+    "152": 1.0,
+    "153": 1.0,
+    "154": 1.0,
+    "155": 1.0,
+    "156": 1.0,
+    "157": 1.0,
+    "158": 1.0,
+    "159": 1.0,
+    "160": 1.0,
+    "161": 1.0,
+    "162": 1.0,
+    "163": 1.0,
+    "164": 1.0,
+    "165": 1.0,
+    "166": 1.0,
+    "167": 1.0,
+    "168": 1.0,
+    "169": 1.0,
+    "170": 1.0,
+    "171": 1.0,
+    "172": 1.0,
+    "173": 1.0,
+    "174": 1.0,
+    "175": 1.0,
+    "176": 1.0,
+    "177": 1.0,
+    "178": 1.0,
+    "179": 1.0,
+    "180": 1.0,
+    "181": 1.0,
+    "182": 1.0,
+    "183": 1.0,
+    "184": 1.0,
+    "185": 1.0,
+    "186": 1.0,
+    "187": 1.0,
+    "188": 1.0,
+    "189": 1.0,
+    "190": 1.0,
+    "191": 1.0,
+    "192": 1.0,
+    "193": 1.0,
+    "194": 1.0,
+    "195": 1.0,
+    "196": 1.0,
+    "197": 1.0,
+    "198": 1.0,
+    "199": 1.0,
+    "200": 1.0,
+    "201": 1.0,
+    "202": 1.0,
+    "203": 1.0,
+    "204": 1.0,
+    "205": 1.0,
+    "206": 1.0,
+    "207": 1.0,
+    "208": 1.0,
+    "209": 1.0,
+    "210": 1.0,
+    "211": 1.0,
+    "212": 1.0,
+    "213": 1.0,
+    "214": 1.0,
+    "215": 1.0,
+    "216": 1.0,
+    "217": 1.0,
+    "218": 1.0,
+    "219": 1.0,
+    "220": 1.0,
+    "221": 1.0,
+    "222": 1.0,
+    "223": 1.0,
+    "224": 1.0,
+    "225": 1.0,
+    "226": 1.0,
+    "227": 1.0,
+    "228": 1.0,
+    "229": 1.0,
+    "230": 1.0,
+    "231": 1.0,
+    "232": 1.0,
+    "233": 1.0,
+    "234": 1.0,
+    "235": 1.0,
+    "236": 1.0,
+    "237": 1.0,
+    "238": 1.0,
+    "239": 1.0,
+    "240": 1.0,
+    "241": 1.0,
+    "242": 1.0,
+    "243": 1.0,
+    "244": 1.0,
+    "245": 1.0,
+    "246": 1.0,
+    "247": 1.0,
+    "248": 1.0,
+    "249": 1.0,
+    "250": 1.0,
+    "251": 1.0,
+    "252": 1.0,
+    "253": 1.0,
+    "254": 1.0,
+    "255": 1.0,
+    "256": 1.0,
+    "257": 1.0,
+    "258": 1.0,
+    "259": 1.0,
+    "260": 1.0,
+    "261": 1.0,
+    "262": 1.0,
+    "263": 1.0,
+    "264": 1.0,
+    "265": 1.0,
+    "266": 1.0,
+    "267": 1.0,
+    "268": 1.0,
+    "269": 1.0,
+    "270": 1.0,
+    "271": 1.0,
+    "272": 1.0,
+    "273": 1.0,
+    "274": 1.0,
+    "275": 1.0,
+    "276": 1.0,
+    "277": 1.0,
+    "278": 1.0,
+    "279": 1.0,
+    "280": 1.0,
+    "281": 1.0
+  },
+  "gods": [
+    {
+      "id": "math_geometry_distancebetweenpoints",
+      "label": "distanceBetweenPoints()",
+      "degree": 17
+    },
+    {
+      "id": "path_route_handlerequest",
+      "label": "handleRequest()",
+      "degree": 16
+    },
+    {
+      "id": "implementations_linemeasurestrategy_linemeasurestrategy",
+      "label": "LineMeasureStrategy",
+      "degree": 16
+    },
+    {
+      "id": "math_geometry_disttosegment",
+      "label": "distToSegment()",
+      "degree": 16
+    },
+    {
+      "id": "forecasting_forecastingghostfeedrenderer_renderforecastingghostfeed",
+      "label": "renderForecastingGhostFeed()",
+      "degree": 14
+    },
+    {
+      "id": "math_geometry_diagonal",
+      "label": "diagonal()",
+      "degree": 12
+    },
+    {
+      "id": "lib_drawingrenderer_drawingrenderer",
+      "label": "DrawingRenderer",
+      "degree": 11
+    },
+    {
+      "id": "forecasting_forecastinglongpositionrenderer_renderforecastinglongposition",
+      "label": "renderForecastingLongPosition()",
+      "degree": 11
+    },
+    {
+      "id": "forecasting_forecastingshortpositionrenderer_renderforecastingshortposition",
+      "label": "renderForecastingShortPosition()",
+      "degree": 11
+    },
+    {
+      "id": "utils_resilient_scraper_fetchwithresilience",
+      "label": "fetchWithResilience()",
+      "degree": 11
+    }
+  ],
+  "surprises": [
+    {
+      "source": "GET()",
+      "target": "fetchWithResilience()",
+      "source_files": [
+        "app/api/market-data/brvm-bonds/route.ts",
+        "shared/utils/resilient-scraper.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `GET()` unexpectedly reaches hub `fetchWithResilience()`"
+    },
+    {
+      "source": "GET()",
+      "target": "fetchWithResilience()",
+      "source_files": [
+        "app/api/market-data/brvm-news/route.ts",
+        "shared/utils/resilient-scraper.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `GET()` unexpectedly reaches hub `fetchWithResilience()`"
+    },
+    {
+      "source": "handleRequest()",
+      "target": "getCircuitBreaker()",
+      "source_files": [
+        "app/api/proxy/[...path]/route.ts",
+        "shared/utils/circuit-breaker.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `getCircuitBreaker()` unexpectedly reaches hub `handleRequest()`"
+    },
+    {
+      "source": "getBrvmCapHTML()",
+      "target": "fetchWithResilience()",
+      "source_files": [
+        "app/api/market-data/brvm-live-capitalisation/route.ts",
+        "shared/utils/resilient-scraper.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "getBrvmIndicesHTML()",
+      "target": "fetchWithResilience()",
+      "source_files": [
+        "app/api/market-data/indices/route.ts",
+        "shared/utils/resilient-scraper.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `distanceBetweenPoints()` connect `Community 2` to `Community 8`, `Community 1`, `Community 3`, `Community 6`?",
+      "why": "High betweenness centrality (0.012) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `distToSegment()` connect `Community 3` to `Community 1`, `Community 2`, `Community 6`?",
+      "why": "High betweenness centrality (0.008) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `hitTestGeometric()` connect `Community 1` to `Community 0`?",
+      "why": "High betweenness centrality (0.007) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 16 inferred relationships involving `distanceBetweenPoints()` (e.g. with `.hitTest()` and `.hitTest()`) actually correct?",
+      "why": "`distanceBetweenPoints()` has 16 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 9 inferred relationships involving `handleRequest()` (e.g. with `getCachedResponse()` and `sanitizePath()`) actually correct?",
+      "why": "`handleRequest()` has 9 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 15 inferred relationships involving `distToSegment()` (e.g. with `.hitTest()` and `.hitTest()`) actually correct?",
+      "why": "`distToSegment()` has 15 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 8 inferred relationships involving `renderForecastingGhostFeed()` (e.g. with `.render()` and `asFiniteNumber()`) actually correct?",
+      "why": "`renderForecastingGhostFeed()` has 8 INFERRED edges - model-reasoned connections that need verification."
+    }
+  ]
+}

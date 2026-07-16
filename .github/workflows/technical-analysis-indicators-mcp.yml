@@ -1,0 +1,86 @@
+name: Technical Analysis Indicators MCP Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "components/technical-analysis/**"
+      - "scripts/smoke-technical-analysis-indicators-mcp.cjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/technical-analysis-indicators-mcp.yml"
+
+jobs:
+  indicators-mcp-smoke:
+    name: Chrome DevTools MCP browser smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CDP_URL: "http://127.0.0.1:9222"
+      TA_SMOKE_URL: "http://127.0.0.1:3000/equity/technical-analysis"
+      TA_SMOKE_SCREENSHOT: "/tmp/ta-indicators-mcp-smoke.png"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chrome DevTools MCP
+        run: npm install -g chrome-devtools-mcp@0.20.3
+
+      - name: Start Chrome CDP
+        run: |
+          google-chrome \
+            --headless=new \
+            --remote-debugging-port=9222 \
+            --user-data-dir=/tmp/chrome-devtools-mcp-ci \
+            --no-first-run \
+            --no-default-browser-check \
+            --no-sandbox \
+            --disable-gpu \
+            about:blank > /tmp/chrome-devtools-mcp-ci.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -sf "$CDP_URL/json/version" > /tmp/chrome-devtools-version.json; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/chrome-devtools-mcp-ci.log
+          exit 1
+
+      - name: Start Next.js dev server
+        run: |
+          npm run dev > /tmp/technical-analysis-next-dev.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -sfI "$TA_SMOKE_URL" > /tmp/technical-analysis-route.head; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/technical-analysis-next-dev.log
+          exit 1
+
+      - name: Run indicator MCP smoke
+        run: npm run test:technical-analysis-browser:mcp
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: technical-analysis-indicators-mcp-smoke
+          path: |
+            /tmp/ta-indicators-mcp-smoke.png
+            /tmp/chrome-devtools-mcp-ci.log
+            /tmp/chrome-devtools-version.json
+            /tmp/technical-analysis-next-dev.log
+            /tmp/technical-analysis-route.head
+          if-no-files-found: ignore

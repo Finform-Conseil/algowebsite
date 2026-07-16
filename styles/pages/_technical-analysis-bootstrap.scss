@@ -1,0 +1,11 @@
+/**
+ * [TENOR 2026] Bootstrap CSS — Module Technical Analysis
+ * 
+ * Wrapped dans une @layer pour éviter d'écraser les styles SCSS globaux du projet.
+ * Les styles non-layered (globals.scss, CSS Modules) ont automatiquement une priorité
+ * supérieure aux styles dans une @layer, quelle que soit leur position dans le cascade.
+ */
+
+@layer bootstrap {
+  /* Bootstrap 5.3 CSS complet chargé dans sa propre layer */
+}

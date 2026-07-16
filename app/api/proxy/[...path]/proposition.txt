@@ -1,0 +1,48 @@
+
+---
+### **Manifeste Architectural du Proxy "Gardien-Messager" (Version Canonique v15.0.0 - HDR Standard)**
+---
+
+#### **1. Philosophie Fondamentale : Le "Relais Aveugle" et la Confiance Zéro**
+
+Le principe immuable de cette architecture est que le client (l'application React) est et doit rester **"aveugle"** aux secrets d'authentification. Les `accessToken` et `refreshToken` n'existent **jamais** en mémoire JavaScript côté client. Toute la logique de sécurité est confinée sur le serveur (BFF Pattern).
+
+Cette approche neutralise le vol de session par attaques XSS. L'architecture repose sur une chaîne de confiance stricte :
+*   **Le `src/proxy.ts` est le Gardien Unique.** Il a remplacé le middleware Next.js standard pour offrir une détection de bots et une gestion offline-first améliorée.
+*   **Le `proxy/route.ts` est le Messager de Confiance.** Il se concentre sur le relais performant des flux de données.
+
+---
+
+#### **2. Anatomie d'une Requête : Le Flux de Contrôle v5.0**
+
+Chaque requête vers l'API traverse un flux optimisé en 5 étapes.
+
+**Étape 1 : Interception par le Gardien Unique (`src/proxy.ts`)**
+*   **Bot Detection** : Analyse du User-Agent pour bloquer scrapers et scanners malveillants.
+*   **Validation de Session** : Appelle `getToken()`. Lit le cookie `HttpOnly`, le déchiffre, et permet le rafraîchissement silencieux.
+*   **Verdict** : Si invalide/expiré, bloque et redirige. Sinon, autorise le passage vers le proxy.
+
+**Étape 2 : Réception par le Messager (`proxy/route.ts`)**
+*   Le proxy reçoit la requête avec la garantie absolue que la session est valide.
+*   Il récupère l'`accessToken` de manière ultra-rapide sans re-déclencher de validation redondante.
+
+**Étape 3 : Transmission Sécurisée**
+*   Construction de la requête fetch vers l'API Django.
+*   **Nettoyage** : Suppression des headers `cookie` et `host`.
+*   **Injection** : Ajout du Bearer Token et du `X-Request-ID` pour le traçage SRE.
+
+**Étape 4 : Streaming de Bout en Bout**
+*   La réponse est **streamée** directement vers le navigateur. TTFB minimal et consommation mémoire proche de zéro.
+
+**Étape 5 : Mise en Cache Stratégique (Redis / In-Memory)**
+*   Pour les `GET`, application de TTLs spécifiques (ex: 30s pour le temps réel, 1h pour les infos stables). Le cache sur disque est proscrit pour garantir la compatibilité Edge.
+
+---
+
+#### **3. Piliers Architecturaux (Synthèse HDR 2026)**
+
+*   **Performance** : Validation unique, streaming natif, et réutilisation des sockets (Keep-Alive).
+*   **Sécurité** : Relais aveugle, protection Anti-Bot intégrée, et isolation des secrets.
+*   **Robustesse** : Architecture `stateless` prête pour le scale horizontal et protection contre la "Token Refresh Stampede".
+
+Ce manifeste v15.0.0 fait autorité sur l'architecture sécurisée du tunnel de données Algoway.
