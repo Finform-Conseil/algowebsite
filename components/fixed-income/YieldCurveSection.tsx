@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import YieldRatesTable from './YieldRatesTable';
 import YieldCurveDisplay from './YieldCurveDisplay';
+import { PaginatedResponse } from '@/core/domain/types/pagination.type';
+import { RateEntity } from '@/core/domain/entities/rate.entity';
 
 interface YieldDataPoint {
   maturity: number;
@@ -21,67 +23,125 @@ interface YieldCurveSnapshot {
   curves: CountryYieldCurve[];
 }
 
-interface YieldCurveSectionProps {
-  selectedCountries: string[];
+interface MaturityField {
+  years: number;
+  field: keyof RateEntity;
 }
 
-export default function YieldCurveSection({ selectedCountries }: YieldCurveSectionProps) {
+const MATURITY_FIELDS: MaturityField[] = [
+  { years: 0.25, field: 'three_months' },
+  { years: 0.5, field: 'six_months' },
+  { years: 1, field: 'one_year' },
+  { years: 2, field: 'two_years' },
+  { years: 3, field: 'three_years' },
+  { years: 5, field: 'five_years' },
+  { years: 7, field: 'seven_years' },
+  { years: 10, field: 'ten_years' },
+  { years: 15, field: 'fifteen_years' },
+  { years: 20, field: 'twenty_years' },
+];
+
+const COUNTRY_META: Record<string, { name: string; code: string; color: string }> = {
+  BJ: { name: 'Benin', code: 'BJ', color: '#4A90E2' },
+  SN: { name: 'Senegal', code: 'SN', color: '#7EC8FF' },
+  CI: { name: 'Côte d\'Ivoire', code: 'CI', color: '#F59E0B' },
+  TG: { name: 'Togo', code: 'TG', color: '#10B981' },
+  GH: { name: 'Ghana', code: 'GH', color: '#EC4899' },
+  ML: { name: 'Mali', code: 'ML', color: '#F97316' },
+  BF: { name: 'Burkina Faso', code: 'BF', color: '#06B6D4' },
+  NE: { name: 'Niger', code: 'NE', color: '#8B5CF6' },
+  NG: { name: 'Nigeria', code: 'NG', color: '#D946EF' },
+  CM: { name: 'Cameroon', code: 'CM', color: '#14B8A6' },
+  GA: { name: 'Gabon', code: 'GA', color: '#6366F1' },
+};
+
+const SYMBOL_TO_CODE: Record<string, string> = {
+  BJ: 'BJ',
+  SN: 'SN',
+  CI: 'CI',
+  TG: 'TG',
+  GH: 'GH',
+  ML: 'ML',
+  BF: 'BF',
+  NJ: 'NE',
+  NE: 'NE',
+  NG: 'NG',
+  CM: 'CM',
+  GA: 'GA',
+};
+
+const parseRateValue = (value: number | string | null | undefined): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const str = typeof value === 'string' ? value : String(value);
+  const parsed = parseFloat(str);
+  if (Number.isNaN(parsed)) return null;
+  return parsed * 100;
+};
+
+interface YieldCurveSectionProps {
+  selectedCountries: string[];
+  ratesData?: PaginatedResponse<RateEntity>;
+  isLoading?: boolean;
+}
+
+export default function YieldCurveSection({ selectedCountries, ratesData, isLoading }: YieldCurveSectionProps) {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
   const [isHistorical, setIsHistorical] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const allCountries = useMemo(() => [
-    { country: 'Benin', countryCode: 'BJ', color: '#4A90E2' },
-    { country: 'Senegal', countryCode: 'SN', color: '#7EC8FF' },
-    { country: 'Côte d\'Ivoire', countryCode: 'CI', color: '#F59E0B' },
-    { country: 'Togo', countryCode: 'TG', color: '#10B981' },
-    { country: 'Nigeria', countryCode: 'NG', color: '#8B5CF6' },
-    { country: 'Ghana', countryCode: 'GH', color: '#EC4899' },
-  ], []);
-
-  const maturities = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20];
-
-  // Generate historical data
   const historicalData: YieldCurveSnapshot[] = useMemo(() => {
-    const dates: string[] = [];
-    const startDate = new Date('2022-01-01');
-    const endDate = new Date('2024-12-01');
-    
-    for (let d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
-      dates.push(d.toISOString().split('T')[0]);
-    }
+    const rates = ratesData?.data || [];
+    if (rates.length === 0) return [];
 
-    return dates.map((date, dateIndex) => {
-      const curves = allCountries.map((country, countryIndex) => {
-        const baseRate = 5 + countryIndex * 1.5;
-        const timeVariation = Math.sin((dateIndex / dates.length) * Math.PI * 2) * 2;
-        const countryVariation = Math.cos((countryIndex / allCountries.length) * Math.PI * 2) * 1.5;
-        
-        const data = maturities.map((maturity) => {
-          const termPremium = Math.log(1 + maturity) * 2;
-          const randomNoise = (Math.sin(maturity * dateIndex * countryIndex) * 0.5);
-          const yield_ = baseRate + termPremium + timeVariation + countryVariation + randomNoise;
-          
+    const byDate = new Map<string, RateEntity[]>();
+    rates.forEach((rate) => {
+      const date = rate.timestamp ? rate.timestamp.split('T')[0] : 'unknown';
+      if (!byDate.has(date)) byDate.set(date, []);
+      byDate.get(date)!.push(rate);
+    });
+
+    const sortedDates = Array.from(byDate.keys()).sort();
+
+    return sortedDates.map((date) => {
+      const dateRates = byDate.get(date) || [];
+      const curves: CountryYieldCurve[] = [];
+
+      dateRates.forEach((rate) => {
+        const symbol = rate.country?.symbol;
+        if (!symbol) return;
+        const code = SYMBOL_TO_CODE[symbol];
+        if (!code) return;
+        const meta = COUNTRY_META[code];
+        if (!meta) return;
+
+        const data = MATURITY_FIELDS.map(({ years, field }) => {
+          const value = (rate as any)[field];
+          const yieldValue = parseRateValue(value);
           return {
-            maturity,
-            yield: Math.max(0.5, parseFloat(yield_.toFixed(2)))
+            maturity: years,
+            yield: yieldValue ?? 0,
           };
         });
 
-        return {
-          country: country.country,
-          countryCode: country.countryCode,
-          color: country.color,
-          data
-        };
+        curves.push({
+          country: meta.name,
+          countryCode: meta.code,
+          color: meta.color,
+          data,
+        });
       });
 
       return { date, curves };
-    });
-  }, [allCountries]);
+    }).filter((snapshot) => snapshot.curves.length > 0);
+  }, [ratesData]);
 
-  // Animation loop
+  useEffect(() => {
+    if (historicalData.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [historicalData.length]);
+
   useEffect(() => {
     if (!isPlaying || !isHistorical) return;
 
@@ -99,9 +159,16 @@ export default function YieldCurveSection({ selectedCountries }: YieldCurveSecti
     return () => clearInterval(interval);
   }, [isPlaying, isHistorical, historicalData.length]);
 
-  const displayIndex = isHistorical ? currentIndex : historicalData.length - 1;
-  const currentSnapshot = historicalData[displayIndex];
+  const displayIndex = isHistorical ? currentIndex : Math.max(0, historicalData.length - 1);
+  const currentSnapshot = historicalData[displayIndex] || { date: new Date().toISOString().split('T')[0], curves: [] };
   const previousSnapshot = displayIndex > 0 ? historicalData[displayIndex - 1] : undefined;
+
+  const hasData = historicalData.length > 0;
+
+  useEffect(()=>{
+    console.log("Historical Data Received", historicalData)
+    console.log("Selected Countries", selectedCountries)
+  }, [selectedCountries, historicalData])
 
   return (
     <div className="yield-curve-section">
@@ -151,6 +218,7 @@ export default function YieldCurveSection({ selectedCountries }: YieldCurveSecti
             }
           }}
           className={`historical-btn ${isHistorical ? 'active' : ''}`}
+          disabled={!hasData}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"/>
@@ -162,7 +230,15 @@ export default function YieldCurveSection({ selectedCountries }: YieldCurveSecti
 
       {/* Content Area */}
       <div className="yield-content-area">
-        {viewMode === 'table' ? (
+        {isLoading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+            Loading yield curves...
+          </div>
+        ) : !hasData ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+            No yield curve data available for the selected period.
+          </div>
+        ) : viewMode === 'table' ? (
           <YieldRatesTable
             selectedCountries={selectedCountries}
             currentDate={currentSnapshot.date}
@@ -179,7 +255,7 @@ export default function YieldCurveSection({ selectedCountries }: YieldCurveSecti
       </div>
 
       {/* Historical Timeline Controls */}
-      {isHistorical && (
+      {isHistorical && hasData && (
         <div className="historical-controls">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
@@ -201,7 +277,7 @@ export default function YieldCurveSection({ selectedCountries }: YieldCurveSecti
             type="range"
             min="0"
             max={historicalData.length - 1}
-            value={currentIndex}
+            value={displayIndex}
             onChange={(e) => setCurrentIndex(parseInt(e.target.value))}
             className="timeline-slider"
           />

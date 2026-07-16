@@ -7,6 +7,7 @@
     "funds": "Fonds",
     "macro": "Macro",
     "equity_items": {
+      "overview": "Présentation",
       "stockScreener": "Screener d'Actions",
       "stockComparison": "Comparaison d'Actions",
       "africanExchanges": "Bourses Africaines",
@@ -30,6 +31,7 @@
       "watchlistPortfolio": "Watchlist & Portefeuille"
     },
     "fixedIncome_items": {
+      "overview": "Présentation",
       "screener": "Screener Obligations",
       "publicSecurities": "Marché des Titres Publics",
       "primaryScreener": "Screener Primaire",
@@ -43,6 +45,7 @@
       "debtSecurities": "Titres de Créance"
     },
     "funds_items": {
+      "overview": "Présentation",
       "screener": "Screener de Fonds",
       "comparison": "Comparaison de Fonds",
       "titans": "Titans de la Gestion d'Actifs",
@@ -51,6 +54,7 @@
       "learn": "Apprendre les Fonds"
     },
     "macro_items": {
+      "overview": "Présentation",
       "keyIndicators": "Indicateurs Clés",
       "currencies": "Devises & Banques Centrales",
       "publicFinances": "Finances Publiques",

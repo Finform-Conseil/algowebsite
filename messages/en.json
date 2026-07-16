@@ -7,6 +7,7 @@
     "funds": "Funds",
     "macro": "Macro",
     "equity_items": {
+      "overview": "Overview",
       "stockScreener": "Stock Screener",
       "stockComparison": "Stock Comparison",
       "africanExchanges": "African Exchanges",
@@ -30,6 +31,7 @@
       "watchlistPortfolio": "Watchlist & Portfolio"
     },
     "fixedIncome_items": {
+      "overview": "Overview",
       "screener": "Fixed Income Screener",
       "publicSecurities": "Public Securities Market",
       "primaryScreener": "Primary Screener",
@@ -43,6 +45,7 @@
       "debtSecurities": "Debt securities"
     },
     "funds_items": {
+      "overview": "Overview",
       "screener": "Funds Screener",
       "comparison": "Funds Comparison",
       "titans": "Titans Asset Management",
@@ -51,6 +54,7 @@
       "learn": "Learn Funds"
     },
     "macro_items": {
+      "overview": "Overview",
       "keyIndicators": "Key Indicators",
       "currencies": "Currencies & Central Banks",
       "publicFinances": "Public Finances",

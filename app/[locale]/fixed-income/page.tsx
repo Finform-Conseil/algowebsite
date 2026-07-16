@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import YieldCurveSection from '@/components/fixed-income/YieldCurveSection';
+import { useRateRepository } from '@/core/infra/repositories/rate.repository.impl';
 
 type NewsCategory = 'news' | 'circulars' | 'press-releases' | 'consultations';
 type ViewMode = 'cards' | 'list';
@@ -39,12 +40,26 @@ interface BondNews {
 
 export default function FixedIncomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
-  const [selectedCountries, setSelectedCountries] = useState<string[]>(['BJ', 'SN', 'CI']);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['BJ', 'SN', 'CI', 'GH']);
   const [filters, setFilters] = useState({
-    startDate: '',
+    startDate: '2026-01-01',
     endDate: '',
     category: '' as NewsCategory | '',
   });
+
+  const {
+    getAllRates,
+    allRatesData: ratesData,
+    isLoadingAllRates,
+  } = useRateRepository();
+
+  useEffect(() => {
+    getAllRates({
+      page: -1,
+      start_date: filters.startDate ? new Date(filters.startDate).toISOString() : new Date('2026-01-01').toISOString(),
+      end_date: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
+    });
+  }, [getAllRates, filters.startDate, filters.endDate]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -201,7 +216,7 @@ export default function FixedIncomePage() {
       title: 'BCEAO Announces New Monetary Policy Framework',
       category: 'news',
       country: 'BRVM',
-      date: '2024-12-28',
+      date: '2026-02-28',
       excerpt: 'The Central Bank of West African States introduces new guidelines for bond market operations...',
       featured: true,
     },
@@ -210,7 +225,7 @@ export default function FixedIncomePage() {
       title: 'Senegal Successfully Raises $1.5B in Eurobond',
       category: 'news',
       country: 'Senegal',
-      date: '2024-12-27',
+      date: '2026-02-27',
       excerpt: 'Strong investor demand drives successful sovereign bond issuance with favorable terms...',
       featured: true,
     },
@@ -219,7 +234,7 @@ export default function FixedIncomePage() {
       title: 'New Circular on Bond Settlement Procedures',
       category: 'circulars',
       country: 'BRVM',
-      date: '2024-12-26',
+      date: '2026-02-26',
       excerpt: 'Updated settlement and clearing procedures for regional bond market participants...',
       featured: false,
     },
@@ -228,7 +243,7 @@ export default function FixedIncomePage() {
       title: 'Côte d\'Ivoire Credit Rating Upgraded',
       category: 'press-releases',
       country: 'Cote d\'Ivoire',
-      date: '2024-12-25',
+      date: '2026-02-25',
       excerpt: 'International rating agency upgrades sovereign credit rating citing strong economic fundamentals...',
       featured: true,
     },
@@ -237,7 +252,7 @@ export default function FixedIncomePage() {
       title: 'Public Consultation: Green Bond Framework',
       category: 'consultations',
       country: 'BRVM',
-      date: '2024-12-24',
+      date: '2026-02-24',
       excerpt: 'Regional authorities seek stakeholder input on proposed green bond issuance framework...',
       featured: false,
     },
@@ -246,7 +261,7 @@ export default function FixedIncomePage() {
       title: 'Benin Treasury Announces Q1 2025 Auction Calendar',
       category: 'press-releases',
       country: 'Benin',
-      date: '2024-12-23',
+      date: '2026-02-23',
       excerpt: 'Ministry of Finance releases schedule for upcoming treasury bond auctions...',
       featured: false,
     },
@@ -504,7 +519,7 @@ export default function FixedIncomePage() {
         {/* Left Column: 65% - Yield Curve & Tools */}
         <div className="left-column">
           {/* Yield Curve Section */}
-          <YieldCurveSection selectedCountries={selectedCountries} />
+          <YieldCurveSection selectedCountries={selectedCountries} ratesData={ratesData} isLoading={isLoadingAllRates} />
 
           {/* Fixed Income Tools Grid */}
           <div className="fi-tools-section">
