@@ -7,6 +7,8 @@ import Navbar from '@/components/navigation/Navbar';
 import SessionProviderWrapper from '@/core/infra/auth/sessionProvider';
 import StoreProvider from '@/core/infra/store/StoreProvider';
 import CurrencyInitializer from '@/components/currency/CurrencyInitializer';
+import { GlobalNotificationProvider } from '@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext';
+import { TickerSelectorProvider } from '@/components/design-system/commons/TickerSelectorModal';
 
 export const metadata: Metadata = {
   title: 'AfriMarket - African Financial Intelligence Platform',
@@ -38,11 +40,15 @@ export default async function LocaleLayout({
       <body>
         <StoreProvider>
           <SessionProviderWrapper>
+            <TickerSelectorProvider>
+            <GlobalNotificationProvider>
             <NextIntlClientProvider messages={messages}>
               <CurrencyInitializer />
               <Navbar />
               {children}
             </NextIntlClientProvider>
+            </GlobalNotificationProvider>
+            </TickerSelectorProvider>
           </SessionProviderWrapper>
         </StoreProvider>
       </body>
