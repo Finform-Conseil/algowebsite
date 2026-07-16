@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import TreemapChart, { TreemapNode } from '@/components/charts/TreemapChart';
+import ForceBubbleChart from '@/components/charts/ForceBubbleChart';
 import { useBourseRepository } from '@/core/infra/repositories/bourse.repository.impl';
 import { useQueryParams } from '@/core/presenter/hooks/useQueryParams';
 import { BourseQueryParams } from '@/core/domain/types/bourse.type';
@@ -190,87 +190,6 @@ export default function EquityHomePage() {
     setCountdown(15);
   };
 
-  // Market cap data grouped by exchange
-  const marketCapData: TreemapNode[] = [
-    {
-      name: 'BRVM',
-      value: [125000000000, 0, 4.2],
-      children: [
-        { name: 'Sonatel', value: [18500000000, 0, 5.8] },
-        { name: 'Ecobank CI', value: [12300000000, 0, 4.2] },
-        { name: 'SGBCI', value: [8900000000, 0, 3.1] },
-        { name: 'BOA Senegal', value: [7200000000, 0, -1.5] },
-        { name: 'Total Senegal', value: [6800000000, 0, 2.3] },
-        { name: 'CFAO Motors', value: [5400000000, 0, 1.8] },
-        { name: 'PALMCI', value: [4900000000, 0, -2.1] },
-      ],
-    },
-    {
-      name: 'NSE',
-      value: [245000000000, 0, 6.7],
-      children: [
-        { name: 'Safaricom', value: [89000000000, 0, 8.2] },
-        { name: 'Equity Bank', value: [45000000000, 0, 5.4] },
-        { name: 'KCB Group', value: [38000000000, 0, 4.9] },
-        { name: 'East African Breweries', value: [28000000000, 0, 3.2] },
-        { name: 'BAT Kenya', value: [22000000000, 0, 2.1] },
-        { name: 'Bamburi Cement', value: [15000000000, 0, -1.8] },
-        { name: 'Kenya Airways', value: [8000000000, 0, -4.5] },
-      ],
-    },
-    {
-      name: 'JSE',
-      value: [890000000000, 0, 3.8],
-      children: [
-        { name: 'Naspers', value: [185000000000, 0, 5.2] },
-        { name: 'Anglo American', value: [125000000000, 0, 4.8] },
-        { name: 'Standard Bank', value: [98000000000, 0, 3.9] },
-        { name: 'MTN Group', value: [87000000000, 0, 6.1] },
-        { name: 'FirstRand', value: [76000000000, 0, 2.7] },
-        { name: 'Sasol', value: [54000000000, 0, -2.3] },
-        { name: 'Shoprite', value: [48000000000, 0, 1.9] },
-      ],
-    },
-    {
-      name: 'EGX',
-      value: [156000000000, 0, 2.4],
-      children: [
-        { name: 'CIB', value: [42000000000, 0, 3.8] },
-        { name: 'Commercial Bank', value: [28000000000, 0, 2.9] },
-        { name: 'Orascom Construction', value: [24000000000, 0, 4.2] },
-        { name: 'Eastern Tobacco', value: [18000000000, 0, 1.5] },
-        { name: 'Talaat Moustafa', value: [16000000000, 0, 5.1] },
-        { name: 'EFG Hermes', value: [14000000000, 0, 3.3] },
-        { name: 'Juhayna Food', value: [14000000000, 0, -1.2] },
-      ],
-    },
-    {
-      name: 'NGSE',
-      value: [198000000000, 0, 5.3],
-      children: [
-        { name: 'Dangote Cement', value: [52000000000, 0, 7.2] },
-        { name: 'Airtel Africa', value: [38000000000, 0, 6.8] },
-        { name: 'Zenith Bank', value: [28000000000, 0, 4.9] },
-        { name: 'GTBank', value: [24000000000, 0, 5.1] },
-        { name: 'Nigerian Breweries', value: [18000000000, 0, 2.3] },
-        { name: 'Nestle Nigeria', value: [16000000000, 0, 3.7] },
-        { name: 'BUA Cement', value: [22000000000, 0, 8.5] },
-      ],
-    },
-    {
-      name: 'DSE',
-      value: [42000000000, 0, 4.1],
-      children: [
-        { name: 'CRDB Bank', value: [12000000000, 0, 5.2] },
-        { name: 'NMB Bank', value: [9500000000, 0, 4.8] },
-        { name: 'Tanzania Breweries', value: [7800000000, 0, 3.1] },
-        { name: 'Swissport', value: [5200000000, 0, 2.9] },
-        { name: 'TCC', value: [4500000000, 0, 1.8] },
-        { name: 'TPCC', value: [3000000000, 0, -0.5] },
-      ],
-    },
-  ];
-
   // Transformer les données de l'API vers le format TreemapNode
   const transformedData = useMemo(() => {
     console.log('[Treemap] Starting transformation...');
@@ -349,9 +268,9 @@ export default function EquityHomePage() {
       <div className="equity-main-content">
         {/* Left Column: 60% - Treemap & Tools */}
         <div className="left-column">
-          {/* Market Cap Treemap */}
+          {/* Market Cap Bubble Chart */}
           <div className="treemap-container">
-            {filteredData && <TreemapChart
+            {filteredData && <ForceBubbleChart
               data={filteredData}
               height="100%"
             />}
