@@ -20,6 +20,7 @@ import { useCustomColumns } from '@/hooks/useCustomColumns';
 import { ActionQueryParams } from '@/core/domain/types/action.type';
 import { useActionRepository } from '@/core/infra/repositories/action.repository.impl';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
+import SparklineCell from '@/components/screener/SparklineCell';
 import Link from 'next/link';
 
 type FilterState = {
@@ -158,11 +159,6 @@ export default function StockScreenerPage() {
     });
     setCurrentPage(1);
   };
-
-
-
-  
-
 
 
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
@@ -369,6 +365,7 @@ export default function StockScreenerPage() {
                   <tr>
                     <th className="checkbox-col"></th>
                     <th>Equity ({allActionsData?.count})</th>
+                    <th className="sparkline-col">Sparkline</th>
                     <th>ISIN</th>
                     <th>Exchange</th>
                     {currentFamily.columns.map((col) => (
@@ -434,6 +431,9 @@ export default function StockScreenerPage() {
                           {action.society.name}
                         </Link>
                         <span className="fund-market">{action.ticker}</span>
+                      </td>
+                      <td className="sparkline-col">
+                        <SparklineCell data={action.recent_cours} />
                       </td>
                       <td className="isin-col">{action.isin}</td>
                       <td>

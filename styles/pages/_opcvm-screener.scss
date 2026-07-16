@@ -461,6 +461,11 @@
                 text-align: center;
               }
 
+              &.sparkline-col {
+                width: 100px;
+                text-align: center;
+              }
+
               &.number-col {
                 text-align: right;
               }
@@ -528,6 +533,21 @@
                     width: 18px;
                     height: 18px;
                     cursor: pointer;
+                  }
+                }
+
+                &.sparkline-col {
+                  text-align: center;
+                  padding: 0.5rem;
+
+                  .sparkline-cell {
+                    display: block;
+                    margin: 0 auto;
+                  }
+
+                  .sparkline-empty {
+                    color: var(--text-secondary);
+                    font-size: 0.875rem;
                   }
                 }
 
