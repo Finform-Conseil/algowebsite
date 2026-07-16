@@ -3,24 +3,23 @@ import { HitTestResult, DrawingHelpers } from "../../interfaces/IDrawingStrategy
 import { distToSegment } from "../../../math/geometry";
 
 function drawArrowhead(
-    ctx: CanvasRenderingContext2D,
-    p1: { x: number; y: number },
-    p2: { x: number; y: number },
-    size: number = 10
-) {
-    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-    ctx.beginPath();
-    ctx.moveTo(p2.x, p2.y);
-    ctx.lineTo(
-        p2.x - size * Math.cos(angle - Math.PI / 6),
-        p2.y - size * Math.sin(angle - Math.PI / 6)
-    );
-    ctx.moveTo(p2.x, p2.y);
-    ctx.lineTo(
-        p2.x - size * Math.cos(angle + Math.PI / 6),
-        p2.y - size * Math.sin(angle + Math.PI / 6)
-    );
-    ctx.stroke();
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    size: number,
+    h: DrawingHelpers
+): void {
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    h.ctx.save();
+    h.ctx.translate(to.x, to.y);
+    h.ctx.rotate(angle);
+    h.ctx.beginPath();
+    h.ctx.moveTo(0, 0);
+    h.ctx.lineTo(-size, -size / 2);
+    h.ctx.lineTo(-size, size / 2);
+    h.ctx.closePath();
+    h.ctx.fillStyle = h.ctx.strokeStyle as string;
+    h.ctx.fill();
+    h.ctx.restore();
 }
 
 export function renderPath(
@@ -48,9 +47,7 @@ export function renderPath(
     }
     h.ctx.stroke();
 
-    for (let i = 1; i < pts.length; i++) {
-        drawArrowhead(h.ctx, pts[i-1], pts[i], 12);
-    }
+    drawArrowhead(pts[pts.length - 2], pts[pts.length - 1], 12, h);
 
     if (drawing.showText && drawing.text && pts.length >= 2) {
         const minX = Math.min(...pts.map((p) => p.x));

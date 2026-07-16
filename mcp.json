@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "agent-scribe-graphify": {
+      "command": "python3",
+      "args": [".agent/mcp/server_entry.py"],
+      "cwd": "",
+      "sandbox": "none"
+    },
+    "chrome-devtools": {
+      "command": "chrome-devtools-mcp",
+      "args": ["--browserUrl=http://127.0.0.1:9222", "--no-usage-statistics", "--no-performance-crux"]
+    }
+  }
+}

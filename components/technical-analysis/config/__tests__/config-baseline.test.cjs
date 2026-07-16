@@ -60,6 +60,7 @@ const priceVsEmaMetrics = require("../indicators/priceVsEmaMetrics.ts");
 const indicatorObjectVisibility = require("../object-tree/indicatorObjectVisibility.ts");
 const drawingConstants = require("../drawing/drawingConstants.ts");
 const drawingToolSpecs = require("../drawing/drawingToolSpecs.ts");
+const toolbarConfig = require("../../toolbar-config-antigravity.json");
 const fibDefaults = require("../drawing/fibDefaults.ts");
 const pureMultiChartLayouts = require("../layout/multiChartLayouts.ts");
 const brvmLayoutSymbols = require("../layout/brvmLayoutSymbols.ts");
@@ -291,6 +292,21 @@ test("drawing config exposes pure specs and drawing constants without icon coupl
   assert.equal(Object.hasOwn(lineTool, "icon"), false);
   assert.equal(drawingConstants.FIB_TOOLS_SET.has("fib_retracement"), true);
   assert.equal(fibDefaults.DEFAULT_FIB_WEDGE_LEVELS.length, 7);
+  assert.deepEqual(toolbarConfig.drawings.rotated_rectangle.toolbar, [
+    "move",
+    "template",
+    "color",
+    "fill",
+    "thickness",
+    "settings",
+    "lock",
+    "trash",
+    "more",
+  ]);
+  assert.equal(
+    toolbarConfig.drawings.rotated_rectangle.description,
+    "Rotated rectangle shape toolbar: template, stroke color, fill, thickness, settings, lock, delete, more.",
+  );
 });
 
 

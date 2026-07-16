@@ -177,6 +177,9 @@ export const useToolbarHandlers = ({
                 newProps.lines = newProps.lines.map(l => ({ ...l, color: newColor, lineOpacity: alpha }));
                 updates.gannFanProps = newProps;
                 updates.style = { ...current.style, color: newColor, lineOpacity: alpha };
+            } else if (current.type === "price_label") {
+                updates.style = { ...current.style, color: newColor, lineOpacity: alpha };
+                updates.textColor = newColor;
             }
 
             updateDrawing(selectedDrawingId, updates);

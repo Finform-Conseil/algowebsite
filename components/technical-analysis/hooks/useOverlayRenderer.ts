@@ -1,6 +1,5 @@
-import { useLayoutEffect, useEffect, useRef, RefObject, MutableRefObject, useCallback } from "react";
+import { useLayoutEffect, useEffect, useRef, useCallback, RefObject, MutableRefObject } from "react";
 import type { ECharts } from "echarts/core";
-import DOMPurify from "dompurify";
 import type { Drawing } from "../config/drawing/drawingModelTypes";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { useMasterRenderLoop, type RenderFrameMeta } from "./useMasterRenderLoop";
@@ -16,7 +15,6 @@ interface UseOverlayRendererProps {
   chartInstanceRef: MutableRefObject<ECharts | null>;
   drawingCanvasRef: RefObject<HTMLCanvasElement | null>;
   drawingToolbarRef: RefObject<HTMLDivElement | null>;
-  drawingTooltipRef: RefObject<HTMLDivElement | null>;
   gridRect: { x: number; y: number; width: number; height: number } | null;
   toolbarOffsetRef: MutableRefObject<{ x: number; y: number }>;
   chartData: ChartDataPoint[];
@@ -53,7 +51,6 @@ export const useOverlayRenderer = ({
   chartInstanceRef,
   drawingCanvasRef,
   drawingToolbarRef,
-  drawingTooltipRef,
   gridRect,
   toolbarOffsetRef,
   chartData,
@@ -73,8 +70,7 @@ export const useOverlayRenderer = ({
   const isChartStableRef = useRef<boolean>(true);
   const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // [TENOR 2026 FIX] SCAR-XSS-01: Dirty Checking Cache
-  const lastTooltipHtmlRef = useRef<string>("");
+
 
   // [TENOR 2026 FIX] isDegraded transition tracker — wakes dirty flag when degradation ends
   const wasDegradedRef = useRef<boolean>(false);
@@ -146,7 +142,6 @@ export const useOverlayRenderer = ({
 
       // Hide UI immediately to prevent ghosting
       if (drawingToolbarRef.current) drawingToolbarRef.current.style.display = "none";
-      if (drawingTooltipRef.current) drawingTooltipRef.current.style.display = "none";
 
       // Watchdog Timer: Force stability after 200ms if 'finished' event is lost
       if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
@@ -185,7 +180,7 @@ export const useOverlayRenderer = ({
       }
       if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
     };
-  }, [chartInstanceRef, drawingToolbarRef, drawingTooltipRef, interactionScopeKey]);
+  }, [chartInstanceRef, drawingToolbarRef, interactionScopeKey]);
 
   // ============================================================================
   // RENDER LOOP (Orchestrated by MasterRenderLoop)
@@ -239,14 +234,12 @@ export const useOverlayRenderer = ({
 
     if (!currentSelectedId || !isOverlayChartUsable(chart) || !currentDrawings.length || !canvas) {
       if (drawingToolbarRef.current) drawingToolbarRef.current.style.display = "none";
-      if (drawingTooltipRef.current) drawingTooltipRef.current.style.display = "none";
       return;
     }
 
     const drawing = currentDrawings.find((d) => d.id === currentSelectedId);
     if (!drawing || drawing.points.length < 1) {
       if (drawingToolbarRef.current) drawingToolbarRef.current.style.display = "none";
-      if (drawingTooltipRef.current) drawingTooltipRef.current.style.display = "none";
       return;
     }
 
@@ -330,188 +323,7 @@ export const useOverlayRenderer = ({
       }
     }
 
-    // --- 3. Update Drawing Tooltip (Direct DOM) ---
-    if (drawingTooltipRef.current) {
-      if (meta.isDegraded) {
-        drawingTooltipRef.current.style.display = "none";
-        return;
-      }
-
-      //[TENOR 2026 FIX] HIDE generic tooltip for Position tools, Chart Patterns, AND Forecasting tools (Sector, Ghost Feed, etc.)
-      // This prevents the "Tooltip Schism" where the DOM tooltip intercepts mouse events and breaks the Canvas hit-test.
-      const isPattern = (drawing.type.includes("_pattern") && drawing.type !== "bar_pattern") || drawing.type === "head_and_shoulders";
-      const isForecasting = drawing.type === "ghost_feed" || drawing.type === "sector";
-
-      if (
-        drawing.type === "long_position" ||
-        drawing.type === "short_position" ||
-        isPattern ||
-        isForecasting
-      ) {
-        drawingTooltipRef.current.style.display = "none";
-      } else {
-        const p1 = drawing.points[0];
-        const p2 = drawing.points[drawing.points.length - 1];
-        const p1Px = pixels[0];
-        const p2Px = pixels[pixels.length - 1];
-
-        const price1 = p1.value;
-        const price2 = p2.value;
-        const priceDiff = price2 - price1;
-        const priceChangePct = (priceDiff / price1) * 100;
-
-        const htmlColors = {
-          red: "#ff5252",
-          green: "#00e676",
-          slate: "#94a3b8",
-          white: "#e2e8f0",
-        };
-
-        const isTrendPositive = priceDiff >= 0;
-        const color = isTrendPositive ? htmlColors.green : htmlColors.red;
-        const sign = isTrendPositive ? "+" : "";
-
-        drawingTooltipRef.current.style.display = "block";
-        drawingTooltipRef.current.style.zIndex = "200";
-
-        // --- FEATURE-SPECIFIC TOOLTIP CONTENT ---
-        let contentHtml = "";
-
-        // DRY helper: price change HTML span (used in regression_trend + default tooltips)
-        // [TENOR 2026 FIX] SCAR-XSS-01: Variables here are strictly numbers, inherently safe.
-        const formatPriceHtml = (
-          c: string,
-          pd: number,
-          s: string,
-          pct: number,
-        ) =>
-          `<span style="color: ${c}; font-weight: 600;">${Math.abs(pd).toFixed(2)} (${s}${pct.toFixed(2)}%)</span>`;
-
-        // Default: Angle & Distance
-        const distPx = Math.sqrt(
-          Math.pow(p2Px.x - p1Px.x, 2) + Math.pow(p2Px.y - p1Px.y, 2),
-        );
-        const angleRad = Math.atan2(p1Px.y - p2Px.y, p2Px.x - p1Px.x);
-        let angleDeg = angleRad * (180 / Math.PI);
-        if (angleDeg < 0) angleDeg += 360;
-
-        if (drawing.type === "regression_trend") {
-          contentHtml = `
-            <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center;">
-              <span style="color: ${htmlColors.slate}; font-weight: 500;">Prx:</span>
-              ${formatPriceHtml(color, priceDiff, sign, priceChangePct)}
-              <span style="color: ${htmlColors.slate}; font-weight: 500;">Type:</span>
-              <span style="color: ${htmlColors.white}; font-weight: 600;">Linear Reg.</span>
-            </div>
-          `;
-        } else if (drawing.points.length === 1) {
-          // Special view for single-point tools (H-Line, V-Line, etc)
-          const isHLine = drawing.type === "horizontal_line" || drawing.type === "horizontal_ray";
-          const isVLine = drawing.type === "vertical_line";
-
-          // [TENOR 2026 FIX] SCAR-XSS-01: Strict DOMPurify for string variables
-          const safeTime = typeof p1.time === "number"
-            ? new Date(p1.time).toLocaleDateString()
-            : DOMPurify.sanitize(String(p1.time), { ALLOWED_TAGS: [] });
-
-          contentHtml = `
-            <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center;">
-              ${
-                isHLine
-                  ? `
-                <span style="color: ${htmlColors.slate}; font-weight: 500;">Prix:</span>
-                <span style="color: ${htmlColors.white}; font-weight: 600;">${price1.toFixed(2)}</span>
-              `
-                  : ""
-              }
-              ${
-                isVLine
-                  ? `
-                <span style="color: ${htmlColors.slate}; font-weight: 500;">Date:</span>
-                <span style="color: ${htmlColors.white}; font-weight: 600;">${safeTime}</span>
-              `
-                  : ""
-              }
-              <span></span>
-            </div>
-          `;
-        } else if (drawing.type === "brush" || drawing.type === "highlighter") {
-          const toolLabel = drawing.type === "brush" ? "Brush" : "Highlighter";
-          contentHtml = `
-            <div style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
-              <span style="color: ${htmlColors.white}; font-weight: 600;">${toolLabel}</span>
-              <span style="color: ${htmlColors.slate}; font-weight: 400; font-size: 9px;">${drawing.points.length} pts</span>
-            </div>
-          `;
-        } else {
-          contentHtml = `
-            <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center;">
-              <span style="color: ${htmlColors.slate}; font-weight: 500;">Prx:</span>
-              ${formatPriceHtml(color, priceDiff, sign, priceChangePct)}
-              <span style="color: ${htmlColors.slate}; font-weight: 500;">Ang:</span>
-              <span style="color: ${htmlColors.white}; font-weight: 600;">${Math.round(angleDeg)}°</span>
-              <span style="color: ${htmlColors.slate}; font-weight: 500;">Dst:</span>
-              <span style="color: ${htmlColors.slate}; font-weight: 400;">${Math.round(distPx)}px</span>
-            </div>
-          `;
-        }
-
-        // [TENOR 2026 FIX] SCAR-XSS-01: Dirty Checking Optimization & DOMPurify Strict Whitelist
-        // Only update the DOM if the HTML string has actually changed.
-        // This prevents severe GC stuttering and layout thrashing at 60 FPS.
-        // DOMPurify guarantees absolute protection against XSS with a strict whitelist.
-        if (lastTooltipHtmlRef.current !== contentHtml) {
-          drawingTooltipRef.current.innerHTML = DOMPurify.sanitize(contentHtml, {
-            ALLOWED_TAGS: ['div', 'span'],
-            ALLOWED_ATTR: ['style']
-          });
-          lastTooltipHtmlRef.current = contentHtml;
-        }
-
-        const tipWidth = 160;
-        const tipHeight = 85;
-        const offset = 40;
-
-        let anchorPxX: number;
-        let anchorPxY: number;
-
-        if (drawing.type === "brush" || drawing.type === "highlighter") {
-          const bx = pixels.map(p => p.x);
-          const by = pixels.map(p => p.y);
-          anchorPxX = (Math.min(...bx) + Math.max(...bx)) / 2;
-          anchorPxY = (Math.min(...by) + Math.max(...by)) / 2;
-        } else {
-          anchorPxX = p2Px.x;
-          anchorPxY = p2Px.y;
-        }
-
-        const relTooltipX = anchorPxX - offsetX;
-        const relTooltipY = anchorPxY - offsetY;
-
-        let finalX: number;
-        let finalY: number;
-        let transform: string;
-
-        if (relTooltipX + offset + tipWidth > shieldWidth) {
-          finalX = relTooltipX - offset - tipWidth;
-        } else {
-          finalX = relTooltipX + offset;
-        }
-
-        if (relTooltipY - offset - tipHeight < 10) {
-          finalY = relTooltipY + 25;
-          transform = "translate(0, 0)";
-        } else {
-          finalY = relTooltipY - offset;
-          transform = "translate(0, -100%)";
-        }
-
-        drawingTooltipRef.current.style.transform = transform;
-        drawingTooltipRef.current.style.left = `${finalX}px`;
-        drawingTooltipRef.current.style.top = `${finalY}px`;
-      }
-    }
-  }, [chartInstanceRef, drawingCanvasRef, drawingToolbarRef, drawingTooltipRef, toolbarOffsetRef]);
+  }, [chartInstanceRef, drawingCanvasRef, drawingToolbarRef, toolbarOffsetRef]);
 
   // ============================================================================
   // 3. MASTER RENDER LOOP SUBSCRIPTION

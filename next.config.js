@@ -2,7 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  allowedDevOrigins: ["127.0.0.1"],
+  allowedDevOrigins: [
+    "127.0.0.1",
+    "localhost",
+    "miracle-masters-aside-pearl.trycloudflare.com",
+  ],
   images: {
     qualities: [75, 100],
   },

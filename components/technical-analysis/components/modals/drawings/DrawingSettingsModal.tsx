@@ -20,6 +20,9 @@ import {
 } from "../../common/inputs/SettingsField";
 import { BaseModal } from "../../common/primitives/BaseModal";
 import { ModalTabs } from "../../common/primitives/ModalTabs";
+import type { IntervalKind, DrawingIntervalVisibilityProps } from "../../../config/drawing/drawingModelTypes";
+
+const INTERVAL_KINDS: IntervalKind[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W", "1M"];
 
 type AnchoredVWAPSource = NonNullable<Drawing["anchoredVWAPProps"]>["source"];
 
@@ -509,6 +512,58 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
         {/* ================= STYLE TAB ================= */}
         {activeTab === "style" && (
           <div className="d-flex flex-column gap-3">
+            {/* SIGNPOST — emoji pin */}
+            {dr.type === "signpost" && (
+              <div className="d-flex flex-column gap-3">
+                <SettingsCheckbox
+                  label="Emoji pin"
+                  checked={dr.emojiPin?.enabled ?? false}
+                  onChange={(val) =>
+                    updateDrawing(dr.id, {
+                      emojiPin: {
+                        enabled: val,
+                        emoji: dr.emojiPin?.emoji ?? "📍",
+                        color: dr.emojiPin?.color ?? "#2962FF",
+                        opacity: dr.emojiPin?.opacity ?? 1,
+                      },
+                    })
+                  }
+                />
+                {dr.emojiPin?.enabled && (
+                  <>
+                    <SettingsTextArea
+                      label="Emoji"
+                      value={dr.emojiPin?.emoji ?? "📍"}
+                      onChange={(val) =>
+                        updateDrawing(dr.id, {
+                          emojiPin: {
+                            enabled: true,
+                            emoji: val || "📍",
+                            color: dr.emojiPin?.color ?? "#2962FF",
+                            opacity: dr.emojiPin?.opacity ?? 1,
+                          },
+                        })
+                      }
+                    />
+                    <SettingsColorInput
+                      label="Couleur du pin"
+                      value={dr.emojiPin?.color ?? "#2962FF"}
+                      onChange={(val) =>
+                        updateDrawing(dr.id, {
+                          emojiPin: {
+                            enabled: true,
+                            emoji: dr.emojiPin?.emoji ?? "📍",
+                            color: val,
+                            opacity: dr.emojiPin?.opacity ?? 1,
+                          },
+                        })
+                      }
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
             {/* FIBONACCI TOOLS */}
             {(FIB_PURE_TOOLS as readonly string[]).includes(dr.type) && drFibProps && (
               <>
@@ -3203,6 +3258,23 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                 </div>
               </div>
             ))}
+            {dr.type === "signpost" && dr.signpostProps && (
+              <SettingsNumberInput
+                label="Position verticale (%)"
+                width="100%"
+                value={Math.round(dr.signpostProps.verticalPositionPct)}
+                min={0}
+                max={100}
+                onChange={(val) =>
+                  updateDrawing(dr.id, {
+                    signpostProps: {
+                      ...dr.signpostProps!,
+                      verticalPositionPct: Math.max(0, Math.min(100, Number(val))),
+                    },
+                  })
+                }
+              />
+            )}
           </div>
         )}
 
@@ -3272,11 +3344,43 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
 
         {/* ================= VISIBILITY TAB ================= */}
         {activeTab === "visibility" && (
-          <div className="text-secondary text-center py-5">
-            <i className="bi bi-eye-slash display-4 d-block mb-3"></i>
-            Options de visibilité temporelle <br />
-            (Bientôt disponible)
-          </div>
+          dr.type === "signpost" ? (
+            <div className="d-flex flex-column gap-3">
+              <SettingsCheckbox
+                label="Visibilité par intervalle"
+                checked={dr.intervalVisibility?.enabled ?? false}
+                onChange={(v) =>
+                  updateDrawing(dr.id, {
+                    intervalVisibility: {
+                      enabled: v,
+                      perKind: dr.intervalVisibility?.perKind ?? {},
+                    } as DrawingIntervalVisibilityProps,
+                  })
+                }
+              />
+              {dr.intervalVisibility?.enabled && INTERVAL_KINDS.map((k) => (
+                <SettingsCheckbox
+                  key={k}
+                  label={k}
+                  checked={dr.intervalVisibility?.perKind?.[k] ?? true}
+                  onChange={(v) =>
+                    updateDrawing(dr.id, {
+                      intervalVisibility: {
+                        enabled: dr.intervalVisibility?.enabled ?? true,
+                        perKind: { ...dr.intervalVisibility?.perKind, [k]: v },
+                      } as DrawingIntervalVisibilityProps,
+                    })
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-secondary text-center py-5">
+              <i className="bi bi-eye-slash display-4 d-block mb-3"></i>
+              Options de visibilité temporelle <br />
+              (Bientôt disponible)
+            </div>
+          )
         )}
       </div>
     </BaseModal>

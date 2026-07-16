@@ -62,3 +62,12 @@ scribe-out/
 
 # Local rollback snapshots
 _Rollback/
+
+# Local scratch / reproduction files
+tradingview-reproduction.md
+.agents/
+.codex/
+.opencode/
+.fallow/
+.gemini/
+.pytest_cache/

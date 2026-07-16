@@ -7,6 +7,7 @@ import type { DrawingGannBoxProps, DrawingGannFanProps, DrawingGannSquareFixedPr
 import type { DrawingCyclesProps, DrawingXabcdProps } from "./drawingPatternTypes";
 import type { DrawingPitchforkProps } from "./drawingPitchforkTypes";
 import type { DrawingPositionProps, DrawingRegressionProps } from "./drawingPositionTypes";
+import type { TableDrawingProps } from "./drawingTableTypes";
 export interface Drawing {
   id: string;
   type: NonNullable<AllToolType>;
@@ -17,6 +18,7 @@ export interface Drawing {
   positionProps?: DrawingPositionProps;
   locked?: boolean;
   hidden?: boolean;
+  anchored?: boolean;
   isDragging?: boolean;
   isCreating?: boolean;
   _boxOffset?: number; // [TENOR 2026] UI offset for multi-tool reconciliation
@@ -53,4 +55,36 @@ export interface Drawing {
   anchoredVWAPProps?: DrawingAnchoredVWAPProps;
   anchoredVolumeProfileProps?: DrawingAnchoredVolumeProfileProps;
   barPatternProps?: BarPatternProps;
+  tableProps?: TableDrawingProps;
+  signpostProps?: DrawingSignpostProps;
+  emojiPin?: DrawingEmojiPinProps;
+  intervalVisibility?: DrawingIntervalVisibilityProps;
+}
+
+export type IntervalKind = "1m" | "5m" | "15m" | "1H" | "4H" | "1D" | "1W" | "1M";
+
+export interface DrawingIntervalRange {
+  from?: string | number;
+  to?: string | number;
+}
+
+export interface DrawingIntervalVisibilityProps {
+  enabled: boolean;
+  perKind: Partial<Record<IntervalKind, boolean>>;
+  ranges?: Partial<Record<IntervalKind, DrawingIntervalRange>>;
+}
+
+export interface DrawingEmojiPinProps {
+  enabled: boolean;
+  emoji: string;
+  color: string;
+  opacity: number;
+}
+
+export interface DrawingSignpostProps {
+  /** Best-effort candle index at creation (kept for legacy/compat). */
+  barIndex: number;
+  /** Stable candle time/barTime — the real anchor used for rehydration. */
+  barTime?: string | number;
+  verticalPositionPct: number;
 }

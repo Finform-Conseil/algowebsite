@@ -16,6 +16,8 @@ export class LineMeasureStrategy implements IDrawingStrategy {
         "horizontal_ray",
         "crosshair",
         "arrow_marker",
+        "arrow_mark_up",
+        "arrow_mark_down",
         "arrow",
         "trend_angle"
     ];
@@ -70,6 +72,12 @@ export class LineMeasureStrategy implements IDrawingStrategy {
                 break;
             case "arrow_marker":
                 this._renderArrowMarker(pts, drawing, isSelected, h);
+                break;
+            case "arrow_mark_up":
+                this._renderArrowMarkUp(pts, drawing, isSelected, h);
+                break;
+            case "arrow_mark_down":
+                this._renderArrowMarkDown(pts, drawing, isSelected, h);
                 break;
             default:
                 break;
@@ -151,17 +159,23 @@ export class LineMeasureStrategy implements IDrawingStrategy {
         // 2.6 Arrow Marker
         else if (type === "arrow_marker") {
             const scale = drawing.style?.lineWidth || 2;
-            const bubbleHeight = 20 * (scale / 2);
-            const pointerSize = 8 * (scale / 2);
-            const totalHeight = bubbleHeight + pointerSize;
-            const bubbleWidth = 40 * (scale / 2);
+            const radius = 10 * (scale / 2);
+            const dx = mx - p1.x;
+            const dy = my - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-            const isInBubble = mx >= p1.x - bubbleWidth / 2 - threshold &&
-                mx <= p1.x + bubbleWidth / 2 + threshold &&
-                my >= p1.y - totalHeight - threshold &&
-                my <= p1.y;
+            if (dist <= radius + threshold) return { isHit: true, hitType: 'shape' };
+        }
+        // 2.7 Arrow Mark Up/Down
+        else if (type === "arrow_mark_up" || type === "arrow_mark_down") {
+            const scale = drawing.style?.lineWidth || 2;
+            const arrowHeight = 24 * (scale / 2);
+            const arrowWidth = 14 * (scale / 2);
+            const dx = mx - p1.x;
+            const dy = my - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (isInBubble) return { isHit: true, hitType: 'shape' };
+            if (dist <= arrowHeight + threshold) return { isHit: true, hitType: 'shape' };
         }
 
         return { isHit: false, hitType: null };
@@ -535,110 +549,161 @@ export class LineMeasureStrategy implements IDrawingStrategy {
         if (pts.length < 1) return;
         const { x, y } = pts[0];
         const style = drawing.style;
-
-        const fontSize = drawing.fontSize || 13;
         const scale = style.lineWidth || 2;
-        const scaledFontSize = Math.max(10, fontSize * (scale / 2));
-        const fontStyle = `${drawing.textBold ? 'bold ' : ''}${drawing.textItalic ? 'italic ' : ''}`;
-
-        h.ctx.save();
-        h.ctx.font = `${fontStyle}${scaledFontSize}px Inter, sans-serif`;
-
-        const textWidth = drawing.text ? h.ctx.measureText(drawing.text).width : 0;
-        const padding = 8 * (scale / 2);
-        const bubbleWidth = drawing.text ? textWidth + padding * 2 : 40 * (scale / 2);
-        const bubbleHeight = scaledFontSize + padding;
-        const cornerRadius = 4 * (scale / 2);
-        const pointerSize = 8 * (scale / 2);
-
+        const radius = 10 * (scale / 2);
         const orientation = drawing.arrowOrientation || "bottom";
 
-        h.ctx.fillStyle = style.color;
-        h.ctx.strokeStyle = style.color;
-        h.ctx.lineWidth = 1;
+        h.ctx.save();
 
-        let bx = 0, by = 0;
-
+        // Filled circle (TradingView style)
         h.ctx.beginPath();
-        h.ctx.moveTo(x, y);
-
-        switch (orientation) {
-            case "bottom":
-                bx = x - bubbleWidth / 2;
-                by = y - pointerSize - bubbleHeight;
-                h.ctx.lineTo(x - pointerSize / 2, y - pointerSize);
-                h.ctx.lineTo(bx + cornerRadius, by + bubbleHeight);
-                h.ctx.quadraticCurveTo(bx, by + bubbleHeight, bx, by + bubbleHeight - cornerRadius);
-                h.ctx.lineTo(bx, by + cornerRadius);
-                h.ctx.quadraticCurveTo(bx, by, bx + cornerRadius, by);
-                h.ctx.lineTo(bx + bubbleWidth - cornerRadius, by);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by, bx + bubbleWidth, by + cornerRadius);
-                h.ctx.lineTo(bx + bubbleWidth, by + bubbleHeight - cornerRadius);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by + bubbleHeight, bx + bubbleWidth - cornerRadius, by + bubbleHeight);
-                h.ctx.lineTo(x + pointerSize / 2, y - pointerSize);
-                break;
-
-            case "top":
-                bx = x - bubbleWidth / 2;
-                by = y + pointerSize;
-                h.ctx.lineTo(x + pointerSize / 2, y + pointerSize);
-                h.ctx.lineTo(bx + bubbleWidth - cornerRadius, by);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by, bx + bubbleWidth, by + cornerRadius);
-                h.ctx.lineTo(bx + bubbleWidth, by + bubbleHeight - cornerRadius);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by + bubbleHeight, bx + bubbleWidth - cornerRadius, by + bubbleHeight);
-                h.ctx.lineTo(bx + cornerRadius, by + bubbleHeight);
-                h.ctx.quadraticCurveTo(bx, by + bubbleHeight, bx, by + bubbleHeight - cornerRadius);
-                h.ctx.lineTo(bx, by + cornerRadius);
-                h.ctx.quadraticCurveTo(bx, by, bx + cornerRadius, by);
-                h.ctx.lineTo(x - pointerSize / 2, y + pointerSize);
-                break;
-
-            case "left":
-                bx = x + pointerSize;
-                by = y - bubbleHeight / 2;
-                h.ctx.lineTo(x + pointerSize, y - pointerSize / 2);
-                h.ctx.lineTo(bx, by + cornerRadius);
-                h.ctx.quadraticCurveTo(bx, by, bx + cornerRadius, by);
-                h.ctx.lineTo(bx + bubbleWidth - cornerRadius, by);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by, bx + bubbleWidth, by + cornerRadius);
-                h.ctx.lineTo(bx + bubbleWidth, by + bubbleHeight - cornerRadius);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by + bubbleHeight, bx + bubbleWidth - cornerRadius, by + bubbleHeight);
-                h.ctx.lineTo(bx + cornerRadius, by + bubbleHeight);
-                h.ctx.quadraticCurveTo(bx, by + bubbleHeight, bx, by + bubbleHeight - cornerRadius);
-                h.ctx.lineTo(x + pointerSize, y + pointerSize / 2);
-                break;
-
-            case "right":
-                bx = x - pointerSize - bubbleWidth;
-                by = y - bubbleHeight / 2;
-                h.ctx.lineTo(x - pointerSize, y + pointerSize / 2);
-                h.ctx.lineTo(bx + bubbleWidth, by + bubbleHeight - cornerRadius);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by + bubbleHeight, bx + bubbleWidth - cornerRadius, by + bubbleHeight);
-                h.ctx.lineTo(bx + cornerRadius, by + bubbleHeight);
-                h.ctx.quadraticCurveTo(bx, by + bubbleHeight, bx, by + bubbleHeight - cornerRadius);
-                h.ctx.lineTo(bx, by + cornerRadius);
-                h.ctx.quadraticCurveTo(bx, by, bx + cornerRadius, by);
-                h.ctx.lineTo(bx + bubbleWidth - cornerRadius, by);
-                h.ctx.quadraticCurveTo(bx + bubbleWidth, by, bx + bubbleWidth, by + cornerRadius);
-                h.ctx.lineTo(x - pointerSize, y - pointerSize / 2);
-                break;
-        }
-
-        h.ctx.closePath();
+        h.ctx.arc(x, y, radius, 0, Math.PI * 2);
+        h.ctx.fillStyle = style.color;
         h.ctx.fill();
 
-        if (drawing.text && drawing.showText !== false) {
-            h.ctx.fillStyle = drawing.textColor || "#fff";
-            h.ctx.textAlign = "center";
-            h.ctx.textBaseline = "middle";
-            h.ctx.fillText(drawing.text, bx + bubbleWidth / 2, by + bubbleHeight / 2);
-        }
+        // White arrow inside the circle
+        h.ctx.save();
+        h.ctx.translate(x, y);
 
+        let rotation = 0;
+        switch (orientation) {
+            case "top":    rotation = -Math.PI / 2; break;
+            case "bottom": rotation = Math.PI / 2;  break;
+            case "left":   rotation = Math.PI;      break;
+            case "right":  rotation = 0;             break;
+        }
+        h.ctx.rotate(rotation);
+
+        const arrowLen = radius * 0.55;
+        const headLen = radius * 0.45;
+        const headWidth = radius * 0.4;
+
+        // Arrow body (line from center to right)
+        h.ctx.beginPath();
+        h.ctx.moveTo(-arrowLen, 0);
+        h.ctx.lineTo(arrowLen, 0);
+        h.ctx.strokeStyle = "#fff";
+        h.ctx.lineWidth = Math.max(1.5, radius * 0.15);
+        h.ctx.lineCap = "round";
+        h.ctx.stroke();
+
+        // Arrow head (triangle pointing right)
+        h.ctx.beginPath();
+        h.ctx.moveTo(arrowLen + headLen * 0.3, 0);
+        h.ctx.lineTo(arrowLen - headLen * 0.7, -headWidth);
+        h.ctx.lineTo(arrowLen - headLen * 0.7, headWidth);
+        h.ctx.closePath();
+        h.ctx.fillStyle = "#fff";
+        h.ctx.fill();
+
+        h.ctx.restore(); // undo rotation/translate
+
+        // Selection highlight
         if (isSelected) {
+            h.ctx.beginPath();
+            h.ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
             h.ctx.strokeStyle = "#fff";
             h.ctx.lineWidth = 2;
+            h.ctx.setLineDash([4, 3]);
             h.ctx.stroke();
+            h.ctx.setLineDash([]);
             h.drawHandle(pts[0]);
+        }
+
+        h.ctx.restore();
+    }
+
+    private _renderArrowMarkUp(
+        pts: { x: number; y: number }[],
+        drawing: Drawing,
+        isSelected: boolean,
+        h: DrawingHelpers
+    ): void {
+        if (pts.length < 1) return;
+        const { x, y } = pts[0];
+        const style = drawing.style;
+        const scale = style.lineWidth || 2;
+        const arrowHeight = 24 * (scale / 2);
+        const arrowWidth = 14 * (scale / 2);
+        const color = style.color || "#089981";
+
+        h.ctx.save();
+
+        // Arrow pointing UP: triangle + stem
+        h.ctx.beginPath();
+        h.ctx.moveTo(x, y + arrowHeight * 0.4);
+        h.ctx.lineTo(x, y - arrowHeight * 0.3);
+        h.ctx.strokeStyle = color;
+        h.ctx.lineWidth = Math.max(2, arrowWidth * 0.2);
+        h.ctx.lineCap = "round";
+        h.ctx.stroke();
+
+        // Arrow head (triangle pointing up)
+        h.ctx.beginPath();
+        h.ctx.moveTo(x, y - arrowHeight * 0.5);
+        h.ctx.lineTo(x - arrowWidth * 0.5, y - arrowHeight * 0.1);
+        h.ctx.lineTo(x + arrowWidth * 0.5, y - arrowHeight * 0.1);
+        h.ctx.closePath();
+        h.ctx.fillStyle = color;
+        h.ctx.fill();
+
+        // Subtle selection indicator
+        if (isSelected) {
+            h.ctx.beginPath();
+            h.ctx.arc(x, y, arrowHeight * 0.6 + 4, 0, Math.PI * 2);
+            h.ctx.strokeStyle = "rgba(255,255,255,0.4)";
+            h.ctx.lineWidth = 1.5;
+            h.ctx.setLineDash([3, 4]);
+            h.ctx.stroke();
+            h.ctx.setLineDash([]);
+        }
+
+        h.ctx.restore();
+    }
+
+    private _renderArrowMarkDown(
+        pts: { x: number; y: number }[],
+        drawing: Drawing,
+        isSelected: boolean,
+        h: DrawingHelpers
+    ): void {
+        if (pts.length < 1) return;
+        const { x, y } = pts[0];
+        const style = drawing.style;
+        const scale = style.lineWidth || 2;
+        const arrowHeight = 24 * (scale / 2);
+        const arrowWidth = 14 * (scale / 2);
+        const color = style.color || "#ef5350";
+
+        h.ctx.save();
+
+        // Arrow pointing DOWN: stem + triangle
+        h.ctx.beginPath();
+        h.ctx.moveTo(x, y - arrowHeight * 0.4);
+        h.ctx.lineTo(x, y + arrowHeight * 0.3);
+        h.ctx.strokeStyle = color;
+        h.ctx.lineWidth = Math.max(2, arrowWidth * 0.2);
+        h.ctx.lineCap = "round";
+        h.ctx.stroke();
+
+        // Arrow head (triangle pointing down)
+        h.ctx.beginPath();
+        h.ctx.moveTo(x, y + arrowHeight * 0.5);
+        h.ctx.lineTo(x - arrowWidth * 0.5, y + arrowHeight * 0.1);
+        h.ctx.lineTo(x + arrowWidth * 0.5, y + arrowHeight * 0.1);
+        h.ctx.closePath();
+        h.ctx.fillStyle = color;
+        h.ctx.fill();
+
+        // Subtle selection indicator
+        if (isSelected) {
+            h.ctx.beginPath();
+            h.ctx.arc(x, y, arrowHeight * 0.6 + 4, 0, Math.PI * 2);
+            h.ctx.strokeStyle = "rgba(255,255,255,0.4)";
+            h.ctx.lineWidth = 1.5;
+            h.ctx.setLineDash([3, 4]);
+            h.ctx.stroke();
+            h.ctx.setLineDash([]);
         }
 
         h.ctx.restore();

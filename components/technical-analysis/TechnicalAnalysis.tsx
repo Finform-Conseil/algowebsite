@@ -50,6 +50,7 @@ import type { RootState } from "@/core/infrastructure/store";
 import type { EChartsInstance } from "@/components/technical-analysis/lib/types/echarts";
 
 import toolbarConfig from "@/components/technical-analysis/toolbar-config-antigravity.json";
+import { resolveDrawingToolbarType } from "@/components/technical-analysis/lib/drawingToolbarResolution";
 import {
   getCompareSeriesColor,
   normalizeCompareSymbol,
@@ -75,6 +76,7 @@ import type { CompareSeriesSettingsModalProps } from "@/components/technical-ana
 import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/time-axis/TimeAxisControls";
 import TechnicalAnalysisSidebar, { type TechnicalAnalysisSidebarProps } from "@/components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar";
 import { ToolbarButton } from "@/components/technical-analysis/components/toolbar/floating/ToolbarButton";
+import { InlineTextEditor } from "@/components/technical-analysis/components/toolbar/floating/InlineTextEditor";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
 import { MultiChartLayoutGrid } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
 
@@ -658,6 +660,13 @@ const ChartUI: React.FC = () => {
     saveNamedTemplate,
     applyNamedTemplate,
     deleteNamedTemplate,
+    editingDrawingId,
+    editingDrawingPosition,
+    editingTableCell,
+    stopEditingDrawing,
+    setEditingDrawingId,
+    setEditingDrawingPosition,
+    setEditingTableCell,
   } = drawingManager;
 
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
@@ -695,6 +704,11 @@ const ChartUI: React.FC = () => {
   const replayState = useSelector((state: RootState) => state.technicalAnalysis.ui.replay, shallowEqual);
   const dataMode = useSelector(selectDataMode);
   const modals = useSelector(selectModals, shallowEqual);
+  // [TENOR 2026 — Option F] Live snapshot for the currently active chart symbol.
+  // Used by useObjectTreePanel to resolve provenance label in Financial Proof Mode.
+  const chartUiLiveSnapshot = useSelector(
+    (state: RootState) => selectMarketSnapshots(state)[chartConfig.symbol] ?? null,
+  );
   const shouldMountModalOrchestrator = Object.values(modals).some(Boolean);
 
   const [showReplayFullText, setShowReplayFullText] = useState(false);
@@ -869,9 +883,20 @@ const ChartUI: React.FC = () => {
   } = useObjectTreePanel({
     chartInstanceRef: refs.chartInstanceRef as React.RefObject<EChartsInstance | null>,
     chartData: chartState.displayChartData,
+    // [TENOR 2026 — Option F] Financial Proof: expose live snapshot availability so the
+    // hook can resolve the provenance label ("BRVM Live" vs "BRVM CSV") for the Data Window.
+    hasLiveSnapshot: chartUiLiveSnapshot !== null,
   });
 
-  const selectedDrawing = drawings.find((d: Drawing) => d.id === selectedDrawingId);
+  const selectedDrawing = drawings.find((d: Drawing) => d.id === selectedDrawingId) ?? null;
+  const hasToolbarConfig = (type: string | undefined): type is string =>
+    !!type && ((toolbarConfig as ToolbarConfig).drawings as Record<string, unknown>)[type] !== undefined;
+
+  const selectedDrawingToolbarType = resolveDrawingToolbarType(
+    selectedDrawing?.type,
+    hasToolbarConfig,
+  );
+  const editingDrawing = drawings.find((d: Drawing) => d.id === editingDrawingId);
 
   const layoutSymbols = useMemo(
     () =>
@@ -1502,7 +1527,6 @@ const ChartUI: React.FC = () => {
                           chartInstanceRef: refs.chartInstanceRef,
                           drawingCanvasRef: refs.drawingCanvasRef,
                           drawingToolbarRef: refs.drawingToolbarRef,
-                          drawingTooltipRef: refs.drawingTooltipRef,
                           gridRect,
                           toolbarOffsetRef,
                           chartData: activeDisplayChartData,
@@ -1591,8 +1615,8 @@ const ChartUI: React.FC = () => {
                         width: gridRect ? gridRect.width : 800,
                         height: gridRect ? gridRect.height : 600,
                         pointerEvents: "none",
-                        overflow: "hidden",
-                        clipPath: "inset(0)",
+                        overflow: "visible",
+                        clipPath: "none",
                         zIndex: 60,
                       }}
                     >
@@ -1626,8 +1650,8 @@ const ChartUI: React.FC = () => {
                           touchAction: "none",
                         }}
                       >
-                        {selectedDrawing?.type &&
-                          (toolbarConfig as ToolbarConfig).drawings[selectedDrawing.type]?.toolbar.map(
+                        {selectedDrawingToolbarType &&
+                          (toolbarConfig as ToolbarConfig).drawings[selectedDrawingToolbarType]?.toolbar.map(
                             (btnId: string) => (
                               <ToolbarButton
                                 key={btnId}
@@ -1668,27 +1692,22 @@ const ChartUI: React.FC = () => {
                           )}
                       </div>
 
-                      <div
-                        ref={refs.drawingTooltipRef}
-                        style={{
-                          position: "absolute",
-                          display: "none",
-                          zIndex: 101,
-                          backgroundColor: "rgba(15, 23, 42, 0.9)",
-                          backdropFilter: "blur(4px)",
-                          padding: "4px 6px",
-                          borderRadius: "4px",
-                          color: "#e2e8f0",
-                          fontSize: "10px",
-                          fontWeight: 500,
-                          fontFamily: "Inter, sans-serif",
-                          whiteSpace: "pre-line",
-                          pointerEvents: "none",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                          lineHeight: "1.2",
-                        }}
-                      />
+                      {editingDrawing && editingDrawingPosition && (
+                        <InlineTextEditor
+                          position={editingDrawingPosition}
+                          drawing={editingDrawing}
+                          initialValue={
+                            editingTableCell && editingDrawing.tableProps
+                              ? editingDrawing.tableProps.cells[editingTableCell.row]?.[editingTableCell.col]?.text || ""
+                              : undefined
+                          }
+                          placeholder={editingDrawing.type === "signpost" ? "Add text" : undefined}
+                          onSave={(text) => stopEditingDrawing(text)}
+                          onCancel={() => { setEditingDrawingId(null); setEditingDrawingPosition(null); setEditingTableCell(null); }}
+                        />
+                      )}
+
+
                     </div>
                     </div>
                   </MultiChartLayoutGrid>
@@ -1755,7 +1774,7 @@ const ChartUI: React.FC = () => {
 
       {shouldMountModalOrchestrator && (
         <MemoizedModalOrchestrator
-          dr={selectedDrawing}
+          dr={selectedDrawing ?? undefined}
           updateDrawing={updateDrawing}
           startReplay={marketData.startReplay}
           setChartData={marketData.setChartData}

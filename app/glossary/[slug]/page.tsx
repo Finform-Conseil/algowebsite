@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, List } from '@phosphor-icons/react';
-import { GLOSSARY_TERMS } from '@/core/data/GlossaryData';
+import { GLOSSARY_TERMS } from '@/core/data/glossary-data/GlossaryData';
 
 export default function GlossaryDetailPage() {
   const params = useParams();

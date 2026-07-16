@@ -45,6 +45,10 @@ export interface UiState {
     isActive: boolean;
     isPaused: boolean;
     speed: number;
+    /** Index de la bougie actuellement affichée dans le replay (0-based depuis replayOriginalData) */
+    currentIndex: number;
+    /** Nombre total de bougies disponibles pour ce replay */
+    totalCandles: number;
   };
   isLockedAll: boolean;
   areDrawingsHidden: boolean;

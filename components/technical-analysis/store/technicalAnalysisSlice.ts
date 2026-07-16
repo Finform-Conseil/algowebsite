@@ -83,6 +83,8 @@ export const {
   setReplayActive,
   setReplayPaused,
   setReplaySpeed,
+  setReplayTotalCandles,
+  setReplayCurrentIndex,
   setLockedAll,
   toggleLockedAll,
   setAreDrawingsHidden,

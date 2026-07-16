@@ -59,3 +59,13 @@ Mode CRITICAL or SCRIBE/shared-surface mutation:
 - Use `.agent/workflow/scribe/scribe-rag gate` for bundle changes; it must stay green at 8/8.
 - Real pain capture is mandatory: bug >2 attempts, regression, costly rollback, or broken browser/visual smoke => SCAR with `cause_racine`, `resolution`, `test_binding`; retrieve related scars with `.agent/workflow/scribe/scribe-rag query/explain/challenge` before adjacent work.
 <!-- SCRIBE-PORTABLE-WORKFLOW:END -->
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)

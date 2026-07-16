@@ -9,9 +9,16 @@ const TOOL_LABELS: Record<string, string> = {
   horizontal_ray: "Horizontal Ray",
   polyline: "Polyline",
   path: "Path",
+  circle: "Circle",
+  ellipse: "Ellipse",
+  triangle: "Triangle",
+  arc: "Arc",
+  double_curve: "Double Curve",
   curve: "Curve",
   crosshair: "Crosshair",
   arrow_marker: "Arrow Marker",
+  arrow_mark_up: "Arrow Mark Up",
+  arrow_mark_down: "Arrow Mark Down",
   projection: "Projection",
   date_range: "Date Range",
   price_range: "Price Range",
@@ -62,6 +69,7 @@ const TOOL_LABELS: Record<string, string> = {
   sector: "Sector",
   anchored_volume_profile: "Anchored Volume Profile",
   fixed_range_volume_profile: "Fixed Range Volume Profile",
+  signpost: "Signpost",
 };
 
 export const getDrawingLabel = (type: string, index: number): string => `${TOOL_LABELS[type] ?? type} ${index + 1}`;

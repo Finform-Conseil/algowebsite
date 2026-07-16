@@ -25,7 +25,6 @@ export interface ChartOverlayRendererProps {
   chartInstanceRef: MutableRefObject<EChartsInstance | null>;
   drawingCanvasRef: RefObject<HTMLCanvasElement | null>;
   drawingToolbarRef: RefObject<HTMLDivElement | null>;
-  drawingTooltipRef: RefObject<HTMLDivElement | null>;
   gridRect: GridRect;
   toolbarOffsetRef: MutableRefObject<{ x: number; y: number }>;
   chartData: ChartDataPoint[];

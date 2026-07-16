@@ -1,6 +1,7 @@
 export interface ToolbarButtonDefinition {
   icon: string;
   iconLocked?: string;
+  iconAnchored?: string;
   title: string;
   action: string;
 }

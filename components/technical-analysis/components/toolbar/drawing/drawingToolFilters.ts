@@ -7,7 +7,8 @@ export type TrendDropdownView = "categories" | "drawing_tools" | "channels" | "p
 export type FibDropdownView = "categories" | "fibonacci" | "gann";
 export type ChartPatternsDropdownView = "categories" | "patterns" | "elliott" | "cycles";
 export type ForecastingDropdownView = "categories" | "forecasting" | "volume" | "measurers";
-export type BrushDropdownView = "categories" | "freehand";
+export type BrushDropdownView = "categories" | "brushes" | "arrows" | "formes";
+export type AnnotationDropdownView = "categories" | "text_notes" | "content";
 
 const includesToolQuery = (tool: DrawingToolConfig, query: string): boolean => {
   if (!query.trim()) return true;
@@ -63,7 +64,26 @@ export const filterBrushTools = (
 ): DrawingToolConfig[] => {
   return DRAWING_TOOL_SPECS.filter((tool) => {
     if (!includesToolQuery(tool, query)) return false;
-    if (view === "freehand") return tool.category === TOOL_CATEGORIES.BRUSH_DRAWING;
+    if (view === "brushes") return tool.id === "brush" || tool.id === "highlighter";
+    if (view === "arrows") return tool.id === "arrow_mark_up" || tool.id === "arrow_mark_down";
+    if (view === "formes") return tool.category === TOOL_CATEGORIES.SHAPES;
+    return false;
+  });
+};
+
+export const filterAnnotationTools = (
+  view: AnnotationDropdownView,
+  query: string,
+): DrawingToolConfig[] => {
+  const TEXT_NOTE_IDS = new Set<string>([
+    "text_note", "note", "price_note", "pin", "table", "callout",
+    "comment", "price_label", "signpost", "flag_mark",
+  ]);
+  const CONTENT_IDS = new Set<string>(["image_note", "post", "idea"]);
+  return DRAWING_TOOL_SPECS.filter((tool) => {
+    if (!includesToolQuery(tool, query)) return false;
+    if (view === "text_notes") return TEXT_NOTE_IDS.has(tool.id);
+    if (view === "content") return CONTENT_IDS.has(tool.id);
     return false;
   });
 };

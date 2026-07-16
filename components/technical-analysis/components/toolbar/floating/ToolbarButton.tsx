@@ -3,6 +3,8 @@ import clsx from "clsx";
 import type { DrawingStyle } from "../../../config/drawing/drawingPrimitiveTypes";
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { ToolbarConfig } from "../../../config/drawing/drawingToolbarTypes";
+import { TEXT_NOTE_TOOL_VARIANT_SET } from "../../../config/drawing/drawingConstants";
+import { getLockTooltip } from "../../../lib/drawingToolbarLabels";
 import { ToolbarButtonPopups } from "./ToolbarButtonPopups";
 
 interface ToolbarButtonProps {
@@ -74,12 +76,16 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     handleVisualOrder,
     toolbarConfig,
 }) => {
+
     if (!dr) return null;
 
     const def = toolbarConfig.button_definitions[buttonId];
     if (!def) return null;
 
     const drType = dr.type;
+    const isTextNote = TEXT_NOTE_TOOL_VARIANT_SET.has(drType);
+    const drToolbar = drType ? (toolbarConfig.drawings as Record<string, { toolbar: string[] }>)[drType]?.toolbar : undefined;
+    const hasSeparateFontSize = drToolbar?.includes("font_size") === true;
     const drawingStyle = (dr.style || {}) as DrawingStyle;
     const posProps = (dr.positionProps || {}) as NonNullable<Drawing["positionProps"]>;
     const hasQuickOptionsPopup =
@@ -101,11 +107,16 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     const fillEnabled = drawingStyle.fillEnabled !== false;
     const closePopup = () => setActiveToolbarPopup(null);
 
+
     const isActive = activeToolbarPopup === buttonId || (buttonId === "text" && activeToolbarPopup === "text_color");
     const isLocked = dr.locked;
-    const buttonTitle = buttonId === "visibility" 
-        ? (dr.hidden ? "Afficher" : "Masquer") 
-        : (buttonId === "thickness" && (drType === "brush" || drType === "highlighter") ? "Line tool width" : def.title);
+    const buttonTitle = buttonId === "text"
+        ? "Text"
+        : buttonId === "visibility"
+            ? (dr.hidden ? "Afficher" : "Masquer")
+            : buttonId === "lock"
+                ? getLockTooltip(dr.locked)
+                : (buttonId === "thickness" && (drType === "brush" || drType === "highlighter") ? "Line tool width" : def.title);
 
 
 
@@ -156,6 +167,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
             case "openQuickOptions":
                 setActiveToolbarPopup(isActive ? null : "quick_options");
                 break;
+            case "openFontSizePopup":
+                setActiveToolbarPopup(isActive ? null : "font_size");
+                break;
             case "openTextSettings":
                 setIsDrawingSettingsModalOpen(true);
                 break;
@@ -181,6 +195,55 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 setActiveToolbarPopup(isActive ? null : "layers");
                 break;
             case "drag":
+                break;
+            case "openShapeSwitcherPopup":
+                setActiveToolbarPopup(isActive ? null : "shape_switcher");
+                break;
+            case "toggleAnchor":
+                updateDrawing(dr.id, { anchored: !dr.anchored });
+                break;
+            case "addTableRow":
+                if (dr?.tableProps) {
+                    const tp = dr.tableProps;
+                    const newRow = tp.rows;
+                    const newRowHeights = [...tp.rowHeights, 30];
+                    const newCells = tp.cells.map(row => [...row]);
+                    newCells.push(Array.from({ length: tp.columns }, () => ({ text: "" })));
+                    updateDrawing(dr.id, {
+                        tableProps: { ...tp, rows: newRow + 1, rowHeights: newRowHeights, cells: newCells },
+                    });
+                }
+                break;
+            case "addTableColumn":
+                if (dr?.tableProps) {
+                    const tp = dr.tableProps;
+                    const newCol = tp.columns;
+                    const newColumnWidths = [...tp.columnWidths, 80];
+                    const newCells = tp.cells.map(row => [...row, { text: "" }]);
+                    updateDrawing(dr.id, {
+                        tableProps: { ...tp, columns: newCol + 1, columnWidths: newColumnWidths, cells: newCells },
+                    });
+                }
+                break;
+            case "removeTableRow":
+                if (dr?.tableProps && dr.tableProps.rows > 1) {
+                    const tp = dr.tableProps;
+                    const newRowHeights = tp.rowHeights.slice(0, -1);
+                    const newCells = tp.cells.slice(0, -1);
+                    updateDrawing(dr.id, {
+                        tableProps: { ...tp, rows: tp.rows - 1, rowHeights: newRowHeights, cells: newCells },
+                    });
+                }
+                break;
+            case "removeTableColumn":
+                if (dr?.tableProps && dr.tableProps.columns > 1) {
+                    const tp = dr.tableProps;
+                    const newColumnWidths = tp.columnWidths.slice(0, -1);
+                    const newCells = tp.cells.map(row => row.slice(0, -1));
+                    updateDrawing(dr.id, {
+                        tableProps: { ...tp, columns: tp.columns - 1, columnWidths: newColumnWidths, cells: newCells },
+                    });
+                }
                 break;
             default:
                 break;
@@ -240,12 +303,83 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
         );
     }
 
+    if (buttonId === "font_size") {
+        return (
+            <div key={buttonId} style={{ position: "relative" }}>
+                <button
+                    key={buttonId}
+                    onClick={handleClick}
+                    className="gp-toolbar-btn btn btn-link d-flex align-items-center justify-content-center"
+                    style={{
+                        width: "32px",
+                        height: "32px",
+                        padding: 0,
+                        textDecoration: "none",
+                        boxShadow: "none",
+                        outline: "none",
+                        color: isActive ? "#2962ff" : "#d1d4dc",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                    }}
+                    title={dr ? `Font size: ${dr.fontSize || 14}` : ""}
+                    aria-label="Font size"
+                >
+                    <span style={{ lineHeight: 1 }}>{dr?.fontSize || 14}</span>
+                </button>
+                <ToolbarButtonPopups
+                    buttonId={buttonId}
+                    drawing={dr}
+                    drawingType={drType}
+                    isActive={isActive}
+                    activeToolbarPopup={activeToolbarPopup}
+                    drawings={drawings}
+                    selectedDrawingId={selectedDrawingId}
+                    setSelectedDrawingId={setSelectedDrawingId}
+                    updateDrawing={updateDrawing}
+                    deleteDrawing={deleteDrawing}
+                    handleColorChange={handleColorChange}
+                    handleFillChange={handleFillChange}
+                    handleLineStyleChange={handleLineStyleChange}
+                    handleTextColorChange={handleTextColorChange}
+                    namedTemplates={namedTemplates}
+                    applyNamedTemplate={applyNamedTemplate}
+                    deleteNamedTemplate={deleteNamedTemplate}
+                    saveNamedTemplate={saveNamedTemplate}
+                    saveAsDefault={saveAsDefault}
+                    resetStyle={resetStyle}
+                    isSavingAs={isSavingAs}
+                    setIsSavingAs={setIsSavingAs}
+                    newTemplateName={newTemplateName}
+                    setNewTemplateName={setNewTemplateName}
+                    closePopup={closePopup}
+                    drawingStyle={drawingStyle}
+                    positionProps={posProps}
+                    lineColor={lineColor}
+                    lineOpacity={lineOpacity}
+                    lineWidth={lineWidth}
+                    lineStyle={lineStyle}
+                    fillColor={fillColor}
+                    fillOpacity={fillOpacity}
+                    fillEnabled={fillEnabled}
+                    hasQuickOptionsPopup={hasQuickOptionsPopup}
+                    handleClone={handleClone}
+                    handleHide={handleHide}
+                    handleReverse={handleReverse}
+                    handleCopyToClipboard={handleCopyToClipboard}
+                    handleVisualOrder={handleVisualOrder}
+                />
+            </div>
+        );
+    }
+
     const iconClass =
         buttonId === "lock" && isLocked
             ? def.iconLocked
             : buttonId === "visibility" && dr.hidden
                 ? "bi-eye-slash"
-                : def.icon;
+                : buttonId === "anchor" && dr.anchored
+                    ? def.iconAnchored
+                    : def.icon;
 
     return (
         <div key={buttonId} style={{ position: "relative" }}>
@@ -267,6 +401,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                     color: "#d1d4dc", // [TENOR 2026] TV Gray for Dark Theme
                 }}
                 title={buttonTitle}
+                aria-label={buttonTitle}
             >
                 {buttonId === "thickness" || buttonId === "line_style" || buttonId === "line" ? (
                     <div className="d-flex align-items-center justify-content-center px-1 gap-1" style={{ minWidth: "40px" }}>
@@ -342,6 +477,19 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                                 borderRadius: "1px",
                             }}
                         />
+                        {isTextNote && !hasSeparateFontSize && (
+                            <span
+                                style={{
+                                    fontSize: "9px",
+                                    lineHeight: 1,
+                                    color: "#d1d4dc",
+                                    opacity: 0.85,
+                                    fontWeight: 600,
+                                }}
+                            >
+                                {dr.fontSize || 14}
+                            </span>
+                        )}
                     </div>
                 ) : (
                     <div className="d-flex flex-column align-items-center justify-content-center" style={{ gap: "2px" }}>
@@ -372,7 +520,6 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                     </div>
                 )}
             </button>
-
 
             <ToolbarButtonPopups
                 buttonId={buttonId}

@@ -12,7 +12,7 @@ import type { Drawing } from "../config/drawing/drawingModelTypes";
 import type { Alert, Order } from "../config/state/technicalAnalysisStateTypes";
 import type { UiState } from "../config/state/uiStateTypes";
 import { DrawingRenderer } from "../lib/DrawingRenderer";
-import { MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS } from "../config/drawing/drawingConstants";
+import { MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS, TEXT_NOTE_TOOL_VARIANT_SET } from "../config/drawing/drawingConstants";
 import type { EChartsType } from "echarts/core";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import {
@@ -26,6 +26,9 @@ import {
   validateNamedTemplates,
   validateToolDefaults,
 } from "./drawing/drawingDefaults";
+import { createDefaultTableProps } from "../config/drawing/drawingTableTypes";
+import { pointerYToVerticalPositionPct } from "./drawing/drawingSignpostProjection";
+import { normalizeSignpost } from "./drawing/signpostNormalization";
 import {
   MAIN_GRID_LEFT,
   TV_X_AXIS_HEIGHT,
@@ -75,7 +78,64 @@ export const useDrawingManager = ({
   const [activeTool, setActiveTool] = useState<AllToolType>(null);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [, setCurrentDrawing] = useState<Drawing | null>(null);
-  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
+  const [selectedDrawingId, setSelectedDrawingIdState] = useState<string | null>(null);
+  const selectedDrawingIdRef = useRef<string | null>(null);
+  const setSelectedDrawingId = useCallback((id: string | null) => {
+    selectedDrawingIdRef.current = id;
+    setSelectedDrawingIdState(id);
+  }, []);
+  const suppressNextChartBgClickRef = useRef(false);
+  const [editingDrawingId, setEditingDrawingId] = useState<string | null>(null);
+  const [editingDrawingPosition, setEditingDrawingPosition] = useState<{ x: number; y: number } | null>(null);
+  const [editingTableCell, setEditingTableCell] = useState<{ row: number; col: number } | null>(null);
+  const editingDrawingIdRef = useRef<string | null>(null);
+  const editingTableCellRef = useRef<{ row: number; col: number } | null>(null);
+
+  useEffect(() => {
+    editingDrawingIdRef.current = editingDrawingId;
+  }, [editingDrawingId]);
+
+  useEffect(() => {
+    editingTableCellRef.current = editingTableCell;
+  }, [editingTableCell]);
+
+  // ============================================================================
+  // [SIGNPOST/TA] Local drawings persistence (IndexedDB).
+  // The live drawings array was previously held only in React state, so every
+  // reload dropped all drawings. We now persist it durably and re-normalize
+  // signposts (barIndex + clamped verticalPositionPct) on load.
+  // ============================================================================
+  const drawingsLoadedRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await idbGet<Drawing[]>("algoway_drawings");
+        if (!cancelled && Array.isArray(saved) && saved.length > 0) {
+          const restored = saved.map((d) =>
+            normalizeSignpost(d, { resolveBarIndex: (t) => Number(t) }),
+          );
+          setDrawings(restored);
+        }
+      } catch {
+        /* ignore corrupt/empty storage */
+      } finally {
+        if (!cancelled) drawingsLoadedRef.current = true;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!drawingsLoadedRef.current) return;
+    const handle = setTimeout(() => {
+      void idbSet("algoway_drawings", drawings).catch(() => {});
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [drawings]);
 
   // ============================================================================
   // [TENOR 2026 SRE] DIRTY FLAG ENGINE (CPU SHIELD)
@@ -190,7 +250,7 @@ export const useDrawingManager = ({
     }
     setActiveTool(null);
     markDirty();
-  }, [clearCurrentDrawing, resetDrawingInteraction, markDirty]);
+  }, [clearCurrentDrawing, resetDrawingInteraction, markDirty, setSelectedDrawingId]);
 
   // ============================================================================
   // [TENOR 2026 SRE] UNDO / REDO HISTORY STACK (OOM SHIELD)
@@ -267,7 +327,7 @@ export const useDrawingManager = ({
     });
     if (selectedIdRef.current === id) setSelectedDrawingId(null);
     markDirty();
-  }, [pushHistory, markDirty]);
+  }, [pushHistory, markDirty, setSelectedDrawingId]);
 
   const updateDrawing = useCallback((id: string, u: Partial<Drawing>) => {
     setDrawings(p => {
@@ -292,10 +352,16 @@ export const useDrawingManager = ({
     resetDrawingInteraction();
     addDrawing(finalDrawing);
     setSelectedDrawingId(finalDrawing.id);
+    suppressNextChartBgClickRef.current = SINGLE_CLICK_TOOLS.includes(finalDrawing.type);
+    if (suppressNextChartBgClickRef.current) {
+      requestAnimationFrame(() => {
+        suppressNextChartBgClickRef.current = false;
+      });
+    }
     clearCurrentDrawing();
     setActiveTool(null);
     markDirty();
-  }, [addDrawing, clearCurrentDrawing, resetDrawingInteraction, markDirty]);
+  }, [addDrawing, clearCurrentDrawing, resetDrawingInteraction, markDirty, setSelectedDrawingId]);
 
   const reorderDrawing = useCallback((id: string, dir: 'front' | 'back' | 'forward' | 'backward') => {
     setDrawings(prev => {
@@ -389,6 +455,12 @@ export const useDrawingManager = ({
     if (tool === "anchored_vwap") {
       return toolDefaults[tool] || { color: "#2962FF", lineWidth: 1, lineStyle: "solid", lineOpacity: 1 };
     }
+    if (tool === "arrow_mark_up") {
+      return toolDefaults[tool] || { color: "#089981", lineWidth: 2, lineStyle: "solid" };
+    }
+    if (tool === "arrow_mark_down") {
+      return toolDefaults[tool] || { color: "#ef5350", lineWidth: 2, lineStyle: "solid" };
+    }
     if (tool === "brush" || tool === "highlighter") {
       const isHighlighter = tool === "highlighter";
       const defaultColor = isHighlighter ? "#f5f500" : "#2962FF";
@@ -402,12 +474,23 @@ export const useDrawingManager = ({
         fillEnabled: false
       };
     }
+    if (tool === "price_note" || tool === "price_label") {
+      return toolDefaults[tool] || { color: "#2962FF", lineWidth: 2, lineStyle: "solid", fillColor: "#2962FF", fillOpacity: 0.9, fillEnabled: true };
+    }
+    if (tool === "signpost") {
+      return toolDefaults[tool] || { color: "#2962FF", lineWidth: 2, lineStyle: "solid", fillColor: "#2962FF", fillOpacity: 0.95, fillEnabled: true };
+    }
+    if (TEXT_NOTE_TOOL_VARIANT_SET.has(tool) || tool === "note") {
+      return toolDefaults[tool] || { color: "#ffffff", lineWidth: 2, lineStyle: "solid" };
+    }
+    if (tool === "rectangle" || tool === "rotated_rectangle" || tool === "circle" || tool === "ellipse" || tool === "triangle" || tool === "arc" || tool === "curve" || tool === "double_curve") {
+      return toolDefaults[tool] || { color: "#2962FF", lineWidth: 2, lineStyle: "solid", fillColor: "#2962FF", fillOpacity: 0.1, fillEnabled: true };
+    }
     return toolDefaults[tool] || { color: "#2962FF", lineWidth: 2, lineStyle: "solid", fillColor: "#2962FF", fillOpacity: 0.1 };
   }, [toolDefaults]);
 
-  const gridRectRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [gridRect, setGridRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const rendererRef = useRef<DrawingRenderer | null>(null);
+  const gridRectRef = useRef<{ x: number; y: number; width: number; height: number; right: number; bottom: number } | null>(null);
+  const [gridRect, setGridRect] = useState<{ x: number; y: number; width: number; height: number; right: number; bottom: number } | null>(null);  const rendererRef = useRef<DrawingRenderer | null>(null);
   const rendererCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastFreehandPixelRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -449,6 +532,10 @@ export const useDrawingManager = ({
       markDirty();
     };
     const handleBgClick = () => {
+      if (suppressNextChartBgClickRef.current) {
+        suppressNextChartBgClickRef.current = false;
+        return;
+      }
       if (!activeToolRef.current && !isDrawingRef.current) {
         setSelectedDrawingId(null);
         markDirty();
@@ -558,7 +645,9 @@ export const useDrawingManager = ({
           x: safeLeft,
           y: safeTop,
           width: Math.max(10, safeRight - safeLeft),
-          height: Math.max(10, safeBottom - safeTop)
+          height: Math.max(10, safeBottom - safeTop),
+          right: safeLeft + Math.max(10, safeRight - safeLeft),
+          bottom: safeTop + Math.max(10, safeBottom - safeTop),
         };
 
         if (!gridRectRef.current || 
@@ -621,7 +710,7 @@ export const useDrawingManager = ({
         detachFromChart(attachedToChart);
       }
     };
-  }, [drawingCanvasRef, chartInstanceRef, drawingInteractionScopeKey, markDirty]);
+  }, [drawingCanvasRef, chartInstanceRef, drawingInteractionScopeKey, markDirty, setSelectedDrawingId]);
 
 
   // --- Coordinate Conversion ---
@@ -741,6 +830,119 @@ export const useDrawingManager = ({
   const generateId = () => `drawing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   const lastTapRef = useRef<number>(0);
+
+  const startEditingDrawing = useCallback((d: Drawing, cellRow?: number, cellCol?: number) => {
+    const chart = chartInstanceRef.current;
+    if (!chart || !isChartUsable(chart) || d.points.length < 1) return;
+    let px: number;
+    let py: number;
+    if ((d.type === "triangle" || d.type === "arc" || d.type === "curve" || d.type === "double_curve") && d.points.length >= 3) {
+      const pts: number[][] = [];
+      for (let i = 0; i < 3; i++) {
+        const pixel = chart.convertToPixel({ seriesIndex: 0 }, [d.points[i].time, d.points[i].value]);
+        if (!pixel) return;
+        pts.push(pixel);
+      }
+      px = (pts[0][0] + pts[1][0] + pts[2][0]) / 3;
+      py = (pts[0][1] + pts[1][1] + pts[2][1]) / 3;
+    } else {
+      const pixel = chart.convertToPixel({ seriesIndex: 0 }, [d.points[0].time, d.points[0].value]);
+      if (!pixel) return;
+      px = pixel[0];
+      py = pixel[1];
+    }
+    if (cellRow !== undefined && cellCol !== undefined && d.tableProps) {
+      const tp = d.tableProps;
+      const alignH = d.textAlignmentHorizontal || "center";
+      const alignV = d.textAlignmentVertical || "middle";
+      let xAcc = 0;
+      for (let c = 0; c < cellCol && c < tp.columns; c++) {
+        xAcc += tp.columnWidths[c] + 1;
+      }
+      let yAcc = 0;
+      for (let r = 0; r < cellRow && r < tp.rows; r++) {
+        yAcc += tp.rowHeights[r] + 1;
+      }
+      const totalWidth = tp.columnWidths.reduce((a, b) => a + b, 0) + tp.columns + 1;
+      const totalHeight = tp.rowHeights.reduce((a, b) => a + b, 0) + tp.rows + 1;
+      let boxX: number;
+      switch (alignH) {
+        case "left": boxX = px; break;
+        case "right": boxX = px - totalWidth; break;
+        default: boxX = px - totalWidth / 2;
+      }
+      let boxY: number;
+      switch (alignV) {
+        case "top": boxY = py; break;
+        case "bottom": boxY = py - totalHeight; break;
+        default: boxY = py - totalHeight / 2;
+      }
+      px = boxX + xAcc + 1 + tp.columnWidths[cellCol] / 2;
+      py = boxY + yAcc + 1 + tp.rowHeights[cellRow] / 2;
+    }
+    setEditingDrawingId(d.id);
+    setEditingDrawingPosition({ x: px, y: py });
+    if (cellRow !== undefined && cellCol !== undefined) {
+      setEditingTableCell({ row: cellRow, col: cellCol });
+    } else {
+      setEditingTableCell(null);
+    }
+    isDraggingRef.current = false;
+    dragTargetRef.current = null;
+  }, [chartInstanceRef]);
+
+  const stopEditingDrawing = useCallback((text: string) => {
+    const id = editingDrawingIdRef.current;
+    const cell = editingTableCellRef.current;
+    if (id) {
+      if (cell) {
+        const drawing = drawingsRef.current.find(d => d.id === id);
+        if (drawing?.tableProps) {
+          const newCells = drawing.tableProps.cells.map(row => [...row]);
+          newCells[cell.row][cell.col] = { ...newCells[cell.row][cell.col], text };
+          updateDrawing(id, {
+            tableProps: { ...drawing.tableProps, cells: newCells },
+          });
+        }
+      } else {
+        updateDrawing(id, { text, showText: text.trim().length > 0 });
+      }
+    }
+    setEditingDrawingId(null);
+    setEditingDrawingPosition(null);
+    setEditingTableCell(null);
+  }, [updateDrawing]);
+
+  useEffect(() => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return;
+    const onDblClick = (e: MouseEvent) => {
+      if (isDrawingRef.current) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      if (!rendererRef.current || !isChartUsable(chartInstanceRef.current)) return;
+      const THRESHOLD = 15;
+      for (const d of drawingsRef.current) {
+        const result = rendererRef.current.hitTest(mx, my, d, chartInstanceRef.current, THRESHOLD);
+        if (result.isHit && d.points.length >= 2 && (d.type === "circle" || d.type === "ellipse" || d.type === "triangle" || d.type === "arc" || d.type === "curve" || d.type === "double_curve")) {
+          startEditingDrawing(d);
+          break;
+        }
+        if (
+          result.isHit &&
+          d.points.length >= 1 &&
+          !d.locked &&
+          (TEXT_NOTE_TOOL_VARIANT_SET.has(d.type) || d.type === "note" || d.type === "signpost")
+        ) {
+          startEditingDrawing(d, result.cellRow, result.cellCol);
+          break;
+        }
+      }
+    };
+    canvas.addEventListener("dblclick", onDblClick);
+    return () => canvas.removeEventListener("dblclick", onDblClick);
+  }, [drawingCanvasRef, chartInstanceRef, startEditingDrawing]);
 
   const handleDoubleClick = useCallback(() => {
     if (!isDrawingRef.current || !currentDrawingRef.current) return;
@@ -935,7 +1137,67 @@ export const useDrawingManager = ({
         newDrawing.anchoredVolumeProfileProps = createDefaultAnchoredVolumeProfileProps();
       }
 
+      if (TEXT_NOTE_TOOL_VARIANT_SET.has(newDrawing.type)) {
+        newDrawing.showText = true;
+        newDrawing.text = newDrawing.type === "price_label"
+          ? String(Math.round(coords.value).toLocaleString())
+          : newDrawing.type === "price_note"
+            ? String(Math.round(coords.value).toLocaleString())
+            : "Text";
+        newDrawing.textColor = newDrawing.style.color;
+        newDrawing.fontSize = newDrawing.type === "comment" ? 16 : 14;
+
+        if (newDrawing.type === "price_label") {
+          newDrawing.textColor = "#ffffff";
+          newDrawing.textBold = true;
+          newDrawing.style.color = "#2962FF";
+          newDrawing.style.fillColor = "#2962FF";
+          newDrawing.style.fillOpacity = 0.9;
+          newDrawing.style.fillEnabled = true;
+        }
+
+        if (newDrawing.type === "signpost") {
+          const signpostPixel = safeConvertToPixel(
+            chartInstanceRef.current,
+            [coords.time, coords.value],
+            getPriceSeriesIndex(chartInstanceRef.current),
+          );
+          const signpostVerticalPositionPct =
+            signpostPixel && gridRectRef.current
+              ? pointerYToVerticalPositionPct(signpostPixel[1], gridRectRef.current)
+              : 50;
+          // Neutral compact field: dark text on a light chip, marker colour only for stem/handle.
+          newDrawing.text = "";
+          newDrawing.showText = false;
+          newDrawing.textColor = "#131722";
+          newDrawing.textBold = false;
+          newDrawing.fontSize = 12;
+          newDrawing.style.color = "#2962FF";
+          newDrawing.style.fillColor = "#2962FF";
+          newDrawing.style.fillOpacity = 0.95;
+          newDrawing.style.fillEnabled = true;
+          newDrawing.emojiPin = {
+            enabled: false,
+            emoji: "📍",
+            color: "#2962FF",
+            opacity: 1,
+          };
+          newDrawing.signpostProps = {
+            barIndex: resolveTimeToChartIndex(coords.time),
+            barTime: coords.time,
+            verticalPositionPct: signpostVerticalPositionPct,
+          };
+        }
+
+        if (newDrawing.type === "table") {
+          newDrawing.tableProps = createDefaultTableProps();
+        }
+      }
+
       completeDrawingSession(newDrawing);
+      if (newDrawing.type === "signpost") {
+        startEditingDrawing(newDrawing);
+      }
       return;
     }
 
@@ -1404,6 +1666,20 @@ export const useDrawingManager = ({
               data: extractBarPatternData(updatedPoints[0], updatedPoints[1])
             };
           }
+          if (finalDrawing.type === "note" || finalDrawing.type === "callout" || finalDrawing.type === "comment") {
+            finalDrawing.showText = true;
+            finalDrawing.text = "Text";
+            finalDrawing.textColor = finalDrawing.style.color;
+            finalDrawing.fontSize = finalDrawing.type === "comment" ? 16 : 14;
+          }
+          if (finalDrawing.type === "price_note") {
+            finalDrawing.showText = true;
+            const p2 = updatedPoints[updatedPoints.length - 1];
+            finalDrawing.text = Math.round(p2.value).toLocaleString();
+            finalDrawing.textColor = "#ffffff";
+            finalDrawing.fontSize = 14;
+            finalDrawing.textBold = true;
+          }
           completeDrawingSession(finalDrawing);
         } else {
           const updatedDrawing = { ...currentDrawingRef.current, points: updatedPoints };
@@ -1414,7 +1690,7 @@ export const useDrawingManager = ({
       }
       return;
     }
-  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData]);
+  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
@@ -1458,7 +1734,34 @@ export const useDrawingManager = ({
         const priceIdx = getPriceSeriesIndex(chart);
         const currentCoords = safeConvertFromPixel(chart, [mx, my], priceIdx);
         if (currentCoords) {
-          if (d.type === 'sector') {
+          if (d.type === 'rotated_rectangle' && pointIndex === 2 && d.points.length >= 3) {
+            const p0Pix = safeConvertToPixel(chart, [d.points[0].time, d.points[0].value], priceIdx);
+            const p1Pix = safeConvertToPixel(chart, [d.points[1].time, d.points[1].value], priceIdx);
+            const p2Pix = safeConvertToPixel(chart, [d.points[2].time, d.points[2].value], priceIdx);
+            if (p0Pix && p1Pix && p2Pix) {
+              const topMidX = (p0Pix[0] + p1Pix[0]) / 2;
+              const topMidY = (p0Pix[1] + p1Pix[1]) / 2;
+              const centerX = (topMidX + p2Pix[0]) / 2;
+              const centerY = (topMidY + p2Pix[1]) / 2;
+              const startAngle = Math.atan2(mouseStart.y - centerY, mouseStart.x - centerX);
+              const currentAngle = Math.atan2(my - centerY, mx - centerX);
+              const delta = currentAngle - startAngle;
+              const cos = Math.cos(delta);
+              const sin = Math.sin(delta);
+              newPoints = initialPoints.map((p) => {
+                const startPix = safeConvertToPixel(dragChart, [p.time, p.value], priceIdx);
+                if (!startPix) return p;
+                const relX = startPix[0] - centerX;
+                const relY = startPix[1] - centerY;
+                const rotated: [number, number] = [
+                  centerX + relX * cos - relY * sin,
+                  centerY + relX * sin + relY * cos,
+                ];
+                const rotatedCoords = safeConvertFromPixel(dragChart, rotated, priceIdx);
+                return rotatedCoords ? { time: rotatedCoords[0], value: rotatedCoords[1] } : p;
+              });
+            }
+          } else if (d.type === 'sector') {
             const p0 = d.points[0];
             const p0Pix = safeConvertToPixel(chart, [p0.time, p0.value], priceIdx);
             if (p0Pix) {
@@ -1736,6 +2039,13 @@ export const useDrawingManager = ({
     handleKeyDown,
     drawingCanvasRef,
     gridRect,
+    editingDrawingId,
+    editingDrawingPosition,
+    editingTableCell,
+    stopEditingDrawing,
+    setEditingDrawingId,
+    setEditingDrawingPosition,
+    setEditingTableCell,
   };
 };
 // --- EOF ---
