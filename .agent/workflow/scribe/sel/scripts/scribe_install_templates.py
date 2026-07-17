@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from textwrap import dedent
 
 AGENTS_START = "<!-- SCRIBE-PORTABLE-WORKFLOW:START -->"
 AGENTS_END = "<!-- SCRIBE-PORTABLE-WORKFLOW:END -->"
@@ -32,269 +33,300 @@ BUNDLE_RELATIVE_PATH = PORTABLE_RELATIVE_PATH
 BUNDLE_COMMAND = f"{PORTABLE_RELATIVE_PATH}/scribe"
 RAG_COMMAND = f"{PORTABLE_RELATIVE_PATH}/scribe-rag"
 SCRIBE_RULE_PATH = ".agent/rules/scribe.md"
+TENOR_TRIGGER = "TENOR INIT::[.agent/skills/init-tenor/SKILL.md]"
+TENOR_SKILL_PATH = ".agent/skills/init-tenor/SKILL.md"
+TENOR_RULE_PATH = ".agent/rules/tenor-init-v2.json"
+DOC_SYNC_PATH = ".agent/docs/DOCUMENTATION_SYNC_POLICY.md"
+
+
+def _text(value: str) -> str:
+    return dedent(value).lstrip("\n")
 
 
 def render_scribe_rule() -> str:
-    return f"""---
-trigger: always_on
----
+    return _text(
+        f"""
+        ---
+        trigger: always_on
+        ---
 
-# SCRIBE — REGLE ALWAYS-ON
+        # SCRIBE/TENOR — RÈGLE ALWAYS-ON V2.16
 
-Ce fichier est une regle courte pour les LLM hotes. Il ne remplace pas le
-protocole complet.
+        Ce fichier est la règle courte destinée aux LLM hôtes. Il ne remplace pas le skill d'initialisation ni le document d'autorité.
 
-## Source canonique
+        ## Démarrage canonique
 
-- Racine portable unique: `{BUNDLE_RELATIVE_PATH}/`
-- CLI maintenance interne: `{BUNDLE_COMMAND}`
-- CLI lecture agent: `{RAG_COMMAND}`
-- Protocole complet: `{SEL_RELATIVE_PATH}/docs/scribe.md`
-- Regles locales: `{SEL_RELATIVE_PATH}/docs/AGENTS.md`
-- Politique de friction: `{SEL_RELATIVE_PATH}/docs/friction-policy.md`
-- Installation multi-agent: `{SEL_RELATIVE_PATH}/docs/multi-agent-installation.md`
-- Coordination live: `{SEL_RELATIVE_PATH}/docs/live-coordination.md`
-- Skill init: `.agent/skills/init-tenor/SKILL.md`
+        Déclencheur humain/LLM :
 
-Tout chemin SCRIBE hors de `{BUNDLE_RELATIVE_PATH}/` est non canonique. Ne pas
-creer de dossier de compatibilite visible; corriger les anciens appels vers les
-commandes ci-dessus.
+        ```text
+        {TENOR_TRIGGER}
+        ```
 
-## Etat stabilise 2026-06-01
+        Commande mécanique depuis la racine du projet :
 
-Le bundle est stable et ne doit plus etre perfectionne hors bug reel:
+        ```bash
+        {BUNDLE_COMMAND} tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>
+        ```
 
-- SEL: tests verts (`81 OK` apres les tests lock ownership).
-- RAG: tests verts (`25 OK`).
-- Gate/eval: `{RAG_COMMAND} gate` vert a `8/8`.
-- Doctor: `0 error`; `W009` legacy pre-V3.2 reste cosmetique.
-- Identite/presence: `os.getpid()` utilise, stale PID nettoye, IDs/PIDs simultanes distincts.
-- Coordination: claims avec `ttl_seconds` et `expires_at`; claims expires ou sans TTL nettoyes.
-- Lock: `release` verifie agent/surface avant de nettoyer un stale lock; utiliser `SCRIBE_OWNER_PID` ou `--owner-pid` pour representer un processus proprietaire long-vivant.
-- Backup de reference: `~/backups/agent-scribe-stable-20260601.tar.gz`.
-- Ratio causal mesure: environ `17.5%`, cible `35%`; ne jamais creer de SCAR/GHOST/PAT cosmetique pour gonfler ce ratio.
-- Reflexe douleur reelle: bug resolu en plus de 2 tentatives, regression, rollback couteux ou smoke visuel casse => SCAR immediat avec `cause_racine`, `resolution` et `test_binding`; avant une tache proche, interroger `scribe-rag query/explain/challenge` pour exploiter ces cicatrices.
+        Sous Windows :
 
-Instruction operationnelle: STOP `.agent`. Revenir au vrai projet. Ne rouvrir
-le chantier SCRIBE que pour un bug SCRIBE observe, un test rouge, ou une derive
-documentaire concrete.
+        ```powershell
+        py -3 .agent/workflow/scribe/scribe tenor-init --type cli --host <host-id|auto>
+        ```
 
-## Reflexe de demarrage par tier
+        `tenor-init` est l'unique autorité publique d'installation, de relocation et de reprise. `bootstrap` est une primitive interne/legacy et ne doit jamais remplacer TENOR INIT dans un bundle V2.16.
 
-Depuis la racine du projet:
+        ## Autorité et ordre
 
-```bash
-{BUNDLE_COMMAND} bootstrap
-```
+        TENOR INIT doit :
 
-`bootstrap` est idempotent et initialise seulement ce qui manque:
-`AGENT-MEMOIRE_PROJECT_STATUS.scribe`, `.agent/state/outputs/scribe-out/`, `state.json`,
-`.graphifyignore` et le bloc gere de `AGENTS.md`. Il ne lance aucun daemon.
+        1. résoudre le root courant ;
+        2. classifier l'installation avant SCRIBE ;
+        3. purger uniquement l'état copié lié à un ancien root quand la relocation est prouvée ;
+        4. adopter ou créer la mémoire SCRIBE de destination ;
+        5. vérifier ou demander le build Graphify borné ;
+        6. finaliser le manifest local ;
+        7. détecter et configurer uniquement le host project-local vérifié ;
+        8. exiger une reconnexion puis une nouvelle init si la configuration change ;
+        9. vérifier le serveur MCP local ;
+        10. vérifier la visibilité réelle des tools dans le host ;
+        11. prouver le root binding ;
+        12. bridger la session indépendante avec la preuve serveur one-shot ;
+        13. produire `TENOR_INIT_READY`.
 
-Mode NANO, correction < 30 min, 1 fichier, sans surface partagee:
+        Tant que les tools ne sont pas visibles dans le host réel, le verdict maximal est :
 
-```bash
-{RAG_COMMAND} context
-```
+        ```text
+        LOCAL_INIT_READY_HOST_MCP_UNBOUND
+        ```
 
-Mode STANDARD, changement significatif:
+        `python3 .agent/mcp/server_entry.py --list-tools` ou un JSON-RPC lancé depuis un shell ne prouve jamais la visibilité host.
 
-```bash
-{RAG_COMMAND} build
-{RAG_COMMAND} context
-{RAG_COMMAND} challenge "<plan>"
-```
+        ## Graphify et SCRIBE
 
-Mode CRITICAL ou mutation SCRIBE/surface partagee:
+        - Graphify = structure : quoi, où, comment, dépendances, centralité, communautés, blast radius.
+        - SCRIBE = causalité : pourquoi, douleur, décision, régression, SCAR, GHOST, dette, `ne_pas_reproposer`.
+        - Les outputs Graphify canoniques vivent sous `.agent/state/outputs/graphify-out/`.
+        - Le graphe réel peut exposer `nodes + links` ; le format historique supporté est `nodes + edges`.
+        - Un graphe manquant, vide à tort, stub, wrong-root, stale ou contradictoire bloque les writes.
+        - Les agents lisent la mémoire via `{RAG_COMMAND}` ou MCP `scribe_query`, jamais en parcourant directement le fichier `.scribe`.
+        - Une requête mémoire doit modifier le plan ou produire une contradiction explicitement auditée.
+        - Protocole complet : `{SEL_RELATIVE_PATH}/docs/scribe.md`.
 
-```bash
-{BUNDLE_COMMAND} workflow read --agent <name> --type <extension|cli|api|unknown>
-{BUNDLE_COMMAND} workflow check --agent <name>
-{BUNDLE_COMMAND} sync --agent <name> --type <extension|cli|api|unknown>
-{RAG_COMMAND} preflight --tier CRITICAL --strict "<objectif ou plan de session>"
-```
+        ## Workflow par tâche
 
-`workflow read` calcule le SHA du workflow canonique et enregistre l'ack dans
-`.agent/state/outputs/scribe-out/workflow-acks.json`. `workflow check` doit etre vert avant toute
-mutation SCRIBE ou surface partagee.
+        Avant toute mutation produit :
 
-En mode 4 terminaux, ne pas imposer de noms fixes. Chaque terminal demarre en
-presence `idle`, obtient son ID via `scribe whoami`, lit `coordination status`,
-puis prend un `coordination claim` seulement quand une tache concrete arrive.
-`workflow status` affiche le pool reel; `--required ... --strict` sert uniquement
-si une liste nommee est imposee.
+        ```text
+        tenor_task_start(objective, intent, resources, scope)
+          -> SCRIBE cible + Graphify cible, executes en interne
+        tenor_apply_changeset(task_id, changes[], validators[])
+          -> preflight complet + locks ordonnes + commit atomique ou rollback total
+          -> record SCRIBE runtime + cloture terminale
+        ```
 
-```bash
-{BUNDLE_COMMAND} whoami --type cli --surface idle
-{BUNDLE_COMMAND} coordination status
-{BUNDLE_COMMAND} workflow status
-```
+        Les writes directs via shell, redirection, `tee`, `sed -i`, `cp`, `mv`, `rm`, outil natif edit/write/apply-patch ou équivalent sont interdits hors MCP.
 
-Preuve minimale attendue dans chaque reponse de travail non triviale:
-`SCRIBE_RAG_PROOF: preflight <tier> | eval X/8 | challenge <VERDICT>`.
-Si `preflight` signale `HYBRID_REQUIRED`, reconstruire avec
-`scribe-rag build --with-embeddings --force` ou justifier explicitement le
-maintien BM25.
+        L'API normale de tâche contient seulement `tenor_task_start`,
+        `tenor_apply_changeset`, `tenor_activity` et `tenor_task_control`. Les anciens
+        outils fins restent internes pour compatibilité ; le LLM hôte ne doit jamais
+        reconstruire manuellement leur chorégraphie.
 
-## Dashboard SCRIBE
+        ## Multi-agent
 
-```bash
-{BUNDLE_COMMAND} dashboard
-{BUNDLE_COMMAND} dashboard --serve --host 127.0.0.1 --port 8765
-```
+        - Chaque terminal exécute son propre TENOR INIT et reçoit une session distincte.
+        - Le bootstrap partagé est sérialisé.
+        - `TENOR_INIT_SAME_PROJECT` ne purge jamais la coordination active.
+        - Les agents partagent runtime SQLite, SCRIBE et Graphify.
+        - L'identité est liée au processus MCP après le bridge ; les appels de tâche n'acceptent ni `agent_id` ni token fourni par le LLM.
+        - Un agent ne peut ni retirer ni contrôler la tâche d'un autre agent.
+        - Un heartbeat daemon et un TTL roulant maintiennent l'activité réelle sans masquer un processus mort.
+        - Toute clôture laisse zéro transaction ou lock en attente.
 
-`dashboard` genere un HTML statique dans `.agent/state/outputs/scribe-out/`. `dashboard --serve`
-lance a la demande un serveur HTTP local leger (`ThreadingHTTPServer`) pour vue
-live/reload; ce processus s'arrete avec Ctrl+C et n'est jamais demarre par
-`bootstrap`.
+        ## Mémoire causale
 
-## Reflexe avant mutation SCRIBE
+        Avant de fermer une vraie session, poser :
 
-Avant toute commande qui modifie la memoire:
+        > Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?
 
-```bash
-{BUNDLE_COMMAND} workflow check --agent <name>
-{BUNDLE_COMMAND} doctor --suggest-fix
-{BUNDLE_COMMAND} lock acquire --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>
-```
+        Une douleur, cause racine, régression ou approche rejetée durable devient SCAR/GHOST/PAT selon le cas. Une activité sans valeur causale ne doit pas être promue artificiellement.
 
-Apres validation:
+        ## Hygiène et documentation
 
-```bash
-{BUNDLE_COMMAND} doctor --suggest-fix
-{BUNDLE_COMMAND} sync --repair --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>
-{BUNDLE_COMMAND} lock release --agent <name>
-```
+        - Les outputs runtime et Graphify générés restent hors des commits produit par défaut.
+        - `.agent/` n'est versionné que lors d'une maintenance intentionnelle de l'outillage.
+        - Toute évolution d'architecture doit synchroniser les surfaces listées dans `{DOC_SYNC_PATH}` et leurs générateurs.
+        - Les anciens baselines datés, fichiers `.old` et exemples pré-V2.16 sont historiques, jamais normatifs.
 
-`lock acquire` refuse un agent sans ack workflow frais. Utiliser `--surface <nom>`
-pour reserver une surface partagee non-SCRIBE avec le meme garde-fou. `lock release`
-ne supprime plus le stale lock d'un autre agent: il verifie agent et surface avant
-nettoyage.
+        ## Invariant SAME_PROJECT (V2.16.1)
 
-Les commandes SEL read-only de maintenance (`explain`, `related`, `stats`, `doctor`)
-ne doivent pas etre bloquees par le lock. Pour le retrieval agent, ne pas appeler
-`scribe context` ni `scribe query` directement; utiliser `scribe-rag preflight`, puis
-`scribe-rag query/explain/challenge` selon le besoin.
+        Sur `TENOR_INIT_SAME_PROJECT`, `bootstrap_project()` n'appelle jamais l'installateur forcé et ne réécrit aucun fichier suivi du bundle. La dérive est signalée en warning ; la réparation reste explicite (`scribe install --force`). TENOR peut uniquement gérer l'entrée MCP project-local vérifiée et son reçu de binding. `NEW_INSTALLATION` / `RELOCATED_PROJECT` / `LEGACY_INSTALLATION` conservent l'installation du bundle.
 
-## Separation Graphify / SCRIBE
+        ## Invariant purge/migration sans perte (V2.16.2)
 
-- Graphify = structure du code: quoi, ou, comment.
-- SCRIBE = causalite: pourquoi, douleur, decision, cicatrice.
+        Une purge de runtime conserve `.agent/state/outputs/` byte-for-byte. Elle réinitialise seulement les états projet-liés (runtime, proofs, locks, sessions, agents, redteam, backups et manifest). Les outputs Graphify préservés doivent encore réussir la validation root/fingerprint avant readiness. Lors d'un conflit de migration, la destination canonique gagne et la donnée legacy est placée sous `_legacy_migrated/`.
+        """
+    )
 
-Ne pas ecrire dans SCRIBE ce que Graphify peut deduire du code. Ecrire un
-SCAR ou un GHOST seulement si l'information evitera une vraie souffrance au
-prochain agent.
-
-## Hygiene Git / push
-
-- Scope par defaut: le code produit du projet hote.
-- `AGENT-MEMOIRE_PROJECT_STATUS.scribe`: a versionner seulement si l'equipe
-  veut partager la memoire causale entre agents et humains.
-- `.agent/state/outputs/graphify-out/`: ne pas versionner par defaut; c'est un graphe genere,
-  reconstructible avec `graphify update .`.
-- `.agent/state/outputs/scribe-out/`: ne pas versionner par defaut; c'est de l'etat runtime local
-  (index, locks, rapports, dashboards, exports, sync metadata).
-- `.agent/`: a versionner seulement quand l'equipe maintient volontairement
-  l'outillage agentique; sinon le garder hors des commits produit.
-
-Avant livraison, utiliser `{BUNDLE_COMMAND} worktree` pour separer source
-reelle, memoire causale validee, tooling volontaire et bruit genere. Quand le bundle
-SCRIBE/RAG change, lancer aussi `{RAG_COMMAND} gate`; le gate doit rester a 8/8
-pour CI/pre-commit.
-
-## Intention finale obligatoire
-
-Avant de fermer une vraie session de coding, poser cette question:
-
-> "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
-
-Si la reponse est une douleur concrete, la graver en SCAR ou GHOST. Sinon, le
-JOURNAL suffit.
-"""
 
 def render_scribe_adapter() -> str:
-    return '#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport runpy\nimport sys\nfrom pathlib import Path\n\n\nsys.dont_write_bytecode = True\n\n\nMEMORY_COMMANDS = {\n    "hot",\n    "context",\n    "stats",\n    "explain",\n    "related",\n    "query",\n    "challenge",\n    "eval",\n    "compact",\n    "review-hot",\n    "promote",\n    "export",\n    "archive",\n    "dashboard",\n}\n\n\ndef main() -> int:\n    root = Path(__file__).resolve().parent\n    scripts_dir = root / ".agent" / "workflow" / "scribe" / "sel" / "scripts"\n    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:\n        print("Usage:")\n        print("  ./scribe doctor [SCRIBE_PATH] [--output REPORT] [--suggest-fix]")\n        print("  ./scribe guard [SCRIBE_PATH] -- <command> [args...]")\n        print("  ./scribe install [TARGET_PATH] [--force] [--dry-run]")\n        print("  ./scribe bootstrap [--root PATH]")\n        print("  ./scribe tenor-init [--root PATH] [--agent NAME] [--type cli|extension|api|unknown]")\n        print("  ./scribe clean --dry-run|--apply [--graphify] [--agent-cache]")\n        print("  ./scribe lock acquire|release|status")\n        print("  ./scribe sync|whoami")\n        print("  ./scribe workflow read|check|status")\n        print("  ./scribe hot|context|stats|explain|related|query|challenge|eval|compact|review-hot|promote|export|archive|dashboard")\n        print("  ./scribe graph [--build] [--query TEXT] [--budget N]")\n        print("  ./scribe graphify-hooks [--apply] [--template PATH] [--trusted-hooks PATH]")\n        print("  ./scribe benchmark [--entities 1000,10000] [--queries N] [--json]")\n        print("  ./scribe worktree [--strict]")\n        return 0\n\n    command = sys.argv.pop(1)\n    scripts = {\n        "doctor": "scribe_doctor.py",\n        "guard": "scribe_guard.py",\n        "install": "scribe_install.py",\n        "bootstrap": "scribe_bootstrap.py",\n        "tenor-init": "scribe_tenor_init.py",\n        "clean": "scribe_clean.py",\n        "lock": "scribe_lock.py",\n        "sync": "scribe_state.py",\n        "whoami": "scribe_state.py",\n        "workflow": "scribe_state.py",\n        "graph": "scribe_bundle_graph.py",\n        "worktree": "scribe_worktree.py",\n        "benchmark": "scribe_benchmark.py",\n        "graphify-hooks": "scribe_graphify_hooks.py",\n    }\n    for memory_command in MEMORY_COMMANDS:\n        scripts[memory_command] = "scribe_memory.py"\n    script = scripts.get(command)\n    if script is None:\n        print(f"Unknown scribe command: {command}", file=sys.stderr)\n        print(\n            "Available commands: doctor, guard, install, bootstrap, tenor-init, clean, hot, context, stats, explain, related, query, "\n            "challenge, eval, compact, review-hot, promote, export, archive, dashboard, lock, sync, whoami, workflow, graph, graphify-hooks, benchmark, worktree",\n            file=sys.stderr,\n        )\n        return 2\n\n    if command in MEMORY_COMMANDS:\n        sys.argv.insert(1, command)\n    if command in {"sync", "whoami", "workflow"}:\n        sys.argv.insert(1, command)\n    sys.path.insert(0, str(scripts_dir))\n    runpy.run_path(str(scripts_dir / script), run_name="__main__")\n    return 0\n\n\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
+    return _text(
+        '''
+        #!/usr/bin/env python3
+        from __future__ import annotations
+
+        import runpy
+        import sys
+        from pathlib import Path
+
+        sys.dont_write_bytecode = True
+
+        MEMORY_COMMANDS = {
+            "hot", "context", "stats", "explain", "related", "query",
+            "challenge", "eval", "compact", "review-hot", "promote",
+            "export", "archive", "dashboard",
+        }
+
+
+        def main() -> int:
+            root = Path(__file__).resolve().parent
+            scripts_dir = root / ".agent" / "workflow" / "scribe" / "sel" / "scripts"
+            if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:
+                print("Usage:")
+                print("  scribe tenor-init [--root PATH] [--agent NAME] [--type cli|extension|api|unknown] [--host HOST|auto]")
+                print("  scribe bootstrap [--root PATH]  # internal/legacy primitive")
+                print("  scribe doctor|guard|install|clean|lock|sync|whoami|workflow|coordination")
+                print("  scribe hot|context|stats|explain|related|query|challenge|eval|compact|review-hot|promote|export|archive|dashboard")
+                print("  scribe graph|graphify-hooks|benchmark|worktree")
+                return 0
+
+            command = sys.argv.pop(1)
+            scripts = {
+                "doctor": "scribe_doctor.py",
+                "guard": "scribe_guard.py",
+                "install": "scribe_install.py",
+                "bootstrap": "scribe_bootstrap.py",
+                "tenor-init": "scribe_tenor_init_v216.py",
+                "clean": "scribe_clean.py",
+                "lock": "scribe_lock.py",
+                "sync": "scribe_state.py",
+                "whoami": "scribe_state.py",
+                "workflow": "scribe_state.py",
+                "coordination": "scribe_coordination.py",
+                "coord": "scribe_coordination.py",
+                "graph": "scribe_bundle_graph.py",
+                "worktree": "scribe_worktree.py",
+                "benchmark": "scribe_benchmark.py",
+                "graphify-hooks": "scribe_graphify_hooks.py",
+            }
+            for memory_command in MEMORY_COMMANDS:
+                scripts[memory_command] = "scribe_memory.py"
+            script = scripts.get(command)
+            if script is None:
+                print(f"Unknown scribe command: {command}", file=sys.stderr)
+                return 2
+            if command in MEMORY_COMMANDS:
+                sys.argv.insert(1, command)
+            if command in {"sync", "whoami", "workflow"}:
+                sys.argv.insert(1, command)
+            sys.path.insert(0, str(scripts_dir))
+            runpy.run_path(str(scripts_dir / script), run_name="__main__")
+            return 0
+
+
+        if __name__ == "__main__":
+            raise SystemExit(main())
+        '''
+    )
+
 
 def render_shim_helper() -> str:
-    return '''from __future__ import annotations
+    return _text(
+        '''
+        from __future__ import annotations
 
-import importlib.util
-import runpy
-import sys
-from pathlib import Path
-from types import ModuleType
-from typing import Any
+        import importlib.util
+        import runpy
+        import sys
+        from pathlib import Path
+        from types import ModuleType
+        from typing import Any
 
-
-sys.dont_write_bytecode = True
-
-ROOT = Path(__file__).resolve().parents[1]
-CANONICAL_SCRIPTS_DIR = ROOT / ".agent" / "workflow" / "scribe" / "sel" / "scripts"
-
-
-def ensure_canonical_path() -> None:
-    scripts_path = str(CANONICAL_SCRIPTS_DIR)
-    if scripts_path not in sys.path:
-        sys.path.insert(0, scripts_path)
+        sys.dont_write_bytecode = True
+        ROOT = Path(__file__).resolve().parents[1]
+        CANONICAL_SCRIPTS_DIR = ROOT / ".agent" / "workflow" / "scribe" / "sel" / "scripts"
 
 
-def load_canonical_module(module_name: str) -> ModuleType:
-    ensure_canonical_path()
-    module_path = CANONICAL_SCRIPTS_DIR / f"{module_name}.py"
-    if not module_path.exists():
-        raise ModuleNotFoundError(f"Cannot find SCRIBE bundle module: {module_path}")
-
-    private_name = f"_scribe_bundle_{module_name}"
-    cached = sys.modules.get(private_name)
-    if cached is not None:
-        return cached
-
-    spec = importlib.util.spec_from_file_location(private_name, module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load SCRIBE bundle module: {module_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[private_name] = module
-    spec.loader.exec_module(module)
-    return module
+        def ensure_canonical_path() -> None:
+            scripts_path = str(CANONICAL_SCRIPTS_DIR)
+            if scripts_path not in sys.path:
+                sys.path.insert(0, scripts_path)
 
 
-def export_canonical(namespace: dict[str, Any], module_name: str) -> None:
-    module = load_canonical_module(module_name)
-    public_names = [name for name in vars(module) if not name.startswith("_")]
-    namespace["__doc__"] = module.__doc__
-    namespace["__all__"] = public_names
-    for name in public_names:
-        namespace[name] = getattr(module, name)
+        def load_canonical_module(module_name: str) -> ModuleType:
+            ensure_canonical_path()
+            module_path = CANONICAL_SCRIPTS_DIR / f"{module_name}.py"
+            if not module_path.is_file():
+                raise ModuleNotFoundError(f"Cannot find SCRIBE bundle module: {module_path}")
+            private_name = f"_scribe_bundle_{module_name}"
+            cached = sys.modules.get(private_name)
+            if cached is not None:
+                return cached
+            spec = importlib.util.spec_from_file_location(private_name, module_path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot load SCRIBE bundle module: {module_path}")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[private_name] = module
+            try:
+                spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(private_name, None)
+                raise
+            return module
 
 
-def run_canonical_script(module_name: str) -> None:
-    ensure_canonical_path()
-    runpy.run_path(str(CANONICAL_SCRIPTS_DIR / f"{module_name}.py"), run_name="__main__")
-'''
+        def export_canonical(namespace: dict[str, Any], module_name: str) -> None:
+            module = load_canonical_module(module_name)
+            public_names = [name for name in vars(module) if not name.startswith("_")]
+            namespace["__doc__"] = module.__doc__
+            namespace["__all__"] = public_names
+            for name in public_names:
+                namespace[name] = getattr(module, name)
+
+
+        def run_canonical_script(module_name: str) -> None:
+            ensure_canonical_path()
+            runpy.run_path(str(CANONICAL_SCRIPTS_DIR / f"{module_name}.py"), run_name="__main__")
+        '''
+    )
 
 
 def render_module_shim(module_name: str, cli_modules: set[str]) -> str:
+    if not module_name or any(part in module_name for part in ("/", "\\", "..")):
+        raise ValueError(f"invalid module name: {module_name!r}")
     if module_name in cli_modules:
-        return f'''#!/usr/bin/env python3
-from __future__ import annotations
+        return _text(
+            f'''
+            #!/usr/bin/env python3
+            from __future__ import annotations
 
-from _bundle_shim import export_canonical, run_canonical_script
+            from _bundle_shim import export_canonical, run_canonical_script
 
+            export_canonical(globals(), "{module_name}")
 
-export_canonical(globals(), "{module_name}")
+            if __name__ == "__main__":
+                run_canonical_script("{module_name}")
+            '''
+        )
+    return _text(
+        f'''
+        from __future__ import annotations
 
+        from _bundle_shim import export_canonical
 
-if __name__ == "__main__":
-    run_canonical_script("{module_name}")
-'''
-    return f'''from __future__ import annotations
-
-from _bundle_shim import export_canonical
-
-
-export_canonical(globals(), "{module_name}")
-'''
+        export_canonical(globals(), "{module_name}")
+        '''
+    )
 
 
 def render_scripts_init() -> str:
@@ -302,72 +334,99 @@ def render_scripts_init() -> str:
 
 
 def render_agents_block() -> str:
-    return f"""{AGENTS_START}
-## SCRIBE/TENOR Local Causal Retrieval Bundle
+    return _text(
+        f"""
+        {AGENTS_START}
+        ## AGENT-SCRIBE-GRAPHIFY — V2.16 CANONICAL OPERATING CONTRACT
 
-Bundle root: `{BUNDLE_RELATIVE_PATH}/`
+        ### Canonical session entry
 
-Canonical commands:
-- Maintenance/write engine: `{BUNDLE_COMMAND}`
-- Agent read interface: `{RAG_COMMAND}`
-- Local rules: `{SEL_RELATIVE_PATH}/docs/AGENTS.md`
-- Always-on summary: `{SCRIBE_RULE_PATH}`
-- Full protocol: `{SEL_RELATIVE_PATH}/docs/scribe.md`
-- Multi-agent install: `{SEL_RELATIVE_PATH}/docs/multi-agent-installation.md`
-- Friction policy: `{SEL_RELATIVE_PATH}/docs/friction-policy.md`
+        Human/LLM trigger:
 
-Current stable baseline (2026-06-01): SEL `81 OK`, RAG `25 OK`, gate/eval
-`8/8`, doctor `0 error` with only cosmetic `W009`. STOP `.agent`: use SCRIBE as
-memory and guardrail, then return to product work unless a real SCRIBE bug appears.
+        ```text
+        {TENOR_TRIGGER}
+        ```
 
-## PRÉFLIGHT (copier-coller direct)
+        Mechanical command from the current project root:
 
-Mode NANO (< 30 min, 1 file):
+        ```bash
+        {BUNDLE_COMMAND} tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>
+        ```
 
-```bash
-{RAG_COMMAND} context
-```
+        The project-local `{TENOR_SKILL_PATH}` and `{TENOR_RULE_PATH}` are authoritative. `bootstrap` is an internal/legacy primitive, not the public V2.16 installation authority.
 
-Mode STANDARD (> 30 min):
+        ### Authority order
 
-```bash
-{RAG_COMMAND} build
-{RAG_COMMAND} context
-{RAG_COMMAND} challenge "<plan>"
-```
+        ```text
+        resolve root
+        classify installation
+        purge only old project-bound runtime when relocation is proven
+        preserve canonical outputs and quarantine legacy conflicts
+        adopt/create target SCRIBE
+        verify/build and bind Graphify
+        finalize local installation
+        detect/configure the verified project-local host
+        reconnect and rerun if host configuration changed
+        verify local MCP
+        verify tools visible in the real host
+        prove MCP root binding
+        bridge the independent session
+        TENOR_INIT_READY
+        ```
 
-Mode CRITICAL or SCRIBE/shared-surface mutation:
+        ### Hard rules
 
-```bash
-{BUNDLE_COMMAND} workflow read --agent <name> --type <extension|cli|api|unknown>
-{BUNDLE_COMMAND} workflow check --agent <name>
-{RAG_COMMAND} preflight --tier CRITICAL --strict "<plan>"
-```
+        - Never start product work before `TENOR_INIT_READY`.
+        - `server_entry.py --list-tools` and shell JSON-RPC prove only local MCP readiness, never host visibility.
+        - Never read `AGENT-MEMOIRE_PROJECT_STATUS.scribe` directly for normal agent retrieval; use `{RAG_COMMAND}` or MCP `scribe_query`.
+        - SCRIBE results must change the plan or be explicitly challenged; retrieval is not a checkbox.
+        - Use Graphify before architecture or broad code changes; prefer targeted structure/blast-radius queries over mass file reads.
+        - The public task surface is exactly `tenor_task_start`, `tenor_apply_changeset`, `tenor_activity`, `tenor_task_control`; bootstrap retains the five bounded init tools.
+        - `tenor_task_start` performs targeted SCRIBE and Graphify retrieval server-side. The host model must not replay the legacy internal choreography.
+        - Every mutation is submitted as one atomic multi-file `tenor_apply_changeset` with fresh hashes and bounded validator argv arrays; TENOR owns locks, rollback, SCRIBE recording and closure.
+        - Native shell/edit/write/apply-patch paths outside MCP are forbidden for project mutation.
+        - A prose-only “done” without a terminal machine verdict and validator evidence is not completion.
+        - Each terminal uses its own process-bound identity and server-side one-time proof. Task calls never accept caller-supplied `agent_id` or context tokens.
+        - `TENOR_INIT_SAME_PROJECT` never repairs the bundle; only the verified project-local MCP entry and binding receipt may be managed automatically.
+        - A complete raw copy of `.agent/` is a mandatory supported installation path on Linux, macOS and Windows; relocation is classified from the current root and manifest.
+        - Runtime purge preserves `.agent/state/outputs/`; canonical output wins and conflicting legacy output is quarantined under `_legacy_migrated/`.
+        - Preserved Graphify output is never trusted automatically; root/fingerprint readiness must pass again.
+        - Graphify supports explicit `nodes + links` and historical `nodes + edges`; missing, stale, wrong-root, stub or contradictory graphs are rejected.
+        - Default commit/push scope is the host product source; `.agent/` changes require intentional tooling maintenance.
+        - Always keep `.agent/state/outputs/graphify-out/` and `.agent/state/outputs/scribe-out/` out of commits by default.
+        - Documentation and generators move together under `{DOC_SYNC_PATH}`.
 
-## Rules
+        ### Canonical surfaces
 
-- If the user sends `TENOR INIT::[.agent/skills/init-tenor/SKILL.md]`, read that exact project file first, before global OpenCode/Codex/Gemini configs, Graphify, README, or SCRIBE. Then run `{BUNDLE_COMMAND} tenor-init --type <extension|cli|api|unknown>` and paste its MACHINE PROOF. If `tenor-init` is unavailable, fall back to `{BUNDLE_COMMAND} bootstrap`; bootstrap remains mandatory and idempotent for every TENOR INIT.
-- Never read `AGENT-MEMOIRE_PROJECT_STATUS.scribe` directly during init; use `{RAG_COMMAND} context` and `{RAG_COMMAND} query`.
-- Do not claim YAML validity, session counts, SCAR counts, debts, or hot entries without showing real command output.
-- Use `scribe-rag` for retrieval: `preflight`, `context`, `query`, `explain`, `challenge`, `eval`, `gate`, `whoami`.
-- Do not use SEL direct retrieval (`scribe context`, `scribe query`, `scribe explain`) for normal agent work.
-- Read `.agent/state/outputs/graphify-out/GRAPH_REPORT.md` before architecture or codebase work when it exists.
-- If SCRIBE memory or shared surfaces are mutated, run workflow ack/check, doctor, lock acquire, sync, and lock release through `{BUNDLE_COMMAND}`.
-- Default commit/push scope is the host product source; keep `.agent/state/outputs/graphify-out/` and `.agent/state/outputs/scribe-out/` out of commits by default; version `.agent/` only when intentionally maintaining agent tooling.
-- Use `{RAG_COMMAND} gate` for bundle changes; it must stay green at 8/8.
-- Real pain capture is mandatory: bug >2 attempts, regression, costly rollback, or broken browser/visual smoke => SCAR with `cause_racine`, `resolution`, `test_binding`; retrieve related scars with `{RAG_COMMAND} query/explain/challenge` before adjacent work.
-{AGENTS_END}
-"""
+        - `{TENOR_SKILL_PATH}`
+        - `{TENOR_RULE_PATH}`
+        - `{SCRIBE_RULE_PATH}`
+        - `.agent/docs/TENOR_INIT_SINGLE_AUTHORITY.md`
+        - `{DOC_SYNC_PATH}`
+        - `{PORTABLE_RELATIVE_PATH}/README.md`
+        - `{SEL_RELATIVE_PATH}/docs/scribe.md`
+        - `{SEL_RELATIVE_PATH}/docs/multi-agent-installation.md`
+        - `.agent/docs/hosts/README.md`
+
+        Historical `.old` files and dated baselines are not authoritative.
+        {AGENTS_END}
+        """
+    )
+
 
 def render_graphify_block() -> str:
-    return f"""{GRAPHIFY_START}
-# Keep the canonical root graph focused on application code.
-# SCRIBE/TENOR tooling is causal/process infrastructure, not app architecture.
-.agent/
-.codex/
-.vscode/
-scribe-out/
-AGENT-MEMOIRE_PROJECT_STATUS.scribe
-AGENTS.md
-{GRAPHIFY_END}
-"""
+    return _text(
+        f"""
+        {GRAPHIFY_START}
+        # Keep the application graph focused on product code.
+        .agent/
+        .agents/
+        .codex/
+        .vscode/
+        scribe-out/
+        graphify-out/
+        AGENT-MEMOIRE_PROJECT_STATUS.scribe
+        AGENTS.md
+        {GRAPHIFY_END}
+        """
+    )

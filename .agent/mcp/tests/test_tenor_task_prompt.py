@@ -18,6 +18,7 @@ if str(AGENT_DIR) not in sys.path:
 
 import server_ext as mcp
 from host_adapter import tenor_task_prompt as ttp
+from _strict_cleanup import remove_tree_strict
 
 
 def _json_payload(result: dict[str, Any]) -> dict[str, Any]:
@@ -37,16 +38,14 @@ def call_tool(name: str, **args: Any) -> dict[str, Any]:
 def contains_sections(prompt: str) -> bool:
     indicators = [
         "Avant toute action",
-        "discipline_ping",
-        "workflow_next",
+        "tenor_task_start",
+        "tenor_apply_changeset",
+        "tenor_activity",
+        "tenor_task_control",
         "Aucune ecriture directe",
-        "SCRIBE pour le contexte",
-        "Graphify pour l impact structurel",
-        "pre_action_guard",
-        "action_lease_id",
-        "workspace_audit",
-        "scribe_record",
-        "scribe_promote_record",
+        "SCRIBE et Graphify en interne",
+        "base_hash",
+        "rollback",
         "HOST_MCP_UNBOUND",
     ]
     return all(indicator in prompt for indicator in indicators)
@@ -62,9 +61,9 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         self.assertIn("write", result["prompt"])
         self.assertIn("a determiner via Graphify/SCRIBE", result["prompt"])
         self.assertTrue(contains_sections(result["prompt"]))
-        self.assertEqual(result["required_first_actions"], ["discipline_ping", "workflow_next"])
-        self.assertEqual(result["required_finish_actions"], ["workspace_audit", "scribe_record", "finish_task"])
-        self.assertEqual(result["forbidden"], ["direct_write", "invent_tool_result", "finish_without_audit"])
+        self.assertEqual(result["required_first_actions"], ["tenor_task_start"])
+        self.assertEqual(result["required_finish_actions"], ["tenor_apply_changeset", "tenor_task_control"])
+        self.assertIn("legacy_manual_choreography", result["forbidden"])
 
     def test_empty_task(self) -> None:
         result = ttp.generate_task_prompt(task="")
@@ -93,7 +92,7 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         result = ttp.generate_task_prompt(task="migrate db", mode="CRITICAL")
         self.assertTrue(result["ok"])
         self.assertIn("Mode CRITICAL", result["prompt"])
-        self.assertIn("Workflow read/check obligatoire", result["prompt"])
+        self.assertIn("Validators renforces obligatoires", result["prompt"])
 
     def test_invalid_mode_falls_to_standard(self) -> None:
         result = ttp.generate_task_prompt(task="fix", mode="ULTRA")
@@ -115,6 +114,12 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIn("write", result["prompt"])
 
+    def test_descriptive_fix_alias_is_canonicalized_to_write(self) -> None:
+        result = ttp.generate_task_prompt(task="fix auth", intent="fix")
+        self.assertTrue(result["ok"])
+        self.assertIn("Intent : write.", result["prompt"])
+        self.assertNotIn("Intent : fix.", result["prompt"])
+
     def test_resource_provided(self) -> None:
         result = ttp.generate_task_prompt(task="fix auth", resource="src/auth/login.ts")
         self.assertTrue(result["ok"])
@@ -130,7 +135,8 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         result = ttp.generate_task_prompt(task="fix auth", model_tier="small")
         self.assertTrue(result["ok"])
         self.assertIn("Mode petit modele", result["prompt"])
-        self.assertIn("lecture/analyse/proposition uniquement", result["prompt"])
+        self.assertIn("API TENOR compacte", result["prompt"])
+        self.assertIn("Aucun Edit/Bash natif", result["prompt"])
 
     def test_large_model_tier_default(self) -> None:
         result = ttp.generate_task_prompt(task="fix auth", model_tier="large")
@@ -182,7 +188,7 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         self.assertIn("Mode NANO", result["prompt"])
 
     def test_full_intents_list(self) -> None:
-        for intent in ["read", "write", "refactor", "delete", "test", "debug"]:
+        for intent in ["read", "write", "delete"]:
             result = ttp.generate_task_prompt(task=f"task for {intent}", intent=intent)
             self.assertTrue(result["ok"], f"failed for intent={intent}")
             self.assertIn(intent, result["prompt"])
@@ -245,7 +251,7 @@ class TestCLI(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0)
         self.assertIn("fix auth bug", proc.stdout)
-        self.assertIn("discipline_ping", proc.stdout)
+        self.assertIn("tenor_task_start", proc.stdout)
 
     def test_cli_empty_task(self) -> None:
         import subprocess
@@ -314,7 +320,7 @@ class TestE2ERealRuntime(unittest.TestCase):
         shutil.copytree(
             str(self._agent_src),
             str(self._tmpdir / ".agent"),
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "state"),
         )
         self._entry = str(self._tmpdir / ".agent" / "mcp" / "server_entry.py")
         # git init (server_ext.py may probe git repo)
@@ -335,39 +341,41 @@ class TestE2ERealRuntime(unittest.TestCase):
             ["git", "commit", "-m", "init"],
             cwd=str(self._tmpdir), capture_output=True,
         )
-        # graphify-out stub (graphify_required_check / scribe may need it)
-        graphify_out = self._tmpdir / "graphify-out"
-        graphify_out.mkdir(parents=True, exist_ok=True)
-        (graphify_out / "GRAPH_REPORT.md").write_text(
-            "# Graph Report\n\nStub for E2E.\n"
-        )
+        from runtime import graphify_readiness, installation_state
+
+        prepared = installation_state.ensure_fresh_installation_state(self._tmpdir)
+        self.assertTrue(prepared["ok"], prepared)
+        self.assertTrue(installation_state.finalize_installation_state(self._tmpdir)["ok"])
+        self.assertTrue(graphify_readiness.write_smoke_fixture(self._tmpdir)["ok"])
+        self._runtime_env = {
+            **os.environ,
+            "AGENT_SCRIBE_GRAPHIFY_ROOT": str(self._tmpdir),
+            graphify_readiness.FIXTURE_ENV: "1",
+        }
 
     def tearDown(self) -> None:
-        import shutil
         if self._tmpdir and self._tmpdir.exists():
-            shutil.rmtree(str(self._tmpdir))
+            remove_tree_strict(self._tmpdir)
 
     def test_e2e_tool_listed(self) -> None:
         import subprocess
-        env = {k: v for k, v in os.environ.items() if k != "AGENT_SCRIBE_GRAPHIFY_ROOT"}
         proc = subprocess.run(
             [sys.executable, self._entry, "--list-tools"],
             capture_output=True, text=True, timeout=30,
-            env=env,
+            env=self._runtime_env, cwd=self._tmpdir,
         )
         self.assertEqual(proc.returncode, 0, f"stderr: {proc.stderr}")
-        self.assertIn("tenor_task_prompt", proc.stdout)
+        self.assertIn("tenor_task_start", proc.stdout)
 
     def test_e2e_tool_returns_ready(self) -> None:
         import subprocess
-        env = {k: v for k, v in os.environ.items() if k != "AGENT_SCRIBE_GRAPHIFY_ROOT"}
         proc = subprocess.run(
             [
                 sys.executable, self._entry, "--call", "tenor_task_prompt",
                 "--args", '{"task": "fix auth bug"}',
             ],
             capture_output=True, text=True, timeout=30,
-            env=env,
+            env=self._runtime_env, cwd=self._tmpdir,
         )
         self.assertEqual(
             proc.returncode, 0,

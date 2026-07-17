@@ -3,24 +3,38 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
+import sys
+import tempfile
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 INSTALL_MANIFEST_RELATIVE = Path(".agent") / "state" / "install" / "agent-installation.json"
-INSTALL_SCHEMA = "agent_installation_v1"
+INSTALL_SCHEMA = "agent_installation_v2"
+INSTALL_STATUS_PREPARING = "preparing"
+INSTALL_STATUS_READY = "ready"
 
 AGENT_INSTALLATION_MANIFEST_CREATED = "AGENT_INSTALLATION_MANIFEST_CREATED"
 AGENT_INSTALLATION_CURRENT = "AGENT_INSTALLATION_CURRENT"
 AGENT_BUNDLE_RELOCATION_DETECTED = "AGENT_BUNDLE_RELOCATION_DETECTED"
+AGENT_INSTALLATION_FINGERPRINT_REFRESH_REQUIRED = "AGENT_INSTALLATION_FINGERPRINT_REFRESH_REQUIRED"
+AGENT_INSTALLATION_INIT_INCOMPLETE = "AGENT_INSTALLATION_INIT_INCOMPLETE"
 PROJECT_BOUND_STATE_PURGED = "PROJECT_BOUND_STATE_PURGED"
 LEGACY_STATE_WITHOUT_INSTALL_MANIFEST_PURGED = "LEGACY_STATE_WITHOUT_INSTALL_MANIFEST_PURGED"
 CORRUPT_INSTALLATION_MANIFEST_PURGED = "CORRUPT_INSTALLATION_MANIFEST_PURGED"
 PROJECT_BOUND_STATE_PURGE_REFUSED = "PROJECT_BOUND_STATE_PURGE_REFUSED"
 TENOR_INIT_FRESH_RUNTIME_READY = "TENOR_INIT_FRESH_RUNTIME_READY"
+TENOR_INIT_REQUIRED = "TENOR_INIT_REQUIRED"
+TENOR_INIT_GATE_READY = "TENOR_INIT_GATE_READY"
 
+_ATOMIC_REPLACE_ATTEMPTS = 10
+_ATOMIC_REPLACE_INITIAL_BACKOFF_SECONDS = 0.01
+_MANIFEST_TRANSACTION_LOCK = threading.RLock()
 _LEGACY_STATE_NAMES = {
     "runtime",
     "proof",
@@ -30,6 +44,10 @@ _LEGACY_STATE_NAMES = {
     "redteam",
     "backups",
 }
+# Outputs contain canonical/generated evidence that must survive a runtime purge.
+# Graphify content is preserved for losslessness but must still pass the existing
+# root/fingerprint readiness checks before TENOR_INIT_READY can be emitted.
+_PRESERVED_STATE_DIR_NAMES = {"outputs"}
 _PROJECT_MARKERS = (
     ".git",
     "README.md",
@@ -60,6 +78,7 @@ def _git_root(project_root: Path) -> Path | None:
             text=True,
             capture_output=True,
             timeout=5,
+            check=False,
         )
     except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         return None
@@ -76,12 +95,37 @@ def _state_dir(project_root: Path) -> Path:
     return project_root.resolve() / ".agent" / "state"
 
 
+def _replace_with_retry(source: Path, target: Path) -> None:
+    """Replace atomically while tolerating short Windows sharing violations."""
+
+    delay = _ATOMIC_REPLACE_INITIAL_BACKOFF_SECONDS
+    for attempt in range(_ATOMIC_REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt + 1 >= _ATOMIC_REPLACE_ATTEMPTS:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.25)
+
+
 def _atomic_json_write(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.{os.getpid()}.",
+        suffix=".tmp",
+        dir=str(path.parent),
+        text=True,
+    )
+    tmp = Path(tmp_name)
     try:
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        os.replace(tmp, path)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        _replace_with_retry(tmp, path)
     finally:
         try:
             if tmp.exists():
@@ -93,7 +137,11 @@ def _atomic_json_write(path: Path, data: dict[str, Any]) -> None:
 def _state_contains_project_bound_data(state_dir: Path) -> bool:
     if not state_dir.exists():
         return False
-    for child in state_dir.iterdir():
+    try:
+        children = tuple(state_dir.iterdir())
+    except OSError:
+        return True
+    for child in children:
         if child.name == "install":
             continue
         if child.name in _LEGACY_STATE_NAMES:
@@ -113,12 +161,11 @@ def _validate_project_bound_state_dir(project_root: Path) -> tuple[bool, str]:
     root = project_root.resolve()
     agent_dir = root / ".agent"
     state_dir = agent_dir / "state"
-
     if agent_dir.name != ".agent" or state_dir.name != "state":
         return False, "state path must be <project_root>/.agent/state"
     if state_dir.parent != agent_dir:
         return False, "state parent must be .agent"
-    if root == Path("/") or state_dir == Path("/") or state_dir == root or state_dir == Path.home():
+    if root == Path(root.anchor) or state_dir == Path(state_dir.anchor) or state_dir == root or state_dir == Path.home():
         return False, "refusing dangerous state path"
     if state_dir.exists() and state_dir.is_symlink():
         return False, "state directory must not be a symlink"
@@ -126,9 +173,9 @@ def _validate_project_bound_state_dir(project_root: Path) -> tuple[bool, str]:
         return False, "server_entry.py marker missing"
     try:
         resolved_agent = agent_dir.resolve(strict=True)
+        resolved_state_parent = state_dir.parent.resolve(strict=True)
     except FileNotFoundError:
         return False, ".agent directory missing"
-    resolved_state_parent = state_dir.parent.resolve(strict=True)
     if resolved_state_parent != resolved_agent:
         return False, "state parent resolves outside .agent"
     resolved_state = state_dir.resolve(strict=False)
@@ -145,7 +192,8 @@ def load_installation_manifest(project_root: Path) -> dict[str, Any] | None:
         data = json.load(handle)
     if not isinstance(data, dict):
         raise ValueError("installation manifest must be a JSON object")
-    if data.get("schema") != INSTALL_SCHEMA:
+    schema = data.get("schema")
+    if schema not in {"agent_installation_v1", INSTALL_SCHEMA}:
         raise ValueError("unsupported installation manifest schema")
     return data
 
@@ -168,27 +216,31 @@ def current_installation_fingerprint(project_root: Path) -> dict[str, Any]:
     }
 
 
-def write_installation_manifest(project_root: Path) -> dict[str, Any]:
-    now = _utc_now()
-    fingerprint = current_installation_fingerprint(project_root)
-    existing: dict[str, Any] | None
-    try:
-        existing = load_installation_manifest(project_root)
-    except (OSError, ValueError, json.JSONDecodeError):
-        existing = None
-    data = {
-        "schema": INSTALL_SCHEMA,
-        "project_root": fingerprint["project_root"],
-        "git_root": fingerprint["git_root"],
-        "agent_dir": fingerprint["agent_dir"],
-        "project_name": fingerprint["project_name"],
-        "project_markers": fingerprint["markers"],
-        "project_fingerprint": fingerprint["project_fingerprint"],
-        "created_at": (existing or {}).get("created_at") or now,
-        "last_seen_at": now,
-    }
-    _atomic_json_write(_manifest_path(project_root), data)
-    return data
+def write_installation_manifest(project_root: Path, *, init_status: str = INSTALL_STATUS_READY) -> dict[str, Any]:
+    if init_status not in {INSTALL_STATUS_PREPARING, INSTALL_STATUS_READY}:
+        raise ValueError(f"invalid installation init_status: {init_status}")
+    with _MANIFEST_TRANSACTION_LOCK:
+        now = _utc_now()
+        fingerprint = current_installation_fingerprint(project_root)
+        try:
+            existing = load_installation_manifest(project_root)
+        except (OSError, ValueError, json.JSONDecodeError):
+            existing = None
+        data = {
+            "schema": INSTALL_SCHEMA,
+            "project_root": fingerprint["project_root"],
+            "git_root": fingerprint["git_root"],
+            "agent_dir": fingerprint["agent_dir"],
+            "project_name": fingerprint["project_name"],
+            "project_markers": fingerprint["markers"],
+            "project_fingerprint": fingerprint["project_fingerprint"],
+            "init_status": init_status,
+            "created_at": (existing or {}).get("created_at") or now,
+            "last_seen_at": now,
+            "ready_at": now if init_status == INSTALL_STATUS_READY else (existing or {}).get("ready_at") or "",
+        }
+        _atomic_json_write(_manifest_path(project_root), data)
+        return data
 
 
 def detect_agent_relocation(project_root: Path) -> dict[str, Any]:
@@ -205,7 +257,6 @@ def detect_agent_relocation(project_root: Path) -> dict[str, Any]:
             "purge_required": True,
             "state_dir": str(state_dir),
         }
-
     if manifest is None:
         legacy_state = _state_contains_project_bound_data(state_dir)
         return {
@@ -215,7 +266,6 @@ def detect_agent_relocation(project_root: Path) -> dict[str, Any]:
             "purge_required": legacy_state,
             "state_dir": str(state_dir),
         }
-
     fingerprint = current_installation_fingerprint(root)
     if str(manifest.get("project_root") or "") != fingerprint["project_root"]:
         return {
@@ -230,7 +280,15 @@ def detect_agent_relocation(project_root: Path) -> dict[str, Any]:
     if str(manifest.get("project_fingerprint") or "") != fingerprint["project_fingerprint"]:
         return {
             "ok": True,
-            "verdict": "AGENT_INSTALLATION_FINGERPRINT_REFRESH_REQUIRED",
+            "verdict": AGENT_INSTALLATION_FINGERPRINT_REFRESH_REQUIRED,
+            "relocated": False,
+            "purge_required": False,
+            "state_dir": str(state_dir),
+        }
+    if str(manifest.get("init_status") or INSTALL_STATUS_READY) != INSTALL_STATUS_READY:
+        return {
+            "ok": True,
+            "verdict": AGENT_INSTALLATION_INIT_INCOMPLETE,
             "relocated": False,
             "purge_required": False,
             "state_dir": str(state_dir),
@@ -244,7 +302,43 @@ def detect_agent_relocation(project_root: Path) -> dict[str, Any]:
     }
 
 
-def purge_project_bound_state(project_root: Path) -> dict[str, Any]:
+def inspect_installation_state(project_root: Path) -> dict[str, Any]:
+    root = project_root.resolve()
+    detection = detect_agent_relocation(root)
+    ready = detection.get("verdict") == AGENT_INSTALLATION_CURRENT
+    action = portable_tenor_init_action(root)
+    return {
+        "ok": True,
+        "ready": ready,
+        "verdict": TENOR_INIT_GATE_READY if ready else TENOR_INIT_REQUIRED,
+        "project_root": str(root),
+        "detection": detection,
+        "next_action": action["display"] if not ready else "",
+        "next_action_argv": action["argv"] if not ready else [],
+    }
+
+
+def portable_tenor_init_action(project_root: Path | None = None) -> dict[str, Any]:
+    """Return a current-interpreter action without assuming a `python` alias."""
+
+    interpreter = sys.executable or ("python" if os.name == "nt" else "python3")
+    argv = [interpreter, ".agent/workflow/scribe/scribe", "tenor-init", "--type", "cli"]
+    display = subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+    return {
+        "argv": argv,
+        "display": display,
+        "cwd": str(project_root.resolve()) if project_root is not None else ".",
+    }
+
+
+def _remove_state_child(child: Path) -> None:
+    if child.is_symlink() or child.is_file():
+        child.unlink()
+    else:
+        shutil.rmtree(child)
+
+
+def purge_project_bound_state(project_root: Path, *, attempts: int = 5, initial_backoff_seconds: float = 0.05) -> dict[str, Any]:
     root = project_root.resolve()
     state_dir = _state_dir(root)
     valid, reason = _validate_project_bound_state_dir(root)
@@ -255,24 +349,49 @@ def purge_project_bound_state(project_root: Path) -> dict[str, Any]:
             "reason": reason,
             "state_dir": str(state_dir),
         }
-    if state_dir.exists():
-        shutil.rmtree(state_dir)
-    (state_dir / "install").mkdir(parents=True, exist_ok=True)
+    last_error = ""
+    for attempt in range(max(1, attempts)):
+        try:
+            preserved: list[str] = []
+            state_dir.mkdir(parents=True, exist_ok=True)
+            children = tuple(state_dir.iterdir())
+            # Validate every preserved surface before deleting any project-bound
+            # runtime child. Unsafe output paths therefore fail closed without a
+            # partial purge.
+            for child in children:
+                if child.name in _PRESERVED_STATE_DIR_NAMES and (child.is_symlink() or not child.is_dir()):
+                    raise OSError(f"refusing unsafe preserved state path: {child}")
+            for child in children:
+                if child.name in _PRESERVED_STATE_DIR_NAMES:
+                    preserved.append(str(child.relative_to(root)))
+                    continue
+                _remove_state_child(child)
+            (state_dir / "install").mkdir(parents=True, exist_ok=True)
+            return {
+                "ok": True,
+                "verdict": PROJECT_BOUND_STATE_PURGED,
+                "state_dir": str(state_dir),
+                "install_dir": str(state_dir / "install"),
+                "preserved_state_dirs": preserved,
+                "attempts": attempt + 1,
+            }
+        except OSError as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
+            if attempt + 1 < max(1, attempts):
+                time.sleep(initial_backoff_seconds * (2**attempt))
     return {
-        "ok": True,
-        "verdict": PROJECT_BOUND_STATE_PURGED,
+        "ok": False,
+        "verdict": PROJECT_BOUND_STATE_PURGE_REFUSED,
+        "reason": last_error or "state purge failed",
         "state_dir": str(state_dir),
-        "install_dir": str(state_dir / "install"),
+        "attempts": max(1, attempts),
     }
 
 
 def ensure_fresh_installation_state(project_root: Path, *, allow_purge: bool = True) -> dict[str, Any]:
     root = project_root.resolve()
-    state_dir = _state_dir(root)
-    state_dir.mkdir(parents=True, exist_ok=True)
     detection = detect_agent_relocation(root)
     purge_report: dict[str, Any] | None = None
-
     if detection.get("purge_required"):
         if not allow_purge:
             return {
@@ -283,8 +402,7 @@ def ensure_fresh_installation_state(project_root: Path, *, allow_purge: bool = T
         purge_report = purge_project_bound_state(root)
         if not purge_report.get("ok"):
             return {**purge_report, "detection": detection}
-
-    manifest = write_installation_manifest(root)
+    manifest = write_installation_manifest(root, init_status=INSTALL_STATUS_PREPARING)
     initial_verdict = str(detection.get("verdict") or "")
     if purge_report is not None:
         if initial_verdict == AGENT_BUNDLE_RELOCATION_DETECTED:
@@ -297,7 +415,6 @@ def ensure_fresh_installation_state(project_root: Path, *, allow_purge: bool = T
         verdict = AGENT_INSTALLATION_MANIFEST_CREATED
     else:
         verdict = AGENT_INSTALLATION_CURRENT
-
     return {
         "ok": True,
         "verdict": verdict,
@@ -307,3 +424,24 @@ def ensure_fresh_installation_state(project_root: Path, *, allow_purge: bool = T
         "detection": detection,
         "purge": purge_report,
     }
+
+
+def finalize_installation_state(project_root: Path) -> dict[str, Any]:
+    root = project_root.resolve()
+    with _MANIFEST_TRANSACTION_LOCK:
+        manifest = write_installation_manifest(root, init_status=INSTALL_STATUS_READY)
+        gate = inspect_installation_state(root)
+        if not gate.get("ready"):
+            return {
+                "ok": False,
+                "verdict": TENOR_INIT_REQUIRED,
+                "manifest": manifest,
+                "gate": gate,
+            }
+        return {
+            "ok": True,
+            "verdict": TENOR_INIT_GATE_READY,
+            "manifest_path": str(_manifest_path(root)),
+            "manifest": manifest,
+            "gate": gate,
+        }

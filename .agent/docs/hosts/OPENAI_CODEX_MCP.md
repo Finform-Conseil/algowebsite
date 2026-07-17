@@ -1,72 +1,88 @@
-# OpenAI Codex MCP
+# OpenAI Codex MCP — V2.16 Terrain Guide
 
-Recherche web: 2026-06-21.
+## Current official capability
 
-## Source officielle
+Codex CLI, the Codex IDE extension and the ChatGPT desktop Codex host support MCP servers. Codex stores MCP configuration in `config.toml`; project-scoped `.codex/config.toml` is supported for trusted projects. STDIO servers are launched by a command.
 
-https://developers.openai.com/codex/mcp
-
-## Fichier de config
-
-`.codex/config.toml`
-
-## Commande `.agent`
-
-```bash
-python3 .agent/mcp/server_entry.py
-```
-
-## Validation des tools
-
-Verifier que le host expose au minimum:
-
-- `workflow_next`
-- `before_task`
-- `scribe_query`
-- `graphify_query`
-- `propose_patch`
-- `apply_patch`
-- `delete_resource`
-- `finish_task`
-
-Commande locale de controle hors host:
-
-```bash
-python3 .agent/mcp/server_entry.py --list-tools
-```
-
-## Permissions a verifier
-
-- Shell direct: verifier si `bash`, `sh`, terminal integre ou commande equivalente sont disponibles.
-- Edit direct: verifier si un outil `apply_patch`, `write_file`, edition IDE ou modification directe du workspace est disponible hors MCP.
-- Desactivation: verifier si Codex CLI permet de desactiver shell/edit directs pour cette session, ou de forcer un usage MCP-only.
-- Sandbox: verifier si le host peut etre lance via `.agent/scripts/agent_sandbox.py` avec projet read-only.
-
-## Direct Tool Neutralization
-
-Avant de classer ce host `SAFE`, verifier explicitement:
-
-1. Les tools natifs write/edit/apply_patch sont desactives, refuses, ou soumis a permission ask stricte.
-2. Le shell ne peut pas ecrire dans le projet, ou toute ecriture shell demande approbation.
-3. Les redirections `>`, `>>`, `tee`, `sed -i`, `perl -pi`, `rm`, `mv`, `cp` et scripts qui ecrivent sont bloques, sandboxes, ou detectes.
-4. Une detection dirty-write compare les fichiers modifies avant/apres la tache.
-5. Si une modification apparait sans trace MCP attendue: `DIRECT_WRITE_BYPASS_DETECTED`, STOP, rapport utilisateur.
-
-Si un seul point est inconnu, le verdict maximal est `ACCEPTABLE` ou `UNKNOWN`, pas `SAFE`.
-
-## Verdict terrain
-
-Host audite: Codex CLI session courante.
+## Canonical TENOR entry
 
 ```text
-MCP visible: YES
-MCP tools visibles: workflow_next, before_task, scribe_query, graphify_query, propose_patch, apply_patch, delete_resource, finish_task
-Shell direct: YES
-Edit/write_file direct: YES
-Desactivation shell/edit possible: UNKNOWN
-Sandbox agent_sandbox.py possible: UNKNOWN
-Direct FS test: OPEN
-Verdict: ACCEPTABLE
+TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
 ```
 
-Raison: MCP `.agent` est visible, mais le host courant conserve shell direct et edition directe. `.agent` protege le workflow MCP, pas le filesystem direct hors sandbox.
+The local project skill is read first. Mechanical initialization:
+
+```bash
+.agent/workflow/scribe/scribe tenor-init --type cli --host codex-cli
+```
+
+## Preferred project scope
+
+Prefer a trusted project-local `.codex/config.toml` rather than a global path to another checkout. TENOR owns one delimited managed block for this server, including project-relative cwd and binding environment:
+
+For this checkout, the binding was stabilized by using the absolute project root in the managed block during diagnosis. That removes ambiguity about whether Codex resolves relative paths from the repository root or from `.codex/`. Prefer the absolute-root form when proving the first working binding for a moved or freshly reloaded host, then keep the documented managed block in sync.
+
+```toml
+# agent-scribe-graphify:host-config:start
+[mcp_servers."agent-scribe-graphify"]
+command = "python3"
+args = [".agent/mcp/server_entry.py"]
+cwd = "."
+enabled = true
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+[mcp_servers."agent-scribe-graphify".env]
+AGENT_MCP_HOST = "codex-cli"
+AGENT_MCP_BINDING_ID = "<generated-by-TENOR>"
+AGENT_SCRIBE_GRAPHIFY_ROOT = "."
+# agent-scribe-graphify:host-config:end
+```
+
+Do not handcraft the binding id. TENOR records it with the config hash, returns `HOST_RECONNECT_REQUIRED` after a change, and issues no session proof until Codex is restarted/reconnected and TENOR is rerun. Do not point Codex at the source repository's `.agent`. Do not modify `~/.codex/config.toml` without explicit permission.
+
+## Required proof
+
+Local `--list-tools` proves only the local server. Inside Codex, prove that the complete required MCP surface is visible, including guard, locks, claims, patch queue, audit, finish and `tenor_init_bridge`.
+
+Then prove root binding with a sentinel hash and call:
+
+```text
+tenor_init_bridge(
+  agent_session_id="<TENOR session>",
+  host_tool="codex",
+  model_name="<active model>"
+)
+```
+
+The bound server atomically consumes its one-time proof without printing a bearer token. `TENOR_INIT_BRIDGE_OK` has `MCP_BRIDGE_ONLY` scope; only it plus host/root proof permits `TENOR_INIT_READY`.
+
+## Native mutation audit
+
+Codex may expose shell and native patch/edit capabilities. Verify approvals/sandboxing for:
+
+```text
+shell commands
+write/edit/apply-patch
+>, >>, tee, sed -i
+rm, mv, cp
+```
+
+A mutation without MCP receipts must become `DIRECT_WRITE_BYPASS_DETECTED`.
+
+## Terrain evidence
+
+Earlier evidence showed `.agent` MCP tools visible while direct shell/edit remained available. That historical observation is insufficient for V2.16 because it did not prove the current root binding, bridge, complete tool surface, micro-write and bypass behavior.
+
+```text
+Local TENOR INIT: PROVED on isolated projects
+Local MCP list-tools: PROVED
+Codex tools visible on final head: NOT_REPLAYED
+Root binding: NOT_TESTED
+TENOR_INIT_BRIDGE_OK: NOT_TESTED
+Complete MCP micro-write: NOT_TESTED
+Direct-write bypass: OPEN
+Final verdict: UNKNOWN
+```
+
+Follow `.agent/docs/DOCUMENTATION_SYNC_POLICY.md` when this verdict changes.

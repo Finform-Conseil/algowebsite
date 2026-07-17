@@ -2,174 +2,118 @@
 trigger: always_on
 ---
 
-# SCRIBE — REGLE ALWAYS-ON
+# SCRIBE/TENOR — RÈGLE ALWAYS-ON V2.16
 
-Ce fichier est une regle courte pour les LLM hotes. Il ne remplace pas le
-protocole complet.
+Ce fichier est la règle courte destinée aux LLM hôtes. Il ne remplace pas le skill d'initialisation ni le document d'autorité.
 
-## Source canonique
+## Démarrage canonique
 
-- Racine portable unique: `.agent/workflow/scribe/`
-- CLI maintenance interne: `.agent/workflow/scribe/scribe`
-- CLI lecture agent: `.agent/workflow/scribe/scribe-rag`
-- Protocole complet: `.agent/workflow/scribe/sel/docs/scribe.md`
-- Regles locales: `.agent/workflow/scribe/sel/docs/AGENTS.md`
-- Politique de friction: `.agent/workflow/scribe/sel/docs/friction-policy.md`
-- Installation multi-agent: `.agent/workflow/scribe/sel/docs/multi-agent-installation.md`
-- Coordination live: `.agent/workflow/scribe/sel/docs/live-coordination.md`
-- Skill init: `.agent/skills/init-tenor/SKILL.md`
+Déclencheur humain/LLM :
 
-Tout chemin SCRIBE hors de `.agent/workflow/scribe/` est non canonique. Ne pas
-creer de dossier de compatibilite visible; corriger les anciens appels vers les
-commandes ci-dessus.
-
-## Etat stabilise 2026-06-01
-
-Le bundle est stable et ne doit plus etre perfectionne hors bug reel:
-
-- SEL: tests verts (`81 OK` apres les tests lock ownership).
-- RAG: tests verts (`25 OK`).
-- Gate/eval: `.agent/workflow/scribe/scribe-rag gate` vert a `8/8`.
-- Doctor: `0 error`; `W009` legacy pre-V3.2 reste cosmetique.
-- Identite/presence: `os.getpid()` utilise, stale PID nettoye, IDs/PIDs simultanes distincts.
-- Coordination: claims avec `ttl_seconds` et `expires_at`; claims expires ou sans TTL nettoyes.
-- Lock: `release` verifie agent/surface avant de nettoyer un stale lock; utiliser `SCRIBE_OWNER_PID` ou `--owner-pid` pour representer un processus proprietaire long-vivant.
-- Backup de reference: `~/backups/agent-scribe-stable-20260601.tar.gz`.
-- Ratio causal mesure: environ `17.5%`, cible `35%`; ne jamais creer de SCAR/GHOST/PAT cosmetique pour gonfler ce ratio.
-- Reflexe douleur reelle: bug resolu en plus de 2 tentatives, regression, rollback couteux ou smoke visuel casse => SCAR immediat avec `cause_racine`, `resolution` et `test_binding`; avant une tache proche, interroger `scribe-rag query/explain/challenge` pour exploiter ces cicatrices.
-
-Instruction operationnelle: STOP `.agent`. Revenir au vrai projet. Ne rouvrir
-le chantier SCRIBE que pour un bug SCRIBE observe, un test rouge, ou une derive
-documentaire concrete.
-
-## Reflexe de demarrage par tier
-
-Depuis la racine du projet:
-
-```bash
-.agent/workflow/scribe/scribe bootstrap
+```text
+TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
 ```
 
-`bootstrap` est idempotent et initialise seulement ce qui manque:
-`AGENT-MEMOIRE_PROJECT_STATUS.scribe`, `.agent/state/outputs/scribe-out/`, `state.json`,
-`.graphifyignore` et le bloc gere de `AGENTS.md`. Il ne lance aucun daemon.
-
-Mode NANO, correction < 30 min, 1 fichier, sans surface partagee:
+Commande mécanique depuis la racine du projet :
 
 ```bash
-.agent/workflow/scribe/scribe-rag context
+.agent/workflow/scribe/scribe tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>
 ```
 
-Mode STANDARD, changement significatif:
+Sous Windows :
 
-```bash
-.agent/workflow/scribe/scribe-rag build
-.agent/workflow/scribe/scribe-rag context
-.agent/workflow/scribe/scribe-rag challenge "<plan>"
+```powershell
+py -3 .agent/workflow/scribe/scribe tenor-init --type cli --host <host-id|auto>
 ```
 
-Mode CRITICAL ou mutation SCRIBE/surface partagee:
+`tenor-init` est l'unique autorité publique d'installation, de relocation et de reprise. `bootstrap` est une primitive interne/legacy et ne doit jamais remplacer TENOR INIT dans un bundle V2.16.
 
-```bash
-.agent/workflow/scribe/scribe workflow read --agent <name> --type <extension|cli|api|unknown>
-.agent/workflow/scribe/scribe workflow check --agent <name>
-.agent/workflow/scribe/scribe sync --agent <name> --type <extension|cli|api|unknown>
-.agent/workflow/scribe/scribe-rag preflight --tier CRITICAL --strict "<objectif ou plan de session>"
+## Autorité et ordre
+
+TENOR INIT doit :
+
+1. résoudre le root courant ;
+2. classifier l'installation avant SCRIBE ;
+3. purger uniquement l'état copié lié à un ancien root quand la relocation est prouvée ;
+4. adopter ou créer la mémoire SCRIBE de destination ;
+5. vérifier ou demander le build Graphify borné ;
+6. finaliser le manifest local ;
+7. détecter et configurer uniquement le host project-local vérifié ;
+8. exiger une reconnexion puis une nouvelle init si la configuration change ;
+9. vérifier le serveur MCP local ;
+10. vérifier la visibilité réelle des tools dans le host ;
+11. prouver le root binding ;
+12. bridger la session indépendante avec la preuve serveur one-shot ;
+13. produire `TENOR_INIT_READY`.
+
+Tant que les tools ne sont pas visibles dans le host réel, le verdict maximal est :
+
+```text
+LOCAL_INIT_READY_HOST_MCP_UNBOUND
 ```
 
-`workflow read` calcule le SHA du workflow canonique et enregistre l'ack dans
-`.agent/state/outputs/scribe-out/workflow-acks.json`. `workflow check` doit etre vert avant toute
-mutation SCRIBE ou surface partagee.
+`python3 .agent/mcp/server_entry.py --list-tools` ou un JSON-RPC lancé depuis un shell ne prouve jamais la visibilité host.
 
-En mode 4 terminaux, ne pas imposer de noms fixes. Chaque terminal demarre en
-presence `idle`, obtient son ID via `scribe whoami`, lit `coordination status`,
-puis prend un `coordination claim` seulement quand une tache concrete arrive.
-`workflow status` affiche le pool reel; `--required ... --strict` sert uniquement
-si une liste nommee est imposee.
+## Graphify et SCRIBE
 
-```bash
-.agent/workflow/scribe/scribe whoami --type cli --surface idle
-.agent/workflow/scribe/scribe coordination status
-.agent/workflow/scribe/scribe workflow status
+- Graphify = structure : quoi, où, comment, dépendances, centralité, communautés, blast radius.
+- SCRIBE = causalité : pourquoi, douleur, décision, régression, SCAR, GHOST, dette, `ne_pas_reproposer`.
+- Les outputs Graphify canoniques vivent sous `.agent/state/outputs/graphify-out/`.
+- Le graphe réel peut exposer `nodes + links` ; le format historique supporté est `nodes + edges`.
+- Un graphe manquant, vide à tort, stub, wrong-root, stale ou contradictoire bloque les writes.
+- Les agents lisent la mémoire via `.agent/workflow/scribe/scribe-rag` ou MCP `scribe_query`, jamais en parcourant directement le fichier `.scribe`.
+- Une requête mémoire doit modifier le plan ou produire une contradiction explicitement auditée.
+- Protocole complet : `.agent/workflow/scribe/sel/docs/scribe.md`.
+
+## Workflow par tâche
+
+Avant toute mutation produit :
+
+```text
+tenor_task_start(objective, intent, resources, scope)
+  -> SCRIBE cible + Graphify cible, executes en interne
+tenor_apply_changeset(task_id, changes[], validators[])
+  -> preflight complet + locks ordonnes + commit atomique ou rollback total
+  -> record SCRIBE runtime + cloture terminale
 ```
 
-Preuve minimale attendue dans chaque reponse de travail non triviale:
-`SCRIBE_RAG_PROOF: preflight <tier> | eval X/8 | challenge <VERDICT>`.
-Si `preflight` signale `HYBRID_REQUIRED`, reconstruire avec
-`scribe-rag build --with-embeddings --force` ou justifier explicitement le
-maintien BM25.
+Les writes directs via shell, redirection, `tee`, `sed -i`, `cp`, `mv`, `rm`, outil natif edit/write/apply-patch ou équivalent sont interdits hors MCP.
 
-## Dashboard SCRIBE
+L'API normale de tâche contient seulement `tenor_task_start`,
+`tenor_apply_changeset`, `tenor_activity` et `tenor_task_control`. Les anciens
+outils fins restent internes pour compatibilité ; le LLM hôte ne doit jamais
+reconstruire manuellement leur chorégraphie.
 
-```bash
-.agent/workflow/scribe/scribe dashboard
-.agent/workflow/scribe/scribe dashboard --serve --host 127.0.0.1 --port 8765
-```
+## Multi-agent
 
-`dashboard` genere un HTML statique dans `.agent/state/outputs/scribe-out/`. `dashboard --serve`
-lance a la demande un serveur HTTP local leger (`ThreadingHTTPServer`) pour vue
-live/reload; ce processus s'arrete avec Ctrl+C et n'est jamais demarre par
-`bootstrap`.
+- Chaque terminal exécute son propre TENOR INIT et reçoit une session distincte.
+- Le bootstrap partagé est sérialisé.
+- `TENOR_INIT_SAME_PROJECT` ne purge jamais la coordination active.
+- Les agents partagent runtime SQLite, SCRIBE et Graphify.
+- L'identité est liée au processus MCP après le bridge ; les appels de tâche n'acceptent ni `agent_id` ni token fourni par le LLM.
+- Un agent ne peut ni retirer ni contrôler la tâche d'un autre agent.
+- Un heartbeat daemon et un TTL roulant maintiennent l'activité réelle sans masquer un processus mort.
+- Toute clôture laisse zéro transaction ou lock en attente.
 
-## Reflexe avant mutation SCRIBE
+## Mémoire causale
 
-Avant toute commande qui modifie la memoire:
+Avant de fermer une vraie session, poser :
 
-```bash
-.agent/workflow/scribe/scribe workflow check --agent <name>
-.agent/workflow/scribe/scribe doctor --suggest-fix
-.agent/workflow/scribe/scribe lock acquire --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>
-```
+> Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?
 
-Apres validation:
+Une douleur, cause racine, régression ou approche rejetée durable devient SCAR/GHOST/PAT selon le cas. Une activité sans valeur causale ne doit pas être promue artificiellement.
 
-```bash
-.agent/workflow/scribe/scribe doctor --suggest-fix
-.agent/workflow/scribe/scribe sync --repair --agent <name> --type <extension|cli|api|unknown> --session <JOURNAL-ID>
-.agent/workflow/scribe/scribe lock release --agent <name>
-```
+## Hygiène et documentation
 
-`lock acquire` refuse un agent sans ack workflow frais. Utiliser `--surface <nom>`
-pour reserver une surface partagee non-SCRIBE avec le meme garde-fou. `lock release`
-ne supprime plus le stale lock d'un autre agent: il verifie agent et surface avant
-nettoyage.
+- Les outputs runtime et Graphify générés restent hors des commits produit par défaut.
+- `.agent/` n'est versionné que lors d'une maintenance intentionnelle de l'outillage.
+- Toute évolution d'architecture doit synchroniser les surfaces listées dans `.agent/docs/DOCUMENTATION_SYNC_POLICY.md` et leurs générateurs.
+- Les anciens baselines datés, fichiers `.old` et exemples pré-V2.16 sont historiques, jamais normatifs.
 
-Les commandes SEL read-only de maintenance (`explain`, `related`, `stats`, `doctor`)
-ne doivent pas etre bloquees par le lock. Pour le retrieval agent, ne pas appeler
-`scribe context` ni `scribe query` directement; utiliser `scribe-rag preflight`, puis
-`scribe-rag query/explain/challenge` selon le besoin.
+## Invariant SAME_PROJECT (V2.16.1)
 
-## Separation Graphify / SCRIBE
+Sur `TENOR_INIT_SAME_PROJECT`, `bootstrap_project()` n'appelle jamais l'installateur forcé et ne réécrit aucun fichier suivi du bundle. La dérive est signalée en warning ; la réparation reste explicite (`scribe install --force`). TENOR peut uniquement gérer l'entrée MCP project-local vérifiée et son reçu de binding. `NEW_INSTALLATION` / `RELOCATED_PROJECT` / `LEGACY_INSTALLATION` conservent l'installation du bundle.
 
-- Graphify = structure du code: quoi, ou, comment.
-- SCRIBE = causalite: pourquoi, douleur, decision, cicatrice.
+## Invariant purge/migration sans perte (V2.16.2)
 
-Ne pas ecrire dans SCRIBE ce que Graphify peut deduire du code. Ecrire un
-SCAR ou un GHOST seulement si l'information evitera une vraie souffrance au
-prochain agent.
-
-## Hygiene Git / push
-
-- Scope par defaut: le code produit du projet hote.
-- `AGENT-MEMOIRE_PROJECT_STATUS.scribe`: a versionner seulement si l'equipe
-  veut partager la memoire causale entre agents et humains.
-- `.agent/state/outputs/graphify-out/`: ne pas versionner par defaut; c'est un graphe genere,
-  reconstructible avec `graphify update .`.
-- `.agent/state/outputs/scribe-out/`: ne pas versionner par defaut; c'est de l'etat runtime local
-  (index, locks, rapports, dashboards, exports, sync metadata).
-- `.agent/`: a versionner seulement quand l'equipe maintient volontairement
-  l'outillage agentique; sinon le garder hors des commits produit.
-
-Avant livraison, utiliser `.agent/workflow/scribe/scribe worktree` pour separer source
-reelle, memoire causale validee, tooling volontaire et bruit genere. Quand le bundle
-SCRIBE/RAG change, lancer aussi `.agent/workflow/scribe/scribe-rag gate`; le gate doit rester a 8/8
-pour CI/pre-commit.
-
-## Intention finale obligatoire
-
-Avant de fermer une vraie session de coding, poser cette question:
-
-> "Qu'est-ce qui fera souffrir le prochain LLM si je ne le documente pas ?"
-
-Si la reponse est une douleur concrete, la graver en SCAR ou GHOST. Sinon, le
-JOURNAL suffit.
+Une purge de runtime conserve `.agent/state/outputs/` byte-for-byte. Elle réinitialise seulement les états projet-liés (runtime, proofs, locks, sessions, agents, redteam, backups et manifest). Les outputs Graphify préservés doivent encore réussir la validation root/fingerprint avant readiness. Lors d'un conflit de migration, la destination canonique gagne et la donnée legacy est placée sous `_legacy_migrated/`.

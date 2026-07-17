@@ -29,6 +29,7 @@ import os
 import re
 import shutil
 import sqlite3
+import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:/")
+IS_WINDOWS = os.name == "nt"
 
 # Bump this whenever a new migration is added to _MIGRATIONS below.
 # Format: "YYYY-MM-DD-NNN" (sortable string = canonical execution order).
@@ -286,39 +288,48 @@ def _run_migrations(project_root: Optional[Path] = None) -> list[str]:
 # DB init  (Fix #2 — integrity_check at bootstrap)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Per-process cache and lock. Every new MCP process still migrates and verifies
+# independently, while repeated tool calls in one server never replay DDL.
+_init_db_checked: dict[str, bool] = {}
+_init_db_lock = threading.RLock()
+
 def init_db(project_root: Optional[Path] = None) -> Dict[str, Any]:
     """Idempotent DB bootstrap: run migrations + integrity check.
 
     Called at server startup and before the first operation in each CLI run.
-    Idempotent: safe to call on every request (migrations cache via applied_ids).
+    Idempotent: safe to call on every request. Migrations and integrity checks
+    run once per database path and process, protected against concurrent threads.
 
-    Fix #2: PRAGMA integrity_check is run on the first bootstrap of a session.
-    It is a full O(N) scan, so we gate it on a sentinel file to avoid running
-    it on every process startup under heavy concurrent load.
+    Fix #2: PRAGMA integrity_check is run on the first bootstrap of a process.
+    A failed check is terminal: continuing with corrupt coordination state can
+    fabricate ownership, patch or task verdicts.
     """
     p = paths(project_root)
+    database_key = str(p["db"])
 
-    _run_migrations(project_root)
-
-    # Integrity check: run at most once per process (not per-call).
-    # Gate via a module-level flag so concurrent workers don't double-check.
-    if not _init_db_checked.get(str(p["db"]), False):
-        _init_db_checked[str(p["db"])] = True
-        try:
-            with connect(project_root) as con:
-                result = con.execute("PRAGMA integrity_check").fetchone()
-                if result and str(result[0]) != "ok":
-                    logger.critical(
-                        "SQLite integrity_check FAILED for %s: %s",
-                        p["db"],
-                        result[0],
-                    )
-                    # Do NOT raise here: surface as warning so server stays up.
-                    # In prod, the operator should restore from backup.
-                else:
-                    logger.debug("SQLite integrity_check OK: %s", p["db"])
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("integrity_check error (non-fatal): %s", exc)
+    if not _init_db_checked.get(database_key, False):
+        with _init_db_lock:
+            if not _init_db_checked.get(database_key, False):
+                _run_migrations(project_root)
+                try:
+                    with connect(project_root) as con:
+                        integrity = [str(row[0]) for row in con.execute("PRAGMA integrity_check")]
+                        if integrity != ["ok"]:
+                            diagnostic = "; ".join(integrity) if integrity else "no result"
+                            logger.critical(
+                                "SQLite integrity_check FAILED for %s: %s",
+                                p["db"],
+                                diagnostic,
+                            )
+                            raise CoordinationError(
+                                f"SQLITE_INTEGRITY_CHECK_FAILED: {diagnostic}"
+                            )
+                        logger.debug("SQLite integrity_check OK: %s", p["db"])
+                    _init_db_checked[database_key] = True
+                except CoordinationError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    raise CoordinationError(f"SQLITE_INTEGRITY_CHECK_ERROR: {exc}") from exc
 
     return {
         "ok": True,
@@ -329,11 +340,6 @@ def init_db(project_root: Optional[Path] = None) -> Dict[str, Any]:
         "scribe_out": str(p["scribe_out"]),
         "graphify_out": str(p["graphify_out"]),
     }
-
-
-# Module-level dict: db_path_str -> bool, tracks if integrity_check ran this process.
-_init_db_checked: dict[str, bool] = {}
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Events
@@ -372,12 +378,101 @@ def _agent_idle_timeout_seconds() -> int:
     return min(max(value, 180), 86400)
 
 
+def _pid_grace_seconds() -> int:
+    raw = os.environ.get("AGENT_PID_LIVENESS_GRACE_SECONDS", "").strip()
+    if not raw:
+        return 86400
+    try:
+        value = int(raw)
+    except ValueError:
+        return 86400
+    return min(max(value, 900), 604800)
+
+
+def _windows_pid_is_alive(pid: int) -> bool:
+    """Inspect a Windows process without broadcasting a console signal."""
+
+    if pid == os.getpid():
+        return True
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        process_query_limited_information = 0x1000
+        still_active = 259
+        error_access_denied = 5
+        error_invalid_parameter = 87
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        open_process.restype = wintypes.HANDLE
+
+        get_exit_code_process = kernel32.GetExitCodeProcess
+        get_exit_code_process.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        get_exit_code_process.restype = wintypes.BOOL
+
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+
+        handle = open_process(process_query_limited_information, False, pid)
+        if not handle:
+            error = ctypes.get_last_error()
+            if error == error_invalid_parameter:
+                return False
+            if error == error_access_denied:
+                return True
+            return True
+
+        try:
+            exit_code = wintypes.DWORD()
+            if not get_exit_code_process(handle, ctypes.byref(exit_code)):
+                return True
+            return exit_code.value == still_active
+        finally:
+            close_handle(handle)
+    except Exception:
+        # Fail closed: an uninspectable process must not lose its coordination
+        # ownership merely because the liveness probe itself is unavailable.
+        return True
+
+
+def process_is_alive(pid: Any) -> bool:
+    try:
+        value = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if value <= 0:
+        return False
+    if IS_WINDOWS:
+        return _windows_pid_is_alive(value)
+    try:
+        os.kill(value, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return True
+    return True
+
+
 def expire_stale(con: sqlite3.Connection) -> None:
     t = now_ts()
-    con.execute(
-        "UPDATE agents SET status='idle' WHERE status='active' AND last_seen < ?",
+    stale = con.execute(
+        "SELECT agent_id,pid,started_at,last_seen FROM agents WHERE status='active' AND last_seen < ?",
         (t - _agent_idle_timeout_seconds(),),
-    )
+    ).fetchall()
+    for row in stale:
+        process_alive = process_is_alive(row["pid"])
+        within_pid_grace = t - int(row["started_at"] or 0) <= _pid_grace_seconds()
+        if process_alive and within_pid_grace:
+            continue
+        con.execute(
+            "UPDATE agents SET status='idle' WHERE agent_id=? AND status='active'",
+            (row["agent_id"],),
+        )
     con.execute(
         "UPDATE claims SET status='expired' WHERE status='active' AND expires_at < ?",
         (t,),
@@ -510,15 +605,16 @@ def register_agent(
     host_tool: str,
     model_name: str = "",
     agent_id: Optional[str] = None,
+    project_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     if not host_tool or not isinstance(host_tool, str):
         raise CoordinationError("host_tool is required")
-    init_db()
+    init_db(project_root)
     aid = agent_id or new_id(
         host_tool.replace(" ", "-").lower()[:20] or "agent"
     )
     t = now_ts()
-    with connect() as con:
+    with connect(project_root) as con:
         expire_stale(con)
         con.execute(
             """
@@ -551,22 +647,26 @@ def register_agent(
     }
 
 
-def get_agent(agent_id: str) -> Dict[str, Any] | None:
+def get_agent(agent_id: str, project_root: Optional[Path] = None) -> Dict[str, Any] | None:
     if not agent_id:
         return None
-    init_db()
-    with connect() as con:
+    init_db(project_root)
+    with connect(project_root) as con:
         expire_stale(con)
         row = con.execute(
             "SELECT * FROM agents WHERE agent_id=?", (agent_id,)
         ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    result = dict(row)
+    result["process_alive"] = process_is_alive(result.get("pid"))
+    return result
 
 
-def require_agent_active(agent_id: str) -> Dict[str, Any]:
+def require_agent_active(agent_id: str, project_root: Optional[Path] = None) -> Dict[str, Any]:
     if not agent_id or not isinstance(agent_id, str) or not agent_id.strip():
         raise CoordinationError("AGENT_ID_REQUIRED")
-    agent = get_agent(agent_id.strip())
+    agent = get_agent(agent_id.strip(), project_root)
     if not agent:
         raise CoordinationError("AGENT_UNKNOWN_OR_UNREGISTERED")
     status = str(agent.get("status") or "")
@@ -576,15 +676,110 @@ def require_agent_active(agent_id: str) -> Dict[str, Any]:
         raise CoordinationError("AGENT_RETIRED")
     if status != "active":
         raise CoordinationError("AGENT_NOT_ACTIVE")
-    with connect() as con:
+    with connect(project_root) as con:
         con.execute("UPDATE agents SET last_seen=? WHERE agent_id=? AND status='active'", (now_ts(), agent_id.strip()))
     return agent
 
 
-def heartbeat(agent_id: str) -> Dict[str, Any]:
+def agent_lifecycle_blockers(agent_id: str) -> Dict[str, int]:
+    """Count ownership that makes replacing or retiring an identity unsafe."""
+
     if not agent_id:
         raise CoordinationError("agent_id is required")
+    init_db()
+    counts = {
+        "active_tasks": 0,
+        "active_claims": 0,
+        "active_resource_locks": 0,
+        "pending_patches": 0,
+    }
+    statements = {
+        "active_tasks": (
+            "SELECT COUNT(*) FROM task_context_v2 "
+            "WHERE agent_id=? AND status='active' AND expires_at>=?",
+            (agent_id, now_ts()),
+        ),
+        "active_claims": (
+            "SELECT COUNT(*) FROM claims WHERE agent_id=? AND status='active'",
+            (agent_id,),
+        ),
+        "pending_patches": (
+            "SELECT COUNT(*) FROM patches_v2 "
+            "WHERE agent_id=? AND status IN ('proposed','conflict')",
+            (agent_id,),
+        ),
+    }
     with connect() as con:
+        for key, (statement, params) in statements.items():
+            try:
+                counts[key] = int(con.execute(statement, params).fetchone()[0])
+            except sqlite3.OperationalError as exc:
+                if "no such table" not in str(exc).lower():
+                    raise
+        for statement, params in (
+            (
+                "SELECT COUNT(*) FROM resource_exclusive_locks "
+                "WHERE agent_id=? AND expires_at>=?",
+                (agent_id, now_ts()),
+            ),
+            (
+                "SELECT COUNT(*) FROM resource_locks "
+                "WHERE agent_id=? AND status='active' AND expires_at>=?",
+                (agent_id, now_ts()),
+            ),
+        ):
+            try:
+                counts["active_resource_locks"] += int(con.execute(statement, params).fetchone()[0])
+            except sqlite3.OperationalError as exc:
+                if "no such table" not in str(exc).lower():
+                    raise
+    counts["total"] = sum(counts.values())
+    return counts
+
+
+def workspace_mutation_blockers() -> Dict[str, int]:
+    """Count live ownership that makes a whole-project graph rebuild unsafe."""
+
+    init_db()
+    now = now_ts()
+    counts = {
+        "active_claims": 0,
+        "active_resource_locks": 0,
+        "pending_patches": 0,
+    }
+    statements = (
+        ("active_claims", "SELECT COUNT(*) FROM claims WHERE status='active' AND expires_at>=?", (now,)),
+        (
+            "active_resource_locks",
+            "SELECT COUNT(*) FROM resource_exclusive_locks WHERE expires_at>=?",
+            (now,),
+        ),
+        (
+            "active_resource_locks",
+            "SELECT COUNT(*) FROM resource_locks WHERE status='active' AND expires_at>=?",
+            (now,),
+        ),
+        (
+            "pending_patches",
+            "SELECT COUNT(*) FROM patches_v2 WHERE status IN ('proposed','conflict')",
+            (),
+        ),
+    )
+    with connect() as con:
+        for key, statement, params in statements:
+            try:
+                counts[key] += int(con.execute(statement, params).fetchone()[0])
+            except sqlite3.OperationalError as exc:
+                if "no such table" not in str(exc).lower():
+                    raise
+    counts["total"] = sum(counts.values())
+    return counts
+
+
+def heartbeat(agent_id: str, project_root: Optional[Path] = None) -> Dict[str, Any]:
+    if not agent_id:
+        raise CoordinationError("agent_id is required")
+    with connect(project_root) as con:
         expire_stale(con)
         cur = con.execute(
             "UPDATE agents SET last_seen=?, status='active' WHERE agent_id=?",
@@ -596,10 +791,10 @@ def heartbeat(agent_id: str) -> Dict[str, Any]:
     return {"agent_id": agent_id, "status": "active"}
 
 
-def resume_agent(agent_id: str) -> Dict[str, Any]:
+def resume_agent(agent_id: str, project_root: Optional[Path] = None) -> Dict[str, Any]:
     if not agent_id:
         raise CoordinationError("agent_id is required")
-    with connect() as con:
+    with connect(project_root) as con:
         expire_stale(con)
         cur = con.execute(
             "UPDATE agents SET last_seen=?, status='active' WHERE agent_id=? AND status<>'retired'",
@@ -614,6 +809,9 @@ def resume_agent(agent_id: str) -> Dict[str, Any]:
 def retire_agent(agent_id: str, reason: str = "") -> Dict[str, Any]:
     if not agent_id:
         raise CoordinationError("agent_id is required")
+    blockers = agent_lifecycle_blockers(agent_id)
+    if blockers["total"]:
+        raise CoordinationError("AGENT_RETIRE_ACTIVE_OWNERSHIP")
     with connect() as con:
         expire_stale(con)
         cur = con.execute(
@@ -626,6 +824,19 @@ def retire_agent(agent_id: str, reason: str = "") -> Dict[str, Any]:
             "UPDATE claims SET status='released', released_at=?, summary=? WHERE agent_id=? AND status='active'",
             (now_ts(), reason or "agent retired explicitly", agent_id),
         )
+        try:
+            con.execute(
+                "UPDATE resource_locks SET status='released' WHERE agent_id=? AND status='active'",
+                (agent_id,),
+            )
+        except sqlite3.OperationalError as exc:
+            if "no such table" not in str(exc).lower():
+                raise
+        try:
+            con.execute("DELETE FROM resource_exclusive_locks WHERE agent_id=?", (agent_id,))
+        except sqlite3.OperationalError as exc:
+            if "no such table" not in str(exc).lower():
+                raise
         add_event(con, "agent.retire", {"reason": reason}, agent_id)
     return {"agent_id": agent_id, "status": "retired"}
 
@@ -640,17 +851,20 @@ def agent_status(agent_id: str) -> Dict[str, Any]:
         ).fetchone()
         if not row:
             raise CoordinationError("AGENT_UNKNOWN_OR_UNREGISTERED")
-    return dict(row)
+    result = dict(row)
+    result["process_alive"] = process_is_alive(result.get("pid"))
+    return result
 
 
 def list_agents() -> Dict[str, Any]:
     init_db()
     with connect() as con:
         expire_stale(con)
-        rows = [
-            dict(r)
-            for r in con.execute("SELECT * FROM agents ORDER BY last_seen DESC")
-        ]
+        rows = []
+        for row in con.execute("SELECT * FROM agents ORDER BY last_seen DESC"):
+            item = dict(row)
+            item["process_alive"] = process_is_alive(item.get("pid"))
+            rows.append(item)
     return {"agents": rows, "count": len(rows)}
 
 
@@ -658,10 +872,11 @@ def session_status() -> Dict[str, Any]:
     init_db()
     with connect() as con:
         expire_stale(con)
-        agents = [
-            dict(r)
-            for r in con.execute("SELECT * FROM agents ORDER BY last_seen DESC")
-        ]
+        agents = []
+        for row in con.execute("SELECT * FROM agents ORDER BY last_seen DESC"):
+            item = dict(row)
+            item["process_alive"] = process_is_alive(item.get("pid"))
+            agents.append(item)
         claims = [
             dict(r)
             for r in con.execute(

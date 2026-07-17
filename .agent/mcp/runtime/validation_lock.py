@@ -28,6 +28,33 @@ def default_lock_path(root: Path | None = None) -> Path:
     return base / ".agent" / "state" / "runtime" / "validation-smoke.lock"
 
 
+def reset_validation_runtime_database(root: Path | None = None, retries: int = 20) -> None:
+    """Remove the disposable validation database and all journal sidecars.
+
+    Callers must hold ``validation_runtime_lock`` and must stop child MCP
+    processes first. Validation state is intentionally disposable: rebuilding a
+    fresh migrated database avoids carrying free-list or journal state between
+    independent smoke runs. Sidecars are removed first and Windows sharing
+    violations receive bounded retries.
+    """
+
+    base = (root or Path(__file__).resolve().parents[3]).resolve()
+    runtime = base / ".agent" / "state" / "runtime"
+    attempts = max(1, min(int(retries), 100))
+    for suffix in ("-shm", "-wal", ""):
+        path = runtime / f"coordination.sqlite{suffix}"
+        for attempt in range(attempts):
+            try:
+                path.unlink()
+                break
+            except FileNotFoundError:
+                break
+            except PermissionError:
+                if attempt + 1 >= attempts:
+                    raise
+                time.sleep(0.05)
+
+
 @contextmanager
 def validation_runtime_lock(root: Path | None = None, timeout_seconds: float = 300.0, poll_interval: float = 0.1) -> Iterator[Path]:
     lock_path = default_lock_path(root)

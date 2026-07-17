@@ -3,16 +3,19 @@ from __future__ import annotations
 from typing import Any
 
 _VALID_MODES = frozenset({"NANO", "QUICK", "STANDARD", "CRITICAL"})
-_VALID_INTENTS = frozenset({"read", "write", "refactor", "delete", "test", "debug"})
+_VALID_INTENTS = frozenset({"read", "write", "delete"})
+_READ_ALIASES = frozenset({"read", "inspect", "query", "research", "explain"})
+_WRITE_ALIASES = frozenset({"write", "edit", "patch", "modify", "code", "fix", "refactor", "test", "debug", "create"})
+_DELETE_ALIASES = frozenset({"delete", "remove"})
 _VALID_MODEL_TIERS = frozenset({"small", "large", "unknown"})
 
 _DEFAULT_MODE = "STANDARD"
 _DEFAULT_INTENT = "write"
 _DEFAULT_MODEL_TIER = "large"
 
-_REQUIRED_FIRST_ACTIONS = ["discipline_ping", "workflow_next"]
-_REQUIRED_FINISH_ACTIONS = ["workspace_audit", "scribe_record", "finish_task"]
-_FORBIDDEN = ["direct_write", "invent_tool_result", "finish_without_audit"]
+_REQUIRED_FIRST_ACTIONS = ["tenor_task_start"]
+_REQUIRED_FINISH_ACTIONS = ["tenor_apply_changeset", "tenor_task_control"]
+_FORBIDDEN = ["direct_write", "legacy_manual_choreography", "invent_tool_result", "finish_without_terminal_verdict"]
 
 _PROMPT_TEMPLATE = """\
 Tache : {task}
@@ -20,30 +23,27 @@ Mode : {mode}. Intent : {intent}.
 Ressource cible : {resource}
 
 Avant toute action :
-1. Fais discipline_ping.
-2. Fais workflow_next.
-3. Donne le prochain tool MCP obligatoire.
-4. Respecte agent-scribe-graphify.
-5. Aucune ecriture directe.
+1. Appelle tenor_task_start une seule fois avec objectif, intent, resources et scope.
+2. Laisse TENOR executer SCRIBE et Graphify en interne ; ne rejoue jamais le workflow MCP historique outil par outil.
+3. N invente jamais agent_id, context_token, verrou, lease ou tache de remplacement.
+4. Aucune ecriture directe.
 
 Pour toute modification de code :
-- utilise SCRIBE pour le contexte ;
-- utilise Graphify pour l impact structurel ;
-- utilise pre_action_guard avant toute action sensible ;
-- utilise action_lease_id quand necessaire ;
-- applique les changements uniquement via le workflow MCP ;
-- termine avec workspace_audit, scribe_record, puis scribe_promote_record si le record est durable, et finish_task.
+- envoie tous les fichiers dans un seul tenor_apply_changeset atomique ;
+- fournis le base_hash frais de chaque fichier et des validateurs argv bornes, sans shell ;
+- laisse TENOR preflighter les chemins, hashes et verrous, appliquer, valider, rollback si necessaire, enregistrer SCRIBE et clore la tache ;
+- si Graphify doit etre reconstruit pendant TENOR INIT, appelle graphify_project_build ; n execute jamais graphify update . ;
+- pour une lecture, termine par tenor_task_control(action="finish") ;
+- utilise tenor_activity pour l etat consolide, pas une suite d appels de diagnostic.
 
 Si tu ne peux pas appeler les tools MCP, STOP et affiche exactement :
 HOST_MCP_UNBOUND
 
 Tu n as pas le droit de dire termine sans fournir :
 - task_id ;
-- context_token ;
-- workflow_next ou workflow_snapshot ;
-- patch_id si patch applique ;
-- workspace_audit ;
-- scribe_record ;
+- verdict terminal machine ;
+- changeset_id si modification ;
+- preuve des validateurs et du rollback ou commit atomique ;
 - tests executes ou raison claire si non executes."""
 
 
@@ -58,7 +58,13 @@ def normalize_intent(intent: str) -> str:
     if not intent:
         return _DEFAULT_INTENT
     i = intent.strip().lower()
-    return i if i in _VALID_INTENTS else _DEFAULT_INTENT
+    if i in _READ_ALIASES:
+        return "read"
+    if i in _WRITE_ALIASES:
+        return "write"
+    if i in _DELETE_ALIASES:
+        return "delete"
+    return _DEFAULT_INTENT
 
 
 def normalize_model_tier(tier: str) -> str:
@@ -92,8 +98,8 @@ def generate_task_prompt(
 
     if normalized_tier == "small":
         parts.append(
-            "ALERTE : Mode petit modele : lecture/analyse/proposition uniquement. "
-            "Pas d ecriture directe.\n"
+            "ALERTE : Mode petit modele : API TENOR compacte, au plus deux appels normaux pour une ecriture. "
+            "Aucun Edit/Bash natif, aucune orchestration MCP manuelle, aucune identite ou tache de remplacement.\n"
         )
 
     parts.append(
@@ -108,13 +114,13 @@ def generate_task_prompt(
     if normalized_mode == "NANO":
         parts.append(
             "\nMode NANO : tache < 30 min, 1 fichier, pas de surface partagee. "
-            "Preflight minimal : scribe-rag context. Pas de doctor, lock, sync, worktree."
+            "Conserver tenor_task_start puis un changeset valide ; aucun rituel MCP supplementaire."
         )
     elif normalized_mode == "CRITICAL":
         parts.append(
             "\nMode CRITICAL : mutation de surface partagee ou SCRIBE. "
-            "Workflow read/check obligatoire avant. Lock acquire requis avant ecriture. "
-            "Doctor avant et apres. Sync repair apres."
+            "Validators renforces obligatoires dans le changeset atomique. "
+            "Les verrous, rollback, preuve et cloture restent geres par TENOR."
         )
 
     return {

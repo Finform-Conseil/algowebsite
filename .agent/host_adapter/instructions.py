@@ -1,97 +1,192 @@
 from __future__ import annotations
 
-import re
+"""V2.16 host-instruction transaction facade.
+
+The rendering/install implementation remains in ``_instructions_impl``. This
+module owns the contention policy: bounded acquisition, exact-owner cleanup,
+immediate recovery of dead local owners, and leak-free per-target thread locks.
+"""
+
+import json
+import os
+import socket
+import threading
+import time
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
-from .templates import render_minimal_host_instructions
+from . import _instructions_impl as _impl
+
+_LOCK_TIMEOUT_SECONDS = 30.0
+_LOCK_STALE_SECONDS = 60.0
+_RELEASE_MAX_ATTEMPTS = 10
+_RELEASE_BASE_DELAY_SECONDS = 0.01
+_RELEASE_MAX_DELAY_SECONDS = 0.25
+_PROCESS_LOCKS_GUARD = threading.Lock()
+_PROCESS_LOCKS: dict[str, "_ProcessLockEntry"] = {}
 
 
-def is_path_safe(target_file: Path, workspace_root: Path) -> bool:
+class _ProcessLockEntry:
+    __slots__ = ("lock", "users")
+
+    def __init__(self) -> None:
+        self.lock = threading.RLock()
+        self.users = 0
+
+
+def _target_key(path: Path) -> str:
+    return os.path.normcase(str(path.resolve(strict=False)))
+
+
+@contextmanager
+def _process_transaction(path: Path) -> Iterator[None]:
+    key = _target_key(path)
+    with _PROCESS_LOCKS_GUARD:
+        entry = _PROCESS_LOCKS.get(key)
+        if entry is None:
+            entry = _ProcessLockEntry()
+            _PROCESS_LOCKS[key] = entry
+        entry.users += 1
     try:
-        resolved_target = Path(target_file).resolve()
-        resolved_root = Path(workspace_root).resolve()
-        # Check if target is inside workspace_root
-        return resolved_root in resolved_target.parents or resolved_target == resolved_root
-    except Exception:
+        with entry.lock:
+            yield
+    finally:
+        with _PROCESS_LOCKS_GUARD:
+            current = _PROCESS_LOCKS.get(key)
+            entry.users -= 1
+            if current is entry and entry.users == 0:
+                _PROCESS_LOCKS.pop(key, None)
+
+
+def _process_lock_registry_size() -> int:
+    with _PROCESS_LOCKS_GUARD:
+        return len(_PROCESS_LOCKS)
+
+
+def _lock_is_stale(path: Path, payload: dict[str, Any]) -> bool:
+    """A dead same-host owner is recoverable immediately and exactly.
+
+    Partial/unreadable locks remain protected by the normal age threshold. A
+    foreign-host owner is never declared stale from local PID information.
+    """
+
+    owner_host = str(payload.get("hostname") or "")
+    if owner_host and owner_host != socket.gethostname():
         return False
-
-
-def remove_old_marked_block(content: str) -> str:
-    pattern = re.compile(
-        r"<!-- agent-scribe-graphify:auto-guard:start -->.*?<!-- agent-scribe-graphify:auto-guard:end -->",
-        re.DOTALL,
-    )
-    return pattern.sub("", content).strip()
-
-
-def update_marked_block(content: str, block: str) -> str:
-    pattern = re.compile(
-        r"<!-- agent-scribe-graphify:auto-guard:start -->.*?<!-- agent-scribe-graphify:auto-guard:end -->",
-        re.DOTALL,
-    )
-    if pattern.search(content):
-        return pattern.sub(block, content)
-    else:
-        if content.strip():
-            return f"{content.rstrip()}\n\n{block}\n"
-        return f"{block}\n"
-
-
-def verify_instruction_installation(target_file: Path) -> bool:
-    if not target_file.exists():
-        return False
+    owner_pid = payload.get("pid")
     try:
-        content = target_file.read_text(encoding="utf-8")
-        has_start = "<!-- agent-scribe-graphify:auto-guard:start -->" in content
-        has_end = "<!-- agent-scribe-graphify:auto-guard:end -->" in content
-        return has_start and has_end
-    except Exception:
+        valid_pid = int(owner_pid) > 0
+    except (TypeError, ValueError):
+        valid_pid = False
+    if valid_pid and not _impl._pid_is_alive(owner_pid):
+        return True
+    if _impl._payload_age_seconds(path, payload) <= _LOCK_STALE_SECONDS:
         return False
+    return valid_pid and not _impl._pid_is_alive(owner_pid)
 
 
-def install_host_instructions(
-    target_file: Path | str,
-    host_type: str,
-    workspace_root: Path | str | None = None,
-) -> dict[str, Any]:
-    target_path = Path(target_file)
+def _release_owned_lock(path: Path, nonce: str) -> bool:
+    """Remove only ``nonce`` with bounded Windows sharing retries."""
 
-    if workspace_root is not None:
-        root_path = Path(workspace_root)
-        if not is_path_safe(target_path, root_path):
-            raise ValueError(f"Path traversal detected: {target_file} is outside workspace {workspace_root}")
-
-    new_block = render_minimal_host_instructions(host_type)
-
-    # Read existing content if file exists
-    original_content = ""
-    existed = target_path.exists()
-    if existed:
+    for attempt in range(_RELEASE_MAX_ATTEMPTS):
+        latest = _impl._read_lock(path)
+        if not latest:
+            return not path.exists()
+        if str(latest.get("nonce") or "") != nonce:
+            return False
         try:
-            original_content = target_path.read_text(encoding="utf-8")
-        except Exception as exc:
-            return {
-                "ok": False,
-                "error": "READ_FAILED",
-                "reason": f"Could not read {target_file}: {exc}",
+            path.unlink()
+            return True
+        except FileNotFoundError:
+            return True
+        except PermissionError:
+            if attempt + 1 >= _RELEASE_MAX_ATTEMPTS:
+                raise
+            delay = min(
+                _RELEASE_BASE_DELAY_SECONDS * (2 ** attempt),
+                _RELEASE_MAX_DELAY_SECONDS,
+            )
+            time.sleep(delay)
+    return False
+
+
+@contextmanager
+def _instruction_transaction(target: Path) -> Iterator[None]:
+    """Serialize read/merge/write/verify across threads and processes."""
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = _impl._lock_path(target)
+    nonce = uuid.uuid4().hex
+    deadline = time.monotonic() + _LOCK_TIMEOUT_SECONDS
+    wait_round = 0
+
+    with _process_transaction(target):
+        while True:
+            payload = {
+                "schema": "host_instruction_lock_v2",
+                "nonce": nonce,
+                "pid": os.getpid(),
+                "hostname": socket.gethostname(),
+                "target": str(target.resolve(strict=False)),
+                "created_epoch": time.time(),
             }
+            encoded = (
+                json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
+            ).encode("utf-8")
+            try:
+                descriptor = os.open(
+                    lock_path,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                    0o600,
+                )
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(encoded)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                break
+            except FileExistsError:
+                observed = _impl._read_lock(lock_path)
+                if _lock_is_stale(lock_path, observed) and _impl._remove_exact_stale_lock(
+                    lock_path,
+                    observed,
+                ):
+                    continue
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    owner = {
+                        "pid": observed.get("pid"),
+                        "hostname": observed.get("hostname"),
+                        "nonce_prefix": str(observed.get("nonce") or "")[:8],
+                        "age_seconds": _impl._payload_age_seconds(lock_path, observed),
+                    }
+                    raise TimeoutError(
+                        "Timed out waiting for host instruction lock "
+                        f"{lock_path}; owner={owner}"
+                    )
+                wait_round += 1
+                base = min(0.01 * (1.5 ** min(wait_round, 8)), 0.20)
+                jitter = (int(nonce[:2], 16) / 255.0) * 0.01
+                time.sleep(min(base + jitter, remaining))
 
-    updated_content = update_marked_block(original_content, new_block)
+        try:
+            yield
+        finally:
+            _release_owned_lock(lock_path, nonce)
 
-    try:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(updated_content, encoding="utf-8")
-    except Exception as exc:
-        return {
-            "ok": False,
-            "error": "WRITE_FAILED",
-            "reason": f"Could not write to {target_file}: {exc}",
-        }
 
-    return {
-        "ok": True,
-        "existed": existed,
-        "installed_at": str(target_path.resolve()),
-        "host_type": host_type,
-    }
+# Apply the public transaction policy to the implementation's global lookups.
+_impl._LOCK_TIMEOUT_SECONDS = _LOCK_TIMEOUT_SECONDS
+_impl._LOCK_STALE_SECONDS = _LOCK_STALE_SECONDS
+_impl._lock_is_stale = _lock_is_stale
+_impl._instruction_transaction = _instruction_transaction
+
+for _name in dir(_impl):
+    if _name.startswith("__") or _name in globals():
+        continue
+    globals()[_name] = getattr(_impl, _name)
+
+
+def __getattr__(name: str) -> Any:
+    return getattr(_impl, name)

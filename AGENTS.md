@@ -5,59 +5,78 @@ Your training data is outdated — the docs are the source of truth.
 <!-- END:nextjs-agent-rules -->
 
 <!-- SCRIBE-PORTABLE-WORKFLOW:START -->
-## SCRIBE/TENOR Local Causal Retrieval Bundle
+## AGENT-SCRIBE-GRAPHIFY — V2.16 CANONICAL OPERATING CONTRACT
 
-Bundle root: `.agent/workflow/scribe/`
+### Canonical session entry
 
-Canonical commands:
-- Maintenance/write engine: `.agent/workflow/scribe/scribe`
-- Agent read interface: `.agent/workflow/scribe/scribe-rag`
-- Local rules: `.agent/workflow/scribe/sel/docs/AGENTS.md`
-- Always-on summary: `.agent/rules/scribe.md`
-- Full protocol: `.agent/workflow/scribe/sel/docs/scribe.md`
-- Multi-agent install: `.agent/workflow/scribe/sel/docs/multi-agent-installation.md`
-- Friction policy: `.agent/workflow/scribe/sel/docs/friction-policy.md`
+Human/LLM trigger:
 
-Current stable baseline (2026-06-01): SEL `81 OK`, RAG `25 OK`, gate/eval
-`8/8`, doctor `0 error` with only cosmetic `W009`. STOP `.agent`: use SCRIBE as
-memory and guardrail, then return to product work unless a real SCRIBE bug appears.
-
-## PRÉFLIGHT (copier-coller direct)
-
-Mode NANO (< 30 min, 1 file):
-
-```bash
-.agent/workflow/scribe/scribe-rag context
+```text
+TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
 ```
 
-Mode STANDARD (> 30 min):
+Mechanical command from the current project root:
 
 ```bash
-.agent/workflow/scribe/scribe-rag build
-.agent/workflow/scribe/scribe-rag context
-.agent/workflow/scribe/scribe-rag challenge "<plan>"
+.agent/workflow/scribe/scribe tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>
 ```
 
-Mode CRITICAL or SCRIBE/shared-surface mutation:
+The project-local `.agent/skills/init-tenor/SKILL.md` and `.agent/rules/tenor-init-v2.json` are authoritative. `bootstrap` is an internal/legacy primitive, not the public V2.16 installation authority.
 
-```bash
-.agent/workflow/scribe/scribe workflow read --agent <name> --type <extension|cli|api|unknown>
-.agent/workflow/scribe/scribe workflow check --agent <name>
-.agent/workflow/scribe/scribe-rag preflight --tier CRITICAL --strict "<plan>"
+### Authority order
+
+```text
+resolve root
+classify installation
+purge only old project-bound runtime when relocation is proven
+preserve canonical outputs and quarantine legacy conflicts
+adopt/create target SCRIBE
+verify/build and bind Graphify
+finalize local installation
+detect/configure the verified project-local host
+reconnect and rerun if host configuration changed
+verify local MCP
+verify tools visible in the real host
+prove MCP root binding
+bridge the independent session
+TENOR_INIT_READY
 ```
 
-## Rules
+### Hard rules
 
-- If the user sends `TENOR INIT::[.agent/skills/init-tenor/SKILL.md]`, read that exact project file first, before global OpenCode/Codex/Gemini configs, Graphify, README, or SCRIBE. Then run `.agent/workflow/scribe/scribe tenor-init --type <extension|cli|api|unknown>` and paste its MACHINE PROOF. If `tenor-init` is unavailable, fall back to `.agent/workflow/scribe/scribe bootstrap`; bootstrap remains mandatory and idempotent for every TENOR INIT.
-- Never read `AGENT-MEMOIRE_PROJECT_STATUS.scribe` directly during init; use `.agent/workflow/scribe/scribe-rag context` and `.agent/workflow/scribe/scribe-rag query`.
-- Do not claim YAML validity, session counts, SCAR counts, debts, or hot entries without showing real command output.
-- Use `scribe-rag` for retrieval: `preflight`, `context`, `query`, `explain`, `challenge`, `eval`, `gate`, `whoami`.
-- Do not use SEL direct retrieval (`scribe context`, `scribe query`, `scribe explain`) for normal agent work.
-- Read `graphify-out/GRAPH_REPORT.md` before architecture or codebase work when it exists.
-- If SCRIBE memory or shared surfaces are mutated, run workflow ack/check, doctor, lock acquire, sync, and lock release through `.agent/workflow/scribe/scribe`.
-- Default commit/push scope is the host product source; keep `graphify-out/` and `scribe-out/` out of commits by default; version `.agent/` only when intentionally maintaining agent tooling.
-- Use `.agent/workflow/scribe/scribe-rag gate` for bundle changes; it must stay green at 8/8.
-- Real pain capture is mandatory: bug >2 attempts, regression, costly rollback, or broken browser/visual smoke => SCAR with `cause_racine`, `resolution`, `test_binding`; retrieve related scars with `.agent/workflow/scribe/scribe-rag query/explain/challenge` before adjacent work.
+- Never start product work before `TENOR_INIT_READY`.
+- `server_entry.py --list-tools` and shell JSON-RPC prove only local MCP readiness, never host visibility.
+- Never read `AGENT-MEMOIRE_PROJECT_STATUS.scribe` directly for normal agent retrieval; use `.agent/workflow/scribe/scribe-rag` or MCP `scribe_query`.
+- SCRIBE results must change the plan or be explicitly challenged; retrieval is not a checkbox.
+- Use Graphify before architecture or broad code changes; prefer targeted structure/blast-radius queries over mass file reads.
+- The public task surface is exactly `tenor_task_start`, `tenor_apply_changeset`, `tenor_activity`, `tenor_task_control`; bootstrap retains the five bounded init tools.
+- `tenor_task_start` performs targeted SCRIBE and Graphify retrieval server-side. The host model must not replay the legacy internal choreography.
+- Every mutation is submitted as one atomic multi-file `tenor_apply_changeset` with fresh hashes and bounded validator argv arrays; TENOR owns locks, rollback, SCRIBE recording and closure.
+- Native shell/edit/write/apply-patch paths outside MCP are forbidden for project mutation.
+- A prose-only “done” without a terminal machine verdict and validator evidence is not completion.
+- Each terminal uses its own process-bound identity and server-side one-time proof. Task calls never accept caller-supplied `agent_id` or context tokens.
+- `TENOR_INIT_SAME_PROJECT` never repairs the bundle; only the verified project-local MCP entry and binding receipt may be managed automatically.
+- A complete raw copy of `.agent/` is a mandatory supported installation path on Linux, macOS and Windows; relocation is classified from the current root and manifest.
+- Runtime purge preserves `.agent/state/outputs/`; canonical output wins and conflicting legacy output is quarantined under `_legacy_migrated/`.
+- Preserved Graphify output is never trusted automatically; root/fingerprint readiness must pass again.
+- Graphify supports explicit `nodes + links` and historical `nodes + edges`; missing, stale, wrong-root, stub or contradictory graphs are rejected.
+- Default commit/push scope is the host product source; `.agent/` changes require intentional tooling maintenance.
+- Always keep `.agent/state/outputs/graphify-out/` and `.agent/state/outputs/scribe-out/` out of commits by default.
+- Documentation and generators move together under `.agent/docs/DOCUMENTATION_SYNC_POLICY.md`.
+
+### Canonical surfaces
+
+- `.agent/skills/init-tenor/SKILL.md`
+- `.agent/rules/tenor-init-v2.json`
+- `.agent/rules/scribe.md`
+- `.agent/docs/TENOR_INIT_SINGLE_AUTHORITY.md`
+- `.agent/docs/DOCUMENTATION_SYNC_POLICY.md`
+- `.agent/workflow/scribe/README.md`
+- `.agent/workflow/scribe/sel/docs/scribe.md`
+- `.agent/workflow/scribe/sel/docs/multi-agent-installation.md`
+- `.agent/docs/hosts/README.md`
+
+Historical `.old` files and dated baselines are not authoritative.
 <!-- SCRIBE-PORTABLE-WORKFLOW:END -->
 
 ## graphify

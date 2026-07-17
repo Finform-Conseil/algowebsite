@@ -11,7 +11,6 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 MCP_DIR = HERE.parent
@@ -22,8 +21,10 @@ if str(AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(AGENT_DIR))
 
 import server_ext as mcp
-from runtime import db, discipline
+from runtime import db, discipline, presence
+from host_adapter import host_config
 from host_adapter.launcher import HostLaunchConfig, run_tenor_init_bridge
+from proof_signer import issue_proof
 
 
 AGENT_SESSION_ID = "cli-20260625-test-bridge"
@@ -52,32 +53,18 @@ def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 class TenorInitBridgeTest(unittest.TestCase):
-    _consumed_tokens: set[str] = set()
-
-    def _mock_verify_proof(
-        self, root: Path, token: str, agent_id: str,
-        mark_consumed: bool = True,
-    ) -> dict[str, Any]:
-        if token in ("", "consumed-token", "missing-token"):
-            return {"ok": False, "verdict": "PROOF_INVALID_FORMAT", "detail": "mock"}
-        if token == "invalid-token":
-            return {"ok": False, "verdict": "PROOF_INVALID_SIGNATURE", "detail": "mock bad signature"}
-        if token == "expired-token":
-            return {"ok": False, "verdict": "PROOF_EXPIRED", "detail": "mock expired"}
-        if mark_consumed:
-            if token in self._consumed_tokens:
-                return {"ok": False, "verdict": "PROOF_CONSUMED", "detail": "mock replay detected"}
-            self._consumed_tokens.add(token)
-        return {"ok": True, "verdict": "PROOF_VALID", "detail": "mock valid"}
-
-    def _reset_consumed(self) -> None:
-        self._consumed_tokens.clear()
+    def proof(self, agent_id: str = AGENT_SESSION_ID, *, ttl_seconds: int = 3600) -> str:
+        return issue_proof(self.root, agent_id, ttl_seconds=ttl_seconds)
 
     def setUp(self) -> None:
         self.root = Path(tempfile.mkdtemp(prefix="tenor-init-bridge-"))
         self.old_cwd = Path.cwd()
         os.chdir(self.root)
         os.environ["AGENT_SCRIBE_GRAPHIFY_ROOT"] = str(self.root)
+        self.old_host_env = {
+            key: os.environ.get(key)
+            for key in ("AGENT_MCP_HOST", "AGENT_MCP_BINDING_ID")
+        }
         (self.root / ".agent" / "state").mkdir(parents=True, exist_ok=True)
         (self.root / ".agent" / "state" / "patch_queue").mkdir(parents=True, exist_ok=True)
         graphify_dir = self.root / "graphify-out"
@@ -98,16 +85,21 @@ class TenorInitBridgeTest(unittest.TestCase):
         mcp._GRAPHIFY_GUARD_CACHE.clear()
         db.init_db(self.root)
         discipline.ensure_schema()
-        # Enable proof signer with mock by default — use proper patching
-        mcp._PROOF_SIGNER_AVAILABLE = True
-        self._reset_consumed()
-        self._verify_patch = patch.object(mcp, "_verify_proof", self._mock_verify_proof)
-        self._verify_patch.start()
+        configured = host_config.configure_host(self.root, explicit=HOST_TOOL)
+        self.assertTrue(configured["ok"], configured)
+        os.environ["AGENT_MCP_HOST"] = HOST_TOOL
+        os.environ["AGENT_MCP_BINDING_ID"] = configured["binding_id"]
+        mcp.tenor_init_bridge.__globals__["_PROOF_SIGNER_AVAILABLE"] = True
 
     def tearDown(self) -> None:
-        self._verify_patch.stop()
+        presence.stop(self.root, AGENT_SESSION_ID)
         os.chdir(self.old_cwd)
         os.environ.pop("AGENT_SCRIBE_GRAPHIFY_ROOT", None)
+        for key, previous in self.old_host_env.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
         shutil.rmtree(self.root, ignore_errors=True)
 
     def test_bridge_happy_path(self) -> None:
@@ -117,7 +109,7 @@ class TenorInitBridgeTest(unittest.TestCase):
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
             model_name=MODEL_NAME,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"), f"bridge failed: {result.get('reason', '')}")
         self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_OK")
@@ -146,7 +138,7 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"))
         status = db.agent_status(AGENT_SESSION_ID)
@@ -155,10 +147,10 @@ class TenorInitBridgeTest(unittest.TestCase):
 
     def test_bridge_twice_is_idempotent(self) -> None:
         """Calling bridge twice with same agent_id succeeds (each call needs a fresh token)."""
-        r1 = call_tool("tenor_init_bridge", agent_session_id=AGENT_SESSION_ID, host_tool=HOST_TOOL, proof_token="valid-token")
+        r1 = call_tool("tenor_init_bridge", agent_session_id=AGENT_SESSION_ID, host_tool=HOST_TOOL, proof_token=self.proof())
         self.assertTrue(r1.get("ok"))
         # Second call with a different token — bridge is idempotent for same agent_id
-        r2 = call_tool("tenor_init_bridge", agent_session_id=AGENT_SESSION_ID, host_tool=HOST_TOOL, proof_token="second-valid-token")
+        r2 = call_tool("tenor_init_bridge", agent_session_id=AGENT_SESSION_ID, host_tool=HOST_TOOL, proof_token=self.proof())
         self.assertTrue(r2.get("ok"))
         self.assertEqual(r2.get("verdict"), "TENOR_INIT_BRIDGE_OK")
 
@@ -168,7 +160,7 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"))
         steps = result.get("steps", [])
@@ -177,14 +169,14 @@ class TenorInitBridgeTest(unittest.TestCase):
         self.assertEqual(ping_step.get("phase"), "post-init")
 
     def test_bridge_without_host_tool_defaults_unknown(self) -> None:
-        """Bridge with no host_tool should default to 'unknown'."""
+        """The verified process binding, not a caller default, owns host identity."""
         result = call_tool(
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"))
-        self.assertEqual(result.get("host_tool"), "unknown")
+        self.assertEqual(result.get("host_tool"), HOST_TOOL)
 
     # ── V2.15.6: proof_token verification ────────────────────
 
@@ -194,7 +186,7 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"), f"bridge failed: {result.get('reason', '')}")
         self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_OK")
@@ -206,11 +198,13 @@ class TenorInitBridgeTest(unittest.TestCase):
 
     def test_bridge_with_invalid_proof(self) -> None:
         """Bridge with invalid proof_token returns PROOF_FAILED + HARD_STOP."""
+        token = self.proof()
+        invalid = token[:-1] + ("0" if token[-1] != "0" else "1")
         result = call_tool(
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="invalid-token",
+            proof_token=invalid,
         )
         self.assertFalse(result.get("ok"))
         self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_PROOF_FAILED")
@@ -222,25 +216,45 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="expired-token",
+            proof_token=self.proof(ttl_seconds=-1),
         )
         self.assertFalse(result.get("ok"))
         self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_PROOF_FAILED")
         self.assertEqual(result.get("state"), "HARD_STOP")
 
-    def test_bridge_without_proof_token_returns_error(self) -> None:
-        """Bridge with no proof_token returns PROOF_REQUIRED + HARD_STOP."""
+    def test_bridge_consumes_server_side_proof_without_token(self) -> None:
+        """A host-bound bridge consumes a fresh server-side proof without exposing it."""
+        self.proof()
         result = call_tool(
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
         )
-        self.assertFalse(result.get("ok"))
-        self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_PROOF_REQUIRED")
-        self.assertEqual(result.get("state"), "HARD_STOP")
+        self.assertTrue(result.get("ok"), result)
+        proof_step = next(step for step in result["steps"] if step["step"] == "verify_proof")
+        self.assertEqual(proof_step["consumption_mode"], "host_bound_server_side")
 
-    def test_bridge_retires_ghost_agents(self) -> None:
-        """Bridge should retire other active agents from same host_tool."""
+    def test_bridge_rejects_shell_process_without_host_binding(self) -> None:
+        old_host = os.environ.pop("AGENT_MCP_HOST", None)
+        old_binding = os.environ.pop("AGENT_MCP_BINDING_ID", None)
+        try:
+            result = call_tool(
+                "tenor_init_bridge",
+                agent_session_id=AGENT_SESSION_ID,
+                host_tool=HOST_TOOL,
+                proof_token=self.proof(),
+            )
+        finally:
+            if old_host is not None:
+                os.environ["AGENT_MCP_HOST"] = old_host
+            if old_binding is not None:
+                os.environ["AGENT_MCP_BINDING_ID"] = old_binding
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_HOST_UNBOUND")
+        self.assertEqual(result.get("state"), "HOST_MCP_UNBOUND")
+
+    def test_bridge_preserves_other_agent_without_guessing_it_is_a_ghost(self) -> None:
+        """Bridge observes another agent but never retires it heuristically."""
         ghost_id = "ghost-agent-001"
         db.register_agent(host_tool=HOST_TOOL, agent_id=ghost_id)
         db.heartbeat(ghost_id)
@@ -251,14 +265,31 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"), f"bridge failed: {result.get('reason', '')}")
         self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_OK")
         retired = result.get("retired_ghosts", [])
-        self.assertIn(ghost_id, retired, f"ghost {ghost_id} should be retired, got {retired}")
+        self.assertNotIn(ghost_id, retired)
+        observed_step = next(step for step in result["steps"] if step["step"] == "retire_ghosts")
+        observed = observed_step.get("observed_parallel_agents", [])
+        self.assertIn(ghost_id, [item["agent_id"] for item in observed])
         ghost_status = db.agent_status(ghost_id)
-        self.assertEqual(ghost_status.get("status"), "retired", f"ghost should be retired: {ghost_status}")
+        self.assertEqual(ghost_status.get("status"), "active", ghost_status)
+
+    def test_bridge_binds_identity_to_current_mcp_process_and_starts_presence(self) -> None:
+        result = call_tool(
+            "tenor_init_bridge",
+            agent_session_id=AGENT_SESSION_ID,
+            host_tool=HOST_TOOL,
+            proof_token=self.proof(),
+        )
+        self.assertTrue(result.get("ok"), result)
+        binding = result.get("process_bound_identity", {})
+        self.assertEqual(binding.get("agent_id"), AGENT_SESSION_ID)
+        self.assertEqual(binding.get("pid"), os.getpid())
+        self.assertTrue(binding.get("presence", {}).get("ok"), binding)
+        self.assertFalse(binding.get("caller_supplied_agent_id_required_for_task_tools"))
 
     def test_bridge_does_not_retire_active_parallel_agent(self) -> None:
         """Bridge must NOT retire a parallel agent with an active task context."""
@@ -278,7 +309,7 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"), f"bridge failed: {result.get('reason', '')}")
         retired = result.get("retired_ghosts", [])
@@ -299,7 +330,7 @@ class TenorInitBridgeTest(unittest.TestCase):
                 "tenor_init_bridge",
                 agent_session_id=AGENT_SESSION_ID,
                 host_tool=HOST_TOOL,
-                proof_token="valid-token",
+                proof_token=self.proof(),
             )
             self.assertTrue(result.get("ok"), f"bridge should still succeed, got {result}")
             self.assertEqual(result.get("ghost_cleanup_status"), "failed",
@@ -320,7 +351,7 @@ class TenorInitBridgeTest(unittest.TestCase):
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
             host_tool=HOST_TOOL,
-            proof_token="valid-token",
+            proof_token=self.proof(),
         )
         self.assertTrue(result.get("ok"), f"bridge failed: {result.get('reason', '')}")
         tasks = task_context.list_tasks(agent_id=AGENT_SESSION_ID, status="active")
@@ -329,7 +360,9 @@ class TenorInitBridgeTest(unittest.TestCase):
 
     def test_bridge_proof_signer_unavailable(self) -> None:
         """Bridge with proof_token but PROOF_SIGNER_UNAVAILABLE returns UNVERIFIABLE."""
-        mcp._PROOF_SIGNER_AVAILABLE = False
+        bridge_globals = mcp.tenor_init_bridge.__globals__
+        previous = bridge_globals["_PROOF_SIGNER_AVAILABLE"]
+        bridge_globals["_PROOF_SIGNER_AVAILABLE"] = False
         try:
             result = call_tool(
                 "tenor_init_bridge",
@@ -341,19 +374,19 @@ class TenorInitBridgeTest(unittest.TestCase):
             self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_PROOF_UNVERIFIABLE")
             self.assertEqual(result.get("state"), "HARD_STOP")
         finally:
-            mcp._PROOF_SIGNER_AVAILABLE = True
+            bridge_globals["_PROOF_SIGNER_AVAILABLE"] = previous
 
     # ── V2.15.16: proof_token schema + consumption protocol ───
 
     def test_bridge_schema_exposes_proof_token(self) -> None:
-        """MCP schema for tenor_init_bridge MUST include proof_token."""
+        """Legacy token remains accepted but is no longer required or emitted."""
         schema = mcp.tool_schema("tenor_init_bridge")
         self.assertIn("proof_token", schema.get("properties", {}))
-        self.assertIn("proof_token", schema.get("required", []))
+        self.assertNotIn("proof_token", schema.get("required", []))
 
     def test_verify_standalone_does_not_consume(self) -> None:
         """Standalone verify_proof MCP tool must NOT consume the token (peek mode)."""
-        token = "standalone-peek-token"
+        token = self.proof()
         r1 = call_tool("verify_proof", token=token, agent_id=AGENT_SESSION_ID)
         self.assertTrue(r1.get("ok"), f"first verify failed: {r1}")
         # Same token must still be fresh for the bridge
@@ -368,7 +401,7 @@ class TenorInitBridgeTest(unittest.TestCase):
 
     def test_bridge_consumes_token(self) -> None:
         """Bridge is the sole consumer — a second bridge with the same token must fail."""
-        token = "bridge-consumes-once"
+        token = self.proof()
         r1 = call_tool(
             "tenor_init_bridge",
             agent_session_id=AGENT_SESSION_ID,
@@ -385,9 +418,6 @@ class TenorInitBridgeTest(unittest.TestCase):
         )
         self.assertFalse(r2.get("ok"), "second bridge with consumed token should fail")
         self.assertIn(r2.get("verdict", ""), ("TENOR_INIT_BRIDGE_PROOF_FAILED", "TENOR_INIT_BRIDGE_PROOF_ERROR"))
-        # Also verify that mock registered the consumption
-        self.assertIn(token, self._consumed_tokens,
-                      "token should be tracked as consumed in mock")
 
 
 class TestTenorInitBridgeLauncher(unittest.TestCase):
@@ -397,6 +427,12 @@ class TestTenorInitBridgeLauncher(unittest.TestCase):
         result = run_tenor_init_bridge(config, agent_session_id="")
         self.assertFalse(result.get("ok"))
         self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_INVALID")
+
+    def test_launcher_cannot_substitute_for_real_host_tool_surface(self) -> None:
+        config = HostLaunchConfig(agent_id="test", host_type="opencode", workspace_root="/tmp")
+        result = run_tenor_init_bridge(config, agent_session_id="cli-test")
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(result.get("verdict"), "TENOR_INIT_BRIDGE_HOST_UNBOUND")
 
 
 class TestCLI(unittest.TestCase):

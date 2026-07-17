@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -27,6 +28,14 @@ def copy_agent_bundle(target: Path) -> None:
     )
 
 
+def run_tenor_init(root: Path) -> subprocess.CompletedProcess[str]:
+    command = [".agent/workflow/scribe/scribe", "tenor-init", "--type", "cli", "--host", "opencode"]
+    first = run_command(command, root)
+    if first.returncode == 76:
+        return run_command(command, root)
+    return first
+
+
 class TenorInitOutputHygieneTests(unittest.TestCase):
     def assert_root_outputs_absent(self, root: Path) -> None:
         self.assertFalse((root / "scribe-out").exists(), "root scribe-out must not remain")
@@ -37,8 +46,15 @@ class TenorInitOutputHygieneTests(unittest.TestCase):
             root = Path(tmp)
             copy_agent_bundle(root)
 
-            tenor_init = run_command([".agent/workflow/scribe/scribe", "tenor-init", "--type", "cli"], root)
+            tenor_init = run_tenor_init(root)
             self.assertEqual(tenor_init.returncode, 0, tenor_init.stderr + tenor_init.stdout)
+            self.assertIn("Proof receipt        : SERVER_SIDE_ONE_TIME_READY", tenor_init.stdout)
+            self.assertIn("Status init          : LOCAL_VALID_HOST_UNBOUND", tenor_init.stdout)
+            self.assertIn("MCP local server     : READY", tenor_init.stdout)
+            self.assertIn("TENOR_INIT_LOCAL_MCP_READY tools=9", tenor_init.stdout)
+            self.assertIn("Init status          : LOCAL_INIT_READY_HOST_MCP_UNBOUND", tenor_init.stdout)
+            self.assertNotIn("Proof token", tenor_init.stdout + tenor_init.stderr)
+            self.assertNotIn("v1.", tenor_init.stdout + tenor_init.stderr)
             self.assert_root_outputs_absent(root)
 
             scribe_out = root / ".agent" / "state" / "outputs" / "scribe-out"
@@ -63,7 +79,7 @@ class TenorInitOutputHygieneTests(unittest.TestCase):
             (legacy_scribe / "legacy-note.txt").write_text("keep me\n", encoding="utf-8")
             (legacy_graphify / "legacy-graph.json").write_text("{}\n", encoding="utf-8")
 
-            tenor_init = run_command([".agent/workflow/scribe/scribe", "tenor-init", "--type", "cli"], root)
+            tenor_init = run_tenor_init(root)
             self.assertEqual(tenor_init.returncode, 0, tenor_init.stderr + tenor_init.stdout)
             self.assert_root_outputs_absent(root)
 
@@ -100,7 +116,7 @@ class TenorInitOutputHygieneTests(unittest.TestCase):
             (root / "scribe-out").symlink_to(outside, target_is_directory=True)
             (root / "graphify-out").symlink_to(outside, target_is_directory=True)
 
-            tenor_init = run_command([".agent/workflow/scribe/scribe", "tenor-init", "--type", "cli"], root)
+            tenor_init = run_tenor_init(root)
             self.assertEqual(tenor_init.returncode, 0, tenor_init.stderr + tenor_init.stdout)
             self.assertTrue((root / "scribe-out").is_symlink())
             self.assertTrue((root / "graphify-out").is_symlink())
@@ -118,13 +134,53 @@ class TenorInitOutputHygieneTests(unittest.TestCase):
             legacy.mkdir()
             (legacy / "same.txt").write_text("legacy\n", encoding="utf-8")
 
-            tenor_init = run_command([".agent/workflow/scribe/scribe", "tenor-init", "--type", "cli"], root)
+            tenor_init = run_tenor_init(root)
             self.assertEqual(tenor_init.returncode, 0, tenor_init.stderr + tenor_init.stdout)
             self.assertFalse(legacy.exists())
             self.assertEqual((canonical / "same.txt").read_text(encoding="utf-8"), "canonical\n")
             migrated = list((canonical / "_legacy_migrated").rglob("same.txt"))
             self.assertEqual(len(migrated), 1)
             self.assertEqual(migrated[0].read_text(encoding="utf-8"), "legacy\n")
+
+    def test_project_graph_build_never_materializes_root_graphify_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            copy_agent_bundle(root)
+            (root / "app.py").write_text("def answer():\n    return 42\n", encoding="utf-8")
+            scripts = root / ".agent" / "workflow" / "scribe" / "sel" / "scripts"
+            sys.path.insert(0, str(scripts))
+            try:
+                import scribe_bundle_graph
+
+                observed_targets: list[Path] = []
+
+                def fake_graphify(target: Path, **_: object) -> subprocess.CompletedProcess[str]:
+                    target_path = Path(target)
+                    observed_targets.append(target_path)
+                    self.assertNotEqual(target_path, Path("."), "project build must run in an isolated mirror")
+                    out = target_path / "graphify-out"
+                    out.mkdir(parents=True)
+                    (out / "graph.json").write_text(
+                        '{"nodes":[{"id":"answer"}],"edges":[]}\n', encoding="utf-8"
+                    )
+                    (out / "GRAPH_REPORT.md").write_text("# Graph\n", encoding="utf-8")
+                    (out / "graph.html").write_text("<html></html>\n", encoding="utf-8")
+                    (out / ".graphify_root").write_text(str(target_path), encoding="utf-8")
+                    return subprocess.CompletedProcess(["graphify"], 0, stdout="ok\n")
+
+                with mock.patch.object(scribe_bundle_graph, "PROJECT_ROOT", root), mock.patch.object(
+                    scribe_bundle_graph, "run_graphify_update", side_effect=fake_graphify
+                ):
+                    status = scribe_bundle_graph.build_project_graph(timeout=30)
+
+                self.assertEqual(status, 0)
+                self.assertEqual(len(observed_targets), 1)
+                self.assertFalse((root / "graphify-out").exists())
+                canonical = root / ".agent" / "state" / "outputs" / "graphify-out"
+                self.assertTrue((canonical / "graph.json").is_file())
+                self.assertEqual((canonical / ".graphify_root").read_text(encoding="utf-8"), str(root))
+            finally:
+                sys.path = [entry for entry in sys.path if entry != str(scripts)]
 
 
 if __name__ == "__main__":
