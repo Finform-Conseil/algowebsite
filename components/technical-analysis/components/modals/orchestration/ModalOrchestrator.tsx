@@ -179,6 +179,10 @@ const DrawingSettingsModal = dynamic(
   () => import("../drawings/DrawingSettingsModal").then((module) => module.DrawingSettingsModal),
   { ssr: false, loading: () => null }
 );
+const ImageNoteModal = dynamic(
+  () => import("../drawings/ImageNoteModal").then((module) => module.ImageNoteModal),
+  { ssr: false, loading: () => null }
+);
 const MoreOptionsModal = dynamic(
   () => import("../more-options/MoreOptionsModal").then((module) => module.MoreOptionsModal),
   { ssr: false, loading: () => null }
@@ -199,6 +203,15 @@ export interface ModalOrchestratorProps {
   // Canvas / Drawing State (High-Frequency, kept out of Redux)
   dr: Drawing | undefined;
   updateDrawing: (id: string, updates: Partial<Drawing>) => void;
+  replaceImageNoteAsset?: (
+    id: string,
+    validated: import("../../../lib/imageNote/imageNoteValidation").ValidatedImage,
+    transparency: number,
+  ) => Promise<void>;
+  createImageNoteDrawing: (
+    validated: import("../../../lib/imageNote/imageNoteValidation").ValidatedImage,
+    transparency: number,
+  ) => Promise<string | null>;
 
   // Data & Simulation State
   startReplay: () => void;
@@ -213,6 +226,8 @@ export interface ModalOrchestratorProps {
 export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   dr,
   updateDrawing,
+  replaceImageNoteAsset,
+  createImageNoteDrawing,
   startReplay,
   setChartData,
   onRevealObjectIds,
@@ -445,6 +460,15 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
           onClose={() => closeModal("drawingSettings")}
           dr={dr}
           updateDrawing={updateDrawing}
+          replaceImageNoteAsset={replaceImageNoteAsset}
+        />
+      )}
+
+      {modals.imageNote && (
+        <ImageNoteModal
+          isOpen={modals.imageNote}
+          onClose={() => closeModal("imageNote")}
+          createImageNoteDrawing={createImageNoteDrawing}
         />
       )}
 

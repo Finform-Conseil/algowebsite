@@ -653,6 +653,8 @@ const ChartUI: React.FC = () => {
     handlePointerMove,
     handlePointerUp,
     handleDoubleClick,
+    createImageNoteDrawing,
+    replaceImageNoteAsset,
     gridRect,
     saveAsDefault,
     resetStyle,
@@ -1776,6 +1778,8 @@ const ChartUI: React.FC = () => {
         <MemoizedModalOrchestrator
           dr={selectedDrawing ?? undefined}
           updateDrawing={updateDrawing}
+          replaceImageNoteAsset={replaceImageNoteAsset}
+          createImageNoteDrawing={createImageNoteDrawing}
           startReplay={marketData.startReplay}
           setChartData={marketData.setChartData}
           onRevealObjectIds={revealIndicatorObjectIds}

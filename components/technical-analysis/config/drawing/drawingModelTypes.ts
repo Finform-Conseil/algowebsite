@@ -21,8 +21,8 @@ export interface Drawing {
   anchored?: boolean;
   isDragging?: boolean;
   isCreating?: boolean;
-  _boxOffset?: number; // [TENOR 2026] UI offset for multi-tool reconciliation
-  groupId?: string; // [TENOR 2026] Folder/Group support for Object Tree
+  _boxOffset?: number;
+  groupId?: string;
   text?: string;
   showText?: boolean;
   textColor?: string;
@@ -59,6 +59,25 @@ export interface Drawing {
   signpostProps?: DrawingSignpostProps;
   emojiPin?: DrawingEmojiPinProps;
   intervalVisibility?: DrawingIntervalVisibilityProps;
+  flagMarkProps?: DrawingFlagMarkProps;
+  imageNoteProps?: DrawingImageNoteProps;
+}
+
+export interface DrawingImageNoteProps {
+  /** Stable reference to the binary asset stored in the dedicated IndexedDB asset store. */
+  assetId: string;
+  /** MIME type of the stored blob (image/jpeg | image/png | image/webp). */
+  mimeType: string;
+  /** Natural pixel dimensions of the source image. */
+  naturalWidth: number;
+  naturalHeight: number;
+  /** Rendered CSS pixel dimensions (preserve natural ratio, never upscaled). */
+  cssWidth: number;
+  cssHeight: number;
+  /** 0 = opaque, 100 = fully transparent. Mirrors TradingView Transparency control. */
+  transparency: number;
+  /** Original file name, useful for replacement / diagnostics. Optional. */
+  originalFileName?: string;
 }
 
 export type IntervalKind = "1m" | "5m" | "15m" | "1H" | "4H" | "1D" | "1W" | "1M";
@@ -82,9 +101,11 @@ export interface DrawingEmojiPinProps {
 }
 
 export interface DrawingSignpostProps {
-  /** Best-effort candle index at creation (kept for legacy/compat). */
   barIndex: number;
-  /** Stable candle time/barTime — the real anchor used for rehydration. */
   barTime?: string | number;
   verticalPositionPct: number;
+}
+
+export interface DrawingFlagMarkProps {
+  flagColor: string;
 }

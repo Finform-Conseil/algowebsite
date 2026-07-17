@@ -7,7 +7,8 @@ import clsx from "clsx";
 import {
   setCursorMode,
   toggleLockedAll,
-  toggleAreDrawingsHidden
+  toggleAreDrawingsHidden,
+  setModalOpen
 } from "../../store/technicalAnalysisSlice";
 import { selectUiState } from "../../store/selectors";
 import type { AllToolType } from "../../config/drawing/drawingToolTypes";
@@ -226,6 +227,13 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   const drawingCounts = useMemo(getDrawingToolCounts, []);
 
   const handleSelectDrawingTool = useCallback((toolId: AllToolType) => {
+    // [IMAGE NOTE] Selecting the Image tool opens the insertion modal
+    // immediately instead of arming the canvas (TradingView contract).
+    if (toolId === "image_note") {
+      dispatch(setModalOpen({ modal: "imageNote", isOpen: true }));
+      closeAllDropdowns();
+      return;
+    }
     const bucket = getToolMemoryBucket(toolId);
     if (bucket) {
       setLastSelectedToolByCategory((prev) => ({ ...prev, [bucket]: toolId }));

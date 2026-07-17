@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { BarPatternMode } from "../../../config/drawing/drawingToolTypes";
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import {
@@ -20,9 +20,125 @@ import {
 } from "../../common/inputs/SettingsField";
 import { BaseModal } from "../../common/primitives/BaseModal";
 import { ModalTabs } from "../../common/primitives/ModalTabs";
-import type { IntervalKind, DrawingIntervalVisibilityProps } from "../../../config/drawing/drawingModelTypes";
+import type { IntervalKind, DrawingIntervalVisibilityProps, DrawingImageNoteProps } from "../../../config/drawing/drawingModelTypes";
+import {
+  validateImageFile,
+  computeImageCssSize,
+  buildImageNoteProps,
+} from "../../../lib/imageNote/imageNoteValidation";
+import {
+  loadDrawingAsset,
+  saveDrawingAsset,
+  deleteDrawingAsset,
+} from "../../../hooks/drawing/drawingPersistence";
+import { seedImageNoteImage, clearImageNoteImage } from "../../../lib/imageNote/imageNoteAssetLoader";
 
 const INTERVAL_KINDS: IntervalKind[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W", "1M"];
+
+// [IMAGE NOTE] Style tab: preview/dropzone replacement + transparency + template.
+const ImageNoteStyleBlock: React.FC<{
+  dr: Drawing;
+  updateDrawing: (id: string, updates: Partial<Drawing>) => void;
+  replaceImageNoteAsset?: (
+    id: string,
+    validated: import("../../../lib/imageNote/imageNoteValidation").ValidatedImage,
+    transparency: number,
+  ) => Promise<void>;
+}> = ({ dr, updateDrawing, replaceImageNoteAsset }) => {
+  const props = dr.imageNoteProps;
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let url: string | null = null;
+    let cancelled = false;
+    if (props?.assetId) {
+      loadDrawingAsset(props.assetId).then((blob) => {
+        if (!cancelled && blob) {
+          url = URL.createObjectURL(blob);
+          setPreviewUrl(url);
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [props?.assetId]);
+
+  const onPick = async (file: File | null | undefined) => {
+    setError(null);
+    if (!file || !props) return;
+    const result = await validateImageFile(file);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    if (replaceImageNoteAsset) {
+      setBusy(true);
+      try {
+        await replaceImageNoteAsset(dr.id, result.value, props.transparency);
+      } catch {
+        setError("Échec du remplacement de l'image.");
+      } finally {
+        setBusy(false);
+      }
+    }
+  };
+
+  if (!props) return null;
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      <div
+        className="gp-image-note-dropzone"
+        role="button"
+        tabIndex={0}
+        onClick={() => fileRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") fileRef.current?.click();
+        }}
+      >
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="gp-image-note-preview" src={previewUrl} alt="Aperçu" />
+        ) : (
+          <div className="gp-image-note-dropzone__hint">
+            <i className="bi bi-image me-2" aria-hidden="true" />
+            <span>Cliquez pour remplacer l'image</span>
+          </div>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg"
+          className="gp-image-note-file"
+          onChange={(e) => onPick(e.target.files?.[0])}
+        />
+      </div>
+
+      {error && (
+        <div className="gp-image-note-error" role="alert">
+          {error}
+        </div>
+      )}
+
+      <SettingsNumberInput
+        label="Transparency"
+        value={props.transparency}
+        min={0}
+        max={100}
+        onChange={(val) =>
+          updateDrawing(dr.id, {
+            imageNoteProps: { ...props, transparency: Math.max(0, Math.min(100, val)) } as DrawingImageNoteProps,
+          })
+        }
+      />
+    </div>
+  );
+};
 
 type AnchoredVWAPSource = NonNullable<Drawing["anchoredVWAPProps"]>["source"];
 
@@ -37,6 +153,11 @@ interface DrawingSettingsModalProps {
   onClose: () => void;
   dr: Drawing;
   updateDrawing: (id: string, updates: Partial<Drawing>) => void;
+  replaceImageNoteAsset?: (
+    id: string,
+    validated: import("../../../lib/imageNote/imageNoteValidation").ValidatedImage,
+    transparency: number,
+  ) => Promise<void>;
 }
 
 type TabType = "style" | "inputs" | "coordinates" | "visibility" | "text";
@@ -46,6 +167,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
   onClose,
   dr,
   updateDrawing,
+  replaceImageNoteAsset,
 }) => {
   // --- Local UI State ---
   const [activeTab, setActiveTab] = useState<TabType>("style");
@@ -153,6 +275,23 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
 
   // [TENOR 2026] Brush/Highlighter: Style and Visibility only (no coordinates/text for freehand)
   if (dr.type === "brush" || dr.type === "highlighter") {
+    tabs = [
+      { id: "style", label: "Style" },
+      { id: "visibility", label: "Visibilité" },
+    ];
+  }
+
+  // [TENOR 2026] Flag Mark: no text/inputs, just style + coordinates + visibility
+  if (dr.type === "flag_mark") {
+    tabs = [
+      { id: "style", label: "Style" },
+      { id: "coordinates", label: "Coordonnées" },
+      { id: "visibility", label: "Visibilité" },
+    ];
+  }
+
+  // [IMAGE NOTE] Style (preview + transparency + template) and Visibility only. No Coordinates.
+  if (dr.type === "image_note") {
     tabs = [
       { id: "style", label: "Style" },
       { id: "visibility", label: "Visibilité" },
@@ -562,6 +701,27 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
                   </>
                 )}
               </div>
+            )}
+
+            {dr.type === "flag_mark" && (
+              <div className="d-flex flex-column gap-3">
+                <SettingsColorInput
+                  label="Couleur du drapeau"
+                  value={dr.flagMarkProps?.flagColor || "#2962FF"}
+                  onChange={(val) =>
+                    updateDrawing(dr.id, {
+                      flagMarkProps: {
+                        ...dr.flagMarkProps,
+                        flagColor: val,
+                      } as NonNullable<Drawing["flagMarkProps"]>,
+                    })
+                  }
+                />
+              </div>
+            )}
+
+            {dr.type === "image_note" && (
+              <ImageNoteStyleBlock dr={dr} updateDrawing={updateDrawing} replaceImageNoteAsset={replaceImageNoteAsset} />
             )}
 
             {/* FIBONACCI TOOLS */}
@@ -3344,7 +3504,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
 
         {/* ================= VISIBILITY TAB ================= */}
         {activeTab === "visibility" && (
-          dr.type === "signpost" ? (
+          (dr.type === "signpost" || dr.type === "flag_mark" || dr.type === "image_note") ? (
             <div className="d-flex flex-column gap-3">
               <SettingsCheckbox
                 label="Visibilité par intervalle"

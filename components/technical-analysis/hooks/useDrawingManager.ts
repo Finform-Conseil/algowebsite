@@ -29,6 +29,23 @@ import {
 import { createDefaultTableProps } from "../config/drawing/drawingTableTypes";
 import { pointerYToVerticalPositionPct } from "./drawing/drawingSignpostProjection";
 import { normalizeSignpost } from "./drawing/signpostNormalization";
+import { normalizeFlagMark } from "./drawing/flagMarkNormalization";
+import { normalizeImageNote } from "./drawing/imageNoteNormalization";
+import {
+  validateImageFile,
+  computeImageCssSize,
+  buildImageNoteProps,
+  type ValidatedImage,
+} from "../lib/imageNote/imageNoteValidation";
+import {
+  saveDrawingAsset,
+  deleteDrawingAsset,
+} from "./drawing/drawingPersistence";
+import {
+  seedImageNoteImage,
+  clearImageNoteImage,
+  setImageNoteRedrawHandler,
+} from "../lib/imageNote/imageNoteAssetLoader";
 import {
   MAIN_GRID_LEFT,
   TV_X_AXIS_HEIGHT,
@@ -114,7 +131,7 @@ export const useDrawingManager = ({
         if (!cancelled && Array.isArray(saved) && saved.length > 0) {
           const restored = saved.map((d) =>
             normalizeSignpost(d, { resolveBarIndex: (t) => Number(t) }),
-          );
+          ).map((d) => normalizeFlagMark(d)).map((d) => normalizeImageNote(d));
           setDrawings(restored);
         }
       } catch {
@@ -211,9 +228,10 @@ export const useDrawingManager = ({
   const isDraggingRef = useRef(false);
   const dragTargetRef = useRef<{
     drawingId: string;
-    type: 'point' | 'shape' | 'position_zone' | 'width_resize';
+    type: 'point' | 'shape' | 'position_zone' | 'width_resize' | 'corner_resize';
     pointIndex: number;
     positionZone?: 'tp' | 'sl';
+    resizeEdge?: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'top' | 'bottom' | 'left' | 'right';
     initialPoints: DrawingPoint[];
     initialTpOffset?: number;
     initialSlOffset?: number;
@@ -1032,29 +1050,39 @@ export const useDrawingManager = ({
             return;
           }
           
-          setSelectedDrawingId(d.id);
-          markDirty();
-          
-          if (d.locked) return;
+            setSelectedDrawingId(d.id);
+            markDirty();
+
+            // [TENOR 2026 FIX] Prevent the ZRender background-click handler
+            // (handleBgClick) from immediately deselecting this drawing on the
+            // `click` event that follows this pointerdown. Creation does the same
+            // via completeDrawingSession; without this, a previously-deselected
+            // Flag mark (and any other drawing) cannot be reselected because it
+            // is selected then instantly deselected by the chart background click.
+            suppressNextChartBgClickRef.current = true;
+
+            if (d.locked) return;
           
           isDraggingRef.current = true;
-          dragTargetRef.current = {
-            drawingId: d.id,
-            type: result.hitType === 'width_resize' ? 'width_resize' : (result.hitType === 'point' ? 'point' : (result.hitType?.startsWith('zone_') ? 'position_zone' : 'shape')),
-            pointIndex: result.pointIndex ?? -1,
-            positionZone: result.hitType === 'zone_tp' ? 'tp' : (result.hitType === 'zone_sl' ? 'sl' : undefined),
-            initialPoints: [...d.points],
-            initialTpOffset: d.tpOffset ?? (d.positionProps ? (d.type === 'long_position' ? d.positionProps.tpPrice - d.positionProps.entryPrice : d.positionProps.entryPrice - d.positionProps.tpPrice) : undefined),
-            initialSlOffset: d.slOffset ?? (d.positionProps ? (d.type === 'long_position' ? d.positionProps.entryPrice - d.positionProps.slPrice : d.positionProps.slPrice - d.positionProps.entryPrice) : undefined),
-            mouseStart: { x: mx, y: my }
-          };
+            dragTargetRef.current = {
+              drawingId: d.id,
+              type: result.hitType === 'width_resize' ? 'width_resize' : (result.hitType === 'point' ? 'point' : (result.hitType?.startsWith('zone_') ? 'position_zone' : 'shape')),
+              pointIndex: result.pointIndex ?? -1,
+              positionZone: result.hitType === 'zone_tp' ? 'tp' : (result.hitType === 'zone_sl' ? 'sl' : undefined),
+              resizeEdge: result.resizeEdge,
+              initialPoints: [...d.points],
+              initialTpOffset: d.tpOffset ?? (d.positionProps ? (d.type === 'long_position' ? d.positionProps.tpPrice - d.positionProps.entryPrice : d.positionProps.entryPrice - d.positionProps.slPrice) : undefined),
+              initialSlOffset: d.slOffset ?? (d.positionProps ? (d.type === 'long_position' ? d.positionProps.entryPrice - d.positionProps.slPrice : d.positionProps.slPrice - d.positionProps.entryPrice) : undefined),
+              mouseStart: { x: mx, y: my }
+            };
 
-          if (drawingCanvasRef.current) {
-            if (result.hitType === 'point') drawingCanvasRef.current.style.cursor = 'grabbing';
-            else if (result.hitType?.startsWith('zone_')) drawingCanvasRef.current.style.cursor = 'ns-resize';
-            else if (result.hitType === 'width_resize') drawingCanvasRef.current.style.cursor = 'ew-resize';
-            else drawingCanvasRef.current.style.cursor = 'move';
-          }
+            if (drawingCanvasRef.current) {
+              if (result.hitType === 'point') drawingCanvasRef.current.style.cursor = 'grabbing';
+              else if (result.hitType?.startsWith('zone_')) drawingCanvasRef.current.style.cursor = 'ns-resize';
+              else if (result.hitType === 'width_resize') drawingCanvasRef.current.style.cursor = 'ew-resize';
+              else if (result.resizeEdge) drawingCanvasRef.current.style.cursor = 'nwse-resize';
+              else drawingCanvasRef.current.style.cursor = 'move';
+            }
           return;
         }
       }
@@ -1101,6 +1129,10 @@ export const useDrawingManager = ({
         points: [coords],
         style: { ...getToolDefault(currentActiveTool) },
       };
+
+      if (newDrawing.type === "flag_mark") {
+        newDrawing.flagMarkProps = { flagColor: "#2962FF" };
+      }
 
       if (newDrawing.type === "long_position" || newDrawing.type === "short_position") {
         const isLong = newDrawing.type === "long_position";
@@ -1822,6 +1854,43 @@ export const useDrawingManager = ({
           }
         };
         return;
+      } else if (type === 'corner_resize' && dragTargetRef.current?.resizeEdge && d.imageNoteProps) {
+        const edge = dragTargetRef.current.resizeEdge;
+        const props = d.imageNoteProps;
+        const priceIdx = getPriceSeriesIndex(dragChart);
+        const centerPix = safeConvertToPixel(dragChart, [d.points[0].time, d.points[0].value], priceIdx);
+        if (!centerPix) return;
+        const halfW = props.cssWidth / 2;
+        const halfH = props.cssHeight / 2;
+        // Fixed (opposite) corner stays put in pixel space.
+        const fixedX = edge === 'topLeft' || edge === 'bottomLeft'
+          ? centerPix[0] + halfW
+          : centerPix[0] - halfW;
+        const fixedY = edge === 'topLeft' || edge === 'topRight'
+          ? centerPix[1] + halfH
+          : centerPix[1] - halfH;
+        const rawW = Math.abs(mx - fixedX);
+        const rawH = Math.abs(my - fixedY);
+        const scale = Math.max(
+          props.naturalWidth > 0 ? rawW / props.naturalWidth : 0,
+          props.naturalHeight > 0 ? rawH / props.naturalHeight : 0,
+        );
+        const IMAGE_MIN_DIMENSION = 16;
+        let newW = Math.max(IMAGE_MIN_DIMENSION, Math.round(props.naturalWidth * scale));
+        let newH = Math.max(IMAGE_MIN_DIMENSION, Math.round(props.naturalHeight * scale));
+        // Direction from fixed corner to dragged corner.
+        const dirX = (edge === 'topLeft' || edge === 'bottomLeft') ? -1 : 1;
+        const dirY = (edge === 'topLeft' || edge === 'topRight') ? -1 : 1;
+        const newCenterX = fixedX + dirX * (newW / 2);
+        const newCenterY = fixedY + dirY * (newH / 2);
+        const newCoords = safeConvertFromPixel(dragChart, [newCenterX, newCenterY], priceIdx);
+        if (!newCoords) return;
+        draggedDrawingRef.current = {
+          ...d,
+          points: [{ time: newCoords[0] as string | number, value: newCoords[1] as number }],
+          imageNoteProps: { ...props, cssWidth: newW, cssHeight: newH },
+        };
+        return;
       }
 
       draggedDrawingRef.current = { ...d, points: newPoints, isDragging: true };
@@ -1991,6 +2060,10 @@ export const useDrawingManager = ({
     if(t) {
       setDrawings(p => {
         const n = p.map(dr => dr.id === id ? { ...dr, style: { ...t.style } } : dr);
+        if (d.type === "flag_mark") {
+          const idx = n.findIndex(x => x.id === id);
+          n[idx] = { ...n[idx], flagMarkProps: { ...(n[idx].flagMarkProps || {}), flagColor: (t.style && t.style.color) || "#2962FF" } };
+        }
         pushHistory(n);
         return n;
       });
@@ -2005,6 +2078,125 @@ export const useDrawingManager = ({
       return next;
     });
   }, []);
+
+  // ============================================================================
+  // [IMAGE NOTE] Creation + clipboard pipeline
+  // ============================================================================
+  const decodeImageElement = useCallback((file: File): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode failed")); };
+      img.src = url;
+    });
+  }, []);
+
+  const createImageNoteDrawing = useCallback(async (
+    validated: ValidatedImage,
+    transparency: number = 0,
+  ): Promise<string | null> => {
+    const chart = chartInstanceRef.current;
+    if (!isChartUsable(chart) || !gridRectRef.current) return null;
+    const grid = gridRectRef.current;
+    const priceIdx = getPriceSeriesIndex(chart);
+    const centerPx: [number, number] = [
+      grid.x + grid.width / 2,
+      grid.y + grid.height / 2,
+    ];
+    const centerCoords = safeConvertFromPixel(chart, centerPx, priceIdx);
+    if (!centerCoords) return null;
+
+    const { cssWidth, cssHeight } = computeImageCssSize(
+      validated.naturalWidth,
+      validated.naturalHeight,
+      grid.width,
+      grid.height,
+    );
+
+    const assetId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await saveDrawingAsset(assetId, validated.file);
+
+    const img = await decodeImageElement(validated.file).catch(() => null);
+    if (img) seedImageNoteImage(assetId, img);
+
+    const newDrawing: Drawing = {
+      id: generateId(),
+      type: "image_note",
+      points: [{ time: centerCoords[0] as string | number, value: centerCoords[1] as number }],
+      style: { ...getToolDefault("image_note") },
+      imageNoteProps: buildImageNoteProps(assetId, validated, cssWidth, cssHeight, transparency),
+    };
+
+    completeDrawingSession(newDrawing);
+    markDirty();
+    return newDrawing.id;
+  }, [completeDrawingSession, decodeImageElement, getToolDefault, markDirty]);
+
+  /** Replace an existing image_note's asset, preserving id + center, recalculating size. */
+  const replaceImageNoteAsset = useCallback(async (
+    id: string,
+    validated: ValidatedImage,
+    transparency: number,
+  ): Promise<void> => {
+    const chart = chartInstanceRef.current;
+    const d = drawingsRef.current.find((x) => x.id === id);
+    if (!d || d.type !== "image_note" || !d.imageNoteProps || !chart || !gridRectRef.current) return;
+    const oldAssetId = d.imageNoteProps.assetId;
+    const grid = gridRectRef.current;
+    const { cssWidth, cssHeight } = computeImageCssSize(
+      validated.naturalWidth,
+      validated.naturalHeight,
+      grid.width,
+      grid.height,
+    );
+    const assetId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await saveDrawingAsset(assetId, validated.file);
+    const img = await decodeImageElement(validated.file).catch(() => null);
+    if (img) seedImageNoteImage(assetId, img);
+    clearImageNoteImage(oldAssetId);
+    await deleteDrawingAsset(oldAssetId);
+    updateDrawing(id, {
+      imageNoteProps: buildImageNoteProps(assetId, validated, cssWidth, cssHeight, transparency),
+    });
+    markDirty();
+  }, [decodeImageElement, deleteDrawingAsset, updateDrawing, markDirty]);
+
+  // [IMAGE NOTE] Let async asset loads request a redraw once decoded.
+  useEffect(() => {
+    setImageNoteRedrawHandler(() => markDirty());
+    return () => setImageNoteRedrawHandler(null);
+  }, [markDirty]);
+
+  // [IMAGE NOTE] Clipboard paste → same validation + creation pipeline as the modal.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void (async () => {
+              const result = await validateImageFile(file);
+              if (result.ok) {
+                await createImageNoteDrawing(result.value, 0);
+              }
+            })();
+          }
+          return;
+        }
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [createImageNoteDrawing]);
 
   return {
     activeTool,
@@ -2037,6 +2229,8 @@ export const useDrawingManager = ({
     handlePointerUp,
     handleDoubleClick,
     handleKeyDown,
+    createImageNoteDrawing,
+    replaceImageNoteAsset,
     drawingCanvasRef,
     gridRect,
     editingDrawingId,

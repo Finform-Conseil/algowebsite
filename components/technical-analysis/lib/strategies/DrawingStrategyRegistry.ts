@@ -22,22 +22,15 @@ import { CalloutStrategy } from "./implementations/CalloutStrategy";
 import { CommentStrategy } from "./implementations/CommentStrategy";
 import { PriceLabelStrategy } from "./implementations/PriceLabelStrategy";
 import { SignpostStrategy } from "./implementations/SignpostStrategy";
+import { FlagMarkStrategy } from "./implementations/FlagMarkStrategy";
+import { ImageNoteStrategy } from "./implementations/ImageNoteStrategy";
 
-/**
- * Strategy Registry - lazy instance construction.
- * Strategy modules are imported eagerly; only strategy instances and the lookup Map
- * are created on the first render or hit-test request.
- */
 class StrategyRegistry {
   private strategies: Map<string, IDrawingStrategy> | null = null;
 
-  /**
-   * Initialisation paresseuse (JIT - Just In Time).
-   * N'est appelée que lors du premier accès au registre.
-   */
   private initialize(): Map<string, IDrawingStrategy> {
     const map = new Map<string, IDrawingStrategy>();
-    
+
     const register = (strategy: IDrawingStrategy) => {
       const tools = strategy.supportedTools;
       for (let i = 0; i < tools.length; i++) {
@@ -45,7 +38,6 @@ class StrategyRegistry {
       }
     };
 
-    // Instanciation différée des stratégies
     register(new LineMeasureStrategy());
     register(new FibonacciStrategy());
     register(new PitchforkStrategy());
@@ -69,14 +61,12 @@ class StrategyRegistry {
     register(new CommentStrategy());
     register(new PriceLabelStrategy());
     register(new SignpostStrategy());
+    register(new FlagMarkStrategy());
+    register(new ImageNoteStrategy());
 
     return map;
   }
 
-  /**
-   * Récupère la stratégie associée à un outil.
-   * Initialise le registre silencieusement si c'est le premier appel.
-   */
   getStrategy(toolType: string): IDrawingStrategy | undefined {
     if (this.strategies === null) {
       this.strategies = this.initialize();
@@ -85,6 +75,4 @@ class StrategyRegistry {
   }
 }
 
-// Export d'un singleton paresseux (Lazy Singleton)
 export const drawingStrategyRegistry = new StrategyRegistry();
-// --- EOF ---

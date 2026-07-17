@@ -64,7 +64,6 @@ scribe-out/
 _Rollback/
 
 # Local scratch / reproduction files
-tradingview-reproduction.md
 .agents/
 .codex/
 .opencode/

@@ -57,6 +57,12 @@ interface PositionFillPopupProps {
   closePopup: () => void;
 }
 
+interface FlagColorPopupProps {
+  drawing: Drawing;
+  updateDrawing: (id: string, updates: Partial<Drawing>) => void;
+  closePopup: () => void;
+}
+
 const resolveFillBackgroundEnabled = (drawing: Drawing, fillEnabled: boolean) => {
   if (drawing.cyclesProps) return drawing.cyclesProps.fillBackground !== false;
   if (drawing.fibProps) return drawing.fibProps.fillBackground !== false;
@@ -123,6 +129,30 @@ export const LineColorPopup: React.FC<LineColorPopupProps> = ({
     />
   </ColorPopupShell>
 );
+
+export const FlagColorPopup: React.FC<FlagColorPopupProps> = ({
+  drawing,
+  updateDrawing,
+  closePopup,
+}) => {
+  const color = drawing.flagMarkProps?.flagColor || "#2962FF";
+  return (
+    <ColorPopupShell title="Drapeau" closePopup={closePopup}>
+      <ProColorPicker
+        color={color}
+        opacity={1}
+        onChange={(nextColor) => {
+          updateDrawing(drawing.id, {
+            flagMarkProps: {
+              ...drawing.flagMarkProps,
+              flagColor: nextColor,
+            } as NonNullable<Drawing["flagMarkProps"]>,
+          });
+        }}
+      />
+    </ColorPopupShell>
+  );
+};
 
 export const TextColorPopup: React.FC<TextColorPopupProps> = ({
   drawing,

@@ -211,6 +211,7 @@ test("UI defaults remain aligned with the canonical factory helpers", () => {
     alerts: false,
     publish: false,
     drawingSettings: false,
+    imageNote: false,
   });
   assert.deepEqual(initialState.ui.replay, {
     isActive: false,

@@ -225,6 +225,7 @@ export const initialState: TechnicalAnalysisState = {
       alerts: false,
       publish: false,
       drawingSettings: false,
+      imageNote: false,
     },
     replay: {
       isActive: false,

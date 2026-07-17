@@ -93,6 +93,7 @@ export const SINGLE_CLICK_TOOLS: AllToolType[] = [
   "anchored_volume_profile",
   "brush",
   "highlighter",
+  "flag_mark",
   ...TEXT_NOTE_TOOL_VARIANTS.filter(t => t !== "callout"),
 ];
 

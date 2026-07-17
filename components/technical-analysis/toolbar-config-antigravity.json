@@ -1012,6 +1012,29 @@
       ],
       "description": "Signpost toolbar: move handle, models, numeric font size (default 12), settings, lock/unlock, delete, more. No line color or fill in the toolbar (kept in Settings)."
     },
+    "flag_mark": {
+      "toolbar": [
+        "move",
+        "template",
+        "flag_color",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Flag mark toolbar: move handle, settings, lock/unlock, delete, more."
+    },
+    "image_note": {
+      "toolbar": [
+        "move",
+        "template",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Image toolbar: move handle, templates, settings, lock/unlock, delete, more. No transparency quick button (in Settings only)."
+    },
     "table": {
       "toolbar": [
         "move",
@@ -1100,6 +1123,11 @@
       "icon": "bi-paint-bucket",
       "title": "Remplissage",
       "action": "openFillPopup"
+    },
+    "flag_color": {
+      "icon": "bi-paint-bucket",
+      "title": "Couleur du drapeau",
+      "action": "openFlagColorPopup"
     },
     "tp_fill": {
       "icon": "bi-paint-bucket",

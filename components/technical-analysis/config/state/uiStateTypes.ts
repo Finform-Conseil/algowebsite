@@ -40,6 +40,7 @@ export interface UiState {
     alerts: boolean;
     publish: boolean;
     drawingSettings: boolean;
+    imageNote: boolean;
   };
   replay: {
     isActive: boolean;

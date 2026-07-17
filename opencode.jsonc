@@ -10,7 +10,7 @@
       "cwd": ".",
       "environment": {
         "AGENT_MCP_HOST": "opencode",
-        "AGENT_MCP_BINDING_ID": "09e4aaddfd3d4b2e8c145c2325cab177",
+        "AGENT_MCP_BINDING_ID": "02ee46abc9bb44ffa8d183d2472822bc",
         "AGENT_SCRIBE_GRAPHIFY_ROOT": "."
       },
       "enabled": true,
@@ -46,5 +46,7 @@
       "py -3 .agent/workflow/scribe/scribe tenor-init --type cli": "allow"
     }
     */
+  
+ 
   }
 }

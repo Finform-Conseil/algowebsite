@@ -70,6 +70,8 @@ const TOOL_LABELS: Record<string, string> = {
   anchored_volume_profile: "Anchored Volume Profile",
   fixed_range_volume_profile: "Fixed Range Volume Profile",
   signpost: "Signpost",
+  flag_mark: "Flag Mark",
+  image_note: "Image",
 };
 
 export const getDrawingLabel = (type: string, index: number): string => `${TOOL_LABELS[type] ?? type} ${index + 1}`;

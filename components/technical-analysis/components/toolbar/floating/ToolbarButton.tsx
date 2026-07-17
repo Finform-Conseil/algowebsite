@@ -87,6 +87,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     const drToolbar = drType ? (toolbarConfig.drawings as Record<string, { toolbar: string[] }>)[drType]?.toolbar : undefined;
     const hasSeparateFontSize = drToolbar?.includes("font_size") === true;
     const drawingStyle = (dr.style || {}) as DrawingStyle;
+    const flagColor = dr.flagMarkProps?.flagColor || "#2962FF";
     const posProps = (dr.positionProps || {}) as NonNullable<Drawing["positionProps"]>;
     const hasQuickOptionsPopup =
         drType === "gann_square" ||
@@ -116,8 +117,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
             ? (dr.hidden ? "Afficher" : "Masquer")
             : buttonId === "lock"
                 ? getLockTooltip(dr.locked)
-                : (buttonId === "thickness" && (drType === "brush" || drType === "highlighter") ? "Line tool width" : def.title);
-
+                : (buttonId === "flag_color"
+                    ? "Couleur du drapeau"
+                    : buttonId === "thickness" && (drType === "brush" || drType === "highlighter") ? "Line tool width" : def.title);
 
 
     const handleClick = (e: React.MouseEvent) => {
@@ -145,6 +147,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                 break;
             case "openSLFillPopup":
                 setActiveToolbarPopup(isActive ? null : "sl_fill");
+                break;
+            case "openFlagColorPopup":
+                setActiveToolbarPopup(isActive ? null : "flag_color");
                 break;
             case "openSettingsModal":
                 setIsDrawingSettingsModalOpen(true);
@@ -500,7 +505,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                                 color: (buttonId === "lock" && isLocked) || isActive ? "#2962ff" : "inherit",
                             }}
                         ></i>
-                        {(buttonId === "color" || buttonId === "fill" || buttonId === "tp_fill" || buttonId === "sl_fill") && (
+                        {(buttonId === "color" || buttonId === "fill" || buttonId === "tp_fill" || buttonId === "sl_fill" || buttonId === "flag_color") && (
                             <div
                                 style={{
                                     width: "16px",
@@ -512,7 +517,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                                                 ? posProps.slColor || "#ec0000"
                                                 : buttonId === "fill"
                                                     ? fillColor
-                                                    : lineColor,
+                                                    : buttonId === "flag_color"
+                                                        ? flagColor
+                                                        : lineColor,
                                     borderRadius: "1px",
                                 }}
                             />

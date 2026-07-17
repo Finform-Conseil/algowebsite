@@ -7,6 +7,7 @@ import {
   LineColorPopup,
   PositionFillPopup,
   TextColorPopup,
+  FlagColorPopup,
 } from "./ColorPopup";
 import { LayersPopup } from "./LayersPopup";
 import { LineStylePopup } from "./LineStylePopup";
@@ -134,6 +135,14 @@ export const ToolbarButtonPopups: React.FC<ToolbarButtonPopupsProps> = ({
         color={lineColor}
         opacity={lineOpacity}
         handleColorChange={handleColorChange}
+        closePopup={closePopup}
+      />
+    )}
+
+    {isActive && buttonId === "flag_color" && (
+      <FlagColorPopup
+        drawing={drawing}
+        updateDrawing={updateDrawing}
         closePopup={closePopup}
       />
     )}

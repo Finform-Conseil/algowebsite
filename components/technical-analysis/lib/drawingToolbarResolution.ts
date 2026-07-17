@@ -21,6 +21,7 @@ export function resolveDrawingToolbarType(
   if (type === "pin") return "pin";
   if (type === "table") return "table";
   if (type === "signpost") return "signpost";
+  if (type === "image_note") return "image_note";
   if (TEXT_NOTE_TOOL_VARIANT_SET.has(type)) return "text_note";
   if (type === "note") return "text_note";
   if (hasToolbarConfig(type)) return type;
