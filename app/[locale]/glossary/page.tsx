@@ -29,7 +29,7 @@ import {
   Tag,
   BarChart3,
 } from 'lucide-react';
-import { GLOSSARY_TERMS } from '@/core/data/GlossaryData';
+import { GLOSSARY_TERMS } from '@/core/data/glossary-data/GlossaryData';
 
 const FEATURED_SLUGS = [
   'quality-score',

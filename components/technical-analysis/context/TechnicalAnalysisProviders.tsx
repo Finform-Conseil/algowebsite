@@ -54,7 +54,6 @@ export type ChartRefs = {
   benefitsChartRef: React.RefObject<HTMLDivElement>;
   dividendsChartRef: React.RefObject<HTMLDivElement>;
   drawingToolbarRef: React.RefObject<HTMLDivElement>;
-  drawingTooltipRef: React.RefObject<HTMLDivElement>;
   cursorPriceBadgeRef: React.RefObject<HTMLDivElement>;
   cursorPriceTextRef: React.RefObject<HTMLSpanElement>;
   cursorPriceActionRef: React.RefObject<HTMLButtonElement>;
@@ -165,7 +164,6 @@ const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const benefitsChartRef = useRef<HTMLDivElement>(null);
   const dividendsChartRef = useRef<HTMLDivElement>(null);
   const drawingToolbarRef = useRef<HTMLDivElement>(null);
-  const drawingTooltipRef = useRef<HTMLDivElement>(null);
   const cursorPriceBadgeRef = useRef<HTMLDivElement>(null);
   const cursorPriceTextRef = useRef<HTMLSpanElement>(null);
   const cursorPriceActionRef = useRef<HTMLButtonElement>(null);
@@ -191,7 +189,6 @@ const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       benefitsChartRef,
       dividendsChartRef,
       drawingToolbarRef,
-      drawingTooltipRef,
       cursorPriceBadgeRef,
       cursorPriceTextRef,
       cursorPriceActionRef,
@@ -216,7 +213,6 @@ const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       benefitsChartRef,
       dividendsChartRef,
       drawingToolbarRef,
-      drawingTooltipRef,
       cursorPriceBadgeRef,
       cursorPriceTextRef,
       cursorPriceActionRef,

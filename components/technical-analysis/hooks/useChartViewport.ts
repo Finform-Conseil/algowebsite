@@ -791,7 +791,12 @@ export const useChartViewport = ({
     applyViewport();
   }, [applyViewport]);
 
-  return { applyViewport, lastCursorClientPointRef, resetManualYViewport };
+  // [TENOR 2026 PERF] Stable ref exposing the live viewport window (startIdx/endIdx).
+  // Consumers (useEChartsRenderer) can read this at any time without triggering a React
+  // re-render. Updated synchronously inside applyViewport before enqueueChartMutation.
+  const viewportWindowRef = viewportStateRef as typeof viewportStateRef;
+
+  return { applyViewport, lastCursorClientPointRef, resetManualYViewport, viewportWindowRef };
 };
 
 // --- EOF ---

@@ -11,6 +11,8 @@ export const TOOL_CATEGORIES = {
     MEASURERS: "Measurers",
     CURSOR: "Cursor",
     BRUSH_DRAWING: "Brush Drawing",
+    SHAPES: "Shapes",
+    ANNOTATIONS: "Annotations",
 } as const;
 
 /**
@@ -57,7 +59,6 @@ export const PITCHFORK_TOOLS = [
 export const MULTI_POINT_TOOLS = [
     "polyline",
     "path",
-    "curve",
     "projection",
     "position_forecast",
     "bar_pattern",
@@ -75,11 +76,64 @@ export const POSITION_TOOLS = [
 ] as const;
 
 /**
- * Brush/Highlighter freehand drawing tools
+ * Brush/Highlighter freehand drawing tools + arrow marks
  */
 export const BRUSH_DRAWING_TOOLS = [
     "brush",
     "highlighter",
+    "arrow_mark_up",
+    "arrow_mark_down",
+] as const;
+
+/**
+ * Annotation tools (text notes, callouts, etc.)
+ */
+export const ANNOTATION_TOOLS = [
+    "text_note",
+    "note",
+    "price_note",
+    "pin",
+    "table",
+    "callout",
+    "comment",
+    "price_label",
+    "signpost",
+    "flag_mark",
+    "image_note",
+    "post",
+    "idea",
+] as const;
+
+/**
+ * Text-note variants that reuse the same floating toolbar contract.
+ * Keep the core note interaction stable while the renderer supports
+ * TradingView-like annotation aliases.
+ */
+export const TEXT_NOTE_TOOL_VARIANTS = [
+    "text_note",
+    "pin",
+    "table",
+    "callout",
+    "comment",
+    "price_label",
+    "signpost",
+] as const;
+
+export const TEXT_NOTE_TOOL_VARIANT_SET = new Set<string>(TEXT_NOTE_TOOL_VARIANTS);
+
+/**
+ * Shape drawing tools (geometric shapes like Rectangle, Ellipse, etc.)
+ */
+export const SHAPES_TOOLS = [
+    "rectangle",
+    "rotated_rectangle",
+    "path",
+    "circle",
+    "ellipse",
+    "triangle",
+    "arc",
+    "curve",
+    "double_curve",
 ] as const;
 
 /**
@@ -205,8 +259,11 @@ export const TOOLS_WITH_GENERIC_STYLE_TAB = [
     "horizontal_ray",
     ...MULTI_POINT_TOOLS,
     "arrow_marker",
+    "arrow_mark_up",
+    "arrow_mark_down",
     ...MEASURE_TOOLS,
     ...CYCLES_TOOLS,
+    ...SHAPES_TOOLS,
     "anchored_vwap",
     "anchored_volume_profile",
 ] as const;

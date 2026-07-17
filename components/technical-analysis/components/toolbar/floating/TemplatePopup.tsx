@@ -46,6 +46,7 @@ export const TemplatePopup: React.FC<TemplatePopupProps> = ({
 
   return (
     <div
+      onPointerDown={stopFloatingPopupMouseDown}
       onMouseDown={stopFloatingPopupMouseDown}
       style={buildFloatingPopupStyle({
         left: "-20px",

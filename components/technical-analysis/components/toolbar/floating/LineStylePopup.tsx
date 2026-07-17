@@ -23,6 +23,7 @@ export const LineStylePopup: React.FC<LineStylePopupProps> = ({
   title,
 }) => (
   <div
+    onPointerDown={stopFloatingPopupMouseDown}
     onMouseDown={stopFloatingPopupMouseDown}
     style={buildFloatingPopupStyle({
       left: "-150px",

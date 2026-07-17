@@ -7,11 +7,15 @@
         "python3",
         ".agent/mcp/server_entry.py"
       ],
-      "enabled": true
+      "cwd": ".",
+      "environment": {
+        "AGENT_MCP_HOST": "opencode",
+        "AGENT_MCP_BINDING_ID": "09e4aaddfd3d4b2e8c145c2325cab177",
+        "AGENT_SCRIBE_GRAPHIFY_ROOT": "."
+      },
+      "enabled": true,
+      "timeout": 20000
     },
-
-
-    
     "chrome-devtools": {
       "type": "local",
       "command": [
@@ -24,5 +28,23 @@
       ],
       "enabled": true
     }
+  },
+
+
+
+  
+  "permission": {
+    /*
+    
+     "edit": "deny",
+
+     "bash": {
+      "*": "deny",
+      ".agent/workflow/scribe/scribe tenor-init --type cli": "allow",
+      "python .agent/workflow/scribe/scribe tenor-init --type cli": "allow",
+      "python3 .agent/workflow/scribe/scribe tenor-init --type cli": "allow",
+      "py -3 .agent/workflow/scribe/scribe tenor-init --type cli": "allow"
+    }
+    */
   }
 }

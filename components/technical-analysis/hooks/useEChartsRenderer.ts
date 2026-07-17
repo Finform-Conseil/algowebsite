@@ -95,6 +95,47 @@ const applyChartOption = (chart: EChartsInstance, option: TechnicalEChartsOption
   });
 };
 
+// ============================================================================
+// [TENOR 2026 PERF — ÉTAPE 0] renderItem PROFILER
+// Set DEV_PERF = true to measure per-call cost of every renderItem invocation.
+// Outputs: console.table in the browser DevTools Performance tab.
+// NEVER commit with DEV_PERF = true in production.
+// ============================================================================
+const DEV_PERF = false as boolean;
+
+type RenderItemFn = (params: unknown, api: unknown) => unknown;
+
+/**
+ * Wraps a renderItem function with performance.now() timing.
+ * Only active when DEV_PERF === true — zero overhead in production.
+ *
+ * @param label  Human-readable series label (e.g. "EMA-20", "Bollinger-band")
+ * @param fn     The original renderItem implementation
+ */
+const wrapRenderItem = (label: string, fn: RenderItemFn): RenderItemFn => {
+  if (!DEV_PERF) return fn;
+  let callCount = 0;
+  let totalMs = 0;
+  let maxMs = 0;
+  // Flush a summary to console every 60 calls (~1 ECharts render pass)
+  const FLUSH_EVERY = 60;
+  return (params: unknown, api: unknown) => {
+    const t0 = performance.now();
+    const result = fn(params, api);
+    const elapsed = performance.now() - t0;
+    totalMs += elapsed;
+    if (elapsed > maxMs) maxMs = elapsed;
+    callCount++;
+    if (callCount % FLUSH_EVERY === 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[PERF][renderItem][${label}] calls=${callCount} avg=${(totalMs / callCount).toFixed(3)}ms max=${maxMs.toFixed(3)}ms total=${totalMs.toFixed(2)}ms`,
+      );
+    }
+    return result;
+  };
+};
+
 
 const registerEChartsModules = (): void => {
   if (areEChartsModulesRegistered) return;
@@ -1071,11 +1112,48 @@ const buildEChartsOption = ({
     priceOverlayStatusNotes.push(text);
   };
 
-  const getVolumeAxisMax = (value: { max: number }): number => {
-    const averageVolume = volumeSourceSeries.volumes.reduce((acc, volumePoint) => acc + (Number(volumePoint[1]) || 0), 0) / (volumeSourceSeries.volumes.length || 1);
-    const fallbackMax = value.max * 1.1 || 100;
-    if (averageVolume <= 0) return fallbackMax;
-    return Math.min(value.max, averageVolume * 5) || fallbackMax;
+  // [TENOR 2026 FIX v3 — VOLUME Y-AXIS STABILITY]
+  //
+  // ARCHITECTURE NOTE:
+  //   `viewport` lives in `withStableInitialViewport` (outer wrapper function).
+  //   This code runs inside `buildEChartsOption` — a different function scope.
+  //   → viewport.startIdx / viewport.endIdx are NOT accessible here.
+  //
+  // PROBLEM WITH filterMode:"none":
+  //   ECharts does NOT filter data by dataZoom, so `value.max` in the yAxis
+  //   max callback = max over the ENTIRE dataset. An off-screen spike makes
+  //   `value.max` enormous → all visible bars become microscopic pixels.
+  //
+  // CORRECT APPROACH (no viewport needed):
+  //   Compute a stable Y-axis max from the GLOBAL dataset using a median-based
+  //   spike cap. The median of all volumes is a robust central estimate; capping
+  //   at 5× median prevents any single off-screen outlier from dominating the
+  //   axis. The max is constant across panning → no freeze/snap artefact.
+  //   Any true spike visible on screen will be clipped (clip:true on series).
+  const getVolumeAxisMax = (_value: { max: number }): number => {
+    const volumes = volumeSourceSeries.volumes;
+    if (!volumes || volumes.length === 0) return 100;
+
+    // Collect all positive volume values from the full dataset.
+    const allVols: number[] = [];
+    for (let i = 0; i < volumes.length; i++) {
+      const v = Number(volumes[i]?.[1]);
+      if (Number.isFinite(v) && v > 0) allVols.push(v);
+    }
+    if (allVols.length === 0) return 100;
+
+    const rawMax = Math.max(...allVols);
+
+    // Median-based spike suppression: sort ascending, pick midpoint.
+    // Cap the Y-axis at 5× median so outlier spikes don't crush normal bars.
+    const sorted = allVols.slice().sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const spikeCapMax = median > 0 ? median * 5 : rawMax;
+    const stableMax = Math.min(rawMax, spikeCapMax);
+
+    if (!Number.isFinite(stableMax) || stableMax <= 0) return 100;
+    // +11% headroom: tallest un-capped bar in viewport uses exactly 90% of panel height (1 / 1.11 ≈ 0.90).
+    return stableMax * 1.11;
   };
 
   const getPriceAxisBoundaryPadding = (value: { min: number; max: number }): number => {
@@ -1174,6 +1252,9 @@ const buildEChartsOption = ({
         showSymbol: false,
         smooth: true,
         connectNulls: true,
+        // [TENOR 2026 PERF — ÉTAPE 2] LTTB downsampling for Pine script overlay series.
+        // Pine series carry no anchor data used by drawing tools; LTTB is safe here.
+        sampling: "lttb",
         z: pineZ,
         lineStyle: { width: 1.5, color: pineSeries.color, opacity: 0.92 },
         itemStyle: { color: pineSeries.color },
@@ -1276,6 +1357,25 @@ const buildEChartsOption = ({
       "rgba(203, 213, 225, 0.82)",
     );
 
+    // [FIX — VOLUME DIRECTIONAL COLORS]
+    // The previous split-series approach (volume-bar-up + volume-bar-down with
+    // large:true + stack:"volume-stack") caused ALL bars to render green:
+    // ECharts large mode + stacking ignores the "-" null-data convention and
+    // collapses both series to the first series' color.
+    //
+    // Correct approach: single series using buildDirectionalVolumeBarData, which
+    // assigns per-item itemStyle.color based on the direction field of each bar.
+    // Per-item styles are incompatible with large:true (by design in ECharts),
+    // so we drop large mode — the perf impact is negligible for typical data sizes
+    // (daily/weekly data rarely exceeds the 2000-bar threshold anyway).
+    const volumeBarData = buildDirectionalVolumeBarData(
+      volumeSourceSeries.volumes,
+      { upColor, downColor },
+      1,
+      Math.min(volumeSourceSeries.volumes.length, renderDates.length),
+      renderDates,
+    );
+
     seriesOptions.push({
       id: "volume-bar",
       name: "Volume",
@@ -1283,11 +1383,13 @@ const buildEChartsOption = ({
       xAxisIndex: volumeXAxisIndex,
       yAxisIndex: volumeYAxisIndex,
       encode: { x: 0, y: 1 },
-      data: buildDirectionalVolumeBarData(volumeSourceSeries.volumes, { upColor, downColor }, 0.8, renderDates.length, renderDates),
+      data: volumeBarData,
       barWidth: "65%",
       clip: true,
       z: PANE_CONTENT_MIN_Z + 4,
     });
+
+
 
     nextPanelTopPercent += panelHeightPercent + panelSpacingPercent;
   }
@@ -1325,6 +1427,11 @@ const buildEChartsOption = ({
       ...pointMarkerOptions,
       clip: true,
       smooth: false,
+      // [TENOR 2026 PERF — ÉTAPE 2] LTTB downsampling: reduces the rendered point
+      // count to screen-pixel resolution. Safe on line indicators (SMA/EMA/MA/Pine)
+      // because they carry no anchor data used by drawing tools.
+      // Apache ECharts docs (2026-07-08): sampling only applies to type:'line'.
+      sampling: "lttb",
       z: 18,
       lineStyle: { opacity: 0.9, width: 1.5, color },
       itemStyle: { color },
@@ -1362,6 +1469,10 @@ const buildEChartsOption = ({
       clip: true,
       step: "end",
       connectNulls: false,
+      // [TENOR 2026 PERF — ÉTAPE 2] Price-level stepped lines (support/resistance).
+      // LTTB is safe here: the step renderer preserves visual accuracy at screen resolution.
+      // These lines do NOT serve as anchor refs for drawing tools.
+      sampling: "lttb",
       z: 28,
       legendHoverLink: false,
       lineStyle: { opacity: 0.9, width: 1.2, color, type: "dashed" },
@@ -2900,6 +3011,15 @@ const buildEChartsOption = ({
     const bollingerPointLimit = allowBollingerProjection ? renderDates.length : priceOverlayPointCount;
     const bollingerFillData = buildBandFillData(indicatorsData.bollUpper, indicatorsData.bollLower, bollingerPointLimit);
 
+    // [TENOR 2026 — Option D] Bollinger source label for tooltip/object-tree parity with TradingView.
+    // Shows the active price source (e.g. "HL2", "HLC3") and offset (e.g. "+2") when non-default.
+    const bollingerSourceLabel = (() => {
+      const src = bollingerSettings.source ?? "close";
+      const srcDisplay = src === "close" ? "" : ` · ${src.toUpperCase()}`;
+      const offsetDisplay = bollingerSettings.offset !== 0 ? ` ${bollingerSettings.offset > 0 ? "+" : ""}${bollingerSettings.offset}` : "";
+      return srcDisplay + offsetDisplay;
+    })();
+
     if (showBollingerFill && isObjectVisible("boll-fill") && bollingerFillData.length > 0) {
       seriesOptions.push({
         id: "boll-fill",
@@ -2913,9 +3033,35 @@ const buildEChartsOption = ({
       });
     }
 
-    pushLine("boll-upper", "BB Upper", indicatorsData.bollUpper, bollingerSettings.upperColor, { allowProjection: allowBollingerProjection });
-    pushLine("boll-mid", "BB Middle", indicatorsData.bollMiddle, bollingerSettings.middleColor, { allowProjection: allowBollingerProjection });
-    pushLine("boll-lower", "BB Lower", indicatorsData.bollLower, bollingerSettings.lowerColor, { allowProjection: allowBollingerProjection });
+    // [TENOR 2026 — Option D] Respect showUpper/showMiddle/showLower toggles.
+    // Previously the 3 bands were ALWAYS rendered regardless of these UI settings.
+    if (bollingerSettings.showUpper !== false && isObjectVisible("boll-upper")) {
+      pushLine(
+        "boll-upper",
+        `BB Upper${bollingerSourceLabel}`,
+        indicatorsData.bollUpper,
+        bollingerSettings.upperColor,
+        { allowProjection: allowBollingerProjection },
+      );
+    }
+    if (bollingerSettings.showMiddle !== false && isObjectVisible("boll-mid")) {
+      pushLine(
+        "boll-mid",
+        `BB Middle${bollingerSourceLabel}`,
+        indicatorsData.bollMiddle,
+        bollingerSettings.middleColor,
+        { allowProjection: allowBollingerProjection },
+      );
+    }
+    if (bollingerSettings.showLower !== false && isObjectVisible("boll-lower")) {
+      pushLine(
+        "boll-lower",
+        `BB Lower${bollingerSourceLabel}`,
+        indicatorsData.bollLower,
+        bollingerSettings.lowerColor,
+        { allowProjection: allowBollingerProjection },
+      );
+    }
   }
 
   if (hasVisibleDonchianOverlay) {
@@ -3840,6 +3986,9 @@ const buildEChartsOption = ({
           data: upTrendData,
           showSymbol: false,
           connectNulls: false,
+          // [TENOR 2026 PERF — ÉTAPE 2] LTTB downsampling for Supertrend line.
+          // Supertrend carries no anchor refs; LTTB preserves trend-flip visual fidelity.
+          sampling: "lttb",
           lineStyle: { width: 1.6, color: upColor, opacity: 0.95 },
           itemStyle: { color: upColor },
           z: 23,
@@ -3853,6 +4002,8 @@ const buildEChartsOption = ({
           data: downTrendData,
           showSymbol: false,
           connectNulls: false,
+          // [TENOR 2026 PERF — ÉTAPE 2] Same rationale as supertrend-line-up.
+          sampling: "lttb",
           lineStyle: { width: 1.6, color: downColor, opacity: 0.95 },
           itemStyle: { color: downColor },
           z: 23,
@@ -3951,6 +4102,10 @@ const buildEChartsOption = ({
       yAxisIndex,
       data,
       showSymbol: false,
+      // [TENOR 2026 PERF — ÉTAPE 2] LTTB downsampling for all oscillator line sub-series
+      // (RSI, MACD signal, Stoch K/D, etc.). These lines render in sub-panels and carry
+      // no anchor data; LTTB is safe and eliminates sub-pixel overdraw.
+      sampling: "lttb",
       lineStyle: { width: 1.5, color },
       itemStyle: { color },
       ...extra,
@@ -4830,6 +4985,9 @@ const buildEChartsOption = ({
       showSymbol: false,
       connectNulls: true,
       smooth: true,
+      // [TENOR 2026 PERF — ÉTAPE 2] LTTB downsampling for comparison series.
+      // Normalized percentage values; LTTB safe — no anchor data or drawing tool refs.
+      sampling: "lttb",
       z: 30,
       lineStyle: {
         width: entry.settings.lineWidth,
@@ -4954,7 +5112,7 @@ const buildEChartsOption = ({
     xAxis: xAxisOptions,
     yAxis: yAxisOptions,
     graphic: graphicOptions,
-    dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: false, filterMode: "none" }],
+    dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: true, preventDefaultMouseMove: true, filterMode: "none" }],
     series: seriesOptionsWithTooltipPolicy,
   };
 };
@@ -5595,7 +5753,7 @@ export const useEChartsRenderer = ({
   // Keep viewport anchored to executable candles; projections must not push the main series left.
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: use getLayersStack (stable ref) instead
   // of getChartContainer so that DOM event listeners bind to the correct container in all layouts.
-  const { applyViewport, resetManualYViewport } = useChartViewport({
+  const { applyViewport, resetManualYViewport, viewportWindowRef } = useChartViewport({
     chartInstanceRef,
     getChartContainer: getLayersStack,
     chartData: renderChartData,
@@ -5764,8 +5922,39 @@ export const useEChartsRenderer = ({
       pineOverlay,
     };
 
+    const rawOption = buildEChartsOption(builderContext);
+
+    // [TENOR 2026 PERF — ÉTAPE 1] Viewport-slicing via renderItem wrapper.
+    // Automatically intercepts ZRender rendering calls for custom series.
+    // If a point's dataIndex lies outside the visible viewport (with a safety margin),
+    // we return undefined. This prevents ZRender from allocating and drawing objects
+    // for offscreen data, bringing rendering cost down to the visible set size.
+    if (rawOption.series && Array.isArray(rawOption.series)) {
+      rawOption.series.forEach((series: any) => {
+        const isLayoutUtilitySeries = series.id?.startsWith("pane-shield-") || series.id?.startsWith("pane-background");
+        if (!isLayoutUtilitySeries && series.type === "custom" && typeof series.renderItem === "function") {
+          const originalRenderItem = series.renderItem;
+          const label = series.name || series.id || "custom-series";
+
+          const wrappedRenderItem = (params: any, api: any) => {
+            const viewport = viewportWindowRef.current;
+            if (viewport) {
+              const idx = params.dataIndex;
+              // Margin of 12 bars to account for partially visible shapes at screen edges
+              if (idx !== undefined && (idx < viewport.startIdx - 12 || idx > viewport.endIdx + 12)) {
+                return undefined;
+              }
+            }
+            return originalRenderItem(params, api);
+          };
+
+          series.renderItem = wrapRenderItem(label, wrappedRenderItem);
+        }
+      });
+    }
+
     const option = withStableInitialViewport({
-      option: buildEChartsOption(builderContext),
+      option: rawOption,
       chartData: renderChartData,
       hasComparisonEndLabels: hasVisibleComparisonEndLabels,
       lastPriceAxisValue,
@@ -5777,6 +5966,33 @@ export const useEChartsRenderer = ({
     rafId = requestAnimationFrame(() => {
       if (isMountedRef.current && chart && !chart.isDisposed()) {
         scheduleChartMutation("full-option", (targetChart) => {
+          if (process.env.NEXT_PUBLIC_DEBUG_CHART_ALIGN === "1") {
+            const mainSeries = (option.series as any)?.find((s: any) => s.id === "main-series");
+            const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+            if (mainSeries?.data && xAxis?.data) {
+              const dates: string[] = xAxis.data;
+              const bars = mainSeries.data;
+              let firstMismatch = -1;
+              const limit = Math.min(dates.length, bars.length, renderChartData.length);
+              for (let i = 0; i < limit; i++) {
+                const expected = new Date(renderChartData[i].time).toISOString().slice(0, 10);
+                if (dates[i] !== expected) {
+                  firstMismatch = i;
+                  break;
+                }
+              }
+              console.log("[CHART-ALIGN-CHECK]", {
+                mainLen: bars.length,
+                axisLen: dates.length,
+                rawLen: renderChartData.length,
+                firstMismatchIndex: firstMismatch,
+                mismatchDetail: firstMismatch >= 0 ? {
+                  expected: new Date(renderChartData[firstMismatch].time).toISOString().slice(0, 10),
+                  axisDate: dates[firstMismatch]
+                } : null,
+              });
+            }
+          }
           applyChartOption(targetChart, option);
         });
         scheduleChartMutation("post-option-viewport", () => {
@@ -5879,6 +6095,7 @@ export const useEChartsRenderer = ({
       }
       resizeObserver.disconnect();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- viewportWindowRef is a stable React ref (identity-stable by design); adding it to deps would trigger an eslint warning in the opposite direction and cause no functional benefit.
   }, [
     isInitialChartRenderDeferred,
     renderChartData,

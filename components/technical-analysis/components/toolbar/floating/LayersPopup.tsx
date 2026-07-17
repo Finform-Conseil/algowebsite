@@ -17,6 +17,7 @@ export const LayersPopup: React.FC<LayersPopupProps> = ({
   deleteDrawing,
 }) => (
   <div
+    onPointerDown={stopFloatingPopupMouseDown}
     onMouseDown={stopFloatingPopupMouseDown}
     style={buildFloatingPopupStyle({
       left: "-100px",

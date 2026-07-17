@@ -8,6 +8,20 @@ import { AdvancedToolsStrategy } from "./implementations/AdvancedToolsStrategy";
 import { ChartPatternsStrategy } from "./implementations/ChartPatternsStrategy";
 import { ForecastingStrategy } from "./implementations/ForecastingStrategy";
 import { BrushStrategy } from "./implementations/BrushStrategy";
+import { RectangleStrategy } from "./implementations/RectangleStrategy";
+import { RotatedRectangleStrategy } from "./implementations/RotatedRectangleStrategy";
+import { CircleStrategy } from "./implementations/CircleStrategy";
+import { EllipseStrategy } from "./implementations/EllipseStrategy";
+import { TriangleStrategy } from "./implementations/TriangleStrategy";
+import { ArcStrategy } from "./implementations/ArcStrategy";
+import { CurveStrategy } from "./implementations/CurveStrategy";
+import { DoubleCurveStrategy } from "./implementations/DoubleCurveStrategy";
+import { TextNoteStrategy } from "./implementations/TextNoteStrategy";
+import { NoteStrategy } from "./implementations/NoteStrategy";
+import { CalloutStrategy } from "./implementations/CalloutStrategy";
+import { CommentStrategy } from "./implementations/CommentStrategy";
+import { PriceLabelStrategy } from "./implementations/PriceLabelStrategy";
+import { SignpostStrategy } from "./implementations/SignpostStrategy";
 
 /**
  * Strategy Registry - lazy instance construction.
@@ -41,6 +55,20 @@ class StrategyRegistry {
     register(new ChartPatternsStrategy());
     register(new ForecastingStrategy());
     register(new BrushStrategy());
+    register(new RectangleStrategy());
+    register(new RotatedRectangleStrategy());
+    register(new CircleStrategy());
+    register(new EllipseStrategy());
+    register(new TriangleStrategy());
+    register(new ArcStrategy());
+    register(new CurveStrategy());
+    register(new DoubleCurveStrategy());
+    register(new TextNoteStrategy());
+    register(new NoteStrategy());
+    register(new CalloutStrategy());
+    register(new CommentStrategy());
+    register(new PriceLabelStrategy());
+    register(new SignpostStrategy());
 
     return map;
   }

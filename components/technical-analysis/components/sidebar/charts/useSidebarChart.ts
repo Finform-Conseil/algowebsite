@@ -42,6 +42,19 @@ export function useSidebarChart({
     const dom = chartRef.current;
     if (!enabled || !dom) return;
 
+    // [TENOR 2026 SRE FIX — ECHARTS SIDEBAR LIFECYCLE RACE CONDITION]
+    // Because loadSidebarECharts is asynchronous (lazy-loads chunk files), a rapid sequence
+    // of render states (e.g. skeleton-load -> ready -> tab switch -> ticker change) causes
+    // cleanups to execute out-of-order relative to the async init callbacks.
+    // Result: the previous cleanup's `.dispose()` would fire AFTER a new render cycle's
+    // `.init()`, destroying the newly created canvas and leaving it blank/invisible.
+    //
+    // FIX: Assign a unique __chartSessionId to the DOM node for each effect cycle.
+    // Both draw() and the cleanup callback only proceed if the current session ID matches.
+    const targetDom = dom as HTMLDivElement & { __chartSessionId?: number };
+    const domSessionId = Math.random();
+    targetDom.__chartSessionId = domSessionId;
+
     let chart: SidebarChartInstance | null = null;
     let isDisposed = false;
     let resizeObserver: ResizeObserver | null = null;
@@ -49,7 +62,7 @@ export function useSidebarChart({
     let frameId: number | null = null;
 
     const scheduleDraw = () => {
-      if (isDisposed || frameId !== null) return;
+      if (isDisposed || frameId !== null || targetDom.__chartSessionId !== domSessionId) return;
       frameId = window.requestAnimationFrame(() => {
         frameId = null;
         void draw();
@@ -57,23 +70,23 @@ export function useSidebarChart({
     };
 
     const draw = async () => {
-      if (isDisposed || !isSidebarChartDrawable(dom)) return;
+      if (isDisposed || targetDom.__chartSessionId !== domSessionId || !isSidebarChartDrawable(dom)) return;
 
       const echarts = await loadSidebarECharts();
-      if (isDisposed || !isSidebarChartDrawable(dom)) return;
+      if (isDisposed || targetDom.__chartSessionId !== domSessionId || !isSidebarChartDrawable(dom)) return;
 
       chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
       const option = render(chart, echarts, dom);
 
-      if (option && !isDisposed && dom.isConnected) {
+      if (option && !isDisposed && targetDom.__chartSessionId === domSessionId && dom.isConnected) {
         chart.setOption(option, setOptionOptions);
-        resizeAfterPaint(chart, () => !isDisposed && dom.isConnected);
+        resizeAfterPaint(chart, () => !isDisposed && targetDom.__chartSessionId === domSessionId && dom.isConnected);
       }
     };
 
     if (typeof ResizeObserver === "function") {
       resizeObserver = new ResizeObserver(() => {
-        if (chart) resizeAfterPaint(chart, () => !isDisposed && dom.isConnected);
+        if (chart) resizeAfterPaint(chart, () => !isDisposed && targetDom.__chartSessionId === domSessionId && dom.isConnected);
         scheduleDraw();
       });
       resizeObserver.observe(dom);
@@ -97,7 +110,17 @@ export function useSidebarChart({
       window.removeEventListener("resize", scheduleDraw);
       intersectionObserver?.disconnect();
       resizeObserver?.disconnect();
-      disposeSidebarChart(dom);
+
+      // Only dispose the chart if no new effect cycle has taken ownership of this DOM node
+      if (targetDom.__chartSessionId === domSessionId) {
+        delete targetDom.__chartSessionId;
+        void loadSidebarECharts().then((echarts) => {
+          if (!targetDom.__chartSessionId) {
+            const chartToDispose = echarts.getInstanceByDom(dom);
+            if (chartToDispose) chartToDispose.dispose();
+          }
+        });
+      }
     };
     // The caller owns the dependency list so chart rebuilds stay explicit at each callsite.
     // eslint-disable-next-line react-hooks/exhaustive-deps

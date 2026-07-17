@@ -13,6 +13,7 @@ import { LineStylePopup } from "./LineStylePopup";
 import { MorePopup } from "./MorePopup";
 import { QuickOptionsPopup } from "./QuickOptionsPopup";
 import { TemplatePopup } from "./TemplatePopup";
+import { FontSizePopup } from "./FontSizePopup";
 import { buildFloatingPopupStyle, stopFloatingPopupMouseDown } from "./popupStyle";
 
 interface ToolbarButtonPopupsProps {
@@ -158,6 +159,15 @@ export const ToolbarButtonPopups: React.FC<ToolbarButtonPopupsProps> = ({
       />
     )}
 
+    {isActive && buttonId === "font_size" && (
+      <FontSizePopup
+        drawing={drawing}
+        drawingType={drawingType}
+        updateDrawing={updateDrawing}
+        closePopup={closePopup}
+      />
+    )}
+
     {isActive && buttonId === "tp_fill" && (
       <PositionFillPopup
         positionProps={positionProps}
@@ -203,6 +213,7 @@ export const ToolbarButtonPopups: React.FC<ToolbarButtonPopupsProps> = ({
 
     {isActive && buttonId === "quick_options" && hasQuickOptionsPopup && (
       <div
+        onPointerDown={stopFloatingPopupMouseDown}
         onMouseDown={stopFloatingPopupMouseDown}
         style={buildFloatingPopupStyle({
           top: "var(--popup-top, 30px)",
@@ -216,6 +227,44 @@ export const ToolbarButtonPopups: React.FC<ToolbarButtonPopupsProps> = ({
         })}
       >
         <QuickOptionsPopup dr={drawing} updateDrawing={updateDrawing} />
+      </div>
+    )}
+
+    {isActive && buttonId === "shape_switcher" && (
+      <div
+        onPointerDown={stopFloatingPopupMouseDown}
+        onMouseDown={stopFloatingPopupMouseDown}
+        style={buildFloatingPopupStyle({
+          top: "var(--popup-top, 30px)",
+          left: "0px",
+          width: "180px",
+          overflow: "hidden",
+          padding: "8px",
+        })}
+      >
+        <div className="d-flex flex-wrap gap-1" style={{ justifyContent: "center" }}>
+          {["note", "price_note", "pin", "table", "callout", "text_note"].map((shape) => (
+            <button
+              key={shape}
+              onClick={() => {
+                updateDrawing(drawing.id, { type: shape as any });
+              }}
+              className="btn btn-link d-flex align-items-center justify-content-center"
+              style={{
+                width: "32px",
+                height: "32px",
+                padding: 0,
+                color: drawing.type === shape ? "#2962ff" : "#d1d4dc",
+                background: drawing.type === shape ? "rgba(41, 98, 255, 0.14)" : "rgba(255, 255, 255, 0.03)",
+                border: drawing.type === shape ? "1px solid #2962ff" : "1px solid var(--gp-border-color-light, #2d455c)",
+                borderRadius: "6px",
+              }}
+              title={shape}
+            >
+              <i className={`bi bi-${shape === "note" ? "sticky" : shape === "price_note" ? "currency-dollar" : shape === "pin" ? "pin" : shape === "table" ? "table" : shape === "callout" ? "chat" : "type"}`} style={{ fontSize: "15px" }}></i>
+            </button>
+          ))}
+        </div>
       </div>
     )}
   </>

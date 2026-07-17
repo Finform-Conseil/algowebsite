@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Drawing } from "../../config/drawing/drawingModelTypes";
 import type { DrawingStyle } from "../../config/drawing/drawingPrimitiveTypes";
 import type { AllToolType } from "../../config/drawing/drawingToolTypes";
+import { TEXT_NOTE_TOOL_VARIANTS } from "../../config/drawing/drawingConstants";
 import type { Alert, Order } from "../../config/state/technicalAnalysisStateTypes";
 
 export const EMPTY_ALERTS: Alert[] = [];
@@ -83,6 +84,8 @@ export const SINGLE_CLICK_TOOLS: AllToolType[] = [
   "vertical_line",
   "crosshair",
   "arrow_marker",
+  "arrow_mark_up",
+  "arrow_mark_down",
   "horizontal_ray",
   "long_position",
   "short_position",
@@ -90,9 +93,16 @@ export const SINGLE_CLICK_TOOLS: AllToolType[] = [
   "anchored_volume_profile",
   "brush",
   "highlighter",
+  ...TEXT_NOTE_TOOL_VARIANTS.filter(t => t !== "callout"),
 ];
 
 export const TWO_CLICK_TOOLS: AllToolType[] = [
+  "note",
+  "price_note",
+  "callout",
+  "rectangle",
+  "circle",
+  "ellipse",
   "line",
   "arrow",
   "trend_angle",
@@ -121,6 +131,11 @@ export const TWO_CLICK_TOOLS: AllToolType[] = [
 ];
 
 export const MULTI_CLICK_TOOLS: AllToolType[] = [
+  "rotated_rectangle",
+  "triangle",
+  "arc",
+  "curve",
+  "double_curve",
   "polyline",
   "path",
   "xabcd_pattern",
@@ -153,6 +168,11 @@ export const MULTI_CLICK_TOOLS: AllToolType[] = [
 ];
 
 export const TOOL_MAX_CLICKS_REGISTRY: Record<string, number> = {
+  rotated_rectangle: 3,
+  triangle: 3,
+  arc: 3,
+  curve: 3,
+  double_curve: 5,
   sector: 3,
   xabcd_pattern: 5,
   cypher_pattern: 5,
@@ -178,5 +198,4 @@ export const TOOL_MAX_CLICKS_REGISTRY: Record<string, number> = {
   parallel_channel: 3,
   flat_top_bottom: 3,
   projection: 3,
-  curve: 3,
 };

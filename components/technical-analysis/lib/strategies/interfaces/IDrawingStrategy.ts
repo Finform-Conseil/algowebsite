@@ -2,6 +2,7 @@
 import type { DrawingStyle, DrawingPoint } from "../../../config/drawing/drawingPrimitiveTypes";
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
+import type { SignpostHitPart } from "../../../hooks/drawing/drawingSignpostProjection";
 import type { EChartsInstance } from "../../types/echarts";
 
 // ============================================================================
@@ -11,6 +12,11 @@ export interface HitTestResult {
     isHit: boolean;
     hitType: 'point' | 'shape' | 'zone_tp' | 'zone_sl' | 'width_resize' | null;
     pointIndex?: number;
+    cellRow?: number;
+    cellCol?: number;
+    colResizeIndex?: number;
+    part?: SignpostHitPart;
+    resizeEdge?: 'top' | 'bottom' | 'left' | 'right' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
 }
 
 // ============================================================================

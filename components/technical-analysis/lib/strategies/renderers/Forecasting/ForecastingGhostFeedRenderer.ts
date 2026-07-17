@@ -60,8 +60,6 @@ const MAX_CANDLES_PER_SEGMENT = 800;
 
 const renderCache = new WeakMap<object, RenderCache>();
 
-// --- RESOLVERS ---
-
 function convertDataPointToPixel(chart: EChartsInstance, logicalX: number, price: number): PixelPoint | undefined {
     const finder = { seriesIndex: 0 };
     try {

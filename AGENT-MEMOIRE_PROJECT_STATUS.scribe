@@ -18714,6 +18714,29 @@ journal:
   - "Graphify update : PASS"
   scribe_delta: none
 
+canonical:
+  - id: "CANON-675834DBF9471E88"
+    date: "2026-07-13"
+    type: "decision"
+    scope: "components/technical-analysis/config/drawing/drawingModelTypes.ts"
+    status: "INFO"
+    status_log:
+      - date: "2026-07-13"
+        status: "INFO"
+        reason: "Created"
+    schema_patch_date: "2026-05-23"
+    summary: >
+      VERIFIED micro-patch: added `signpostProps?: DrawingSignpostProps` (barIndex: number; verticalPositionPct: number) to the canonical Drawing interface in drawingModelTypes.ts. Signpost already had a strategy (SignpostStrategy), tool type, icon and toolbar registration; only the data-model slot was missing. Reused the existing optional `*Props` convention — no parallel store/strategy/toolbar created. Project-wide tsc --noEmit passes.
+    evidence:
+      - ".agent/state/outputs/scribe-out/records/1783956339-cli-247532-t-474f7d1aeb876019.json"
+    result:
+      canonical_memory_promoted: true
+      source_record: "1783956339-cli-247532-t-474f7d1aeb876019.json"
+      source_record_path: ".agent/state/outputs/scribe-out/records/1783956339-cli-247532-t-474f7d1aeb876019.json"
+      source_record_digest: "2ea1c3cbe9a3914ec7c2a89eac68b0ad8f136d7c648c444ef24f8f0d5024df76"
+      memory_policy: "canonical_required"
+      promoted_at: "2026-07-13T15:25:49Z"
+
 metrics:
   sessions_total: 424
   scars_total: 40

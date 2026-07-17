@@ -128,6 +128,30 @@
         "more"
       ]
     },
+    "arrow_mark_up": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
+    "arrow_mark_down": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ]
+    },
     "projection": {
       "toolbar": [
         "move",
@@ -198,18 +222,6 @@
         "template",
         "color",
         "fill",
-        "line_style",
-        "settings",
-        "lock",
-        "trash",
-        "more"
-      ]
-    },
-    "curve": {
-      "toolbar": [
-        "move",
-        "template",
-        "color",
         "line_style",
         "settings",
         "lock",
@@ -827,6 +839,197 @@
       ],
       "description": "TradingView freehand Highlighter selected-drawing toolbar: template, stroke color, fill/highlight style, thickness, settings, lock, delete, more."
     },
+    "rectangle": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Rectangle shape toolbar: template, stroke color, fill, thickness, settings, lock, delete, more."
+    },
+    "rotated_rectangle": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Rotated rectangle shape toolbar: template, stroke color, fill, thickness, settings, lock, delete, more."
+    },
+    "circle": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Circle shape toolbar: template, stroke color, fill, thickness, text, settings, lock, delete, more."
+    },
+    "ellipse": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Ellipse shape toolbar: template, stroke color, fill, thickness, text, settings, lock, delete, more."
+    },
+    "triangle": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "thickness",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Triangle shape toolbar: template, stroke color, fill, thickness, text, settings, lock, delete, more."
+    },
+    "arc": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Arc shape toolbar: template, stroke color, fill, line style, text, settings, lock, delete, more."
+    },
+    "curve": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Curve shape toolbar: template, stroke color, fill, line style, text, settings, lock, delete, more."
+    },
+    "double_curve": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "line_style",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Double curve shape toolbar: template, stroke color, fill, line style, text, settings, lock, delete, more."
+    },
+    "price_note": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Price note toolbar: template, line color, fill, text color, settings, lock, delete, more."
+    },
+    "pin": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "text",
+        "font_size",
+        "settings",
+        "lock",
+        "anchor",
+        "trash",
+        "more"
+      ],
+      "description": "Pin toolbar: template, color, text, font size, settings, lock, anchor, delete, more."
+    },
+    "text_note": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "text",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Text note toolbar: template, line color, fill, text color, settings, lock, delete, more."
+    },
+    "signpost": {
+      "toolbar": [
+        "move",
+        "template",
+        "font_size",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Signpost toolbar: move handle, models, numeric font size (default 12), settings, lock/unlock, delete, more. No line color or fill in the toolbar (kept in Settings)."
+    },
+    "table": {
+      "toolbar": [
+        "move",
+        "template",
+        "color",
+        "fill",
+        "text",
+        "add_row",
+        "remove_row",
+        "add_column",
+        "remove_column",
+        "settings",
+        "lock",
+        "trash",
+        "more"
+      ],
+      "description": "Table toolbar: template, color, fill, text, row/col management, settings, lock, delete, more."
+    },
     "sector": {
       "toolbar": [
         "move",
@@ -973,6 +1176,42 @@
       "icon": "bi-eye",
       "title": "Visibilit\u00e9",
       "action": "toggleVisibility"
+    },
+    "font_size": {
+      "icon": "bi-type",
+      "title": "Font size",
+      "action": "openFontSizePopup"
+    },
+    "shape_switcher": {
+      "icon": "bi-hexagon",
+      "title": "Changer de forme",
+      "action": "openShapeSwitcherPopup"
+    },
+    "anchor": {
+      "icon": "bi-pin",
+      "iconAnchored": "bi-pin-fill",
+      "title": "Ancrer",
+      "action": "toggleAnchor"
+    },
+    "add_row": {
+      "icon": "bi-plus-lg",
+      "title": "Ajouter ligne",
+      "action": "addTableRow"
+    },
+    "add_column": {
+      "icon": "bi-plus-lg",
+      "title": "Ajouter colonne",
+      "action": "addTableColumn"
+    },
+    "remove_row": {
+      "icon": "bi-dash-lg",
+      "title": "Supprimer ligne",
+      "action": "removeTableRow"
+    },
+    "remove_column": {
+      "icon": "bi-dash-lg",
+      "title": "Supprimer colonne",
+      "action": "removeTableColumn"
     }
   }
 }

@@ -28,6 +28,7 @@ export const MorePopup: React.FC<MorePopupProps> = ({
   setSelectedDrawingId,
 }) => (
   <div
+    onPointerDown={stopFloatingPopupMouseDown}
     onMouseDown={stopFloatingPopupMouseDown}
     style={buildFloatingPopupStyle({
       left: "-170px",

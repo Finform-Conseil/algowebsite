@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent } from "react";
+import type { CSSProperties, SyntheticEvent } from "react";
 
 interface FloatingPopupStyleOptions {
   left: string;
@@ -18,7 +18,7 @@ interface FloatingPopupStyleOptions {
   padding?: string;
 }
 
-export const stopFloatingPopupMouseDown = (event: MouseEvent<HTMLElement>) => {
+export const stopFloatingPopupMouseDown = (event: SyntheticEvent<HTMLElement>) => {
   event.stopPropagation();
 };
 
@@ -27,8 +27,8 @@ export const buildFloatingPopupStyle = ({
   width,
   top = "var(--popup-top, 36px)",
   bottom = "var(--popup-bottom, auto)",
-  background = "#1c2030",
-  border = "1px solid rgba(255, 255, 255, 0.1)",
+  background = "var(--gp-bg-toolbar, #0d2136)",
+  border = "1px solid var(--gp-border-color-light, #2d455c)",
   borderRadius = "6px",
   boxShadow = "0 4px 12px rgba(0, 0, 0, 0.5)",
   color,

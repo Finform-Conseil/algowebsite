@@ -230,6 +230,8 @@ export const initialState: TechnicalAnalysisState = {
       isActive: false,
       isPaused: false,
       speed: 1000,
+      currentIndex: 0,
+      totalCandles: 0,
     },
     isLockedAll: false,
     areDrawingsHidden: false,

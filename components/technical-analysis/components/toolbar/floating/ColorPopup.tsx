@@ -76,6 +76,7 @@ const ColorPopupShell: React.FC<ColorPopupShellProps> = ({
   children,
 }) => (
   <div
+    onPointerDown={stopFloatingPopupMouseDown}
     onMouseDown={stopFloatingPopupMouseDown}
     style={buildFloatingPopupStyle({
       left: "-110px",

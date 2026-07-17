@@ -1,10 +1,16 @@
 import type { Drawing } from "./drawingModelTypes";
 import type { DrawingStyle } from "./drawingPrimitiveTypes";
+import type { SignpostHitPart } from "../../hooks/drawing/drawingSignpostProjection";
 
 export interface HitTestResult {
   isHit: boolean;
   hitType: "point" | "shape" | "zone_tp" | "zone_sl" | "width_resize" | null;
   pointIndex?: number;
+  cellRow?: number;
+  cellCol?: number;
+  colResizeIndex?: number;
+  part?: SignpostHitPart;
+  resizeEdge?: "top" | "bottom" | "left" | "right" | "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 }
 
 export interface DrawingHelpers {

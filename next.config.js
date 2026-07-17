@@ -6,7 +6,7 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  allowedDevOrigins: ["127.0.0.1", "*.trycloudflare.com"],
+  allowedDevOrigins: ["127.0.0.1", "localhost", "*.trycloudflare.com"],
   images: {
     qualities: [75, 100],
   },
