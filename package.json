@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
+    "preinstall": "node -e \"if(process.env.npm_execpath&&!process.env.npm_execpath.includes('pnpm')){console.error('\\n\\x1b[31m╔════════════════════════════════════════════╗\\n║  ⛔  Ce projet utilise PNPM exclusivement  ║\\n║                                            ║\\n║  npm install  →  pnpm install              ║\\n║  npm run dev  →  pnpm dev                  ║\\n║  npm add <pkg>→  pnpm add <pkg>            ║\\n╚════════════════════════════════════════════╝\\x1b[0m\\n');process.exit(1)}\"",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
