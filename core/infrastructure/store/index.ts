@@ -4,6 +4,8 @@ import { configureStore } from '@reduxjs/toolkit';
 // 🧬 Jack-Josias: [CORRECTION FINALE] Import de la nouvelle fondation de l'API.
 // C'est la source de vérité pour le reducer et le middleware de RTK Query.
 import { baseApi } from './api/rtkApi-query/baseApi';
+import api from '@/core/infra/store/api/base.api';
+import { currencyReducer } from '@/core/infra/store/slices/currencySlice';
 import technicalAnalysisReducer from '@/components/technical-analysis/store/technicalAnalysisSlice';
 
 export const makeStore = () => {
@@ -11,6 +13,9 @@ export const makeStore = () => {
     reducer: {
       // 🧬 Jack-Josias: Utilisation des propriétés de `baseApi` pour configurer le store.
       [baseApi.reducerPath]: baseApi.reducer,
+      // Legacy RTK Query API + currency slice used across the app
+      [api.reducerPath]: api.reducer,
+      currency: currencyReducer,
       technicalAnalysis: technicalAnalysisReducer,
     },
     // 🧬 Jack-Josias: Le middleware de `baseApi` est concaténé.
@@ -39,7 +44,7 @@ export const makeStore = () => {
           ],
           warnAfter: 128,
         },
-      }).concat(baseApi.middleware),
+      }).concat(baseApi.middleware, api.middleware),
     devTools: process.env.NODE_ENV !== 'production',
   });
 };

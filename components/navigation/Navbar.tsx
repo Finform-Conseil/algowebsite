@@ -296,17 +296,17 @@ export default function Navbar() {
             onMouseEnter={() => item.items && item.items.length > 0 && handleMenuEnter(item.label)}
             onMouseLeave={handleMenuLeave}
           >
-            {item.href ? (
-              <Link href={item.href} className={`nav-link ${isActive(item.href) ? 'active' : ''}`}>
+            {item.items && item.items.length > 0 ? (
+              <button className="nav-link" type="button">
+                {item.icon}
+                <span>{item.label}</span>
+                <CaretDown size={14} weight="bold" />
+              </button>
+            ) : (
+              <Link href={item.href || '#'} className={`nav-link ${item.href && item.href !== '#' ? isActive(item.href) ? 'active' : '' : ''}`}>
                 {item.icon}
                 <span>{item.label}</span>
               </Link>
-            ) : (
-              <button className="nav-link">
-                {item.icon}
-                <span>{item.label}</span>
-                {item.items && item.items.length > 0 && <CaretDown size={14} weight="bold" />}
-              </button>
             )}
             
             {item.items && item.items.length > 0 && activeMenu === item.label && (

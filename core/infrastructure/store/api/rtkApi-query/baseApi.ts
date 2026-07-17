@@ -14,7 +14,7 @@ import { baseQueryWithRetry } from './baseQuery';
  * C'est la source de vérité pour la configuration globale de l'API.
  */
 export const baseApi = createApi({
-  reducerPath: 'api',
+  reducerPath: 'baseApi',
   baseQuery: baseQueryWithRetry,
   
   // ================================================================================

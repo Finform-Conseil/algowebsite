@@ -26,9 +26,9 @@ const AI_INSIGHTS_KEYS = [
 
 // Exchanges data with full metrics
 const EXCHANGES = [
-  { 
+  {
     id: 'BRVM', 
-    code: 'BRVM', 
+    code: 'BRVM',
     name: 'Bourse Régionale des Valeurs Mobilières',
     flag: '🇨🇮',
     index: '218.45',

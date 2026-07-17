@@ -8,9 +8,6 @@
   width: 100%;
   z-index: 1000;
   padding: 0 48px;
-  @media (min-width: 1400px) {
-    padding: 0 32px;
-  }
   height: 64px;
   display: flex;
   align-items: center;
@@ -29,7 +26,7 @@
     letter-spacing: -0.5px;
     color: #fff;
     text-decoration: none;
-    font-family: var(--font-syne), system-ui, sans-serif;
+    font-family: 'Syne', sans-serif;
 
     .logo-mark {
       width: 32px;
@@ -57,13 +54,6 @@
     max-width: 480px;
     margin: 0 32px;
 
-    @media (min-width: 1440px) {
-      position: absolute;
-      left: calc(50% - 568px); // Align with .glossary-page content start (50% - 600px + 32px)
-      width: 480px;
-      margin: 0;
-    }
-
     .search-icon {
       position: absolute;
       left: 14px;
@@ -80,7 +70,7 @@
       padding: 10px 40px 10px 44px;
       color: #fff;
       font-size: 0.85rem;
-      font-family: var(--font-syne), system-ui, sans-serif;
+      font-family: 'Syne', sans-serif;
       transition: all 0.3s;
       outline: none;
 
@@ -121,8 +111,6 @@
     align-items: center;
     gap: 12px;
     list-style: none;
-    margin: 0;
-    padding: 0;
 
     .nav-item {
       position: relative;
@@ -142,17 +130,11 @@
       transition: all 0.2s;
       letter-spacing: 0.03em;
       cursor: pointer;
-      font-family: var(--font-syne), system-ui, sans-serif;
+      font-family: 'Syne', sans-serif;
 
       &:hover {
         color: #fff;
         background: rgba(255, 255, 255, 0.04);
-      }
-
-      &.active {
-        color: #fff;
-        background: rgba(255, 255, 255, 0.06);
-        position: relative;
       }
 
       svg {
@@ -161,8 +143,6 @@
     }
 
     a {
-      display: inline-flex;
-      align-items: center;
       color: #7a9bb5;
       text-decoration: none;
       font-size: 0.85rem;
@@ -178,8 +158,6 @@
       }
 
       &.nav-cta {
-        display: inline-flex;
-        align-items: center;
         background: #081624f2;
         color: #f0a500;
         font-weight: 700;
@@ -199,20 +177,17 @@
   // Dropdown Menu
   .dropdown-menu {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 10px);
     left: 0;
     min-width: 260px;
-    display: block;
     background: rgba(16, 42, 67, 0.98);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-top: 10px solid transparent;
     border-radius: 12px;
     padding: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     z-index: 1001;
     animation: dropdownFadeIn 0.2s ease-out;
-    background-clip: padding-box;
 
     @keyframes dropdownFadeIn {
       from {
@@ -273,26 +248,22 @@
         transform: translateX(2px);
       }
     }
-
   }
 
   // Nested Dropdown (appears to the right)
   .nested-dropdown {
     position: absolute;
     top: 0;
-    left: 100%;
+    left: calc(100% + 8px);
     min-width: 240px;
-    display: block;
     background: rgba(16, 42, 67, 0.98);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 8px solid transparent;
     border-radius: 12px;
     padding: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     z-index: 1002;
     animation: nestedDropdownFadeIn 0.2s ease-out;
-    background-clip: padding-box;
 
     @keyframes nestedDropdownFadeIn {
       from {
@@ -398,7 +369,7 @@
     align-items: center;
     gap: 8px;
     padding: 0 28px;
-    font-family: var(--font-dm-mono), monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.75rem;
     color: #7a9bb5;
     border-right: 1px solid rgba(255, 255, 255, 0.08);

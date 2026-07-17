@@ -5,7 +5,6 @@ import type { Metadata } from 'next';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/vendor/bootstrap-icons.min.css';
 import '../styles/globals.scss';
-import Navbar from '@/components/navigation/Navbar';
 
 export const metadata: Metadata = {
   title: 'AfriMarket - African Financial Intelligence Platform',
@@ -21,9 +20,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet" />
+      </head>
       <body suppressHydrationWarning>
         <AppProviders>
-          <Navbar />
           {children}
         </AppProviders>
       </body>
