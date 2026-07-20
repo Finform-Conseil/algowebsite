@@ -121,8 +121,8 @@ export default function Navbar() {
           label: t('equity_items.equityTools'), 
           icon: <Wrench size={16} weight="duotone" />,
           subItems: [
-            // { href: '/equity/technical-analysis', label: t('equity_items.technicalAnalysis'), icon: <ChartLineUp size={16} weight="duotone" /> },
-            { href: '/equity/financial-analysis', label: t('equity_items.financialAnalysis'), icon: <ChartBar size={16} weight="duotone" /> },
+            { href: '/equity/technical-analysis', label: t('equity_items.technicalAnalysis'), icon: <ChartLineUp size={16} weight="duotone" /> },
+            // { href: '/equity/financial-analysis', label: t('equity_items.financialAnalysis'), icon: <ChartBar size={16} weight="duotone" /> },
           ]
         },
         { href: '/equity/sectors', label: t('equity_items.sectors'), icon: <Factory size={16} weight="duotone" /> },
