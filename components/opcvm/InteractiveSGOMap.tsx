@@ -52,6 +52,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
   exchangeShortName,
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [avgPerf, setAvgPerf] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -80,7 +81,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
   
     useEffect(() =>
     {
-      console.log("All SGO Data", allSgosData)
+      console.log("All Sgo Data", allSgosData)
     }, [allSgosData])
   
   
@@ -249,7 +250,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                 
                 {sgo.geographic_address && (
                   <div style={{
-                    fontSize: '0.8rem',
+                    fontSize: '0.7rem',
                     color: '#666',
                     marginBottom: '0.5rem',
                   }}>
@@ -258,17 +259,21 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                 )}
 
                 <div style={{
-                  fontSize: '0.85rem',
+                  fontSize: '0.7rem',
                   marginBottom: '0.5rem',
                   paddingTop: '0.5rem',
                   borderTop: '1px solid #e5e7eb',
+                  display: 'flex',
+                  justifyContent: 'space-between'
                 }}>
-                  <strong>{sgo.opcvms_count ?? 0}</strong> OPCVM géré{(sgo.opcvms_count ?? 0) > 1 ? 's' : ''}
+                  <span><strong>{sgo.opcvms_count ?? 0}</strong> OPCVM géré{(sgo.opcvms_count ?? 0) > 1 ? 's' : ''}</span>
+                  <span><strong>Avg Perf YTD</strong> {((sgo.opcvms?.reduce((acc, opcvm) => acc + (opcvm.latest_metrics?.performance_ytd ?? 0), 0) ?? 0) / (sgo.opcvms?.length ?? 1)).toFixed(2)}%</span>
                 </div>
+
 
                 {sgo?.opcvms && sgo?.opcvms.length > 0 && (
                   <div style={{
-                    fontSize: '0.75rem',
+                    fontSize: '0.7rem',
                     color: '#666',
                   }}>
                     <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
@@ -281,8 +286,9 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                       overflowY: 'auto',
                     }}>
                       {sgo?.opcvms && sgo?.opcvms.map((opcvm, idx) => (
-                        <li key={idx} style={{ marginBottom: '0.15rem' }}>
-                          {opcvm.intitule}
+                        <li key={idx} style={{ marginBottom: '0.15rem', display:'flex', justifyContent:'space-between' }}>
+                          <span>{opcvm.intitule}</span>
+                          <span>{opcvm.latest_metrics?.performance_ytd ?? 0}%</span>
                         </li>
                       ))}
                     </ul>
