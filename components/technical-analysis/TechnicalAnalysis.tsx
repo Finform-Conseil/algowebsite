@@ -17,6 +17,7 @@ import clsx from "clsx";
 
 // Contexts & UI (Imports Absolus pour garantir la résolution)
 import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+import { TechnicalAnalysisPortalProvider } from "@/components/technical-analysis/components/common/portal/TechnicalAnalysisPortalProvider";
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 
 
@@ -1369,9 +1370,10 @@ const ChartUI: React.FC = () => {
   const drawingCanvasCursor = activeTool ? "crosshair" : isCustomCursorMode ? "none" : cursorMode.startsWith("cross") ? "crosshair" : "default";
 
   return (
+    <TechnicalAnalysisPortalProvider>
     <div
       ref={refs.mainContainerRef}
-      className={clsx("technical-analysis-root", isZenMode && "is-zen-mode")}
+      className={clsx("technical-analysis-root", "technical-analysis-bootstrap-scope", isZenMode && "is-zen-mode")}
     >
       <div className={"gp-global-wrapper"}>
         <div className={clsx("page-content-wrapper", "mt-1")}>
@@ -1796,6 +1798,7 @@ const ChartUI: React.FC = () => {
         />
       )}
     </div>
+    </TechnicalAnalysisPortalProvider>
   );
 };
 

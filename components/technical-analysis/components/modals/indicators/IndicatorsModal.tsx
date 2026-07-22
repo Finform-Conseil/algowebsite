@@ -110,6 +110,7 @@ import {
   calculatePriceVsEmaMetrics,
   type PriceVsEmaMetricResult,
 } from "../../../lib/Indicators/priceVsEmaMetrics";
+import { useTechnicalAnalysisPortalTarget } from "../../common/portal/useTechnicalAnalysisPortalTarget";
 
 const INDICATOR_SEARCH_INPUT_ID = "technical-analysis-indicator-search";
 const EMPTY_CHART_DATA: ReturnType<typeof selectMarketData>[string] = [];
@@ -344,6 +345,8 @@ const IndicatorHoverInfoPanel = React.memo(({
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState<IndicatorInfoPosition | null>(null);
 
+  const portalTarget = useTechnicalAnalysisPortalTarget();
+
   const clearPendingClose = useCallback(() => {
     if (closeTimeoutRef.current === null) return;
     window.clearTimeout(closeTimeoutRef.current);
@@ -433,7 +436,7 @@ const IndicatorHoverInfoPanel = React.memo(({
     } as React.CSSProperties)
     : undefined;
 
-  const panel = isVisible && typeof document !== "undefined"
+  const panel = isVisible && typeof document !== "undefined" && portalTarget
     ? createPortal(
       <span
         className={`gp-indicator-info-panel ${tone === "missing" ? "is-missing" : ""}`}
@@ -447,7 +450,7 @@ const IndicatorHoverInfoPanel = React.memo(({
         <span className="gp-indicator-info-panel__line">Code: {code}</span>
         <span className="gp-indicator-info-panel__line">{statusLabel}</span>
       </span>,
-      document.body,
+      portalTarget,
     )
     : null;
 

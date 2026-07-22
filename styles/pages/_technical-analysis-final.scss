@@ -254,6 +254,16 @@
   .Gsap-preload { opacity: 1; }
 }
 
+// --- Neutralise la boîte de l'hôte portail TA sans perdre le scope descendant ---
+// .technical-analysis-root impose display:flex!important / height:100%!important / etc.
+// L'hôte #technical-analysis-portal-root doit conserver la classe root pour le héritage
+// des variables et sélecteurs Bootstrap scopés, mais ne doit pas produire de boîte
+// de mise en page visible. display:contents supprime UNIQUEMENT la boîte du conteneur
+// sans affecter les descendants ni les classes CSS qui s'y appliquent.
+.technical-analysis-root.technical-analysis-portal-root {
+  display: contents !important;
+}
+
 // ============================================================================
 // SECTION 2 — ANIMATION HELPERS
 // ============================================================================

@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 
 import type { CursorModeType } from "../../../config/state/uiStateTypes";
 import { ACCENT_GOLD, ACTIVE_BLUE, getActiveOptionStyle } from "./drawingToolbarTheme";
@@ -127,7 +128,10 @@ export const CursorModeSelector: React.FC<CursorModeSelectorProps> = ({
   buttonRef,
   onToggle,
   onSelectMode,
-}) => (
+}) => {
+  const portalTarget = useTechnicalAnalysisPortalTarget();
+
+  return (
   <>
     <button
       ref={buttonRef}
@@ -141,6 +145,7 @@ export const CursorModeSelector: React.FC<CursorModeSelectorProps> = ({
 
     {isOpen &&
       typeof document !== "undefined" &&
+      !!portalTarget &&
       createPortal(
         <div
           className="gp-cursor-dropdown-portal"
@@ -175,7 +180,8 @@ export const CursorModeSelector: React.FC<CursorModeSelectorProps> = ({
             );
           })}
         </div>,
-        document.body,
+        portalTarget,
       )}
   </>
-);
+  );
+};

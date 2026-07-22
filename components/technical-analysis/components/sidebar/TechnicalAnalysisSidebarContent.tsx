@@ -14,6 +14,7 @@ import type { TechnicalAnalysisSidebarController } from "./hooks/useTechnicalAna
 import { SidebarRail, type SidebarRailEntryId } from "./SidebarRail";
 import { SidebarRailSkeleton } from "./SidebarRailSkeleton";
 import { ProductsMenuPopover, DEFAULT_PINNED, type ProductsMenuEntryId } from "./panels/ProductsMenuPopover";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 import { BrvmRailPanel } from "./panels/BrvmRailPanel";
 import { CalendarRailPanel } from "./panels/CalendarRailPanel";
 import { ChatsRailPanel } from "./panels/ChatsRailPanel";
@@ -166,6 +167,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     watchlistSettings,
   } = controller;
   const { chartData, dataMode, isLoading, liveChange, liveChangePercent, livePrice, liveVolume, security } = props;
+  const portalTarget = useTechnicalAnalysisPortalTarget();
   const [pendingAlertEditId, setPendingAlertEditId] = React.useState<string | null>(null);
   const [isProductsMenuOpen, setIsProductsMenuOpen] = React.useState(false);
   const [pinnedItems, setPinnedItems] = React.useState<ProductsMenuEntryId[]>(DEFAULT_PINNED);
@@ -403,9 +405,9 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
           <SidebarRail activeEntry={activeEntry} isProductsMenuOpen={isProductsMenuOpen} onSelect={handleRailSelect} onProductsClick={handleProductsClick} pinnedItems={pinnedItems} />
         )}
       </div>
-      {isProductsMenuOpen && ReactDOM.createPortal(
+      {isProductsMenuOpen && portalTarget && ReactDOM.createPortal(
         <ProductsMenuPopover isOpen={isProductsMenuOpen} pinnedItems={pinnedItems} onSelect={handleRailSelect} onTogglePin={handleTogglePin} onClose={handleProductsMenuClose} positionStyle={popoverStyle} />,
-        document.body,
+        portalTarget,
       )}
     </>
   );

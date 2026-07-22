@@ -3,6 +3,7 @@
 import React, { useEffect, useId, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 import type { BRVMDividendPoint } from "../data/sidebarFundamentals";
 
 interface DividendHistoryModalProps {
@@ -68,9 +69,12 @@ export const DividendHistoryModal: React.FC<DividendHistoryModalProps> = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  const portalTarget = useTechnicalAnalysisPortalTarget();
+
   if (!isOpen || typeof document === "undefined") {
     return null;
   }
+  if (!portalTarget) return null;
 
   return createPortal(
     <div
@@ -133,7 +137,7 @@ export const DividendHistoryModal: React.FC<DividendHistoryModalProps> = ({
         </div>
       </motion.div>
     </div>,
-    document.body,
+    portalTarget,
   );
 };
 
