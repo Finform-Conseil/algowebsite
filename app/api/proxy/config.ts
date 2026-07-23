@@ -72,6 +72,7 @@ export const proxyConfig = {
     '7': process.env.API_TARGET_7,
     '8': process.env.API_TARGET_8,
     '9': process.env.API_TARGET_9,
+    '10': process.env.API_TARGET_10,
   } as ApiTargets,
 
   allowedOrigins: (process.env.ALLOWED_ORIGINS_PROXY || `http://localhost:${process.env.PORT || 3000}`)

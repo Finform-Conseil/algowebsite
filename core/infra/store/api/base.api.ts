@@ -10,7 +10,13 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 
 // create a new mutex
 const mutex = new Mutex();
-const baseURL = `${process.env.NEXT_PUBLIC_HOST}/api/v1`
+const clientApiBase = process.env.NEXT_PUBLIC_CLIENT_API_BASE;
+if (!clientApiBase) {
+  throw new Error(
+    "NEXT_PUBLIC_CLIENT_API_BASE is required for the client API configuration.",
+  );
+}
+const baseURL = `${clientApiBase.replace(/\/+$/, "")}/api/v1`
 
 const baseQuery = fetchBaseQuery({
   baseUrl: baseURL,
