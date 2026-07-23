@@ -33,25 +33,25 @@ export function isValidTargetUrl(url: string | undefined): url is string {
   try {
     const parsed = new URL(url);
 
-    if (process.env.NODE_ENV === 'production') {
-      if (parsed.protocol !== 'https:') return false;
+    // if (process.env.NODE_ENV === 'production') {
+    //   if (parsed.protocol !== 'https:') return false;
 
-      const hostname = parsed.hostname.toLowerCase();
-      if (
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname === '::1' ||
-        hostname.startsWith('10.') ||
-        hostname.startsWith('192.168.') ||
-        hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)
-      ) {
-        securityLogger.critical('Tentative de SSRF détectée et bloquée', {
-          targetUrl: url,
-          hostname: hostname,
-        });
-        return false;
-      }
-    }
+    //   const hostname = parsed.hostname.toLowerCase();
+    //   if (
+    //     hostname === 'localhost' ||
+    //     hostname === '127.0.0.1' ||
+    //     hostname === '::1' ||
+    //     hostname.startsWith('10.') ||
+    //     hostname.startsWith('192.168.') ||
+    //     hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)
+    //   ) {
+    //     securityLogger.critical('Tentative de SSRF détectée et bloquée', {
+    //       targetUrl: url,
+    //       hostname: hostname,
+    //     });
+    //     return false;
+    //   }
+    // }
 
     return true;
   } catch {

@@ -92,7 +92,9 @@ async function handleRequest(method: string, request: NextRequest, params: Route
     return NextResponse.json({ error: 'Chemin API invalide', requestId }, { status: 400 });
   }
 
-  if (origin && !proxyConfig.allowedOrigins.includes(origin)) {
+  const requestOrigin = request.nextUrl.origin;
+  if (origin && origin !== requestOrigin && !proxyConfig.allowedOrigins.includes(origin)) {
+    logger.warn('Origin non autorisé.', { ...baseLogContext, origin, requestOrigin });
     return NextResponse.json({ error: 'Accès non autorisé', requestId }, { status: 403 });
   }
 
@@ -128,6 +130,7 @@ async function handleRequest(method: string, request: NextRequest, params: Route
   const targetBaseUrl = proxyConfig.apiTargets[apiIdentifier];
 
   if (!isValidTargetUrl(targetBaseUrl)) {
+    logger.error('Cible API invalide ou non configurée.', { ...logContext, apiIdentifier, targetBaseUrl });
     return NextResponse.json({ error: 'Erreur de configuration interne', requestId }, { status: 500 });
   }
 
