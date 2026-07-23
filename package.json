@@ -9,11 +9,16 @@
   },
   "scripts": {
     "preinstall": "node -e \"if(process.env.npm_execpath&&!process.env.npm_execpath.includes('pnpm')){console.error('\\n\\x1b[31m╔════════════════════════════════════════════╗\\n║  ⛔  Ce projet utilise PNPM exclusivement  ║\\n║                                            ║\\n║  npm install  →  pnpm install              ║\\n║  npm run dev  →  pnpm dev                  ║\\n║  npm add <pkg>→  pnpm add <pkg>            ║\\n╚════════════════════════════════════════════╝\\x1b[0m\\n');process.exit(1)}\"",
+    "predev": "node scripts/generate-technical-analysis-bootstrap.mjs && node scripts/verify-technical-analysis-bootstrap.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-technical-analysis-bootstrap.mjs && node scripts/verify-technical-analysis-bootstrap.mjs",
     "build": "next build",
     "start": "next start",
     "postinstall": "node scripts/postinstall-echarts-clip.cjs",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "generate:technical-bootstrap": "node scripts/generate-technical-analysis-bootstrap.mjs",
+    "verify:technical-bootstrap": "node scripts/verify-technical-analysis-bootstrap.mjs",
+    "test:technical-bootstrap": "node --test scripts/tests/scope-bootstrap-css.test.mjs",
     "test": "npm run test:candlestick-patterns && npm run test:alerts-rail && npm run test:pine-editor",
     "test:candlestick-patterns": "node scripts/test-candlestick-patterns.cjs",
     "test:technical-analysis-config": "node --test components/technical-analysis/config/__tests__/config-baseline.test.cjs components/technical-analysis/config/__tests__/indicator-activation-contract.test.cjs components/technical-analysis/config/__tests__/candlestick-presentation-contract.test.cjs components/technical-analysis/config/__tests__/indicator-backtest-alert-policy.test.cjs",
@@ -72,6 +77,8 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "^15.0.0",
+    "postcss": "^8.5.22",
+    "postcss-selector-parser": "^7.1.4",
     "typescript": "^5"
   },
   "overrides": {

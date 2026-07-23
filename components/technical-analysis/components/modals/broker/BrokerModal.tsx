@@ -8,6 +8,7 @@ import { addOrder } from "../../../store/technicalAnalysisSlice";
 import type { Order } from "../../../config/state/technicalAnalysisStateTypes";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { createPaperOrderId, parsePositiveFiniteNumber } from "./brokerValidation";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 
 export interface Broker {
   id: string;
@@ -433,7 +434,10 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
     ? `${orderIntent.side.toUpperCase()} ${orderIntent.symbol} @ ${orderIntent.triggerLabel} ${orderIntent.orderType}`
     : "";
 
+  const portalTarget = useTechnicalAnalysisPortalTarget();
+
   if (!isBrokerModalOpen || typeof document === "undefined") return null;
+  if (!portalTarget) return null;
 
   return createPortal(
     <div className="gp-broker-overlay" onClick={resetModal}>
@@ -595,6 +599,6 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
         </div>
       </div>
     </div>,
-    document.body,
+    portalTarget,
   );
 });

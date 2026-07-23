@@ -3,6 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 
 interface CurrencyOption {
   code: string;
@@ -74,6 +75,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
   const currencyInstanceId = React.useId().replace(/:/g, "");
   const currencySearchInputId = `${CURRENCY_SEARCH_INPUT_ID_PREFIX}-${currencyInstanceId}`;
   const currencyListboxId = `${CURRENCY_LISTBOX_ID_PREFIX}-${currencyInstanceId}`;
+  const portalTarget = useTechnicalAnalysisPortalTarget();
   const [isClientMounted, setIsClientMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -106,7 +108,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
     currencyBtnRef.current?.focus();
   }, [currencyBtnRef, setCurrencyQuery, setIsCurrencyOpen, setSelectedCurrency]);
 
-  const currencyDropdown = isClientMounted && isCurrencyOpen
+  const currencyDropdown = isClientMounted && isCurrencyOpen && portalTarget
     ? createPortal(
         <div
           className="gp-currency-dropdown-portal"
@@ -169,7 +171,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
             )}
           </div>
         </div>,
-        document.body,
+        portalTarget,
       )
     : null;
 

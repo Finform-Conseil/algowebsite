@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 // [TENOR 2026] Bootstrap CSS importé AVANT globals.scss.
 // L'ordre est CRITIQUE : cela permet au reset SCSS global du projet d'écraser le Reboot
 // de Bootstrap (protégeant ainsi le site), tout en rendant les classes Bootstrap disponibles.
-import 'bootstrap/dist/css/bootstrap.min.css';
+import '../styles/generated/technical-analysis-bootstrap.generated.css';
 import '../styles/vendor/bootstrap-icons.min.css';
 import '../styles/globals.scss';
 

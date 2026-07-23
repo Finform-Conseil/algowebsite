@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 
 interface ToolPortalProps {
     isOpen: boolean;
@@ -91,7 +92,10 @@ export const ToolPortal: React.FC<ToolPortalProps> = ({
         };
     }, [isOpen]);
 
+    const portalTarget = useTechnicalAnalysisPortalTarget();
+
     if (!isOpen || typeof document === "undefined") return null;
+    if (!portalTarget) return null;
 
     return createPortal(
         <div
@@ -178,6 +182,6 @@ export const ToolPortal: React.FC<ToolPortalProps> = ({
                 {children}
             </div>
         </div>,
-        document.body,
+        portalTarget,
     );
 };

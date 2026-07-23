@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import clsx from "clsx";
+import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 
 interface FloatingMenuProps {
     isOpen: boolean;
@@ -47,7 +48,10 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({
         }
     }, [isOpen, onClose]);
 
+    const portalTarget = useTechnicalAnalysisPortalTarget();
+
     if (!isOpen || !anchorRect || !mounted) return null;
+    if (!portalTarget) return null;
 
     return ReactDOM.createPortal(
         <div
@@ -63,6 +67,6 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({
         >
             {children}
         </div>,
-        document.body
+        portalTarget,
     );
 };
