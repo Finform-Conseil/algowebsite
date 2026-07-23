@@ -36,9 +36,9 @@ const MATURITY_FIELDS: MaturityField[] = [
   { years: 3, field: 'three_years' },
   { years: 5, field: 'five_years' },
   { years: 7, field: 'seven_years' },
-  { years: 10, field: 'ten_years' },
-  { years: 15, field: 'fifteen_years' },
-  { years: 20, field: 'twenty_years' },
+  // { years: 10, field: 'ten_years' },
+  // { years: 15, field: 'fifteen_years' },
+  // { years: 20, field: 'twenty_years' },
 ];
 
 const COUNTRY_META: Record<string, { name: string; code: string; color: string }> = {

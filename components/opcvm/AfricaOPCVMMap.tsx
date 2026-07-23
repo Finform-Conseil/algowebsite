@@ -696,8 +696,9 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
                           exit={{ opacity: 0, y: 10 }}
                           style={{
                             position: "absolute",
-                            bottom: "100%",
-                            left: "50%",
+                            bottom: "-100%",
+                            // bottom: "100%",
+                            left: "100%",
                             transform: "translateX(-50%)",
                             marginBottom: "1rem",
                             width: "220px",
@@ -705,8 +706,7 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
                             borderRadius: "0.75rem",
                             padding: "1rem",
                             boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
-                            border:
-                              "2px solid " + getColorForExchange(exchange.id),
+                            border: "2px solid " + getColorForExchange(exchange.id),
                             pointerEvents: "none",
                           }}
                         >
@@ -808,8 +808,9 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
               center={exchangeSGOData[selectedExchange].center}
               zoom={exchangeSGOData[selectedExchange].zoom}
               exchangeColor={
-                getColorForExchange(selectedExchangeData?.shortName || "") ||
-                "#10B981"
+                mode === "performance"
+                  ? "rgba(16, 185, 129, 1)"
+                  : "rgba(255, 159, 4, 1)"
               }
               onBack={handleBackToAfrica}
               exchangeName={selectedExchangeData?.name || ""}

@@ -71,8 +71,8 @@ export const exchangeSGOData: Record<string, ExchangeSGOData> = {
     exchange: 'NGX',
     exchangeName: 'Nigerian Exchange',
     center: {
-      latitude: 6.5244,
-      longitude: 3.3792,
+      latitude: 7.5555,
+      longitude: 5.3792,
     },
     zoom: 7,
     sgos: [

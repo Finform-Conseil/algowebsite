@@ -27,7 +27,8 @@ export default function YieldRatesTable({
   yieldData,
   previousYieldData 
 }: YieldRatesTableProps) {
-  const maturities = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20];
+  // const maturities = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20];,
+  const maturities = [0.25, 0.5, 1, 2, 3, 5, 7];
   
   const filteredData = useMemo(() => 
     yieldData.filter(c => selectedCountries.includes(c.countryCode)),

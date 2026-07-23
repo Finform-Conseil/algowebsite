@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
@@ -9,6 +9,7 @@ import 'leaflet/dist/leaflet.css';
 import { useQueryParams } from '@/core/presenter/hooks/useQueryParams';
 import { useSgoRepository } from '@/core/infra/repositories/sgo.repository.impl';
 import { SgoQueryParams } from '@/core/domain/types/sgo.type';
+import Link from 'next/link';
 
 // Fix pour les icônes Leaflet dans Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -52,6 +53,27 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
   exchangeShortName,
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [avgPerf, setAvgPerf] = useState(0);
+  const markerRefs = useRef<Map<string, L.Marker>>(new Map());
+  const popupCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelPopupClose = () => {
+    if (popupCloseTimeoutRef.current) {
+      clearTimeout(popupCloseTimeoutRef.current);
+      popupCloseTimeoutRef.current = null;
+    }
+  };
+
+  const schedulePopupClose = (id: string, delay = 200) => {
+    cancelPopupClose();
+    popupCloseTimeoutRef.current = setTimeout(() => {
+      markerRefs.current.get(id)?.closePopup();
+    }, delay);
+  };
+
+  const closeAllPopups = () => {
+    markerRefs.current.forEach((marker) => marker.closePopup());
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -80,7 +102,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
   
     useEffect(() =>
     {
-      console.log("All SGO Data", allSgosData)
+      console.log("All Sgo Data", allSgosData)
     }, [allSgosData])
   
   
@@ -148,12 +170,12 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
           position: 'absolute',
           top: '1rem',
           left: '1rem',
-          padding: '0.75rem 1.5rem',
+          padding: '0.6rem 1.2rem',
           background: exchangeColor,
           color: 'white',
           border: 'none',
           borderRadius: '0.5rem',
-          fontSize: '0.875rem',
+          fontSize: '0.75rem',
           fontWeight: '600',
           cursor: 'pointer',
           display: 'flex',
@@ -172,7 +194,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
         }}
       >
-        <span style={{ fontSize: '1.2rem' }}>←</span>
+        <span style={{ fontSize: '1rem' }}>←</span>
         <span>Retour à l'Afrique</span>
       </motion.button>
 
@@ -232,8 +254,23 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
             key={sgo.id}
             position={[sgo.latitude!, sgo.longitude!]}
             icon={createCustomIcon(exchangeColor)}
+            ref={(m) => {
+              if (m) markerRefs.current.set(sgo.id!, m);
+            }}
+            eventHandlers={{
+              mouseover: () => {
+                cancelPopupClose();
+                closeAllPopups();
+                markerRefs.current.get(sgo.id!)?.openPopup();
+              },
+            }}
           >
-            <Popup>
+            <Popup
+              eventHandlers={{
+                mouseover: () => cancelPopupClose(),
+                mouseout: () => schedulePopupClose(sgo.id!),
+              }}
+            >
               <div style={{
                 padding: '0.5rem',
                 minWidth: '200px',
@@ -249,7 +286,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                 
                 {sgo.geographic_address && (
                   <div style={{
-                    fontSize: '0.8rem',
+                    fontSize: '0.7rem',
                     color: '#666',
                     marginBottom: '0.5rem',
                   }}>
@@ -258,17 +295,21 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                 )}
 
                 <div style={{
-                  fontSize: '0.85rem',
+                  fontSize: '0.7rem',
                   marginBottom: '0.5rem',
                   paddingTop: '0.5rem',
                   borderTop: '1px solid #e5e7eb',
+                  display: 'flex',
+                  justifyContent: 'space-between'
                 }}>
-                  <strong>{sgo.opcvms_count ?? 0}</strong> OPCVM géré{(sgo.opcvms_count ?? 0) > 1 ? 's' : ''}
+                  <span><strong>{sgo.opcvms_count ?? 0}</strong> OPCVM géré{(sgo.opcvms_count ?? 0) > 1 ? 's' : ''}</span>
+                  <span><strong>Avg Perf YTD</strong> {((sgo.opcvms?.reduce((acc, opcvm) => acc + (opcvm.latest_metrics?.performance_ytd ?? 0), 0) ?? 0) / (sgo.opcvms?.length ?? 1)).toFixed(2)}%</span>
                 </div>
+
 
                 {sgo?.opcvms && sgo?.opcvms.length > 0 && (
                   <div style={{
-                    fontSize: '0.75rem',
+                    fontSize: '0.7rem',
                     color: '#666',
                   }}>
                     <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
@@ -276,14 +317,15 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
                     </div>
                     <ul style={{
                       margin: 0,
-                      paddingLeft: '1.2rem',
+                      paddingLeft: '1rem',
                       maxHeight: '120px',
                       overflowY: 'auto',
                     }}>
                       {sgo?.opcvms && sgo?.opcvms.map((opcvm, idx) => (
-                        <li key={idx} style={{ marginBottom: '0.15rem' }}>
-                          {opcvm.intitule}
-                        </li>
+                        <Link href={`/opcvm/${opcvm.id}`} key={idx} style={{ marginBottom: '0.15rem', display:'flex', justifyContent:'space-between' }}>
+                          <span>{opcvm.intitule}</span>
+                          <span>{opcvm.latest_metrics?.performance_ytd ?? 0}%</span>
+                        </Link>
                       ))}
                     </ul>
                   </div>
