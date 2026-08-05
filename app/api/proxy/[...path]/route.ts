@@ -22,6 +22,7 @@ import { fetchWithRetry } from '@/shared/utils/fetchWithRetry';
 import { getCircuitBreaker } from '@/shared/utils/circuit-breaker';
 import { normalizeDjangoPath } from '../path-normalizer';
 import { isGatewayInterception } from '../response-guard';
+import { requestCoalescer, proxyMetrics } from '../runtime';
 
 const logger = {
   // eslint-disable-next-line no-console
@@ -33,7 +34,37 @@ const logger = {
 type RouteParams = { path: string[] };
 type HandlerContext = { params: Promise<RouteParams> };
 
-async function handleRequest(method: string, request: NextRequest, params: RouteParams) {
+/**
+ * Réponse backend BUFFERISÉE et rejouable. Contrairement à un `Response` fetch
+ * (stream consommable une seule fois), cette forme peut être partagée par
+ * plusieurs consommateurs — indispensable au single-flight (anti-stampede).
+ */
+type UpstreamResult = {
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  bodyBuffer: ArrayBuffer;
+};
+
+/**
+ * [OBSERVABILITÉ #4] Wrapper d'instrumentation à POINT DE SORTIE UNIQUE.
+ * Mesure la latence de bout en bout et enregistre le statut final quel que soit
+ * le chemin de retour (succès, 4xx, 502, 503, 500...). Les événements internes
+ * (cache hit/miss, coalescing) sont enregistrés au fil de `handleRequestCore`.
+ */
+async function handleRequest(method: string, request: NextRequest, params: RouteParams): Promise<NextResponse> {
+  const startedAt = Date.now();
+  let response: NextResponse;
+  try {
+    response = await handleRequestCore(method, request, params);
+  } finally {
+    proxyMetrics.recordLatency(Date.now() - startedAt);
+  }
+  proxyMetrics.recordStatus(response.status);
+  return response;
+}
+
+async function handleRequestCore(method: string, request: NextRequest, params: RouteParams): Promise<NextResponse> {
   request.signal.addEventListener('abort', () => {
     console.warn(`[proxy] Client disconnected (${method} ${params.path.join('/')}) — call continues`);
   });
@@ -67,10 +98,13 @@ async function handleRequest(method: string, request: NextRequest, params: Route
     }
   }
 
-  if (method === 'GET' && applicableTtl > 0) {
+  const isCacheable = method === 'GET' && applicableTtl > 0;
+  if (isCacheable) {
     const cacheKey = `proxy-cache:${requestPath}`;
     const cached = await getCachedResponse(cacheKey);
     if (cached) {
+      // [OBSERVABILITÉ #4] Cache HIT enregistré au point exact de résolution.
+      proxyMetrics.recordCache(true);
       const headers = new Headers(cached.headers);
       headers.set('X-Cache-Status', `HIT (${proxyConfig.cache.strategy})`);
       return new NextResponse(cached.body, {
@@ -78,6 +112,8 @@ async function handleRequest(method: string, request: NextRequest, params: Route
         headers: headers,
       });
     }
+    // [OBSERVABILITÉ #4] MISS : le chemin descend vers l'upstream réel.
+    proxyMetrics.recordCache(false);
   }
 
   const rawPath = params.path.join('/');
@@ -173,19 +209,38 @@ async function handleRequest(method: string, request: NextRequest, params: Route
       halfOpenMaxAttempts: 1
     });
 
-    const response = await circuitBreaker.execute(async () => {
-      return await fetchWithRetry(targetUrl.toString(), {
-        method,
-        headers: externalApiHeaders,
-        body: request.body,
-        credentials: 'omit',
-        // @ts-expect-error duplex est requis pour le streaming de body dans Node.js fetch.
-        duplex: 'half',
-        timeout: proxyConfig.fetch.timeout,
-        retries: shouldRetry ? 3 : 0,
-        backoff: 1000, // Exponential backoff base delay
+    // Travail backend réel : fetch résilient sous protection du circuit breaker.
+    // Le résultat est BUFFERISÉ en une forme rejouable ({status, headers, body})
+    // afin de pouvoir être partagé par plusieurs consommateurs (single-flight) —
+    // un ReadableStream fetch ne se consomme qu'une seule fois.
+    const doUpstreamFetch = async (): Promise<UpstreamResult> => {
+      const upstream = await circuitBreaker.execute(async () => {
+        return await fetchWithRetry(targetUrl.toString(), {
+          method,
+          headers: externalApiHeaders,
+          body: request.body,
+          credentials: 'omit',
+          // @ts-expect-error duplex est requis pour le streaming de body dans Node.js fetch.
+          duplex: 'half',
+          timeout: proxyConfig.fetch.timeout,
+          retries: shouldRetry ? 3 : 0,
+          backoff: 1000, // Exponential backoff base delay
+        });
       });
-    });
+      const bodyBuffer = await upstream.arrayBuffer();
+      const headers: Record<string, string> = {};
+      upstream.headers.forEach((value, key) => { headers[key] = value; });
+      return { status: upstream.status, statusText: upstream.statusText, headers, bodyBuffer };
+    };
+
+    // [ANTI-STAMPEDE #2] Le coalescing ne s'applique qu'aux méthodes SÛRES et
+    // idempotentes (GET/HEAD). Les mutations (POST/PUT/PATCH/DELETE) sont des
+    // opérations distinctes et ne doivent JAMAIS être dédupliquées.
+    const isCoalescable = method === 'GET' || method === 'HEAD';
+    const coalesceKey = `sf:${apiIdentifier}:${requestPath}`;
+    const result: UpstreamResult = isCoalescable
+      ? await requestCoalescer.run(coalesceKey, doUpstreamFetch, () => proxyMetrics.recordCoalesced())
+      : await doUpstreamFetch();
 
     // [FIX #5 — Détection d'interception de gateway]
     // Un backend/gateway défaillant peut renvoyer 2xx + text/html (page de login,
@@ -193,11 +248,11 @@ async function handleRequest(method: string, request: NextRequest, params: Route
     // BORD et on renvoie un 502 structuré, au lieu de laisser le client exploser
     // sur un JSON.parse d'une page HTML ("empty or malformed response").
     // Vérifié AVANT toute mise en cache : on ne cache jamais une interception.
-    if (isGatewayInterception(response.status, response.headers.get('content-type'))) {
+    if (isGatewayInterception(result.status, result.headers['content-type'])) {
       logger.error('Interception de gateway détectée (2xx non-JSON relayé en HTML).', {
         ...logContext,
-        upstreamStatus: response.status,
-        upstreamContentType: response.headers.get('content-type'),
+        upstreamStatus: result.status,
+        upstreamContentType: result.headers['content-type'],
       });
       return NextResponse.json(
         {
@@ -209,21 +264,27 @@ async function handleRequest(method: string, request: NextRequest, params: Route
       );
     }
 
-    if (method === 'GET' && response.ok && applicableTtl > 0) {
+    const isOk = result.status >= 200 && result.status < 300;
+    if (method === 'GET' && isOk && applicableTtl > 0) {
       const cacheKey = `proxy-cache:${requestPath}`;
-      // [FIX #8 — Await obligatoire pour garantir la persistance du cache]
-      // Fire-and-forget (pas d'await) sur Edge = risque que l'isolate se termine
-      // avant la fin du set Redis/memory → cache jamais peuplé silencieusement.
-      await setCachedResponse(cacheKey, response.clone(), applicableTtl);
+      // [FIX #8] Await obligatoire : garantit la persistance du cache sur Edge.
+      // Le buffer est rejouable — on reconstruit une Response fraîche pour le set.
+      await setCachedResponse(
+        cacheKey,
+        new Response(result.bodyBuffer, { status: result.status, headers: result.headers }),
+        applicableTtl,
+      );
     }
 
-    const responseHeaders = createSecureHeaders(new Headers(response.headers));
+    const responseHeaders = createSecureHeaders(new Headers(result.headers));
     responseHeaders.set('X-Request-ID', requestId);
     responseHeaders.set('X-Cache-Status', 'MISS');
 
-    return new NextResponse(response.body, {
-      status: response.status,
-      statusText: response.statusText,
+    // Chaque consommateur (leader OU follower coalescé) reconstruit son propre
+    // corps à partir du buffer partagé : aucun stream consommé deux fois.
+    return new NextResponse(result.bodyBuffer, {
+      status: result.status,
+      statusText: result.statusText,
       headers: responseHeaders,
     });
 

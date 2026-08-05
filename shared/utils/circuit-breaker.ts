@@ -221,4 +221,26 @@ export function getCircuitBreaker(
   }
   return circuitBreakers.get(apiIdentifier)!;
 }
+
+/**
+ * Instantané READ-ONLY de l'état de tous les circuit breakers connus.
+ * Destiné à l'observabilité (endpoint /api/proxy/metrics). N'altère aucun état.
+ */
+export interface CircuitBreakerSnapshot {
+  name: string;
+  state: CircuitState;
+  metrics: Readonly<CircuitMetrics>;
+}
+
+export function getCircuitBreakerSnapshots(): CircuitBreakerSnapshot[] {
+  const snapshots: CircuitBreakerSnapshot[] = [];
+  for (const [name, breaker] of circuitBreakers.entries()) {
+    snapshots.push({
+      name,
+      state: breaker.getState(),
+      metrics: breaker.getMetrics(),
+    });
+  }
+  return snapshots;
+}
 // --- EOF ---
