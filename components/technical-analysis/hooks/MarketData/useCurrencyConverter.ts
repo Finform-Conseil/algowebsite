@@ -1,5 +1,5 @@
 // ================================================================================
-// FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/hooks/MarketData/useCurrencyConverter.ts
+// FICHIER : core/presenter/components/pages/Widget/TechnicalAnalysis/hooks/MarketData/useCurrencyConverter.ts
 // RÔLE : Oracle de conversion monétaire (Frankfurter API v2).
 // [TENOR 2026 FIX] SCAR-134: Triangulation Routing via EUR. Bypasses API base currency restrictions.
 // ================================================================================

@@ -1,4 +1,4 @@
-// src/core/presentation/components/design-system/layouts/Dashboard/CommonPageHeader/CommonPageHeader.tsx
+// core/presenter/components/design-system/layouts/Dashboard/CommonPageHeader/CommonPageHeader.tsx
 "use client";
 
 import React, { memo } from "react";

@@ -1,5 +1,5 @@
 // ================================================================================
-// FICHIER : src/core/presentation/components/pages/Widget/TechnicalAnalysis/hooks/useMasterRenderLoop.ts
+// FICHIER : core/presenter/components/pages/Widget/TechnicalAnalysis/hooks/useMasterRenderLoop.ts
 // [TENOR 2026 SRE] SCAR-DOUBLE-RAF: Master Render Loop Orchestrator.
 // Centralizes the cursor and overlay requestAnimationFrame subscribers.
 // Synchronizes registered cursor and overlay rendering into one VSync-aligned frame.

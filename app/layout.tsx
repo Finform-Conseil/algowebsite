@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: 'Real-time data, advanced analytics and AI - connecting 6 major African stock exchanges',
 };
 
-import { AppProviders } from '@/core/presentation/components/providers/AppProvider.wrapper';
+import { AppProviders } from '@/core/presenter/components/providers/AppProvider.wrapper';
 
 export default function RootLayout({
   children,
