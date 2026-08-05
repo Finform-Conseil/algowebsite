@@ -35,7 +35,7 @@ export const resultApi = api.injectEndpoints({
     }),
     getAllResults: builder.query<PaginatedResponse<ResultEntity>, ResultQueryParams | void>({
         query: (params) => ({
-            url: "results",
+            url: "results/",
             method: "GET",
             params: params || {},
         }),

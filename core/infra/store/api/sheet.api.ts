@@ -35,7 +35,7 @@ export const sheetApi = api.injectEndpoints({
     }),
     getAllSheets: builder.query<PaginatedResponse<SheetEntity>, SheetQueryParams | void>({
         query: (params) => ({
-            url: "sheets",
+            url: "sheets/",
             method: "GET",
             params: params || {},
         }),

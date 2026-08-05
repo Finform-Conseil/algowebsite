@@ -35,7 +35,7 @@ export const secondaryApi = api.injectEndpoints({
     }),
     getAllSecondaries: builder.query<PaginatedResponse<SecondaryEntity>, QueryParams | void>({
         query: (params) => ({
-            url: "/fixed-income/secondary",
+            url: "/fixed-income/secondary/",
             method: "GET",
             params: params || {},
         }),

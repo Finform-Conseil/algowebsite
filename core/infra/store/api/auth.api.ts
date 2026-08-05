@@ -21,7 +21,7 @@ export const authApi = api.injectEndpoints({
     // }),
     userList: builder.query<UserEntity[], void>({
       query: () => ({
-          url: "/users",
+          url: "/users/",
           method: "GET",
       }),
       transformResponse: (response: { data: UserEntity[] }) => response.data,
@@ -36,13 +36,13 @@ export const authApi = api.injectEndpoints({
     }),
     logout: builder.mutation({
       query: () => ({
-        url: "/users/logout",
+        url: "/users/logout/",
         method: "POST",
       }),
     }),
     refreshToken: builder.mutation({
       query: () => ({
-        url: "/users/refresh-token",
+        url: "/users/refresh-token/",
         method: "POST",
       }),
     }),

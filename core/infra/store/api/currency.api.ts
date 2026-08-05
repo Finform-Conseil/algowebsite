@@ -35,7 +35,7 @@ export const currencyApi = api.injectEndpoints({
     }),
     getAllCurrencies: builder.query<PaginatedResponse<CurrencyEntity>, QueryParams | void>({
         query: (params) => ({
-            url: "currencies",
+            url: "currencies/",
             method: "GET",
             params: params || {},
         }),

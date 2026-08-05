@@ -35,7 +35,7 @@ export const activityApi = api.injectEndpoints({
     }),
     getAllActivities: builder.query<PaginatedResponse<ActivityEntity>, ActivityQueryParams | void>({
         query: (params) => ({
-            url: "activities",
+            url: "activities/",
             method: "GET",
             params: params || {},
         }),

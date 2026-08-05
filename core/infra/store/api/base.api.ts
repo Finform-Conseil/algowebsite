@@ -48,7 +48,7 @@ const baseQueryWithReauth: BaseQueryFn<
       try {
         const refreshResult = await baseQuery(
           {
-            url: "/auth/refresh-token",
+            url: "/auth/refresh-token/",
             method: "GET",
           },
           api,

@@ -35,7 +35,7 @@ export const eventApi = api.injectEndpoints({
     }),
     getAllEvents: builder.query<PaginatedResponse<EventEntity>, EventQueryParams | void>({
         query: (params) => ({
-            url: "events",
+            url: "events/",
             method: "GET",
             params: params || {},
         }),

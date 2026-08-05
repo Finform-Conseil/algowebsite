@@ -38,7 +38,7 @@ export const documentApi = api.injectEndpoints({
     }),
     getAllDocuments: builder.query<PaginatedResponse<DocumentEntity>, DocumentQueryParams | void>({
       query: (params) => ({
-        url: "documents",
+        url: "documents/",
         method: "GET",
         params: params || {},
       }),

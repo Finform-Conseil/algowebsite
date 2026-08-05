@@ -35,7 +35,7 @@ export const countryApi = api.injectEndpoints({
     }),
     getAllCountries: builder.query<PaginatedResponse<CountryEntity>, CountryQueryParams | void>({
         query: (params) => ({
-            url: "countries",
+            url: "countries/",
             method: "GET",
             params: params || {},
         }),

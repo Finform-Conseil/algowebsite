@@ -35,7 +35,7 @@ export const statementApi = api.injectEndpoints({
     }),
     getAllStatements: builder.query<PaginatedResponse<FinancialValueEntity>, StatementQueryParams | void>({
         query: (params) => ({
-            url: "financial-values",
+            url: "financial-values/",
             method: "GET",
             params: params || {},
         }),

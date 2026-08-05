@@ -48,7 +48,7 @@ export const indiceApi = api.injectEndpoints({
     }),
     getAllIndices: builder.query<PaginatedResponse<IndiceEntity>, QueryParams | void>({
       query: (params) => ({
-        url: "indices",
+        url: "indices/",
         method: "GET",
         params: params || {},
       }),

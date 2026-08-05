@@ -35,7 +35,7 @@ export const sectorApi = api.injectEndpoints({
     }),
     getAllSectors: builder.query<PaginatedResponse<SectorEntity>, QueryParams | void>({
         query: (params) => ({
-            url: "sectors",
+            url: "sectors/",
             method: "GET",
             params: params || {},
         }),

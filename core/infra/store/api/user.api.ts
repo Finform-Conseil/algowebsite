@@ -71,7 +71,7 @@ export const userApi = api.injectEndpoints({
       UserQueryParams | void
     >({
       query: (params) => ({
-        url: "users",
+        url: "users/",
         method: "GET",
         params: params || {},
       }),

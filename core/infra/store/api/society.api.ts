@@ -35,7 +35,7 @@ export const societyApi = api.injectEndpoints({
     }),
     getAllSocieties: builder.query<PaginatedResponse<SocietyEntity>, SocietyQueryParams | void>({
         query: (params) => ({
-            url: "societies",
+            url: "societies/",
             method: "GET",
             params: params || {},
         }),

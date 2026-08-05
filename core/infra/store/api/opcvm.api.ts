@@ -38,7 +38,7 @@ export const opcvmApi = api.injectEndpoints({
     }),
     getAllOpcvms: builder.query<PaginatedResponse<OPCVMEntity>, QueryParams | void>({
       query: (params) => ({
-        url: "opcvms",
+        url: "opcvms/",
         method: "GET",
         params: params || {},
       }),
@@ -53,7 +53,7 @@ export const opcvmApi = api.injectEndpoints({
     }),
     getTopFlopOpcvms: builder.query<TopFlopEntity, OpcvmQueryParams | void>({
       query: (params) => ({
-        url: "opcvms/topflop",
+        url: "opcvms/topflop/",
         method: "GET",
         params: params || {},
       })
@@ -112,7 +112,7 @@ export const opcvmMetricApi = api.injectEndpoints({
     }),
     getAllOpcvmMetrics: builder.query<PaginatedResponse<OPCVMMetricEntity>, QueryParams | void>({
       query: (params) => ({
-        url: "opcvm-metrics",
+        url: "opcvm-metrics/",
         method: "GET",
         params: params || {},
       }),

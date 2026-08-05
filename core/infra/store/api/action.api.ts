@@ -35,7 +35,7 @@ export const actionApi = api.injectEndpoints({
     }),
     getAllActions: builder.query<PaginatedResponse<ActionEntity>, ActionQueryParams | void>({
         query: (params) => ({
-            url: "actions",
+            url: "actions/",
             method: "GET",
             params: params || {},
         }),

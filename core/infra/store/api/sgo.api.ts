@@ -35,7 +35,7 @@ export const sgoApi = api.injectEndpoints({
     }),
     getAllSgos: builder.query<PaginatedResponse<SGOEntity>, SgoQueryParams | void>({
         query: (params) => ({
-            url: "sgos",
+            url: "sgos/",
             method: "GET",
             params: params || {},
         }),

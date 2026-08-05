@@ -35,7 +35,7 @@ export const rateApi = api.injectEndpoints({
     }),
     getAllRates: builder.query<PaginatedResponse<RateEntity>, RateQueryParams | void>({
         query: (params) => ({
-            url: "rates",
+            url: "rates/",
             method: "GET",
             params: params || {},
         }),

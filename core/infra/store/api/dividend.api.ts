@@ -38,7 +38,7 @@ export const dividendApi = api.injectEndpoints({
     }),
     getAllDividends: builder.query<PaginatedResponse<DividendEntity>, QueryParams | void>({
       query: (params) => ({
-        url: "dividends",
+        url: "dividends/",
         method: "GET",
         params: params || {},
       }),

@@ -36,7 +36,7 @@ export const primaryApi = api.injectEndpoints({
     }),
     getAllPrimaries: builder.query<PaginatedResponse<PrimaryEntity>, QueryParams | void>({
         query: (params) => ({
-            url: "/fixed-income/bond-securities",
+            url: "/fixed-income/bond-securities/",
             method: "GET",
             params: params || {},
         }),

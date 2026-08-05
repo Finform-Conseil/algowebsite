@@ -35,7 +35,7 @@ export const bourseApi = api.injectEndpoints({
     }),
     getAllBourses: builder.query<PaginatedResponse<BourseEntity>, QueryParams | void>({
         query: (params) => ({
-            url: "bourses",
+            url: "bourses/",
             method: "GET",
             params: params || {},
         }),

@@ -35,7 +35,7 @@ export const industryApi = api.injectEndpoints({
     }),
     getAllIndustries: builder.query<PaginatedResponse<IndustryEntity>, IndustryQueryParams | void>({
         query: (params) => ({
-            url: "industries",
+            url: "industries/",
             method: "GET",
             params: params || {},
         }),

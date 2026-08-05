@@ -47,7 +47,7 @@ export const coursApi = api.injectEndpoints({
     }),
     getAllCours: builder.query<PaginatedResponse<CoursEntity>, CoursQueryParams | void>({
         query: (params) => ({
-            url: "cours",
+            url: "cours/",
             method: "GET",
             params: params || {},
         }),

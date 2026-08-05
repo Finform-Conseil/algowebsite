@@ -38,7 +38,7 @@ export const actionnariatApi = api.injectEndpoints({
     }),
     getAllActionnariats: builder.query<PaginatedResponse<ActionnariatEntity>, QueryParams | void>({
       query: (params) => ({
-        url: "actionnariats",
+        url: "actionnariats/",
         method: "GET",
         params: params || {},
       }),
