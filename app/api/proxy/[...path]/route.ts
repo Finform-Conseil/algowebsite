@@ -18,9 +18,10 @@ import { proxyConfig } from '../config';
 import { createSecureHeaders, isValidApiIdentifier, isValidTargetUrl, arePathSegmentsSafe, sanitizePath } from '../security';
 import { checkRateLimit } from '../rate-limiter';
 import { getCachedResponse, setCachedResponse } from '../cache';
-import { apiConfig } from '@/core/infrastructure/store/config';
 import { fetchWithRetry } from '@/shared/utils/fetchWithRetry';
 import { getCircuitBreaker } from '@/shared/utils/circuit-breaker';
+import { normalizeDjangoPath } from '../path-normalizer';
+import { isGatewayInterception } from '../response-guard';
 
 const logger = {
   // eslint-disable-next-line no-console
@@ -132,10 +133,14 @@ async function handleRequest(method: string, request: NextRequest, params: Route
   }
 
   try {
-    let finalPath = actualPath;
-    if (apiConfig.enforceTrailingSlashForMethods.has(method) && !finalPath.endsWith('/')) {
-      finalPath += '/';
-    }
+    // [FIX #4 — Trailing-Slash Policy centralisée]
+    // Le contrat APPEND_SLASH de Django est désormais appliqué de manière COHÉRENTE
+    // pour TOUTES les méthodes via une source de vérité unique et testée
+    // (path-normalizer). Cela corrige la classe de bugs où un GET sans slash final
+    // (ex: "sectors") déclenchait une redirection 301 renvoyant un corps vide/HTML,
+    // que le client parsait comme "empty or malformed response (HTTP 200)".
+    // Les ~26 fichiers *.api.ts n'ont plus à gérer le slash eux-mêmes (DRY).
+    const finalPath = normalizeDjangoPath(actualPath);
 
     const targetUrl = new URL(`${targetBaseUrl}${finalPath}${request.nextUrl.search}`);
     const externalApiHeaders = new Headers(request.headers);
@@ -182,9 +187,34 @@ async function handleRequest(method: string, request: NextRequest, params: Route
       });
     });
 
+    // [FIX #5 — Détection d'interception de gateway]
+    // Un backend/gateway défaillant peut renvoyer 2xx + text/html (page de login,
+    // holding sslip.io, erreur d'un reverse-proxy). On attrape cette signature AU
+    // BORD et on renvoie un 502 structuré, au lieu de laisser le client exploser
+    // sur un JSON.parse d'une page HTML ("empty or malformed response").
+    // Vérifié AVANT toute mise en cache : on ne cache jamais une interception.
+    if (isGatewayInterception(response.status, response.headers.get('content-type'))) {
+      logger.error('Interception de gateway détectée (2xx non-JSON relayé en HTML).', {
+        ...logContext,
+        upstreamStatus: response.status,
+        upstreamContentType: response.headers.get('content-type'),
+      });
+      return NextResponse.json(
+        {
+          error: 'Bad Gateway',
+          detail: 'Upstream returned a success status with a non-JSON (HTML) body, indicating an intercepting proxy or gateway.',
+          requestId,
+        },
+        { status: 502 },
+      );
+    }
+
     if (method === 'GET' && response.ok && applicableTtl > 0) {
       const cacheKey = `proxy-cache:${requestPath}`;
-      setCachedResponse(cacheKey, response.clone(), applicableTtl);
+      // [FIX #8 — Await obligatoire pour garantir la persistance du cache]
+      // Fire-and-forget (pas d'await) sur Edge = risque que l'isolate se termine
+      // avant la fin du set Redis/memory → cache jamais peuplé silencieusement.
+      await setCachedResponse(cacheKey, response.clone(), applicableTtl);
     }
 
     const responseHeaders = createSecureHeaders(new Headers(response.headers));

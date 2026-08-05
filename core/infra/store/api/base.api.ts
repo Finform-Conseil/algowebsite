@@ -23,7 +23,6 @@ const baseQuery = fetchBaseQuery({
   credentials: 'include',
   prepareHeaders: async (headers) => {
     const session = await getSession();
-    console.log("session found", session);
 
     if (session?.user?.accessToken) {
       headers.set("Authorization", `Bearer ${session.user.accessToken}`);
@@ -57,7 +56,6 @@ const baseQueryWithReauth: BaseQueryFn<
         );
         
         if (refreshResult.data) {
-          console.log("Token refreshed", refreshResult);
           result = await baseQuery(args, api, extraOptions);
         } else {
           // Le refresh a échoué, rediriger vers la page de connexion

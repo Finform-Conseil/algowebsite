@@ -33,8 +33,12 @@ export const apiConfig = {
     ]),
 
   /**
-   * Méthodes HTTP pour lesquelles le proxy doit garantir un slash final ('/'),
-   * afin de se conformer aux exigences strictes de l'API Django.
+   * @deprecated Depuis le FIX #4 (audit proxy), la politique de trailing-slash
+   * n'est PLUS pilotée par cette liste. Le proxy applique désormais le contrat
+   * APPEND_SLASH de Django de manière cohérente pour TOUTES les méthodes via la
+   * source de vérité unique et testée `app/api/proxy/path-normalizer`.
+   * Conservé pour rétro-compatibilité de lecture ; ne plus l'utiliser comme
+   * autorité de décision.
    */
   enforceTrailingSlashForMethods: new Set(['POST', 'PUT', 'PATCH', 'DELETE']),
 

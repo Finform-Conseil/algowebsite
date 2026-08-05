@@ -17,11 +17,37 @@ export interface CachedResponse {
   status: number;
   headers: Record<string, string>;
   timestamp: number;
+  // [FIX #3] Instant d'expiration ABSOLU (ms epoch), calculé au `set` depuis le
+  // ttlSeconds effectif. C'est la SOURCE DE VÉRITÉ de l'expiration : le `get` ne
+  // re-dérive plus le TTL depuis les regex (comportement incohérent supprimé).
+  expiresAt: number;
 }
 
 export interface ICacheAdapter {
   get: (key: string) => Promise<CachedResponse | null>;
   set: (key: string, response: Response, ttlSeconds: number) => Promise<void>;
+}
+
+/**
+ * [FIX #3 — DRY] Construit une entrée de cache canonique à partir d'une réponse.
+ * Unique fabrique partagée par TOUS les adaptateurs : garantit que `timestamp` et
+ * `expiresAt` sont TOUJOURS renseignés de façon cohérente (fin des contrats qui
+ * mentent, ex: redisAdapter qui omettait `timestamp`).
+ */
+async function buildCacheEntry(response: Response, ttlSeconds: number): Promise<CachedResponse> {
+  const body = await response.clone().text();
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  const now = Date.now();
+  return {
+    body,
+    status: response.status,
+    headers,
+    timestamp: now,
+    expiresAt: now + ttlSeconds * 1000,
+  };
 }
 
 // --- Implémentation 1 : Adaptateur Nul (Cache Désactivé) ---
@@ -42,20 +68,9 @@ const inMemoryAdapter: ICacheAdapter = {
     const entry = inMemoryCache.get(key);
     if (!entry) return null;
 
-    const path = key.replace('proxy-cache:', '');
-    let ttl = proxyConfig.cache.defaultTtlSeconds;
-
-    for (const [regex, duration] of proxyConfig.cache.routeTtls.entries()) {
-      if (regex.test(path)) {
-        ttl = duration;
-        break;
-      }
-    }
-
-    if (ttl <= 0) return null;
-
-    const isExpired = (Date.now() - entry.timestamp) / 1000 > ttl;
-    if (isExpired) {
+    // [FIX #3] Expiration lue depuis `expiresAt` (posé au set), plus AUCUNE
+    // re-dérivation du TTL via les regex. Cohérent, déterministe, sans staleness.
+    if (Date.now() >= entry.expiresAt) {
       inMemoryCache.delete(key);
       return null;
     }
@@ -64,23 +79,7 @@ const inMemoryAdapter: ICacheAdapter = {
   },
   async set(key: string, response: Response, ttlSeconds: number): Promise<void> {
     if (ttlSeconds <= 0) return;
-
-    const responseClone = response.clone();
-    const body = await responseClone.text();
-    const headers: Record<string, string> = {};
-
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    const entry: CachedResponse = {
-      body,
-      status: response.status,
-      headers,
-      timestamp: Date.now(),
-    };
-
-    inMemoryCache.set(key, entry);
+    inMemoryCache.set(key, await buildCacheEntry(response, ttlSeconds));
   }
 };
 
@@ -137,20 +136,11 @@ const redisAdapter: ICacheAdapter = {
     if (ttlSeconds <= 0 || !checkRedisStatus()) return;
 
     try {
-      const responseClone = response.clone();
-      const body = await responseClone.text();
-      const headers: Record<string, string> = {};
-
-      response.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-
-      const dataToCache: Omit<CachedResponse, 'timestamp'> & { timestamp?: number } = {
-        body,
-        status: response.status,
-        headers,
-      };
-
+      // [FIX #3 — DRY + contrat honnête] Même fabrique que l'adaptateur mémoire :
+      // l'entrée porte TOUJOURS `timestamp` ET `expiresAt` (l'ancienne version
+      // omettait `timestamp`, rendant l'interface CachedResponse mensongère).
+      // Redis gère aussi l'éviction native via `ex:` (double filet de sécurité).
+      const dataToCache = await buildCacheEntry(response, ttlSeconds);
       await redisClient!.set(key, dataToCache, { ex: ttlSeconds });
     } catch (error) {
       markRedisDown(error);
