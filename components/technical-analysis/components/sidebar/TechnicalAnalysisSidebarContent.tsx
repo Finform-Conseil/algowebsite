@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import dynamic from "next/dynamic";
 import { useSelector } from "react-redux";
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
-import type { RootState } from "@/core/infrastructure/store";
+import type { RootState } from "@/core/infra/store";
 import { BRVM_DISPLAY_TIME_ZONE_LABEL } from "../../utils/brvmMarketSession";
 import { openBrvmBondsPage, openBrvmEquityPage } from "./actions/sidebarExternalLinks";
 import { selectMarketSnapshots } from "../../store/selectors";

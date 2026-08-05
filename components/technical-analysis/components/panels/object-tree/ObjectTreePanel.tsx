@@ -32,7 +32,7 @@ import { setAdvancedIndicators, setChartAppearance, setChartConfig, removeCompar
 import { resolveTrendSignalSourceAveragePeriods } from "../../../config/indicators/movingAverageSeries";
 import { resolvePriceVsSmaSourceAveragePeriods } from "../../../config/indicators/priceVsSmaMetrics";
 import { resolvePriceVsEmaSourceAveragePeriods } from "../../../config/indicators/priceVsEmaMetrics";
-import type { RootState } from "@/core/infrastructure/store";
+import type { RootState } from "@/core/infra/store";
 import { DataWindowTab } from "./DataWindowTab";
 import { ObjectTreeActionToolbar, type ObjectTreePanelMenu, type VisualOrderDirection } from "./ObjectTreeActionToolbar";
 import { ObjectTreeDrawingList } from "./ObjectTreeDrawingList";

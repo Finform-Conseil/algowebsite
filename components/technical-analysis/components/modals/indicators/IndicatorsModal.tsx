@@ -53,7 +53,7 @@ import {
   selectMarketData,
   selectMarketSnapshots,
 } from "../../../store/selectors";
-import type { RootState } from "@/core/infrastructure/store";
+import type { RootState } from "@/core/infra/store";
 
 import {
   SettingsNumberInput,

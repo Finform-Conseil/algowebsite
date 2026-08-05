@@ -13,7 +13,7 @@ import {
   shallowEqual } from "react-redux";
 
 // --- Types & Constants ---
-import type { RootState } from "@/core/infrastructure/store";
+import type { RootState } from "@/core/infra/store";
 import type { EChartsInstance } from "../lib/types/echarts";
 import { BRVM_SECURITIES,
   type BRVMSecurity } from "@/core/data/brvm-securities";

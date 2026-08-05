@@ -47,7 +47,7 @@ import {
   selectBollingerSettings,
   selectPineChartOverlay,
 } from "@/components/technical-analysis/store/selectors";
-import type { RootState } from "@/core/infrastructure/store";
+import type { RootState } from "@/core/infra/store";
 import type { EChartsInstance } from "@/components/technical-analysis/lib/types/echarts";
 
 import toolbarConfig from "@/components/technical-analysis/toolbar-config-antigravity.json";

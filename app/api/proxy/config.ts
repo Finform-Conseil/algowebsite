@@ -6,7 +6,7 @@
 type ApiTargets = Record<string, string | undefined>;
 
 // 🧬 IMPORT CENTRALISÉ DES RÈGLES DE SÉCURITÉ
-import { RATE_LIMIT_CONFIGS } from '@/core/infrastructure/security/rate/redis-rate-limiter';
+import { RATE_LIMIT_CONFIGS } from '@/core/infra/security/rate/redis-rate-limiter';
 
 
 export const proxyConfig = {

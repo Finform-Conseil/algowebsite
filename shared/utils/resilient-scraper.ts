@@ -4,7 +4,7 @@
 
 import { Agent, fetch } from 'undici';
 import { getCircuitBreaker } from './circuit-breaker';
-import { redisClient } from '@/core/infrastructure/security/rate/redis-rate-limiter';
+import { redisClient } from '@/core/infra/security/rate/redis-rate-limiter';
 
 // ============================================================================
 // 🔒 SECURITY CONFIGURATION (SCAR-117 FIX)

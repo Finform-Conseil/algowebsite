@@ -1,7 +1,7 @@
 import type { BollingerSettings, IndicatorPeriods } from "../config/indicators/advancedIndicatorsTypes";
 import type { TechnicalAnalysisState } from "../config/state/technicalAnalysisStateTypes";
 import type { UiState } from "../config/state/uiStateTypes";
-import type { RootState } from "@/core/infrastructure/store";
+import type { RootState } from "@/core/infra/store";
 import type { PineChartOverlayPayload } from "../components/sidebar/panels/pineEditor/pineTypes";
 
 export const selectTA = (state: RootState): TechnicalAnalysisState => state.technicalAnalysis;
