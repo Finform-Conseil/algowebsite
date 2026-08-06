@@ -27,8 +27,17 @@ from host_adapter import host_config, instructions as host_instructions
 from host_adapter.instructions import install_host_instructions, update_marked_block, verify_instruction_installation
 from host_adapter.launcher import HostLaunchConfig, TENOR_INIT_REQUIRED, run_pre_action_guard, run_preflight, run_workspace_audit
 from host_adapter.policy import HostPolicy, HostVerdict
-from host_adapter.templates import render_minimal_host_instructions
+from host_adapter.templates import CANONICAL_TENOR_TRIGGER, render_minimal_host_instructions
 from runtime import db, discipline, graphify_readiness, installation_state, patch_queue, task_context
+
+
+EXPECTED_CANONICAL_TENOR_TRIGGER = (
+    'TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil '
+    'normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact '
+    '"./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin '
+    'global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à '
+    'TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]'
+)
 
 
 def _json_payload(result: dict[str, Any]) -> dict[str, Any]:
@@ -155,6 +164,14 @@ class HostAdapterAutoGuardTest(unittest.TestCase):
         )
         self.assertEqual(verdict, HostVerdict.SAFE_CANDIDATE)
 
+    def test_canonical_tenor_trigger_is_explicitly_project_local(self) -> None:
+        self.assertEqual(CANONICAL_TENOR_TRIGGER, EXPECTED_CANONICAL_TENOR_TRIGGER)
+        self.assertIn('"./.agent/skills/init-tenor/SKILL.md"', CANONICAL_TENOR_TRIGGER)
+        self.assertIn('jamais avec un résolveur de skills', CANONICAL_TENOR_TRIGGER)
+        self.assertIn('"~/.agent"', CANONICAL_TENOR_TRIGGER)
+        self.assertIn('"~/.agents"', CANONICAL_TENOR_TRIGGER)
+        self.assertIn(CANONICAL_TENOR_TRIGGER, render_minimal_host_instructions("opencode"))
+
     def test_render_minimal_host_instructions_contains_v216_order(self) -> None:
         instructions = render_minimal_host_instructions("opencode")
         self.assertIn("AGENT-SCRIBE-GRAPHIFY AUTO-GUARD", instructions)
@@ -163,6 +180,10 @@ class HostAdapterAutoGuardTest(unittest.TestCase):
         self.assertIn("tenor_task_start", instructions)
         self.assertIn("tenor_apply_changeset", instructions)
         self.assertIn("all-or-nothing", instructions)
+        self.assertIn("structured `edit` operations", instructions)
+        self.assertIn("decision capsule", instructions)
+        self.assertIn("memory-admission verdict", instructions)
+        self.assertIn("Never ask the user to apply a manual patch", instructions)
         self.assertIn("prose-only", instructions)
         self.assertIn("--host opencode", instructions)
         self.assertNotIn("--host <host-id>", instructions)
@@ -170,6 +191,10 @@ class HostAdapterAutoGuardTest(unittest.TestCase):
         self.assertIn("TENOR_INIT_TERMINAL=false", instructions)
         self.assertIn("do not summarize, ask the user, wait, or stop", instructions)
         self.assertIn("Only `TENOR_INIT_READY`", instructions)
+        self.assertIn("TENOR INIT owns the bounded single-flight Graphify rebuild", instructions)
+        self.assertIn("graphifyy==0.9.26", instructions)
+        self.assertIn("Never require a global Graphify install", instructions)
+        self.assertIn("Never ask the user to run the Graphify build", instructions)
 
     def test_install_instructions_is_atomic_and_idempotent(self) -> None:
         target = self.root / "AGENTS.md"

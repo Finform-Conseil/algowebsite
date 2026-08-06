@@ -45,7 +45,14 @@ def contains_sections(prompt: str) -> bool:
         "Aucune ecriture directe",
         "SCRIBE et Graphify en interne",
         "base_hash",
+        "operation edit",
+        "capsule decisionnelle",
+        "admission memoire",
+        "tenor_task_control(action=\"cancel\")",
         "rollback",
+        "TENOR_CHANGESET_ACCEPTED",
+        "poll_after_ms",
+        "TENOR_TASK_CONTROL_JOB_ACTIVE",
         "HOST_MCP_UNBOUND",
     ]
     return all(indicator in prompt for indicator in indicators)
@@ -62,7 +69,7 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         self.assertIn("a determiner via Graphify/SCRIBE", result["prompt"])
         self.assertTrue(contains_sections(result["prompt"]))
         self.assertEqual(result["required_first_actions"], ["tenor_task_start"])
-        self.assertEqual(result["required_finish_actions"], ["tenor_apply_changeset", "tenor_task_control"])
+        self.assertEqual(result["required_finish_actions"], ["tenor_apply_changeset", "tenor_activity", "tenor_task_control"])
         self.assertIn("legacy_manual_choreography", result["forbidden"])
 
     def test_empty_task(self) -> None:
@@ -137,6 +144,11 @@ class TestTenorTaskPromptCore(unittest.TestCase):
         self.assertIn("Mode petit modele", result["prompt"])
         self.assertIn("API TENOR compacte", result["prompt"])
         self.assertIn("Aucun Edit/Bash natif", result["prompt"])
+        self.assertIn("TENOR INIT reconstruit Graphify lui-meme", result["prompt"])
+        self.assertNotIn("appelle graphify_project_build", result["prompt"])
+        self.assertIn("N utilise jamais operation replace avec un fragment", result["prompt"])
+        self.assertIn("ne demande jamais a l utilisateur d appliquer un patch manuel", result["prompt"])
+        self.assertIn("validateurs obligatoires", result["prompt"])
 
     def test_large_model_tier_default(self) -> None:
         result = ttp.generate_task_prompt(task="fix auth", model_tier="large")

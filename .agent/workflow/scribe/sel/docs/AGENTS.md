@@ -7,7 +7,7 @@ This file governs maintenance of the SCRIBE/TENOR bundle itself. Product-project
 Human/LLM trigger:
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 Mechanical command:
@@ -23,11 +23,12 @@ Mechanical command:
 - Application graph: `.agent/state/outputs/graphify-out/`.
 - SCRIBE bundle graph: `.agent/state/outputs/scribe-out/bundle-graph/`.
 - Root `graphify-out/` is legacy-only.
-- Never run `graphify update .` or `graphify watch` in a portable application project. Use MCP `graphify_project_build` after host binding or the bounded SCRIBE project-build command before binding.
+- Never run `graphify update .` or `graphify watch` in a portable application project. Canonical TENOR INIT owns a required bounded single-flight rebuild; `graphify_project_build` and the SCRIBE project-build command are explicit maintenance surfaces outside that init choreography.
+- Never require a global Graphify install. TENOR provisions the pinned and SHA-256-verified project-local `graphifyy==0.9.26` runtime atomically under `.agent/state/runtime/toolchains/graphify/`.
 - Do not mix application and bundle graphs.
 - `.agent/`, `.agents/`, `.codex/`, generated outputs, SCRIBE memory and host-rule surfaces must remain excluded from the application graph where appropriate.
 
-Real application Graphify uses NetworkX node-link JSON with `nodes + links`. Historical supported fixtures may use `nodes + edges`. The readiness adapter must reject absent, invalid, stale, wrong-root, stub or contradictory edge collections.
+Real application Graphify uses NetworkX node-link JSON with `nodes + links`. Historical supported fixtures may use `nodes + edges`. The readiness adapter must reject absent, invalid, stale, wrong-root, stub or contradictory edge collections. Workspace identity is `relative-path-size-content-sha256-v2`: only relative path, size and content SHA-256 are causal; `mtime` is excluded. The manifest publishes a monotone `graph_epoch`.
 
 ## Canonical commands
 
@@ -77,7 +78,9 @@ LOCAL_INIT_READY_HOST_MCP_UNBOUND
 - Every agent has a distinct identity bound to its successfully bridged MCP process.
 - Reads may run concurrently.
 - Public task calls do not accept caller-supplied identities or context tokens.
-- Writes use one atomic multi-file changeset; TENOR acquires ordered locks, preflights every hash, validates and either commits all files or rolls all files back.
+- Writes use one atomic multi-file changeset; TENOR acquires ordered locks, preflights every hash and validates. Rollback restores only targets still equal to the changeset `new_hash`; later bytes are preserved as an explicit rollback conflict.
+- Job authority is a live SQLite lease plus the exact `(job_id, worker_instance_id, fence_token)`. PIDs never grant authority. Recovery atomically transfers a monotone fence; stale workers cannot heartbeat, publish, rollback or release locks.
+- A queued/running Graphify rebuild has scheduling priority over new changesets. It waits for every active changeset, revalidates the same content fingerprint before publication and remains single-flight.
 - No agent may retire, replace, pause, cancel or finish another agent's task.
 - A daemon heartbeat and rolling task TTL keep genuinely active work alive; stale/dead processes still expire fail-closed.
 
@@ -136,6 +139,8 @@ $SCRIBE_RAG preflight --tier <NANO|STANDARD|CRITICAL> "<plan>"
 BM25 remains canonical while recall is adequate. Hybrid embeddings require actual recall-loss evidence, not merely an installed local model.
 
 ## SCRIBE writes
+
+Canonical promotion serializes concurrent writers through SQLite and commits the file replacement, deterministic source-digest proof, tripwire receipt and task-context flag as one recoverable operation. `summary` and `l0_abstract` carry the same canonical text so the promoted entry is immediately searchable by content.
 
 Before a canonical memory mutation:
 

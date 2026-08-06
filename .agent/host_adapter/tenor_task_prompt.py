@@ -14,8 +14,16 @@ _DEFAULT_INTENT = "write"
 _DEFAULT_MODEL_TIER = "large"
 
 _REQUIRED_FIRST_ACTIONS = ["tenor_task_start"]
-_REQUIRED_FINISH_ACTIONS = ["tenor_apply_changeset", "tenor_task_control"]
-_FORBIDDEN = ["direct_write", "legacy_manual_choreography", "invent_tool_result", "finish_without_terminal_verdict"]
+_REQUIRED_FINISH_ACTIONS = ["tenor_apply_changeset", "tenor_activity", "tenor_task_control"]
+_FORBIDDEN = [
+    "direct_write",
+    "legacy_manual_choreography",
+    "invent_tool_result",
+    "finish_without_terminal_verdict",
+    "manual_patch_fallback",
+    "fragment_as_full_replace",
+    "replacement_task_after_error",
+]
 
 _PROMPT_TEMPLATE = """\
 Tache : {task}
@@ -27,13 +35,22 @@ Avant toute action :
 2. Laisse TENOR executer SCRIBE et Graphify en interne ; ne rejoue jamais le workflow MCP historique outil par outil.
 3. N invente jamais agent_id, context_token, verrou, lease ou tache de remplacement.
 4. Aucune ecriture directe.
+5. La capsule decisionnelle SCRIBE/Graphify retournee par tenor_task_start doit rester valide jusqu a l ecriture.
 
 Pour toute modification de code :
 - envoie tous les fichiers dans un seul tenor_apply_changeset atomique ;
-- fournis le base_hash frais de chaque fichier et des validateurs argv bornes, sans shell ;
-- laisse TENOR preflighter les chemins, hashes et verrous, appliquer, valider, rollback si necessaire, enregistrer SCRIBE et clore la tache ;
-- si Graphify doit etre reconstruit pendant TENOR INIT, appelle graphify_project_build ; n execute jamais graphify update . ;
+- prefere operation edit avec des ancres old_text uniques et expected_occurrences=1 ;
+- N utilise jamais operation replace avec un fragment : replace signifie le contenu integral du fichier et une reduction destructive exige une confirmation liee aux deux hashes ;
+- fournis le base_hash frais de chaque fichier existant et des validateurs obligatoires argv bornes, sans shell ; create ne demande aucun hash secret ;
+- laisse TENOR preflighter les chemins, hashes, capsule decisionnelle et verrous, appliquer, valider, rollback si necessaire, puis rendre un verdict d admission memoire SCRIBE ;
+- tenor_apply_changeset retourne TENOR_CHANGESET_ACCEPTED sans attendre les validateurs : ce verdict est non terminal ; attends poll_after_ms puis appelle tenor_activity jusqu au statut de job succeeded ou failed ;
+- ne rappelle jamais tenor_apply_changeset pendant que son job est queued, launching ou running ; tenor_task_control refuse toute cloture concurrente avec TENOR_TASK_CONTROL_JOB_ACTIVE ;
+- seul le resultat terminal du job contient la preuve de commit/rollback, les validateurs, la capsule et l admission memoire ; un job failed se corrige dans la meme tache avec un nouveau payload et request_id ;
+- TENOR INIT reconstruit Graphify lui-meme sous verrou partage ; ne lance aucun build/retry manuel et n execute jamais graphify update . ;
 - pour une lecture, termine par tenor_task_control(action="finish") ;
+- apres une erreur recuperable, corrige le payload dans la meme tache ; si la tache doit etre abandonnee, appelle tenor_task_control(action="cancel") sans changeset factice ;
+- si la capsule devient stale apres une ecriture concurrente, rappelle le meme tenor_task_start avec le meme objectif et les memes ressources pour la rafraichir sans creer une autre tache ;
+- ne demande jamais a l utilisateur d appliquer un patch manuel et ne bascule jamais vers Edit/Bash ;
 - utilise tenor_activity pour l etat consolide, pas une suite d appels de diagnostic.
 
 Si tu ne peux pas appeler les tools MCP, STOP et affiche exactement :
@@ -44,6 +61,7 @@ Tu n as pas le droit de dire termine sans fournir :
 - verdict terminal machine ;
 - changeset_id si modification ;
 - preuve des validateurs et du rollback ou commit atomique ;
+- hash de capsule decisionnelle et verdict d admission memoire ;
 - tests executes ou raison claire si non executes."""
 
 
@@ -98,7 +116,7 @@ def generate_task_prompt(
 
     if normalized_tier == "small":
         parts.append(
-            "ALERTE : Mode petit modele : API TENOR compacte, au plus deux appels normaux pour une ecriture. "
+            "ALERTE : Mode petit modele : API TENOR compacte : start, changeset accepte, puis polling tenor_activity borne. "
             "Aucun Edit/Bash natif, aucune orchestration MCP manuelle, aucune identite ou tache de remplacement.\n"
         )
 

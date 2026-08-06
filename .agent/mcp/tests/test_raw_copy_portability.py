@@ -5,6 +5,7 @@ import json
 import shutil
 import sys
 import tempfile
+import tomllib
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -161,7 +162,10 @@ class RawCopyPortabilityAcceptanceTest(unittest.TestCase):
         (target / "opencode.jsonc").write_text("{}\n", encoding="utf-8")
         (target / ".codex").mkdir()
         (target / ".codex" / "config.toml").write_text("model = \"gpt-5\"\n", encoding="utf-8")
-        detection = host_config.detect_host(target)
+        # Validator workers intentionally inherit the bound host identity.
+        # This fixture tests project-marker ambiguity, so isolate it from the
+        # ambient MCP process binding explicitly.
+        detection = host_config.detect_host(target, environ={})
         self.assertFalse(detection["ok"])
         self.assertEqual(detection["verdict"], host_config.HOST_DETECTION_AMBIGUOUS)
         self.assertEqual(set(detection["candidates"]), {"opencode", "codex-cli"})
@@ -208,13 +212,21 @@ class RawCopyPortabilityAcceptanceTest(unittest.TestCase):
         self.assertIn('model = "gpt-5"', content)
         self.assertEqual(content.count("agent-scribe-graphify:host-config:start"), 1)
         self.assertEqual(content.count("agent-scribe-graphify:host-config:end"), 1)
+        self.assertIn('default_tools_approval_mode = "approve"', content)
+        parsed = tomllib.loads(content)
+        server = parsed["mcp_servers"][host_config.SERVER_NAME]
+        self.assertEqual(server["cwd"], str(target.resolve()))
+        self.assertEqual(
+            server["env"]["AGENT_SCRIBE_GRAPHIFY_ROOT"],
+            str(target.resolve()),
+        )
         binding = json.loads(
             (target / host_config.BINDING_RELATIVE).read_text(encoding="utf-8")
         )
         environment = {
             "AGENT_MCP_HOST": "codex-cli",
             "AGENT_MCP_BINDING_ID": binding["binding_id"],
-            "AGENT_SCRIBE_GRAPHIFY_ROOT": ".",
+            "AGENT_SCRIBE_GRAPHIFY_ROOT": str(target.resolve()),
         }
         self.assertTrue(
             host_config.verify_host_process_binding(
@@ -224,6 +236,45 @@ class RawCopyPortabilityAcceptanceTest(unittest.TestCase):
         second = host_config.configure_host(target, explicit="codex-cli")
         self.assertEqual(second["verdict"], host_config.HOST_CONFIG_READY)
         self.assertEqual(config.read_text(encoding="utf-8"), content)
+
+    def test_codex_configuration_preserves_literal_backslashes(self) -> None:
+        target = self.base / r"codex\windows\project"
+        _project_markers(target, memory="memory\n")
+        _copy_complete_agent(self.source, target)
+        config = target / ".codex" / "config.toml"
+        config.parent.mkdir(parents=True)
+        config.write_text('model = "gpt-5"\n', encoding="utf-8")
+
+        first = host_config.configure_host(target, explicit="codex-cli")
+        self.assertTrue(first["restart_required"], first)
+        content = config.read_text(encoding="utf-8")
+        second = host_config.configure_host(target, explicit="codex-cli")
+        self.assertEqual(second["verdict"], host_config.HOST_CONFIG_READY)
+        self.assertFalse(second["restart_required"])
+        self.assertEqual(config.read_text(encoding="utf-8"), content)
+        server = tomllib.loads(content)["mcp_servers"][host_config.SERVER_NAME]
+        self.assertEqual(server["cwd"], str(target.resolve()))
+
+    def test_codex_binding_rejects_a_different_absolute_root(self) -> None:
+        target = self.base / "codex bound root"
+        _project_markers(target, memory="memory\n")
+        _copy_complete_agent(self.source, target)
+        configured = host_config.configure_host(target, explicit="codex-cli")
+        self.assertTrue(configured["ok"], configured)
+        binding = json.loads(
+            (target / host_config.BINDING_RELATIVE).read_text(encoding="utf-8")
+        )
+        result = host_config.verify_host_process_binding(
+            target,
+            environ={
+                "AGENT_MCP_HOST": "codex-cli",
+                "AGENT_MCP_BINDING_ID": binding["binding_id"],
+                "AGENT_SCRIBE_GRAPHIFY_ROOT": str(self.base / "other"),
+            },
+            claimed_host="codex-cli",
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["verdict"], "HOST_PROCESS_ROOT_MISMATCH")
 
     def test_shell_without_binding_never_counts_as_host_visibility(self) -> None:
         target = self.base / "unbound shell"
@@ -238,13 +289,36 @@ class RawCopyPortabilityAcceptanceTest(unittest.TestCase):
         _project_markers(target, memory="memory\n")
         _copy_complete_agent(self.source, target)
         agents = [f"terminal-{index}" for index in range(6)]
+        store_path = (
+            target
+            / ".agent"
+            / "state"
+            / "outputs"
+            / "scribe-out"
+            / "proof_store.json"
+        )
+        preexisting_store = (
+            json.loads(store_path.read_text(encoding="utf-8"))
+            if store_path.is_file()
+            else {}
+        )
 
         with ThreadPoolExecutor(max_workers=6) as executor:
             tokens = list(executor.map(lambda agent: issue_proof(target, agent), agents))
         self.assertEqual(len(set(tokens)), 6)
-        store_path = target / ".agent" / "state" / "outputs" / "scribe-out" / "proof_store.json"
         store = json.loads(store_path.read_text(encoding="utf-8"))
-        self.assertEqual({entry["agent_id"] for entry in store.values()}, set(agents))
+        issued_nonces = {token.split(".", 2)[1] for token in tokens}
+        self.assertEqual(
+            set(store),
+            set(preexisting_store) | issued_nonces,
+        )
+        self.assertEqual(
+            {entry["agent_id"] for entry in store.values()},
+            {
+                *(entry["agent_id"] for entry in preexisting_store.values()),
+                *agents,
+            },
+        )
 
         with ThreadPoolExecutor(max_workers=6) as executor:
             consumed = list(executor.map(lambda agent: consume_agent_proof(target, agent), agents))

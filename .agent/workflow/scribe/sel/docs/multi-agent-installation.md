@@ -11,7 +11,7 @@ Live coordination details remain in `live-coordination.md`. Do not create a para
 Every host-agent session starts from the project root with the human trigger:
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 The deterministic command is:
@@ -24,7 +24,7 @@ The deterministic command is:
 
 ## Installation authority
 
-TENOR INIT resolves the current root, classifies the installation, purges only old project-bound state when relocation is proven, adopts or creates destination SCRIBE, verifies Graphify, finalizes the local manifest, registers a distinct session and emits machine proof.
+TENOR INIT resolves the current root, classifies the installation, purges only old project-bound state when relocation is proven, adopts or creates destination SCRIBE, provisions and verifies the pinned local Graphify runtime when required, verifies Graphify, finalizes the local manifest, registers a distinct session and emits machine proof.
 
 Classifications:
 
@@ -67,18 +67,26 @@ Canonical outputs live under:
 
 Real Graphify currently produces NetworkX node-link data with `nodes + links`; the historical supported representation is `nodes + edges`.
 
-The canonical path above is the only application graph authority. A bound host
-rebuilds through `graphify_project_build`; before binding use the bounded
-SCRIBE project-build command. Never run standalone `graphify update .` in the
+The canonical path above is the only application graph authority. Canonical
+TENOR INIT owns any required bounded rebuild while holding the shared init
+lock. Other terminals wait, recheck the fingerprint and reuse the result. They
+must not call `graphify_project_build`, ask the user to run a command or invent
+a larger retry during INIT. Never run standalone `graphify update .` in the
 product root.
 
-If Graphify is not ready, run only the bounded action returned by TENOR INIT:
+No global Graphify installation is required. The project-local runtime is
+versioned by Graphify release and platform, constrained to exact binary-wheel
+dependencies, published only after wheel SHA-256 and runtime integrity checks,
+and shared single-flight by concurrent INIT processes.
+
+The explicit maintenance/CI primitive outside host-driven INIT is:
 
 ```bash
 .agent/workflow/scribe/scribe graph --project-build --timeout 180
 ```
 
-A larger bound may be supplied explicitly for a large codebase. Do not launch hidden or unbounded builds.
+A larger bound may be supplied explicitly by a human maintenance operator for
+a large codebase. Do not launch hidden or unbounded builds.
 
 ## Local MCP gate
 

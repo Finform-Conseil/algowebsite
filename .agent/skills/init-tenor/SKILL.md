@@ -12,12 +12,12 @@ description: >
 Pour une session pilotée par un LLM hôte, le démarrage commence par :
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
-Ce déclencheur signifie : lire ce fichier local **avant** toute configuration globale OpenCode, Codex, Gemini, Cursor ou autre host, puis lire `.agent/rules/tenor-init-v2.json`.
+Ce déclencheur est une instruction conversationnelle autonome, pas une invocation d'un registre de skills. Le host utilise son lecteur normal de fichiers pour ouvrir le chemin project-local exact `./.agent/skills/init-tenor/SKILL.md`, sans résolution sous `~/.agent`, `~/.agents` ou un autre emplacement global, puis lit `.agent/rules/tenor-init-v2.json`.
 
-L'ancien raccourci `[[.agent/skills/init-tenor/SKILL.md]]` peut être reconnu pour compatibilité historique, mais les nouvelles docs, prompts et templates doivent utiliser uniquement la forme canonique ci-dessus.
+Les anciens raccourcis `TENOR INIT::[.agent/skills/init-tenor/SKILL.md]` et `[[.agent/skills/init-tenor/SKILL.md]]` peuvent être reconnus pour compatibilité historique, mais les nouvelles docs, prompts et templates doivent utiliser uniquement la phrase project-local explicite ci-dessus.
 
 Pour CI, scripts ou opérateurs humains, la commande peut être appelée directement :
 
@@ -46,8 +46,9 @@ exécuté dans OpenCode, Codex ou Claude Code.
 Sous OpenCode autonome, le profil project-local refuse tout `edit` natif et
 toute commande shell sauf les formes exactes de cette commande TENOR INIT. Ne
 lui ajoute ni redirection, ni pipe, ni `&&`, ni `;` : un suffixe ferait refuser
-la commande. Les reconstructions Graphify passent ensuite par le tool MCP
-`graphify_project_build`, jamais par un shell global.
+la commande. Si Graphify est stale ou absent, cette même commande TENOR INIT
+possède la reconstruction bornée sous son verrou partagé ; le modèle ne lance
+ni commande, ni tool MCP, ni retry séparé.
 
 `bootstrap` est une primitive interne/legacy. Il ne constitue plus l'entrée publique d'installation, de relocation ou de reprise V2.16.
 
@@ -75,8 +76,8 @@ La copie brute et complète de `.agent/` dans n'importe quel projet compatible L
 6. Le schéma Graphify réel NetworkX utilise `nodes + links`; le format historique supporté utilise `nodes + edges`. Toute autre représentation doit être explicitement reconnue ou refusée.
 7. Une requête SCRIBE ou Graphify doit modifier le plan ou produire une contradiction auditable.
 8. Chaque terminal reçoit une session, une preuve serveur one-shot et des leases distincts. Le bearer token complet n'est ni imprimé ni persisté.
-9. Aucune écriture produit directe : locks, claims, lease, patch queue, audit et clôture MCP sont obligatoires.
-10. Une réponse prose « terminé » sans preuve terminale MCP n'est pas une fin.
+9. Aucune écriture produit directe : capsule SCRIBE/Graphify, transaction atomique, validateurs, audit et admission mémoire MCP sont obligatoires.
+10. Une réponse prose « terminé » sans preuve terminale MCP, validateurs et verdict d'admission mémoire n'est pas une fin.
 
 # PHASE 1 — TENOR INIT LOCAL
 
@@ -128,15 +129,34 @@ plus quatre recherches RAG générales qui ralentissaient l'entrée de session.
 
 ## Graphify non prêt
 
-Si TENOR INIT retourne `Graphify: build_required`, exécuter uniquement l'action bornée affichée :
+Si le bootstrap détecte `Graphify: build_required`, TENOR INIT ne rend pas la
+main au petit modèle. Dans la même invocation, il émet
+`TENOR_INIT_STAGE rebuild_graphify_single_flight`, reconstruit le graphe avec
+une borne de 180 secondes sous `.agent/.tenor-init.lock`, revalide le
+fingerprint puis poursuit l'init. Les autres terminaux attendent ce verrou et
+réutilisent le résultat après recontrôle ; ils ne lancent pas un second build.
 
-```bash
-.agent/workflow/scribe/scribe graph --project-build --timeout 180
-```
+L'absence de commande `graphify` globale n'est pas un prérequis utilisateur.
+Avant le build, TENOR provisionne automatiquement le runtime project-local
+épinglé `graphifyy==0.9.26` sous
+`.agent/state/runtime/toolchains/graphify/<version>/<plateforme>/`. Il
+télécharge le wheel officiel depuis l'index déclaré par
+`.agent/mcp/runtime/graphify_runtime_policy.json`, vérifie son SHA-256, impose
+les dépendances exactes et les wheels binaires, sonde le module isolé, puis
+publie atomiquement un manifeste d'intégrité. Le verrou d'installation est
+interprocessus ; un runtime partiel, altéré ou destiné à une autre plateforme
+n'est jamais accepté.
 
-Puis relancer TENOR INIT. Ne jamais accepter un stub smoke comme graphe terrain et ne jamais déclencher silencieusement un build lourd non borné.
-
-Pour une codebase très importante, le timeout peut être augmenté explicitement par l'opérateur, sans supprimer la borne.
+Le modèle ne doit jamais demander à l'utilisateur de lancer Graphify, appeler
+`graphify_project_build` pendant INIT, ni inventer un retry avec une borne plus
+grande. Un échec réel se termine par
+`TENOR_INIT_GRAPHIFY_RECOVERY_FAILED` avec un verdict machine explicite.
+Un échec de politique, téléchargement, SHA-256, dépendance, probe ou intégrité
+du runtime est également fail-closed ; une installation globale manuelle n'est
+pas un fallback autorisé.
+La commande `scribe graph --project-build` reste une primitive explicite pour
+la maintenance humaine/CI hors du parcours canonique, jamais une étape à
+orchestrer par le LLM hôte.
 
 ## Échecs locaux
 
@@ -297,23 +317,77 @@ Ordre public d'une écriture :
 ```text
 tenor_task_start(objective, intent, resources, scope)
   -> targeted SCRIBE + Graphify, internes
+  -> capsule décisionnelle liée aux hashes SCRIBE/Graphify et aux ressources
 tenor_apply_changeset(task_id, changes[], validators[])
   -> preflight de tous les chemins/hashes/locks avant la première écriture
-  -> commit de tous les fichiers ou rollback de tous les fichiers
-  -> validation, record SCRIBE runtime et clôture terminale
+  -> TENOR_CHANGESET_ACCEPTED, accusé durable non terminal
+tenor_activity() après poll_after_ms
+  -> job succeeded, rollback conditionnel ou conflit non destructif explicite
+  -> validation obligatoire, filtrage/promotion SCRIBE et clôture terminale
 ```
 
-Le changeset accepte jusqu'à 64 fichiers, refuse traversal et symlinks, exige
-un hash de base pour chaque opération, acquiert les locks dans un ordre stable,
-exécute les validateurs sous forme d'argv sans shell et supporte les retries
-idempotents via `request_id`. Toute suppression exige la confirmation exacte
-du chemin. `tenor_activity` fournit l'état consolidé ; `tenor_task_control`
-gère pause/reprise/annulation et la clôture d'une tâche de lecture.
+Tant que le job est `queued`, `recovering`, `launching` ou `running`, l'agent ne resoumet pas
+le changeset et n'appelle pas `tenor_task_control`. Les validateurs s'exécutent
+dans un worker borné afin que `file_hash`, `tenor_activity` et les diagnostics
+restent disponibles. Seul `job.result` terminal constitue une preuve de fin.
 
-Si Graphify doit être reconstruit après la liaison du host, appeler
-`graphify_project_build(timeout_seconds=180)`. Avant liaison, utiliser seulement
-`.agent/workflow/scribe/scribe graph --project-build --timeout 180`. Ne jamais
-exécuter `graphify update .` ni créer `graphify-out/` à la racine.
+L'autorité du worker ne vient jamais de son PID. Chaque mutation, heartbeat,
+publication terminale, rollback et libération de lock exige un bail SQLite
+non expiré et le triplet exact `(job_id, worker_instance_id, fence_token)`.
+Une reprise transfère atomiquement un token monotone ; l'ancien worker échoue
+fermé. `attempt_count` compte la tentative métier et n'est pas gonflé par un
+transfert d'infrastructure. Même si le budget de reprise est épuisé, TENOR
+acquiert d'abord un fence terminal et récupère toute transaction incomplète
+avant de publier `TENOR_JOB_RETRY_EXHAUSTED`.
+
+Le changeset accepte jusqu'à 64 fichiers, refuse traversal et symlinks et
+acquiert les locks dans un ordre stable. Pour un fichier texte existant,
+`operation="edit"` est canonique : une seule entrée par chemin peut contenir
+plusieurs remplacements structurés `old_text/new_text`, chacun avec un nombre
+d'occurrences exact. `operation="replace"` signifie toujours le contenu
+intégral ; une réduction destructive exige une confirmation portant le chemin,
+le hash avant et le hash après. `create` déduit le sentinel de nouveau fichier
+en interne. Toute mutation exige au moins un validateur argv sans shell.
+
+Un rollback n'écrase jamais un writer plus récent : tous les hashes sont
+préflightés et un fichier n'est restauré que si ses octets courants correspondent
+encore au `new_hash` du changeset. Sinon TENOR conserve les octets et les preuves
+avec `TENOR_CHANGESET_ROLLBACK_CONFLICT`.
+
+La capsule décisionnelle est vérifiée immédiatement avant l'écriture. Si une
+autre tâche enrichit SCRIBE ou renouvelle le manifeste Graphify, le même appel
+`tenor_task_start` avec le même objectif et les mêmes ressources rafraîchit la
+capsule dans le même `task_id`; aucun agent de remplacement n'est créé.
+
+Après un commit validé, chaque résultat reçoit exactement un verdict mémoire :
+`promote`, `runtime_only` avec raison, `ask_user` ou `conflict`. Un fix source
+durable est promu automatiquement dans
+`AGENT-MEMOIRE_PROJECT_STATUS.scribe`; une lecture ou un changement sans valeur
+causale reste un reçu runtime motivé. Une décision architecturale ambiguë reste
+ouverte jusqu'à `tenor_task_control(action="memory_promote"|"memory_skip")`.
+Il n'existe aucune clôture silencieuse sans admission mémoire.
+
+Une promotion SCRIBE canonique publie sous une transaction coordonnée le fichier,
+la preuve déterministe liée au digest source, le reçu tripwire et le flag de
+contexte. Le résumé est aussi écrit dans `l0_abstract` et doit être retrouvable
+sémantiquement avant toute clôture déclarée.
+
+Une erreur de payload ou d'ancre reste récupérable dans la même tâche. Si
+l'opérateur abandonne une tâche non commitée, `tenor_task_control(action="cancel")`
+la ferme sans changeset factice. Le modèle ne demande jamais à l'utilisateur
+d'appliquer un patch manuel et ne bascule jamais vers Edit/Bash.
+
+Hors TENOR INIT, un opérateur ou un contrôle de maintenance peut appeler
+`graphify_project_build(timeout_seconds=180)`. Ce tool est idempotent,
+single-flight et refuse les propriétaires produit ou changesets actifs. Son
+fingerprint causal est `relative-path-size-content-sha256-v2` : `mtime` est
+ignoré, une mutation pendant le hash échoue fermé et le manifeste publie un
+`graph_epoch` monotone. Un rebuild en attente a priorité et bloque le lancement
+de nouveaux writers jusqu'au graphe frais. Un rebuild retourne
+`GRAPHIFY_BUILD_ACCEPTED`; l'agent attend `poll_after_ms` puis interroge
+`graphify_required_check`. Le modèle ne doit
+jamais l'utiliser comme chorégraphie de reprise d'INIT, exécuter
+`graphify update .` ni créer `graphify-out/` à la racine.
 
 Si SCRIBE retrouve un SCAR, GHOST, `ne_pas_reproposer`, invariant ou décision pertinente, l'agent indique comment cette entrée modifie son plan. S'il n'existe aucun contexte pertinent, il le dit sans inventer.
 
@@ -328,6 +402,9 @@ Si SCRIBE retrouve un SCAR, GHOST, `ne_pas_reproposer`, invariant ou décision p
 - lire massivement des fichiers quand Graphify suffit
 - interroger SCRIBE puis ignorer le résultat
 - écrire via shell/Edit/write_file/apply_patch natif hors MCP
+- utiliser `replace` avec un fragment ou sans confirmation destructive liée aux hashes
+- muter sans validateur argv réussi
+- demander à l'utilisateur d'appliquer un patch manuel
 - créer un agent ou une tâche de remplacement pour contourner un verdict fail-closed
 - utiliser un intent descriptif au lieu de read|write|delete
 - lancer graphify update . ou graphify watch dans le projet portable
@@ -335,7 +412,7 @@ Si SCRIBE retrouve un SCAR, GHOST, `ne_pas_reproposer`, invariant ou décision p
 - retirer, remplacer ou contrôler un autre agent
 - présenter un shell JSON-RPC comme preuve de visibilité host
 - supprimer le lock d'un propriétaire vivant
-- déclarer terminé sans verdict terminal machine et preuve des validateurs
+- déclarer terminé sans verdict terminal machine, capsule, preuve des validateurs et admission mémoire
 ```
 
 # SYNCHRONISATION DOCUMENTAIRE

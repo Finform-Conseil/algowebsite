@@ -6,7 +6,18 @@ import time
 from pathlib import Path
 from typing import Any
 
-from runtime import db, direct_fs_tripwire, presence, task_context, tenor_changeset
+from runtime import (
+    canonical_memory_gate,
+    db,
+    direct_fs_tripwire,
+    graphify_guard,
+    presence,
+    task_context,
+    tenor_changeset,
+    tenor_decision,
+    tenor_jobs,
+    tenor_memory_admission,
+)
 
 
 PUBLIC_TASK_TOOLS = (
@@ -51,6 +62,22 @@ def _root() -> Path:
     return Path(_SERVER.ROOT).resolve()
 
 
+def _graphify_write_preflight() -> dict[str, Any] | None:
+    result = graphify_guard.check_graphify_required(
+        workspace_root=_root(),
+        host_type=str(os.environ.get("AGENT_MCP_HOST") or "unknown"),
+        auto_write_guide=True,
+    )
+    if result.get("ok") and result.get("write_allowed"):
+        return None
+    return {
+        "ok": False,
+        "verdict": "TENOR_GRAPHIFY_WRITE_PREFLIGHT_FAILED",
+        "graphify": result,
+        "next_action": "install_graphify_then_rerun_tenor_init",
+    }
+
+
 def ensure_schema(project_root: Path | None = None) -> None:
     root = (project_root or _root()).resolve()
     db.init_db(root)
@@ -69,6 +96,9 @@ def ensure_schema(project_root: Path | None = None) -> None:
               last_action TEXT NOT NULL,
               next_action TEXT NOT NULL,
               last_changeset_id TEXT NOT NULL DEFAULT '',
+              decision_capsule_hash TEXT NOT NULL DEFAULT '',
+              memory_decision TEXT NOT NULL DEFAULT '',
+              memory_reason TEXT NOT NULL DEFAULT '',
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL,
               finished_at INTEGER
@@ -77,6 +107,14 @@ def ensure_schema(project_root: Path | None = None) -> None:
               ON {ACTIVITY_TABLE}(agent_id,status,updated_at);
             """
         )
+        columns = {str(row["name"]) for row in con.execute(f"PRAGMA table_info({ACTIVITY_TABLE})").fetchall()}
+        for column, declaration in (
+            ("decision_capsule_hash", "TEXT NOT NULL DEFAULT ''"),
+            ("memory_decision", "TEXT NOT NULL DEFAULT ''"),
+            ("memory_reason", "TEXT NOT NULL DEFAULT ''"),
+        ):
+            if column not in columns:
+                con.execute(f"ALTER TABLE {ACTIVITY_TABLE} ADD COLUMN {column} {declaration}")
 
 
 def _bound_agent() -> tuple[str, dict[str, Any] | None]:
@@ -123,13 +161,26 @@ def _normalize_intent(intent: str) -> str:
     return aliases[value]
 
 
-def _normalize_resources(resources: list[str] | None, scope: str) -> tuple[list[str], str]:
+def _normalize_resource_path(raw: str, *, allow_project_root: bool) -> str:
+    value = str(raw or "").strip().replace("\\", "/").rstrip("/")
+    if value == "." and allow_project_root:
+        return value
+    path = Path(value)
+    if not value or path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("TENOR_TASK_RESOURCE_PATH_INVALID")
+    return path.as_posix()
+
+
+def _normalize_resources(resources: list[str] | None, scope: str, intent: str) -> tuple[list[str], str]:
     values: list[str] = []
     for resource in resources or []:
-        value = str(resource or "").strip().replace("\\", "/").rstrip("/")
+        value = _normalize_resource_path(resource, allow_project_root=True)
         if value and value not in values:
             values.append(value)
-    clean_scope = (scope or "").strip().replace("\\", "/").rstrip("/")
+    if intent in {"write", "delete"} and not values:
+        raise ValueError("TENOR_TASK_RESOURCES_REQUIRED")
+    raw_scope = (scope or "").strip()
+    clean_scope = _normalize_resource_path(raw_scope, allow_project_root=True) if raw_scope else ""
     if not clean_scope:
         if len(values) == 1:
             clean_scope = values[0]
@@ -138,9 +189,9 @@ def _normalize_resources(resources: list[str] | None, scope: str) -> tuple[list[
                 clean_scope = os.path.commonpath(values).replace("\\", "/")
             except ValueError:
                 clean_scope = "."
-        else:
+        elif intent == "read":
             clean_scope = "."
-    if not values:
+    if not values and clean_scope:
         values = [clean_scope]
     return values, clean_scope
 
@@ -216,6 +267,9 @@ def _advance(
     last_action: str | None = None,
     next_action: str | None = None,
     last_changeset_id: str | None = None,
+    decision_capsule_hash: str | None = None,
+    memory_decision: str | None = None,
+    memory_reason: str | None = None,
     finished: bool = False,
 ) -> None:
     ensure_schema()
@@ -227,6 +281,9 @@ def _advance(
         ("last_action", last_action),
         ("next_action", next_action),
         ("last_changeset_id", last_changeset_id),
+        ("decision_capsule_hash", decision_capsule_hash),
+        ("memory_decision", memory_decision),
+        ("memory_reason", memory_reason),
     ):
         if value is not None:
             assignments.append(f"{column}=?")
@@ -257,7 +314,7 @@ def _active_activity(agent_id: str) -> dict[str, Any] | None:
     ensure_schema()
     with db.connect(_root()) as con:
         row = con.execute(
-            f"SELECT * FROM {ACTIVITY_TABLE} WHERE agent_id=? AND status IN ('active','paused','blocked') ORDER BY updated_at DESC LIMIT 1",
+            f"SELECT * FROM {ACTIVITY_TABLE} WHERE agent_id=? AND status IN ('active','paused','blocked','awaiting_memory') ORDER BY updated_at DESC LIMIT 1",
             (agent_id,),
         ).fetchone()
     if not row:
@@ -300,12 +357,13 @@ def _mark_context_after_scribe(
     token: str,
     payload: dict[str, Any],
     scope: str,
+    force: bool = False,
 ) -> None:
     try:
         state = task_context.get_task_context(agent_id, task_id)
     except task_context.TaskContextError:
         state = {}
-    if state.get("scribe_done"):
+    if state.get("scribe_done") and not force:
         return
     result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
     if int(result.get("returncode", 0) or 0) != 0:
@@ -328,10 +386,12 @@ def _hydrate_task_context(
     intent: str,
     scope: str,
     resources: list[str],
+    *,
+    force: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     state = task_context.get_task_context(agent_id, task_id)
     scribe_result: dict[str, Any] = {"verdict": "SCRIBE_CONTEXT_ALREADY_READY"}
-    if not bool(state.get("scribe_done")):
+    if force or not bool(state.get("scribe_done")):
         _advance(task_id, status="active", current_action="scribe_query", next_action="graphify_query")
         scribe_result = _payload(
             _SERVER.scribe_query(
@@ -343,7 +403,7 @@ def _hydrate_task_context(
             )
         )
         try:
-            _mark_context_after_scribe(agent_id, task_id, token, scribe_result, scope)
+            _mark_context_after_scribe(agent_id, task_id, token, scribe_result, scope, force=force)
         except (RuntimeError, task_context.TaskContextError) as exc:
             return scribe_result, {}, {
                 "ok": False,
@@ -355,7 +415,7 @@ def _hydrate_task_context(
 
     state = task_context.get_task_context(agent_id, task_id)
     graphify_result: dict[str, Any] = {"verdict": "GRAPHIFY_NOT_REQUIRED"}
-    if bool(state.get("requires_graphify")) and not bool(state.get("graphify_done")):
+    if bool(state.get("requires_graphify")) and (force or not bool(state.get("graphify_done"))):
         _advance(task_id, current_action="graphify_query", last_action="scribe_query", next_action="ready")
         graphify_result = _payload(
             _SERVER.graphify_query(
@@ -379,6 +439,37 @@ def _hydrate_task_context(
     return scribe_result, graphify_result, None
 
 
+def _prepare_decision_capsule(
+    agent_id: str,
+    task_id: str,
+    objective: str,
+    intent: str,
+    scope: str,
+    resources: list[str],
+    scribe_result: dict[str, Any],
+    graphify_result: dict[str, Any],
+    *,
+    refresh_existing: bool = False,
+) -> dict[str, Any]:
+    existing = tenor_decision.load_capsule(_root(), task_id)
+    if existing and not refresh_existing:
+        return tenor_decision.verify_capsule(_root(), task_id, agent_id, resources)
+    state = task_context.get_task_context(agent_id, task_id)
+    return tenor_decision.build_capsule(
+        project_root=_root(),
+        task_id=task_id,
+        agent_id=agent_id,
+        objective=objective,
+        intent=intent,
+        scope=scope,
+        resources=resources,
+        scribe_result=scribe_result,
+        graphify_result=graphify_result,
+        graphify_required=bool(state.get("requires_graphify")),
+        refresh_existing=refresh_existing,
+    )
+
+
 def tenor_task_start(
     objective: str = "",
     intent: str = "write",
@@ -392,11 +483,24 @@ def tenor_task_start(
         return _ok({"ok": False, "verdict": "TENOR_TASK_OBJECTIVE_REQUIRED"})
     try:
         canonical_intent = _normalize_intent(intent)
-        normalized_resources, normalized_scope = _normalize_resources(resources, scope)
+        normalized_resources, normalized_scope = _normalize_resources(resources, scope, canonical_intent)
     except ValueError as exc:
         return _ok({"ok": False, "verdict": str(exc)})
+    if canonical_intent != "read":
+        graphify_block = _graphify_write_preflight()
+        if graphify_block is not None:
+            return _ok(graphify_block)
     active = _active_activity(agent_id)
     if active:
+        if active["status"] == "awaiting_memory":
+            admission = tenor_memory_admission.get_admission(_root(), active["task_id"], agent_id)
+            return _ok({
+                "ok": False,
+                "verdict": "TENOR_MEMORY_ADMISSION_USER_DECISION_REQUIRED",
+                "task_id": active["task_id"],
+                "memory_admission": admission,
+                "next_action": "tenor_task_control:memory_promote_or_memory_skip",
+            })
         if (
             active["objective"] == objective.strip()
             and active["intent"] == canonical_intent
@@ -408,6 +512,13 @@ def tenor_task_start(
             except task_context.TaskContextError as exc:
                 return _ok({"ok": False, "verdict": exc.code, "task_id": active["task_id"]})
             _TASK_TOKENS[active["task_id"]] = token
+            existing_capsule = tenor_decision.load_capsule(_root(), active["task_id"])
+            force_refresh = False
+            if existing_capsule:
+                capsule_state = tenor_decision.verify_capsule(
+                    _root(), active["task_id"], agent_id, normalized_resources
+                )
+                force_refresh = capsule_state.get("verdict") == "TENOR_DECISION_CAPSULE_STALE"
             scribe_result, graphify_result, context_error = _hydrate_task_context(
                 agent_id,
                 active["task_id"],
@@ -416,11 +527,40 @@ def tenor_task_start(
                 canonical_intent,
                 normalized_scope,
                 normalized_resources,
+                force=force_refresh,
             )
             if context_error:
                 _advance(active["task_id"], status="blocked", current_action="blocked", next_action="tenor_task_start")
                 return _ok(context_error)
-            _advance(active["task_id"], status="active", current_action="ready", next_action="tenor_apply_changeset")
+            capsule = _prepare_decision_capsule(
+                agent_id,
+                active["task_id"],
+                objective.strip(),
+                canonical_intent,
+                normalized_scope,
+                normalized_resources,
+                scribe_result,
+                graphify_result,
+                refresh_existing=force_refresh,
+            )
+            if not capsule.get("ok"):
+                _advance(active["task_id"], status="blocked", current_action="decision_capsule_stale", next_action="tenor_task_start:same_objective_refresh")
+                return _ok(capsule)
+            if force_refresh:
+                direct_fs_tripwire.workspace_snapshot(
+                    _root(),
+                    active["task_id"],
+                    agent_id,
+                    normalized_scope,
+                    refresh=True,
+                )
+            _advance(
+                active["task_id"],
+                status="active",
+                current_action="ready",
+                next_action="tenor_apply_changeset",
+                decision_capsule_hash=str(capsule.get("capsule_hash") or ""),
+            )
             return _ok({
                 "ok": True,
                 "verdict": "TENOR_TASK_RESUMED",
@@ -430,6 +570,7 @@ def tenor_task_start(
                 "resources": active["resources"],
                 "scribe": {"verdict": scribe_result.get("verdict", "")},
                 "graphify": {"verdict": graphify_result.get("verdict", "")},
+                "decision_capsule": capsule,
                 "next_action": "tenor_apply_changeset" if canonical_intent != "read" else "tenor_task_control",
             })
         return _ok({
@@ -466,6 +607,14 @@ def tenor_task_start(
         last_action="before_task",
         next_action="graphify_query" if before.get("requires_graphify") else "ready",
     )
+    canonical_memory_gate.snapshot_before_task(
+        _root(),
+        task_id,
+        agent_id,
+        objective.strip(),
+        canonical_intent,
+        normalized_scope,
+    )
 
     scribe_result, graphify_result, context_error = _hydrate_task_context(
         agent_id,
@@ -479,9 +628,28 @@ def tenor_task_start(
     if context_error:
         _advance(task_id, status="blocked", current_action="blocked", next_action="tenor_task_start")
         return _ok(context_error)
+    capsule = _prepare_decision_capsule(
+        agent_id,
+        task_id,
+        objective.strip(),
+        canonical_intent,
+        normalized_scope,
+        normalized_resources,
+        scribe_result,
+        graphify_result,
+    )
+    if not capsule.get("ok"):
+        _advance(task_id, status="blocked", current_action="decision_capsule_failed", next_action="tenor_task_control:cancel")
+        return _ok(capsule)
     task_state = task_context.get_task_context(agent_id, task_id)
     next_action = "tenor_apply_changeset" if canonical_intent != "read" else "tenor_task_control"
-    _advance(task_id, current_action="ready", last_action="graphify_query" if bool(task_state.get("requires_graphify")) else "scribe_query", next_action=next_action)
+    _advance(
+        task_id,
+        current_action="ready",
+        last_action="graphify_query" if bool(task_state.get("requires_graphify")) else "scribe_query",
+        next_action=next_action,
+        decision_capsule_hash=str(capsule.get("capsule_hash") or ""),
+    )
     return _ok({
         "ok": True,
         "verdict": "TENOR_TASK_READY",
@@ -495,6 +663,7 @@ def tenor_task_start(
             "historical_context_found": scribe_result.get("historical_scribe_context_found"),
         },
         "graphify": {"verdict": graphify_result.get("verdict", "")},
+        "decision_capsule": capsule,
         "next_action": next_action,
     })
 
@@ -508,6 +677,10 @@ def _record_runtime_scribe(
     resources: list[str],
     changeset_id: str,
     validators: list[dict[str, Any]],
+    *,
+    record_type: str = "task_summary",
+    memory_policy: str = "local_only",
+    capsule_hash: str = "",
 ) -> dict[str, Any]:
     result = _SERVER.scribe_record(
         agent_id=agent_id,
@@ -515,11 +688,12 @@ def _record_runtime_scribe(
         summary=summary,
         touched_resources=resources,
         resources=resources,
-        verdict="CHANGESET_COMMITTED",
-        record_type="task_summary",
+        verdict="CHANGESET_COMMITTED" if changeset_id != "read-only" else "READ_TASK_COMPLETED",
+        record_type=record_type,
         severity="medium",
         evidence=json.dumps({
             "changeset_id": changeset_id,
+            "decision_capsule_hash": capsule_hash,
             "validators": [
                 {"argv": item.get("argv", []), "returncode": item.get("returncode"), "ok": item.get("ok")}
                 for item in validators
@@ -529,7 +703,7 @@ def _record_runtime_scribe(
         tags=["tenor-changeset", changeset_id],
         task_id=task_id,
         context_token=token,
-        memory_policy="runtime_only",
+        memory_policy=memory_policy,
     )
     payload = _payload(result)
     if payload.get("verdict") not in {"SCRIBE_RECORD_STAGED_ONLY", "SCRIBE_RECORD_WRITTEN"}:
@@ -537,13 +711,45 @@ def _record_runtime_scribe(
     return payload
 
 
-def tenor_apply_changeset(
+def _close_task_after_admission(
+    *,
+    agent_id: str,
+    task_id: str,
+    activity: dict[str, Any],
+    summary: str,
+    changeset_id: str,
+    admission: dict[str, Any],
+) -> dict[str, Any]:
+    token = _token(agent_id, task_id)
+    capsule = tenor_decision.resolve_capsule(_root(), task_id, agent_id, changeset_id)
+    if not capsule.get("ok"):
+        raise RuntimeError(f"TENOR_DECISION_CAPSULE_RESOLUTION_FAILED: {capsule}")
+    task_context.finish_task_context(agent_id, task_id, token)
+    db.finish_task(agent_id, summary or f"changeset {changeset_id} committed")
+    _advance(
+        task_id,
+        status="finished",
+        current_action="finished",
+        last_action="memory_admission_and_finish",
+        next_action="ready_for_next_task",
+        last_changeset_id=changeset_id,
+        memory_decision=str(admission.get("decision") or ""),
+        memory_reason=str(admission.get("reason") or ""),
+        finished=True,
+    )
+    _TASK_TOKENS.pop(task_id, None)
+    return {"capsule": capsule, "terminal": True, "next_action": "ready_for_next_task"}
+
+
+def _execute_changeset_bound_sync(
     task_id: str = "",
     changes: list[dict[str, Any]] | None = None,
     validators: list[dict[str, Any]] | None = None,
     summary: str = "",
     request_id: str = "",
     confirm_deletions: list[str] | None = None,
+    confirm_full_replacements: list[dict[str, Any]] | None = None,
+    execution_fence: tenor_changeset.ExecutionFence | None = None,
 ) -> dict[str, Any]:
     agent_id, blocked = _bound_agent()
     if blocked:
@@ -557,11 +763,51 @@ def tenor_apply_changeset(
         return _ok({"ok": False, "verdict": "TENOR_READ_TASK_CANNOT_APPLY_CHANGESET", "task_id": task_id})
     if activity["status"] not in {"active", "paused", "blocked"}:
         return _ok({"ok": False, "verdict": "TENOR_TASK_NOT_ACTIVE", "status": activity["status"]})
+    graphify_block = _graphify_write_preflight()
+    if graphify_block is not None:
+        _advance(
+            task_id,
+            status="blocked",
+            current_action="graphify_write_preflight_failed",
+            last_action="decision_capsule_verified",
+            next_action="install_graphify_then_rerun_tenor_init",
+        )
+        return _ok({**graphify_block, "task_id": task_id})
     try:
         token = _token(agent_id, task_id)
     except task_context.TaskContextError as exc:
         return _ok({"ok": False, "verdict": exc.code, "task_id": task_id, "details": exc.details})
-    _advance(task_id, status="active", current_action="apply_changeset", last_action="ready", next_action="validate_and_record")
+    capsule = tenor_decision.verify_capsule(_root(), task_id, agent_id, activity["resources"])
+    if not capsule.get("ok"):
+        _advance(task_id, status="blocked", current_action="decision_capsule_stale", last_action="ready", next_action="tenor_task_start:same_objective_refresh")
+        return _ok(capsule)
+    _advance(task_id, status="active", current_action="apply_changeset", last_action="decision_capsule_verified", next_action="validate_and_record")
+    def precommit_guard(provisional: dict[str, Any]) -> dict[str, Any]:
+        for item in provisional.get("files", []):
+            direct_fs_tripwire.record_authorized_mutation(
+                task_id=task_id,
+                agent_id=agent_id,
+                resource=str(item.get("path") or ""),
+                tool="tenor_apply_changeset",
+                patch_id=str(provisional.get("changeset_id") or ""),
+                before_hash=str(item.get("base_hash") or ""),
+                after_hash=str(item.get("new_hash") or ""),
+                project_root=_root(),
+            )
+        workspace_audit = direct_fs_tripwire.detect_unauthorized_mutations(
+            _root(), task_id, agent_id
+        )
+        clean = workspace_audit.get("verdict") != direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED
+        return {
+            "ok": clean,
+            "verdict": (
+                "TENOR_CHANGESET_PRECOMMIT_GUARD_CLEAN"
+                if clean
+                else direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED
+            ),
+            "workspace_audit": workspace_audit,
+        }
+
     result = tenor_changeset.apply_changeset(
         project_root=_root(),
         agent_id=agent_id,
@@ -570,23 +816,47 @@ def tenor_apply_changeset(
         validators=validators or [],
         allowed_resources=activity["resources"],
         confirm_deletions=confirm_deletions or [],
+        confirm_full_replacements=confirm_full_replacements or [],
         request_id=request_id,
+        precommit_guard=precommit_guard,
+        execution_fence=execution_fence,
     )
     if not result.get("ok"):
+        guard = result.get("guard") if isinstance(result.get("guard"), dict) else {}
+        workspace_audit = guard.get("workspace_audit") if isinstance(guard, dict) else None
+        if (
+            result.get("verdict") == "TENOR_CHANGESET_PRECOMMIT_GUARD_FAILED_ROLLED_BACK"
+            and guard.get("verdict") == direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED
+        ):
+            _advance(
+                task_id,
+                status="blocked",
+                current_action="unauthorized_mutation_detected",
+                last_action="changeset_rolled_back",
+                next_action="inspect_and_restore_unauthorized_mutations",
+            )
+            return _ok({
+                **result,
+                "verdict": "TENOR_CHANGESET_UNAUTHORIZED_MUTATION_ROLLED_BACK",
+                "task_id": task_id,
+                "workspace_audit": workspace_audit or {},
+                "terminal": False,
+                "next_action": "inspect_and_restore_unauthorized_mutations",
+            })
         _advance(task_id, status="active", current_action="ready", last_action="changeset_rolled_back", next_action="tenor_apply_changeset")
         return _ok(result)
     resources = [str(item.get("path") or "") for item in result.get("files", [])]
-    for item in result.get("files", []):
-        direct_fs_tripwire.record_authorized_mutation(
-            task_id=task_id,
-            agent_id=agent_id,
-            resource=str(item.get("path") or ""),
-            tool="tenor_apply_changeset",
-            patch_id=str(result.get("changeset_id") or ""),
-            before_hash=str(item.get("base_hash") or ""),
-            after_hash=str(item.get("new_hash") or ""),
-            project_root=_root(),
-        )
+    completion_summary = summary.strip() or f"Applied validated changeset {result['changeset_id']}"
+    classification = tenor_memory_admission.classify_outcome(
+        objective=activity["objective"],
+        intent=activity["intent"],
+        summary=completion_summary,
+        files=list(result.get("files", [])),
+        validators=list(result.get("validators", [])),
+        canonical_memory_active=canonical_memory_gate.is_active(_root()),
+    )
+    memory_policy = "canonical_required" if classification["decision"] in {"promote", "ask_user"} else "local_only"
+    record_type = "validation" if classification["decision"] in {"promote", "ask_user"} else "task_summary"
     try:
         token = _token(agent_id, task_id)
         record = _record_runtime_scribe(
@@ -594,13 +864,70 @@ def tenor_apply_changeset(
             task_id,
             token,
             activity["objective"],
-            summary.strip() or f"Applied validated changeset {result['changeset_id']}",
+            completion_summary,
             resources,
             str(result["changeset_id"]),
             list(result.get("validators", [])),
+            record_type=record_type,
+            memory_policy=memory_policy,
+            capsule_hash=str(capsule.get("capsule_hash") or ""),
         )
-        task_context.finish_task_context(agent_id, task_id, token)
-        db.finish_task(agent_id, summary.strip() or f"changeset {result['changeset_id']} committed")
+        if classification["decision"] == "promote":
+            promotion = _payload(
+                _SERVER.scribe_promote_record(
+                    agent_id=agent_id,
+                    task_id=task_id,
+                    context_token=token,
+                    record_path=str(record.get("record_path") or ""),
+                )
+            )
+            if promotion.get("verdict") not in {"CANONICAL_MEMORY_PROMOTED", "CANONICAL_MEMORY_ALREADY_PROMOTED"}:
+                raise RuntimeError(f"SCRIBE_CANONICAL_PROMOTION_FAILED: {promotion}")
+        record_path = _root() / str(record.get("record_path") or "")
+        admission = tenor_memory_admission.admit_runtime_record(
+            project_root=_root(),
+            task_id=task_id,
+            agent_id=agent_id,
+            objective=activity["objective"],
+            intent=activity["intent"],
+            summary=completion_summary,
+            files=list(result.get("files", [])),
+            validators=list(result.get("validators", [])),
+            record=dict(record.get("entry") or {}),
+            record_path=record_path,
+            scope=activity["scope"],
+        )
+        if admission.get("decision") == "ask_user":
+            _advance(
+                task_id,
+                status="awaiting_memory",
+                current_action="awaiting_memory_decision",
+                last_action="changeset_committed_and_record_staged",
+                next_action="tenor_task_control:memory_promote_or_memory_skip",
+                last_changeset_id=str(result.get("changeset_id") or ""),
+                memory_decision="ask_user",
+                memory_reason=str(admission.get("reason") or ""),
+            )
+            return _ok({
+                **result,
+                "ok": False,
+                "verdict": "TENOR_CHANGESET_COMMITTED_MEMORY_DECISION_REQUIRED",
+                "task_id": task_id,
+                "scribe_record": record,
+                "memory_admission": admission,
+                "terminal": False,
+                "next_action": "tenor_task_control:memory_promote_or_memory_skip",
+            })
+        if not admission.get("ok"):
+            raise RuntimeError(f"TENOR_MEMORY_ADMISSION_FAILED: {admission}")
+        closure = _close_task_after_admission(
+            agent_id=agent_id,
+            task_id=task_id,
+            activity=activity,
+            summary=completion_summary,
+            changeset_id=str(result["changeset_id"]),
+            admission=admission,
+        )
     except Exception as exc:
         _advance(
             task_id,
@@ -617,16 +944,6 @@ def tenor_apply_changeset(
             "reason": f"{type(exc).__name__}: {exc}",
             "task_id": task_id,
         })
-    _advance(
-        task_id,
-        status="finished",
-        current_action="finished",
-        last_action="scribe_record_and_finish",
-        next_action="ready_for_next_task",
-        last_changeset_id=str(result.get("changeset_id") or ""),
-        finished=True,
-    )
-    _TASK_TOKENS.pop(task_id, None)
     return _ok({
         **result,
         "verdict": "TENOR_CHANGESET_COMMITTED_TASK_FINISHED",
@@ -635,8 +952,152 @@ def tenor_apply_changeset(
             "verdict": record.get("verdict"),
             "record_path": record.get("record_path"),
         },
+        "memory_admission": admission,
+        "decision_capsule": closure["capsule"],
         "terminal": True,
         "next_action": "ready_for_next_task",
+    })
+
+
+def execute_changeset_sync(
+    *,
+    agent_id: str,
+    task_id: str = "",
+    changes: list[dict[str, Any]] | None = None,
+    validators: list[dict[str, Any]] | None = None,
+    summary: str = "",
+    request_id: str = "",
+    confirm_deletions: list[str] | None = None,
+    confirm_full_replacements: list[dict[str, Any]] | None = None,
+    execution_fence: tenor_changeset.ExecutionFence | None = None,
+) -> dict[str, Any]:
+    """Execute one accepted changeset inside the isolated worker process."""
+
+    if _SERVER is None:
+        return {"ok": False, "verdict": "TENOR_PUBLIC_API_NOT_INSTALLED"}
+    bound = str(getattr(_SERVER, "_MCP_BOUND_AGENT_ID", "") or "").strip()
+    if not agent_id or bound != agent_id:
+        return {
+            "ok": False,
+            "verdict": "TENOR_JOB_AGENT_BINDING_MISMATCH",
+            "agent_id": agent_id,
+            "bound_agent_id": bound,
+        }
+    response = _execute_changeset_bound_sync(
+        task_id=task_id,
+        changes=changes,
+        validators=validators,
+        summary=summary,
+        request_id=request_id,
+        confirm_deletions=confirm_deletions,
+        confirm_full_replacements=confirm_full_replacements,
+        execution_fence=execution_fence,
+    )
+    payload = _payload(response)
+    return payload or response
+
+
+def tenor_apply_changeset(
+    task_id: str = "",
+    changes: list[dict[str, Any]] | None = None,
+    validators: list[dict[str, Any]] | None = None,
+    summary: str = "",
+    request_id: str = "",
+    confirm_deletions: list[str] | None = None,
+    confirm_full_replacements: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Validate and durably enqueue a changeset without blocking MCP stdio."""
+
+    agent_id, blocked = _bound_agent()
+    if blocked:
+        return _ok(blocked)
+    activity = _activity_row(task_id)
+    if not activity:
+        return _ok({"ok": False, "verdict": "TENOR_TASK_UNKNOWN", "task_id": task_id})
+    if activity["agent_id"] != agent_id:
+        return _ok({"ok": False, "verdict": "TENOR_TASK_OWNER_MISMATCH", "task_id": task_id})
+    if activity["intent"] == "read":
+        return _ok({"ok": False, "verdict": "TENOR_READ_TASK_CANNOT_APPLY_CHANGESET", "task_id": task_id})
+    if activity["status"] not in {"active", "paused", "blocked"}:
+        return _ok({"ok": False, "verdict": "TENOR_TASK_NOT_ACTIVE", "status": activity["status"]})
+    graphify_block = _graphify_write_preflight()
+    if graphify_block is not None:
+        _advance(
+            task_id,
+            status="blocked",
+            current_action="graphify_write_preflight_failed",
+            last_action="ready",
+            next_action="install_graphify_then_rerun_tenor_init",
+        )
+        return _ok({**graphify_block, "task_id": task_id})
+    try:
+        _token(agent_id, task_id)
+    except task_context.TaskContextError as exc:
+        return _ok({"ok": False, "verdict": exc.code, "task_id": task_id, "details": exc.details})
+    capsule = tenor_decision.verify_capsule(_root(), task_id, agent_id, activity["resources"])
+    if not capsule.get("ok"):
+        _advance(
+            task_id,
+            status="blocked",
+            current_action="decision_capsule_stale",
+            last_action="ready",
+            next_action="tenor_task_start:same_objective_refresh",
+        )
+        return _ok(capsule)
+
+    normalized_validators = validators or []
+    validator_budget = sum(
+        max(1, min(int(item.get("timeout_seconds") or 120), 600))
+        for item in normalized_validators
+        if isinstance(item, dict)
+    )
+    max_runtime_seconds = max(300, min(24 * 60 * 60, validator_budget + 300))
+    job = tenor_jobs.submit_job(
+        _root(),
+        kind="changeset",
+        agent_id=agent_id,
+        task_id=task_id,
+        request_id=request_id,
+        payload={
+            "task_id": task_id,
+            "changes": changes or [],
+            "validators": normalized_validators,
+            "summary": summary,
+            "request_id": request_id,
+            "confirm_deletions": confirm_deletions or [],
+            "confirm_full_replacements": confirm_full_replacements or [],
+        },
+        max_runtime_seconds=max_runtime_seconds,
+        auto_launch=False,
+    )
+    if not job.get("ok"):
+        return _ok(job)
+    if str(job.get("status") or "") in tenor_jobs.TERMINAL_STATUSES:
+        return _ok({
+            "ok": str(job.get("status")) == "succeeded",
+            "verdict": "TENOR_CHANGESET_JOB_TERMINAL",
+            "job": job,
+            "terminal": True,
+        })
+    _advance(
+        task_id,
+        status="active",
+        current_action="changeset_queued",
+        last_action="decision_capsule_verified",
+        next_action="tenor_activity",
+    )
+    launch = tenor_jobs.launch_queued_jobs(_root())
+    snapshot = tenor_jobs.job_snapshot(_root(), job_id=str(job.get("job_id") or ""), limit=1)
+    current = snapshot["jobs"][0] if snapshot["jobs"] else job
+    return _ok({
+        "ok": True,
+        "verdict": "TENOR_CHANGESET_ACCEPTED",
+        "task_id": task_id,
+        "job": current,
+        "launch": launch,
+        "terminal": False,
+        "next_action": "tenor_activity",
+        "poll_after_ms": int(job.get("poll_after_ms") or 250),
     })
 
 
@@ -663,7 +1124,7 @@ def _activity_snapshot(include_history: int) -> dict[str, Any]:
     consolidated: list[dict[str, Any]] = []
     for agent in agents:
         own = tasks_by_agent.get(agent["agent_id"], [])
-        current = next((task for task in own if task["status"] in {"active", "paused", "blocked"}), None)
+        current = next((task for task in own if task["status"] in {"active", "paused", "blocked", "awaiting_memory"}), None)
         consolidated.append({
             **agent,
             "presence": presence.status(_root(), agent["agent_id"]),
@@ -695,7 +1156,11 @@ def tenor_activity(include_history: int = 20) -> dict[str, Any]:
     if blocked:
         return _ok(blocked)
     try:
-        return _ok(_activity_snapshot(include_history))
+        runtime = tenor_jobs.recover_and_launch(_root())
+        snapshot = _activity_snapshot(include_history)
+        snapshot["jobs"] = tenor_jobs.job_snapshot(_root(), limit=MAX_ACTIVITY_HISTORY)
+        snapshot["job_runtime"] = runtime
+        return _ok(snapshot)
     except (TypeError, ValueError):
         return _ok({"ok": False, "verdict": "TENOR_ACTIVITY_LIMIT_INVALID"})
 
@@ -710,8 +1175,18 @@ def tenor_task_control(task_id: str = "", action: str = "", summary: str = "") -
     if activity["agent_id"] != agent_id:
         return _ok({"ok": False, "verdict": "TENOR_TASK_OWNER_MISMATCH", "task_id": task_id})
     normalized = (action or "").strip().lower()
-    if normalized not in {"pause", "resume", "cancel", "finish"}:
+    if normalized not in {"pause", "resume", "cancel", "finish", "memory_promote", "memory_skip"}:
         return _ok({"ok": False, "verdict": "TENOR_TASK_CONTROL_ACTION_INVALID"})
+    tenor_jobs.recover_and_launch(_root())
+    active_job = tenor_jobs.active_job_for_task(_root(), task_id)
+    if active_job:
+        return _ok({
+            "ok": False,
+            "verdict": "TENOR_TASK_CONTROL_JOB_ACTIVE",
+            "task_id": task_id,
+            "job": active_job,
+            "next_action": "tenor_activity",
+        })
     if normalized == "pause":
         if activity["status"] != "active":
             return _ok({"ok": False, "verdict": "TENOR_TASK_NOT_ACTIVE", "status": activity["status"]})
@@ -743,6 +1218,50 @@ def tenor_task_control(task_id: str = "", action: str = "", summary: str = "") -
         token = _token(agent_id, task_id)
     except task_context.TaskContextError as exc:
         return _ok({"ok": False, "verdict": exc.code, "details": exc.details})
+    if normalized in {"memory_promote", "memory_skip"}:
+        if activity["status"] != "awaiting_memory":
+            return _ok({"ok": False, "verdict": "TENOR_MEMORY_ADMISSION_NOT_PENDING", "task_id": task_id})
+        admission = tenor_memory_admission.get_admission(_root(), task_id, agent_id)
+        if not admission:
+            return _ok({"ok": False, "verdict": "TENOR_MEMORY_ADMISSION_NOT_PENDING", "task_id": task_id})
+        if normalized == "memory_promote":
+            promoted = _payload(
+                _SERVER.scribe_promote_record(
+                    agent_id=agent_id,
+                    task_id=task_id,
+                    context_token=token,
+                    record_path=str(admission.get("record_path") or ""),
+                )
+            )
+            if promoted.get("verdict") not in {"CANONICAL_MEMORY_PROMOTED", "CANONICAL_MEMORY_ALREADY_PROMOTED"}:
+                return _ok({"ok": False, "verdict": "TENOR_MEMORY_ADMISSION_PROMOTION_FAILED", "promotion": promoted})
+            resolved = tenor_memory_admission.resolve_pending(_root(), task_id, agent_id, "promote", summary)
+        else:
+            resolved = tenor_memory_admission.resolve_pending(_root(), task_id, agent_id, "runtime_only", summary)
+            if resolved.get("ok"):
+                task_context.mark_scribe_record_skipped(agent_id, task_id, token, skip_reason=summary.strip())
+        if not resolved.get("ok"):
+            return _ok(resolved)
+        try:
+            closure = _close_task_after_admission(
+                agent_id=agent_id,
+                task_id=task_id,
+                activity=activity,
+                summary=summary.strip() or "Memory admission resolved",
+                changeset_id=str(activity.get("last_changeset_id") or ""),
+                admission=resolved,
+            )
+        except Exception as exc:
+            return _ok({"ok": False, "verdict": "TENOR_TASK_FINISH_FAILED", "reason": f"{type(exc).__name__}: {exc}"})
+        return _ok({
+            "ok": True,
+            "verdict": "TENOR_TASK_FINISHED_AFTER_MEMORY_ADMISSION",
+            "task_id": task_id,
+            "memory_admission": resolved,
+            "decision_capsule": closure["capsule"],
+            "terminal": True,
+        })
+
     if normalized == "finish" and activity["intent"] != "read" and not activity.get("last_changeset_id"):
         return _ok({
             "ok": False,
@@ -750,6 +1269,34 @@ def tenor_task_control(task_id: str = "", action: str = "", summary: str = "") -
             "next_action": "tenor_apply_changeset",
         })
     if normalized == "finish":
+        if activity["intent"] != "read":
+            admission = tenor_memory_admission.get_admission(_root(), task_id, agent_id)
+            if not admission or admission.get("status") != "resolved":
+                return _ok({
+                    "ok": False,
+                    "verdict": "TENOR_MEMORY_ADMISSION_REQUIRED",
+                    "task_id": task_id,
+                    "next_action": "tenor_task_control:memory_promote_or_memory_skip",
+                })
+            try:
+                closure = _close_task_after_admission(
+                    agent_id=agent_id,
+                    task_id=task_id,
+                    activity=activity,
+                    summary=summary.strip() or "Committed task closure retried",
+                    changeset_id=str(activity["last_changeset_id"]),
+                    admission=admission,
+                )
+            except Exception as exc:
+                return _ok({"ok": False, "verdict": "TENOR_TASK_FINISH_FAILED", "reason": f"{type(exc).__name__}: {exc}"})
+            return _ok({
+                "ok": True,
+                "verdict": "TENOR_TASK_FINISHED",
+                "task_id": task_id,
+                "memory_admission": admission,
+                "decision_capsule": closure["capsule"],
+                "terminal": True,
+            })
         try:
             record = _record_runtime_scribe(
                 agent_id,
@@ -760,21 +1307,54 @@ def tenor_task_control(task_id: str = "", action: str = "", summary: str = "") -
                 activity["resources"],
                 activity.get("last_changeset_id") or "read-only",
                 [],
+                record_type="task_summary",
+                memory_policy="local_only",
+                capsule_hash=str(activity.get("decision_capsule_hash") or ""),
             )
-            task_context.finish_task_context(agent_id, task_id, token)
-            db.finish_task(agent_id, summary.strip() or "task finished")
+            record_path = _root() / str(record.get("record_path") or "")
+            admission = tenor_memory_admission.admit_runtime_record(
+                project_root=_root(),
+                task_id=task_id,
+                agent_id=agent_id,
+                objective=activity["objective"],
+                intent="read",
+                summary=summary.strip() or "Read-only task completed",
+                files=[],
+                validators=[],
+                record=dict(record.get("entry") or {}),
+                record_path=record_path,
+                scope=activity["scope"],
+            )
+            closure = _close_task_after_admission(
+                agent_id=agent_id,
+                task_id=task_id,
+                activity=activity,
+                summary=summary.strip() or "task finished",
+                changeset_id="read-only",
+                admission=admission,
+            )
         except Exception as exc:
             return _ok({"ok": False, "verdict": "TENOR_TASK_FINISH_FAILED", "reason": f"{type(exc).__name__}: {exc}"})
-        _advance(task_id, status="finished", current_action="finished", last_action="finish", next_action="ready_for_next_task", finished=True)
-        _TASK_TOKENS.pop(task_id, None)
         return _ok({
             "ok": True,
             "verdict": "TENOR_TASK_FINISHED",
             "task_id": task_id,
             "scribe_record": record.get("record_path"),
+            "memory_admission": admission,
+            "decision_capsule": closure["capsule"],
             "terminal": True,
         })
 
+    if activity.get("last_changeset_id"):
+        return _ok({
+            "ok": False,
+            "verdict": "TENOR_TASK_COMMITTED_CANNOT_CANCEL",
+            "task_id": task_id,
+            "next_action": "tenor_task_control:finish_or_memory_decision",
+        })
+    capsule_state = tenor_decision.load_capsule(_root(), task_id)
+    if capsule_state and capsule_state.get("status") == "active":
+        tenor_decision.resolve_capsule(_root(), task_id, agent_id, "cancelled")
     with db.connect(_root()) as con:
         con.execute(
             "UPDATE task_context_v2 SET status='cancelled',finished_at=? WHERE task_id=? AND agent_id=? AND status='active'",
@@ -831,16 +1411,27 @@ def tool_schema(name: str) -> dict[str, Any]:
             "additionalProperties": False,
         }
     if name == "tenor_apply_changeset":
+        structured_edit = {
+            "type": "object",
+            "properties": {
+                "old_text": {"type": "string", "minLength": 1},
+                "new_text": {"type": "string"},
+                "expected_occurrences": {"type": "integer", "minimum": 1, "maximum": 1024},
+            },
+            "required": ["old_text", "new_text"],
+            "additionalProperties": False,
+        }
         change = {
             "type": "object",
             "properties": {
                 "path": {"type": "string"},
-                "operation": {"type": "string", "enum": ["patch", "replace", "create", "delete"]},
+                "operation": {"type": "string", "enum": ["edit", "patch", "replace", "create", "delete"]},
                 "base_hash": {"type": "string"},
                 "diff_text": {"type": "string"},
                 "content": {"type": "string"},
+                "edits": {"type": "array", "items": structured_edit, "minItems": 1, "maxItems": 128},
             },
-            "required": ["path", "operation", "base_hash"],
+            "required": ["path", "operation"],
             "additionalProperties": False,
         }
         validator = {
@@ -858,12 +1449,25 @@ def tool_schema(name: str) -> dict[str, Any]:
             "properties": {
                 "task_id": {"type": "string"},
                 "changes": {"type": "array", "items": change, "minItems": 1, "maxItems": 64},
-                "validators": {"type": "array", "items": validator, "maxItems": 12},
+                "validators": {"type": "array", "items": validator, "minItems": 1, "maxItems": 12},
                 "summary": {"type": "string"},
                 "request_id": {"type": "string", "maxLength": 200},
                 "confirm_deletions": {"type": "array", "items": {"type": "string"}},
+                "confirm_full_replacements": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "base_hash": {"type": "string", "minLength": 64, "maxLength": 64},
+                            "new_hash": {"type": "string", "minLength": 64, "maxLength": 64},
+                        },
+                        "required": ["path", "base_hash", "new_hash"],
+                        "additionalProperties": False,
+                    },
+                },
             },
-            "required": ["task_id", "changes"],
+            "required": ["task_id", "changes", "validators"],
             "additionalProperties": False,
         }
     if name == "tenor_activity":
@@ -877,7 +1481,7 @@ def tool_schema(name: str) -> dict[str, Any]:
             "type": "object",
             "properties": {
                 "task_id": {"type": "string"},
-                "action": {"type": "string", "enum": ["pause", "resume", "cancel", "finish"]},
+                "action": {"type": "string", "enum": ["pause", "resume", "cancel", "finish", "memory_promote", "memory_skip"]},
                 "summary": {"type": "string"},
             },
             "required": ["task_id", "action"],
@@ -895,6 +1499,9 @@ def install(server: Any) -> None:
     _BASE_BRIDGE = server.TOOLS["tenor_init_bridge"]
     ensure_schema(Path(server.ROOT))
     tenor_changeset.recover_incomplete(Path(server.ROOT))
+    tenor_jobs.ensure_schema(Path(server.ROOT))
+    if os.environ.get("AGENT_TENOR_JOB_WORKER") != "1":
+        tenor_jobs.recover_and_launch(Path(server.ROOT))
     server.tenor_task_start = tenor_task_start
     server.tenor_apply_changeset = tenor_apply_changeset
     server.tenor_activity = tenor_activity

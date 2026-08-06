@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -20,12 +21,27 @@ except Exception:
     import direct_fs_tripwire  # type: ignore
 
 try:
+    from .owned_file_lock import owned_file_lock
+except Exception:
+    from owned_file_lock import owned_file_lock  # type: ignore
+
+try:
     _SCRIBE_SCRIPTS = Path(__file__).resolve().parents[2] / "workflow" / "scribe" / "sel" / "scripts"
     if str(_SCRIBE_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(_SCRIBE_SCRIPTS))
     from scribe_store import load_scribe  # type: ignore
+    from scribe_doctor_checks import check_all as _doctor_check_all  # type: ignore
+    from scribe_doctor_model import (  # type: ignore
+        collect_entities as _doctor_collect_entities,
+        collect_registry as _doctor_collect_registry,
+        parse_yaml as _doctor_parse_yaml,
+    )
 except Exception:
     load_scribe = None  # type: ignore
+    _doctor_check_all = None  # type: ignore
+    _doctor_collect_entities = None  # type: ignore
+    _doctor_collect_registry = None  # type: ignore
+    _doctor_parse_yaml = None  # type: ignore
 
 CANONICAL_MEMORY_REQUIRED = "CANONICAL_MEMORY_REQUIRED"
 CANONICAL_MEMORY_PROMOTED = "CANONICAL_MEMORY_PROMOTED"
@@ -140,6 +156,45 @@ def _current_hash(project_root: Path | None = None) -> str:
     if not path.exists():
         return ""
     return _hash_bytes(path.read_bytes())
+
+
+def _fsync_parent(path: Path) -> None:
+    flags = getattr(os, "O_DIRECTORY", 0) | os.O_RDONLY
+    try:
+        descriptor = os.open(str(path), flags)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _atomic_replace_bytes(path: Path, content: bytes, *, mode: int = 0o600) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(
+        dir=str(path.parent),
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    try:
+        os.chmod(temporary, mode & 0o777)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        for attempt in range(10):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(min(0.25, 0.01 * (2 ** attempt)))
+        _fsync_parent(path.parent)
+    finally:
+        with suppress(FileNotFoundError):
+            os.unlink(temporary)
 
 
 def _load_row(con: Any, task_id: str, agent_id: str) -> dict[str, Any] | None:
@@ -588,47 +643,94 @@ def _canonical_entry_block(
     record_type = str(record.get("record_type") or record.get("type") or "journal").strip().lower() or "journal"
     status = _canonical_status(record_type, memory_policy, str(record.get("verdict") or ""))
     summary = _canonical_summary(record)
-    evidence = source_record_path.replace('"', '\"')
-    source_name = Path(source_record_path).name.replace('"', '\"')
-    digest = source_record_digest.replace('"', '\"')
-    scope_value = scope.replace('"', '\"') or "project"
+    summary_value = json.dumps(summary, ensure_ascii=False)
+    evidence = json.dumps(source_record_path, ensure_ascii=False)
+    source_name = json.dumps(Path(source_record_path).name, ensure_ascii=False)
+    digest = json.dumps(source_record_digest, ensure_ascii=False)
+    scope_value = json.dumps(scope or "project", ensure_ascii=False)
     policy_value = normalize_memory_policy(memory_policy) or "local_only"
     date_value = time.strftime("%Y-%m-%d", time.gmtime(int(record.get("timestamp") or _now())))
+    promoted_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     entry = [
         f'  - id: "{entry_id}"',
         f'    date: "{date_value}"',
+        f'    schema_patch_date: "{date_value}"',
         f'    type: "{record_type}"',
-        f'    scope: "{scope_value}"',
+        f"    scope: {scope_value}",
         f'    status: "{status}"',
-        "    summary: >",
-        f'      {summary}',
+        "    status_log:",
+        f'      - at: "{promoted_at}"',
+        f'        status: "{status}"',
+        f"        source: {evidence}",
+        f"    summary: {summary_value}",
+        f"    l0_abstract: {summary_value}",
         "    evidence:",
-        f'      - "{evidence}"',
+        f"      - {evidence}",
         "    result:",
         "      canonical_memory_promoted: true",
-        f'      source_record: "{source_name}"',
-        f'      source_record_path: "{evidence}"',
-        f'      source_record_digest: "{digest}"',
+        f"      source_record: {source_name}",
+        f"      source_record_path: {evidence}",
+        f"      source_record_digest: {digest}",
         f'      memory_policy: "{policy_value}"',
-        f'      promoted_at: "{time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}"',
+        f'      promoted_at: "{promoted_at}"',
     ]
     return "\n".join(entry) + "\n"
+
+
+def _validate_canonical_candidate(raw: str, scribe_path: Path) -> dict[str, Any]:
+    if any(
+        helper is None
+        for helper in (
+            _doctor_parse_yaml,
+            _doctor_collect_entities,
+            _doctor_collect_registry,
+            _doctor_check_all,
+        )
+    ):
+        return {
+            "ok": False,
+            "errors": [
+                {
+                    "code": "SCRIBE_DOCTOR_UNAVAILABLE",
+                    "location": str(scribe_path),
+                    "message": "Canonical promotion cannot be validated before replacement.",
+                }
+            ],
+        }
+    data, findings = _doctor_parse_yaml(raw, scribe_path)
+    if data is not None:
+        entities = _doctor_collect_entities(data)
+        registry = _doctor_collect_registry(data)
+        findings.extend(_doctor_check_all(data, raw, entities, registry, None))
+    errors = [
+        {
+            "code": item.code,
+            "location": item.location,
+            "message": item.message,
+        }
+        for item in findings
+        if item.severity == "ERROR"
+    ]
+    return {"ok": not errors, "errors": errors}
 
 
 def _append_canonical_entry_text(existing: str, entry_block: str) -> str:
     canon_marker = "\ncanonical:\n"
     metrics_marker = "\nmetrics:\n"
     if canon_marker in existing:
-        prefix, suffix = existing.rsplit(metrics_marker, 1)
-        canon_prefix, canon_body = prefix.rsplit(canon_marker, 1)
-        return canon_prefix + canon_marker + canon_body.rstrip() + "\n" + entry_block + metrics_marker + suffix
+        if metrics_marker in existing:
+            prefix, suffix = existing.rsplit(metrics_marker, 1)
+            canon_prefix, canon_body = prefix.rsplit(canon_marker, 1)
+            return canon_prefix + canon_marker + canon_body.rstrip() + "\n" + entry_block + metrics_marker + suffix
+        canon_prefix, canon_body = existing.rsplit(canon_marker, 1)
+        return canon_prefix + canon_marker + canon_body.rstrip() + "\n" + entry_block
     if metrics_marker in existing:
         prefix, suffix = existing.rsplit(metrics_marker, 1)
         return prefix.rstrip() + "\n" + canon_marker + entry_block + metrics_marker + suffix
     return existing.rstrip() + "\n" + canon_marker + entry_block
 
 
-def promote_record(
+def _promote_record_locked(
     project_root: Path | None,
     record: dict[str, Any],
     source_record_path: Path,
@@ -664,68 +766,248 @@ def promote_record(
     payload = dict(record)
     source_record_digest = hashlib.sha256(source_record_path.read_bytes()).hexdigest()
     entry_id = _canonical_entry_id(source_record_digest, record_path)
-    existing = scribe_path.read_text(encoding="utf-8") if scribe_path.is_file() else ""
-    if entry_id in existing or source_record_digest in existing or record_path in existing:
+    canonical_relative = (
+        str(scribe_path.relative_to(root))
+        if scribe_path.is_relative_to(root)
+        else scribe_path.name
+    )
+    if scribe_path.is_symlink():
         return {
-            "ok": True,
-            "verdict": "CANONICAL_MEMORY_ALREADY_PROMOTED",
-            "state": "CANONICAL_MEMORY_ALREADY_PROMOTED",
-            "canonical_memory_file": str(scribe_path.relative_to(root)),
+            "ok": False,
+            "verdict": "CANONICAL_MEMORY_PROMOTION_FAILED",
+            "state": "CANONICAL_MEMORY_PROMOTION_FAILED",
+            "reason": "canonical memory file must not be a symlink",
+            "canonical_memory_file": canonical_relative,
             "record_path": record_path,
             "entry_id": entry_id,
-            "already_promoted": True,
             "canonical_memory_updated": False,
         }
-    entry_block = _canonical_entry_block(
-        entry_id,
-        payload,
-        record_path,
-        normalized_policy,
-        scope,
-        source_record_digest,
-    )
-    new_content = _append_canonical_entry_text(existing, entry_block)
-    tmp = tempfile.NamedTemporaryFile(
-        "w",
-        encoding="utf-8",
-        dir=str(scribe_path.parent),
-        delete=False,
-        prefix=f".{scribe_path.name}.",
-        suffix=".tmp",
-    )
-    before_hash = hashlib.sha256(existing.encode("utf-8")).hexdigest() if existing else ""
+    _ensure_schema(root)
+    direct_fs_tripwire._ensure_schema(root)
+    original_bytes = b""
+    original_mode = 0o600
+    existed_before = False
+    replaced = False
     try:
-        with tmp as fh:
-            fh.write(new_content)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp.name, scribe_path)
-    except Exception:
-        try:
-            os.unlink(tmp.name)
-        except OSError:
-            pass
-        raise
-    after_hash = hashlib.sha256(scribe_path.read_bytes()).hexdigest()
-    if agent_id and task_id:
-        scribe_path_str = str(scribe_path.relative_to(root)) if scribe_path.is_relative_to(root) else scribe_path.name
-        direct_fs_tripwire.record_authorized_mutation(
-            task_id=task_id,
-            agent_id=agent_id,
-            resource=scribe_path_str,
-            tool="scribe_promote_record",
-            before_hash=before_hash,
-            after_hash=after_hash,
-            project_root=root,
-        )
+        with db.connect(root) as con:
+            con.execute("BEGIN IMMEDIATE")
+            try:
+                existed_before = scribe_path.is_file()
+                if existed_before:
+                    original_bytes = scribe_path.read_bytes()
+                    original_mode = scribe_path.stat().st_mode
+                existing = original_bytes.decode("utf-8") if existed_before else ""
+                if entry_id in existing or source_record_digest in existing:
+                    con.execute("COMMIT")
+                    return {
+                        "ok": True,
+                        "verdict": "CANONICAL_MEMORY_ALREADY_PROMOTED",
+                        "state": "CANONICAL_MEMORY_ALREADY_PROMOTED",
+                        "canonical_memory_file": canonical_relative,
+                        "record_path": record_path,
+                        "entry_id": entry_id,
+                        "already_promoted": True,
+                        "canonical_memory_updated": False,
+                    }
+                entry_block = _canonical_entry_block(
+                    entry_id,
+                    payload,
+                    record_path,
+                    normalized_policy,
+                    scope,
+                    source_record_digest,
+                )
+                new_content = _append_canonical_entry_text(existing, entry_block)
+                doctor = _validate_canonical_candidate(new_content, scribe_path)
+                if not doctor.get("ok"):
+                    con.execute("ROLLBACK")
+                    return {
+                        "ok": False,
+                        "verdict": "CANONICAL_MEMORY_PROMOTION_FAILED",
+                        "state": "CANONICAL_MEMORY_PROMOTION_FAILED",
+                        "reason": (
+                            "The candidate SCRIBE entry failed doctor validation "
+                            "before replacement."
+                        ),
+                        "canonical_memory_file": canonical_relative,
+                        "record_path": record_path,
+                        "entry_id": entry_id,
+                        "doctor_errors": doctor.get("errors", []),
+                        "canonical_memory_updated": False,
+                    }
+                candidate_bytes = new_content.encode("utf-8")
+                before_hash = (
+                    hashlib.sha256(original_bytes).hexdigest()
+                    if existed_before
+                    else ""
+                )
+                after_hash = hashlib.sha256(candidate_bytes).hexdigest()
+                _atomic_replace_bytes(
+                    scribe_path,
+                    candidate_bytes,
+                    mode=original_mode,
+                )
+                replaced = True
+                if hashlib.sha256(scribe_path.read_bytes()).hexdigest() != after_hash:
+                    raise RuntimeError("CANONICAL_MEMORY_POST_REPLACE_HASH_MISMATCH")
+                if agent_id and task_id:
+                    con.execute(
+                        """
+                        INSERT INTO canonical_memory_promotions_v1(
+                          entry_id,task_id,agent_id,resource,source_record_path,
+                          source_record_digest,before_hash,after_hash,created_at
+                        ) VALUES(?,?,?,?,?,?,?,?,?)
+                        """,
+                        (
+                            entry_id,
+                            task_id,
+                            agent_id,
+                            canonical_relative,
+                            record_path,
+                            source_record_digest,
+                            before_hash,
+                            after_hash,
+                            _now(),
+                        ),
+                    )
+                    direct_fs_tripwire.record_authorized_mutation(
+                        task_id=task_id,
+                        agent_id=agent_id,
+                        resource=canonical_relative,
+                        tool="scribe_promote_record",
+                        patch_id=entry_id,
+                        before_hash=before_hash,
+                        after_hash=after_hash,
+                        project_root=root,
+                        connection=con,
+                    )
+                    try:
+                        con.execute(
+                            """
+                            UPDATE task_context_v2
+                            SET scribe_record_promoted=1,
+                                scribe_record_entry_id=?,
+                                scribe_record_skip_reason=NULL
+                            WHERE task_id=? AND agent_id=?
+                              AND (
+                                COALESCE(scribe_record_digest,'')=''
+                                OR scribe_record_digest=?
+                              )
+                            """,
+                            (
+                                entry_id,
+                                task_id,
+                                agent_id,
+                                source_record_digest,
+                            ),
+                        )
+                    except Exception as exc:
+                        if "no such table" not in str(exc).lower():
+                            raise
+                    db.add_event(
+                        con,
+                        "canonical_memory_gate.record_promoted",
+                        {
+                            "task_id": task_id,
+                            "entry_id": entry_id,
+                            "resource": canonical_relative,
+                            "source_record_digest": source_record_digest,
+                        },
+                        agent_id,
+                    )
+                con.execute("COMMIT")
+            except Exception:
+                if replaced:
+                    if existed_before:
+                        _atomic_replace_bytes(
+                            scribe_path,
+                            original_bytes,
+                            mode=original_mode,
+                        )
+                    else:
+                        with suppress(FileNotFoundError):
+                            scribe_path.unlink()
+                            _fsync_parent(scribe_path.parent)
+                con.execute("ROLLBACK")
+                raise
+    except Exception as exc:
+        return {
+            "ok": False,
+            "verdict": "CANONICAL_MEMORY_PROMOTION_FAILED",
+            "state": "CANONICAL_MEMORY_PROMOTION_FAILED",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "canonical_memory_file": canonical_relative,
+            "record_path": record_path,
+            "entry_id": entry_id,
+            "canonical_memory_updated": False,
+        }
     return {
         "ok": True,
         "verdict": "CANONICAL_MEMORY_PROMOTED",
         "state": "CANONICAL_MEMORY_PROMOTED",
-        "canonical_memory_file": str(scribe_path.relative_to(root)),
+        "canonical_memory_file": canonical_relative,
         "record_path": record_path,
         "entry_id": entry_id,
         "already_promoted": False,
         "canonical_memory_updated": True,
         "source_record_digest": source_record_digest,
+        "doctor_validation": "PASS",
     }
+
+
+def promote_record(
+    project_root: Path | None,
+    record: dict[str, Any],
+    source_record_path: Path,
+    *,
+    scope: str = "",
+    memory_policy: str = "canonical_required",
+    agent_id: str = "",
+    task_id: str = "",
+) -> dict[str, Any]:
+    """Serialize canonical publication across threads and host processes."""
+
+    root = _project_root(project_root)
+    lock_path = (
+        root
+        / ".agent"
+        / "state"
+        / "locks"
+        / "canonical-memory-promotion.lock"
+    )
+    try:
+        with owned_file_lock(
+            lock_path,
+            purpose="canonical-memory-promotion",
+            timeout_seconds=30.0,
+            stale_after_seconds=120.0,
+        ):
+            return _promote_record_locked(
+                root,
+                record,
+                source_record_path,
+                scope=scope,
+                memory_policy=memory_policy,
+                agent_id=agent_id,
+                task_id=task_id,
+            )
+    except Exception as exc:
+        scribe_path = _scribe_path(root)
+        record_path = (
+            str(source_record_path.relative_to(root))
+            if source_record_path.is_relative_to(root)
+            else str(source_record_path)
+        )
+        return {
+            "ok": False,
+            "verdict": "CANONICAL_MEMORY_PROMOTION_FAILED",
+            "state": "CANONICAL_MEMORY_PROMOTION_FAILED",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "canonical_memory_file": (
+                str(scribe_path.relative_to(root))
+                if scribe_path.is_relative_to(root)
+                else scribe_path.name
+            ),
+            "record_path": record_path,
+            "canonical_memory_updated": False,
+        }

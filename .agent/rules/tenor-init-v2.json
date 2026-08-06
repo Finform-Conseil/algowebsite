@@ -1,7 +1,8 @@
 {
   "name": "TENOR_INIT_V2_16",
-  "human_trigger": "TENOR INIT::[.agent/skills/init-tenor/SKILL.md]",
+  "human_trigger": "TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact \"./.agent/skills/init-tenor/SKILL.md\"; n’utilise jamais \"~/.agent\", \"~/.agents\" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]",
   "legacy_human_triggers": [
+    "TENOR INIT::[.agent/skills/init-tenor/SKILL.md]",
     "[[.agent/skills/init-tenor/SKILL.md]]"
   ],
   "entry_file": ".agent/skills/init-tenor/SKILL.md",
@@ -18,7 +19,10 @@
     "bootstrap_must_not_bypass_tenor_init": true,
     "known_host_must_use_explicit_host_id": true,
     "opencode_must_never_try_auto_first": true,
-    "canonical_command": ".agent/workflow/scribe/scribe tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>"
+    "canonical_command": ".agent/workflow/scribe/scribe tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>",
+    "project_local_file_read_required": true,
+    "global_skill_resolution_forbidden": true,
+    "conversational_bootstrap_is_self_contained": true
   },
   "authority_order": [
     "resolve_current_project_root",
@@ -85,7 +89,18 @@
     "legacy_fine_grained_tools_advertised_to_host": false,
     "legacy_fine_grained_tools_internal_compatibility_only": true,
     "scribe_and_graphify_run_inside_task_start": true,
+    "scribe_graphify_decision_capsule_required_before_mutation": true,
+    "stale_capsule_refreshes_inside_same_task_id": true,
     "locks_hash_preflight_apply_validation_rollback_record_and_finish_run_inside_changeset": true,
+    "structured_edit_is_preferred_for_existing_text_files": true,
+    "fragment_as_full_replace_forbidden": true,
+    "validators_required_for_every_mutating_changeset": true,
+    "changeset_acceptance_is_durable_and_non_terminal": true,
+    "changeset_terminal_result_is_polled_through_tenor_activity": true,
+    "graphify_build_acceptance_is_polled_through_graphify_required_check": true,
+    "long_jobs_must_not_block_the_mcp_stdio_loop": true,
+    "active_job_resubmission_or_task_control_forbidden": true,
+    "canonical_memory_admission_verdict_required_before_task_closure": true,
     "caller_supplied_agent_id_or_context_token_forbidden": true
   },
   "same_project_session_invariant": {
@@ -143,6 +158,13 @@
     "user_response_before_bridge_forbidden": true,
     "general_rag_queries_during_init_forbidden": true,
     "targeted_scribe_and_graphify_deferred_to": "tenor_task_start",
+    "bounded_graphify_recovery_owned_by_tenor_init": true,
+    "missing_graphify_runtime_is_auto_provisioned": true,
+    "global_graphify_install_is_not_a_user_prerequisite": true,
+    "graphify_recovery_timeout_seconds": 180,
+    "graphify_recovery_uses_shared_init_lock": true,
+    "concurrent_waiters_recheck_readiness_before_build": true,
+    "host_model_manual_graphify_build_or_retry_during_init_forbidden": true,
     "allowed_terminal_interruptions": [
       "HOST_RECONNECT_REQUIRED",
       "explicit_fail_closed_verdict"
@@ -162,6 +184,20 @@
     ]
   },
   "graphify_readiness": {
+    "runtime_policy": ".agent/mcp/runtime/graphify_runtime_policy.json",
+    "runtime_authority": "project_local_pinned",
+    "runtime_package": "graphifyy",
+    "runtime_version": "0.9.26",
+    "runtime_install_root": ".agent/state/runtime/toolchains/graphify/",
+    "runtime_is_platform_scoped": true,
+    "runtime_install_is_atomic_single_flight": true,
+    "runtime_requires_official_index": "https://pypi.org/simple",
+    "runtime_requires_binary_wheels": true,
+    "runtime_requires_exact_dependency_constraints": true,
+    "runtime_wheel_sha256_required": true,
+    "runtime_integrity_manifest_required": true,
+    "runtime_partial_publication_forbidden": true,
+    "global_install_required": false,
     "manifest": ".agent/state/outputs/graphify-out/GRAPHIFY_READY.json",
     "required_files": [
       "graph.json",
@@ -178,50 +214,84 @@
     "dual_edge_fields_must_be_equivalent": true,
     "requires_project_root_match": true,
     "requires_workspace_fingerprint_match": true,
+    "workspace_fingerprint_algorithm": "relative-path-size-content-sha256-v2",
+    "workspace_mtime_is_non_causal": true,
+    "workspace_mutation_during_hash_fails_closed": true,
+    "manifest_graph_epoch_is_monotone": true,
     "rejects_smoke_stub_on_terrain": true,
     "rejects_legacy_unbound_graph": true,
     "rejects_corrupt_partial_or_contradictory_graph": true,
     "empty_project_placeholder_allowed_only_while_no_application_code": true,
     "bounded_build_command": ".agent/workflow/scribe/scribe graph --project-build --timeout 180",
     "host_bound_build_tool": "graphify_project_build",
+    "canonical_init_auto_recovers_build_required": true,
+    "build_is_idempotent_single_flight": true,
+    "build_refuses_active_changeset_transactions": true,
+    "pending_rebuild_fences_new_changeset_launch": true,
+    "workspace_change_during_build_invalidates_readiness_manifest": true,
     "build_uses_isolated_source_mirror": true,
     "root_graphify_out_creation_forbidden": true,
     "canonical_output_only": ".agent/state/outputs/graphify-out/"
   },
   "task_machine_contract": {
-    "canonical_intents": ["read", "write", "delete"],
+    "canonical_intents": [
+      "read",
+      "write",
+      "delete"
+    ],
     "descriptive_intent_forbidden": true,
     "one_active_task_per_agent": true,
     "replacement_identity_for_hard_stop_forbidden": true,
     "cross_agent_control_forbidden": true,
     "process_bound_identity": true,
     "daemon_heartbeat": true,
+    "job_authority_requires_live_sqlite_lease_and_exact_worker_fence": true,
+    "pid_is_diagnostic_not_authority": true,
+    "recovery_fence_is_monotone": true,
+    "retry_exhaustion_recovers_incomplete_changeset_before_terminal_failure": true,
+    "stale_worker_heartbeat_publish_rollback_and_unlock_forbidden": true,
     "rolling_activity_ttl": true,
     "dead_process_expiry_fail_closed": true,
     "multi_file_changeset_atomic": true,
     "all_hashes_and_locks_preflight_before_first_write": true,
-    "validator_failure_rolls_back_all_files": true,
+    "create_derives_new_file_hash_internally": true,
+    "structured_edits_require_exact_occurrence_counts": true,
+    "destructive_full_replace_requires_path_base_and_new_hash_confirmation": true,
+    "zero_validator_mutation_forbidden": true,
+    "no_op_changeset_cannot_close_a_task": true,
+    "failed_uncommitted_task_can_cancel_without_changeset": true,
+    "rollback_restores_only_exact_changeset_new_hash": true,
+    "newer_writer_bytes_are_preserved_as_rollback_conflict": true,
+    "rollback_preflights_all_hashes_before_first_restore": true,
     "request_id_retry_is_idempotent": true
   },
   "loops": {
     "read_or_research": [
       "tenor_task_start_runs_targeted_scribe_and_graphify_internally",
+      "tenor_task_start_returns_a_hash_bound_decision_capsule",
       "host_synthesis",
-      "tenor_task_control_finish_records_and_closes"
+      "tenor_task_control_finish_records_memory_admission_and_closes"
     ],
     "write": [
       "tenor_task_start_runs_targeted_scribe_and_graphify_internally",
-      "host_prepares_one_multi_file_changeset_and_validator_argv",
+      "tenor_task_start_returns_a_hash_bound_decision_capsule",
+      "host_prepares_one_multi_file_changeset_with_structured_edits_and_validator_argv",
+      "tenor_apply_changeset_returns_non_terminal_durable_acceptance",
+      "tenor_activity_polls_until_job_succeeded_or_failed",
       "tenor_apply_changeset_preflights_locks_hashes_and_scope",
       "tenor_apply_changeset_commits_all_or_rolls_back_all",
-      "tenor_apply_changeset_records_and_closes"
+      "tenor_apply_changeset_filters_and_promotes_durable_scribe_memory",
+      "tenor_apply_changeset_closes_only_after_explicit_memory_admission"
     ],
     "delete": [
       "tenor_task_start_runs_targeted_scribe_and_graphify_internally",
+      "tenor_task_start_returns_a_hash_bound_decision_capsule",
       "exact_delete_paths_must_be_confirmed_in_changeset",
+      "tenor_apply_changeset_returns_non_terminal_durable_acceptance",
+      "tenor_activity_polls_until_job_succeeded_or_failed",
       "tenor_apply_changeset_preflights_locks_hashes_and_scope",
       "tenor_apply_changeset_commits_all_or_rolls_back_all",
-      "tenor_apply_changeset_records_and_closes"
+      "tenor_apply_changeset_records_memory_admission_and_closes"
     ]
   },
   "multi_agent_rules": [
@@ -233,6 +303,11 @@
     "reads are concurrent",
     "task tools derive identity from the successful bridge and reject caller supplied identity",
     "writes use ordered locks and one atomic multi-file changeset",
+    "bounded background workers keep public MCP tools responsive during validators and graph builds",
+    "worker recovery is finite idempotent observable and fenced by a live sqlite lease",
+    "pid visibility never grants distributed job or rollback authority",
+    "graphify rebuilds wait for active changesets and fence new writer launch",
+    "unrelated canonical memory updates refresh a stale decision capsule inside the same task id",
     "one agent cannot control retire replace or mutate another agent task",
     "one agent owns at most one active task",
     "daemon heartbeat and rolling ttl preserve live work",
@@ -254,6 +329,20 @@
     },
     "scribe_record": {
       "runtime_receipt_is_not_canonical_memory": true,
+      "every_completed_task_requires_an_explicit_admission_decision": true,
+      "admission_decisions": [
+        "promote",
+        "runtime_only_with_reason",
+        "ask_user",
+        "conflict"
+      ],
+      "validated_durable_source_fixes_are_promoted_automatically": true,
+      "canonical_promotion_file_proof_receipt_and_context_commit_together": true,
+      "canonical_summary_is_indexed_in_l0_abstract": true,
+      "canonical_promotion_requires_semantic_retrievability": true,
+      "read_only_and_non_causal_noise_is_runtime_only_with_reason": true,
+      "unresolved_architecture_choices_require_user_decision": true,
+      "silent_memory_drop_forbidden": true,
       "record_only_when_causal_value_exists": true,
       "record_when": [
         "write_applied",
@@ -339,17 +428,22 @@
   "direct_tool_neutralization": {
     "direct_shell_write_edit_forbidden": true,
     "native_host_write_edit_must_be_disabled_permission_gated_or_detected": true,
+    "direct_write_tripwire_supports_git_and_non_git_projects": true,
+    "validator_target_hash_is_reverified_after_validation": true,
+    "validator_unscoped_mutation_blocks_closure": true,
     "opencode_autonomous_edit_permission": "deny",
     "opencode_autonomous_bash_permission": "deny",
     "defense_layers": [
       "host permissions",
       "project-local instructions",
-        "resource locks and claims",
-        "atomic multi-file changeset",
-        "hash preflight and validator rollback",
+      "resource locks and claims",
+      "atomic multi-file changeset",
+      "SCRIBE/Graphify decision capsule",
+      "structured edit and destructive replacement guards",
+      "hash preflight and validator rollback",
       "direct filesystem tripwire",
       "workspace audit",
-      "canonical memory finish gate"
+      "canonical memory admission and finish gate"
     ],
     "bypass_verdict": "DIRECT_WRITE_BYPASS_DETECTED"
   },

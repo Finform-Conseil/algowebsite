@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from typing import Any
@@ -15,10 +17,15 @@ MCP_DIR = HERE.parent
 if str(MCP_DIR) not in sys.path:
     sys.path.insert(0, str(MCP_DIR))
 
-from runtime.state_paths import prepare_state_dirs
-
 import server_ext as mcp
-from runtime import direct_fs_tripwire
+from runtime import (
+    db,
+    direct_fs_tripwire,
+    graphify_readiness,
+    tenor_changeset,
+    tenor_jobs,
+)
+from _workspace_fixture import prepare_graphify_fixture
 
 
 def call_tool(name: str, **args: Any) -> dict[str, Any]:
@@ -49,11 +56,12 @@ class DirectFsTripwireTest(unittest.TestCase):
         self.old_cwd = Path.cwd()
         self.old_root = mcp.server.ROOT
         self.old_agent = mcp.server.AGENT_DIR
+        self.old_root_env = os.environ.get("AGENT_SCRIBE_GRAPHIFY_ROOT")
+        self.old_fixture_env = os.environ.get(graphify_readiness.FIXTURE_ENV)
         os.chdir(self.root)
-        graphify_out = prepare_state_dirs(self.root)["graphify_out"]
-        graphify_out.mkdir(parents=True, exist_ok=True)
-        for name, content in (("graph.json", "{\"nodes\":[],\"edges\":[]}"), ("GRAPH_REPORT.md", "# Tripwire Test Graph Report\n"), ("graph.html", "<html><body></body></html>\n")):
-            (graphify_out / name).write_text(content, encoding="utf-8")
+        fixture_env = prepare_graphify_fixture(self.root)
+        os.environ["AGENT_SCRIBE_GRAPHIFY_ROOT"] = fixture_env["AGENT_SCRIBE_GRAPHIFY_ROOT"]
+        os.environ[graphify_readiness.FIXTURE_ENV] = fixture_env[graphify_readiness.FIXTURE_ENV]
         mcp.server.ROOT = self.root.resolve()
         mcp.server.AGENT_DIR = self.root / ".agent"
         self.agent = call_tool("bootstrap", host_tool="tripwire-test", model_name="test", run_legacy_bootstrap=False)["agent"]["agent_id"]
@@ -62,6 +70,14 @@ class DirectFsTripwireTest(unittest.TestCase):
         os.chdir(self.old_cwd)
         mcp.server.ROOT = self.old_root
         mcp.server.AGENT_DIR = self.old_agent
+        if self.old_root_env is None:
+            os.environ.pop("AGENT_SCRIBE_GRAPHIFY_ROOT", None)
+        else:
+            os.environ["AGENT_SCRIBE_GRAPHIFY_ROOT"] = self.old_root_env
+        if self.old_fixture_env is None:
+            os.environ.pop(graphify_readiness.FIXTURE_ENV, None)
+        else:
+            os.environ[graphify_readiness.FIXTURE_ENV] = self.old_fixture_env
         self.tmp.cleanup()
 
     def before(self, intent: str = "write", resource: str = "tracked.txt") -> dict[str, str]:
@@ -257,6 +273,194 @@ class DirectFsTripwireTest(unittest.TestCase):
         result = self.audit(ctx)
         self.assertEqual(result["verdict"], "DIRECT_WRITE_BYPASS_DETECTED", result)
         self.assertTrue(any(item["path"] == direct_fs_tripwire.MEMOIRE_FILE for item in result.get("suspects", [])), result)
+
+    def test_23_other_task_receipt_cannot_authorize_current_direct_write(self) -> None:
+        current = self.before(resource="tracked.txt")
+        spoofed = b"spoofed by another task\n"
+        direct_fs_tripwire.record_authorized_mutation(
+            "task-prior",
+            self.agent,
+            "tracked.txt",
+            "tenor_apply_changeset",
+            after_hash=hashlib.sha256(spoofed).hexdigest(),
+            project_root=self.root,
+        )
+        (self.root / "tracked.txt").write_bytes(spoofed)
+        result = self.audit(current)
+        self.assertEqual(result["verdict"], "DIRECT_WRITE_BYPASS_DETECTED", result)
+        self.assertEqual(result["authorized_mutations"], [], result)
+
+    def test_24_direct_delete_is_detected_without_git(self) -> None:
+        (self.root / ".git").rename(Path(self.tmp.name) / ".git-disabled")
+        current = self.before(resource="tracked.txt")
+        (self.root / "tracked.txt").unlink()
+        result = self.audit(current)
+        self.assertEqual(result["verdict"], "DIRECT_WRITE_BYPASS_DETECTED", result)
+        self.assertEqual(result["suspects"][0]["path"], "tracked.txt", result)
+        self.assertEqual(result["suspects"][0]["status"], "ABSENT", result)
+
+    def test_25_active_tenor_write_requires_exact_live_sql_proof(self) -> None:
+        current = self.before(resource="tracked.txt")
+        tenor_changeset.ensure_schema(self.root)
+        submitted = tenor_jobs.submit_job(
+            self.root,
+            kind="changeset",
+            agent_id="other-agent",
+            task_id="other-task",
+            request_id="active-fenced-write",
+            payload={"changes": []},
+            max_runtime_seconds=60,
+            auto_launch=False,
+        )
+        claimed = tenor_jobs.claim_job(self.root, str(submitted["job_id"]))
+        fence = claimed["worker_fence"]
+        changeset_id = "cs-active-fenced-write"
+        before = hashlib.sha256(b"base\n").hexdigest()
+        after = hashlib.sha256(b"tenor concurrent\n").hexdigest()
+        now = int(time.time())
+        with db.connect(self.root) as con:
+            con.execute(
+                f"""
+                INSERT INTO {tenor_changeset.TRANSACTION_TABLE}(
+                  changeset_id,request_id,request_fingerprint,task_id,agent_id,
+                  owner_pid,execution_job_id,worker_instance_id,fence_token,
+                  status,created_at,updated_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    changeset_id,
+                    "active-write-request",
+                    "active-write-fingerprint",
+                    "other-task",
+                    "other-agent",
+                    999_999_999,
+                    submitted["job_id"],
+                    fence["worker_instance_id"],
+                    fence["fence_token"],
+                    "applying",
+                    now,
+                    now,
+                ),
+            )
+            con.execute(
+                f"""
+                INSERT INTO {tenor_changeset.FILE_TABLE}(
+                  changeset_id,ordinal,resource,operation,base_hash,new_hash,
+                  backup_path,staged_path,applied
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    changeset_id,
+                    0,
+                    "tracked.txt",
+                    "replace",
+                    before,
+                    after,
+                    "",
+                    "",
+                    -1,
+                ),
+            )
+            current_time = time.time()
+            con.execute(
+                f"""
+                INSERT INTO {tenor_changeset.LOCK_TABLE}(
+                  lock_id,resource,agent_id,task_id,changeset_id,
+                  execution_job_id,worker_instance_id,fence_token,
+                  mode,created_at,expires_at,heartbeat_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    "lock-active-fenced-write",
+                    "tracked.txt",
+                    "other-agent",
+                    "other-task",
+                    changeset_id,
+                    submitted["job_id"],
+                    fence["worker_instance_id"],
+                    fence["fence_token"],
+                    "exclusive",
+                    current_time,
+                    current_time + 600,
+                    current_time,
+                ),
+            )
+        # Keep the proof byte-exact on Windows, where write_text() translates
+        # LF to CRLF and would otherwise invalidate the expected SHA-256.
+        (self.root / "tracked.txt").write_bytes(b"tenor concurrent\n")
+        attested = self.audit(current)
+        self.assertEqual(attested["verdict"], "WORKSPACE_AUDIT_OK", attested)
+        self.assertTrue(
+            any(
+                item["tool"] == "tenor_active_fenced_write"
+                for item in attested["authorized_mutations"]
+            ),
+            attested,
+        )
+
+        with db.connect(self.root) as con:
+            con.execute(
+                f"UPDATE {tenor_jobs.JOB_TABLE} SET lease_expires_at=? WHERE job_id=?",
+                (int(time.time()) - 1, submitted["job_id"]),
+            )
+        rejected = self.audit(current)
+        self.assertEqual(
+            rejected["verdict"],
+            direct_fs_tripwire.DIRECT_WRITE_BYPASS_DETECTED,
+            rejected,
+        )
+
+    def test_26_canonical_proof_survives_context_flag_window(self) -> None:
+        shutil.copy2(
+            Path(__file__).resolve().parents[3]
+            / direct_fs_tripwire.MEMOIRE_FILE,
+            self.root / direct_fs_tripwire.MEMOIRE_FILE,
+        )
+        current = self.ready(resource="tracked.txt")
+        record = call_tool(
+            "scribe_record",
+            agent_id=self.agent,
+            request="tripwire canonical proof",
+            summary="TRIPWIRE_CANONICAL_PROOF_WINDOW",
+            touched_resources=["tracked.txt"],
+            verdict="PASS",
+            record_type="validation",
+            task_id=current["task_id"],
+            context_token=current["context_token"],
+        )
+        record_path = self.root / record["record_path"]
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        from runtime import canonical_memory_gate
+
+        promoted = canonical_memory_gate.promote_record(
+            self.root,
+            payload,
+            record_path,
+            scope="tracked.txt",
+            memory_policy="canonical_required",
+            agent_id=self.agent,
+            task_id=current["task_id"],
+        )
+        self.assertTrue(promoted["ok"], promoted)
+        with db.connect(self.root) as con:
+            con.execute(
+                """
+                UPDATE task_context_v2
+                SET scribe_record_promoted=0,scribe_record_entry_id=NULL
+                WHERE task_id=? AND agent_id=?
+                """,
+                (current["task_id"], self.agent),
+            )
+        result = self.audit(current)
+        self.assertEqual(result["verdict"], "WORKSPACE_AUDIT_OK", result)
+        self.assertTrue(
+            any(
+                item["patch_id"] == promoted["entry_id"]
+                and item["tool"] == "scribe_promote_record"
+                for item in result["authorized_mutations"]
+            ),
+            result,
+        )
 
 
 if __name__ == "__main__":

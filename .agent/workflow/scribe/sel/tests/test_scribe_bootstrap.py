@@ -3,11 +3,9 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import io
-import os
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -26,6 +24,7 @@ scribe_state = load_script_module("scribe_state")
 update_state_after_write = getattr(scribe_state, "update_state_after_write")
 
 scribe_install_templates = load_script_module("scribe_install_templates")
+TENOR_TRIGGER = getattr(scribe_install_templates, "TENOR_TRIGGER")
 render_scribe_adapter = getattr(scribe_install_templates, "render_scribe_adapter")
 render_scribe_rule = getattr(scribe_install_templates, "render_scribe_rule")
 render_agents_block = getattr(scribe_install_templates, "render_agents_block")
@@ -169,7 +168,7 @@ class ScribeBootstrapTests(unittest.TestCase):
         compile(adapter, "<installed-scribe-adapter>", "exec")
 
     def test_generated_surfaces_use_only_canonical_v216_entry(self) -> None:
-        trigger = "TENOR INIT::[.agent/skills/init-tenor/SKILL.md]"
+        trigger = TENOR_TRIGGER
         for rendered in (render_scribe_rule(), render_agents_block()):
             self.assertIn(trigger, rendered)
             self.assertIn("tenor-init --type", rendered)
@@ -361,18 +360,14 @@ class AtomicTextWriteHardeningTest(unittest.TestCase):
             captured["dir"] = kwargs.get("dir")
             captured["prefix"] = kwargs.get("prefix")
             captured["suffix"] = kwargs.get("suffix")
-            fd, name = real_mkstemp(*args, **kwargs)
-            captured["tmp_name"] = name
-            return fd, name
+            return real_mkstemp(*args, **kwargs)
 
         content = "# Graph Report\n\nBootstrap placeholder.\n"
         with mock.patch.object(tempfile, "mkstemp", fake_mkstemp):
             scribe_bootstrap._atomic_text_write(target, content)
         self.assertEqual(captured["dir"], str(target.parent))
-        self.assertTrue(str(captured["prefix"]).startswith(f".{target.name}."))
+        self.assertEqual(captured["prefix"], f".{target.name}.")
         self.assertEqual(captured["suffix"], ".tmp")
-        self.assertNotIn(str(os.getpid()), captured["tmp_name"])
-        self.assertNotIn(str(time.time_ns()), captured["tmp_name"])
         self.assertEqual(target.read_text(encoding="utf-8"), content)
 
     def test_atomic_text_write_concurrent_no_orphans(self) -> None:

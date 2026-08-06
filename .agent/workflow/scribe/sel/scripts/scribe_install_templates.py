@@ -33,7 +33,7 @@ BUNDLE_RELATIVE_PATH = PORTABLE_RELATIVE_PATH
 BUNDLE_COMMAND = f"{PORTABLE_RELATIVE_PATH}/scribe"
 RAG_COMMAND = f"{PORTABLE_RELATIVE_PATH}/scribe-rag"
 SCRIBE_RULE_PATH = ".agent/rules/scribe.md"
-TENOR_TRIGGER = "TENOR INIT::[.agent/skills/init-tenor/SKILL.md]"
+TENOR_TRIGGER = 'TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]'
 TENOR_SKILL_PATH = ".agent/skills/init-tenor/SKILL.md"
 TENOR_RULE_PATH = ".agent/rules/tenor-init-v2.json"
 DOC_SYNC_PATH = ".agent/docs/DOCUMENTATION_SYNC_POLICY.md"
@@ -84,7 +84,7 @@ def render_scribe_rule() -> str:
         2. classifier l'installation avant SCRIBE ;
         3. purger uniquement l'état copié lié à un ancien root quand la relocation est prouvée ;
         4. adopter ou créer la mémoire SCRIBE de destination ;
-        5. vérifier ou demander le build Graphify borné ;
+        5. provisionner si nécessaire le runtime Graphify project-local épinglé et vérifié, puis exécuter le build borné ;
         6. finaliser le manifest local ;
         7. détecter et configurer uniquement le host project-local vérifié ;
         8. exiger une reconnexion puis une nouvelle init si la configuration change ;
@@ -107,6 +107,7 @@ def render_scribe_rule() -> str:
         - Graphify = structure : quoi, où, comment, dépendances, centralité, communautés, blast radius.
         - SCRIBE = causalité : pourquoi, douleur, décision, régression, SCAR, GHOST, dette, `ne_pas_reproposer`.
         - Les outputs Graphify canoniques vivent sous `.agent/state/outputs/graphify-out/`.
+        - L'absence d'une commande `graphify` globale n'est pas un prérequis utilisateur : TENOR installe atomiquement `graphifyy==0.9.26` sous `.agent/state/runtime/toolchains/`, après vérification SHA-256, puis contrôle son intégrité.
         - Le graphe réel peut exposer `nodes + links` ; le format historique supporté est `nodes + edges`.
         - Un graphe manquant, vide à tort, stub, wrong-root, stale ou contradictoire bloque les writes.
         - Les agents lisent la mémoire via `{RAG_COMMAND}` ou MCP `scribe_query`, jamais en parcourant directement le fichier `.scribe`.
@@ -120,10 +121,15 @@ def render_scribe_rule() -> str:
         ```text
         tenor_task_start(objective, intent, resources, scope)
           -> SCRIBE cible + Graphify cible, executes en interne
+          -> capsule decisionnelle liee aux preuves et ressources
         tenor_apply_changeset(task_id, changes[], validators[])
           -> preflight complet + locks ordonnes + commit atomique ou rollback total
-          -> record SCRIBE runtime + cloture terminale
+          -> validateurs obligatoires + admission memoire + cloture terminale
         ```
+
+        Les mutations texte utilisent `operation=edit` avec des ancres exactes. `replace` signifie le fichier complet et une reduction destructive exige la confirmation chemin/hash avant/hash apres. `create` derive le sentinel nouveau fichier en interne. Une erreur recuperable reste dans le meme task id ; une tache non commitee peut etre annulee sans changeset factice. Aucun fallback ne demande a l'utilisateur d'appliquer un patch manuel.
+
+        Chaque tache terminee persiste exactement un verdict memoire : promotion canonique, runtime-only motive, decision utilisateur requise ou conflit. Une capsule stale apres une ecriture concurrente est rafraichie par le meme `tenor_task_start`, sans tache ni identite de remplacement.
 
         Les writes directs via shell, redirection, `tee`, `sed -i`, `cp`, `mv`, `rm`, outil natif edit/write/apply-patch ou équivalent sont interdits hors MCP.
 
@@ -363,7 +369,8 @@ def render_agents_block() -> str:
         purge only old project-bound runtime when relocation is proven
         preserve canonical outputs and quarantine legacy conflicts
         adopt/create target SCRIBE
-        verify/build and bind Graphify
+        provision/verify the pinned project-local Graphify runtime when required
+        build and bind Graphify
         finalize local installation
         detect/configure the verified project-local host
         reconnect and rerun if host configuration changed
@@ -381,17 +388,27 @@ def render_agents_block() -> str:
         - Never read `AGENT-MEMOIRE_PROJECT_STATUS.scribe` directly for normal agent retrieval; use `{RAG_COMMAND}` or MCP `scribe_query`.
         - SCRIBE results must change the plan or be explicitly challenged; retrieval is not a checkbox.
         - Use Graphify before architecture or broad code changes; prefer targeted structure/blast-radius queries over mass file reads.
+        - A missing global `graphify` command is not a user prerequisite. TENOR provisions the pinned and SHA-256-verified project-local `graphifyy==0.9.26` runtime under `.agent/state/runtime/toolchains/`, then verifies its integrity before every cold-process use.
         - The public task surface is exactly `tenor_task_start`, `tenor_apply_changeset`, `tenor_activity`, `tenor_task_control`; bootstrap retains the five bounded init tools.
-        - `tenor_task_start` performs targeted SCRIBE and Graphify retrieval server-side. The host model must not replay the legacy internal choreography.
-        - Every mutation is submitted as one atomic multi-file `tenor_apply_changeset` with fresh hashes and bounded validator argv arrays; TENOR owns locks, rollback, SCRIBE recording and closure.
+        - `tenor_task_start` performs targeted SCRIBE and Graphify retrieval server-side and returns a hash-bound decision capsule. The host model must not replay the legacy internal choreography.
+        - Every mutation is submitted as one atomic multi-file `tenor_apply_changeset` with exact structured edits, fresh hashes and mandatory bounded validator argv arrays; TENOR owns locks, conditional non-destructive rollback, SCRIBE admission and closure.
+        - `TENOR_CHANGESET_ACCEPTED` and `GRAPHIFY_BUILD_ACCEPTED` are durable non-terminal acknowledgements. Poll `tenor_activity` or `graphify_required_check`; only the terminal job result proves commit, rollback or build completion.
+        - Long validators and Graphify builds run in bounded isolated workers so the MCP stdio loop remains available. Never resubmit an active job or control its task concurrently.
+        - A worker is authoritative only while its SQLite lease is live and its exact `(job_id, worker_instance_id, fence_token)` matches. PIDs are diagnostic only; recovery transfers a monotone fence and an older worker may not heartbeat, publish, rollback or release locks.
+        - Rollback preflights every current hash and restores only bytes still equal to the changeset's declared `new_hash`. A later writer or validator drift produces `TENOR_CHANGESET_ROLLBACK_CONFLICT` and its evidence is preserved.
+        - Graphify freshness uses `relative-path-size-content-sha256-v2`; `mtime` never changes graph identity. A rebuild is single-flight, waits for active changesets and fences new writers until the content-bound graph is current.
+        - Canonical SCRIBE promotion publishes the entry, deterministic digest proof, tripwire receipt and task-context flag transactionally. Every promoted summary is copied to `l0_abstract` and must be semantically retrievable.
+        - `replace` means complete file content. Destructive shrink requires path/base/new-hash confirmation; fragments and manual-patch fallback are forbidden.
+        - Every completed task has an explicit memory-admission verdict. Durable validated source knowledge is promoted; non-causal noise is retained runtime-only with a reason.
         - Native shell/edit/write/apply-patch paths outside MCP are forbidden for project mutation.
-        - A prose-only “done” without a terminal machine verdict and validator evidence is not completion.
+        - A prose-only “done” without a terminal machine verdict, decision capsule, validator evidence and memory admission is not completion.
         - Each terminal uses its own process-bound identity and server-side one-time proof. Task calls never accept caller-supplied `agent_id` or context tokens.
         - `TENOR_INIT_SAME_PROJECT` never repairs the bundle; only the verified project-local MCP entry and binding receipt may be managed automatically.
         - A complete raw copy of `.agent/` is a mandatory supported installation path on Linux, macOS and Windows; relocation is classified from the current root and manifest.
         - Runtime purge preserves `.agent/state/outputs/`; canonical output wins and conflicting legacy output is quarantined under `_legacy_migrated/`.
         - Preserved Graphify output is never trusted automatically; root/fingerprint readiness must pass again.
         - Graphify supports explicit `nodes + links` and historical `nodes + edges`; missing, stale, wrong-root, stub or contradictory graphs are rejected.
+        - Graphify runtime installation is atomic, platform-scoped and single-flight. A policy, wheel-hash, dependency, probe or integrity mismatch fails closed and never publishes a partial runtime.
         - Default commit/push scope is the host product source; `.agent/` changes require intentional tooling maintenance.
         - Always keep `.agent/state/outputs/graphify-out/` and `.agent/state/outputs/scribe-out/` out of commits by default.
         - Documentation and generators move together under `{DOC_SYNC_PATH}`.

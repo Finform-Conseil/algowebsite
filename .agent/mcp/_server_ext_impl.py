@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import server  # type: ignore
-from runtime import db, delete_ops, discipline, patch_queue, root_hygiene, runtime_backup_retention, scribe_commit_gate, task_context, direct_fs_tripwire, canonical_memory_gate  # type: ignore
+from runtime import db, delete_ops, discipline, patch_queue, root_hygiene, runtime_backup_retention, scribe_commit_gate, task_context, direct_fs_tripwire, canonical_memory_gate, graphify_build, graphify_readiness, tenor_jobs  # type: ignore
 from runtime.resource_locks import preflight_apply_patch as _preflight_lock  # type: ignore
 from runtime.state_paths import prepare_state_dirs  # type: ignore
 try:
@@ -809,7 +809,8 @@ def delete_resource(
     if deleted.get("verdict") == "RESOURCE_DELETED":
         direct_fs_tripwire.record_authorized_mutation(
             task_id=task_id, agent_id=agent_id, resource=resource,
-            tool="delete_resource", before_hash=base_hash,
+            tool="delete_resource", patch_id=str(deleted.get("patch_id") or ""),
+            before_hash=base_hash,
             project_root=server.ROOT,
         )
     return server.ok(deleted)
@@ -2007,17 +2008,28 @@ def wait_for_tasks(
         time.sleep(min(interval, max(0.0, deadline - time.monotonic())))
 
 def graphify_project_build(timeout_seconds: int = 180) -> Dict[str, Any]:
-    """Build Graphify through the canonical isolated project wrapper."""
+    """Accept long Graphify builds durably without blocking MCP stdio."""
 
-    timeout = int(timeout_seconds)
-    if timeout < 1 or timeout > 3600:
+    try:
+        timeout = int(timeout_seconds)
+    except (TypeError, ValueError):
+        timeout = 0
+    if timeout < graphify_build.MIN_TIMEOUT_SECONDS or timeout > graphify_build.MAX_TIMEOUT_SECONDS:
         return server.ok({
             "ok": False,
             "verdict": "GRAPHIFY_BUILD_TIMEOUT_INVALID",
-            "state": "HARD_STOP",
-            "reason": "timeout_seconds must be between 1 and 3600.",
+            "minimum": graphify_build.MIN_TIMEOUT_SECONDS,
+            "maximum": graphify_build.MAX_TIMEOUT_SECONDS,
         })
-    ownership = db.workspace_mutation_blockers()
+    if graphify_build.has_active_changeset_transaction(server.ROOT):
+        return server.ok({
+            "ok": False,
+            "verdict": "GRAPHIFY_BUILD_ACTIVE_CHANGESET",
+            "state": "HARD_STOP",
+            "reason": "A TENOR changeset transaction is still mutating project sources.",
+            "rebuilt": False,
+        })
+    ownership = db.workspace_mutation_blockers(server.ROOT)
     if ownership["total"]:
         return server.ok({
             "ok": False,
@@ -2025,57 +2037,72 @@ def graphify_project_build(timeout_seconds: int = 180) -> Dict[str, Any]:
             "state": "HARD_STOP",
             "reason": "Release active product claims before rebuilding the project graph.",
             "ownership": ownership,
+            "rebuilt": False,
         })
-    command = [
-        sys.executable,
-        str(server.ROOT / ".agent" / "workflow" / "scribe" / "scribe"),
-        "graph",
-        "--project-build",
-        "--timeout",
-        str(timeout),
-    ]
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=str(server.ROOT),
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=timeout + 30,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        output = exc.stdout if isinstance(exc.stdout, str) else ""
+    readiness = graphify_readiness.inspect_graphify_readiness(server.ROOT)
+    if readiness.ok:
         return server.ok({
-            "ok": False,
-            "verdict": "GRAPHIFY_BUILD_TIMEOUT",
-            "state": "HARD_STOP",
-            "output": output[-20000:],
+            "ok": True,
+            "verdict": "GRAPHIFY_ALREADY_READY",
+            "state": "GRAPHIFY_READY",
+            "reason": "The project-bound graph already matches the current workspace fingerprint.",
+            "readiness": readiness.to_dict(),
+            "rebuilt": False,
         })
-    output = completed.stdout or ""
-    if completed.returncode != 0:
+    fingerprint = readiness.workspace_fingerprint or graphify_readiness.workspace_fingerprint(server.ROOT)["fingerprint"]
+    agent_id = str(getattr(server, "_MCP_BOUND_AGENT_ID", "") or "").strip()
+    existing_jobs = tenor_jobs.job_snapshot(server.ROOT, kind="graphify_build", limit=100)["jobs"]
+    active_job = next(
+        (job for job in existing_jobs if job.get("status") in tenor_jobs.ACTIVE_STATUSES),
+        None,
+    )
+    if active_job:
         return server.ok({
-            "ok": False,
-            "verdict": "GRAPHIFY_PROJECT_BUILD_FAILED",
-            "state": "HARD_STOP",
-            "returncode": completed.returncode,
-            "output": output[-20000:],
+            "ok": True,
+            "verdict": "GRAPHIFY_BUILD_ACCEPTED",
+            "state": "GRAPHIFY_BUILD_IN_PROGRESS",
+            "job": active_job,
+            "terminal": False,
+            "poll_after_ms": 500,
+            "next_action": "graphify_required_check",
         })
-    readiness = _gg.graphify_readiness.inspect_graphify_readiness(server.ROOT) if _gg is not None else None
-    if readiness is None or not readiness.ok:
-        return server.ok({
-            "ok": False,
-            "verdict": getattr(readiness, "verdict", "GRAPHIFY_VERIFY_UNAVAILABLE"),
-            "state": "HARD_STOP",
-            "output": output[-20000:],
-            "readiness": readiness.to_dict() if readiness is not None else {},
-        })
+    base_request_id = f"graphify-{fingerprint}-{timeout}"
+    previous_same_request = next(
+        (
+            job
+            for job in existing_jobs
+            if job.get("request_id") == base_request_id
+            or str(job.get("request_id") or "").startswith(base_request_id + "-after-")
+        ),
+        None,
+    )
+    request_id = (
+        f"{base_request_id}-after-{previous_same_request['job_id']}"
+        if previous_same_request and previous_same_request.get("status") == "failed"
+        else base_request_id
+    )
+    accepted = tenor_jobs.submit_job(
+        server.ROOT,
+        kind="graphify_build",
+        agent_id=agent_id,
+        task_id="",
+        request_id=request_id,
+        payload={"timeout_seconds": timeout, "workspace_fingerprint": fingerprint},
+        max_runtime_seconds=timeout + graphify_build.PROCESS_GRACE_SECONDS + 120,
+        auto_launch=True,
+    )
+    if not accepted.get("ok"):
+        return server.ok(accepted)
+    snapshot = tenor_jobs.job_snapshot(server.ROOT, job_id=str(accepted.get("job_id") or ""), limit=1)
+    job = snapshot["jobs"][0] if snapshot["jobs"] else accepted
     return server.ok({
         "ok": True,
-        "verdict": "GRAPHIFY_PROJECT_BUILD_OK",
-        "state": "GRAPHIFY_READY",
-        "output": output[-20000:],
-        "readiness": readiness.to_dict(),
+        "verdict": "GRAPHIFY_BUILD_ACCEPTED",
+        "state": "GRAPHIFY_BUILD_IN_PROGRESS",
+        "job": job,
+        "terminal": False,
+        "poll_after_ms": int(accepted.get("poll_after_ms") or 500),
+        "next_action": "graphify_required_check",
     })
 
 
@@ -3000,11 +3027,30 @@ def graphify_required_check(
     else:
         root_path = server.ROOT if hasattr(server, "ROOT") else Path.cwd()
 
+    job_runtime = tenor_jobs.recover_and_launch(root_path)
+    jobs = tenor_jobs.job_snapshot(root_path, kind="graphify_build", limit=1)
+    latest_job = jobs["jobs"][0] if jobs["jobs"] else None
+    if latest_job and latest_job.get("status") in tenor_jobs.ACTIVE_STATUSES:
+        return server.ok({
+            "ok": False,
+            "verdict": "GRAPHIFY_BUILD_IN_PROGRESS",
+            "state": "GRAPHIFY_BUILD_IN_PROGRESS",
+            "blocking": True,
+            "write_allowed": False,
+            "job": latest_job,
+            "job_runtime": job_runtime,
+            "forbidden": _GRAPHIFY_FORBIDDEN,
+            "next_actions": ["graphify_required_check"],
+        })
+
     result = _gg.check_graphify_required(
         workspace_root=root_path,
         host_type="opencode",
         auto_write_guide=True,
     )
+    if latest_job:
+        result["last_build_job"] = latest_job
+    result["job_runtime"] = job_runtime
     _GRAPHIFY_GUARD_CACHE["result"] = result
 
     if result.get("ok") and result.get("write_allowed"):

@@ -18,7 +18,7 @@ OpenCode supports local MCP servers under the `mcp` object in `opencode.jsonc`. 
 Start the host conversation with:
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 The project-local skill must be read before global OpenCode instructions.
@@ -109,9 +109,23 @@ le tool natif `edit` et refuse par défaut toute commande `bash`. Seules les
 quatre formes exactes, sans suffixe shell, de TENOR INIT ci-dessus restent
 autorisées afin qu'une nouvelle session puisse obtenir sa preuve et son identité
 stable sur Linux, macOS ou Windows. Les mutations passent par un unique
-`tenor_apply_changeset` atomique multi-fichier ; la reconstruction
-structurelle passe par `graphify_project_build`. Les validateurs sont fournis
-comme argv bornés au changeset et exécutés sans shell par TENOR.
+`tenor_apply_changeset` atomique multi-fichier. Les modifications textuelles
+utilisent `operation=edit` avec des ancres exactes ; `replace` signifie toujours
+le fichier complet et une réduction destructive exige une confirmation liée
+aux hashes. Au moins un validateur est obligatoire. La capsule SCRIBE/Graphify
+est vérifiée avant l'écriture et la tâche ne se ferme qu'après un verdict
+d'admission mémoire. OpenCode ne demande jamais à l'utilisateur d'appliquer un
+patch manuel. La reconstruction
+structurelle requise par INIT est exécutée par TENOR lui-même, sous son verrou
+partagé et dans la même commande autorisée. OpenCode ne doit donc ni demander
+la commande Graphify à l'utilisateur, ni appeler `graphify_project_build`, ni
+réessayer avec un timeout différent pendant INIT. Hors INIT, la maintenance
+structurelle explicite peut passer par le tool idempotent
+`graphify_project_build`. Un rebuild requis retourne
+`GRAPHIFY_BUILD_ACCEPTED`, qui est non terminal : OpenCode attend
+`poll_after_ms` puis appelle `graphify_required_check` jusqu'au résultat
+terminal. Les validateurs sont fournis comme argv bornés au changeset et
+exécutés sans shell par TENOR.
 
 ## Reconnect requirement
 
@@ -206,11 +220,20 @@ Use two harmless test files in a dedicated validation workspace:
 ```text
 tenor_task_start(objective, intent="write", resources=[file_a, file_b], scope=".")
 tenor_apply_changeset(task_id, changes=[file_a, file_b], validators=[...])
-  -> TENOR_CHANGESET_COMMITTED_TASK_FINISHED
+  -> TENOR_CHANGESET_ACCEPTED (non terminal)
+tenor_activity()
+  -> job.result.verdict=TENOR_CHANGESET_COMMITTED_TASK_FINISHED
 ```
 
+Pendant `queued`, `launching` ou `running`, OpenCode ne resoumet pas le
+changeset. `file_hash`, `tenor_activity`, `portability_check` et les autres
+outils bornés doivent rester disponibles ; `tenor_task_control` refuse une
+clôture concurrente avec `TENOR_TASK_CONTROL_JOB_ACTIVE`.
+
 The proof must also execute one validator failure and confirm both files are
-restored byte-for-byte. Do not use OpenCode's built-in edit/write tool.
+restored byte-for-byte, reject a 2051-to-5-line unconfirmed replacement, and
+show the decision-capsule hash plus memory-admission verdict. Do not use
+OpenCode's built-in edit/write tool or ask the human to apply a patch.
 
 ## Direct-write bypass test
 

@@ -11,7 +11,7 @@ Ce fichier est la règle courte destinée aux LLM hôtes. Il ne remplace pas le 
 Déclencheur humain/LLM :
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 Commande mécanique depuis la racine du projet :
@@ -36,7 +36,7 @@ TENOR INIT doit :
 2. classifier l'installation avant SCRIBE ;
 3. purger uniquement l'état copié lié à un ancien root quand la relocation est prouvée ;
 4. adopter ou créer la mémoire SCRIBE de destination ;
-5. vérifier ou demander le build Graphify borné ;
+5. provisionner si nécessaire le runtime Graphify project-local épinglé et vérifié, puis exécuter le build borné ;
 6. finaliser le manifest local ;
 7. détecter et configurer uniquement le host project-local vérifié ;
 8. exiger une reconnexion puis une nouvelle init si la configuration change ;
@@ -59,6 +59,7 @@ LOCAL_INIT_READY_HOST_MCP_UNBOUND
 - Graphify = structure : quoi, où, comment, dépendances, centralité, communautés, blast radius.
 - SCRIBE = causalité : pourquoi, douleur, décision, régression, SCAR, GHOST, dette, `ne_pas_reproposer`.
 - Les outputs Graphify canoniques vivent sous `.agent/state/outputs/graphify-out/`.
+- L'absence d'une commande `graphify` globale n'est pas un prérequis utilisateur : TENOR installe atomiquement `graphifyy==0.9.26` sous `.agent/state/runtime/toolchains/`, après vérification SHA-256, puis contrôle son intégrité.
 - Le graphe réel peut exposer `nodes + links` ; le format historique supporté est `nodes + edges`.
 - Un graphe manquant, vide à tort, stub, wrong-root, stale ou contradictoire bloque les writes.
 - Les agents lisent la mémoire via `.agent/workflow/scribe/scribe-rag` ou MCP `scribe_query`, jamais en parcourant directement le fichier `.scribe`.
@@ -72,10 +73,15 @@ Avant toute mutation produit :
 ```text
 tenor_task_start(objective, intent, resources, scope)
   -> SCRIBE cible + Graphify cible, executes en interne
+  -> capsule decisionnelle liee aux preuves et ressources
 tenor_apply_changeset(task_id, changes[], validators[])
   -> preflight complet + locks ordonnes + commit atomique ou rollback total
-  -> record SCRIBE runtime + cloture terminale
+  -> validateurs obligatoires + admission memoire + cloture terminale
 ```
+
+Les mutations texte utilisent `operation=edit` avec des ancres exactes. `replace` signifie le fichier complet et une reduction destructive exige la confirmation chemin/hash avant/hash apres. `create` derive le sentinel nouveau fichier en interne. Une erreur recuperable reste dans le meme task id ; une tache non commitee peut etre annulee sans changeset factice. Aucun fallback ne demande a l'utilisateur d'appliquer un patch manuel.
+
+Chaque tache terminee persiste exactement un verdict memoire : promotion canonique, runtime-only motive, decision utilisateur requise ou conflit. Une capsule stale apres une ecriture concurrente est rafraichie par le meme `tenor_task_start`, sans tache ni identite de remplacement.
 
 Les writes directs via shell, redirection, `tee`, `sed -i`, `cp`, `mv`, `rm`, outil natif edit/write/apply-patch ou équivalent sont interdits hors MCP.
 

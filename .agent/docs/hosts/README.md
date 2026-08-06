@@ -7,7 +7,7 @@ This directory contains host-specific integration guides. It is not an OpenCode-
 Human/LLM trigger:
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 Mechanical local command:
@@ -16,21 +16,27 @@ Mechanical local command:
 .agent/workflow/scribe/scribe tenor-init --type <cli|extension|api|unknown> --host <host-id|auto>
 ```
 
-Host integration starts only after the local installation is ready and Graphify is valid.
+Host integration starts only after the local installation is ready and Graphify
+is valid. Canonical TENOR INIT repairs `build_required` itself under the shared
+init lock; the host model must not ask the user to run a separate Graphify
+command or invent a retry. If Graphify is absent globally, TENOR provisions
+the pinned and SHA-256-verified project-local `graphifyy==0.9.26` runtime
+automatically; host configuration must never require a global Graphify path.
 
 ## Universal host order
 
 ```text
 1. detect the real host from explicit identity, environment, or one project marker
-2. configure only the verified project-local entry for OpenCode, Claude Code or Codex
-3. fail closed to the exact guide for other or ambiguous hosts
-4. restart/reconnect and rerun TENOR when configuration changes
-5. prove MCP tools visible to the LLM in the actual host
-6. verify host-process binding and prove MCP root binding
-7. call tenor_init_bridge without exposing the proof bearer token
-8. obtain TENOR_INIT_READY only after the real host confirms every gate
-9. run one complete atomic MCP changeset
-10. test direct-write bypass behavior
+2. provision and verify the project-local Graphify runtime when required
+3. recover a missing/stale Graphify graph once under the shared init lock
+4. configure only the verified project-local entry for OpenCode, Claude Code or Codex
+5. fail closed to the exact guide for other or ambiguous hosts
+6. restart/reconnect and rerun TENOR when configuration changes
+7. prove MCP tools visible to the LLM in the actual host
+8. verify host-process binding and prove MCP root binding
+9. call tenor_init_bridge without exposing the proof bearer token
+10. obtain TENOR_INIT_READY only after the real host confirms every gate
+11. run one complete atomic MCP changeset and test direct-write bypass behavior
 ```
 
 The standard STDIO command for a project-local `.agent` server is:

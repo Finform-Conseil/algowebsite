@@ -15,7 +15,7 @@ TENOR decides the safe order of installation, host binding and task execution.
 Canonical human/LLM trigger:
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 Canonical command:
@@ -34,11 +34,17 @@ Canonical application graph:
 .agent/state/outputs/graphify-out/
 ```
 
-The portable project build is
-`.agent/workflow/scribe/scribe graph --project-build --timeout 180`, or MCP
-`graphify_project_build` after host binding. It builds from an isolated mirror.
-Root `graphify-out/`, `graphify update .` and `graphify watch` are legacy-only
-and forbidden in an application project.
+Canonical TENOR INIT owns the portable bounded project build when readiness is
+missing/stale, serializes it with the shared init lock and continues without a
+new user turn. The explicit maintenance surfaces are
+`.agent/workflow/scribe/scribe graph --project-build --timeout 180` and MCP
+`graphify_project_build`; a host model must not orchestrate them during INIT.
+If Graphify is absent globally, TENOR provisions the pinned
+`graphifyy==0.9.26` runtime under
+`.agent/state/runtime/toolchains/graphify/`, verifies the official wheel
+SHA-256 and the published runtime integrity, then continues automatically.
+The build uses an isolated mirror. Root `graphify-out/`, `graphify update .` and
+`graphify watch` are legacy-only and forbidden in an application project.
 
 It answers:
 

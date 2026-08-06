@@ -12,14 +12,21 @@ This document is the architectural authority for V2.16. It distinguishes:
 
 No category substitutes for another.
 
-The current branch has already proved the local engine on Linux/macOS/Windows CI and on isolated projects, including a real codebase with more than 1,000 source files. The remaining global gate is the real host-LLM proof: tool visibility, root binding, session bridge, complete MCP micro-write and direct-write bypass test.
+V2.16 has proved the local engine on Linux/macOS/Windows CI and on isolated
+projects, including a real codebase with more than 1,000 source files. The
+Graphify zero-setup phase additionally implements and tests a pinned,
+verified, project-local runtime and has terrain-proved it on a fresh Linux
+project without a global Graphify command. Its CI proof requires the dedicated
+Ubuntu/macOS/Windows replay. The next independent global gate is six
+simultaneous real host-LLM processes; six manually launched MCP processes do
+not satisfy it.
 
 ## Canonical entry
 
 Human/LLM trigger:
 
 ```text
-TENOR INIT::[.agent/skills/init-tenor/SKILL.md]
+TENOR INIT ::[— depuis la racine du workspace courant, lis comme un fichier local avec l’outil normal de lecture de fichiers — jamais avec un résolveur de skills — le chemin exact "./.agent/skills/init-tenor/SKILL.md"; n’utilise jamais "~/.agent", "~/.agents" ni aucun chemin global; applique ensuite intégralement ce fichier et continue automatiquement jusqu’à TENOR_INIT_READY, HOST_RECONNECT_REQUIRED ou un verdict FAIL_CLOSED explicite.]
 ```
 
 Mechanical command from the current project root:
@@ -34,7 +41,7 @@ Windows-compatible command:
 py -3 .agent/workflow/scribe/scribe tenor-init --type cli --host <host-id|auto>
 ```
 
-The old `[[.agent/skills/init-tenor/SKILL.md]]` form is compatibility-only. New documentation and templates must emit the canonical trigger above.
+The old `TENOR INIT::[.agent/skills/init-tenor/SKILL.md]` and `[[.agent/skills/init-tenor/SKILL.md]]` forms are compatibility-only. New documentation and templates must emit the explicit project-local trigger above. The trigger is a self-contained instruction to use the host's normal file reader; it is not a request to resolve a global skill.
 
 `bootstrap` is an internal/legacy primitive. It is not the public V2.16 authority for installation, relocation or recovery.
 
@@ -157,6 +164,13 @@ Each terminal then receives an independent session. Agents share runtime, SCRIBE
 
 Manifest finalization is an in-process transaction around write plus gate inspection; the TENOR file lock remains the inter-process authority.
 
+All agents open the shared coordination database through one policy authority.
+The raw-copy-safe default is SQLite rollback journal `DELETE` with
+`synchronous=FULL` and a bounded 30-second busy timeout. WAL is permitted only
+through the operator-controlled `AGENT_SQLITE_JOURNAL_MODE=WAL` opt-in after the
+actual filesystem has passed concurrency and crash-recovery qualification. A
+small host model must never switch journal modes as a task-recovery tactic.
+
 ## Atomic file writes
 
 Portable atomic writes must use exclusively created temporary files in the destination directory, `fsync`, then `os.replace`.
@@ -208,13 +222,31 @@ GRAPHIFY_MANIFEST_INVALID
 
 Smoke fixtures have an explicit scoped lifecycle and are forbidden in terrain TENOR INIT.
 
-Project build is explicit and bounded:
+Project build is bounded and single-flight. On the canonical init path,
+`build_required` is recovered inside the same TENOR INIT invocation while the
+shared init lock is held. Concurrent terminals wait and recheck readiness, so
+only one build executes and no host model asks the user to run a command.
+
+If no global Graphify command exists, TENOR provisions the pinned
+`graphifyy==0.9.26` runtime under the platform-scoped
+`.agent/state/runtime/toolchains/graphify/` tree. It accepts only the exact
+policy and binary dependencies, verifies the official wheel SHA-256, probes
+the isolated module and publishes atomically with an integrity manifest.
+Concurrent installers share a separate owned lock and converge to one
+runtime. Policy, wheel, dependency, probe or integrity failure is fail-closed.
+The full contract and replay are in `.agent/docs/GRAPHIFY_ZERO_SETUP.md`.
+
+The explicit maintenance/CI primitive remains:
 
 ```bash
 .agent/workflow/scribe/scribe graph --project-build --timeout 180
 ```
 
-TENOR INIT never launches a hidden heavy build. A human may explicitly increase the bound for a large codebase.
+TENOR INIT prints `TENOR_INIT_STAGE rebuild_graphify_single_flight` before the
+build; it is therefore visible, bounded and not hidden. A workspace fingerprint
+change during the build invalidates the readiness manifest instead of blessing
+a stale snapshot. A human may explicitly increase the bound only on the
+maintenance path outside the host-driven init.
 
 ## SCRIBE operational contract
 
@@ -226,7 +258,15 @@ Before any significant task, retrieve targeted causal context. Results must infl
 - decision/invariant — current constraint;
 - debt — accepted active risk.
 
-Executing a query and ignoring it is not memory use. A runtime `scribe_record` receipt is not automatically canonical memory.
+Executing a query and ignoring it is not memory use. `tenor_task_start` binds
+the targeted SCRIBE and Graphify evidence, canonical-memory hash, Graphify
+manifest hash and exact resources into a decision capsule. A write cannot use
+the capsule after those authorities drift; the identical start call refreshes
+it inside the same task id.
+
+A runtime `scribe_record` receipt is not automatically canonical memory. Every
+completed task is classified as `promote`, `runtime_only` with an auditable
+reason, `ask_user` or `conflict`. There is no silent memory drop.
 
 The Graphify/SCRIBE bridge refuses structural drift analysis on missing, stub, stale or wrong-root graphs.
 
@@ -237,10 +277,11 @@ A mutation requires:
 ```text
 tenor_task_start(objective, intent, resources, scope)
   -> internal targeted SCRIBE and Graphify
+  -> hash-bound decision capsule
 tenor_apply_changeset(task_id, changes[], validators[])
   -> preflight all paths, hashes and locks before any write
   -> commit every file or rollback every file
-  -> runtime SCRIBE evidence and terminal closure
+  -> mandatory validation + memory admission + terminal closure
 ```
 
 Native host shell/edit/write/apply-patch paths are not accepted as equivalent.
@@ -250,10 +291,18 @@ description libre reste dans l'objectif. L'identité est liée au processus MCP
 après le bridge et n'est plus fournie par le LLM. Une identité ne possède
 qu'une tâche active et ne peut ni retirer ni contrôler un autre agent.
 
-Une tâche multi-fichier reste une seule transaction. Elle exige un hash frais
-par fichier, refuse traversal/symlinks/scope escape, acquiert des locks ordonnés
-et exécute des validateurs argv bornés sans shell. Toute erreur restaure tous
-les fichiers. Un record runtime n'est émis qu'après commit et validation.
+Une tâche multi-fichier reste une seule transaction. `edit` applique plusieurs
+remplacements structurés à ancres exactes dans un même fichier. `replace`
+signifie le fichier complet : une réduction destructive exige une confirmation
+liée au chemin et aux hashes avant/après. `create` déduit le sentinel nouveau
+fichier en interne. La transaction refuse traversal/symlinks/scope escape,
+acquiert des locks ordonnés et exige au moins un validateur argv borné sans
+shell. Toute erreur restaure tous les fichiers. Un record runtime n'est émis
+qu'après commit et validation, puis il est filtré/promu avant la clôture.
+
+Un payload invalide ou une ancre ambiguë se corrige dans la même tâche. Une
+tâche non commitée peut être annulée directement, sans changeset factice. Aucun
+fallback ne demande à l'utilisateur d'appliquer un patch manuel.
 
 Les anciens outils fins restent internes pour compatibilité ; ils ne sont pas
 annoncés au host et ne doivent pas être orchestrés manuellement.
@@ -337,7 +386,12 @@ exact host id, so OpenCode must never try `--host auto` before the allowed
 
 Exit code `78` is a deterministic safety verdict, not a transient network error. Policy, import, JSON and argument failures surface immediately. Exponential retries are reserved for explicitly transient conditions and remain bounded.
 
-If the Graphify binary is missing but a valid, current, bound graph exists, structural reads may continue while rebuild remains unavailable. If the graph becomes stale, writes are blocked.
+If the Graphify runtime is missing but a valid, current, bound graph exists,
+structural reads may continue. The first source mutation is nevertheless
+blocked until the pinned project-local runtime is provisioned and answers its
+probe, because that mutation would make the graph stale and could otherwise
+strand the next session. A stale graph always blocks writes until a real
+project build succeeds.
 
 ## Portability
 

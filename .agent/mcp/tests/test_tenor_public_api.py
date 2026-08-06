@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -15,8 +16,9 @@ if str(MCP_DIR) not in sys.path:
     sys.path.insert(0, str(MCP_DIR))
 
 import server_ext as mcp
-from runtime import db, task_context, tenor_public_api
+from runtime import db, task_context, tenor_jobs, tenor_public_api
 from _strict_cleanup import remove_tree_strict
+from _workspace_fixture import prepare_graphify_fixture
 
 
 class TenorPublicApiTest(unittest.TestCase):
@@ -31,12 +33,16 @@ class TenorPublicApiTest(unittest.TestCase):
         self.old_bound = getattr(mcp.server, "_MCP_BOUND_AGENT_ID", "")
         self.old_scribe = mcp.server.scribe_query
         self.old_graphify = mcp.server.graphify_query
+        self.old_graphify_preflight = tenor_public_api.graphify_guard.check_graphify_required
+        self.old_graphify_fixture_env = os.environ.get("AGENT_ALLOW_GRAPHIFY_TEST_FIXTURE")
         os.chdir(self.root)
         mcp.server.ROOT = self.root
         db.init_db(self.root)
         db.register_agent("test", "unit", "agent-a")
         mcp.server._MCP_BOUND_AGENT_ID = "agent-a"
         tenor_public_api.ensure_schema(self.root)
+        fixture_env = prepare_graphify_fixture(self.root)
+        os.environ["AGENT_ALLOW_GRAPHIFY_TEST_FIXTURE"] = fixture_env["AGENT_ALLOW_GRAPHIFY_TEST_FIXTURE"]
 
         def fake_scribe_query(
             query: str,
@@ -77,11 +83,22 @@ class TenorPublicApiTest(unittest.TestCase):
 
         mcp.server.scribe_query = fake_scribe_query
         mcp.server.graphify_query = fake_graphify_query
+        tenor_public_api.graphify_guard.check_graphify_required = lambda **_: {
+            "ok": True,
+            "verdict": "GRAPHIFY_READY",
+            "blocking": False,
+            "write_allowed": True,
+        }
 
     def tearDown(self) -> None:
         tenor_public_api._TASK_TOKENS.clear()
         mcp.server.scribe_query = self.old_scribe
         mcp.server.graphify_query = self.old_graphify
+        tenor_public_api.graphify_guard.check_graphify_required = self.old_graphify_preflight
+        if self.old_graphify_fixture_env is None:
+            os.environ.pop("AGENT_ALLOW_GRAPHIFY_TEST_FIXTURE", None)
+        else:
+            os.environ["AGENT_ALLOW_GRAPHIFY_TEST_FIXTURE"] = self.old_graphify_fixture_env
         mcp.server._MCP_BOUND_AGENT_ID = self.old_bound
         mcp.server.ROOT = self.old_root
         os.chdir(self.old_cwd)
@@ -96,6 +113,21 @@ class TenorPublicApiTest(unittest.TestCase):
             "params": {"name": tool, "arguments": arguments},
         })
         return json.loads(response["result"]["content"][0]["text"])
+
+    def wait_changeset(self, accepted: dict[str, object], timeout_seconds: float = 20.0) -> dict[str, object]:
+        self.assertEqual(accepted.get("verdict"), "TENOR_CHANGESET_ACCEPTED", accepted)
+        job = accepted.get("job") or {}
+        job_id = str(job.get("job_id") or "")
+        self.assertTrue(job_id, accepted)
+        deadline = time.monotonic() + timeout_seconds
+        current: dict[str, object] = {}
+        while time.monotonic() < deadline:
+            snapshot = tenor_jobs.job_snapshot(self.root, job_id=job_id, limit=1)
+            current = snapshot["jobs"][0]
+            if current["status"] in tenor_jobs.TERMINAL_STATUSES:
+                return dict(current.get("result") or {})
+            time.sleep(0.05)
+        self.fail(f"changeset job did not terminate: {current}")
 
     def test_tools_list_advertises_only_bootstrap_plus_four_task_tools(self) -> None:
         response = mcp.handle({"jsonrpc": "2.0", "id": "tools", "method": "tools/list", "params": {}})
@@ -124,9 +156,31 @@ class TenorPublicApiTest(unittest.TestCase):
         self.assertEqual(result["verdict"], "TENOR_TASK_READY")
         self.assertEqual(result["scribe"]["verdict"], "SCRIBE_QUERY_DONE")
         self.assertEqual(result["graphify"]["verdict"], "GRAPHIFY_QUERY_DONE")
+        self.assertEqual(result["decision_capsule"]["verdict"], "TENOR_DECISION_CAPSULE_READY")
+        self.assertEqual(len(result["decision_capsule"]["capsule_hash"]), 64)
         task = task_context.task_status(result["task_id"])
         self.assertTrue(task["scribe_done"])
         self.assertTrue(task["graphify_done"])
+
+    def test_write_task_is_not_created_when_graphify_cannot_rebuild_after_first_mutation(self) -> None:
+        tenor_public_api.graphify_guard.check_graphify_required = lambda **_: {
+            "ok": False,
+            "verdict": "GRAPHIFY_REQUIRED_NOT_INSTALLED",
+            "blocking": True,
+            "write_allowed": False,
+        }
+        result = self.call(
+            "tenor_task_start",
+            objective="mutate only when graph recovery is available",
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["verdict"], "TENOR_GRAPHIFY_WRITE_PREFLIGHT_FAILED")
+        self.assertEqual(result["graphify"]["verdict"], "GRAPHIFY_REQUIRED_NOT_INSTALLED")
+        with db.connect(self.root) as con:
+            count = con.execute("SELECT COUNT(*) AS count FROM tenor_task_activity_v1").fetchone()["count"]
+        self.assertEqual(count, 0)
 
     def test_identical_retry_rehydrates_blocked_task_without_creating_a_duplicate(self) -> None:
         working_scribe = mcp.server.scribe_query
@@ -177,7 +231,7 @@ class TenorPublicApiTest(unittest.TestCase):
             resources=["src/feature.txt"],
         )
         before_hash = hashlib.sha256(b"before\n").hexdigest()
-        result = self.call(
+        accepted = self.call(
             "tenor_apply_changeset",
             task_id=started["task_id"],
             changes=[{
@@ -193,6 +247,7 @@ class TenorPublicApiTest(unittest.TestCase):
             summary="feature replacement validated",
             request_id="public-api-success",
         )
+        result = self.wait_changeset(accepted)
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["verdict"], "TENOR_CHANGESET_COMMITTED_TASK_FINISHED")
         self.assertTrue(result["terminal"])
@@ -200,6 +255,231 @@ class TenorPublicApiTest(unittest.TestCase):
         self.assertEqual(task_context.task_status(started["task_id"])["status"], "finished")
         record = self.root / result["scribe_record"]["record_path"]
         self.assertTrue(record.is_file())
+        self.assertEqual(result["memory_admission"]["decision"], "runtime_only")
+        self.assertEqual(result["decision_capsule"]["verdict"], "TENOR_DECISION_CAPSULE_RESOLVED")
+
+    def test_slow_changeset_does_not_starve_other_public_tools(self) -> None:
+        started = self.call(
+            "tenor_task_start",
+            objective="validate without blocking the MCP transport",
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        request_started = time.monotonic()
+        accepted = self.call(
+            "tenor_apply_changeset",
+            task_id=started["task_id"],
+            changes=[{
+                "path": "src/feature.txt",
+                "operation": "replace",
+                "base_hash": hashlib.sha256(b"before\n").hexdigest(),
+                "content": "after\n",
+            }],
+            validators=[{
+                "argv": [sys.executable, "-c", "import time; time.sleep(2)"],
+                "timeout_seconds": 20,
+            }],
+            request_id="public-api-slow-validator",
+        )
+        acceptance_duration = time.monotonic() - request_started
+        self.assertEqual(accepted["verdict"], "TENOR_CHANGESET_ACCEPTED", accepted)
+        # Creating a detached Python worker is measurably slower on Windows
+        # runners; the contract is still asynchronous and bounded well below
+        # the two-second validator itself.
+        acceptance_limit = 3.0 if os.name == "nt" else 1.5
+        self.assertLess(acceptance_duration, acceptance_limit, accepted)
+
+        probe_started = time.monotonic()
+        file_hash = self.call("file_hash", resource="src/feature.txt")
+        activity = self.call("tenor_activity", include_history=5)
+        portability = self.call("portability_check", workspace_root=str(self.root))
+        probe_duration = time.monotonic() - probe_started
+        self.assertEqual(file_hash["verdict"], "FILE_HASH", file_hash)
+        self.assertEqual(activity["verdict"], "TENOR_ACTIVITY_SNAPSHOT", activity)
+        self.assertGreaterEqual(activity["jobs"]["active"], 1, activity)
+        self.assertIn("ok", portability, portability)
+        self.assertLess(probe_duration, 1.5, {
+            "file_hash": file_hash,
+            "activity": activity,
+            "portability": portability,
+        })
+        result = self.wait_changeset(accepted)
+        self.assertTrue(result["ok"], result)
+
+    def test_capsule_drift_blocks_write_and_preserves_file(self) -> None:
+        started = self.call(
+            "tenor_task_start",
+            objective="fix feature safely",
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        memory = self.root / "AGENT-MEMOIRE_PROJECT_STATUS.scribe"
+        memory.write_bytes(
+            (ROOT / "AGENT-MEMOIRE_PROJECT_STATUS.scribe").read_bytes()
+            + b"\n# concurrent valid update\n"
+        )
+        result = self.call(
+            "tenor_apply_changeset",
+            task_id=started["task_id"],
+            changes=[{
+                "path": "src/feature.txt",
+                "operation": "edit",
+                "base_hash": hashlib.sha256(b"before\n").hexdigest(),
+                "edits": [{"old_text": "before", "new_text": "after", "expected_occurrences": 1}],
+            }],
+            validators=[{
+                "argv": [sys.executable, "-c", "raise SystemExit(0)"],
+                "timeout_seconds": 20,
+            }],
+        )
+        self.assertEqual(result["verdict"], "TENOR_DECISION_CAPSULE_STALE")
+        self.assertEqual((self.root / "src" / "feature.txt").read_text(encoding="utf-8"), "before\n")
+        refreshed = self.call(
+            "tenor_task_start",
+            objective="fix feature safely",
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        self.assertTrue(refreshed["ok"], refreshed)
+        self.assertEqual(refreshed["verdict"], "TENOR_TASK_RESUMED")
+        self.assertEqual(refreshed["task_id"], started["task_id"])
+        self.assertEqual(refreshed["decision_capsule"]["verdict"], "TENOR_DECISION_CAPSULE_REFRESHED")
+        committed_accepted = self.call(
+            "tenor_apply_changeset",
+            task_id=started["task_id"],
+            changes=[{
+                "path": "src/feature.txt",
+                "operation": "edit",
+                "base_hash": hashlib.sha256(b"before\n").hexdigest(),
+                "edits": [{"old_text": "before", "new_text": "after", "expected_occurrences": 1}],
+            }],
+            validators=[{
+                "argv": [sys.executable, "-c", "from pathlib import Path; assert Path('src/feature.txt').read_text() == 'after\\n'"],
+                "timeout_seconds": 20,
+            }],
+        )
+        committed = self.wait_changeset(committed_accepted)
+        self.assertTrue(committed["ok"], committed)
+
+    def test_failed_write_task_can_be_cancelled_without_noop_changeset(self) -> None:
+        started = self.call(
+            "tenor_task_start",
+            objective="fix feature safely",
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        failed_accepted = self.call(
+            "tenor_apply_changeset",
+            task_id=started["task_id"],
+            changes=[{
+                "path": "src/feature.txt",
+                "operation": "edit",
+                "base_hash": hashlib.sha256(b"before\n").hexdigest(),
+                "edits": [{"old_text": "missing", "new_text": "after", "expected_occurrences": 1}],
+            }],
+            validators=[{
+                "argv": [sys.executable, "-c", "raise SystemExit(0)"],
+                "timeout_seconds": 20,
+            }],
+        )
+        failed = self.wait_changeset(failed_accepted)
+        self.assertEqual(failed["verdict"], "TENOR_CHANGESET_EDIT_ANCHOR_MISMATCH")
+        cancelled = self.call("tenor_task_control", task_id=started["task_id"], action="cancel")
+        self.assertTrue(cancelled["ok"], cancelled)
+        self.assertEqual(cancelled["verdict"], "TENOR_TASK_CANCELLED")
+        replacement = self.call(
+            "tenor_task_start",
+            objective="new clean task",
+            intent="read",
+            resources=["src/feature.txt"],
+        )
+        self.assertTrue(replacement["ok"], replacement)
+
+    def test_ambiguous_memory_admission_blocks_reapply_until_user_resolves_it(self) -> None:
+        objective = "choose between two incompatible persistence architectures"
+        started = self.call(
+            "tenor_task_start",
+            objective=objective,
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        committed_accepted = self.call(
+            "tenor_apply_changeset",
+            task_id=started["task_id"],
+            changes=[{
+                "path": "src/feature.txt",
+                "operation": "edit",
+                "base_hash": hashlib.sha256(b"before\n").hexdigest(),
+                "edits": [{"old_text": "before", "new_text": "after", "expected_occurrences": 1}],
+            }],
+            validators=[{
+                "argv": [sys.executable, "-c", "raise SystemExit(0)"],
+                "timeout_seconds": 20,
+            }],
+            summary="decision pending user approval",
+        )
+        committed = self.wait_changeset(committed_accepted)
+        self.assertEqual(committed["verdict"], "TENOR_CHANGESET_COMMITTED_MEMORY_DECISION_REQUIRED")
+        self.assertFalse(committed["terminal"])
+        repeated_start = self.call(
+            "tenor_task_start",
+            objective=objective,
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        self.assertEqual(repeated_start["verdict"], "TENOR_MEMORY_ADMISSION_USER_DECISION_REQUIRED")
+        resolved = self.call(
+            "tenor_task_control",
+            task_id=started["task_id"],
+            action="memory_skip",
+            summary="User explicitly keeps this experimental choice out of canonical project memory.",
+        )
+        self.assertTrue(resolved["ok"], resolved)
+        self.assertTrue(resolved["terminal"])
+
+    def test_changeset_schema_forces_safe_shape_for_small_models(self) -> None:
+        schema = tenor_public_api.tool_schema("tenor_apply_changeset")
+        self.assertIn("validators", schema["required"])
+        self.assertEqual(schema["properties"]["validators"]["minItems"], 1)
+        change = schema["properties"]["changes"]["items"]
+        self.assertIn("edit", change["properties"]["operation"]["enum"])
+        self.assertIn("edits", change["properties"])
+        self.assertNotIn("base_hash", change["required"])
+        self.assertIn("confirm_full_replacements", schema["properties"])
+
+    def test_validator_cannot_silently_mutate_an_unscoped_file_and_finish(self) -> None:
+        started = self.call(
+            "tenor_task_start",
+            objective="fix feature safely",
+            intent="write",
+            resources=["src/feature.txt"],
+        )
+        accepted = self.call(
+            "tenor_apply_changeset",
+            task_id=started["task_id"],
+            changes=[{
+                "path": "src/feature.txt",
+                "operation": "edit",
+                "base_hash": hashlib.sha256(b"before\n").hexdigest(),
+                "edits": [{"old_text": "before", "new_text": "after", "expected_occurrences": 1}],
+            }],
+            validators=[{
+                "argv": [
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; Path('src/outside.txt').write_text('bypass')",
+                ],
+                "timeout_seconds": 20,
+            }],
+        )
+        result = self.wait_changeset(accepted)
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["verdict"], "TENOR_CHANGESET_UNAUTHORIZED_MUTATION_ROLLED_BACK")
+        self.assertFalse(result["terminal"])
+        self.assertEqual((self.root / "src" / "feature.txt").read_text(encoding="utf-8"), "before\n")
+        self.assertEqual((self.root / "src" / "outside.txt").read_text(encoding="utf-8"), "bypass")
+        self.assertEqual(result["restored"], ["src/feature.txt"])
+        self.assertEqual(result["workspace_audit"]["verdict"], "DIRECT_WRITE_BYPASS_DETECTED")
 
     def test_other_bound_agent_cannot_control_or_apply_first_agents_task(self) -> None:
         started = self.call(
