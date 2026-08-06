@@ -2,6 +2,7 @@ import React from "react";
 import type { AuditTrailItem } from "../data/sidebarDataTypes";
 
 const HIDDEN_AUDIT_LABELS = new Set(["Source", "Date"]);
+const DISPLAY_NONE_AUDIT_LABELS = new Set(["Formule", "Devise"]);
 
 export const SidebarUnavailableState = ({ message }: { message: string }) => (
   <div className="gp-sidebar-unavailable-state" role="status">
@@ -41,7 +42,7 @@ export const SidebarAuditTrail = React.memo(({ items }: { items: AuditTrailItem[
             key={item.label + "-" + item.value}
             title={item.label + ": " + item.value}
             style={{
-              display: "inline-flex",
+              display: DISPLAY_NONE_AUDIT_LABELS.has(item.label) ? "none" : "inline-flex",
               alignItems: "center",
               gap: "2px",
               maxWidth: "100%",
