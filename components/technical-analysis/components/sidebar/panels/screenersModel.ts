@@ -1,10 +1,11 @@
-import type { BRVMSecurity } from "@/core/data/brvm-securities";
+import type { BRVMScreenerSecurity } from "../data/sidebarFetchers";
 import type { LiveSnapshot } from "../../../config/market/marketSnapshotTypes";
 
-export type ScreenerFilterId = "all" | "brvm" | "watchlist" | "price" | "change" | "marketCap" | "pe" | "eps" | "sector" | "bonds";
+export type ScreenerFilterId = "all" | "brvm" | "exchange" | "watchlist" | "price" | "change" | "marketCap" | "pe" | "eps" | "sector" | "bonds";
 export type ScreenerMetricKey = "price" | "change" | "marketCap" | "pe" | "eps";
 export type ScreenerSortId = "ticker" | ScreenerMetricKey;
 export type ScreenerRangeBound = "min" | "max";
+export type ScreenerSortDirection = "asc" | "desc";
 
 export interface ScreenerNumericRange {
   enabled: boolean;
@@ -17,7 +18,9 @@ export interface ScreenerState {
   query: string;
   ranges: Record<ScreenerMetricKey, ScreenerNumericRange>;
   sectors: string[];
+  exchanges: string[];
   sortId: ScreenerSortId;
+  sortDirection: ScreenerSortDirection;
   watchlistTickers: string[];
 }
 
@@ -31,9 +34,10 @@ export interface ScreenerRow {
   country: string;
   epsLabel: string;
   epsValue: number | null;
+  exchange: string;
   isActive: boolean;
   marketCapLabel: string;
-  marketCapValue: number;
+  marketCapValue: number | null;
   name: string;
   peLabel: string;
   peValue: number | null;
@@ -53,12 +57,13 @@ export interface ScreenerBuildInput {
   livePrice: number | null | undefined;
   liveVolume: number | null | undefined;
   marketSnapshots: Record<string, LiveSnapshot>;
-  securities: BRVMSecurity[];
+  securities: BRVMScreenerSecurity[];
 }
 
 export const SCREENERS_FILTERS: Array<{ id: ScreenerFilterId; label: string }> = [
   { id: "all", label: "All stocks" },
   { id: "brvm", label: "BRVM" },
+  { id: "exchange", label: "Exchange" },
   { id: "watchlist", label: "Watchlist" },
   { id: "price", label: "Price" },
   { id: "change", label: "Chg %" },
@@ -74,9 +79,41 @@ export const SCREENERS_PERSISTENCE_SCHEMA_VERSION = 1;
 
 const MAX_QUERY_LENGTH = 80;
 const MAX_SECTOR_FILTERS = 16;
+const MAX_EXCHANGE_FILTERS = 16;
 const MAX_WATCHLIST_TICKERS = 120;
 const SEARCH_ACCENT_PATTERN = /[\u0300-\u036f]/g;
 const TICKER_PATTERN = /^[A-Z0-9._-]{1,16}$/;
+
+export const SECTOR_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
+  "Activités des ménages en tant qu'employeurs; activités indifférenciées": "Services aux ménages",
+  "Activités immobilières, location et services aux entreprises": "Immobilier & services",
+  "Administration publique et défense; sécurité sociale obligatoire": "Administration publique",
+  "Commerce de gros et de détail; réparation de véhicules automobiles et de motocycles": "Commerce & réparations",
+  "Hébergement et restauration": "Hôtellerie & restauration",
+  "Industrie manufacturière": "Industrie",
+  "Information et communication": "Médias & télécoms",
+  "Mines, industries extractives et autres industries extractives": "Mines",
+  "Production et distribution d'électricité, de gaz, de vapeur et d'air conditionné": "Énergie",
+  "Production et distribution d'eau; assainissement, gestion des déchets et dépollution": "Eau & assainissement",
+  "Santé humaine et action sociale": "Santé",
+  "Services financiers et assurance": "Banques & assurances",
+  "Transports et entreposage": "Transports",
+};
+
+export const MAX_SECTOR_LABEL_LENGTH = 32;
+const SECTOR_LABEL_SEPARATOR_PATTERN = /[,;]| -- /;
+
+export const compactSectorLabel = (sector: string): string => {
+  const trimmed = sector.trim();
+  if (!trimmed) return trimmed;
+  const override = SECTOR_LABEL_OVERRIDES[trimmed];
+  if (override) return override;
+  if (trimmed.length <= MAX_SECTOR_LABEL_LENGTH) return trimmed;
+  const separator = trimmed.match(SECTOR_LABEL_SEPARATOR_PATTERN);
+  if (!separator || separator.index === undefined) return trimmed;
+  const truncated = trimmed.slice(0, separator.index).trim();
+  return truncated || trimmed;
+};
 
 const emptyRange = (): ScreenerNumericRange => ({ enabled: false, max: "", min: "" });
 
@@ -88,13 +125,15 @@ export const createEmptyScreenerRanges = (): Record<ScreenerMetricKey, ScreenerN
   price: emptyRange(),
 });
 
-export const createDefaultScreenerState = (activeTicker = ""): ScreenerState => ({
+export const createDefaultScreenerState = (): ScreenerState => ({
   activeFilter: "all",
   query: "",
   ranges: createEmptyScreenerRanges(),
   sectors: [],
+  exchanges: [],
   sortId: "marketCap",
-  watchlistTickers: sanitizeTickerList(activeTicker ? [activeTicker] : []),
+  sortDirection: "desc",
+  watchlistTickers: [],
 });
 
 export const isMetricFilterId = (filterId: ScreenerFilterId): filterId is ScreenerMetricKey => (
@@ -140,7 +179,7 @@ const toFiniteValue = (value: number | null | undefined) => (
   value !== null && value !== undefined && Number.isFinite(value) ? value : null
 );
 
-export const isListedEquity = (security: BRVMSecurity) => (
+export const isListedEquity = (security: BRVMScreenerSecurity) => (
   security.status !== "delisted" && security.sector !== "Delisted" && security.sector !== "Market Indices"
 );
 
@@ -156,9 +195,9 @@ export const buildScreenerRows = ({
   .map((security) => {
     const snapshot = marketSnapshots[security.ticker];
     const isActive = security.ticker === activeTicker;
-    const price = toFiniteValue(snapshot?.price) ?? (isActive ? toFiniteValue(livePrice) : null);
-    const volume = toFiniteValue(snapshot?.volume) ?? (isActive ? toFiniteValue(liveVolume) : null);
-    const changePercent = readSnapshotChangePercent(snapshot) ?? security.priceChangeD1;
+    const price = toFiniteValue(security.price) ?? toFiniteValue(snapshot?.price) ?? (isActive ? toFiniteValue(livePrice) : null);
+    const volume = toFiniteValue(security.volume) ?? toFiniteValue(snapshot?.volume) ?? (isActive ? toFiniteValue(liveVolume) : null);
+    const changePercent = toFiniteValue(security.priceChangeD1) ?? readSnapshotChangePercent(snapshot);
     const currency = security.currency || activeCurrency;
     const searchText = normalizeSearchText([
       security.ticker,
@@ -174,12 +213,13 @@ export const buildScreenerRows = ({
       country: security.country || "UEMOA",
       epsLabel: formatPercent(security.epsT12M),
       epsValue: toFiniteValue(security.epsT12M),
+      exchange: security.exchange || "BRVM",
       isActive,
       marketCapLabel: formatMarketCap(security.marketCap),
       marketCapValue: security.marketCap,
       name: security.name,
       peLabel: formatNumber(security.peRatio),
-      peValue: security.peRatio > 0 ? security.peRatio : null,
+      peValue: security.peRatio !== null && security.peRatio > 0 ? security.peRatio : null,
       priceLabel: price === null ? "N/D" : `${formatInteger(price)} ${currency}`,
       priceValue: price,
       searchText,
@@ -191,18 +231,11 @@ export const buildScreenerRows = ({
     };
   });
 
-const compareNullableDesc = (left: number | null, right: number | null) => {
+const compareNullable = (left: number | null, right: number | null, direction: ScreenerSortDirection) => {
   if (left === null && right === null) return 0;
   if (left === null) return 1;
   if (right === null) return -1;
-  return right - left;
-};
-
-const compareNullableAsc = (left: number | null, right: number | null) => {
-  if (left === null && right === null) return 0;
-  if (left === null) return 1;
-  if (right === null) return -1;
-  return left - right;
+  return direction === "asc" ? left - right : right - left;
 };
 
 const getRowMetricValue = (row: ScreenerRow, metricKey: ScreenerMetricKey) => {
@@ -213,12 +246,17 @@ const getRowMetricValue = (row: ScreenerRow, metricKey: ScreenerMetricKey) => {
   return row.epsValue;
 };
 
-const compareRows = (activeTicker: string, sortId: ScreenerSortId) => (left: ScreenerRow, right: ScreenerRow) => {
-  if (sortId === "price") return compareNullableDesc(left.priceValue, right.priceValue) || right.marketCapValue - left.marketCapValue;
-  if (sortId === "change") return compareNullableDesc(left.changePercent, right.changePercent) || right.marketCapValue - left.marketCapValue;
-  if (sortId === "marketCap") return right.marketCapValue - left.marketCapValue;
-  if (sortId === "pe") return compareNullableAsc(left.peValue, right.peValue) || right.marketCapValue - left.marketCapValue;
-  if (sortId === "eps") return compareNullableDesc(left.epsValue, right.epsValue) || right.marketCapValue - left.marketCapValue;
+const compareRows = (activeTicker: string, sortId: ScreenerSortId, direction: ScreenerSortDirection) => (left: ScreenerRow, right: ScreenerRow) => {
+  const marketCapDelta = (left: ScreenerRow, right: ScreenerRow, direction: ScreenerSortDirection) => {
+    const a = left.marketCapValue ?? -Infinity;
+    const b = right.marketCapValue ?? -Infinity;
+    return direction === "asc" ? a - b : b - a;
+  };
+  if (sortId === "price") return compareNullable(left.priceValue, right.priceValue, direction) || marketCapDelta(left, right, direction);
+  if (sortId === "change") return compareNullable(left.changePercent, right.changePercent, direction) || marketCapDelta(left, right, direction);
+  if (sortId === "marketCap") return marketCapDelta(left, right, direction);
+  if (sortId === "pe") return compareNullable(left.peValue, right.peValue, direction) || marketCapDelta(left, right, direction);
+  if (sortId === "eps") return compareNullable(left.epsValue, right.epsValue, direction) || marketCapDelta(left, right, direction);
   if (left.ticker === activeTicker) return -1;
   if (right.ticker === activeTicker) return 1;
   return left.ticker.localeCompare(right.ticker);
@@ -249,20 +287,34 @@ export const filterAndSortScreenerRows = (
 ): ScreenerRow[] => {
   const query = normalizeSearchText(state.query);
   const sectors = new Set(state.sectors.map((sector) => sector.trim()).filter(Boolean));
+  const exchanges = new Set(state.exchanges.map((exchange) => exchange.trim().toUpperCase()).filter(Boolean));
   const watchlist = new Set(state.watchlistTickers);
 
   return rows
     .filter((row) => state.activeFilter !== "watchlist" || watchlist.has(row.ticker))
-    .filter((row) => state.activeFilter !== "brvm" || row.ticker.length > 0)
+    .filter((row) => state.activeFilter !== "brvm" || row.exchange === "BRVM")
+    .filter((row) => exchanges.size === 0 || exchanges.has(row.exchange))
     .filter((row) => query.length === 0 || row.searchText.includes(query))
     .filter((row) => sectors.size === 0 || sectors.has(row.sector))
     .filter((row) => SCREENER_METRIC_FILTERS.every((metricKey) => matchesNumericRange(row, metricKey, state.ranges[metricKey])))
-    .sort(compareRows(activeTicker, state.sortId));
+    .sort(compareRows(activeTicker, state.sortId, state.sortDirection));
 };
 
 export const getAvailableSectors = (rows: ScreenerRow[]) => [...new Set(rows.map((row) => row.sector))]
   .filter(Boolean)
   .sort((left, right) => left.localeCompare(right));
+
+export const getAvailableExchanges = (rows: ScreenerRow[]) => [...new Set(rows.map((row) => row.exchange))]
+  .filter(Boolean)
+  .sort((left, right) => left.localeCompare(right));
+
+export const getExchangeCount = (rows: ScreenerRow[], exchange: string) => (
+  rows.reduce((total, row) => total + (row.exchange === exchange ? 1 : 0), 0)
+);
+
+export const countExchangeSelections = (state: ScreenerState) => (
+  state.exchanges.length > 0 ? state.exchanges.length : (state.activeFilter === "brvm" ? 1 : 0)
+);
 
 export const hasActiveRange = (range: ScreenerNumericRange) => (
   range.enabled && (parseRangeNumber(range.min) !== null || parseRangeNumber(range.max) !== null)
@@ -271,6 +323,7 @@ export const hasActiveRange = (range: ScreenerNumericRange) => (
 export const countActiveAdvancedFilters = (state: ScreenerState) => (
   (state.query.trim() ? 1 : 0)
   + state.sectors.length
+  + state.exchanges.length
   + SCREENER_METRIC_FILTERS.filter((metricKey) => hasActiveRange(state.ranges[metricKey])).length
 );
 
@@ -280,7 +333,9 @@ export const resetScreenerFilters = (state: ScreenerState): ScreenerState => ({
   query: "",
   ranges: createEmptyScreenerRanges(),
   sectors: [],
+  exchanges: [],
   sortId: "marketCap",
+  sortDirection: "desc",
 });
 
 export const setScreenerRangeValue = (
@@ -317,6 +372,15 @@ export const toggleScreenerSector = (state: ScreenerState, sector: string): Scre
   return { ...state, activeFilter: "sector", sectors, sortId: "ticker" };
 };
 
+export const toggleScreenerExchange = (state: ScreenerState, exchange: string): ScreenerState => {
+  const cleanExchange = exchange.trim().toUpperCase();
+  if (!cleanExchange) return state;
+  const exchanges = state.exchanges.includes(cleanExchange)
+    ? state.exchanges.filter((entry) => entry !== cleanExchange)
+    : [...state.exchanges, cleanExchange].slice(-MAX_EXCHANGE_FILTERS);
+  return { ...state, activeFilter: "exchange", exchanges, sortId: "ticker" };
+};
+
 export const toggleWatchlistTicker = (state: ScreenerState, ticker: string): ScreenerState => {
   const [cleanTicker] = sanitizeTickerList([ticker]);
   if (!cleanTicker) return state;
@@ -327,17 +391,23 @@ export const toggleWatchlistTicker = (state: ScreenerState, ticker: string): Scr
   return { ...state, watchlistTickers };
 };
 
-export const selectScreenerFilter = (state: ScreenerState, filterId: ScreenerFilterId): ScreenerState => {
-  if (filterId === "all") return resetScreenerFilters({ ...state, activeFilter: "all" });
-  if (filterId === "brvm") return { ...state, activeFilter: "brvm", sortId: "ticker" };
-  if (filterId === "watchlist") return { ...state, activeFilter: "watchlist", sortId: state.sortId };
-  if (filterId === "bonds") return { ...state, activeFilter: "bonds" };
-  if (filterId === "sector") return { ...state, activeFilter: "sector", sortId: "ticker" };
-  return { ...state, activeFilter: filterId, sortId: filterId };
+export const selectScreenerSort = (state: ScreenerState, sortId: ScreenerSortId): ScreenerState => {
+  const nextDirection: ScreenerSortDirection = state.sortId === sortId ? (state.sortDirection === "asc" ? "desc" : "asc") : "desc";
+  return { ...state, sortId, sortDirection: nextDirection };
 };
 
-export const normalizeScreenerState = (value: unknown, activeTicker = ""): ScreenerState => {
-  const fallback = createDefaultScreenerState(activeTicker);
+export const selectScreenerFilter = (state: ScreenerState, filterId: ScreenerFilterId): ScreenerState => {
+  if (filterId === "all") return resetScreenerFilters({ ...state, activeFilter: "all" });
+  if (filterId === "brvm") return { ...state, activeFilter: "brvm", exchanges: ["BRVM"], sortId: "ticker", sortDirection: "desc" };
+  if (filterId === "exchange") return { ...state, activeFilter: "exchange", sortId: "ticker", sortDirection: "desc" };
+  if (filterId === "watchlist") return { ...state, activeFilter: "watchlist", sortId: state.sortId, sortDirection: state.sortDirection };
+  if (filterId === "bonds") return { ...state, activeFilter: "bonds" };
+  if (filterId === "sector") return { ...state, activeFilter: "sector", sortId: "ticker", sortDirection: "desc" };
+  return { ...state, activeFilter: filterId, sortId: filterId, sortDirection: "desc" };
+};
+
+export const normalizeScreenerState = (value: unknown): ScreenerState => {
+  const fallback = createDefaultScreenerState();
   const record = asRecord(value);
   if (!record) return fallback;
 
@@ -346,10 +416,16 @@ export const normalizeScreenerState = (value: unknown, activeTicker = ""): Scree
     query: sanitizeQuery(record.query),
     ranges: normalizeRanges(record.ranges),
     sectors: sanitizeStringList(record.sectors, MAX_SECTOR_FILTERS),
+    exchanges: sanitizeExchangeList(record.exchanges),
     sortId: readSortId(record.sortId, fallback.sortId),
+    sortDirection: readSortDirection(record.sortDirection, fallback.sortDirection),
     watchlistTickers: sanitizeTickerList(record.watchlistTickers),
   };
 };
+
+export const sanitizeExchangeList = (value: unknown, maxLength = MAX_EXCHANGE_FILTERS): string[] => (
+  sanitizeStringList((Array.isArray(value) ? value : []).map((entry) => typeof entry === "string" ? entry.toUpperCase() : entry), maxLength)
+);
 
 export const buildScreenerPersistenceSnapshot = (state: ScreenerState): ScreenerPersistenceSnapshot => ({
   schemaVersion: SCREENERS_PERSISTENCE_SCHEMA_VERSION,
@@ -407,6 +483,10 @@ const readSortId = (value: unknown, fallback: ScreenerSortId): ScreenerSortId =>
   }
   return fallback;
 };
+
+const readSortDirection = (value: unknown, fallback: ScreenerSortDirection): ScreenerSortDirection => (
+  value === "asc" || value === "desc" ? value : fallback
+);
 
 const asRecord = (value: unknown): Record<string, unknown> | null => (
   typeof value === "object" && value !== null ? value as Record<string, unknown> : null

@@ -1,16 +1,18 @@
 import React from "react";
 import clsx from "clsx";
-import { ChevronDown, RotateCcw, Search, Star, X } from "lucide-react";
-import type { BRVMSecurity } from "@/core/data/brvm-securities";
+import { ChevronDown, LoaderCircle, RotateCcw, Search, Star, X } from "lucide-react";
 import type { LiveSnapshot } from "../../../config/market/marketSnapshotTypes";
-import { fetchSidebarBonds, type BRVMBond } from "../data/sidebarFetchers";
+import { fetchSidebarBonds, fetchSidebarScreenerSecurities, type BRVMBond, type BRVMScreenerSecurity } from "../data/sidebarFetchers";
+import { useSidebarDataPort } from "../data/sidebarDataPortAdapter";
 import {
   buildScreenerPersistenceSnapshot,
   buildScreenerRows,
   clearScreenerRange,
+  compactSectorLabel,
   countActiveAdvancedFilters,
   createDefaultScreenerState,
   filterAndSortScreenerRows,
+  getAvailableExchanges,
   getAvailableSectors,
   hasActiveRange,
   isMetricFilterId,
@@ -18,11 +20,14 @@ import {
   resetScreenerFilters,
   SCREENERS_FILTERS,
   selectScreenerFilter,
+  selectScreenerSort,
   setScreenerRangeValue,
+  toggleScreenerExchange,
   toggleScreenerSector,
   toggleWatchlistTicker,
   type ScreenerFilterId,
   type ScreenerMetricKey,
+  type ScreenerSortId,
   type ScreenerState,
 } from "./screenersModel";
 import {
@@ -40,15 +45,14 @@ interface ScreenersPanelProps {
   livePrice: number | null | undefined;
   liveVolume: number | null | undefined;
   marketSnapshots: Record<string, LiveSnapshot>;
-  marketSource: string;
   onOpenBondsPage: () => void;
   onOpenEquityPage: () => void;
   onOpenTickerSelector?: () => void;
-  securities: BRVMSecurity[];
   topBonds: BRVMBond[];
 }
 
 type BondsFetchStatus = "idle" | "loading" | "ready" | "error";
+type ScreenerFetchStatus = "loading" | "ready" | "error";
 type PersistenceStatus = "loading" | "ready";
 
 const PERSISTENCE_WRITE_DEBOUNCE_MS = 260;
@@ -69,7 +73,7 @@ const getToneClassName = (value: number | null) => {
 };
 
 const isPanelFilter = (filterId: ScreenerFilterId) => (
-  filterId === "sector" || filterId === "watchlist" || isMetricFilterId(filterId)
+  filterId === "sector" || filterId === "exchange" || filterId === "watchlist" || isMetricFilterId(filterId)
 );
 
 const getFilterLabel = (filterId: ScreenerFilterId) => (
@@ -77,30 +81,51 @@ const getFilterLabel = (filterId: ScreenerFilterId) => (
 );
 
 export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
-  const initialActiveTickerRef = React.useRef(props.activeTicker);
+  const sidebarDataPort = useSidebarDataPort();
   const persistenceReadyRef = React.useRef(false);
   const fallbackBondsControllerRef = React.useRef<AbortController | null>(null);
   const fallbackBondsRequestIdRef = React.useRef(0);
   const fallbackBondsStaleTimerRef = React.useRef<number | null>(null);
   const fallbackBondsStatusRef = React.useRef<BondsFetchStatus>("idle");
+  const [screenerSecurities, setScreenerSecurities] = React.useState<BRVMScreenerSecurity[]>([]);
+  const [screenerFetchStatus, setScreenerFetchStatus] = React.useState<ScreenerFetchStatus>("loading");
+  const [screenerFetchError, setScreenerFetchError] = React.useState<string | null>(null);
+  const [screenerRetry, setScreenerRetry] = React.useState(0);
   const topBondsLengthRef = React.useRef(props.topBonds.length);
-  const [screenerState, setScreenerState] = React.useState<ScreenerState>(() => createDefaultScreenerState(props.activeTicker));
+  const [screenerState, setScreenerState] = React.useState<ScreenerState>(() => createDefaultScreenerState());
   const [openFilter, setOpenFilter] = React.useState<ScreenerFilterId | null>(null);
-  const [persistenceStatus, setPersistenceStatus] = React.useState<PersistenceStatus>("loading");
+
   const [fallbackBonds, setFallbackBonds] = React.useState<BRVMBond[]>([]);
   const [fallbackBondsStatus, setFallbackBondsStatus] = React.useState<BondsFetchStatus>("idle");
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setScreenerFetchStatus("loading");
+    setScreenerFetchError(null);
+    void fetchSidebarScreenerSecurities(sidebarDataPort, controller.signal)
+      .then((securities) => {
+        if (controller.signal.aborted) return;
+        setScreenerSecurities(securities);
+        setScreenerFetchStatus("ready");
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setScreenerFetchStatus("error");
+        setScreenerFetchError(error instanceof Error ? error.message : "API screener indisponible");
+      });
+    return () => controller.abort();
+  }, [screenerRetry, sidebarDataPort]);
 
   React.useEffect(() => {
     let cancelled = false;
     void readPersistedScreenersState()
       .then((snapshot) => {
         if (cancelled) return;
-        setScreenerState(normalizeScreenerState(snapshot, initialActiveTickerRef.current));
+        setScreenerState(normalizeScreenerState(snapshot));
       })
       .finally(() => {
         if (cancelled) return;
         persistenceReadyRef.current = true;
-        setPersistenceStatus("ready");
       });
     return () => {
       cancelled = true;
@@ -146,7 +171,7 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
       if (fallbackBondsStatusRef.current === "loading") setTrackedFallbackBondsStatus("error");
     }, BONDS_LOADING_STALE_MS);
 
-    void fetchSidebarBonds(controller.signal)
+    void fetchSidebarBonds(sidebarDataPort, controller.signal)
       .then((bonds) => {
         if (controller.signal.aborted || fallbackBondsRequestIdRef.current !== requestId) return;
         clearFallbackBondsStaleTimer();
@@ -164,7 +189,7 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setTrackedFallbackBondsStatus("error");
       });
-  }, [clearFallbackBondsStaleTimer, setTrackedFallbackBondsStatus]);
+  }, [clearFallbackBondsStaleTimer, setTrackedFallbackBondsStatus, sidebarDataPort]);
 
   React.useEffect(() => {
     topBondsLengthRef.current = props.topBonds.length;
@@ -198,20 +223,21 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
     livePrice: props.livePrice,
     liveVolume: props.liveVolume,
     marketSnapshots: props.marketSnapshots,
-    securities: props.securities,
+    securities: screenerSecurities,
   }), [
     props.activeCurrency,
     props.activeTicker,
     props.livePrice,
     props.liveVolume,
     props.marketSnapshots,
-    props.securities,
+    screenerSecurities,
   ]);
   const visibleRows = React.useMemo(
     () => filterAndSortScreenerRows(allRows, screenerState, props.activeTicker),
     [allRows, props.activeTicker, screenerState],
   );
   const availableSectors = React.useMemo(() => getAvailableSectors(allRows), [allRows]);
+  const availableExchanges = React.useMemo(() => getAvailableExchanges(allRows), [allRows]);
   const watchlistSet = React.useMemo(() => new Set(screenerState.watchlistTickers), [screenerState.watchlistTickers]);
   const activeAdvancedFilterCount = countActiveAdvancedFilters(screenerState);
   const visibleBonds = props.topBonds.length > 0 ? props.topBonds : fallbackBonds;
@@ -219,8 +245,16 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
   const isBondLoading = !hasVisibleBonds && fallbackBondsStatus === "loading";
   const bondSummary = isBondLoading ? "Chargement" : hasVisibleBonds ? `${visibleBonds.length} obligations` : "Indisponible";
   const subtitle = screenerState.activeFilter === "bonds"
-    ? `Bonds - BRVM - ${bondSummary}`
-    : `${getFilterLabel(screenerState.activeFilter)} - ${visibleRows.length.toLocaleString("fr-FR")}/${allRows.length.toLocaleString("fr-FR")} valeurs`;
+    ? "Bonds - BRVM - " + bondSummary
+    : screenerState.activeFilter === "exchange"
+      ? `Exchange - ${availableExchanges.length} bourses`
+      : screenerState.activeFilter === "watchlist"
+        ? `Watchlist - ${visibleRows.length.toLocaleString("fr-FR")}/${screenerState.watchlistTickers.length.toLocaleString("fr-FR")} symboles`
+        : screenerFetchStatus === "loading"
+        ? "Actions - Chargement API"
+        : screenerFetchStatus === "error"
+          ? "Actions - API indisponible"
+          : `${getFilterLabel(screenerState.activeFilter)} - ${visibleRows.length.toLocaleString("fr-FR")}/${allRows.length.toLocaleString("fr-FR")} valeurs API`;
 
   const updateScreenerState = React.useCallback((updater: (state: ScreenerState) => ScreenerState) => {
     setScreenerState((current) => updater(current));
@@ -231,6 +265,10 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
     updateScreenerState((current) => selectScreenerFilter(current, filterId));
     setOpenFilter((current) => (isPanelFilter(filterId) ? (current === filterId ? null : filterId) : null));
   }, [requestFallbackBonds, updateScreenerState]);
+
+  const handleSortSelect = React.useCallback((sortId: ScreenerSortId) => {
+    updateScreenerState((current) => selectScreenerSort(current, sortId));
+  }, [updateScreenerState]);
 
   const handleQueryChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const query = event.target.value.slice(0, SEARCH_MAX_LENGTH);
@@ -251,9 +289,7 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
   }, [updateScreenerState]);
 
   const addActiveTickerToWatchlist = React.useCallback(() => {
-    updateScreenerState((current) => (
-      current.watchlistTickers.includes(props.activeTicker) ? current : toggleWatchlistTicker(current, props.activeTicker)
-    ));
+    updateScreenerState((current) => toggleWatchlistTicker(current, props.activeTicker));
   }, [props.activeTicker, updateScreenerState]);
 
   const renderAdvancedPanel = () => {
@@ -307,7 +343,31 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
                 aria-pressed={screenerState.sectors.includes(sector)}
                 onClick={() => updateScreenerState((current) => toggleScreenerSector(current, sector))}
               >
-                {sector}
+                {compactSectorLabel(sector)}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (openFilter === "exchange") {
+      return (
+        <div className="gp-screeners-advanced-panel">
+          <div className="gp-screeners-advanced-head">
+            <strong>Exchange</strong>
+            <button type="button" aria-label="Close filter" onClick={() => setOpenFilter(null)}><X size={14} /></button>
+          </div>
+          <div className="gp-screeners-sector-grid">
+            {availableExchanges.map((exchange) => (
+              <button
+                key={exchange}
+                type="button"
+                className={clsx(screenerState.exchanges.includes(exchange) && "is-active")}
+                aria-pressed={screenerState.exchanges.includes(exchange)}
+                onClick={() => updateScreenerState((current) => toggleScreenerExchange(current, exchange))}
+              >
+                {exchange}
               </button>
             ))}
           </div>
@@ -322,20 +382,38 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
           <button type="button" aria-label="Close filter" onClick={() => setOpenFilter(null)}><X size={14} /></button>
         </div>
         <div className="gp-screeners-watchlist-tools">
-          <span>{screenerState.watchlistTickers.length.toLocaleString("fr-FR")} symbols</span>
-          <button type="button" onClick={addActiveTickerToWatchlist}>Add {props.activeTicker}</button>
+          <span>{screenerState.watchlistTickers.length.toLocaleString("fr-FR")} {screenerState.watchlistTickers.length === 1 ? "symbol" : "symbols"}</span>
+          <button type="button" onClick={addActiveTickerToWatchlist}>{watchlistSet.has(props.activeTicker) ? "Remove" : "Add"} {props.activeTicker}</button>
         </div>
       </div>
     );
   };
 
   const renderRows = () => {
+    if (screenerFetchStatus === "loading") {
+      return (
+        <div className="gp-screeners-empty gp-screeners-empty--table gp-screeners-loading" aria-live="polite">
+          <LoaderCircle size={22} aria-hidden="true" />
+          <span>Chargement des actions</span>
+        </div>
+      );
+    }
+    if (screenerFetchStatus === "error") {
+      return (
+        <div className="gp-screeners-empty gp-screeners-empty--table" role="alert">
+          <span>{screenerFetchError || "API screener indisponible."}</span>
+          <button type="button" onClick={() => setScreenerRetry((value) => value + 1)}>Recharger</button>
+        </div>
+      );
+    }
     if (visibleRows.length === 0) {
       return (
         <div className="gp-screeners-empty gp-screeners-empty--table">
-          <span>{screenerState.activeFilter === "watchlist" ? "Watchlist vide." : "Aucune valeur."}</span>
+          <span>{screenerState.activeFilter === "watchlist"
+            ? (screenerState.watchlistTickers.length === 0 ? "Watchlist vide." : "Aucun symbole suivi coté.")
+            : "Aucune valeur."}</span>
           {screenerState.activeFilter === "watchlist" ? (
-            <button type="button" onClick={addActiveTickerToWatchlist}>Add {props.activeTicker}</button>
+            <button type="button" onClick={addActiveTickerToWatchlist}>{watchlistSet.has(props.activeTicker) ? "Remove" : "Add"} {props.activeTicker}</button>
           ) : (
             <button type="button" onClick={resetFilters}>Reset filters</button>
           )}
@@ -344,13 +422,52 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
     }
 
     return (
-      <div className="gp-screeners-table-wrap" role="region" aria-label="Table screener actions BRVM">
+      <div className="gp-screeners-table-wrap" role="region" aria-label="Table screener actions">
         <table className="gp-screeners-table">
           <thead>
             <tr>
-              <th scope="col">Symbol</th>
-              <th scope="col">Price</th>
-              <th scope="col">Move</th>
+              <th scope="col" aria-sort={screenerState.sortId === "ticker" ? (screenerState.sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                <button
+                  type="button"
+                  className="gp-screeners-sort-btn"
+                  onClick={() => handleSortSelect("ticker")}
+                >
+                  <span>Symbol</span>
+                  {screenerState.sortId === "ticker" && (
+                    <span className="gp-screeners-sort-indicator" aria-hidden="true">
+                      {screenerState.sortDirection === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </button>
+              </th>
+              <th scope="col" aria-sort={screenerState.sortId === "price" ? (screenerState.sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                <button
+                  type="button"
+                  className="gp-screeners-sort-btn"
+                  onClick={() => handleSortSelect("price")}
+                >
+                  <span>Price</span>
+                  {screenerState.sortId === "price" && (
+                    <span className="gp-screeners-sort-indicator" aria-hidden="true">
+                      {screenerState.sortDirection === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </button>
+              </th>
+              <th scope="col" aria-sort={screenerState.sortId === "change" ? (screenerState.sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                <button
+                  type="button"
+                  className="gp-screeners-sort-btn"
+                  onClick={() => handleSortSelect("change")}
+                >
+                  <span>Move</span>
+                  {screenerState.sortId === "change" && (
+                    <span className="gp-screeners-sort-indicator" aria-hidden="true">
+                      {screenerState.sortDirection === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -372,7 +489,7 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
                       <span className="gp-screeners-symbol">{row.ticker}</span>
                     </span>
                     <span className="gp-screeners-name">{row.name}</span>
-                    <span className="gp-screeners-country">{row.sector} - {row.country}</span>
+                    <span className="gp-screeners-country">{compactSectorLabel(row.sector)} - {row.country}</span>
                   </th>
                   <td>
                     <span className="gp-screeners-price">{row.priceLabel}</span>
@@ -492,9 +609,7 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
       )}
 
       <div className="gp-screeners-source">
-        <span>Source: {props.marketSource}</span>
         <span>Date: {props.auditDate}</span>
-        <span>State: IndexedDB {persistenceStatus}</span>
         <span>Formula: Search, ranges, sectors, watchlist, sort</span>
       </div>
     </section>
