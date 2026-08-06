@@ -1,5 +1,5 @@
 // ================================================================================
-// FICHIER : core/infrastructure/security/recaptcha/verifyRecaptchaToken.ts
+// FICHIER : core/infra/security/recaptcha/verifyRecaptchaToken.ts
 // RÔLE : Validation côté serveur du token reCAPTCHA v3
 // VERSION : 1.0.0
 // ================================================================================

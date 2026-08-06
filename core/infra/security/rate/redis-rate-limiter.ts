@@ -1,4 +1,4 @@
-// CHEMIN : src/core/infrastructure/security/rate/redis-rate-limiter.ts
+// CHEMIN : core/infra/security/rate/redis-rate-limiter.ts
 // VERSION : 2.0.0 - Enhanced with flexible configuration and in-memory fallback
 import { Redis } from '@upstash/redis';
 

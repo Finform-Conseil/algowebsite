@@ -1,4 +1,4 @@
-// CHEMIN : src/core/infrastructure/security/rate/in-memory-rate-limiter.ts
+// CHEMIN : core/infra/security/rate/in-memory-rate-limiter.ts
 import { checkRedisRateLimit } from './redis-rate-limiter';
 
 // 🧬 LÉGAT-VULCAN PRIME: Détermination claire de la stratégie. Redis est la norme en production.
