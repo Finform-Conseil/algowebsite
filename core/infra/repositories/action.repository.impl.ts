@@ -3,7 +3,7 @@ import {
   useCreateActionMutation,
   useDeleteActionMutation, 
   useGetActionByIdQuery, 
-  useGetActionByTickerQuery, 
+  useLazyGetActionByTickerQuery,
   useLazyGetAllActionsQuery,
   useGetAllActionsQuery, 
   useUpdateActionMutation,
@@ -14,6 +14,32 @@ import { IActionRepository } from '@/core/domain/repositories/action.repository'
 import { ActionType, CreateActionType, UpdateActionType, ActionQueryParams } from '@/core/domain/types/action.type';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
 import { PaginatedResponse } from '@/core/domain/types/pagination.type';
+import { getBRVMSecurityByTicker } from '@/core/data/brvm-securities';
+
+const isNotFoundError = (error: unknown): boolean => (
+  typeof error === 'object' && error !== null && 'status' in error && error.status === 404
+);
+
+const actionRequestsInFlight = new Map<string, Promise<unknown>>();
+
+const serializeActionParams = (params: ActionQueryParams): string =>
+  JSON.stringify(Object.entries(params).sort(([left], [right]) => left.localeCompare(right)));
+
+const getSharedActionRequest = <T>(
+  key: string,
+  factory: () => Promise<T>
+): Promise<T> => {
+  const existing = actionRequestsInFlight.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const request = factory();
+  actionRequestsInFlight.set(key, request);
+  const clearRequest = () => {
+    if (actionRequestsInFlight.get(key) === request) actionRequestsInFlight.delete(key);
+  };
+  void request.then(clearRequest, clearRequest);
+  return request;
+};
 
 export const useActionRepository = (): IActionRepository => {
   const [
@@ -61,7 +87,7 @@ export const useActionRepository = (): IActionRepository => {
   ] = useDeleteActionMutation();
 
   const [actionIdArg, setActionIdArg] = useState<string | typeof skipToken>(skipToken);
-  const [actionTickerArg, setActionTickerArg] = useState<string | typeof skipToken>(skipToken);
+
 
     const [
       triggerGetAllActions,
@@ -81,13 +107,15 @@ export const useActionRepository = (): IActionRepository => {
     refetch: refetchActionByIdQuery,
   } = useGetActionByIdQuery(actionIdArg === skipToken ? skipToken : { id: actionIdArg as string });
 
-  const {
-    data: currentActionByTickerQueryResult,
-    isLoading: isLoadingActionByTickerQuery,
-    isFetching: isFetchingActionByTickerQuery,
-    error: actionByTickerQueryError,
-    refetch: refetchActionByTickerQuery,
-  } = useGetActionByTickerQuery(actionTickerArg === skipToken ? skipToken : { ticker: actionTickerArg as string });
+  const [
+    triggerGetActionByTicker,
+    {
+      data: currentActionByTickerQueryResult,
+      isLoading: isLoadingActionByTickerQuery,
+      isFetching: isFetchingActionByTickerQuery,
+      error: actionByTickerQueryError,
+    },
+  ] = useLazyGetActionByTickerQuery();
 
 
   const isMutationLoading = isCreating || isUpdating || isDeleting || isUploading;
@@ -120,8 +148,8 @@ export const useActionRepository = (): IActionRepository => {
     async (
       params: ActionQueryParams = {}
     ): Promise<PaginatedResponse<ActionEntity>> => {
-      const result = await triggerGetAllActions(params).unwrap();
-      return result;
+      const key = `actions:list:${serializeActionParams(params)}`;
+      return getSharedActionRequest(key, () => triggerGetAllActions(params).unwrap());
     },
     [triggerGetAllActions]
   );
@@ -132,10 +160,24 @@ export const useActionRepository = (): IActionRepository => {
     return currentActionQueryResult || null;
   }, [currentActionQueryResult]);
 
-  const getActionByTicker = useCallback((ticker: string) => {
-    setActionTickerArg(ticker);
-    return currentActionByTickerQueryResult || null;
-  }, [currentActionByTickerQueryResult]);
+  const getActionByTicker = useCallback(async (ticker: string): Promise<ActionEntity> => {
+    const normalizedTicker = ticker.trim().toUpperCase();
+    const key = `actions:ticker:${normalizedTicker}`;
+
+    return getSharedActionRequest(key, async () => {
+      try {
+        return await triggerGetActionByTicker({ ticker: normalizedTicker }).unwrap();
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error;
+        const security = getBRVMSecurityByTicker(normalizedTicker);
+        if (!security?.isin) throw error;
+        const result = await triggerGetAllActions({ isin: security.isin, page_size: 1 }).unwrap();
+        const action = result.data?.[0];
+        if (!action) throw error;
+        return action;
+      }
+    });
+  }, [triggerGetActionByTicker, triggerGetAllActions]);
 
   return {
     createAction,

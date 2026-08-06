@@ -7,6 +7,5 @@ export type CreateCoursType = z.infer<typeof createCoursSchema>;
 export type UpdateCoursType = z.infer<typeof updateCoursSchema>;
 
 export interface CoursQueryParams extends QueryParams {
-    instrument_id?: string;
-    ticker?: string;
+    instrument?: string;
 }

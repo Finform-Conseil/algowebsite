@@ -9,7 +9,7 @@ export interface IActionRepository {
   deleteAction: (id: string) => Promise<boolean>;
   getAllActions: (params?: ActionQueryParams) => Promise<PaginatedResponse<ActionEntity>>;
   getActionById: (id: string) => ActionEntity | null;
-  getActionByTicker: (ticker: string) => ActionEntity | null;
+  getActionByTicker: (ticker: string) => Promise<ActionEntity>;
 
   allActionsData?: PaginatedResponse<ActionEntity>;
   isLoadingAllActions: boolean;

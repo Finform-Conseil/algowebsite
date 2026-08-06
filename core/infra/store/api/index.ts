@@ -127,6 +127,7 @@ export const {
   useLazyGetAllActionsQuery,
   useGetActionByIdQuery,
   useGetActionByTickerQuery,
+  useLazyGetActionByTickerQuery,
   useUpdateActionMutation,
   endpoints: { createAction, uploadActions, deleteAction, getAllActions, getActionById, getActionByTicker, updateAction },
 } = actionApi;

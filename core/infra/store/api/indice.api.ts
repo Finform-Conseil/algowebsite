@@ -63,7 +63,7 @@ export const indiceApi = api.injectEndpoints({
     }),
     getIndicesCoursByIndice: builder.query<PaginatedResponse<IndiceCoursEntity>, IndiceCoursQueryParams>({
       query: ({ indice, ...params }) => ({
-        url: `indices/${indice}/cours`,
+        url: `indices/${indice}/cours/`,
         method: "GET",
         params: params || {},
       }),

@@ -15,6 +15,27 @@ import { CoursEntity } from '@/core/domain/entities/cours.entity';
 import { PaginatedResponse, QueryParams } from '../../domain/types/pagination.type';
 import { CoursUploadResponse } from '../store/api/cours.api';
 
+const coursRequestsInFlight = new Map<string, Promise<unknown>>();
+
+const serializeCoursParams = (params: QueryParams): string =>
+  JSON.stringify(Object.entries(params).sort(([left], [right]) => left.localeCompare(right)));
+
+const getSharedCoursRequest = <T>(
+  key: string,
+  factory: () => Promise<T>
+): Promise<T> => {
+  const existing = coursRequestsInFlight.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const request = factory();
+  coursRequestsInFlight.set(key, request);
+  const clearRequest = () => {
+    if (coursRequestsInFlight.get(key) === request) coursRequestsInFlight.delete(key);
+  };
+  void request.then(clearRequest, clearRequest);
+  return request;
+};
+
 export const useCoursRepository = (): ICoursRepository => {
   const [
     createMutation,
@@ -110,8 +131,8 @@ export const useCoursRepository = (): ICoursRepository => {
     async (
       params: QueryParams = {}
     ): Promise<PaginatedResponse<CoursEntity>> => {
-      const result = await triggerGetAllCours(params).unwrap();
-      return result;
+      const key = `cours:list:${serializeCoursParams(params)}`;
+      return getSharedCoursRequest(key, () => triggerGetAllCours(params).unwrap());
     },
     [triggerGetAllCours]
   );

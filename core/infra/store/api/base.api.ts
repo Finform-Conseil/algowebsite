@@ -58,10 +58,11 @@ const baseQueryWithReauth: BaseQueryFn<
         if (refreshResult.data) {
           result = await baseQuery(args, api, extraOptions);
         } else {
-          // Le refresh a échoué, rediriger vers la page de connexion
-          if (typeof window !== 'undefined') {
-            window.location.href = '/auth/signin';
-          }
+          // Le refresh a échoué : on PROPAGE l'erreur 401 sans rediriger.
+          // La couche transport (API) ne doit JAMAIS forcer la navigation :
+          // cela éjectait tout visiteur des pages publiques (ex. technical-analysis)
+          // dès qu'un endpoint renvoyait 401. La décision de rediriger appartient
+          // aux pages réellement protégées (guard dédié / SessionProvider), pas ici.
           return {
             error: { status: 401, data: { message: 'Session expirée' } }
           };

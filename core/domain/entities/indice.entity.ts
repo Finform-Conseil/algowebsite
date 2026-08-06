@@ -20,4 +20,11 @@ export interface IndiceCoursEntity {
     indice: string;
     timestamp: string;
     close: number;
+    change_1d_pct?: number | null;
+    change_1w_pct?: number | null;
+    change_1m_pct?: number | null;
+    change_3m_pct?: number | null;
+    change_6m_pct?: number | null;
+    change_ytd_pct?: number | null;
+    change_1y_pct?: number | null;
 }

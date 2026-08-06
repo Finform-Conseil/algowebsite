@@ -4,7 +4,7 @@ export interface CoursEntity {
     id: string;
     instrument: InstrumentEntity;
     timestamp: string;
-    timeframe: string;
+    timeframe: number;
     open: number;
     high: number;
     low: number;
