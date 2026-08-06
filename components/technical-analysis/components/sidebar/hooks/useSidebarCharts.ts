@@ -1,5 +1,6 @@
 import type React from "react";
 import type { ChartDataPoint } from "../../../lib/Indicators/TechnicalIndicators";
+import type { TechnicalIndicatorEntity } from "@/core/domain/entities/cours.entity";
 import type { BRVMFundamentals } from "../data/sidebarFundamentals";
 import type { IncomeViewMode, SidebarFinancialMetrics } from "../TechnicalAnalysisSidebar.types";
 import { buildBenefitsChartOption, buildDividendsChartOption } from "../charts/sidebarFundamentalsChartOptions";
@@ -18,6 +19,7 @@ interface SidebarChartRefs {
 }
 
 interface UseSidebarChartsInput extends SidebarChartRefs {
+  apiTechnicalIndicator?: TechnicalIndicatorEntity | null;
   canRenderIncomeStatement: boolean;
   chartData: ChartDataPoint[];
   dataMode: "mock" | "real";
@@ -36,6 +38,7 @@ interface UseSidebarChartsInput extends SidebarChartRefs {
 
 export function useSidebarCharts(input: UseSidebarChartsInput): void {
   const {
+    apiTechnicalIndicator,
     benefitsChartRef,
     canRenderIncomeStatement,
     chartData,
@@ -89,9 +92,9 @@ export function useSidebarCharts(input: UseSidebarChartsInput): void {
 
   useSidebarChart({
     chartRef: volatilityChartRef,
-    enabled: isChartRuntimeReady && chartData.length >= 5 && !isLoading,
-    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, isLoading],
-    render: (_chart, echarts) => buildVolatilityTermStructureOption(chartData.map((point) => point.close), echarts),
+    enabled: isChartRuntimeReady && (chartData.length >= 5 || Boolean(apiTechnicalIndicator)) && !isLoading,
+    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, apiTechnicalIndicator, isLoading],
+    render: (_chart, echarts) => buildVolatilityTermStructureOption(chartData.map((point) => point.close), echarts, apiTechnicalIndicator),
   });
 
   useSidebarChart({

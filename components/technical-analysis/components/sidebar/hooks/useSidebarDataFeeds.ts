@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createEmptyFundamentals, isFundamentalsForTicker, normalizeTicker, type BRVMFundamentals, type FundamentalsStatus } from "../data/sidebarFundamentals";
 import { fetchSidebarBonds, fetchSidebarFundamentals, fetchSidebarIndices, fetchSidebarNews, type BRVMBond, type BRVMIndexData, type BRVMNewsItem } from "../data/sidebarFetchers";
+import { useSidebarDataPort } from "../data/sidebarDataPortAdapter";
 
 type NewsStatus = "idle" | "loading" | "ready" | "error";
 type IndicesStatus = "idle" | "loading" | "ready" | "error";
@@ -16,6 +17,7 @@ export function useSidebarDataFeeds({
   isSecondaryWorkReady,
   securityTicker,
 }: UseSidebarDataFeedsInput) {
+  const port = useSidebarDataPort();
   const normalizedSecurityTicker = useMemo(() => normalizeTicker(securityTicker), [securityTicker]);
   const [news, setNews] = useState<BRVMNewsItem[]>([]);
   const [newsStatus, setNewsStatus] = useState<NewsStatus>("idle");
@@ -44,7 +46,7 @@ export function useSidebarDataFeeds({
     setIndicesStatus("loading");
     setIndicesError(null);
 
-    void fetchSidebarIndices(controller.signal)
+    void fetchSidebarIndices(port, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           latestIndicesRef.current = data;
@@ -69,7 +71,7 @@ export function useSidebarDataFeeds({
       });
 
     return () => controller.abort();
-  }, [isIndicesOpen]);
+  }, [isIndicesOpen, port]);
 
   useEffect(() => {
     if (!isSecondaryWorkReady) {
@@ -85,7 +87,7 @@ export function useSidebarDataFeeds({
       if (isInitialFetch) setNewsStatus("loading");
 
       try {
-        const items = await fetchSidebarNews(controller.signal);
+        const items = await fetchSidebarNews(port, controller.signal);
         if (!controller.signal.aborted) {
           latestNewsRef.current = items;
           setNews(items);
@@ -108,7 +110,7 @@ export function useSidebarDataFeeds({
       controllers.forEach((controller) => controller.abort());
       controllers.clear();
     };
-  }, [isSecondaryWorkReady]);
+  }, [isSecondaryWorkReady, port]);
 
   const safeNews = useMemo(
     () => news.filter((item) => item.title && item.date && item.link),
@@ -151,7 +153,7 @@ export function useSidebarDataFeeds({
 
     setFundamentalsStatus("loading");
 
-    void fetchSidebarFundamentals(normalizedSecurityTicker, controller.signal)
+    void fetchSidebarFundamentals(port, normalizedSecurityTicker, controller.signal)
       .then((normalized) => {
         if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
         fundamentalsCacheRef.current.set(normalizedSecurityTicker, normalized);
@@ -167,7 +169,7 @@ export function useSidebarDataFeeds({
     return () => {
       controller.abort();
     };
-  }, [dataMode, isSecondaryWorkReady, normalizedSecurityTicker]);
+  }, [dataMode, isSecondaryWorkReady, normalizedSecurityTicker, port]);
 
   useEffect(() => {
     if (!isSecondaryWorkReady || dataMode !== "real") return;
@@ -179,7 +181,7 @@ export function useSidebarDataFeeds({
       setBondsLoading(true);
 
       try {
-        const bonds = await fetchSidebarBonds(controller.signal);
+        const bonds = await fetchSidebarBonds(port, controller.signal);
         if (!controller.signal.aborted) {
           setTopBonds(bonds.slice(0, 5));
           bondsCacheRef.current = bonds.slice(0, 5);
@@ -201,7 +203,7 @@ export function useSidebarDataFeeds({
       controllers.forEach((controller) => controller.abort());
       controllers.clear();
     };
-  }, [isSecondaryWorkReady, dataMode]);
+  }, [isSecondaryWorkReady, dataMode, port]);
 
   const validFundamentals = isFundamentalsForTicker(fundamentals, normalizedSecurityTicker) ? fundamentals : null;
   const isFundamentalsPending = (

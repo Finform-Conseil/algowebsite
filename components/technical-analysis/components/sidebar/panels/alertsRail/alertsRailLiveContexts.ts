@@ -1,9 +1,8 @@
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
-import { fetchDailyCsvData } from "../../../../hooks/MarketData/marketData.fetchers";
-import { resolveBRVMDatasetTicker } from "../../../../hooks/MarketData/marketData.parsers";
 import type { ChartDataPoint } from "../../../../lib/Indicators/TechnicalIndicators";
 import { buildIndicatorAlertValuesFromSeries } from "./alertsRailIndicatorMetrics";
 import type { AlertsRailContext, AlertsRailContextByTicker } from "./alertsRailTypes";
+import type { ActionEntity } from "@/core/domain/entities/action.entity";
 
 export interface AlertsRailLiveSnapshot {
   code?: unknown;
@@ -15,6 +14,24 @@ export interface AlertsRailLiveSnapshot {
   variation?: unknown;
   variationNum?: unknown;
   volume?: unknown;
+}
+
+/**
+ * [MIGRATION API v2.16] Port d'injection pour les données live alerts.
+ * Permet au fetcher (promise-based) de recevoir les actions depuis le repo RTK.
+ */
+export interface AlertsRailLiveDataPort {
+  /**
+   * Récupère toutes les actions avec latest_price_metric.
+   * Source : useActionRepository.getAllActions({ page_size: 500 }).
+   */
+  fetchAllActions(signal: AbortSignal): Promise<ActionEntity[]>;
+  /**
+   * Récupère la série OHLCV journalière d'un ticker depuis l'API.
+   * Source : useActionRepository.getActionByTicker + useCoursRepository.getAllCours.
+   * Remplace l'ancien CSV GitHub (fetchDailyCsvData).
+   */
+  fetchDailySeries(ticker: string, signal: AbortSignal): Promise<ChartDataPoint[]>;
 }
 
 export const buildLiveAlertContext = (snapshot: AlertsRailLiveSnapshot): AlertsRailContext | null => {
@@ -46,6 +63,7 @@ export const buildLiveAlertContext = (snapshot: AlertsRailLiveSnapshot): AlertsR
 };
 
 export const fetchLiveAlertContexts = async (
+  port: AlertsRailLiveDataPort,
   tickers: string[],
   signal?: AbortSignal,
   indicatorTickers: string[] = [],
@@ -53,24 +71,42 @@ export const fetchLiveAlertContexts = async (
   const wanted = new Set(tickers.map(normalizeTicker).filter(Boolean));
   if (wanted.size === 0) return {};
 
-  const contexts = await fetchBaseLiveAlertContexts(wanted, signal);
+  const contexts = await fetchBaseLiveAlertContexts(port, wanted, signal);
   const indicatorWanted = new Set(indicatorTickers.map(normalizeTicker).filter((ticker) => wanted.has(ticker)));
   if (indicatorWanted.size === 0 || signal?.aborted) return contexts;
 
-  return enrichContextsWithDailyIndicators(contexts, indicatorWanted, signal);
+  return enrichContextsWithDailyIndicators(port, contexts, indicatorWanted, signal);
 };
 
 const fetchBaseLiveAlertContexts = async (
+  port: AlertsRailLiveDataPort,
   wanted: Set<string>,
   signal?: AbortSignal,
 ): Promise<AlertsRailContextByTicker> => {
   try {
-    const response = await fetch("/api/market-data/brvm-live?ticker=ALL", { cache: "no-store", signal });
-    if (!response.ok) return {};
-    const rows = readRows(await response.json());
-    return rows.reduce<AlertsRailContextByTicker>((contexts, row) => {
-      const context = buildLiveAlertContext(row);
-      if (context && wanted.has(context.ticker)) contexts[context.ticker] = context;
+    // [MIGRATION API v2.16] Utiliser le port injecté (useActionRepository via useAlertsRailRuntime).
+    const actions = await port.fetchAllActions(signal || new AbortController().signal);
+
+    return actions.reduce<AlertsRailContextByTicker>((contexts, action) => {
+      const ticker = normalizeTicker(action.ticker);
+      if (!ticker || !wanted.has(ticker)) return contexts;
+
+      const metric = action.latest_price_metric;
+      if (!metric) return contexts;
+
+      const snapshot: AlertsRailLiveSnapshot = {
+        ticker,
+        symbol: action.ticker,
+        price: metric.price, // PriceIndicatorEntity utilise .price, pas .close
+        variation: metric.change_1d_pct != null ? `${metric.change_1d_pct >= 0 ? "+" : ""}${metric.change_1d_pct.toFixed(2)}%` : undefined,
+        variationNum: metric.change_1d_pct,
+        volume: metric.volume,
+        source: "API",
+        sourceLabel: "API Backend",
+      };
+
+      const context = buildLiveAlertContext(snapshot);
+      if (context) contexts[context.ticker] = context;
       return contexts;
     }, {});
   } catch (error) {
@@ -80,15 +116,17 @@ const fetchBaseLiveAlertContexts = async (
 };
 
 const enrichContextsWithDailyIndicators = async (
+  port: AlertsRailLiveDataPort,
   contexts: AlertsRailContextByTicker,
   tickers: Set<string>,
   signal?: AbortSignal,
 ): Promise<AlertsRailContextByTicker> => {
   const next: AlertsRailContextByTicker = { ...contexts };
+  const effectiveSignal = signal ?? new AbortController().signal;
   await Promise.all(Array.from(tickers).map(async (ticker) => {
     if (signal?.aborted) return;
     try {
-      const daily = await fetchDailyCsvData(resolveBRVMDatasetTicker(ticker));
+      const daily = await port.fetchDailySeries(ticker, effectiveSignal);
       if (signal?.aborted || daily.length === 0) return;
       const baseContext = next[ticker] ?? buildDailyAlertContext(ticker, daily);
       if (!baseContext) return;

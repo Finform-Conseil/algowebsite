@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import type { ChartDataPoint } from "../../../lib/Indicators/TechnicalIndicators";
 import type { IndicatorPeriods } from "../../../config/indicators/advancedIndicatorsTypes";
-import { fetchDailyCsvData } from "../../../hooks/MarketData/marketData.fetchers";
 import { resolveBRVMDatasetTicker } from "../../../hooks/MarketData/marketData.parsers";
+import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
+import { useCoursRepository } from "@/core/infra/repositories/cours.repository.impl";
+import { coursSeriesToChartData } from "@/lib/utils/marketDataTransform";
 import {
   createIndicatorBacktestCacheDescriptor,
   normalizeBacktestSymbol,
@@ -43,6 +45,7 @@ export interface IndicatorBacktestDashboardState {
 }
 
 const BACKTEST_DASHBOARD_CACHE_MAX_ENTRIES = 24;
+const SUPPLEMENTAL_OHLCV_PAGE_SIZE = 5000;
 
 interface IndicatorBacktestDashboardCacheEntry {
   dashboard: IndicatorBacktestDashboard;
@@ -76,6 +79,25 @@ export const useIndicatorBacktestDashboard = ({
   const messageIdRef = useRef(0);
   const timeoutRef = useRef<number | null>(null);
   const [supplementalSeriesBySymbol, setSupplementalSeriesBySymbol] = useState<Record<string, readonly ChartDataPoint[]>>({});
+  const { getActionByTicker } = useActionRepository();
+  const { getAllCours } = useCoursRepository();
+  const getActionByTickerRef = useRef(getActionByTicker);
+  const getAllCoursRef = useRef(getAllCours);
+  useEffect(() => { getActionByTickerRef.current = getActionByTicker; }, [getActionByTicker]);
+  useEffect(() => { getAllCoursRef.current = getAllCours; }, [getAllCours]);
+  const fetchSupplementalSeries = useCallback(async (requestedSymbol: string): Promise<IndicatorBacktestBatchInput> => {
+    const ticker = resolveBRVMDatasetTicker(requestedSymbol);
+    const action = await getActionByTickerRef.current(ticker);
+    if (!action?.instrument) throw new Error(`Action ${ticker} has no instrument identifier.`);
+    const paginated = await getAllCoursRef.current({
+      instrument: action.instrument,
+      page_size: SUPPLEMENTAL_OHLCV_PAGE_SIZE,
+    });
+    return {
+      data: coursSeriesToChartData(paginated?.data ?? []),
+      symbol: normalizeBacktestSymbol(requestedSymbol),
+    };
+  }, []);
   const enrichedComparisonData = useMemo(
     () => mergeIndicatorBacktestSupplementalInputs(comparisonData, supplementalSeriesBySymbol),
     [comparisonData, supplementalSeriesBySymbol],
@@ -217,15 +239,10 @@ export const useIndicatorBacktestDashboard = ({
     return () => {
       cancelled = true;
     };
-  }, [comparisonData, enabled, supplementalSeriesBySymbol, symbol]);
+  }, [comparisonData, enabled, fetchSupplementalSeries, supplementalSeriesBySymbol, symbol]);
 
   return state;
 };
-
-const fetchSupplementalSeries = async (symbol: string): Promise<IndicatorBacktestBatchInput> => ({
-  data: await fetchDailyCsvData(resolveBRVMDatasetTicker(symbol)),
-  symbol: normalizeBacktestSymbol(symbol),
-});
 
 const mergeSupplementalSeries = (
   current: Record<string, readonly ChartDataPoint[]>,

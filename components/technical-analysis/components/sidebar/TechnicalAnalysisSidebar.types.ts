@@ -1,6 +1,7 @@
 import type React from "react";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { DisplaySecurity } from "../../config/market/marketSnapshotTypes";
+import type { PriceIndicatorEntity, TechnicalIndicatorEntity, ValuationRatioEntity } from "@/core/domain/entities/cours.entity";
 import type { PineChartOverlayPayload } from "./panels/pineEditor/pineTypes";
 
 export interface TechnicalAnalysisSidebarProps {
@@ -21,6 +22,9 @@ export interface TechnicalAnalysisSidebarProps {
   isLoading?: boolean;
   currentVolume: number;
   avgVolume: number;
+  apiPriceMetric?: PriceIndicatorEntity | null;
+  apiTechnicalIndicator?: TechnicalIndicatorEntity | null;
+  apiValuationRatio?: ValuationRatioEntity | null;
   benefitsChartRef: React.RefObject<HTMLDivElement | null>;
   dividendsChartRef: React.RefObject<HTMLDivElement | null>;
   dataMode: "mock" | "real";

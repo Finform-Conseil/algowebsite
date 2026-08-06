@@ -21,6 +21,9 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     livePeRatio,
     livePrice,
     liveReturnYTD,
+    apiPriceMetric,
+    apiTechnicalIndicator,
+    apiValuationRatio,
     marketSourceLabel,
     marketSourceStatus,
     security,
@@ -99,10 +102,12 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     uiState.prefilledAlertPrice,
   ]);
 
-  const displayReturnYTD = liveReturnYTD !== undefined ? liveReturnYTD : security.returnYTD;
-  const displayPeRatio = livePeRatio !== undefined ? livePeRatio : security.peRatio;
-  const displayMarketCap = liveMarketCap !== undefined ? liveMarketCap : security.marketCap;
+  const displayReturnYTD = apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct ?? liveReturnYTD ?? security.returnYTD;
+  const displayPeRatio = apiValuationRatio?.pe_ttm ?? livePeRatio ?? security.peRatio;
+  const displayMarketCap = apiValuationRatio?.market_cap ?? liveMarketCap ?? security.marketCap;
   const derived = useSidebarDerivedMetrics({
+    apiPriceMetric,
+    apiTechnicalIndicator,
     chartData,
     dataMode,
     displayMarketCap,
@@ -152,6 +157,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
       normalizedSecurityTicker: feeds.normalizedSecurityTicker,
       seasonalChartRef,
       seasonalYears: derived.seasonalYears,
+      apiTechnicalIndicator,
       technicalData: derived.technicalData,
       technicalsChartRef,
       validFundamentals: feeds.validFundamentals,

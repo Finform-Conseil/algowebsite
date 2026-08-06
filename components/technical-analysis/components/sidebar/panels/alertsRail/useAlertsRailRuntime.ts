@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, useCallback } from "react";
 import { buildDefaultDraft } from "./alertsRailDrafts";
 import { alertsRailReducer, createInitialState } from "./alertsRailReducer";
-import { fetchLiveAlertContexts } from "./alertsRailLiveContexts";
+import { fetchLiveAlertContexts, type AlertsRailLiveDataPort } from "./alertsRailLiveContexts";
 import { shouldSurfaceAlert, showLocalAlertNotification } from "./alertsRailNotifications";
 import { playAlertSound } from "./alertsRailSound";
 import {
@@ -13,6 +13,11 @@ import {
   writeStoredSnapshot,
 } from "./alertsRailStorage";
 import type { AlertsRailContext, AlertsRailContextByTicker, BrvmAlert } from "./alertsRailTypes";
+import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
+import { useCoursRepository } from "@/core/infra/repositories/cours.repository.impl";
+import { coursSeriesToChartData } from "@/lib/utils/marketDataTransform";
+import type { ActionEntity } from "@/core/domain/entities/action.entity";
+import type { ChartDataPoint } from "../../../../lib/Indicators/TechnicalIndicators";
 
 const LIVE_ALERT_CONTEXT_POLL_MS = 15_000;
 
@@ -25,6 +30,8 @@ const buildTriggeredSignature = (alerts: BrvmAlert[]) => alerts
   .join("|");
 
 export const useAlertsRailRuntime = (context: AlertsRailContext, contextsByTicker?: AlertsRailContextByTicker) => {
+  const actionRepo = useActionRepository();
+  const coursRepo = useCoursRepository();
   const [state, dispatch] = useReducer(alertsRailReducer, context, createInitialState);
   const [isHydrated, setIsHydrated] = useState(false);
   const [supplementalContexts, setSupplementalContexts] = useState<AlertsRailContextByTicker>({});
@@ -69,6 +76,27 @@ export const useAlertsRailRuntime = (context: AlertsRailContext, contextsByTicke
   );
   const triggeredSignature = useMemo(() => buildTriggeredSignature(alerts), [alerts]);
 
+  // [MIGRATION API v2.16] Port d'injection pour alertsRail (architecture Hexagonale).
+  const alertsLiveDataPort: AlertsRailLiveDataPort = useMemo(() => ({
+    fetchAllActions: async (_signal: AbortSignal): Promise<ActionEntity[]> => {
+      const resp = await actionRepo.getAllActions({ page_size: 500 });
+      return resp.data;
+    },
+    fetchDailySeries: async (ticker: string, _signal: AbortSignal): Promise<ChartDataPoint[]> => {
+      // OHLCV via API : ticker → instrument → /cours/ (remplace le CSV GitHub).
+      // getAllActions({ticker}) est awaitable (.unwrap), contrairement à getActionByTicker (lazy).
+      const actionsResp = await actionRepo.getAllActions({ ticker });
+      const instrument = actionsResp.data[0]?.instrument;
+      if (!instrument) return [];
+      const cours = await coursRepo.getAllCours({
+        instrument,
+        ordering: "timestamp",
+        page_size: 5000,
+      });
+      return coursSeriesToChartData(cours.data);
+    },
+  }), [actionRepo, coursRepo]);
+
   useEffect(() => {
     latestContextRef.current = context;
   }, [context]);
@@ -112,7 +140,7 @@ export const useAlertsRailRuntime = (context: AlertsRailContext, contextsByTicke
     const controller = new AbortController();
     const refresh = async () => {
       try {
-        const contexts = await fetchLiveAlertContexts(tickers, controller.signal, indicatorTickers);
+        const contexts = await fetchLiveAlertContexts(alertsLiveDataPort, tickers, controller.signal, indicatorTickers);
         if (cancelled) return;
         setSupplementalContexts((current) => mergeSupplementalContexts(current, contexts, tickers));
       } catch (error) {

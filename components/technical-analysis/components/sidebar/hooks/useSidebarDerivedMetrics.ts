@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ChartDataPoint } from "../../../lib/Indicators/TechnicalIndicators";
+import type { PriceIndicatorEntity, TechnicalIndicatorEntity } from "@/core/domain/entities/cours.entity";
 import type { DisplaySecurity } from "../../../config/market/marketSnapshotTypes";
 import {
   formatAuditDate,
@@ -15,6 +16,8 @@ import type { SidebarAnalystData, SidebarFinancialMetrics, SidebarTechnicalData 
 import { calculateAlertTechnicalSnapshot } from "../panels/alertsRail/alertsRailIndicatorMetrics";
 
 interface UseSidebarDerivedMetricsInput {
+  apiPriceMetric?: PriceIndicatorEntity | null;
+  apiTechnicalIndicator?: TechnicalIndicatorEntity | null;
   chartData: ChartDataPoint[];
   dataMode: "mock" | "real";
   displayMarketCap: number;
@@ -32,6 +35,8 @@ interface UseSidebarDerivedMetricsInput {
 
 export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
   const {
+    apiPriceMetric,
+    apiTechnicalIndicator,
     chartData,
     dataMode,
     displayMarketCap,
@@ -60,7 +65,7 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
     ? validFundamentals?.provenance ?? createUnavailableProvenance("Fondamentaux indisponibles")
     : createSyntheticMockProvenance("Mock/catalog");
   const fundamentalsSource = dataMode === "real"
-    ? "/api/market-data/brvm-fundamentals -> " + formatProvenanceLabel(fundamentalsProvenance)
+    ? "API /results/ + /dividends/ -> " + formatProvenanceLabel(fundamentalsProvenance)
     : formatProvenanceLabel(fundamentalsProvenance);
   const auditTone: AuditTrailItem["tone"] = dataMode === "real" && marketSourceStatus === "live" ? "success" : "warning";
   const fundamentalsAuditTone: AuditTrailItem["tone"] = fundamentalsProvenance.tone;
@@ -97,6 +102,7 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
   }, [dataMode, displayMarketCap, livePrice, security.ticker, validFundamentals]);
 
   const performanceRows = useMemo(() => {
+    const apiValue = (value: number | null | undefined): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
     const referenceTime = lastUpdate ? new Date(lastUpdate).getTime() : (chartData.at(-1) ? new Date(chartData.at(-1)!.time).getTime() : 0);
     const getPerformance = (daysOffset: number) => {
       if (chartData.length < 2 || referenceTime <= 0) return null;
@@ -108,14 +114,14 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
     };
 
     return [
-      { label: "1W", value: getPerformance(7) },
-      { label: "1M", value: getPerformance(30) },
-      { label: "3M", value: getPerformance(90) },
-      { label: "6M", value: getPerformance(180) },
-      { label: "YTD", value: displayReturnYTD ?? null },
-      { label: "1Y", value: getPerformance(365) },
+      { label: "1W", value: apiValue(apiPriceMetric?.total_return_1w_pct ?? apiPriceMetric?.change_1w_pct) ?? getPerformance(7) },
+      { label: "1M", value: apiValue(apiPriceMetric?.total_return_1m_pct ?? apiPriceMetric?.change_1m_pct) ?? getPerformance(30) },
+      { label: "3M", value: apiValue(apiPriceMetric?.total_return_3m_pct ?? apiPriceMetric?.change_3m_pct) ?? getPerformance(90) },
+      { label: "6M", value: apiValue(apiPriceMetric?.total_return_6m_pct ?? apiPriceMetric?.change_6m_pct) ?? getPerformance(180) },
+      { label: "YTD", value: apiValue(apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct) ?? displayReturnYTD ?? null },
+      { label: "1Y", value: apiValue(apiPriceMetric?.total_return_1y_pct ?? apiPriceMetric?.change_1y_pct) ?? getPerformance(365) },
     ];
-  }, [chartData, displayReturnYTD, lastUpdate, livePrice]);
+  }, [apiPriceMetric, chartData, displayReturnYTD, lastUpdate, livePrice]);
 
   const seasonalYears = useMemo(() => Array.from(new Set(chartData
     .map((point) => new Date(point.time).getFullYear())
@@ -125,8 +131,20 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
 
   const technicalData = useMemo<SidebarTechnicalData | null>(() => {
     if (!isSecondaryWorkReady) return null;
+    const apiRsi = apiTechnicalIndicator?.rsi_14;
+    const apiSma20 = apiTechnicalIndicator?.sma_20;
+    const apiSma50 = apiTechnicalIndicator?.sma_50;
+    if ([apiRsi, apiSma20, apiSma50].every((value) => typeof value === "number" && Number.isFinite(value)) && apiSma20! > 0 && apiSma50! > 0) {
+      const rsiScore = Math.max(0, Math.min(100, (apiRsi! - 30) * 2.5));
+      const trendScore = Math.max(0, Math.min(100, 50 + ((apiSma20! - apiSma50!) / apiSma50!) * 500));
+      const price = livePrice > 0 ? livePrice : apiSma20!;
+      const priceScore = Math.max(0, Math.min(100, 50 + ((price - apiSma20!) / apiSma20!) * 1000));
+      const score = Math.max(0, Math.min(100, rsiScore * 0.4 + trendScore * 0.3 + priceScore * 0.3));
+      const sentiment = score < 25 ? "Strong sell" : score < 45 ? "Sell" : score < 55 ? "Neutral" : score < 75 ? "Buy" : "Strong buy";
+      return { rsi: apiRsi!, score, sentiment, sma20: apiSma20!, sma50: apiSma50! };
+    }
     return calculateAlertTechnicalSnapshot(chartData, livePrice);
-  }, [chartData, isSecondaryWorkReady, livePrice]);
+  }, [apiTechnicalIndicator, chartData, isSecondaryWorkReady, livePrice]);
 
   const analystData = useMemo<SidebarAnalystData | null>(() => {
     if (!isSecondaryWorkReady || !technicalData) return null;

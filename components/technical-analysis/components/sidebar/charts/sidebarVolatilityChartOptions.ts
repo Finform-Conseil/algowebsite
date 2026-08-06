@@ -1,13 +1,29 @@
 import type { EChartsCoreOption } from "echarts/core";
 import { getVolatilitySkew, getVolatilityTermStructure } from "@/shared/utils/volatility-engine";
+import type { TechnicalIndicatorEntity } from "@/core/domain/entities/cours.entity";
 import type { SidebarEChartsRuntime } from "./sidebarEChartsRuntime";
 import { escapeSidebarTooltipText } from "./sidebarChartOptions";
 
 export function buildVolatilityTermStructureOption(
   closePrices: number[],
   echarts: SidebarEChartsRuntime,
+  apiTechnicalIndicator?: TechnicalIndicatorEntity | null,
 ): EChartsCoreOption {
-  const termStructure = getVolatilityTermStructure(closePrices);
+  const fallbackTermStructure = getVolatilityTermStructure(closePrices);
+  const apiValues: Record<string, number | null | undefined> = {
+    "1W": apiTechnicalIndicator?.hv_10,
+    "2W": apiTechnicalIndicator?.hv_10,
+    "1M": apiTechnicalIndicator?.hv_20,
+    "2M": apiTechnicalIndicator?.hv_30,
+    "3M": apiTechnicalIndicator?.hv_60,
+    "6M": apiTechnicalIndicator?.hv_90,
+    "9M": apiTechnicalIndicator?.hv_90,
+    "1Y": apiTechnicalIndicator?.hv_252,
+  };
+  const termStructure = fallbackTermStructure.map((row) => {
+    const value = apiValues[row.label];
+    return typeof value === "number" && Number.isFinite(value) ? { ...row, value } : row;
+  });
 
   return {
     backgroundColor: "transparent",
