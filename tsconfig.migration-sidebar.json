@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "components/technical-analysis/components/sidebar/data/sidebarDataPort.ts",
+    "components/technical-analysis/components/sidebar/data/sidebarDataPortAdapter.ts",
+    "components/technical-analysis/components/sidebar/data/sidebarFetchers.ts",
+    "components/technical-analysis/components/sidebar/hooks/useSidebarDataFeeds.ts",
+    "components/technical-analysis/components/sidebar/panels/alertsRail/alertsRailLiveContexts.ts"
+  ]
+}

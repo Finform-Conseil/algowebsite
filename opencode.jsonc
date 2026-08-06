@@ -10,7 +10,7 @@
       "cwd": ".",
       "environment": {
         "AGENT_MCP_HOST": "opencode",
-        "AGENT_MCP_BINDING_ID": "02ee46abc9bb44ffa8d183d2472822bc",
+        "AGENT_MCP_BINDING_ID": "ba77e690137f4865bc3b543afee00b33",
         "AGENT_SCRIBE_GRAPHIFY_ROOT": "."
       },
       "enabled": true,
@@ -29,24 +29,14 @@
       "enabled": true
     }
   },
-
-
-
-  
   "permission": {
-    /*
-    
-     "edit": "deny",
-
-     "bash": {
+    "edit": "deny",
+    "bash": {
       "*": "deny",
-      ".agent/workflow/scribe/scribe tenor-init --type cli": "allow",
-      "python .agent/workflow/scribe/scribe tenor-init --type cli": "allow",
-      "python3 .agent/workflow/scribe/scribe tenor-init --type cli": "allow",
-      "py -3 .agent/workflow/scribe/scribe tenor-init --type cli": "allow"
+      ".agent/workflow/scribe/scribe tenor-init --type cli --host opencode": "allow",
+      "python .agent/workflow/scribe/scribe tenor-init --type cli --host opencode": "allow",
+      "python3 .agent/workflow/scribe/scribe tenor-init --type cli --host opencode": "allow",
+      "py -3 .agent/workflow/scribe/scribe tenor-init --type cli --host opencode": "allow"
     }
-    */
-  
- 
   }
 }
