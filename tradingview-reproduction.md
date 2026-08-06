@@ -1312,14 +1312,14 @@ Avant de coder:
 graphify query "TradingView <feature> reproduction localhost blast radius" --budget 1000
 ```
 
-3. Interroger le SCRIBE:
+1. Interroger le SCRIBE:
 
 ```bash
 .agent/workflow/scribe/scribe-rag query "TradingView <feature> errors workflow scars vaccins" --limit 12
 ```
 
-4. Lister les SCAR/VAC/PAT/GHOST applicables dans le plan.
-5. Si la feature touche le navigateur, lire:
+1. Lister les SCAR/VAC/PAT/GHOST applicables dans le plan.
+2. Si la feature touche le navigateur, lire:
 
 ```text
 .agent/workflow/mcp/chrome-devtools.md
@@ -1599,7 +1599,7 @@ const p = ctx.getImageData(x, y, 1, 1).data;
 // r, g, b, a
 ```
 
-7. Documenter les resultats.
+1. Documenter les resultats.
 
 Interdit:
 coder avant cette etape.
@@ -2016,13 +2016,7 @@ Il gagne parce qu'il:
 La seule completion acceptable est une completion observable.
 ]
 
-
-
-
 = = = = = = =
-
-
-
 
 [ VAS D'ABORD LIRE EN ENTIER PUIS: Applique strictement `tradingview-reproduction.md`.
 
@@ -2031,7 +2025,6 @@ Feature TradingView: <[  ]>.
 Reference: <capture image fournie >.
 
 Target local: `http://localhost:3000/equity/technical-analysis`.
-
 
 Mission:
 
@@ -2055,13 +2048,6 @@ Mission:
 
 Interdiction: ne code pas avant d'avoir observe TradingView et produit le contrat observe.
 ]
-
-
-
-
-
-
-
 
 [
 MODE RED FLAG TradingView.
