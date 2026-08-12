@@ -44,7 +44,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     const { addNotification } = useGlobalNotification();
 
     // --- Local UI State ---
-    const [activeTab, setActiveTab] = useState<"indicators" | "appearance">("indicators");
+    const [activeTab, setActiveTab] = useState<"indicators" | "canvas" | "scales" | "status">("indicators");
 
     // --- Global State ---
     const indicatorPeriods = useSelector(selectIndicatorPeriods);
@@ -77,10 +77,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         >
             <ModalTabs
                 activeTab={activeTab}
-                onTabChange={(id) => setActiveTab(id as "indicators" | "appearance")}
+                onTabChange={(id) => setActiveTab(id as "indicators" | "canvas" | "scales" | "status")}
                 tabs={[
                     { id: "indicators", label: "Indicateurs" },
-                    { id: "appearance", label: "Apparence" },
+                    { id: "canvas", label: "Canvas" },
+                    { id: "scales", label: "Échelles et lignes" },
+                    { id: "status", label: "Ligne d’état" },
                 ]}
             />
 
@@ -132,46 +134,16 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     </div>
                 )}
 
-                {activeTab === "appearance" && (
+                {activeTab === "canvas" && (
                     <div className="d-flex flex-column gap-3">
-                        <SettingsCheckbox
-                            label="Afficher la grille"
-                            checked={chartAppearance.showGrid}
-                            onChange={(checked: boolean) =>
-                                dispatch(setChartAppearance({ ...chartAppearance, showGrid: checked }))
+                        <h6 className={"gp-section-title"}>Styles du graphique</h6>
+                        <SettingsColorInput
+                            label="Arrière-plan"
+                            value={chartAppearance.backgroundColor}
+                            onChange={(val: string) =>
+                                dispatch(setChartAppearance({ ...chartAppearance, backgroundColor: val }))
                             }
                         />
-                        <SettingsCheckbox
-                            label="Afficher Volume"
-                            checked={chartAppearance.showVolume}
-                            onChange={(checked: boolean) =>
-                                dispatch(setChartAppearance({ ...chartAppearance, showVolume: checked }))
-                            }
-                        />
-                        <SettingsSelectInput
-                            label="Couleur Volume"
-                            value={volumeColorMode}
-                            width="178px"
-                            options={[
-                                { value: "candle-body", label: "Corps bougie" },
-                                { value: "session-change", label: "Variation session" },
-                            ]}
-                            onChange={(value: string) =>
-                                dispatch(setChartAppearance({
-                                    ...chartAppearance,
-                                    volumeColorMode: value === "session-change" ? "session-change" : "candle-body",
-                                }))
-                            }
-                        />
-                        <SettingsToggle
-                            label="Mode Anonyme"
-                            checked={isAnonyme}
-                            onChange={(val) => dispatch(setAnonyme(val))}
-                        />
-
-                        <hr className={"gp-separator"} />
-
-                        <h6 className={"gp-section-title"}>Couleurs des Bougies</h6>
                         <div className="row g-2">
                             <div className="col-6">
                                 <SettingsColorInput
@@ -192,6 +164,59 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 />
                             </div>
                         </div>
+                        <SettingsToggle
+                            label="Mode Anonyme"
+                            checked={isAnonyme}
+                            onChange={(val) => dispatch(setAnonyme(val))}
+                        />
+                    </div>
+                )}
+
+                {activeTab === "status" && (
+                    <div className={"d-flex flex-column gap-3"}>
+                        <h6 className={"gp-section-title"}>Ligne d’état</h6>
+                        <SettingsCheckbox label="Dernier prix" checked={chartAppearance.statusLine.showLast} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showLast: checked } }))} />
+                        <SettingsCheckbox label="Variation" checked={chartAppearance.statusLine.showChange} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showChange: checked } }))} />
+                        <SettingsCheckbox label="Variation %" checked={chartAppearance.statusLine.showChangePercent} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showChangePercent: checked } }))} />
+                        <SettingsCheckbox label="Nom du titre" checked={chartAppearance.statusLine.showName} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showName: checked } }))} />
+                        <SettingsCheckbox label="Symbole" checked={chartAppearance.statusLine.showSymbol} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showSymbol: checked } }))} />
+                        <SettingsCheckbox label="Logo" checked={chartAppearance.statusLine.showLogo} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showLogo: checked } }))} />
+                        <SettingsCheckbox label="Volume" checked={chartAppearance.statusLine.showVolume} onChange={(checked) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, showVolume: checked } }))} />
+                    </div>
+                )}
+
+                {activeTab === "scales" && (
+                    <div className="d-flex flex-column gap-3">
+                        <h6 className={"gp-section-title"}>Échelles et lignes</h6>
+                        <SettingsCheckbox
+                            label="Lignes de grille"
+                            checked={chartAppearance.showGrid}
+                            onChange={(checked: boolean) =>
+                                dispatch(setChartAppearance({ ...chartAppearance, showGrid: checked }))
+                            }
+                        />
+                        <SettingsCheckbox
+                            label="Volume"
+                            checked={chartAppearance.showVolume}
+                            onChange={(checked: boolean) =>
+                                dispatch(setChartAppearance({ ...chartAppearance, showVolume: checked }))
+                            }
+                        />
+                        <SettingsSelectInput
+                            label="Couleur volume"
+                            value={volumeColorMode}
+                            width="178px"
+                            options={[
+                                { value: "candle-body", label: "Corps bougie" },
+                                { value: "session-change", label: "Variation session" },
+                            ]}
+                            onChange={(value: string) =>
+                                dispatch(setChartAppearance({
+                                    ...chartAppearance,
+                                    volumeColorMode: value === "session-change" ? "session-change" : "candle-body",
+                                }))
+                            }
+                        />
                     </div>
                 )}
             </div>

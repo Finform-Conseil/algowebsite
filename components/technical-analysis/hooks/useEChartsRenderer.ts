@@ -24,6 +24,7 @@ import {
   useChartViewport,
   TV_Y_AXIS_WIDTH,
   TV_X_AXIS_HEIGHT,
+  TV_MAX_FUTURE_BARS,
   MAIN_GRID_LEFT,
   clamp,
   getSafeGridRect,
@@ -190,7 +191,7 @@ export interface UseEChartsRendererProps {
   chartAppearance: ChartAppearance;
   uiState: UiState;
   displaySymbol: string;
-  lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; }>;
+  lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
   cursorPriceBadgeRef?: RefObject<HTMLDivElement | null>;
   cursorPriceTextRef?: RefObject<HTMLSpanElement | null>;
   cursorPriceActionRef?: RefObject<HTMLButtonElement | null>;
@@ -207,6 +208,7 @@ export interface UseEChartsRendererProps {
   hasLiveStitchedCandle?: boolean;
   hiddenObjectIds?: Record<string, boolean>;
   pineOverlay?: PineChartOverlayPayload | null;
+  onHistoryBoundaryRequest?: (direction: "left" | "right") => void;
 }
 
 // ============================================================================
@@ -257,6 +259,22 @@ type RenderableSeriesOption = {
 const CARTESIAN_CLIPPED_SERIES_TYPES = new Set(["candlestick", "bar", "line", "scatter", "custom"]);
 const PANE_SHIELD_Z = 70;
 const PANE_CONTENT_MIN_Z = PANE_SHIELD_Z + 2;
+
+const COMPACT_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const FUTURE_AXIS_CATEGORY_PREFIX = "__future__";
+
+const formatCompactUtcDate = (value: unknown): string => {
+  if (typeof value === "string" && value.startsWith(FUTURE_AXIS_CATEGORY_PREFIX)) return "";
+  if (typeof value !== "string" && typeof value !== "number") return String(value ?? "");
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : COMPACT_DATE_FORMATTER.format(date);
+};
 const PANE_SHIELD_GUTTER_PX = 34;
 
 const isPaneShieldSeries = (series: ChartOptionPart): boolean =>
@@ -1021,6 +1039,9 @@ const buildEChartsOption = ({
     volumeColorMode: chartAppearance.volumeColorMode,
   });
   const renderDates = chartTypePlan.dates;
+  const axisDates = renderDates.concat(
+    Array.from({ length: TV_MAX_FUTURE_BARS }, (_unused, index) => `${FUTURE_AXIS_CATEGORY_PREFIX}${index + 1}`),
+  );
   const mainSeriesData = chartTypePlan.series.find((series) => series.id === "main-series")?.data;
   const renderedMainSeriesPointCount = Array.isArray(mainSeriesData) ? mainSeriesData.length : chartData.length;
   const priceOverlayPointCount = Math.min(renderDates.length, chartTypePlan.volumeSourceData.length || chartData.length, renderedMainSeriesPointCount);
@@ -1194,7 +1215,7 @@ const buildEChartsOption = ({
   xAxisOptions.push({
     id: "main-xaxis",
     type: "category",
-    data: renderDates,
+    data: axisDates,
     // [TENOR FIX] boundaryGap:true ensures the first/last category has a
     // half-slot of padding on each edge, so candlesticks and axis labels are
     // centered within their time slots — consistent with the volume-xaxis
@@ -1208,7 +1229,8 @@ const buildEChartsOption = ({
           hideOverlap: true,
           align: "center",
           alignMinLabel: "center",
-          alignMaxLabel: "center"
+          alignMaxLabel: "center",
+          formatter: formatCompactUtcDate,
         }
       : { show: false },
     splitLine: { show: false },
@@ -1309,7 +1331,7 @@ const buildEChartsOption = ({
       id: "volume-xaxis",
       type: "category",
       gridIndex: volumeGridIndex,
-      data: renderDates,
+      data: axisDates,
       // [TENOR FIX] boundaryGap:true (ECharts default for bar series) ensures
       // volume bars are centered in their slots with half-slot padding on each
       // side. With boundaryGap:false the bar's left edge bleeds visually past
@@ -1323,7 +1345,8 @@ const buildEChartsOption = ({
             margin: 8,
             align: "center",
             alignMinLabel: "center",
-            alignMaxLabel: "center"
+            alignMaxLabel: "center",
+            formatter: formatCompactUtcDate,
           }
         : { show: false },
       axisTick: { show: false },
@@ -4158,7 +4181,7 @@ const buildEChartsOption = ({
       id: `osc-xaxis-${index}`,
       type: "category",
       gridIndex,
-      data: renderDates,
+      data: axisDates,
       // [TENOR FIX] boundaryGap:true — consistent with main-xaxis and volume-xaxis
       // so the time axis labels align with bar/candle centers across all panels.
       boundaryGap: true,
@@ -4171,7 +4194,8 @@ const buildEChartsOption = ({
             margin: 8,
             align: "center",
             alignMinLabel: "center",
-            alignMaxLabel: "center"
+            alignMaxLabel: "center",
+            formatter: formatCompactUtcDate,
           }
         : { show: false },
       min: "dataMin",
@@ -5341,6 +5365,7 @@ export const useEChartsRenderer = ({
   hiddenObjectIds = {},
   layersStackRef,
   pineOverlay = null,
+  onHistoryBoundaryRequest,
 }: UseEChartsRendererProps) => {
   const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
@@ -5751,11 +5776,10 @@ export const useEChartsRenderer = ({
 
   // 3. Viewport Engine (Extracted to useChartViewport.ts for SRP)
   // Keep viewport anchored to executable candles; projections must not push the main series left.
-  // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: use getLayersStack (stable ref) instead
-  // of getChartContainer so that DOM event listeners bind to the correct container in all layouts.
+  // Bind interactions to the chart cell, matching TradingView's direct cell listeners.
   const { applyViewport, resetManualYViewport, viewportWindowRef } = useChartViewport({
     chartInstanceRef,
-    getChartContainer: getLayersStack,
+    getChartContainer,
     chartData: renderChartData,
     lastZoomRangeRef,
     updateCursorPriceAxisBadge,
@@ -5764,6 +5788,7 @@ export const useEChartsRenderer = ({
     hasComparisonEndLabels: hasVisibleComparisonEndLabels,
     lastPriceAxisValue,
     priceLevelMarkers: priceLevelViewportMarkers,
+    onHistoryBoundaryRequest,
     scheduleChartMutation,
   });
 

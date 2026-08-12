@@ -26,6 +26,69 @@ import { createFundamentalsProvenance } from "./sidebarProvenance";
 const ACTION_PAGE_SIZE = 100;
 const ACTION_PAGE_CONCURRENCY = 4;
 
+const BRVM_NEWS_CACHE_TTL_MS = 5000;
+let brvmNewsRequestInFlight: Promise<BRVMNewsItem[]> | null = null;
+let brvmNewsCache: { expiresAt: number; value: BRVMNewsItem[] } | null = null;
+
+const getSharedBrvmNews = (): Promise<BRVMNewsItem[]> => {
+  if (brvmNewsCache && brvmNewsCache.expiresAt > Date.now()) {
+    return Promise.resolve(brvmNewsCache.value);
+  }
+  brvmNewsCache = null;
+  if (brvmNewsRequestInFlight) return brvmNewsRequestInFlight;
+
+  const request = fetch("/api/market-data/brvm-news")
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const data: unknown = await response.json();
+      if (!Array.isArray(data)) return [];
+      return data.filter((item): item is BRVMNewsItem => (
+        typeof item === "object" && item !== null
+        && typeof item.title === "string" && Boolean(item.title)
+        && typeof item.date === "string" && Boolean(item.date)
+        && typeof item.link === "string" && Boolean(item.link)
+      ));
+    });
+
+  brvmNewsRequestInFlight = request;
+  const clearRequest = () => {
+    if (brvmNewsRequestInFlight === request) brvmNewsRequestInFlight = null;
+  };
+  void request.then(
+    (value) => {
+      brvmNewsCache = { expiresAt: Date.now() + BRVM_NEWS_CACHE_TTL_MS, value };
+      clearRequest();
+    },
+    () => {
+      brvmNewsCache = null;
+      clearRequest();
+    },
+  );
+  return request;
+};
+
+const waitForAbortable = <T>(request: Promise<T>, signal: AbortSignal): Promise<T> => {
+  if (signal.aborted) return Promise.reject(new DOMException("The news request was aborted.", "AbortError"));
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(new DOMException("The news request was aborted.", "AbortError"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    request.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+};
+
 type GetAllActions = (params?: ActionQueryParams) => Promise<PaginatedResponse<ActionEntity>>;
 
 const throwIfAborted = (signal: AbortSignal): void => {
@@ -220,11 +283,7 @@ export function useSidebarDataPort(): SidebarDataPort {
       // Exception validée : scraping BRVM news (aucune API).
       // Route locale préservée : /api/market-data/brvm-news.
       try {
-        const response = await fetch("/api/market-data/brvm-news", { signal });
-        if (!response.ok) return [];
-        const data = await response.json();
-        if (!Array.isArray(data)) return [];
-        return data.filter((item) => item.title && item.date && item.link);
+        return await waitForAbortable(getSharedBrvmNews(), signal);
       } catch (error) {
         if (signal.aborted) throw error;
         return [];

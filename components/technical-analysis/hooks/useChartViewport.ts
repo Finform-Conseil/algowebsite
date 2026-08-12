@@ -4,6 +4,8 @@ import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { isPriceAxisInteractiveTarget } from "./priceAxisInteractiveTargets";
 import {
   MAIN_GRID_LEFT,
+  TV_MAX_FUTURE_BARS,
+  TV_MAX_HISTORY_GAP_BARS,
   TV_MIN_VISIBLE_BARS,
   TV_RESET_VISIBLE_BARS,
   TV_X_AXIS_HEIGHT,
@@ -12,6 +14,7 @@ import {
   clamp,
   computeDirectionalZoomViewport,
   computeHorizontalPanViewport,
+  computeTradingViewWheelZoomViewport,
   normalizeWheelDeltaPx,
   resolveInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
@@ -30,18 +33,19 @@ export {
   TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING,
   TV_CURSOR_INFLUENCE,
   TV_INITIAL_VISIBLE_BARS,
+  TV_MAX_FUTURE_BARS,
+  TV_MAX_HISTORY_GAP_BARS,
   TV_MIN_VISIBLE_BARS,
   TV_PAN_DRIFT_DAMPING,
   TV_RESET_VISIBLE_BARS,
   TV_X_AXIS_HEIGHT,
   TV_Y_AXIS_WIDTH,
-  TV_ZOOM_DRIFT_BASE_RATIO,
-  TV_ZOOM_DRIFT_STRENGTH,
   TV_ZOOM_VELOCITY,
   clamp,
   clampViewportWindow,
   computeDirectionalZoomViewport,
   computeHorizontalPanViewport,
+  computeTradingViewWheelZoomViewport,
   normalizeWheelDeltaPx,
   resolveInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
@@ -54,6 +58,7 @@ export {
 } from "./viewport/viewportGraphics";
 
 export type ChartMutationScheduler = (key: string, mutation: (chart: ECharts) => void) => void;
+export type HistoryBoundaryDirection = "left" | "right";
 type ViewportApplyMode = "queued" | "immediate";
 
 export interface TradingViewTimeAxisControls {
@@ -65,6 +70,7 @@ export interface TradingViewTimeAxisControls {
 }
 
 export const TimeAxisRegistry = new WeakMap<ECharts, TradingViewTimeAxisControls>();
+
 
 const isViewportChartUsable = (chart: ECharts | null): chart is ECharts => {
   if (!chart) return false;
@@ -85,13 +91,14 @@ export interface UseChartViewportProps {
   chartInstanceRef: MutableRefObject<ECharts | null>;
   getChartContainer: () => HTMLDivElement | null;
   chartData: ChartDataPoint[];
-  lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; }>;
+  lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
   updateCursorPriceAxisBadge: (x: number, y: number) => void;
   updateLastPriceAxisBadge: () => void;
   interactionScopeKey?: string;
   hasComparisonEndLabels?: boolean;
   lastPriceAxisValue?: number;
   priceLevelMarkers?: PriceLevelViewportMarker[];
+  onHistoryBoundaryRequest?: (direction: HistoryBoundaryDirection) => void;
   scheduleChartMutation?: ChartMutationScheduler;
 }
 
@@ -106,6 +113,7 @@ export const useChartViewport = ({
   hasComparisonEndLabels = false,
   lastPriceAxisValue,
   priceLevelMarkers = [],
+  onHistoryBoundaryRequest,
   scheduleChartMutation,
 }: UseChartViewportProps) => {
   const viewportStateRef = useRef({
@@ -120,6 +128,8 @@ export const useChartViewport = ({
     isDraggingChart: false,
     startX: 0,
     startY: 0,
+    initialYScale: 1.0,
+    initialYPan: 0,
     lastTap: 0,
     activePointers: new Map<number, PointerEvent>(),
     initialPinchDistance: 0,
@@ -160,8 +170,8 @@ export const useChartViewport = ({
     const state = viewportStateRef.current;
     const totalBars = chartData.length;
 
-    state.startIdx = Math.max(0, Math.min(totalBars - 1, Math.round(state.startIdx)));
-    state.endIdx = Math.max(0, Math.min(totalBars - 1, Math.round(state.endIdx)));
+    state.startIdx = Math.max(-TV_MAX_HISTORY_GAP_BARS, Math.min(totalBars - 1, Math.round(state.startIdx)));
+    state.endIdx = Math.max(0, Math.min(totalBars - 1 + TV_MAX_FUTURE_BARS, Math.round(state.endIdx)));
 
     if (state.startIdx >= state.endIdx) {
       state.startIdx = Math.max(0, state.endIdx - 10);
@@ -170,7 +180,7 @@ export const useChartViewport = ({
     const autoRange = resolveAutoViewportPriceRange({
       chartData,
       startIdx: state.startIdx,
-      endIdx: state.endIdx,
+      endIdx: Math.min(totalBars - 1, state.endIdx),
       hasComparisonEndLabels,
       lastPriceAxisValue,
     });
@@ -183,12 +193,12 @@ export const useChartViewport = ({
       finalMin = center - (scaledRange / 2) + state.yPan;
       finalMax = center + (scaledRange / 2) + state.yPan;
 
+      // TradingView permits panning the price scale beyond the visible candle extrema.
+      // Reject only non-finite or inverted ranges.
       const isInvalidManualViewport =
         !Number.isFinite(finalMin) ||
         !Number.isFinite(finalMax) ||
-        finalMin >= finalMax ||
-        finalMax < visibleMin ||
-        finalMin > visibleMax;
+        finalMin >= finalMax;
 
       if (isInvalidManualViewport) {
         state.isYManual = false;
@@ -208,7 +218,11 @@ export const useChartViewport = ({
       previousGraphicIds: previousPriceLevelGraphicIdsRef.current,
     });
 
+    const futureAxisMax = Math.max(totalBars - 1, state.endIdx);
     const viewportOption = {
+      xAxis: Array.isArray(option.xAxis)
+        ? option.xAxis.map((axis: any, index: number) => ({ id: axis?.id ?? index, min: Math.min(0, state.startIdx), max: futureAxisMax }))
+        : undefined,
       yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax, scale: false }],
       dataZoom: [{
         id: 'time-zoom',
@@ -235,7 +249,8 @@ export const useChartViewport = ({
         start: (state.startIdx / totalBars) * 100,
         end: (state.endIdx / totalBars) * 100,
         barsFromRightStart: totalBars - state.startIdx,
-        barsFromRightEnd: totalBars - state.endIdx
+        barsFromRightEnd: totalBars - state.endIdx,
+        futureBarsFromRightEnd: Math.max(0, state.endIdx - (totalBars - 1))
       };
     }
   }, [
@@ -249,6 +264,7 @@ export const useChartViewport = ({
     priceLevelMarkers,
     updateCursorPriceAxisBadge,
     updateLastPriceAxisBadge,
+    onHistoryBoundaryRequest,
   ]);
 
   const scheduleViewportApply = useCallback((mode: ViewportApplyMode = "queued") => {
@@ -342,6 +358,18 @@ export const useChartViewport = ({
       return isViewportChartUsable(chart) ? chart : null;
     };
 
+    const notifyHistoryBoundary = (startIdx: number, endIdx: number, totalBars: number) => {
+      if (!onHistoryBoundaryRequest || totalBars <= 0) return;
+      const visibleSpan = Math.max(1, endIdx - startIdx);
+      const threshold = Math.max(
+        20,
+        Math.floor(totalBars * 0.2),
+        Math.ceil(visibleSpan * 2),
+      );
+      if (startIdx <= threshold) onHistoryBoundaryRequest("left");
+      if (endIdx >= totalBars - 1 - threshold) onHistoryBoundaryRequest("right");
+    };
+
     const applyExternalTimeZoom = (direction: "in" | "out") => {
       const chart = getLiveChart();
       if (!chart || chartData.length === 0) return;
@@ -361,6 +389,7 @@ export const useChartViewport = ({
 
       state.startIdx = nextViewport.startIdx;
       state.endIdx = nextViewport.endIdx;
+      notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
       applyViewport();
     };
 
@@ -382,6 +411,7 @@ export const useChartViewport = ({
 
       state.startIdx = nextViewport.startIdx;
       state.endIdx = nextViewport.endIdx;
+      notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
       applyViewport();
     };
 
@@ -460,8 +490,19 @@ export const useChartViewport = ({
       const wheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
 
       if (isOnYAxis) {
-        const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
-        state.yScale = Math.max(0.1, Math.min(5, state.yScale * zoomFactor));
+        const totalBars = chartData.length;
+        const autoRange = resolveAutoViewportPriceRange({ chartData, startIdx: state.startIdx, endIdx: Math.min(totalBars - 1, state.endIdx), hasComparisonEndLabels, lastPriceAxisValue });
+        const baseRange = Math.max(1, autoRange.visibleMax - autoRange.visibleMin + autoRange.padding * 2);
+        const currentRange = baseRange * state.yScale;
+        const gridHeight = Math.max(1, rect.height - TV_X_AXIS_HEIGHT);
+        const cursorRatio = Math.max(0, Math.min(1, mouseY / gridHeight));
+        const oldPriceAtCursor = autoRange.center + state.yPan + currentRange * (0.5 - cursorRatio);
+        const wheelStep = Math.sign(wheelDeltaY) * Math.min(1, Math.abs(wheelDeltaY) / 80);
+        const nextScale = Math.max(0.1, Math.min(5, state.yScale * Math.exp(wheelStep * TV_ZOOM_VELOCITY * 80)));
+        const nextRange = baseRange * nextScale;
+        const shiftedCursorRatio = Math.max(0, Math.min(1, (mouseY + 15 * wheelStep) / gridHeight));
+        state.yScale = nextScale;
+        state.yPan = oldPriceAtCursor - autoRange.center - nextRange * (0.5 - shiftedCursorRatio);
         state.isYManual = true;
         scheduleViewportApply("immediate");
       } else if (isOnChart || isOnXAxis) {
@@ -469,21 +510,16 @@ export const useChartViewport = ({
         const visibleCount = state.endIdx - state.startIdx;
 
         if (Math.abs(wheelDeltaY) > Math.abs(wheelDeltaX)) {
-          const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
-          const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
-          const cursorRatio = Math.max(0, Math.min(1, (mouseX - MAIN_GRID_LEFT) / gridWidth));
-
-          const nextViewport = computeDirectionalZoomViewport({
+          const nextViewport = computeTradingViewWheelZoomViewport({
             startIdx: state.startIdx,
             endIdx: state.endIdx,
             totalBars,
-            cursorRatio,
-            zoomFactor,
             deltaY: wheelDeltaY,
           });
 
           state.startIdx = nextViewport.startIdx;
           state.endIdx = nextViewport.endIdx;
+          notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
           scheduleViewportApply("immediate");
         } else {
           const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
@@ -498,6 +534,7 @@ export const useChartViewport = ({
 
           state.startIdx = nextViewport.startIdx;
           state.endIdx = nextViewport.endIdx;
+          notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
           scheduleViewportApply("immediate");
         }
       }
@@ -531,12 +568,9 @@ export const useChartViewport = ({
         if (drawingInteraction === 'tool' || drawingInteraction === 'eraser' || drawingInteraction === 'magic') {
           return;
         }
-        if (target.tagName === 'CANVAS') {
-          const cursor = target.style.cursor;
-          if (cursor === 'move' || cursor === 'grab' || cursor === 'grabbing' || cursor === 'ns-resize') {
-            return;
-          }
-        }
+        // Chart canvases may expose a move/grab cursor while still being the
+        // horizontal pan surface. Drawing canvases remain protected above by their
+        // explicit interaction modes, so cursor styling must not veto chart panning.
         if (target.closest('.gp-drawing-overlay-shield')) {
           return;
         }
@@ -574,6 +608,8 @@ export const useChartViewport = ({
       if (isOnYAxis) {
         state.isDraggingYScale = true;
         state.startY = event.clientY;
+        state.initialYScale = state.yScale;
+        state.initialYPan = state.yPan;
       } else if (isOnXAxis) {
         state.isDraggingXPan = true;
         state.startX = event.clientX;
@@ -646,9 +682,19 @@ export const useChartViewport = ({
 
       if (state.isDraggingYScale) {
         const deltaY = event.clientY - state.startY;
-        state.startY = event.clientY;
-        const scaleFactor = Math.exp(deltaY * 0.01);
-        state.yScale = Math.max(0.1, Math.min(5, state.yScale * scaleFactor));
+        const rect = state.cachedRect || containerEl.getBoundingClientRect();
+        const totalBars = chartData.length;
+        const autoRange = resolveAutoViewportPriceRange({ chartData, startIdx: state.startIdx, endIdx: Math.min(totalBars - 1, state.endIdx), hasComparisonEndLabels, lastPriceAxisValue });
+        const baseRange = Math.max(1, autoRange.visibleMax - autoRange.visibleMin + autoRange.padding * 2);
+        const gridHeight = Math.max(1, rect.height - TV_X_AXIS_HEIGHT);
+        const startRatio = Math.max(0, Math.min(1, (state.startY - rect.top) / gridHeight));
+        const currentRatio = Math.max(0, Math.min(1, (event.clientY - rect.top) / gridHeight));
+        const initialRange = baseRange * state.initialYScale;
+        const anchorPrice = autoRange.center + state.initialYPan + initialRange * (0.5 - startRatio);
+        const nextScale = Math.max(0.1, Math.min(5, state.initialYScale * Math.exp(deltaY * 0.01)));
+        const nextRange = baseRange * nextScale;
+        state.yScale = nextScale;
+        state.yPan = anchorPrice - autoRange.center - nextRange * (0.5 - currentRatio);
         state.isYManual = true;
         scheduleViewportApply("immediate");
       } else if (state.isDraggingChart || state.isDraggingXPan) {
@@ -671,12 +717,14 @@ export const useChartViewport = ({
 
         state.startIdx = nextViewport.startIdx;
         state.endIdx = nextViewport.endIdx;
+        notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
 
         if (state.isDraggingChart) {
           const deltaY = event.clientY - state.startY;
           state.startY = event.clientY;
 
-          if (state.isYManual) {
+          if (Math.abs(deltaY) > 0) {
+            state.isYManual = true;
             const gridHeight = Math.max(1, rect.height - (rect.height * 0.08) - 30);
             let visibleMin = Infinity, visibleMax = -Infinity;
             for (let i = state.startIdx; i <= state.endIdx; i++) {
@@ -685,7 +733,7 @@ export const useChartViewport = ({
                 visibleMax = Math.max(visibleMax, chartData[i].high);
               }
             }
-            const priceRange = (visibleMax - visibleMin) * state.yScale;
+            const priceRange = Math.max(1, (visibleMax - visibleMin) * state.yScale);
             const shiftY = (deltaY / gridHeight) * priceRange;
             const maxPan = priceRange * 0.8;
             state.yPan = clamp(state.yPan + shiftY, -maxPan, maxPan);
@@ -716,6 +764,20 @@ export const useChartViewport = ({
       }
     };
 
+    const normalizeMousePointerEvent = (event: MouseEvent): PointerEvent => {
+      Object.defineProperties(event, {
+        pointerId: { value: 1, configurable: true },
+        pointerType: { value: 'mouse', configurable: true },
+        isPrimary: { value: true, configurable: true },
+        __nativeMouse: { value: true, configurable: true },
+      });
+      return event as unknown as PointerEvent;
+    };
+
+    const onMouseDown = (event: MouseEvent) => onPointerDown(normalizeMousePointerEvent(event));
+    const onMouseMove = (event: MouseEvent) => onPointerMove(normalizeMousePointerEvent(event));
+    const onMouseUp = (event: MouseEvent) => onPointerUp(normalizeMousePointerEvent(event));
+
     const onDoubleClick = (event: MouseEvent | PointerEvent) => {
       if (!getLiveChart()) return;
       const target = event.target as HTMLElement;
@@ -729,12 +791,9 @@ export const useChartViewport = ({
         if (drawingInteraction === 'tool' || drawingInteraction === 'eraser' || drawingInteraction === 'magic') {
           return;
         }
-        if (target.tagName === 'CANVAS') {
-          const cursor = target.style.cursor;
-          if (cursor === 'move' || cursor === 'grab' || cursor === 'grabbing' || cursor === 'ns-resize') {
-            return;
-          }
-        }
+        // Chart canvases may expose a move/grab cursor while still being the
+        // horizontal pan surface. Drawing canvases remain protected above by their
+        // explicit interaction modes, so cursor styling must not veto chart panning.
         if (target.closest('.gp-drawing-overlay-shield')) {
           return;
         }
@@ -754,25 +813,29 @@ export const useChartViewport = ({
 
     containerEl.addEventListener("wheel", onWheel, wheelListenerOptions);
     containerEl.addEventListener("pointerdown", onPointerDown);
+    containerEl.addEventListener("mousedown", onMouseDown);
     containerEl.addEventListener("dblclick", onDoubleClick);
     
     // [TENOR 2026 SRE FIX] Attach to window to catch fast swipes and ensure cleanup
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
-    window.addEventListener("pointerout", onPointerUp);
 
     return () => {
       if (registryFrameId !== null) cancelAnimationFrame(registryFrameId);
       if (registeredChart) TimeAxisRegistry.delete(registeredChart);
       containerEl.removeEventListener("wheel", onWheel, wheelListenerOptions);
       containerEl.removeEventListener("pointerdown", onPointerDown);
+      containerEl.removeEventListener("mousedown", onMouseDown);
       containerEl.removeEventListener("dblclick", onDoubleClick);
       
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
-      window.removeEventListener("pointerout", onPointerUp);
     };
   }, [
     chartData,

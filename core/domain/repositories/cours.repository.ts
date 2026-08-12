@@ -9,6 +9,7 @@ export interface ICoursRepository {
   updateCours: (id: string, cours: UpdateCoursType) => Promise<CoursType | null>;
   deleteCours: (id: string) => Promise<boolean>;
   getAllCours: (params?: CoursQueryParams) => Promise<PaginatedResponse<CoursEntity>>;
+  getCoursHistory: (params?: CoursQueryParams, maxPoints?: number) => Promise<CoursEntity[]>;
   getCoursById: (id: string) => CoursEntity | null;
 
   allCoursData?: PaginatedResponse<CoursEntity>;

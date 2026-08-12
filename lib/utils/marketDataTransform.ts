@@ -27,8 +27,14 @@ import type { LiveSnapshot } from "@/components/technical-analysis/config/market
 // ----------------------------------------------------------------------------
 
 /** Retourne un `number` fini, sinon `fallback` (jamais NaN dans l'UI). */
-const finiteOr = (value: unknown, fallback: number): number =>
-  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+const finiteOr = (value: unknown, fallback: number): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+};
 
 /** Formate un pourcentage signé au format d'affichage BRVM ("+0.19%"). */
 const formatSignedPercent = (pct: number): string =>

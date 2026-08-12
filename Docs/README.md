@@ -12,3 +12,8 @@ Ce dossier est la documentation officielle et le workflow de référence pour le
 
 - Utiliser ce dossier comme premier arrêt de documentation avant toute implémentation.
 - Décision d'architecture retenue : ce dossier est la source canonique de documentation / workflow pour les futurs LLM.
+
+## Migrations
+
+- `Docs/migrations/technical-analysis/` — migration de la page `/equity/technical-analysis` vers le backend `Algo DataBase API v1` (index page-anchored + statut vérifié + plan + roadmap).
+- `Docs/migration/backend-schema/` — schéma OpenAPI global du backend (partagé par les migrations).

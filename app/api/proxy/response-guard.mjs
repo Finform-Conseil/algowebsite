@@ -44,6 +44,28 @@ function isSuccessStatus(status) {
  * @param {string | null | undefined} contentType - En-tête Content-Type brut.
  * @returns {boolean} true si la réponse doit être traitée comme 502 Bad Gateway.
  */
+/**
+ * Détecte un body JSON vide ou invalide relayé avec un statut de succès.
+ * Les formats non JSON sont volontairement exclus pour préserver les exports.
+ * @param {number} status
+ * @param {string | null | undefined} contentType
+ * @param {ArrayBuffer} bodyBuffer
+ * @returns {boolean}
+ */
+export function isMalformedJsonResponse(status, contentType, bodyBuffer) {
+  if (!isSuccessStatus(status) || !contentType || !/json/i.test(contentType)) {
+    return false;
+  }
+  const text = new TextDecoder().decode(bodyBuffer).trim();
+  if (!text) return true;
+  try {
+    JSON.parse(text);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export function isGatewayInterception(status, contentType) {
   if (!isSuccessStatus(status)) {
     return false;

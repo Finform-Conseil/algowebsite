@@ -1,3 +1,4 @@
+const path = require('node:path');
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
@@ -7,6 +8,9 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost", "*.trycloudflare.com"],
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   images: {
     qualities: [75, 100],
   },

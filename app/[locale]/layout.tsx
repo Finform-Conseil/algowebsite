@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { getMessages } from 'next-intl/server';
 import Navbar from '@/components/navigation/Navbar';
-import SessionProviderWrapper from '@/core/infra/auth/sessionProvider';
 import CurrencyInitializer from '@/components/currency/CurrencyInitializer';
 
 export const metadata: Metadata = {
@@ -28,12 +27,10 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <SessionProviderWrapper>
-      <NextIntlClientProvider messages={messages}>
-        <CurrencyInitializer />
-        <Navbar />
-        {children}
-      </NextIntlClientProvider>
-    </SessionProviderWrapper>
+    <NextIntlClientProvider messages={messages}>
+      <CurrencyInitializer />
+      <Navbar />
+      {children}
+    </NextIntlClientProvider>
   );
 }

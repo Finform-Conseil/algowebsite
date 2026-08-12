@@ -31,4 +31,13 @@ export interface ChartAppearance {
   backgroundColor: string;
   showVolume: boolean;
   volumeColorMode: VolumeColorMode;
+  statusLine: {
+    showChange: boolean;
+    showChangePercent: boolean;
+    showLast: boolean;
+    showLogo: boolean;
+    showName: boolean;
+    showSymbol: boolean;
+    showVolume: boolean;
+  };
 }

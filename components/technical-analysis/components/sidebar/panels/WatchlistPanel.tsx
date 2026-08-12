@@ -27,7 +27,7 @@ interface WatchlistPanelProps {
   liveChange: number;
   liveChangePercent: number;
   livePrice: number;
-  liveVolume?: number;
+  liveVolume?: number | null;
   onAddSymbol: () => void;
   onAdvancedView: () => void;
   onSettingChange: (key: keyof WatchlistSettings, value: boolean) => void;
@@ -278,7 +278,7 @@ export const WatchlistPanel = React.memo(({
             <div className="d-flex align-items-center gap-2">
               <div className="status-indicator-dot" />
               <span className="status-text">{sidebarMarketStatus.isOpen ? "Market open" : "Market closed"}</span>
-              {settings.showVolume && <><span className="status-separator">•</span><span className="status-volume">Volume: {liveVolume?.toLocaleString("fr-FR") || "0"}</span></>}
+              {settings.showVolume && <><span className="status-separator">•</span><span className="status-volume">Volume: {liveVolume == null ? "N/D" : liveVolume.toLocaleString("fr-FR")}</span></>}
             </div>
           </div>
           <div className="gp-security-details-v3">

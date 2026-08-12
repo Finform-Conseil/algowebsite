@@ -174,7 +174,7 @@ export const buildDailyAlertContext = (ticker: string, data: ChartDataPoint[]): 
     name: security?.name || normalizedTicker,
     newsLabel: "Flux non charge",
     priceLabel: formatCurrency(last.close, currency),
-    sessionLabel: "Daily CSV",
+    sessionLabel: "API officielle",
     ticker: normalizedTicker,
     volumeLabel: volume === null ? "N/D" : volume.toLocaleString("fr-FR"),
     volumeRatio: volume !== null && averageVolume !== null && averageVolume > 0 ? volume / averageVolume : null,

@@ -1,0 +1,136 @@
+SIDEBAR DROIT — VERIFICATION DU DATA FLOW API-FIRST
+======================================================
+
+Date de verification : 2026-08-12
+Titre controle : BOAB / BANK OF AFRICA BENIN
+ISIN controle : BJ0000000048
+API distante controlee : http://a21mldhl1xhs0dumr7kfo1fg.85.190.99.121.sslip.io/
+Proxy applicatif observe : /api/proxy/10
+Store API canonique : core/infra/store/api/
+
+1. FLUX ARCHITECTURAL VERIFIE
+------------------------------
+
+API officielle
+  -> core/infra/store/api/base.api.ts
+  -> core/infra/store/api/action.api.ts et cours.api.ts
+  -> core/infra/repositories/action.repository.impl.ts
+  -> components/technical-analysis/hooks/MarketData/useMarketData.ts
+  -> TechnicalAnalysis / modele sidebar
+  -> components/technical-analysis/components/sidebar/TechnicalAnalysisSidebarContent.tsx
+
+Le composant de sidebar ne doit pas appeler directement l'API distante. Il consomme
+les donnees deja resolues par le repository et le hook de donnees.
+
+2. ROUTES REELLES DU STORE API
+------------------------------
+
+Le baseUrl vient de NEXT_PUBLIC_CLIENT_API_BASE dans
+core/infra/store/api/base.api.ts. En execution locale, la valeur observee est
+/api/proxy/10/api/v1.
+
+Route principale du titre :
+  GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+
+Route equivalente de recherche par ticker du repository :
+  GET /api/proxy/10/api/v1/actions/ticker/?ticker=BOA_BJ
+
+Historique OHLCV utilise par le graphique et les vues derivees :
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=1&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=2&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=3&page_size=100
+  ...
+  La pagination est continuee par le hook jusqu'a couvrir la fenetre requise.
+
+Routes secondaires visibles sur la meme surface :
+  GET /api/proxy/10/api/v1/results/?action_ticker=BOA_BJ&page_size=500
+  GET /api/proxy/10/api/v1/fixed-income/bond-securities/?page_size=100
+  GET /api/market-data/brvm-news
+
+3. CORRESPONDANCE DU BLOC AFFICHÉ
+----------------------------------
+
+Valeur UI                         Source API / transformation verifiee
+---------------------------------------------------------------------------
+BANK OF AFRICA BENIN              actions[].society.name
+BRVM                              actions[].bourse.ticker
+7540,00                           actions[].latest_price_metric.price
+XOF                               actions[].bourse.currency.symbol
+-55,00                            latest_price_metric.price - prev_close
+(-0.72%)                          latest_price_metric.change_1d_pct
+Volume: 3 193                     latest_price_metric.volume
+Sector: Banking                   actions[].society.industry.name -> normalise en Banking
+Country: Bénin                    actions[].society.country.name
+
+Les champs metier ci-dessus ne proviennent pas de BRVM_SECURITIES lorsque
+l'action API BOA_BJ est resolue.
+
+4. ELEMENTS DE PRESENTATION LOCALE
+-----------------------------------
+
+Les elements suivants ne sont pas des donnees metier inventees :
+
+- format francais des nombres et separateur de milliers ;
+- format XOF ;
+- conversion d'horodatage vers GMT+1 ;
+- libelle "Last update at ..." ;
+- libelle "Market open", determine par le calendrier de session BRVM ;
+- puces, titres, espacement et ordre visuel.
+
+"Market open" n'est donc pas un champ brut de l'action API. C'est un etat
+de session presente localement a partir du calendrier de marche.
+
+5. PREUVE RESEAU ET CDP
+-----------------------
+
+La page Chrome controlee :
+  http://localhost:3000/en/equity/technical-analysis
+
+Ressources API observees via CDP :
+  /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+  /api/proxy/10/api/v1/cours/?instrument=792ff1a9-a067-4302-a3cb-8662fd23fb94&page=1&page_size=100
+  /api/proxy/10/api/v1/cours/?instrument=792ff1a9-a067-4302-a3cb-8662fd23fb94&page=2&page_size=100
+  /api/proxy/10/api/v1/results/?action_ticker=BOA_BJ&page_size=500
+  /api/market-data/brvm-news
+
+La reponse API BOA_BJ controlee contenait notamment :
+  price = 7540
+  prev_close = 7595
+  change_1d_pct = -0.7241606319947334
+  volume = 3193
+  isin = BJ0000000048
+  society.name = BANK OF AFRICA BENIN
+  society.country.name = Bénin
+  society.industry.name = Commercial Banks (normalise UI = Banking)
+  bourse.ticker = BRVM
+  bourse.currency.symbol = XOF
+
+La page rendait simultanement :
+  BANK OF AFRICA BENIN
+  BRVM
+  7540,00 XOF
+  -55,00 (-0.72%)
+  Volume: 3 193
+  Sector: Banking
+  Country: Bénin
+
+6. REGLES DE NON-REGRESSION API-FIRST
+--------------------------------------
+
+- Ne pas remplacer une reponse API par BRVM_SECURITIES quand l'action API existe.
+- Si un champ API manque, afficher N/D ou une absence explicite.
+- Les fallbacks catalogue restent limites au mode mock ou a une degradation explicitement
+  tracee lorsque l'API est indisponible.
+- Toute nouvelle donnee metier doit suivre :
+  API -> store API -> repository -> hook -> modele de presentation -> UI.
+- Les URLs de endpoints Django gardent leur slash final dans les fichiers API.
+- Le repository dedoublonne les requetes d'action en vol avant exposition au hook.
+
+7. LIMITE CONSTATEE
+-------------------
+
+FIGI n'est pas fourni par la reponse API BOA_BJ controlee. La sidebar affiche donc
+FIGI = N/D. Aucune valeur FIGI du catalogue local ne doit etre injectee en mode reel.
+
+Ce fichier documente le flux existant et sa preuve ; il ne declare pas que les labels
+de presentation locale sont des champs bruts de l'API.

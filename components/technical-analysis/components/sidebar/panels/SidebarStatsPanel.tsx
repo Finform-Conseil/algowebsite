@@ -5,8 +5,8 @@ interface SidebarStatsPanelProps {
   isLoading: boolean;
   returnYTD: number | null | undefined;
   peRatio: number | null | undefined;
-  currentVolume: number;
-  avgVolume: number;
+  currentVolume: number | null;
+  avgVolume: number | null;
   revenueT12M: string;
   marketCap: number | null | undefined;
   auditTrail?: React.ReactNode;
@@ -22,8 +22,8 @@ const formatPercent = (value: number | null | undefined) => {
   return `${value > 0 ? "+" : ""}${formatDecimal(value)}%`;
 };
 
-const formatVolume = (value: number) => {
-  if (!Number.isFinite(value)) return "N/D";
+const formatVolume = (value: number | null | undefined) => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "N/D";
   if (value >= 1000) return `${(value / 1000).toFixed(2).replace(".", ",")} K`;
   return Math.round(value).toString();
 };
@@ -38,7 +38,7 @@ const formatMarketCap = (value: number | null | undefined) => {
 };
 
 const SidebarStatsSkeleton = () => {
-  const labels = ["Rendement YTD", "P/E Ratio", "Volume", "Revenu/PNB (FY)", "Volume moyen (30)", "Capitalisation boursière"];
+  const labels = ["Rendement YTD", "P/E Ratio", "Volume", "Revenu/PNB (FY)", "Volume moyen (20)", "Capitalisation boursière"];
   return (
     <div className="d-flex flex-column gap-1 p-0">
       {labels.map((label) => (
@@ -94,7 +94,7 @@ export const SidebarStatsPanel = React.memo(({
               <span className={clsx("col-auto", "stat-value")}>{revenueT12M}</span>
             </div>
             <div className={clsx("row", "g-0")}>
-              <span className={clsx("col", "stat-label")}>Volume moyen (30)</span>
+              <span className={clsx("col", "stat-label")}>Volume moyen (20)</span>
               <span className={clsx("col-auto", "stat-value")}>{formatVolume(avgVolume)}</span>
             </div>
             <div className={clsx("row", "g-0")}>

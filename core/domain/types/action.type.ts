@@ -7,6 +7,7 @@ export type CreateActionType = z.infer<typeof createActionSchema>;
 export type UpdateActionType = z.infer<typeof updateActionSchema>;
 
 export interface ActionQueryParams extends QueryParams {
+    ticker?: string;
     isin?: string;
     society?: string;
     country?: string;

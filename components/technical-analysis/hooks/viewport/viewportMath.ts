@@ -5,6 +5,7 @@ export type ZoomRangeSnapshot = {
   end: number;
   barsFromRightStart?: number;
   barsFromRightEnd?: number;
+  futureBarsFromRightEnd?: number;
 };
 
 export const TV_Y_AXIS_WIDTH = 84;
@@ -13,12 +14,12 @@ export const TV_ZOOM_VELOCITY = 0.001;
 export const TV_AUTO_SCALE_PADDING = 0.08;
 export const TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING = 0.22;
 export const TV_MIN_VISIBLE_BARS = 10;
-export const TV_CURSOR_INFLUENCE = 0.68;
-export const TV_ZOOM_DRIFT_STRENGTH = 0.85;
-export const TV_ZOOM_DRIFT_BASE_RATIO = 0.015;
+export const TV_CURSOR_INFLUENCE = 1.0;
 export const TV_PAN_DRIFT_DAMPING = 0.85;
 export const TV_INITIAL_VISIBLE_BARS = 100;
 export const TV_RESET_VISIBLE_BARS = 120;
+export const TV_MAX_FUTURE_BARS = 80;
+export const TV_MAX_HISTORY_GAP_BARS = 80;
 export const MAIN_GRID_LEFT = 35;
 
 const WHEEL_DELTA_LINE_MODE = 1;
@@ -61,10 +62,16 @@ export const resolveInitialViewportWindow = (
     Number.isFinite(zoomRange?.barsFromRightEnd);
 
   if (hasAnchoredSnapshot) {
-    return clampViewportWindow(
+    const barsFromRightEnd = zoomRange?.barsFromRightEnd as number;
+    const futureBars = Math.max(
+      0,
+      Math.round(zoomRange?.futureBarsFromRightEnd ?? Math.max(0, -barsFromRightEnd)),
+    );
+    return clampViewportWindowWithFuture(
       totalBars - (zoomRange?.barsFromRightStart as number),
-      totalBars - (zoomRange?.barsFromRightEnd as number),
+      totalBars - barsFromRightEnd,
       totalBars,
+      futureBars,
     );
   }
 
@@ -119,6 +126,33 @@ export const clampViewportWindow = (
   };
 };
 
+export const clampViewportWindowWithFuture = (
+  startIdx: number,
+  endIdx: number,
+  totalBars: number,
+  maxFutureBars = TV_MAX_FUTURE_BARS,
+): ViewportWindow => {
+  if (totalBars <= 1) return { startIdx: 0, endIdx: 0 };
+
+  const { minSpan, maxSpan } = getViewportSpanBounds(totalBars);
+  const span = Math.max(minSpan, Math.min(maxSpan, endIdx - startIdx));
+  const lastIndex = totalBars - 1;
+  const maxEnd = lastIndex + Math.max(0, Math.round(maxFutureBars));
+  const minStart = -Math.max(0, Math.round(TV_MAX_HISTORY_GAP_BARS));
+  const maxStart = Math.max(0, maxEnd - minSpan);
+  let start = Number.isFinite(startIdx) ? startIdx : 0;
+  let end = start + span;
+
+  start = clamp(start, minStart, maxStart);
+  end = start + span;
+  if (end > maxEnd) {
+    end = maxEnd;
+    start = Math.max(0, end - span);
+  }
+
+  return { startIdx: Math.round(start), endIdx: Math.round(end) };
+};
+
 export const computeDirectionalZoomViewport = ({
   startIdx,
   endIdx,
@@ -151,22 +185,41 @@ export const computeDirectionalZoomViewport = ({
 
   const blendedStart = lerp(centeredStart, cursorAnchoredStart, TV_CURSOR_INFLUENCE);
 
-  const zoomDirection = deltaY < 0 ? 1 : deltaY > 0 ? -1 : 0;
-  const changedBars = Math.abs(targetSpan - currentSpan);
-  const directionalWeight = zoomDirection > 0
-    ? 0.45 + (normalizedCursorRatio * 0.55)
-    : 0.45 + ((1 - normalizedCursorRatio) * 0.55);
-
-  const driftMagnitude = Math.max(
-    currentSpan * TV_ZOOM_DRIFT_BASE_RATIO,
-    changedBars * TV_ZOOM_DRIFT_STRENGTH * directionalWeight,
-  );
-
-  const driftedStart = blendedStart + (zoomDirection * driftMagnitude);
+  void deltaY;
 
   return clampViewportWindow(
-    driftedStart,
-    driftedStart + targetSpan,
+    blendedStart,
+    blendedStart + targetSpan,
+    totalBars,
+  );
+};
+
+export const computeTradingViewWheelZoomViewport = ({
+  startIdx,
+  endIdx,
+  totalBars,
+  deltaY,
+}: {
+  startIdx: number;
+  endIdx: number;
+  totalBars: number;
+  deltaY: number;
+}): ViewportWindow => {
+  if (totalBars <= 1 || !Number.isFinite(deltaY)) {
+    return { startIdx: 0, endIdx: 0 };
+  }
+
+  const { minSpan, maxSpan } = getViewportSpanBounds(totalBars);
+  const currentSpan = Math.max(minSpan, Math.min(maxSpan, endIdx - startIdx));
+  const normalizedWheelDirection =
+    Math.sign(-deltaY) * Math.min(1, Math.abs(deltaY) / TV_WHEEL_DELTA_CAP_PX);
+  const spacingFactor = 1 + (normalizedWheelDirection / 10);
+  const targetSpan = clamp(currentSpan / spacingFactor, minSpan, maxSpan);
+  const rightEdge = Number.isFinite(endIdx) ? endIdx : maxSpan;
+
+  return clampViewportWindowWithFuture(
+    rightEdge - targetSpan,
+    rightEdge,
     totalBars,
   );
 };
@@ -182,7 +235,7 @@ export const computeHorizontalPanViewport = ({
   totalBars: number;
   shift: number;
 }): ViewportWindow =>
-  clampViewportWindow(
+  clampViewportWindowWithFuture(
     startIdx + (shift * TV_PAN_DRIFT_DAMPING),
     endIdx + (shift * TV_PAN_DRIFT_DAMPING),
     totalBars,

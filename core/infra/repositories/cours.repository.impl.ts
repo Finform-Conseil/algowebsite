@@ -137,6 +137,51 @@ export const useCoursRepository = (): ICoursRepository => {
     [triggerGetAllCours]
   );
   
+  const getCoursHistory = useCallback(
+    async (params: QueryParams = {}, maxPoints = 500): Promise<CoursEntity[]> => {
+      if (typeof params.instrument !== "string" || params.instrument.trim() === "") {
+        throw new Error("Cours history requires a valid instrument identifier.");
+      }
+      const pageSize = 100;
+      const maxPages = Math.ceil(maxPoints / pageSize);
+      const fetchHistoryPage = (page: number) =>
+        getSharedCoursRequest(
+          `cours:history:${serializeCoursParams({ ...params, page, page_size: pageSize })}`,
+          () => triggerGetAllCours({ ...params, page, page_size: pageSize }).unwrap()
+        );
+
+      const firstResponse = await fetchHistoryPage(1);
+      const firstPage = firstResponse.data ?? [];
+      const reportedTotalPages = Number(firstResponse.total_pages);
+
+      if (Number.isFinite(reportedTotalPages)) {
+        const pageCount = Math.min(maxPages, Math.max(1, reportedTotalPages));
+        const remainingResponses = await Promise.all(
+          Array.from({ length: pageCount - 1 }, (_, index) =>
+            fetchHistoryPage(index + 2)
+          )
+        );
+
+        return [firstPage, ...remainingResponses.map((response) => response.data ?? [])]
+          .flat()
+          .slice(0, maxPoints);
+      }
+
+      const pages = [...firstPage];
+      let response = firstResponse;
+
+      for (let page = 2; page <= maxPages && response.links?.next; page += 1) {
+        response = await fetchHistoryPage(page);
+        const receivedPage = response.data ?? [];
+        pages.push(...receivedPage);
+        if (receivedPage.length === 0) break;
+      }
+
+      return pages.slice(0, maxPoints);
+    },
+    [triggerGetAllCours]
+  );
+
   const getCoursById = useCallback((id: string) => {
     setCoursIdArg(id);
     return currentCoursQueryResult || null;
@@ -148,6 +193,7 @@ export const useCoursRepository = (): ICoursRepository => {
     updateCours,
     deleteCours,
     getAllCours,
+    getCoursHistory,
     getCoursById,
 
     allCoursData: allCoursQueryResult,

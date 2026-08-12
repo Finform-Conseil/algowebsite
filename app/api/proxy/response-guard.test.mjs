@@ -5,7 +5,7 @@
 // ================================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isGatewayInterception } from './response-guard.mjs';
+import { isGatewayInterception, isMalformedJsonResponse } from './response-guard.mjs';
 
 test('2xx + text/html => interception détectée (le cas du bug)', () => {
   assert.equal(isGatewayInterception(200, 'text/html'), true);
@@ -45,4 +45,20 @@ test('bornes de la classe 2xx', () => {
   assert.equal(isGatewayInterception(200, 'text/html'), true);  // début 2xx
   assert.equal(isGatewayInterception(299, 'text/html'), true);  // fin 2xx
   assert.equal(isGatewayInterception(300, 'text/html'), false); // après 2xx
+});
+
+test('JSON vide ou tronqué en 2xx => réponse invalide', () => {
+  const empty = new TextEncoder().encode('').buffer;
+  const truncated = new TextEncoder().encode('{"data":').buffer;
+  const valid = new TextEncoder().encode('{"data":[]}').buffer;
+  assert.equal(isMalformedJsonResponse(200, 'application/json', empty), true);
+  assert.equal(isMalformedJsonResponse(200, 'application/json; charset=utf-8', truncated), true);
+  assert.equal(isMalformedJsonResponse(200, 'application/json', valid), false);
+});
+
+test('formats non JSON préservés', () => {
+  const body = new TextEncoder().encode('binary-or-csv').buffer;
+  assert.equal(isMalformedJsonResponse(200, 'text/csv', body), false);
+  assert.equal(isMalformedJsonResponse(200, 'application/pdf', body), false);
+  assert.equal(isMalformedJsonResponse(502, 'application/json', body), false);
 });

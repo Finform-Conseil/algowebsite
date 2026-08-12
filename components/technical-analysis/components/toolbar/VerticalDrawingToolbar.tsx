@@ -56,56 +56,24 @@ interface VerticalDrawingToolbarProps {
   mainContainerRef: React.RefObject<HTMLDivElement>;
   verticalToolbarRef?: React.RefObject<HTMLDivElement>;
   handleClearAllDrawings: () => void;
-  isLoading?: boolean;
+  isInitialLoading?: boolean;
 }
 
-const TOOLBAR_SKELETON_MAIN_ITEMS = [0, 1, 2, 3, 4, 5, 6] as const;
-const TOOLBAR_SKELETON_FOOTER_ITEMS = [0, 1, 2, 3, 4] as const;
-
-const ToolbarSkeletonButton = ({ emphasis = false }: { emphasis?: boolean }) => (
-  <span
-    className="is-loading-skeleton"
-    style={{
-      display: "block",
-      width: "var(--gp-toolbar-btn-size)",
-      height: "var(--gp-toolbar-btn-size)",
-      borderRadius: "var(--gp-radius-sm)",
-      flexShrink: 0,
-      opacity: emphasis ? 0.95 : 0.72,
-    }}
-  />
-);
-
-const VerticalDrawingToolbarSkeleton = ({ verticalToolbarRef }: Pick<VerticalDrawingToolbarProps, "verticalToolbarRef">) => (
-  <aside
-    ref={verticalToolbarRef}
-    className={clsx(
-      "gp-vertical-toolbar",
-      "gsap-target-vertical-toolbar",
-      "animated-element",
-    )}
-    aria-busy="true"
-    aria-label="Chargement des outils de dessin"
-  >
-    <div className="gp-toolbar-scroll-container" aria-hidden="true">
-      <ToolbarSkeletonButton emphasis />
-      {TOOLBAR_SKELETON_MAIN_ITEMS.slice(0, 4).map((item) => (
-        <ToolbarSkeletonButton key={"main-a-" + item} />
-      ))}
-      <div className="gp-toolbar-divider" />
-      {TOOLBAR_SKELETON_MAIN_ITEMS.slice(4).map((item) => (
-        <ToolbarSkeletonButton key={"main-b-" + item} />
-      ))}
-    </div>
-
-    <div className="gp-toolbar-footer" aria-hidden="true">
-      <div className="gp-toolbar-divider" />
-      {TOOLBAR_SKELETON_FOOTER_ITEMS.map((item) => (
-        <ToolbarSkeletonButton key={"footer-" + item} />
+const VerticalDrawingToolbarSkeleton = ({
+  verticalToolbarRef,
+}: Pick<VerticalDrawingToolbarProps, "verticalToolbarRef">) => (
+  <aside ref={verticalToolbarRef} className="gp-vertical-toolbar" aria-busy="true">
+    <div className="gp-toolbar-scroll-container" aria-label="Chargement des outils de dessin">
+      {Array.from({ length: 8 }, (_, index) => (
+        <span
+          key={index}
+          className="is-loading-skeleton"
+          style={{ display: "block", width: "var(--gp-toolbar-btn-size)", height: "var(--gp-toolbar-btn-size)", borderRadius: "var(--gp-radius-sm)", flexShrink: 0 }}
+        />
       ))}
     </div>
   </aside>
-)
+);
 
 export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   activeTool,
@@ -113,11 +81,12 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   mainContainerRef,
   verticalToolbarRef,
   handleClearAllDrawings,
-  isLoading = false
+  isInitialLoading = false,
 }) => {
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
   const cursorDropdownRef = useRef<HTMLButtonElement>(null);
+  const hasCompletedInitialLoadRef = useRef(false);
 
   const toolbarMenus = useDrawingToolbarMenuState(mainContainerRef);
   const {
@@ -426,7 +395,11 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     annotationsDropdownRef,
   ]);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isInitialLoading) hasCompletedInitialLoadRef.current = true;
+  }, [isInitialLoading]);
+
+  if (isInitialLoading && !hasCompletedInitialLoadRef.current) {
     return <VerticalDrawingToolbarSkeleton verticalToolbarRef={verticalToolbarRef} />;
   }
 

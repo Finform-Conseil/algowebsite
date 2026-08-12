@@ -61,6 +61,16 @@ export const chartConfigReducers = {
     if (p.backgroundColor !== undefined) state.chartAppearance.backgroundColor = p.backgroundColor;
     if (p.showVolume !== undefined) state.chartAppearance.showVolume = p.showVolume;
     if (p.volumeColorMode !== undefined) state.chartAppearance.volumeColorMode = p.volumeColorMode;
+    if (p.statusLine !== undefined) {
+      const statusLine = p.statusLine;
+      if (statusLine.showChange !== undefined) state.chartAppearance.statusLine.showChange = statusLine.showChange;
+      if (statusLine.showChangePercent !== undefined) state.chartAppearance.statusLine.showChangePercent = statusLine.showChangePercent;
+      if (statusLine.showLast !== undefined) state.chartAppearance.statusLine.showLast = statusLine.showLast;
+      if (statusLine.showLogo !== undefined) state.chartAppearance.statusLine.showLogo = statusLine.showLogo;
+      if (statusLine.showName !== undefined) state.chartAppearance.statusLine.showName = statusLine.showName;
+      if (statusLine.showSymbol !== undefined) state.chartAppearance.statusLine.showSymbol = statusLine.showSymbol;
+      if (statusLine.showVolume !== undefined) state.chartAppearance.statusLine.showVolume = statusLine.showVolume;
+    }
   },
   resetChartAppearance: (state: TechnicalAnalysisState) => {
     state.chartAppearance = initialState.chartAppearance;

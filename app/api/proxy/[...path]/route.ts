@@ -21,7 +21,7 @@ import { getCachedResponse, setCachedResponse } from '../cache';
 import { fetchWithRetry } from '@/shared/utils/fetchWithRetry';
 import { getCircuitBreaker } from '@/shared/utils/circuit-breaker';
 import { normalizeDjangoPath } from '../path-normalizer';
-import { isGatewayInterception } from '../response-guard';
+import { isGatewayInterception, isMalformedJsonResponse } from '../response-guard';
 import { requestCoalescer, proxyMetrics } from '../runtime';
 
 const logger = {
@@ -29,6 +29,30 @@ const logger = {
   info: (message: string, context: object) => console.log(JSON.stringify({ level: 'INFO', component: 'ProxyRoute', message, ...context })),
   warn: (message: string, context: object) => console.warn(JSON.stringify({ level: 'WARN', component: 'ProxyRoute', message, ...context })),
   error: (message: string, context: object) => console.error(JSON.stringify({ level: 'ERROR', component: 'ProxyRoute', message, ...context })),
+};
+
+const readBodyWithTimeout = async (response: Response, timeoutMs: number): Promise<ArrayBuffer> => {
+  const timeout = Math.max(1, timeoutMs);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      response.arrayBuffer(),
+      new Promise<ArrayBuffer>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Upstream response body timeout')), timeout);
+      }),
+    ]);
+  } catch (error) {
+    try {
+      await response.body?.cancel();
+    } catch (cancelError) {
+      logger.warn('Impossible d’annuler le body upstream après timeout.', {
+        error: cancelError instanceof Error ? cancelError.message : String(cancelError),
+      });
+    }
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 };
 
 type RouteParams = { path: string[] };
@@ -227,7 +251,7 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
           backoff: 1000, // Exponential backoff base delay
         });
       });
-      const bodyBuffer = await upstream.arrayBuffer();
+      const bodyBuffer = await readBodyWithTimeout(upstream, proxyConfig.fetch.timeout);
       const headers: Record<string, string> = {};
       upstream.headers.forEach((value, key) => { headers[key] = value; });
       return { status: upstream.status, statusText: upstream.statusText, headers, bodyBuffer };
@@ -258,6 +282,22 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
         {
           error: 'Bad Gateway',
           detail: 'Upstream returned a success status with a non-JSON (HTML) body, indicating an intercepting proxy or gateway.',
+          requestId,
+        },
+        { status: 502 },
+      );
+    }
+
+    if (isMalformedJsonResponse(result.status, result.headers['content-type'], result.bodyBuffer)) {
+      logger.error('Réponse JSON upstream vide ou malformée.', {
+        ...logContext,
+        upstreamStatus: result.status,
+        upstreamContentType: result.headers['content-type'],
+      });
+      return NextResponse.json(
+        {
+          error: 'Bad Gateway',
+          detail: 'Upstream returned an empty or malformed JSON body.',
           requestId,
         },
         { status: 502 },

@@ -66,6 +66,32 @@ export const ChartRefsContext = createContext<ChartRefs | null>(null);
 export type MarketDataState = ReturnType<typeof useMarketData>;
 export const MarketDataContext = createContext<MarketDataState | null>(null);
 
+const BRVM_SECURITY_SECTORS = [
+  "Banking",
+  "Telecom",
+  "Energy",
+  "Industry",
+  "Distribution",
+  "Market Indices",
+  "Delisted",
+  "Other",
+] as const;
+
+const normalizeSecuritySector = (
+  sector: string | undefined,
+  fallback: BRVMSecurity["sector"],
+): BRVMSecurity["sector"] => {
+  if (!sector) return fallback;
+  return BRVM_SECURITY_SECTORS.includes(sector as (typeof BRVM_SECURITY_SECTORS)[number])
+    ? (sector as BRVMSecurity["sector"])
+    : fallback;
+};
+
+const normalizeSecurityCurrency = (
+  currency: string | undefined,
+  fallback: BRVMSecurity["currency"],
+): BRVMSecurity["currency"] => currency === "XOF" || currency === "XAF" ? currency : fallback;
+
 export type ChartStateData = {
   security: BRVMSecurity;
   effectiveRate: number;
@@ -227,13 +253,14 @@ const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dataMode = useSelector(selectDataMode);
   const { selectedTicker } = useTickerSelector();
-  const marketData = useMarketData(dataMode, selectedTicker?.ticker);
+  const marketData = useMarketData(dataMode, selectedTicker?.ticker, selectedTicker?.isin);
   return <MarketDataContext.Provider value={marketData}>{children}</MarketDataContext.Provider>;
 };
 
 const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const marketDataContext = useMarketDataContext();
-  const { chartData, isLoading: marketIsLoading } = marketDataContext;
+  const { chartData, currentActionByTickerData, isLoading: marketIsLoading } = marketDataContext;
+  const dataMode = useSelector(selectDataMode);
 
   const { selectedTicker, isLoading: isTickerLoading } = useTickerSelector();
   const currencyState = useCurrencyContext();
@@ -242,7 +269,22 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isAnonyme = useSelector((state: RootState) => state.technicalAnalysis.ui.isAnonyme);
   const selectedPseudo = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedPseudo);
 
-  const security = useMemo(() => selectedTicker ?? getDefaultSecurity(), [selectedTicker]);
+  const security = useMemo<BRVMSecurity>(() => {
+    const fallback = selectedTicker ?? getDefaultSecurity();
+    const action = currentActionByTickerData;
+    if (!action) return fallback;
+    return {
+      ...fallback,
+      name: action.society?.name || fallback.name,
+      ticker: action.ticker || fallback.ticker,
+      isin: action.isin || fallback.isin,
+      figi: dataMode === "mock" ? (action as typeof action & { figi?: string }).figi || fallback.figi : (action as typeof action & { figi?: string }).figi || undefined,
+      sector: normalizeSecuritySector(action.society?.industry?.name, fallback.sector),
+      country: action.society?.country?.name || fallback.country,
+      exchange: action.bourse?.ticker || fallback.exchange,
+      currency: normalizeSecurityCurrency(action.bourse?.currency?.symbol, fallback.currency),
+    };
+  }, [currentActionByTickerData, selectedTicker]);
 
   const baseCurrency = security.currency || "XOF";
   const targetCurrency = currencyState.selectedCurrency || "XOF";

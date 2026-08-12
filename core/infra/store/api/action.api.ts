@@ -52,7 +52,7 @@ export const actionApi = api.injectEndpoints({
       query: ({ id }) => `/actions/${id}/`,
     }),
     getActionByTicker: builder.query<ActionEntity, { ticker: string }>({
-      query: ({ ticker }) => `/actions/ticker/?ticker=${ticker}`,
+      query: ({ ticker }) => `/actions/ticker/?ticker=${encodeURIComponent(ticker)}`,
     }),
     deleteAction: builder.mutation<void, string>({
       query: (id) => ({

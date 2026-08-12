@@ -4,26 +4,41 @@ import type { TechnicalIndicatorEntity } from "@/core/domain/entities/cours.enti
 import type { SidebarEChartsRuntime } from "./sidebarEChartsRuntime";
 import { escapeSidebarTooltipText } from "./sidebarChartOptions";
 
+const VOLATILITY_MATURITIES = ["1W", "2W", "1M", "2M", "3M", "6M", "9M", "1Y"] as const;
+
+type VolatilityMaturity = typeof VOLATILITY_MATURITIES[number];
+type VolatilityTermPoint = { label: VolatilityMaturity; value: number | null };
+
+const readApiVolatilityValues = (apiTechnicalIndicator?: TechnicalIndicatorEntity | null): Record<VolatilityMaturity, number | null> => ({
+  "1W": Number.isFinite(apiTechnicalIndicator?.hv_10) ? apiTechnicalIndicator!.hv_10! : null,
+  "2W": Number.isFinite(apiTechnicalIndicator?.hv_10) ? apiTechnicalIndicator!.hv_10! : null,
+  "1M": Number.isFinite(apiTechnicalIndicator?.hv_20) ? apiTechnicalIndicator!.hv_20! : null,
+  "2M": Number.isFinite(apiTechnicalIndicator?.hv_30) ? apiTechnicalIndicator!.hv_30! : null,
+  "3M": Number.isFinite(apiTechnicalIndicator?.hv_60) ? apiTechnicalIndicator!.hv_60! : null,
+  "6M": Number.isFinite(apiTechnicalIndicator?.hv_90) ? apiTechnicalIndicator!.hv_90! : null,
+  "9M": Number.isFinite(apiTechnicalIndicator?.hv_90) ? apiTechnicalIndicator!.hv_90! : null,
+  "1Y": Number.isFinite(apiTechnicalIndicator?.hv_252) ? apiTechnicalIndicator!.hv_252! : null,
+});
+
+export const hasApiVolatilityTermStructure = (apiTechnicalIndicator?: TechnicalIndicatorEntity | null): boolean =>
+  Object.values(readApiVolatilityValues(apiTechnicalIndicator)).some((value) => value !== null);
+
 export function buildVolatilityTermStructureOption(
   closePrices: number[],
   echarts: SidebarEChartsRuntime,
   apiTechnicalIndicator?: TechnicalIndicatorEntity | null,
-): EChartsCoreOption {
+  dataMode: "mock" | "real" = "mock",
+): EChartsCoreOption | null {
+  const apiValues = readApiVolatilityValues(apiTechnicalIndicator);
+  if (dataMode === "real" && !hasApiVolatilityTermStructure(apiTechnicalIndicator)) return null;
+
   const fallbackTermStructure = getVolatilityTermStructure(closePrices);
-  const apiValues: Record<string, number | null | undefined> = {
-    "1W": apiTechnicalIndicator?.hv_10,
-    "2W": apiTechnicalIndicator?.hv_10,
-    "1M": apiTechnicalIndicator?.hv_20,
-    "2M": apiTechnicalIndicator?.hv_30,
-    "3M": apiTechnicalIndicator?.hv_60,
-    "6M": apiTechnicalIndicator?.hv_90,
-    "9M": apiTechnicalIndicator?.hv_90,
-    "1Y": apiTechnicalIndicator?.hv_252,
-  };
-  const termStructure = fallbackTermStructure.map((row) => {
-    const value = apiValues[row.label];
-    return typeof value === "number" && Number.isFinite(value) ? { ...row, value } : row;
-  });
+  const termStructure: VolatilityTermPoint[] = dataMode === "real"
+    ? VOLATILITY_MATURITIES.map((label) => ({ label, value: apiValues[label] }))
+    : fallbackTermStructure.map((row) => ({
+      label: row.label as VolatilityMaturity,
+      value: Number.isFinite(row.value) ? row.value : null,
+    }));
 
   return {
     backgroundColor: "transparent",
@@ -34,9 +49,10 @@ export function buildVolatilityTermStructureOption(
       backgroundColor: "#1e222d",
       borderColor: "#363a45",
       textStyle: { color: "#d1d4dc", fontSize: 11 },
-      formatter: (params: { name: string; value: number }[]) => {
+      formatter: (params: { name: string; value: number | null }[]) => {
         const point = params[0];
-        return `<div style="font-weight:700;margin-bottom:4px">${escapeSidebarTooltipText(point.name)} Maturity</div><div style="color:#818cf8">HV: ${point.value}%</div>`;
+        const value = typeof point.value === "number" ? `${point.value}%` : "N/A";
+        return `<div style="font-weight:700;margin-bottom:4px">${escapeSidebarTooltipText(point.name)} Maturity</div><div style="color:#818cf8">HV: ${value}</div>`;
       },
     },
     xAxis: { type: "category", data: termStructure.map((row: { label: string }) => row.label), axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } }, axisLabel: { color: "#94a3b8", fontSize: 10, interval: 0 }, axisTick: { show: false } },
@@ -48,7 +64,7 @@ export function buildVolatilityTermStructureOption(
       max: (value: { max: number }) => Math.ceil(value.max + 5),
     },
     series: [{
-      data: termStructure.map((row: { value: number }) => row.value),
+      data: termStructure.map((row) => row.value),
       type: "line",
       smooth: true,
       symbol: "circle",

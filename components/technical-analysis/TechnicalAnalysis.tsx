@@ -334,15 +334,15 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, on
       lastUpdate={liveSnapshot?.lastUpdate}
       marketSourceLabel={liveSnapshot?.sourceLabel}
       marketSourceStatus={liveSnapshot?.sourceStatus}
-      liveVolume={liveSnapshot?.volume || marketData.currentVolume}
+      liveVolume={marketData.apiPriceMetric?.volume ?? marketData.currentVolume ?? undefined}
       liveMarketCap={liveSnapshot?.marketCap}
       liveReturnYTD={liveSnapshot?.returnYTD}
       livePeRatio={liveSnapshot?.peRatio}
       apiPriceMetric={marketData.apiPriceMetric}
       apiTechnicalIndicator={marketData.apiTechnicalIndicator}
       apiValuationRatio={marketData.apiValuationRatio}
-      currentVolume={marketData.currentVolume ?? 0}
-      avgVolume={marketData.avgVolume ?? 0}
+      currentVolume={marketData.currentVolume}
+      avgVolume={marketData.avgVolume}
       benefitsChartRef={refs.benefitsChartRef}
       dividendsChartRef={refs.dividendsChartRef}
       isLoading={chartState.globalIsLoading || marketData.isLoading}
@@ -1189,6 +1189,18 @@ const ChartUI: React.FC = () => {
   }, [activeFilteredChartData, chartState.effectiveRate, isPrimaryActive]);
 
   const shouldShowPrimaryChartLoader = chartState.globalIsLoading || activeDisplayChartData.length === 0;
+  const [isDrawingToolbarBooting, setIsDrawingToolbarBooting] = useState(true);
+
+  useEffect(() => {
+    if (activeDisplayChartData.length === 0) return;
+
+    const completionTimer = window.setTimeout(
+      () => setIsDrawingToolbarBooting(false),
+      160,
+    );
+
+    return () => window.clearTimeout(completionTimer);
+  }, [activeDisplayChartData.length]);
 
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-BADGE-STALE-DATA:
   // When a secondary chart is active (e.g. SGBC), chartState.displayChartData still has BOAB's data.
@@ -1448,7 +1460,7 @@ const ChartUI: React.FC = () => {
                 mainContainerRef={refs.mainContainerRef as React.RefObject<HTMLDivElement>}
                 verticalToolbarRef={refs.verticalToolbarRef}
                 handleClearAllDrawings={handleClearAllDrawings}
-                isLoading={chartState.globalIsLoading || marketData.isLoading}
+                isInitialLoading={isDrawingToolbarBooting}
               />
 
               <div ref={refs.chartViewWrapperRef} className={"gp-chart-view-wrapper"}>
@@ -1527,6 +1539,7 @@ const ChartUI: React.FC = () => {
                           onCandlestickPatternAlertRequest: handleCandlestickPatternAlertRequest,
                           hiddenObjectIds,
                           pineOverlay: pineChartOverlay,
+                          onHistoryBoundaryRequest: marketData.requestMoreHistory,
                         }}
                         overlay={{
                           selectedDrawingId,

@@ -20,9 +20,9 @@ interface UseSidebarDerivedMetricsInput {
   apiTechnicalIndicator?: TechnicalIndicatorEntity | null;
   chartData: ChartDataPoint[];
   dataMode: "mock" | "real";
-  displayMarketCap: number;
-  displayPeRatio: number;
-  displayReturnYTD: number;
+  displayMarketCap: number | null;
+  displayPeRatio: number | null;
+  displayReturnYTD: number | null;
   isSecondaryWorkReady: boolean;
   lastUpdate?: string;
   livePrice: number;
@@ -60,7 +60,7 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
   const marketAuditDate = formatAuditDate(lastUpdate || latestSeriesTime);
   const fundamentalsAuditYear = getLatestFinancialYear(validFundamentals);
   const auditCurrency = security.currency || "XOF";
-  const marketDataSource = dataMode === "real" ? marketSourceLabel || "Daily CSV" : formatProvenanceLabel(createSyntheticMockProvenance("Mock dataset"));
+  const marketDataSource = dataMode === "real" ? marketSourceLabel || "API officielle" : formatProvenanceLabel(createSyntheticMockProvenance("Mock dataset"));
   const fundamentalsProvenance = dataMode === "real"
     ? validFundamentals?.provenance ?? createUnavailableProvenance("Fondamentaux indisponibles")
     : createSyntheticMockProvenance("Mock/catalog");
@@ -114,14 +114,14 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
     };
 
     return [
-      { label: "1W", value: apiValue(apiPriceMetric?.total_return_1w_pct ?? apiPriceMetric?.change_1w_pct) ?? getPerformance(7) },
-      { label: "1M", value: apiValue(apiPriceMetric?.total_return_1m_pct ?? apiPriceMetric?.change_1m_pct) ?? getPerformance(30) },
-      { label: "3M", value: apiValue(apiPriceMetric?.total_return_3m_pct ?? apiPriceMetric?.change_3m_pct) ?? getPerformance(90) },
-      { label: "6M", value: apiValue(apiPriceMetric?.total_return_6m_pct ?? apiPriceMetric?.change_6m_pct) ?? getPerformance(180) },
-      { label: "YTD", value: apiValue(apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct) ?? displayReturnYTD ?? null },
-      { label: "1Y", value: apiValue(apiPriceMetric?.total_return_1y_pct ?? apiPriceMetric?.change_1y_pct) ?? getPerformance(365) },
+      { label: "1W", value: apiValue(apiPriceMetric?.total_return_1w_pct ?? apiPriceMetric?.change_1w_pct) ?? (dataMode === "real" ? null : getPerformance(7)) },
+      { label: "1M", value: apiValue(apiPriceMetric?.total_return_1m_pct ?? apiPriceMetric?.change_1m_pct) ?? (dataMode === "real" ? null : getPerformance(30)) },
+      { label: "3M", value: apiValue(apiPriceMetric?.total_return_3m_pct ?? apiPriceMetric?.change_3m_pct) ?? (dataMode === "real" ? null : getPerformance(90)) },
+      { label: "6M", value: apiValue(apiPriceMetric?.total_return_6m_pct ?? apiPriceMetric?.change_6m_pct) ?? (dataMode === "real" ? null : getPerformance(180)) },
+      { label: "YTD", value: apiValue(apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct) ?? (dataMode === "real" ? displayReturnYTD ?? null : getPerformance(365)) },
+      { label: "1Y", value: apiValue(apiPriceMetric?.total_return_1y_pct ?? apiPriceMetric?.change_1y_pct) ?? (dataMode === "real" ? null : getPerformance(365)) },
     ];
-  }, [apiPriceMetric, chartData, displayReturnYTD, lastUpdate, livePrice]);
+  }, [apiPriceMetric, chartData, dataMode, displayReturnYTD, lastUpdate, livePrice]);
 
   const seasonalYears = useMemo(() => Array.from(new Set(chartData
     .map((point) => new Date(point.time).getFullYear())
@@ -143,13 +143,17 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
       const sentiment = score < 25 ? "Strong sell" : score < 45 ? "Sell" : score < 55 ? "Neutral" : score < 75 ? "Buy" : "Strong buy";
       return { rsi: apiRsi!, score, sentiment, sma20: apiSma20!, sma50: apiSma50! };
     }
-    return calculateAlertTechnicalSnapshot(chartData, livePrice);
-  }, [apiTechnicalIndicator, chartData, isSecondaryWorkReady, livePrice]);
+    return dataMode === "mock" ? calculateAlertTechnicalSnapshot(chartData, livePrice) : null;
+  }, [apiTechnicalIndicator, chartData, dataMode, isSecondaryWorkReady, livePrice]);
 
   const analystData = useMemo<SidebarAnalystData | null>(() => {
     if (!isSecondaryWorkReady || !technicalData) return null;
     const latestPrice = livePrice || chartData.at(-1)?.close || 0;
-    const verifiedPe = Number.isFinite(displayPeRatio) ? displayPeRatio : (Number.isFinite(security.peRatio) ? security.peRatio : null);
+    const verifiedPe = displayPeRatio !== null && Number.isFinite(displayPeRatio)
+      ? displayPeRatio
+      : dataMode === "real"
+        ? null
+        : Number.isFinite(security.peRatio) ? security.peRatio : null;
     if (verifiedPe === null) return null;
 
     const pe = verifiedPe;
@@ -167,7 +171,7 @@ export function useSidebarDerivedMetrics(input: UseSidebarDerivedMetricsInput) {
     const priceTarget = eps !== null
       ? parseFloat((eps * Math.min(pe * 1.1, 20)).toFixed(2))
       : parseFloat((technicalData.sma50 * (1 + (score - 50) / 200)).toFixed(2));
-    const targetFormula = eps !== null ? "EPS x min(P/E x 1.1, 20)" : "SMA50 fallback; fondamentaux BRVM indisponibles";
+    const targetFormula = eps !== null ? "EPS API x min(P/E API x 1.1, 20)" : "SMA50 API; EPS API indisponible";
     const label = score < 25 ? "Strong sell" : score < 45 ? "Sell" : score < 55 ? "Neutral" : score < 75 ? "Buy" : "Strong buy";
 
     return { label, pctChange: latestPrice > 0 ? ((priceTarget - latestPrice) / latestPrice) * 100 : 0, priceTarget, score, targetFormula };

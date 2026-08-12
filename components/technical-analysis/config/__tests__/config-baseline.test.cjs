@@ -355,10 +355,10 @@ test("multiChartLayout preserves layout counts, dense sync behavior, and preset 
   const sectorPreset = pureMultiChartLayouts.MULTI_CHART_PRESETS.find((preset) => preset.id === "sector_compare");
   const sectorLayout = brvmLayoutSymbols.createPresetLayout(sectorPreset, "BOAB");
   assert.equal(sectorLayout.layoutId, "four_grid");
-  assert.deepEqual(sectorLayout.charts.map((chart) => chart.symbol), ["BOAB", "NSBC", "ETIT", "BRVMC"]);
+  assert.deepEqual(sectorLayout.charts.map((chart) => chart.symbol), ["BOAB", "BOAC", "SGBC", "BRVMC"]);
 
   const marketMonitorPreset = pureMultiChartLayouts.MULTI_CHART_PRESETS.find((preset) => preset.id === "market_monitor");
   const marketMonitor = brvmLayoutSymbols.createPresetLayout(marketMonitorPreset, "BOAB");
   assert.equal(marketMonitor.charts.length, 6);
-  assert.deepEqual(marketMonitor.charts.map((chart) => chart.symbol), ["BRVMC", "ORAC", "NSBC", "CIEC", "NTLC", "SDCC"]);
+  assert.deepEqual(marketMonitor.charts.map((chart) => chart.symbol), ["BRVMC", "SNTS", "SGBC", "TTLC", "PALC", "CFAC"]);
 });

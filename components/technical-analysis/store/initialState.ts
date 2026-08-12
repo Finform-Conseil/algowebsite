@@ -196,6 +196,15 @@ export const initialState: TechnicalAnalysisState = {
     backgroundColor: "transparent",
     showVolume: true,
     volumeColorMode: "candle-body",
+    statusLine: {
+      showChange: true,
+      showChangePercent: true,
+      showLast: true,
+      showLogo: true,
+      showName: true,
+      showSymbol: false,
+      showVolume: true,
+    },
   },
   ui: {
     isZenMode: false,

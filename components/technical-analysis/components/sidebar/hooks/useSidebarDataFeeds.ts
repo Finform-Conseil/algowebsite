@@ -139,7 +139,6 @@ export function useSidebarDataFeeds({
       fundamentalsRequestIdRef.current += 1;
       return;
     }
-
     const cachedFundamentals = fundamentalsCacheRef.current.get(normalizedSecurityTicker);
     if (cachedFundamentals) {
       setFundamentals(cachedFundamentals);

@@ -18,6 +18,8 @@ import { useGlobalNotification } from "@/components/design-system/layouts/Header
 import { BRVM_SECURITIES, type BRVMSecurity } from "@/core/data/brvm-securities";
 import { BRVM_NAME_TO_TICKER } from "@/shared/utils/brvm-mapping";
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
+import type { ActionEntity } from "@/core/domain/entities/action.entity";
+import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
 
 // ============================================================================
 // [TENOR 2026 HDR] TV-PARITY COMPARE MODAL
@@ -39,6 +41,8 @@ interface SearchSymbolModalProps {
 }
 
 const RECENT_TICKERS = ["BRVMC", "SNTS", "BOAC", "SGBC", "ETIT", "SPHC"];
+const ACTION_PAGE_SIZE = 100;
+const INITIAL_API_DEADLINE_MS = 4_000;
 
 const normalizeSearch = (value: string) =>
   value
@@ -52,25 +56,92 @@ const resolveSecurityTicker = (value: string): string => {
   return BRVM_NAME_TO_TICKER[normalized] ?? normalized;
 };
 
-const findSecurityBySymbol = (value: string): BRVMSecurity | undefined => {
+type SearchSecurity = BRVMSecurity & { searchAliases?: string[] };
+type SymbolSourceState = "loading" | "api" | "api_empty" | "fallback";
+
+const findSecurityBySymbol = (value: string, securities: SearchSecurity[] = BRVM_SECURITIES): SearchSecurity | undefined => {
   const ticker = resolveSecurityTicker(value);
-  return BRVM_SECURITIES.find((security) => normalizeSearch(security.ticker) === ticker);
+  return securities.find((security) => (
+    normalizeSearch(security.ticker) === ticker
+    || security.searchAliases?.some((alias) => normalizeSearch(alias) === ticker)
+  ));
+};
+
+const toSearchSector = (action: ActionEntity): SearchSecurity["sector"] => {
+  const value = normalizeSearch(action.society?.industry?.name ?? action.society?.activity?.name ?? "");
+  if (value.includes("BANK") || value.includes("FINANC")) return "Banking";
+  if (value.includes("TELECOM")) return "Telecom";
+  if (value.includes("ENERG") || value.includes("PETROL")) return "Energy";
+  if (value.includes("DISTRIB") || value.includes("RETAIL")) return "Distribution";
+  if (value.includes("INDUSTR")) return "Industry";
+  return "Other";
+};
+
+const toSearchSecurity = (action: ActionEntity): SearchSecurity => {
+  const name = action.society?.name || action.ticker;
+  const searchAliases = BRVM_SECURITIES
+    .filter((security) => normalizeSearch(security.name) === normalizeSearch(name))
+    .flatMap((security) => [security.ticker, security.name]);
+
+  return {
+  name,
+  ticker: action.ticker,
+  sector: toSearchSector(action),
+  marketCap: Number.isFinite(action.latest_valuation_ratio?.market_cap) ? (action.latest_valuation_ratio?.market_cap as number) / 1_000_000 : 0,
+  priceChangeD1: Number.isFinite(action.latest_price_metric?.change_1d_pct) ? (action.latest_price_metric?.change_1d_pct as number) : 0,
+  peRatio: Number.isFinite(action.latest_valuation_ratio?.pe_ttm) ? (action.latest_valuation_ratio?.pe_ttm as number) : 0,
+  returnYTD: Number.isFinite(action.latest_price_metric?.change_ytd_pct) ? (action.latest_price_metric?.change_ytd_pct as number) : 0,
+  revenueT12M: 0,
+  epsT12M: 0,
+  country: action.society?.country?.name || "UEMOA",
+  isin: action.isin,
+  exchange: action.bourse?.ticker || "BRVM",
+  currency: action.bourse?.currency?.symbol === "XAF" ? "XAF" : "XOF",
+  status: "active",
+  searchAliases,
+  };
+};
+
+const isBrvmAction = (action: ActionEntity): boolean => {
+  const exchange = normalizeSearch(`${action.bourse?.ticker ?? ""} ${action.bourse?.name ?? ""}`);
+  return exchange.includes("BRVM");
+};
+
+const mergeApiSecurities = (
+  current: SearchSecurity[],
+  actions: ActionEntity[],
+): SearchSecurity[] => {
+  const securitiesByTicker = new Map(
+    current.map((security) => [normalizeSearch(security.ticker), security]),
+  );
+
+  actions.filter(isBrvmAction).forEach((action) => {
+    const ticker = normalizeSearch(action.ticker);
+    if (ticker && !securitiesByTicker.has(ticker)) {
+      securitiesByTicker.set(ticker, toSearchSecurity(action));
+    }
+  });
+
+  return Array.from(securitiesByTicker.values());
 };
 
 const getSecurityKind = (security: BRVMSecurity): string =>
   security.sector === "Market Indices" ? "index" : "stock";
 
-const scoreSecurity = (security: BRVMSecurity, query: string): number => {
+const scoreSecurity = (security: SearchSecurity, query: string): number => {
   if (!query) return 0;
   const symbol = normalizeSearch(security.ticker);
   const name = normalizeSearch(security.name);
   const isin = normalizeSearch(security.isin ?? "");
   const sector = normalizeSearch(security.sector);
   const country = normalizeSearch(security.country);
+  const aliases = (security.searchAliases ?? []).map((alias: string) => normalizeSearch(alias));
 
   if (symbol === query) return 120;
-  if (resolveSecurityTicker(query) === symbol) return 118;
+  if (aliases.includes(query)) return 118;
+  if (resolveSecurityTicker(query) === symbol) return 116;
   if (symbol.startsWith(query)) return 105;
+  if (aliases.some((alias) => alias.startsWith(query))) return 103;
   if (name.startsWith(query)) return 92;
   if (name.includes(query)) return 80;
   if (sector.includes(query)) return 58;
@@ -85,6 +156,7 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 }) => {
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
+  const { getAllActions } = useActionRepository();
   
   // Smart Component: Read directly from Redux
   const uiState = useSelector(selectUiState);
@@ -98,19 +170,87 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [searchInput, setSearchInput] = useState("");
+  const [apiSecurities, setApiSecurities] = useState<SearchSecurity[] | null>(null);
+  const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
+  const [symbolSource, setSymbolSource] = useState<SymbolSourceState>("loading");
   const normalizedInput = normalizeSearch(searchInput);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    let fallbackPublished = false;
+    setIsLoadingSymbols(true);
+    setApiSecurities(null);
+    setSymbolSource("loading");
+
+    const publishFallback = () => {
+      if (cancelled || fallbackPublished) return;
+      fallbackPublished = true;
+      setSymbolSource("fallback");
+      setIsLoadingSymbols(false);
+    };
+
+    const fallbackTimer = window.setTimeout(
+      publishFallback,
+      INITIAL_API_DEADLINE_MS,
+    );
+
+    const loadApiSecurities = async () => {
+      try {
+        const firstPage = await getAllActions({ page: 1, page_size: ACTION_PAGE_SIZE });
+        const firstSecurities = mergeApiSecurities([], firstPage.data || []);
+
+        if (cancelled) return;
+        window.clearTimeout(fallbackTimer);
+        setApiSecurities(firstSecurities);
+        setSymbolSource(firstSecurities.length > 0 ? "api" : "api_empty");
+        setIsLoadingSymbols(false);
+
+        const totalPages = Math.max(1, firstPage.total_pages || 1);
+        const remainingPageRequests = Array.from(
+          { length: totalPages - 1 },
+          (_, index) => getAllActions({ page: index + 2, page_size: ACTION_PAGE_SIZE })
+            .then((response) => {
+              if (!cancelled) {
+                setApiSecurities((current) =>
+                  mergeApiSecurities(current || [], response.data || []),
+                );
+              }
+            }),
+        );
+
+        void Promise.allSettled(remainingPageRequests);
+      } catch {
+        publishFallback();
+      }
+    };
+
+    void loadApiSecurities();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [getAllActions, isOpen]);
+
   // --- DATA DERIVATION ---
+  const isFallbackActive = symbolSource === "fallback";
+  const searchCatalog = isFallbackActive ? BRVM_SECURITIES : apiSecurities ?? [];
   const results = useMemo(() => {
-    if (!normalizedInput) return [];
-    return BRVM_SECURITIES
+    if (!normalizedInput || isLoadingSymbols) return [];
+    return searchCatalog
       .filter((security) => security.status !== "delisted")
       .map((security) => ({ security, score: scoreSecurity(security, normalizedInput) }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score || a.security.ticker.localeCompare(b.security.ticker))
       .slice(0, 10)
       .map((item) => item.security);
-  }, [normalizedInput]);
+  }, [isLoadingSymbols, normalizedInput, searchCatalog]);
+
+  const sourceStatusMessage = symbolSource === "fallback"
+    ? "API indisponible : catalogue local de secours actif."
+    : symbolSource === "api_empty"
+      ? "L’API n’a fourni aucun titre BRVM."
+      : null;
 
   const normalizedCurrentSymbol = resolveSecurityTicker(currentSymbol);
   const normalizedComparisonSymbols = useMemo(
@@ -120,18 +260,25 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
   const addedInstruments = useMemo(
     () => comparisonSymbols
-      .map((symbol) => findSecurityBySymbol(symbol))
+      .map((symbol) => findSecurityBySymbol(symbol, searchCatalog))
       .filter((security): security is BRVMSecurity => Boolean(security)),
-    [comparisonSymbols]
+    [comparisonSymbols, searchCatalog]
   );
 
-  const recentInstruments = useMemo(
-    () => RECENT_TICKERS
-      .map((symbol) => findSecurityBySymbol(symbol))
-      .filter((security): security is BRVMSecurity => Boolean(security))
-      .filter((security) => !normalizedComparisonSymbols.has(security.ticker) && security.ticker !== normalizedCurrentSymbol),
-    [normalizedComparisonSymbols, normalizedCurrentSymbol]
-  );
+  const recentInstruments = useMemo(() => {
+    if (!isFallbackActive) {
+      return searchCatalog
+        .filter((security) => security.status !== "delisted")
+        .filter((security) => !normalizedComparisonSymbols.has(resolveSecurityTicker(security.ticker)))
+        .filter((security) => resolveSecurityTicker(security.ticker) !== normalizedCurrentSymbol)
+        .slice(0, 6);
+    }
+
+    return RECENT_TICKERS
+      .map((symbol) => findSecurityBySymbol(symbol, searchCatalog))
+      .filter((security): security is SearchSecurity => Boolean(security))
+      .filter((security) => !normalizedComparisonSymbols.has(security.ticker) && security.ticker !== normalizedCurrentSymbol);
+  }, [isFallbackActive, normalizedComparisonSymbols, normalizedCurrentSymbol, searchCatalog]);
 
   const visibleInstruments = normalizedInput ? results : recentInstruments;
 
@@ -340,7 +487,12 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
         {/* Scrollable Lists Area */}
         <div className="gp-custom-scrollbar" style={{ flex: 1, overflowY: "auto" }}>
-          
+          {sourceStatusMessage && (
+            <div role="status" style={{ padding: "10px 16px", color: "#d1d4dc", background: "rgba(255, 152, 0, 0.12)", fontSize: "12px" }}>
+              {sourceStatusMessage}
+            </div>
+          )}
+
           {/* ADDED SYMBOLS SECTION */}
           {!normalizedInput && addedInstruments.length > 0 && (
             <div style={{ marginBottom: "8px" }}>
@@ -373,7 +525,25 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
               {normalizedInput ? "Search Results" : "Recent Symbols"}
             </div>
             <div>
-              {visibleInstruments.length > 0 ? (
+              {isLoadingSymbols ? (
+                <div style={{ padding: "24px 16px", textAlign: "center", color: "#787b86", fontSize: "13px" }}>
+                  <style>{"@keyframes symbol-search-spin { to { transform: rotate(360deg); } }"}</style>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: "block",
+                      width: "22px",
+                      height: "22px",
+                      margin: "0 auto 10px",
+                      border: "3px solid rgba(41, 98, 255, 0.24)",
+                      borderTopColor: "#2962ff",
+                      borderRadius: "50%",
+                      animation: "symbol-search-spin 0.8s linear infinite"
+                    }}
+                  />
+                  Loading symbols...
+                </div>
+              ) : visibleInstruments.length > 0 ? (
                 visibleInstruments.map((instrument) => renderInstrumentRow(instrument, false))
               ) : (
                 <div style={{ padding: "24px 16px", textAlign: "center", color: "#787b86", fontSize: "13px" }}>

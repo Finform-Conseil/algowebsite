@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setModalOpen, setPrefilledAlert, setSearchMode } from "../../../store/technicalAnalysisSlice";
-import { selectUiState } from "../../../store/selectors";
+import { setChartAppearance, setModalOpen, setPrefilledAlert, setSearchMode } from "../../../store/technicalAnalysisSlice";
+import { selectChartAppearance, selectUiState } from "../../../store/selectors";
 import { copySidebarText, getSidebarClipboardLabel, type SidebarClipboardStatus } from "../actions/sidebarClipboard";
 import type { SidebarClipboardKey, TechnicalAnalysisSidebarProps } from "../TechnicalAnalysisSidebar.types";
 import type { AlertsRailDraftRequest } from "../panels/AlertsRailPanel";
@@ -32,6 +32,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
   } = props;
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
+  const chartAppearance = useSelector(selectChartAppearance);
   const isSecondaryWorkReady = useSidebarSecondaryWorkReady();
   const isChartRuntimeReady = useSidebarChartRuntimeReady(isSecondaryWorkReady);
   const marketClock = useSidebarMarketClock(lastUpdate);
@@ -48,15 +49,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
   });
   const alertDraftRequestIdRef = useRef(0);
   const hasHandledAlertModalRef = useRef(false);
-  const [watchlistSettings, setWatchlistSettings] = useState<WatchlistSettings>({
-    showChange: true,
-    showChangePercent: true,
-    showLast: true,
-    showLogo: true,
-    showName: true,
-    showSymbol: false,
-    showVolume: true,
-  });
+  const watchlistSettings: WatchlistSettings = chartAppearance.statusLine;
   const analystRatingChartRef = useRef<HTMLDivElement | null>(null);
   const incomeChartRef = useRef<HTMLDivElement | null>(null);
   const seasonalChartRef = useRef<HTMLDivElement | null>(null);
@@ -102,9 +95,15 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     uiState.prefilledAlertPrice,
   ]);
 
-  const displayReturnYTD = apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct ?? liveReturnYTD ?? security.returnYTD;
-  const displayPeRatio = apiValuationRatio?.pe_ttm ?? livePeRatio ?? security.peRatio;
-  const displayMarketCap = apiValuationRatio?.market_cap ?? liveMarketCap ?? security.marketCap;
+  const displayReturnYTD = dataMode === "real"
+    ? apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct ?? null
+    : apiPriceMetric?.total_return_ytd_pct ?? apiPriceMetric?.change_ytd_pct ?? liveReturnYTD ?? security.returnYTD;
+  const displayPeRatio = dataMode === "real"
+    ? apiValuationRatio?.pe_ttm ?? null
+    : apiValuationRatio?.pe_ttm ?? livePeRatio ?? security.peRatio;
+  const displayMarketCap = dataMode === "real"
+    ? apiValuationRatio?.market_cap ?? null
+    : apiValuationRatio?.market_cap ?? liveMarketCap ?? security.marketCap;
   const derived = useSidebarDerivedMetrics({
     apiPriceMetric,
     apiTechnicalIndicator,
@@ -196,7 +195,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
       setIncomeViewMode,
       setIsDividendModalOpen,
       setIsNewsHovered: feeds.setIsNewsHovered,
-      setWatchlistSetting: (key: keyof WatchlistSettings, value: boolean) => setWatchlistSettings((current) => ({ ...current, [key]: value })),
+      setWatchlistSetting: (key: keyof WatchlistSettings, value: boolean) => dispatch(setChartAppearance({ statusLine: { ...chartAppearance.statusLine, [key]: value } })),
       toggleDescription: () => setIsDescriptionExpanded((current) => !current),
       toggleIndices: () => feeds.setIsIndicesOpen((current) => !current),
       toggleSettings: () => setIsSettingsOpen((current) => !current),

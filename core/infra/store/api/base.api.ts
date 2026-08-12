@@ -5,7 +5,6 @@ import type {
   FetchBaseQueryError,
 } from "@reduxjs/toolkit/query";
 import { Mutex } from "async-mutex";
-import { getSession } from "next-auth/react";
 import { createApi } from "@reduxjs/toolkit/query/react";
 
 // create a new mutex
@@ -21,15 +20,7 @@ const baseURL = `${clientApiBase.replace(/\/+$/, "")}/api/v1`
 const baseQuery = fetchBaseQuery({
   baseUrl: baseURL,
   credentials: 'include',
-  prepareHeaders: async (headers) => {
-    const session = await getSession();
-
-    if (session?.user?.accessToken) {
-      headers.set("Authorization", `Bearer ${session.user.accessToken}`);
-    }
-
-    return headers;
-  },
+  prepareHeaders: (headers) => headers,
 });
 
 const baseQueryWithReauth: BaseQueryFn<
@@ -48,8 +39,8 @@ const baseQueryWithReauth: BaseQueryFn<
       try {
         const refreshResult = await baseQuery(
           {
-            url: "/auth/refresh-token/",
-            method: "GET",
+            url: "/users/refresh-token/",
+            method: "POST",
           },
           api,
           extraOptions

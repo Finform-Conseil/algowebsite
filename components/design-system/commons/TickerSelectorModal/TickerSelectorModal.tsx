@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
-import { BRVM_SECURITIES, BRVMSecurity, SECTOR_COLORS } from "@/core/data/brvm-securities";
+import { BRVMSecurity, SECTOR_COLORS } from "@/core/data/brvm-securities";
+import type { ActionEntity } from "@/core/domain/entities/action.entity";
+import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
 import { useTickerSelector } from "./context/TickerSelectorContext";
 
@@ -49,22 +51,84 @@ const HighlightMatch = React.memo(({ text, query }: { text: string; query: strin
 HighlightMatch.displayName = "HighlightMatch";
 
 // --- FORMATTERS ---
-const formatMarketCap = (value: number) => {
-  if (!value) return "0M FCFA";
+const formatMarketCap = (value?: number | null) => {
+  if (value == null) return "—";
   if (value >= 1000) return `${(value / 1000).toFixed(1)}B FCFA`;
   return `${value.toFixed(1)}M FCFA`;
 };
 
+type SelectorSecurity = Omit<
+  BRVMSecurity,
+  "marketCap" | "priceChangeD1" | "peRatio" | "returnYTD" | "revenueT12M" | "epsT12M"
+> & {
+  marketCap?: number | null;
+  priceChangeD1?: number | null;
+  peRatio?: number | null;
+  returnYTD?: number | null;
+  revenueT12M?: number | null;
+  epsT12M?: number | null;
+};
+
+const normalizeSearch = (value: unknown) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+
+const toSelectorSector = (action: ActionEntity): SelectorSecurity["sector"] => {
+  const value = normalizeSearch(
+    `${action.society?.industry?.name ?? ""} ${action.society?.activity?.name ?? ""}`
+  );
+  if (value.includes("BANK") || value.includes("FINANC")) return "Banking";
+  if (value.includes("TELECOM")) return "Telecom";
+  if (value.includes("ENERG") || value.includes("PETROL")) return "Energy";
+  if (value.includes("DISTRIB") || value.includes("RETAIL")) return "Distribution";
+  if (
+    value.includes("INDUSTR") ||
+    value.includes("STAPLES") ||
+    value.includes("MATERIAL") ||
+    value.includes("MANUFACTUR") ||
+    value.includes("CHEMICAL") ||
+    value.includes("TOBACCO") ||
+    value.includes("FOOD")
+  ) return "Industry";
+  return "Other";
+};
+
+const isBrvmAction = (action: ActionEntity | null | undefined): action is ActionEntity => {
+  if (!action || typeof action !== "object") return false;
+  const exchangeTicker = String(action.bourse?.ticker ?? "").trim().toUpperCase();
+  const exchangeName = String(action.bourse?.name ?? "").trim().toUpperCase();
+  return exchangeTicker.includes("BRVM") || exchangeName.includes("BRVM");
+};
+
+const toSelectorSecurity = (action: ActionEntity): SelectorSecurity | null => {
+  const ticker = normalizeSearch(action.ticker);
+  if (!ticker) return null;
+  return {
+    name: String(action.society?.name || ticker),
+    ticker,
+    sector: toSelectorSector(action),
+    marketCap: Number.isFinite(action.latest_valuation_ratio?.market_cap) ? (action.latest_valuation_ratio?.market_cap as number) / 1_000_000 : null,
+    priceChangeD1: Number.isFinite(action.latest_price_metric?.change_1d_pct) ? action.latest_price_metric?.change_1d_pct : null,
+    peRatio: Number.isFinite(action.latest_valuation_ratio?.pe_ttm) ? action.latest_valuation_ratio?.pe_ttm : null,
+    returnYTD: Number.isFinite(action.latest_price_metric?.change_ytd_pct) ? action.latest_price_metric?.change_ytd_pct : null,
+    revenueT12M: null,
+    epsT12M: null,
+    country: action.society?.country?.name || "UEMOA",
+    isin: action.isin,
+    exchange: action.bourse?.ticker || "BRVM",
+    currency: action.bourse?.currency?.symbol === "XAF" ? "XAF" : "XOF",
+    status: "active"
+  };
+};
+
 // --- TYPES ---
-type FlattenedItem = 
+type FlattenedItem =
   | { type: "header"; label: string; count: number; color: string }
-  | { type: "item"; data: BRVMSecurity; globalIndex: number };
+  | { type: "item"; data: SelectorSecurity; globalIndex: number };
 
 // ============================================================================
 // [TENOR 2026] O(1) MEMOIZED ROW COMPONENT
 // ============================================================================
 interface TickerRowProps {
-  item: BRVMSecurity;
+  item: SelectorSecurity;
   isActive: boolean;
   query: string;
   onSelect: (ticker: string) => void;
@@ -81,9 +145,9 @@ const TickerRow = React.memo(({ item, isActive, query, onSelect, onHover }: Tick
     }
   }, [isActive]);
 
-  const isPositive = item.priceChangeD1 >= 0;
-  const priceColor = isPositive ? "#00da3c" : "#f23645";
-  const sign = isPositive ? "+" : "";
+  const isPositive = (item.priceChangeD1 ?? 0) >= 0;
+  const priceColor = item.priceChangeD1 == null ? "#a0aec0" : isPositive ? "#00da3c" : "#f23645";
+  const sign = item.priceChangeD1 != null && isPositive ? "+" : "";
 
   return (
     <div
@@ -111,7 +175,7 @@ const TickerRow = React.memo(({ item, isActive, query, onSelect, onHover }: Tick
 
       <div className="tsm-metrics">
         <div className="tsm-price-change" style={{ color: priceColor }}>
-          {sign}{item.priceChangeD1.toFixed(2)}%
+          {item.priceChangeD1 == null ? "—" : `${sign}${item.priceChangeD1.toFixed(2)}%`}
         </div>
         <div className="tsm-market-cap">
           {formatMarketCap(item.marketCap)}
@@ -132,10 +196,14 @@ TickerRow.displayName = "TickerRow";
 // ============================================================================
 export const TickerSelectorModal: React.FC = () => {
   const { isModalOpen, closeModal, selectByTicker } = useTickerSelector();
-  
+  const { getAllActions } = useActionRepository();
+
   const [searchQuery, setSearchQuery] = useState("");
   const deferredQuery = useDeferredValue(searchQuery);
   const [activeTicker, setActiveTicker] = useState<string | null>(null);
+  const [apiSecurities, setApiSecurities] = useState<SelectorSecurity[] | null>(null);
+  const [sourceState, setSourceState] = useState<"loading" | "api" | "api_empty" | "api_error">("loading");
+  const [isLoadingSecurities, setIsLoadingSecurities] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -150,15 +218,67 @@ export const TickerSelectorModal: React.FC = () => {
     }
   }, [isModalOpen]);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    let cancelled = false;
+    setIsLoadingSecurities(true);
+    setApiSecurities(null);
+    setSourceState("loading");
+
+    const loadApiSecurities = async () => {
+      try {
+        const firstPage = await getAllActions({ page: 1, page_size: 100 });
+        const totalPages = Math.max(1, firstPage.total_pages || 1);
+        const pageResults = totalPages > 1
+          ? await Promise.allSettled(
+              Array.from({ length: totalPages - 1 }, (_, index) =>
+                getAllActions({ page: index + 2, page_size: 100 })
+              )
+            )
+          : [];
+        if (cancelled) return;
+
+        const pages = [
+          firstPage,
+          ...pageResults.flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
+        ];
+        const unique = new Map<string, SelectorSecurity>();
+        pages
+          .flatMap((page) => Array.isArray(page.data) ? page.data : [])
+          .filter(isBrvmAction)
+          .forEach((action) => {
+            const security = toSelectorSecurity(action);
+            if (security && !unique.has(security.ticker)) unique.set(security.ticker, security);
+          });
+
+        const securities = Array.from(unique.values());
+        setApiSecurities(securities);
+        setSourceState(securities.length > 0 ? "api" : "api_empty");
+      } catch {
+        if (!cancelled) {
+          setApiSecurities([]);
+          setSourceState("api_error");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingSecurities(false);
+      }
+    };
+
+    void loadApiSecurities();
+    return () => { cancelled = true; };
+  }, [getAllActions, isModalOpen]);
+
+  const searchCatalog = apiSecurities ?? [];
+
   // --- FILTERING & GROUPING (Background Thread via useDeferredValue) ---
   const { flattenedList, selectableTickers, totalCount } = useMemo(() => {
-    const query = deferredQuery.toLowerCase().trim();
-    
+    const query = normalizeSearch(deferredQuery);
+
     // 1. Filter
-    const filtered = BRVM_SECURITIES.filter(s => 
-      s.ticker.toLowerCase().includes(query) || 
-      s.name.toLowerCase().includes(query) || 
-      s.sector.toLowerCase().includes(query)
+    const filtered = searchCatalog.filter((s) =>
+      normalizeSearch(s.ticker).includes(query) ||
+      normalizeSearch(s.name).includes(query) ||
+      normalizeSearch(s.sector).includes(query)
     );
 
     // 2. Group
@@ -166,7 +286,7 @@ export const TickerSelectorModal: React.FC = () => {
       if (!acc[security.sector]) acc[security.sector] = [];
       acc[security.sector].push(security);
       return acc;
-    }, {} as Record<string, BRVMSecurity[]>);
+    }, {} as Record<string, SelectorSecurity[]>);
 
     // 3. Flatten for Virtualized/Keyboard Navigation
     const flat: FlattenedItem[] = [];
@@ -201,7 +321,7 @@ export const TickerSelectorModal: React.FC = () => {
     });
 
     return { flattenedList: flat, selectableTickers: selectable, totalCount: filtered.length };
-  }, [deferredQuery]);
+  }, [deferredQuery, searchCatalog]);
 
   // Auto-select first item when search changes
   useEffect(() => {
@@ -356,6 +476,7 @@ export const TickerSelectorModal: React.FC = () => {
         .tsm-empty { padding: 40px 20px; text-align: center; color: var(--gp-text-secondary, #a0aec0); font-size: 14px; }
         @keyframes tsmFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes tsmSlideDown { from { opacity: 0; transform: translateY(-20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes tsmSpin { to { transform: rotate(360deg); } }
       `}</style>
 
       <div className="tsm-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
@@ -394,7 +515,21 @@ export const TickerSelectorModal: React.FC = () => {
 
         {/* LIST */}
         <div className="tsm-list">
-          {flattenedList.length === 0 ? (
+          {isLoadingSecurities ? (
+            <div
+              className="tsm-empty"
+              role="status"
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}
+            >
+              <span
+                aria-hidden="true"
+                style={{ display: "block", width: 22, height: 22, border: "3px solid rgba(255, 159, 4, 0.25)", borderTopColor: "#ff9f04", borderRadius: "50%", animation: "tsmSpin 0.8s linear infinite" }}
+              />
+              <span>Chargement des titres...</span>
+            </div>
+          ) : sourceState === "api_error" ? (
+            <div className="tsm-empty" role="alert">Impossible de charger les titres depuis l’API.</div>
+          ) : flattenedList.length === 0 ? (
             <div className="tsm-empty">Aucun titre trouvé pour "{searchQuery}"</div>
           ) : (
             flattenedList.map((item, idx) => {

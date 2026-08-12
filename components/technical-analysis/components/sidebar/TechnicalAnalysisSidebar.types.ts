@@ -20,8 +20,8 @@ export interface TechnicalAnalysisSidebarProps {
   liveReturnYTD?: number;
   livePeRatio?: number;
   isLoading?: boolean;
-  currentVolume: number;
-  avgVolume: number;
+  currentVolume: number | null;
+  avgVolume: number | null;
   apiPriceMetric?: PriceIndicatorEntity | null;
   apiTechnicalIndicator?: TechnicalIndicatorEntity | null;
   apiValuationRatio?: ValuationRatioEntity | null;

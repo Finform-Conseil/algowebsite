@@ -46,6 +46,7 @@ import {
   selectMarketSnapshots,
 } from "../../store/selectors";
 import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
+import type { ActionEntity } from "@/core/domain/entities/action.entity";
 import type { PriceIndicatorEntity, TechnicalIndicatorEntity, ValuationRatioEntity } from "@/core/domain/entities/cours.entity";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
@@ -65,7 +66,7 @@ export type ComparisonLoadState = Record<string, ComparisonLoadStatus>;
 const COMPARISON_NO_DATA_GRACE_MS = 1500;
 
 // Nombre de bougies historiques demandées à l'API (borne UI, dataZoom natif ECharts).
-const OHLCV_PAGE_SIZE = 5000;
+const OHLCV_PAGE_SIZE = 500;
 // Tri chronologique ascendant côté backend (le transformer re-trie par sécurité).
 const OHLCV_ORDERING = "timestamp";
 
@@ -79,7 +80,7 @@ const areComparisonLoadStatesEqual = (left: ComparisonLoadState, right: Comparis
   return leftKeys.every((key) => left[key] === right[key]);
 };
 
-export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) => {
+export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, forcedIsin?: string) => {
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
   const chartConfig = useSelector(selectChartConfig);
@@ -89,12 +90,13 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
   // ── Couche core/ : repositories API (aucun fetch local) ───────────────────
   const { getActionByTicker, currentActionByTickerData, isFetchingActionByTicker } =
     useActionRepository();
-  const { getAllCours } = useCoursRepository();
+  const { getAllCours, getCoursHistory } = useCoursRepository();
 
   const symbol = forcedSymbol || chartConfig.symbol || "BOAB";
 
   // --- STATE ---
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [resolvedActionByTicker, setResolvedActionByTicker] = useState<ActionEntity | null>(null);
   const [showReplayFullText, setShowReplayFullText] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -113,6 +115,8 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
   const lastDispatchedSnapshotStrRef = useRef<string>("");
   const getActionByTickerRef = useRef(getActionByTicker);
   const getAllCoursRef = useRef(getAllCours);
+  const historyLimitRef = useRef(OHLCV_PAGE_SIZE);
+  const historyLoadInFlightRef = useRef(false);
 
   // [SRE] Component Lifecycle Guard
   const isMounted = useRef(true);
@@ -135,11 +139,13 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
     setChartData(fullData);
   }, []);
 
+  const effectiveActionByTickerData = currentActionByTickerData ?? resolvedActionByTicker;
+
   // ── SNAPSHOT LIVE : dérivé de latest_price_metric (API), champs null visibles ─
   // Réagit à l'arrivée de la donnée ticker (RTK Query -> currentActionByTickerData).
   useEffect(() => {
     if (mode !== "real") return;
-    const action = currentActionByTickerData;
+    const action = effectiveActionByTickerData;
     if (!action) return;
 
     const upperTicker = (action.ticker || symbol).toUpperCase();
@@ -154,11 +160,17 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
       dispatchRef.current(updateMarketSnapshot({ symbol: upperTicker, snapshot }));
       lastDispatchedSnapshotStrRef.current = snapSig;
     }
-  }, [currentActionByTickerData, mode, symbol]);
+  }, [effectiveActionByTickerData, mode, symbol]);
 
   // ── CHARGEMENT OHLCV : action(ticker) -> instrument -> cours(instrument) ────
-  const loadMarketData = useCallback(async (ticker: string) => {
+  const loadMarketData = useCallback(async (ticker: string, historyPoints = OHLCV_PAGE_SIZE) => {
+    const previousSymbol = symbolRef.current;
     symbolRef.current = ticker;
+    setResolvedActionByTicker(null);
+    const boundedHistoryPoints = Math.max(OHLCV_PAGE_SIZE, Math.min(historyPoints, 10000));
+    if (previousSymbol !== ticker || historyPoints === OHLCV_PAGE_SIZE) {
+      historyLimitRef.current = OHLCV_PAGE_SIZE;
+    }
 
     // [SRE] Fail-Fast si hors-ligne.
     if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -175,17 +187,15 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
 
     try {
       // 1) Resolve the action and await the backend response before reading its instrument.
-      const action = await getActionByTickerRef.current(upperTicker);
+      const action = await getActionByTickerRef.current(upperTicker, forcedIsin);
+      setResolvedActionByTicker(action);
       const instrumentId = action.instrument;
       if (typeof instrumentId !== "string" || instrumentId.length === 0) {
         throw new Error(`Action ${upperTicker} has no instrument identifier.`);
       }
 
       // 2) Load OHLCV through the canonical cours filter accepted by the API.
-      const paginated = await getAllCoursRef.current({
-        instrument: instrumentId,
-        page_size: OHLCV_PAGE_SIZE,
-      });
+      const paginated = { data: await getCoursHistory({ instrument: instrumentId }, boundedHistoryPoints) };
 
       // [SRE] Race Condition Guard.
       if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) return;
@@ -193,37 +203,10 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
       const series = coursSeriesToChartData(paginated?.data ?? []);
 
       if (series.length > 0) {
+        historyLimitRef.current = boundedHistoryPoints;
         applyWindowFirstData(upperTicker, series);
         dispatchRef.current(updateMarketData({ symbol: upperTicker, data: series }));
 
-        // Snapshot dérivé de la dernière bougie (si la métrique API prix manque).
-        const last = series[series.length - 1];
-        const prev = series.length > 1 ? series[series.length - 2] : null;
-        if (prev) {
-          const diff = last.close - prev.close;
-          const pct = prev.close !== 0 ? (diff / prev.close) * 100 : 0;
-          const snapSig = `${last.close}_derived_${pct.toFixed(2)}`;
-          if (lastDispatchedSnapshotStrRef.current !== snapSig && !currentActionByTickerData?.latest_price_metric) {
-            const snapshot: LiveSnapshot = {
-              symbol: upperTicker,
-              price: last.close,
-              variation: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`,
-              prevClose: prev.close,
-              open: last.open,
-              high: last.high,
-              low: last.low,
-              volume: last.volume,
-              source: "ALGO_DB_API_OHLCV",
-              sourceStatus: "derived",
-              sourceLabel: "Derived (OHLCV)",
-              lastUpdate: new Date().toISOString(),
-            };
-            // @ts-expect-error - variationNum injecté au bord réseau (perf O(1)).
-            snapshot.variationNum = pct;
-            dispatchRef.current(updateMarketSnapshot({ symbol: upperTicker, snapshot }));
-            lastDispatchedSnapshotStrRef.current = snapSig;
-          }
-        }
       }
     } catch (error: unknown) {
       const err = error as Error;
@@ -241,7 +224,18 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
         setIsLoading(false);
       }
     }
-  }, [applyWindowFirstData, currentActionByTickerData]);
+  }, [applyWindowFirstData, currentActionByTickerData, forcedIsin, getCoursHistory]);
+
+  const requestMoreHistory = useCallback((direction: "left" | "right" = "left") => {
+    if (direction !== "left" || historyLoadInFlightRef.current || !isMounted.current) return;
+    const nextHistoryPoints = Math.min(historyLimitRef.current + OHLCV_PAGE_SIZE, 10000);
+    if (nextHistoryPoints <= historyLimitRef.current) return;
+
+    historyLoadInFlightRef.current = true;
+    void loadMarketData(symbolRef.current, nextHistoryPoints).finally(() => {
+      historyLoadInFlightRef.current = false;
+    });
+  }, [loadMarketData]);
 
   // ============================================================================
   // [SRE] NETWORK LIFECYCLE SHIELD — Page Visibility + navigator.onLine.
@@ -367,14 +361,12 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
   }, [uiState.replay.isActive, uiState.replay.isPaused, uiState.replay.speed, dispatch]);
 
   const lastCandle = chartData.length > 0 ? chartData[chartData.length - 1] : null;
-  const apiPriceMetric = currentActionByTickerData?.latest_price_metric;
-  const currentVolume = mode === "real" && apiPriceMetric?.volume != null
-    ? apiPriceMetric.volume
-    : (mode === "real" && liveSnapshotsCache[symbol]?.volume != null
-      ? liveSnapshotsCache[symbol].volume
-      : (lastCandle ? lastCandle.volume : 0));
-  const avgVolume = mode === "real" && apiPriceMetric?.vol_avg_20d != null
-    ? apiPriceMetric.vol_avg_20d
+  const apiPriceMetric = effectiveActionByTickerData?.latest_price_metric;
+  const currentVolume = mode === "real"
+    ? apiPriceMetric?.volume ?? null
+    : apiPriceMetric?.volume ?? liveSnapshotsCache[symbol]?.volume ?? lastCandle?.volume ?? 0;
+  const avgVolume = mode === "real"
+    ? apiPriceMetric?.vol_avg_20d ?? null
     : (() => {
       if (chartData.length === 0) return 0;
       const last30 = chartData.slice(-30);
@@ -393,9 +385,11 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string) =>
     liveSnapshot: mode === "real" ? (liveSnapshotsCache[symbol] || null) : null,
     currentVolume,
     avgVolume,
-    apiPriceMetric: (currentActionByTickerData?.latest_price_metric ?? null) as PriceIndicatorEntity | null,
-    apiTechnicalIndicator: (currentActionByTickerData?.latest_technical_indicator ?? null) as TechnicalIndicatorEntity | null,
-    apiValuationRatio: (currentActionByTickerData?.latest_valuation_ratio ?? null) as ValuationRatioEntity | null,
+    requestMoreHistory,
+    currentActionByTickerData: effectiveActionByTickerData,
+    apiPriceMetric: (effectiveActionByTickerData?.latest_price_metric ?? null) as PriceIndicatorEntity | null,
+    apiTechnicalIndicator: (effectiveActionByTickerData?.latest_technical_indicator ?? null) as TechnicalIndicatorEntity | null,
+    apiValuationRatio: (effectiveActionByTickerData?.latest_valuation_ratio ?? null) as ValuationRatioEntity | null,
   };
 };
 
@@ -412,7 +406,7 @@ export const useLiveMetrics = (
     const lastCandle = chartData.length > 0 ? chartData[chartData.length - 1] : null;
     const prevCandle = chartData.length > 1 ? chartData[chartData.length - 2] : null;
 
-    const livePrice = liveSnapshot ? liveSnapshot.price : lastCandle ? lastCandle.close : security.marketCap > 0 ? security.marketCap / 100 : 0;
+    const livePrice = liveSnapshot ? liveSnapshot.price : lastCandle ? lastCandle.close : 0;
     let liveChange = 0;
     let liveChangePercent = 0;
     let liveVolume = 0;
@@ -441,9 +435,6 @@ export const useLiveMetrics = (
         liveChange = lastCandle.close - lastCandle.open;
         liveChangePercent = lastCandle.open !== 0 ? (liveChange / lastCandle.open) * 100 : 0;
       }
-    } else {
-      liveChangePercent = security.priceChangeD1;
-      liveChange = (livePrice * liveChangePercent) / 100;
     }
 
     const convertedLivePrice = livePrice * effectiveRate;
@@ -474,7 +465,7 @@ export const useComparisonManager = (comparisonSymbols: string[], dataMode: "moc
   const dispatch = useDispatch();
   const marketDataCache = useSelector(selectMarketData);
   const { getActionByTicker } = useActionRepository();
-  const { getAllCours } = useCoursRepository();
+  const { getAllCours, getCoursHistory } = useCoursRepository();
   const inflightFetches = useRef<Set<string>>(new Set());
   const comparisonGraceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const marketDataCacheRef = useRef(marketDataCache);

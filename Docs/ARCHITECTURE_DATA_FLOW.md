@@ -8,7 +8,6 @@
 > **Périmètre :** couche `core/` (Clean/Hexagonal) + consommation en page.
 > Pour le proxy réseau lui-même, voir `app/api/proxy/` et son manifeste interne.
 
----
 
 ## 0. TL;DR — La checklist des 7 fichiers
 

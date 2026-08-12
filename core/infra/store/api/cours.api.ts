@@ -51,6 +51,10 @@ export const coursApi = api.injectEndpoints({
             method: "GET",
             params: params || {},
         }),
+        transformResponse: (response: PaginatedResponse<CoursEntity> & { results?: CoursEntity[] }) => ({
+          ...response,
+          data: Array.isArray(response.data) ? response.data : (response.results ?? []),
+        }),
         providesTags: (result, error, arg) =>
             result
             ? [

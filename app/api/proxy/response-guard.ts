@@ -5,7 +5,10 @@
 //          testée par `response-guard.test.mjs`). Zéro duplication (DRY).
 // ================================================================================
 
-import { isGatewayInterception as _isGatewayInterception } from './response-guard.mjs';
+import {
+  isGatewayInterception as _isGatewayInterception,
+  isMalformedJsonResponse as _isMalformedJsonResponse,
+} from './response-guard.mjs';
 
 /**
  * La réponse backend est-elle une interception de gateway déguisée en succès
@@ -18,3 +21,9 @@ export const isGatewayInterception: (
   status: number,
   contentType: string | null | undefined,
 ) => boolean = _isGatewayInterception;
+
+export const isMalformedJsonResponse: (
+  status: number,
+  contentType: string | null | undefined,
+  bodyBuffer: ArrayBuffer,
+) => boolean = _isMalformedJsonResponse;

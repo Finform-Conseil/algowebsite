@@ -14,7 +14,6 @@ import { IActionRepository } from '@/core/domain/repositories/action.repository'
 import { ActionType, CreateActionType, UpdateActionType, ActionQueryParams } from '@/core/domain/types/action.type';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
 import { PaginatedResponse } from '@/core/domain/types/pagination.type';
-import { getBRVMSecurityByTicker } from '@/core/data/brvm-securities';
 
 const isNotFoundError = (error: unknown): boolean => (
   typeof error === 'object' && error !== null && 'status' in error && error.status === 404
@@ -23,7 +22,7 @@ const isNotFoundError = (error: unknown): boolean => (
 const actionRequestsInFlight = new Map<string, Promise<unknown>>();
 
 const serializeActionParams = (params: ActionQueryParams): string =>
-  JSON.stringify(Object.entries(params).sort(([left], [right]) => left.localeCompare(right)));
+  JSON.stringify(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "").sort(([left], [right]) => left.localeCompare(right)));
 
 const getSharedActionRequest = <T>(
   key: string,
@@ -160,22 +159,21 @@ export const useActionRepository = (): IActionRepository => {
     return currentActionQueryResult || null;
   }, [currentActionQueryResult]);
 
-  const getActionByTicker = useCallback(async (ticker: string): Promise<ActionEntity> => {
+  const getActionByTicker = useCallback(async (ticker: string, isin?: string): Promise<ActionEntity> => {
     const normalizedTicker = ticker.trim().toUpperCase();
-    const key = `actions:ticker:${normalizedTicker}`;
+    const normalizedIsin = isin?.trim().toUpperCase();
+    const key = `actions:ticker:${normalizedTicker}:isin:${normalizedIsin ?? ""}`;
 
     return getSharedActionRequest(key, async () => {
-      try {
-        return await triggerGetActionByTicker({ ticker: normalizedTicker }).unwrap();
-      } catch (error) {
-        if (!isNotFoundError(error)) throw error;
-        const security = getBRVMSecurityByTicker(normalizedTicker);
-        if (!security?.isin) throw error;
-        const result = await triggerGetAllActions({ isin: security.isin, page_size: 1 }).unwrap();
-        const action = result.data?.[0];
-        if (!action) throw error;
-        return action;
+      if (normalizedIsin) {
+        const isinResult = await triggerGetAllActions({ isin: normalizedIsin, page_size: 1 }).unwrap();
+        const isinAction = isinResult.data?.[0];
+        if (isinAction) return isinAction;
       }
+      const result = await triggerGetAllActions({ ticker: normalizedTicker, page_size: 1 }).unwrap();
+      const action = result.data?.[0];
+      if (action) return action;
+      return triggerGetActionByTicker({ ticker: normalizedTicker }).unwrap();
     });
   }, [triggerGetActionByTicker, triggerGetAllActions]);
 

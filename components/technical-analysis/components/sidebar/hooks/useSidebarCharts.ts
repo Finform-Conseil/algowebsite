@@ -6,7 +6,7 @@ import type { IncomeViewMode, SidebarFinancialMetrics } from "../TechnicalAnalys
 import { buildBenefitsChartOption, buildDividendsChartOption } from "../charts/sidebarFundamentalsChartOptions";
 import { buildIncomeChartOption } from "../charts/sidebarIncomeChartOptions";
 import { buildSeasonalityChartOption } from "../charts/sidebarSeasonalityChartOptions";
-import { buildVolatilityCurveOption, buildVolatilityTermStructureOption } from "../charts/sidebarVolatilityChartOptions";
+import { buildVolatilityCurveOption, buildVolatilityTermStructureOption, hasApiVolatilityTermStructure } from "../charts/sidebarVolatilityChartOptions";
 import { useSidebarChart } from "../charts/useSidebarChart";
 
 interface SidebarChartRefs {
@@ -92,9 +92,9 @@ export function useSidebarCharts(input: UseSidebarChartsInput): void {
 
   useSidebarChart({
     chartRef: volatilityChartRef,
-    enabled: isChartRuntimeReady && (chartData.length >= 5 || Boolean(apiTechnicalIndicator)) && !isLoading,
-    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, apiTechnicalIndicator, isLoading],
-    render: (_chart, echarts) => buildVolatilityTermStructureOption(chartData.map((point) => point.close), echarts, apiTechnicalIndicator),
+    enabled: isChartRuntimeReady && (dataMode === "mock" ? chartData.length >= 5 : hasApiVolatilityTermStructure(apiTechnicalIndicator)) && !isLoading,
+    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, dataMode, apiTechnicalIndicator, isLoading],
+    render: (_chart, echarts) => buildVolatilityTermStructureOption(chartData.map((point) => point.close), echarts, apiTechnicalIndicator, dataMode),
   });
 
   useSidebarChart({
