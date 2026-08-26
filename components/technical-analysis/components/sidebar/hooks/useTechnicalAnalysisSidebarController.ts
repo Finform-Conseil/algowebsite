@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useCurrency } from "@/hooks/useCurrency";
 import { useDispatch, useSelector } from "react-redux";
 import { setChartAppearance, setModalOpen, setPrefilledAlert, setSearchMode } from "../../../store/technicalAnalysisSlice";
 import { selectChartAppearance, selectUiState } from "../../../store/selectors";
@@ -33,9 +34,10 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
   const chartAppearance = useSelector(selectChartAppearance);
-  const isSecondaryWorkReady = useSidebarSecondaryWorkReady();
+  const isSecondaryWorkReady = useSidebarSecondaryWorkReady(!props.isLoading);
   const isChartRuntimeReady = useSidebarChartRuntimeReady(isSecondaryWorkReady);
-  const marketClock = useSidebarMarketClock(lastUpdate);
+  const { convert, displayCurrency } = useCurrency();
+  const marketClock = useSidebarMarketClock(lastUpdate, security.exchange);
   const feeds = useSidebarDataFeeds({ dataMode, isSecondaryWorkReady, securityTicker: security.ticker });
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
@@ -101,14 +103,32 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
   const displayPeRatio = dataMode === "real"
     ? apiValuationRatio?.pe_ttm ?? null
     : apiValuationRatio?.pe_ttm ?? livePeRatio ?? security.peRatio;
-  const displayMarketCap = dataMode === "real"
+  const sourceCurrency = props.baseCurrency || security.currency || displayCurrency;
+  const nativeMarketCap = dataMode === "real"
     ? apiValuationRatio?.market_cap ?? null
     : apiValuationRatio?.market_cap ?? liveMarketCap ?? security.marketCap;
+  const displayMarketCap = convert(nativeMarketCap, sourceCurrency);
+  const displayFundamentals = useMemo(() => {
+    const fundamentals = feeds.validFundamentals;
+    if (!fundamentals || sourceCurrency === displayCurrency) return fundamentals;
+    const convertSeries = (rows: typeof fundamentals.earnings) => rows.map((row) => ({
+      ...row,
+      value: convert(row.value, sourceCurrency) ?? row.value,
+    }));
+    return {
+      ...fundamentals,
+      earnings: convertSeries(fundamentals.earnings),
+      revenues: convertSeries(fundamentals.revenues),
+      dividends: convertSeries(fundamentals.dividends),
+    };
+  }, [convert, displayCurrency, feeds.validFundamentals, sourceCurrency]);
   const derived = useSidebarDerivedMetrics({
     apiPriceMetric,
     apiTechnicalIndicator,
+    apiValuationRatio,
     chartData,
     dataMode,
+    displayCurrency,
     displayMarketCap,
     displayPeRatio,
     displayReturnYTD,
@@ -119,7 +139,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     marketSourceStatus,
     normalizedSecurityTicker: feeds.normalizedSecurityTicker,
     security,
-    validFundamentals: feeds.validFundamentals,
+    validFundamentals: displayFundamentals,
   });
   const hasSettledFundamentalsFeed = feeds.fundamentalsStatus === "ready" || feeds.fundamentalsStatus === "error";
   const isFundamentalsPanelLoading = Boolean(feeds.isFundamentalsLoading || (props.isLoading && !hasSettledFundamentalsFeed));
@@ -143,6 +163,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
       canRenderIncomeStatement: derived.canRenderIncomeStatement && (dataMode !== "real" || incomeViewMode === "annual"),
       chartData,
       dataMode,
+      displayCurrency,
       dividendsChartRef: props.dividendsChartRef,
       financialMetrics: derived.financialMetrics,
       hasVerifiedDividends: derived.hasVerifiedDividends,
@@ -152,6 +173,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
       isChartRuntimeReady,
       isFundamentalsLoading: feeds.isFundamentalsLoading,
       isFundamentalsPanelLoading,
+      isSecondaryWorkReady,
       isLoading: Boolean(props.isLoading),
       normalizedSecurityTicker: feeds.normalizedSecurityTicker,
       seasonalChartRef,
@@ -159,7 +181,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
       apiTechnicalIndicator,
       technicalData: derived.technicalData,
       technicalsChartRef,
-      validFundamentals: feeds.validFundamentals,
+      validFundamentals: displayFundamentals,
       volatilityChartRef,
       volatilityCurveChartRef,
     },
@@ -173,6 +195,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     isDescriptionExpanded,
     isDividendModalOpen,
     isFundamentalsPanelLoading,
+    isSecondaryWorkReady,
     isSettingsOpen,
     marketClock,
     metrics: derived,

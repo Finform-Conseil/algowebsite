@@ -8,10 +8,16 @@ const {
   technicalAnalysisSlice,
   applyMultiChartPreset,
   closeAllModals,
+  hydrateMultiChartLayout,
   setChartConfig,
   setModalOpen,
+  setMultiChartLayout,
+  setActiveLayoutChart,
+  setActiveMarket,
+  setMultiChartSync,
   setSymbol,
   setTimeframe,
+  updateLayoutChart,
 } = require("../technicalAnalysisSlice.ts");
 const { createDefaultBrvmMultiChartLayout } = require("../../config/layout/brvmLayoutSymbols.ts");
 
@@ -74,7 +80,7 @@ test("setTimeframe and setChartConfig propagate synced intervals equivalently", 
   assert.deepEqual(layoutIntervals(viaChartConfigPatch), layoutIntervals(viaTimeframeAction));
 });
 
-test("setSymbol and setChartConfig normalize symbol and recalculate sector peers equivalently", () => {
+test("setSymbol and setChartConfig normalize symbol without inventing secondary peers", () => {
   const viaSymbolAction = technicalAnalysisSlice.reducer(
     createSectorPresetState(),
     setSymbol(" snts "),
@@ -89,7 +95,169 @@ test("setSymbol and setChartConfig normalize symbol and recalculate sector peers
   assert.deepEqual(layoutSymbols(viaChartConfigPatch), layoutSymbols(viaSymbolAction));
   assert.equal(viaSymbolAction.ui.multiChartLayout.activeChartId, "chart_1");
   assert.equal(viaSymbolAction.ui.multiChartLayout.charts[0].isActive, true);
-  assert.equal(viaSymbolAction.ui.multiChartLayout.charts.at(-1).symbol, "BRVMC");
+  assert.deepEqual(layoutSymbols(viaSymbolAction), ["SNTS", "", "", ""]);
+});
+
+test("layout setup uses the visible ticker binding when Redux has not caught up yet", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "";
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: " orange_ci ", market: " brvm " }),
+  );
+
+  assert.equal(next.ui.multiChartLayout.charts[0].symbol, "ORANGE_CI");
+  assert.equal(next.ui.multiChartLayout.charts[0].exchange, "BRVM");
+  assert.equal(next.ui.multiChartLayout.charts[1].symbol, "");
+  assert.equal(next.ui.multiChartLayout.charts[1].exchange, "");
+});
+
+test("layout changes rebind the primary exchange instead of reviving the previous market", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI", [], "BRVM");
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "BCP", market: "CSE" }),
+  );
+
+  assert.equal(next.ui.multiChartLayout.charts[0].symbol, "BCP");
+  assert.equal(next.ui.multiChartLayout.charts[0].exchange, "CSE");
+});
+
+test("symbol sync propagates the active market binding with the ticker", () => {
+  const state = createReducerState();
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI", [], "BRVM");
+  state.ui.multiChartLayout.charts[1] = {
+    ...state.ui.multiChartLayout.charts[1],
+    symbol: "MTNNG",
+    exchange: "NGX",
+    isActive: true,
+  };
+  state.ui.multiChartLayout.charts[0].isActive = false;
+  state.ui.multiChartLayout.activeChartId = "chart_2";
+
+  const next = technicalAnalysisSlice.reducer(state, setMultiChartSync({ key: "symbol", value: true }));
+
+  assert.deepEqual(next.ui.multiChartLayout.charts.map((chart) => chart.symbol), ["MTNNG", "MTNNG"]);
+  assert.deepEqual(next.ui.multiChartLayout.charts.map((chart) => chart.exchange), ["NGX", "NGX"]);
+});
+
+test("a multi-chart cell keeps the exchange selected with its ticker", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI");
+  state.ui.multiChartLayout.activeChartId = "chart_2";
+  state.ui.multiChartLayout.charts = state.ui.multiChartLayout.charts.map((chart) => ({
+    ...chart,
+    isActive: chart.chartId === "chart_2",
+  }));
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_2", symbol: " mtnng ", exchange: " ngx " }),
+  );
+
+  assert.equal(next.ui.multiChartLayout.charts[0].symbol, "ORANGE_CI");
+  assert.equal(next.ui.multiChartLayout.charts[0].exchange, "BRVM");
+  assert.equal(next.ui.multiChartLayout.charts[1].symbol, "MTNNG");
+  assert.equal(next.ui.multiChartLayout.charts[1].exchange, "NGX");
+  assert.equal(next.chartConfig.symbol, "MTNNG");
+});
+
+test("hydration preserves persisted sync preferences while enforcing dense-layout symbol safety", () => {
+  const initial = createReducerState();
+  initial.chartConfig.symbol = "ORANGE_CI";
+  const persisted = createDefaultBrvmMultiChartLayout("four_grid", "ORANGE_CI");
+  persisted.sync = { symbol: true, interval: true, crosshair: true, time: true, dateRange: true };
+
+  const hydrated = technicalAnalysisSlice.reducer(initial, hydrateMultiChartLayout(persisted));
+  assert.deepEqual(hydrated.ui.multiChartLayout.sync, persisted.sync);
+
+  const densePersisted = createDefaultBrvmMultiChartLayout("eight_grid", "ORANGE_CI");
+  densePersisted.sync = { symbol: true, interval: true, crosshair: true, time: true, dateRange: true };
+  const denseHydrated = technicalAnalysisSlice.reducer(initial, hydrateMultiChartLayout(densePersisted));
+  assert.equal(denseHydrated.ui.multiChartLayout.sync.symbol, false);
+  assert.equal(denseHydrated.ui.multiChartLayout.sync.interval, true);
+  assert.equal(denseHydrated.ui.multiChartLayout.sync.time, true);
+});
+
+test("unsupported multi-timeframe preset is rejected while API data is 1D-only", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  const next = technicalAnalysisSlice.reducer(state, applyMultiChartPreset("multi_timeframe"));
+  assert.equal(next.ui.multiChartLayout.layoutId, "single");
+});
+
+test("hydration prioritizes the live primary title and clears the legacy BRVMC cell", () => {
+  const initial = createReducerState();
+  initial.chartConfig.symbol = "ORANGE_CI";
+  const persisted = createDefaultBrvmMultiChartLayout("two_horizontal", "BOAB", ["BRVMC"]);
+
+  const hydrated = technicalAnalysisSlice.reducer(initial, hydrateMultiChartLayout(persisted));
+
+  assert.equal(hydrated.ui.multiChartLayout.charts[0].symbol, "ORANGE_CI");
+  assert.equal(hydrated.ui.multiChartLayout.charts[1].symbol, "");
+  assert.deepEqual(hydrated.ui.multiChartLayout.charts.map((chart) => chart.exchange), ["BRVM", ""]);
+});
+
+test("an unbound multi-chart slot cannot replace the canonical active chart", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI", [], "BRVM");
+
+  const next = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
+
+  assert.equal(next.ui.multiChartLayout.activeChartId, "chart_1");
+  assert.equal(next.ui.multiChartLayout.charts[0].isActive, true);
+  assert.equal(next.ui.multiChartLayout.charts[1].isActive, false);
+  assert.equal(next.chartConfig.symbol, "ORANGE_CI");
+});
+
+test("layout ticker binding never invents the workspace exchange when exchange is omitted", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  state.ui.activeMarket.ticker = "BRVM";
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI", [], "BRVM");
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_2", symbol: "BCP" }),
+  );
+
+  assert.equal(next.ui.multiChartLayout.charts[1].symbol, "BCP");
+  assert.equal(next.ui.multiChartLayout.charts[1].exchange, "");
+});
+
+test("global market changes keep empty layout slots exchange-agnostic", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("four_grid", "ORANGE_CI", [], "BRVM");
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    setActiveMarket({ ticker: "NGX", name: "NGX", currency: "NGN" }),
+  );
+
+  assert.deepEqual(next.ui.multiChartLayout.charts.map((chart) => chart.symbol), ["", "", "", ""]);
+  assert.deepEqual(next.ui.multiChartLayout.charts.map((chart) => chart.exchange), ["", "", "", ""]);
+  assert.equal(next.ui.activeMarket.ticker, "NGX");
+});
+
+test("changing a bound layout symbol without an exchange clears the stale exchange", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "ORANGE_CI";
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI", ["SITAB_CI"], "BRVM");
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_2", symbol: "BCP" }),
+  );
+
+  assert.equal(next.ui.multiChartLayout.charts[1].symbol, "BCP");
+  assert.equal(next.ui.multiChartLayout.charts[1].exchange, "");
 });
 
 test("opening a modal closes every other modal flag", () => {
@@ -121,4 +289,17 @@ test("closing one modal and closeAllModals do not reopen unrelated modals", () =
 
   assert.deepEqual(getOpenModals(templatesClosed), []);
   assert.deepEqual(getOpenModals(allClosed), []);
+});
+
+
+test("hydration preserves a persisted primary exchange when the symbol is unchanged", () => {
+  const initial = createReducerState();
+  initial.chartConfig.symbol = "BCP";
+  initial.ui.activeMarket.ticker = "BRVM";
+  const persisted = createDefaultBrvmMultiChartLayout("two_horizontal", "BCP", [], "CSE");
+
+  const hydrated = technicalAnalysisSlice.reducer(initial, hydrateMultiChartLayout(persisted));
+
+  assert.equal(hydrated.ui.multiChartLayout.charts[0].symbol, "BCP");
+  assert.equal(hydrated.ui.multiChartLayout.charts[0].exchange, "CSE");
 });

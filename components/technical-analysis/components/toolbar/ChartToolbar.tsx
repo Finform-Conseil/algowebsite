@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
+import { useLocale } from "next-intl";
 import clsx from "clsx";
-import {
-  useDispatch,
-  useSelector } from "react-redux";
+import { useSelector } from "react-redux";
+import { useAppDispatch } from "@/core/infra/store/hooks";
 import { SettingsToggle } from "../common/inputs/SettingsField";
 import {
   setModalOpen,
@@ -13,13 +13,12 @@ import {
   setAnonyme,
   setSelectedPseudo,
   setSearchMode,
-  setDataMode,
 } from "../../store/technicalAnalysisSlice";
 import {
   selectChartConfig,
   selectAdvancedIndicators,
   selectUiState,
-  selectDataMode,
+  selectActiveMarket,
 } from "../../store/selectors";
 import { LayoutSetupControl } from "./LayoutSetupControl";
 import { FloatingMenu } from "../common/primitives/FloatingMenu";
@@ -30,6 +29,7 @@ import {
   type ChartType,
 } from "../../lib/chart-types";
 import { preloadIndicatorsModal } from "../modals/orchestration/indicatorsModalLoader";
+import { actionApi, SEARCH_SYMBOL_ACTION_QUERY } from "@/core/infra/store/api/action.api";
 import { ANONYMOUS_PSEUDOS } from "../../config/ui/anonymousPseudos";
 import { renderChartTypeIcon } from "./chart/chartTypeIcons";
 import {
@@ -58,11 +58,32 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   onSaveAnalysis,
   onOpenLoadModal,
 }) => {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const chartConfig = useSelector(selectChartConfig);
   const advancedIndicators = useSelector(selectAdvancedIndicators);
   const uiState = useSelector(selectUiState);
-  const dataMode = useSelector(selectDataMode);
+  const activeMarket = useSelector(selectActiveMarket);
+  const locale = useLocale();
+  const marketLabel = locale === "fr" ? "Bourse" : "Exchange";
+  const isMultiChartMode = uiState.multiChartLayout.isEnabled
+    && uiState.multiChartLayout.charts.length > 1;
+  const activeLayoutCell = uiState.multiChartLayout.charts.find(
+    (chart) => chart.chartId === uiState.multiChartLayout.activeChartId,
+  );
+  const displayedMarketTicker = isMultiChartMode
+    ? activeLayoutCell?.exchange?.trim().toUpperCase() || activeMarket.ticker
+    : activeMarket.ticker;
+  const marketTitle = isMultiChartMode
+    ? (locale === "fr"
+      ? `Bourse du graphique actif : ${displayedMarketTicker}. Cliquer pour changer uniquement ce panneau.`
+      : `Active chart exchange: ${displayedMarketTicker}. Click to change only this panel.`)
+    : (locale === "fr"
+      ? `Marché actif : ${activeMarket.name} (${activeMarket.currency}). Cliquer pour changer.`
+      : `Active market: ${activeMarket.name} (${activeMarket.currency}). Click to change.`);
+
+  const prefetchCompareSymbols = useCallback(() => {
+    dispatch(actionApi.util.prefetch("getAllActions", SEARCH_SYMBOL_ACTION_QUERY, { ifOlderThan: 30 }));
+  }, [dispatch]);
 
   const [isPseudoDropdownOpen, setIsPseudoDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
@@ -113,10 +134,14 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
     togglePseudoDropdownFromElement(e.currentTarget);
   };
 
-  const handleDataModeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const openMarketSelector = () => {
+    dispatch(setModalOpen({ modal: "marketSelector", isOpen: true }));
+  };
+
+  const handleMarketSelectorKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    dispatch(setDataMode(dataMode === "real" ? "mock" : "real"));
+    openMarketSelector();
   };
 
   useEffect(() => {
@@ -126,7 +151,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
     return () => window.removeEventListener("click", handleClickOutside);
   }, [isPseudoDropdownOpen]);
 
-  const safeDisplaySymbol = displaySymbol.trim() || "BOAB";
+  const safeDisplaySymbol = displaySymbol.trim() || "—";
   const hasActiveOverlayIndicator =
     (chartConfig.indicators.sma && chartConfig.indicators.activeSma.length > 0) ||
     (chartConfig.indicators.ema && chartConfig.indicators.activeEma.length > 0) ||
@@ -204,6 +229,8 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         <button
           className={clsx("gp-toolbar-btn", "hover-lift")}
           title="Comparer ou ajouter un symbole"
+          onPointerEnter={prefetchCompareSymbols}
+          onFocus={prefetchCompareSymbols}
           onClick={() => {
             dispatch(setSearchMode("compare"));
             dispatch(setModalOpen({ modal: "search", isOpen: true }));
@@ -355,27 +382,22 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         className="d-flex align-items-center gap-2 flex-shrink-0 flex-nowrap h-100 justify-content-end" 
         style={{ minWidth: "max-content" }}
       >
-        {/* Toggle SIMU/BRVM (Always visible) */}
-        <div
-          className={`${"gp-ios-toggle"} ${dataMode === "real" ? "is-brvm" : "is-demo"} flex-shrink-0`}
-          onClick={() => dispatch(setDataMode(dataMode === "real" ? "mock" : "real"))}
-          title={
-            dataMode === "real"
-              ? "Source actuelle: donnees BRVM verifiees. Cliquer pour passer en simulation locale."
-              : "Source actuelle: simulation locale. Cliquer pour passer aux donnees BRVM verifiees."
-          }
-          role="switch"
-          tabIndex={0}
-          aria-checked={dataMode === "real"}
-          aria-label={dataMode === "real" ? "Source de donnees BRVM verifiees" : "Source de donnees simulees"}
-          onKeyDown={handleDataModeKeyDown}
+        <button
+          type="button"
+          className="gp-market-selector-button flex-shrink-0"
+          onClick={openMarketSelector}
+          onKeyDown={handleMarketSelectorKeyDown}
+          aria-haspopup="dialog"
+          aria-expanded={uiState.modals.marketSelector}
+          aria-label={`${marketLabel} : ${displayedMarketTicker}`}
+          title={marketTitle}
         >
-          <span className={"gp-ios-toggle-track"}>
-            <span className={"gp-ios-toggle-label-left"}>SIMU</span>
-            <span className={"gp-ios-toggle-knob"} />
-            <span className={"gp-ios-toggle-label-right"}>BRVM</span>
+          <span className="gp-market-selector-label">{marketLabel}</span>
+          <span className="gp-market-selector-icon" aria-hidden="true">
+            <i className="bi bi-arrow-left-right"></i>
           </span>
-        </div>
+          <strong>{displayedMarketTicker}</strong>
+        </button>
 
         <div className={clsx("gp-toolbar-v-divider", "gp-hide-on-small", "flex-shrink-0")}></div>
 
@@ -450,21 +472,17 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           </div>
         </div>
 
-        {/* Publish Button (Hidden on small screens) */}
+        {/* Share Button (Hidden on small screens) */}
         <button
-          className={clsx(publishButtonClassNames, uiState.isPublishing && "disabled")}
+          className={clsx(publishButtonClassNames)}
           style={{ height: "28px", padding: "0 16px" }}
+          title="Partager l’analyse actuelle"
+          aria-label="Partager l’analyse actuelle"
           onClick={() => dispatch(setModalOpen({ modal: "publish", isOpen: true }))}
-          disabled={uiState.isPublishing}
+          type="button"
         >
-          {uiState.isPublishing ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>{" "}
-              Publication
-            </>
-          ) : (
-            "Publier"
-          )}
+          <i className="bi bi-share-fill me-2" aria-hidden="true" />
+          Partager
         </button>
       </div>
 

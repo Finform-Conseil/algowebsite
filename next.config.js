@@ -13,6 +13,13 @@ const nextConfig = {
   },
   images: {
     qualities: [75, 100],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "www.casablancabourse.com",
+        pathname: "/images/logos/**",
+      },
+    ],
   },
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react", "framer-motion", "lucide-react"],

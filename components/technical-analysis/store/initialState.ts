@@ -1,14 +1,14 @@
 import type { TechnicalAnalysisState } from "../config/state/technicalAnalysisStateTypes";
-import { createDefaultBrvmMultiChartLayout as createDefaultMultiChartLayout } from "../config/layout/brvmLayoutSymbols";
+import { createDefaultMarketMultiChartLayout } from "../config/layout/brvmLayoutSymbols";
 import { createDefaultMovingAverageTrendSignals } from "../config/indicators/movingAverageSeries";
 import { createDefaultPriceVsSmaMetrics } from "../config/indicators/priceVsSmaMetrics";
 import { createDefaultPriceVsEmaMetrics } from "../config/indicators/priceVsEmaMetrics";
 
 // Default Redux state for the Technical Analysis module.
-// Phase 1 keeps every value identical to the pre-extraction slice baseline.
+// The primary security stays empty until the API-backed selector resolves it.
 export const initialState: TechnicalAnalysisState = {
   chartConfig: {
-    symbol: "BOAB",
+    symbol: "",
     timeframe: "1D",
     chartType: "candles",
     indicators: {
@@ -215,12 +215,17 @@ export const initialState: TechnicalAnalysisState = {
     isPublishing: false,
     isCapturing: false,
     dataMode: "real",
+    activeMarket: {
+      ticker: "BRVM",
+      name: "BRVM",
+      currency: "XOF",
+    },
     comparisonSymbols: [],
     comparisonSettings: {},
     movingAverageTrendSignals: createDefaultMovingAverageTrendSignals(),
     priceVsSmaMetrics: createDefaultPriceVsSmaMetrics(),
     priceVsEmaMetrics: createDefaultPriceVsEmaMetrics(),
-    multiChartLayout: createDefaultMultiChartLayout("single", "BOAB"),
+    multiChartLayout: createDefaultMarketMultiChartLayout("single", "", [], "BRVM"),
     searchMode: "replace",
     modals: {
       search: false,
@@ -235,6 +240,7 @@ export const initialState: TechnicalAnalysisState = {
       publish: false,
       drawingSettings: false,
       imageNote: false,
+      marketSelector: false,
     },
     replay: {
       isActive: false,

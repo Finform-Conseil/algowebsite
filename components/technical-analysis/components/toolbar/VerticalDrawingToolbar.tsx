@@ -59,20 +59,63 @@ interface VerticalDrawingToolbarProps {
   isInitialLoading?: boolean;
 }
 
-const VerticalDrawingToolbarSkeleton = ({
-  verticalToolbarRef,
-}: Pick<VerticalDrawingToolbarProps, "verticalToolbarRef">) => (
-  <aside ref={verticalToolbarRef} className="gp-vertical-toolbar" aria-busy="true">
-    <div className="gp-toolbar-scroll-container" aria-label="Chargement des outils de dessin">
-      {Array.from({ length: 8 }, (_, index) => (
+const VerticalDrawingToolbarLoadingOverlay = () => (
+  <div
+    aria-hidden="true"
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: 2,
+      display: "flex",
+      flexDirection: "column",
+      gap: 4,
+      padding: 4,
+      pointerEvents: "none",
+      background: "var(--gp-bg-toolbar, #0d2136)",
+      borderRadius: "var(--gp-radius-md)",
+    }}
+  >
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+      {Array.from({ length: 10 }, (_, index) => (
         <span
-          key={index}
+          key={`toolbar-${index}`}
           className="is-loading-skeleton"
-          style={{ display: "block", width: "var(--gp-toolbar-btn-size)", height: "var(--gp-toolbar-btn-size)", borderRadius: "var(--gp-radius-sm)", flexShrink: 0 }}
+          style={{
+            display: "block",
+            width: "var(--gp-toolbar-btn-size)",
+            height: "var(--gp-toolbar-btn-size)",
+            borderRadius: "var(--gp-radius-sm)",
+            flexShrink: 0,
+          }}
         />
       ))}
     </div>
-  </aside>
+    <div style={{ flex: 1 }} />
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        paddingTop: 8,
+        borderTop: "1px solid var(--gp-border-color, rgba(255,255,255,0.12))",
+      }}
+    >
+      {Array.from({ length: 5 }, (_, index) => (
+        <span
+          key={`footer-${index}`}
+          className="is-loading-skeleton"
+          style={{
+            display: "block",
+            width: "var(--gp-toolbar-btn-size)",
+            height: "var(--gp-toolbar-btn-size)",
+            borderRadius: "var(--gp-radius-sm)",
+            flexShrink: 0,
+          }}
+        />
+      ))}
+    </div>
+  </div>
 );
 
 export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
@@ -86,7 +129,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
   const cursorDropdownRef = useRef<HTMLButtonElement>(null);
-  const hasCompletedInitialLoadRef = useRef(false);
 
   const toolbarMenus = useDrawingToolbarMenuState(mainContainerRef);
   const {
@@ -331,7 +373,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     reactivateRememberedTool(lastSelectedToolByCategory.brush);
   }, [isSplitTriggerClick, lastSelectedToolByCategory.brush, reactivateRememberedTool, toggleBrushDropdown]);
 
-  const renderSplitDropdownTrigger = useCallback((isOpen: boolean) => (
+  const renderSplitDropdownTrigger = useCallback((isOpen: boolean) => isInitialLoading ? null : (
     <span className="gp-toolbar-split-trigger" aria-hidden="true">
       <i
         className="bi bi-caret-down-fill"
@@ -342,7 +384,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         }}
       ></i>
     </span>
-  ), []);
+  ), [isInitialLoading]);
 
   const handleGlobalLockToggle = () => {
     dispatch(toggleLockedAll());
@@ -395,14 +437,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     annotationsDropdownRef,
   ]);
 
-  useEffect(() => {
-    if (!isInitialLoading) hasCompletedInitialLoadRef.current = true;
-  }, [isInitialLoading]);
-
-  if (isInitialLoading && !hasCompletedInitialLoadRef.current) {
-    return <VerticalDrawingToolbarSkeleton verticalToolbarRef={verticalToolbarRef} />;
-  }
-
   return (
     <aside
       ref={verticalToolbarRef}
@@ -411,7 +445,9 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         "gsap-target-vertical-toolbar",
         "animated-element",
       )}
+      style={{ position: "relative" }}
     >
+      {isInitialLoading && <VerticalDrawingToolbarLoadingOverlay />}
       <div className={"gp-toolbar-scroll-container"}>
         <CursorModeSelector
           cursorMode={uiState.cursorMode}

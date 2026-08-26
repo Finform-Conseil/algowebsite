@@ -3,6 +3,8 @@
 import React, { memo, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
+import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "@/core/data/brvm-logo-registry";
+import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import s from "./BrvmLogoMark.module.css";
 
 type BrvmLogoShape = "circle" | "rounded";
@@ -10,6 +12,7 @@ type BrvmLogoShape = "circle" | "rounded";
 type BrvmLogoStyle = React.CSSProperties & {
   "--brvm-logo-size"?: string;
   "--brvm-logo-scale"?: string;
+  "--brvm-logo-image-offset-y"?: string;
   "--brvm-logo-label-size"?: string;
 };
 
@@ -17,6 +20,7 @@ interface BrvmLogoMarkProps {
   ticker: string;
   name?: string;
   logoUrl?: string | null;
+  exchange?: string;
   sector?: string;
   status?: string;
   size?: number;
@@ -28,6 +32,7 @@ interface BrvmLogoMarkProps {
   showBackdrop?: boolean;
   quality?: number;
   unoptimized?: boolean;
+  loading?: "eager" | "lazy";
 }
 
 const INDEX_FALLBACK_LABELS: Record<string, string> = {
@@ -53,6 +58,10 @@ const LOGO_SCALE_BY_TICKER: Record<string, number> = {
   UNXC: 1.45,
 };
 
+const LOGO_IMAGE_OFFSET_Y_BY_TICKER: Record<string, string> = {
+  ORAC: "calc(var(--brvm-logo-size) * -0.08)",
+};
+
 const normalizeTicker = (ticker: string): string => ticker.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 
 const getFallbackLabel = (ticker: string): string => {
@@ -71,6 +80,17 @@ const getLogoScale = (ticker: string): number => {
   return LOGO_SCALE_BY_TICKER[normalizedTicker] ?? DEFAULT_LOGO_SCALE;
 };
 
+const getLogoImageOffsetY = (ticker: string, resolvedLogoUrl?: string): string => {
+  const normalizedTicker = normalizeTicker(ticker);
+  const normalizedLogoUrl = resolvedLogoUrl?.toLowerCase();
+
+  if (normalizedLogoUrl?.endsWith("/orac.webp")) {
+    return LOGO_IMAGE_OFFSET_Y_BY_TICKER.ORAC;
+  }
+
+  return LOGO_IMAGE_OFFSET_Y_BY_TICKER[normalizedTicker] ?? "0px";
+};
+
 const getLabelSize = (size: number, label: string): string => {
   const baseSize = label.length > 1 ? size * 0.34 : size * 0.42;
   return `${Math.max(baseSize, 9)}px`;
@@ -80,6 +100,7 @@ export const BrvmLogoMark = memo(({
   ticker,
   name,
   logoUrl,
+  exchange,
   sector,
   status,
   size = 36,
@@ -91,32 +112,46 @@ export const BrvmLogoMark = memo(({
   showBackdrop = false,
   quality,
   unoptimized,
+  loading = "lazy",
 }: BrvmLogoMarkProps) => {
   const [hasImageError, setHasImageError] = useState(false);
+  const [hasImageLoaded, setHasImageLoaded] = useState(false);
   const normalizedTicker = normalizeTicker(ticker);
   const fallbackLabel = getFallbackLabel(normalizedTicker);
   const isIndex = sector === "Market Indices" || Boolean(INDEX_FALLBACK_LABELS[normalizedTicker]);
-  const hasUsableLogo = Boolean(logoUrl) && !hasImageError;
-  const bypassImageOptimization = unoptimized ?? (typeof logoUrl === "string" && logoUrl.startsWith("/"));
+  const resolvedLogoUrl = logoUrl
+    ?? (exchange?.trim()
+      ? getMarketLogoUrl(exchange, normalizedTicker)
+      : getBrvmLogoUrl(normalizedTicker))
+    ?? ((!exchange || exchange.trim().toUpperCase() === "BRVM")
+      ? getBrvmLogoUrlByIssuerName(name ?? "")
+      : undefined);
+  const hasUsableLogo = Boolean(resolvedLogoUrl) && !hasImageError;
+  const bypassImageOptimization = unoptimized
+    ?? (typeof resolvedLogoUrl === "string" && resolvedLogoUrl.startsWith("/"));
 
   useEffect(() => {
     setHasImageError(false);
-  }, [logoUrl]);
+    setHasImageLoaded(false);
+  }, [resolvedLogoUrl]);
+
+  const shouldShowFallbackVisual = !hasUsableLogo || !hasImageLoaded;
 
   const rootStyle = useMemo<BrvmLogoStyle>(() => ({
     ...style,
     "--brvm-logo-size": String(size) + "px",
     "--brvm-logo-scale": String(scale === undefined ? getLogoScale(normalizedTicker) : scale),
+    "--brvm-logo-image-offset-y": getLogoImageOffsetY(normalizedTicker, resolvedLogoUrl),
     "--brvm-logo-label-size": getLabelSize(size, fallbackLabel),
-  }), [fallbackLabel, normalizedTicker, scale, size, style]);
+  }), [fallbackLabel, normalizedTicker, resolvedLogoUrl, scale, size, style]);
 
   return (
     <span
       className={clsx(
         s.root,
         shape === "rounded" && s.rounded,
-        !hasUsableLogo && s.fallback,
-        !hasUsableLogo && isIndex && s.indexFallback,
+        shouldShowFallbackVisual && s.fallback,
+        shouldShowFallbackVisual && isIndex && s.indexFallback,
         className,
       )}
       style={rootStyle}
@@ -130,27 +165,33 @@ export const BrvmLogoMark = memo(({
           {showBackdrop && (
             <Image
               fill
-              src={logoUrl as string}
+              src={resolvedLogoUrl as string}
               alt=""
               aria-hidden="true"
               sizes={imageSizes ?? `${size}px`}
               className={s.backdrop}
               quality={quality}
               unoptimized={bypassImageOptimization}
+              loading={loading}
               onError={() => setHasImageError(true)}
             />
           )}
           <Image
             fill
-            src={logoUrl as string}
+            src={resolvedLogoUrl as string}
             alt=""
             aria-hidden="true"
             sizes={imageSizes ?? `${size}px`}
-            className={s.image}
+            className={clsx(s.image, !hasImageLoaded && s.imageLoading)}
             quality={quality}
             unoptimized={bypassImageOptimization}
+            loading={loading}
+            onLoad={() => setHasImageLoaded(true)}
             onError={() => setHasImageError(true)}
           />
+          {!hasImageLoaded && (
+            <span className={s.label} aria-hidden="true">{fallbackLabel}</span>
+          )}
         </>
       ) : (
         <span className={s.label}>{fallbackLabel}</span>

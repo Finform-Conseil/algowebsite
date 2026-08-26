@@ -9,12 +9,18 @@ interface SidebarStatsPanelProps {
   avgVolume: number | null;
   revenueT12M: string;
   marketCap: number | null | undefined;
+  currency: string;
   auditTrail?: React.ReactNode;
 }
 
 const formatDecimal = (value: number | null | undefined) => {
   if (value === null || value === undefined || !Number.isFinite(value)) return "N/D";
   return value.toFixed(2).replace(".", ",");
+};
+
+const formatPeRatio = (value: number | null | undefined) => {
+  if (value === null) return "null";
+  return formatDecimal(value);
 };
 
 const formatPercent = (value: number | null | undefined) => {
@@ -28,13 +34,13 @@ const formatVolume = (value: number | null | undefined) => {
   return Math.round(value).toString();
 };
 
-const formatMarketCap = (value: number | null | undefined) => {
+const formatMarketCap = (value: number | null | undefined, currency: string) => {
   if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) return "N/D";
   if (value >= 1000) {
-    return `${(value / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} B FCFA`;
+    return `${(value / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} B ${currency}`;
   }
 
-  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} M FCFA`;
+  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2 }).replace(/\s/g, ".")} M ${currency}`;
 };
 
 const SidebarStatsSkeleton = () => {
@@ -61,6 +67,7 @@ export const SidebarStatsPanel = React.memo(({
   avgVolume,
   revenueT12M,
   marketCap,
+  currency,
   auditTrail,
 }: SidebarStatsPanelProps) => {
   const returnClassName = returnYTD && returnYTD > 0 ? "text-success" : returnYTD && returnYTD < 0 ? "text-danger" : "";
@@ -83,7 +90,7 @@ export const SidebarStatsPanel = React.memo(({
             </div>
             <div className={clsx("row", "g-0")}>
               <span className={clsx("col", "stat-label")}>P/E Ratio</span>
-              <span className={clsx("col-auto", "stat-value")}>{formatDecimal(peRatio)}</span>
+              <span className={clsx("col-auto", "stat-value")}>{formatPeRatio(peRatio)}</span>
             </div>
             <div className={clsx("row", "g-0")}>
               <span className={clsx("col", "stat-label")}>Volume</span>
@@ -99,7 +106,7 @@ export const SidebarStatsPanel = React.memo(({
             </div>
             <div className={clsx("row", "g-0")}>
               <span className={clsx("col", "stat-label")}>Capitalisation boursière</span>
-              <span className={clsx("col-auto", "stat-value")}>{formatMarketCap(marketCap)}</span>
+              <span className={clsx("col-auto", "stat-value")}>{formatMarketCap(marketCap, currency)}</span>
             </div>
           </>
         )}

@@ -15,6 +15,7 @@ export const selectModals = (state: RootState) => state.technicalAnalysis.ui.mod
 export const selectAlerts = (state: RootState) => state.technicalAnalysis.alerts;
 export const selectOrders = (state: RootState) => state.technicalAnalysis.orders;
 export const selectDataMode = (state: RootState): "mock" | "real" => state.technicalAnalysis.ui.dataMode || "real";
+export const selectActiveMarket = (state: RootState) => state.technicalAnalysis.ui.activeMarket;
 export const selectMarketData = (state: RootState) => state.technicalAnalysis.marketData;
 export const selectMarketSnapshots = (state: RootState) => state.technicalAnalysis.marketSnapshots;
 export const selectPineChartOverlay = (state: RootState): PineChartOverlayPayload | null => state.technicalAnalysis.pineChartOverlay;

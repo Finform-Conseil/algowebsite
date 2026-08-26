@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   useDispatch,
   useSelector } from "react-redux";
-import { animate } from "framer-motion";
 import clsx from "clsx";
 import { BaseModal } from "../../common/primitives/BaseModal";
 import { addComparisonSymbol,
@@ -20,6 +19,7 @@ import { BRVM_NAME_TO_TICKER } from "@/shared/utils/brvm-mapping";
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
 import type { ActionEntity } from "@/core/domain/entities/action.entity";
 import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
+import { SEARCH_SYMBOL_ACTION_QUERY } from "@/core/infra/store/api/action.api";
 
 // ============================================================================
 // [TENOR 2026 HDR] TV-PARITY COMPARE MODAL
@@ -29,6 +29,7 @@ import { useActionRepository } from "@/core/infra/repositories/action.repository
 // ============================================================================
 
 type SymbolSearchMode = "replace" | "compare";
+const MAX_SYMBOLS_STALE_AGE_MS = 5 * 60 * 1000;
 
 interface SearchSymbolModalProps {
   isOpen: boolean;
@@ -39,10 +40,6 @@ interface SearchSymbolModalProps {
   currentSymbol?: string;
   comparisonSymbols?: string[];
 }
-
-const RECENT_TICKERS = ["BRVMC", "SNTS", "BOAC", "SGBC", "ETIT", "SPHC"];
-const ACTION_PAGE_SIZE = 100;
-const INITIAL_API_DEADLINE_MS = 4_000;
 
 const normalizeSearch = (value: string) =>
   value
@@ -57,9 +54,9 @@ const resolveSecurityTicker = (value: string): string => {
 };
 
 type SearchSecurity = BRVMSecurity & { searchAliases?: string[] };
-type SymbolSourceState = "loading" | "api" | "api_empty" | "fallback";
+type SymbolSourceState = "loading" | "api" | "api_empty" | "api_unavailable" | "api_stale";
 
-const findSecurityBySymbol = (value: string, securities: SearchSecurity[] = BRVM_SECURITIES): SearchSecurity | undefined => {
+const findSecurityBySymbol = (value: string, securities: SearchSecurity[]): SearchSecurity | undefined => {
   const ticker = resolveSecurityTicker(value);
   return securities.find((security) => (
     normalizeSearch(security.ticker) === ticker
@@ -171,6 +168,8 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
   const [searchInput, setSearchInput] = useState("");
   const [apiSecurities, setApiSecurities] = useState<SearchSecurity[] | null>(null);
+  const apiSecuritiesRef = useRef<SearchSecurity[] | null>(null);
+  const lastSuccessfulRefreshRef = useRef<number | null>(null);
   const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
   const [symbolSource, setSymbolSource] = useState<SymbolSourceState>("loading");
   const normalizedInput = normalizeSearch(searchInput);
@@ -178,63 +177,103 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    let fallbackPublished = false;
-    setIsLoadingSymbols(true);
-    setApiSecurities(null);
-    setSymbolSource("loading");
+    const cachedSecurities = apiSecuritiesRef.current;
+    const hasUsableLocalCache = cachedSecurities !== null && cachedSecurities.length > 0;
 
-    const publishFallback = () => {
-      if (cancelled || fallbackPublished) return;
-      fallbackPublished = true;
-      setSymbolSource("fallback");
+    setIsLoadingSymbols(!hasUsableLocalCache);
+    setSymbolSource(hasUsableLocalCache ? "api" : "loading");
+
+    const applySecurities = (securities: SearchSecurity[]) => {
+      if (cancelled) return;
+      apiSecuritiesRef.current = securities;
+      setApiSecurities(securities);
+    };
+
+    const revalidateCatalog = async (
+      totalPages: number,
+      initialSecurities: SearchSecurity[],
+    ) => {
+      const refreshRequests = Array.from(
+        { length: totalPages },
+        (_, index) => getAllActions(
+          { ...SEARCH_SYMBOL_ACTION_QUERY, page: index + 1 },
+          { forceRefetch: true },
+        ),
+      );
+      const refreshResults = await Promise.allSettled(refreshRequests);
+
+      if (cancelled) return;
+
+      const successfulActions: ActionEntity[] = [];
+      let hasRefreshFailure = false;
+      refreshResults.forEach((result) => {
+        if (result.status === "fulfilled") {
+          successfulActions.push(...(result.value.data || []));
+        } else {
+          hasRefreshFailure = true;
+        }
+      });
+
+      const refreshedSecurities = successfulActions.length > 0
+        ? mergeApiSecurities([], successfulActions)
+        : hasRefreshFailure
+          ? initialSecurities
+          : [];
+
+      applySecurities(refreshedSecurities);
+      if (!hasRefreshFailure) {
+        lastSuccessfulRefreshRef.current = Date.now();
+      }
+      setSymbolSource(
+        hasRefreshFailure
+          ? "api_stale"
+          : refreshedSecurities.length > 0
+            ? "api"
+            : "api_empty",
+      );
       setIsLoadingSymbols(false);
     };
 
-    const fallbackTimer = window.setTimeout(
-      publishFallback,
-      INITIAL_API_DEADLINE_MS,
-    );
-
     const loadApiSecurities = async () => {
       try {
-        const firstPage = await getAllActions({ page: 1, page_size: ACTION_PAGE_SIZE });
+        const firstPage = await getAllActions(SEARCH_SYMBOL_ACTION_QUERY);
         const firstSecurities = mergeApiSecurities([], firstPage.data || []);
 
         if (cancelled) return;
-        window.clearTimeout(fallbackTimer);
-        setApiSecurities(firstSecurities);
+        applySecurities(firstSecurities);
+        lastSuccessfulRefreshRef.current = Date.now();
         setSymbolSource(firstSecurities.length > 0 ? "api" : "api_empty");
         setIsLoadingSymbols(false);
 
         const totalPages = Math.max(1, firstPage.total_pages || 1);
-        const remainingPageRequests = Array.from(
-          { length: totalPages - 1 },
-          (_, index) => getAllActions({ page: index + 2, page_size: ACTION_PAGE_SIZE })
-            .then((response) => {
-              if (!cancelled) {
-                setApiSecurities((current) =>
-                  mergeApiSecurities(current || [], response.data || []),
-                );
-              }
-            }),
-        );
-
-        void Promise.allSettled(remainingPageRequests);
+        void revalidateCatalog(totalPages, firstSecurities);
       } catch {
-        publishFallback();
+        if (cancelled) return;
+        const staleAge = lastSuccessfulRefreshRef.current === null
+          ? Number.POSITIVE_INFINITY
+          : Date.now() - lastSuccessfulRefreshRef.current;
+
+        if (hasUsableLocalCache && staleAge <= MAX_SYMBOLS_STALE_AGE_MS) {
+          applySecurities(cachedSecurities);
+          setSymbolSource("api_stale");
+          setIsLoadingSymbols(false);
+          return;
+        }
+
+        applySecurities([]);
+        setSymbolSource("api_unavailable");
+        setIsLoadingSymbols(false);
       }
     };
 
     void loadApiSecurities();
     return () => {
       cancelled = true;
-      window.clearTimeout(fallbackTimer);
     };
   }, [getAllActions, isOpen]);
 
   // --- DATA DERIVATION ---
-  const isFallbackActive = symbolSource === "fallback";
-  const searchCatalog = isFallbackActive ? BRVM_SECURITIES : apiSecurities ?? [];
+  const searchCatalog = useMemo(() => apiSecurities ?? [], [apiSecurities]);
   const results = useMemo(() => {
     if (!normalizedInput || isLoadingSymbols) return [];
     return searchCatalog
@@ -246,11 +285,13 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
       .map((item) => item.security);
   }, [isLoadingSymbols, normalizedInput, searchCatalog]);
 
-  const sourceStatusMessage = symbolSource === "fallback"
-    ? "API indisponible : catalogue local de secours actif."
-    : symbolSource === "api_empty"
-      ? "L’API n’a fourni aucun titre BRVM."
-      : null;
+  const sourceStatusMessage = symbolSource === "api_unavailable"
+    ? "Impossible de charger les symboles depuis l’API."
+    : symbolSource === "api_stale"
+      ? "Données précédentes conservées — revalidation API indisponible."
+      : symbolSource === "api_empty"
+        ? "L’API n’a fourni aucun titre BRVM."
+        : null;
 
   const normalizedCurrentSymbol = resolveSecurityTicker(currentSymbol);
   const normalizedComparisonSymbols = useMemo(
@@ -265,37 +306,17 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
     [comparisonSymbols, searchCatalog]
   );
 
-  const recentInstruments = useMemo(() => {
-    if (!isFallbackActive) {
-      return searchCatalog
-        .filter((security) => security.status !== "delisted")
-        .filter((security) => !normalizedComparisonSymbols.has(resolveSecurityTicker(security.ticker)))
-        .filter((security) => resolveSecurityTicker(security.ticker) !== normalizedCurrentSymbol)
-        .slice(0, 6);
-    }
-
-    return RECENT_TICKERS
-      .map((symbol) => findSecurityBySymbol(symbol, searchCatalog))
-      .filter((security): security is SearchSecurity => Boolean(security))
-      .filter((security) => !normalizedComparisonSymbols.has(security.ticker) && security.ticker !== normalizedCurrentSymbol);
-  }, [isFallbackActive, normalizedComparisonSymbols, normalizedCurrentSymbol, searchCatalog]);
+  const recentInstruments = useMemo(() => searchCatalog
+    .filter((security) => security.status !== "delisted")
+    .filter((security) => !normalizedComparisonSymbols.has(resolveSecurityTicker(security.ticker)))
+    .filter((security) => resolveSecurityTicker(security.ticker) !== normalizedCurrentSymbol)
+    .slice(0, 6), [normalizedComparisonSymbols, normalizedCurrentSymbol, searchCatalog]);
 
   const visibleInstruments = normalizedInput ? results : recentInstruments;
 
   // --- HANDLERS ---
   const handleClose = useCallback(() => {
-    if (!searchOverlayRef.current || !searchModalRef.current) {
-      onClose();
-      return;
-    }
-    animate(searchModalRef.current, { scale: 0.95, opacity: 0 }, { duration: 0.2, ease: "easeIn" });
-    animate(searchOverlayRef.current, { opacity: 0 }, {
-      duration: 0.2,
-      onComplete: () => {
-        if (searchOverlayRef.current) searchOverlayRef.current.style.visibility = "hidden";
-        onClose();
-      }
-    });
+    onClose();
   }, [onClose]);
 
   const handleToggleSymbol = useCallback((security: BRVMSecurity) => {
@@ -326,19 +347,10 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
     }
   }, [isOpen]);
 
-  // GSAP-like Animation for Modal
   useEffect(() => {
-    if (isOpen && searchOverlayRef.current && searchModalRef.current) {
-      searchOverlayRef.current.style.opacity = "0";
-      searchOverlayRef.current.style.visibility = "visible";
-      searchModalRef.current.style.opacity = "0";
-      searchModalRef.current.style.transform = "scale(0.95)";
-      
-      animate(searchOverlayRef.current, { opacity: 1 }, { duration: 0.2, ease: "easeOut" });
-      animate(searchModalRef.current, { scale: 1, opacity: 1 }, { duration: 0.3, type: "spring", bounce: 0.3 });
-      
-      setTimeout(() => searchInputRef.current?.focus(), 50);
-    }
+    if (!isOpen) return;
+    const focusTimer = window.setTimeout(() => searchInputRef.current?.focus(), 50);
+    return () => window.clearTimeout(focusTimer);
   }, [isOpen]);
 
   // Handle ESC key

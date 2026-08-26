@@ -1,24 +1,9 @@
 // CHEMIN : core/infra/security/rate/redis-rate-limiter.ts
 // VERSION : 2.0.0 - Enhanced with flexible configuration and in-memory fallback
 import { Redis } from '@upstash/redis';
+import { RATE_LIMIT_CONFIGS, type RateLimitConfig } from './rate-limit-config';
 
-// ============================================================================
-// 🔧 CONFIGURATION TYPES
-// ============================================================================
-export interface RateLimitConfig {
-  /** Max number of requests allowed in the window */
-  limit: number;
-  /** Time window in milliseconds */
-  windowMs: number;
-}
-
-// Default configurations for different use cases
-export const RATE_LIMIT_CONFIGS = {
-  auth: { limit: 5, windowMs: 5 * 60 * 1000 },     // 5 req / 5 min (auth endpoints)
-  authProxy: { limit: 10, windowMs: 60 * 1000 },  // 10 req / 1 min (proxy auth)
-  api: { limit: 60, windowMs: 60 * 1000 },        // 60 req / 1 min (API endpoints)
-  default: { limit: 30, windowMs: 60 * 1000 },    // 30 req / 1 min (default)
-} as const;
+export { RATE_LIMIT_CONFIGS, type RateLimitConfig } from './rate-limit-config';
 
 // ============================================================================
 // 🔌 REDIS CLIENT (Shared instance)

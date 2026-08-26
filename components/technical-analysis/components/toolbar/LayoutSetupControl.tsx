@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import {
   useDispatch,
@@ -10,6 +10,7 @@ import type { MultiChartLayoutId,
   MultiChartSyncKey } from "../../config/layout/multiChartLayoutTypes";
 import {
   hasCollapsedLayoutSymbols,
+  isMultiChartPresetAvailable,
   MULTI_CHART_LAYOUTS,
   MULTI_CHART_PRESETS,
   MULTI_CHART_STORAGE_KEY,
@@ -25,13 +26,14 @@ import {
   selectUiState,
 } from "../../store/selectors";
 import { idbGet, idbSet } from "../../hooks/drawing/drawingPersistence";
+import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
 
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
-  { key: "symbol", label: "Symbol", title: "Synchronise le symbole entre tous les graphiques" },
-  { key: "interval", label: "Interval", title: "Synchronise le timeframe entre tous les graphiques" },
+  { key: "symbol", label: "Symbole", title: "Synchronise le symbole et sa bourse entre tous les graphiques" },
+  { key: "interval", label: "Intervalle", title: "Synchronise l’intervalle entre tous les graphiques" },
   { key: "crosshair", label: "Curseur", title: "Synchronise le curseur en croix entre tous les graphiques" },
-  { key: "time", label: "Time", title: "Synchronise le zoom et le scroll temporel" },
-  { key: "dateRange", label: "Date range", title: "Synchronise les plages 1M, YTD, 1Y, Tout" },
+  { key: "time", label: "Temps", title: "Synchronise le zoom et le déplacement temporel" },
+  { key: "dateRange", label: "Plage de dates", title: "Synchronise les plages 1M, YTD, 1Y et Tout" },
 ];
 
 const LayoutGlyph: React.FC<{ layoutId?: MultiChartLayoutId; disabled?: boolean }> = ({ layoutId = "single", disabled = false }) => {
@@ -51,6 +53,7 @@ export const LayoutSetupControl: React.FC = () => {
   const uiState = useSelector(selectUiState);
   const chartConfig = useSelector(selectChartConfig);
   const layoutState = uiState.multiChartLayout;
+  const { selectedTicker, preferredTicker } = useTickerSelector();
   const [isOpen, setIsOpen] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, right: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -60,6 +63,22 @@ export const LayoutSetupControl: React.FC = () => {
     () => MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutState.layoutId) ?? MULTI_CHART_LAYOUTS[0],
     [layoutState.layoutId]
   );
+  const currentLayoutBinding = useMemo(() => ({
+    primarySymbol: String(selectedTicker?.ticker || chartConfig.symbol || preferredTicker || "").trim().toUpperCase(),
+    market: String(selectedTicker?.exchange || uiState.activeMarket.ticker || "BRVM").trim().toUpperCase(),
+  }), [chartConfig.symbol, preferredTicker, selectedTicker?.exchange, selectedTicker?.ticker, uiState.activeMarket.ticker]);
+
+  const applyLayout = useCallback((layoutId: MultiChartLayoutId) => {
+    dispatch(setMultiChartLayout({ layoutId, ...currentLayoutBinding }));
+    setIsOpen(false);
+  }, [currentLayoutBinding, dispatch]);
+
+  const applyPreset = useCallback((presetId: string) => {
+    const preset = MULTI_CHART_PRESETS.find((entry) => entry.id === presetId);
+    if (!preset || !isMultiChartPresetAvailable(preset)) return;
+    dispatch(applyMultiChartPreset({ presetId, ...currentLayoutBinding }));
+    setIsOpen(false);
+  }, [currentLayoutBinding, dispatch]);
 
   useEffect(() => {
     if (didHydrateRef.current || typeof window === "undefined") return;
@@ -90,16 +109,29 @@ export const LayoutSetupControl: React.FC = () => {
 
   useEffect(() => {
     if (!hasCollapsedLayoutSymbols(layoutState)) return;
-    dispatch(setMultiChartLayout(layoutState.layoutId));
-  }, [dispatch, layoutState]);
+    applyLayout(layoutState.layoutId);
+  }, [applyLayout, layoutState]);
+
+  useEffect(() => {
+    if (activeLayout.chartCount <= 1) return;
+    const firstLayoutSymbol = layoutState.charts[0]?.symbol.trim().toUpperCase();
+    if (firstLayoutSymbol || !currentLayoutBinding.primarySymbol) return;
+    applyLayout(layoutState.layoutId);
+  }, [
+    activeLayout.chartCount,
+    applyLayout,
+    currentLayoutBinding.primarySymbol,
+    layoutState.charts,
+    layoutState.layoutId,
+  ]);
 
   useEffect(() => {
     if (activeLayout.chartCount < 8) return;
     const primarySymbol = chartConfig.symbol.trim().toUpperCase();
     const firstLayoutSymbol = layoutState.charts[0]?.symbol.trim().toUpperCase();
     if (!primarySymbol || firstLayoutSymbol === primarySymbol) return;
-    dispatch(setMultiChartLayout(layoutState.layoutId));
-  }, [activeLayout.chartCount, chartConfig.symbol, dispatch, layoutState.charts, layoutState.layoutId]);
+    applyLayout(layoutState.layoutId);
+  }, [activeLayout.chartCount, applyLayout, chartConfig.symbol, layoutState.charts, layoutState.layoutId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -109,8 +141,27 @@ export const LayoutSetupControl: React.FC = () => {
       if ((target as HTMLElement).closest(".gp-layout-popover")) return;
       setIsOpen(false);
     };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    const updatePosition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPopoverPos({ top: rect.bottom + 8, right: Math.max(12, window.innerWidth - rect.right) });
+    };
     window.addEventListener("pointerdown", handleClickOutside);
-    return () => window.removeEventListener("pointerdown", handleClickOutside);
+    window.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("pointerdown", handleClickOutside);
+      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
   }, [isOpen]);
 
   const togglePopover = () => {
@@ -142,7 +193,10 @@ export const LayoutSetupControl: React.FC = () => {
           style={{ top: popoverPos.top, right: popoverPos.right }}
         >
           <div className="gp-layout-popover__header">
-            <span>Disposition multi-graphiques</span>
+            <div>
+              <span>Disposition multi-graphiques</span>
+              <small>Chaque panneau conserve son titre, sa bourse et son état.</small>
+            </div>
             <strong>{activeLayout.shortName}</strong>
           </div>
 
@@ -152,7 +206,8 @@ export const LayoutSetupControl: React.FC = () => {
                 key={layout.id}
                 className={clsx("gp-layout-option", layoutState.layoutId === layout.id && "is-selected")}
                 title={layout.description}
-                onClick={() => dispatch(setMultiChartLayout(layout.id))}
+                aria-pressed={layoutState.layoutId === layout.id}
+                onClick={() => applyLayout(layout.id)}
               >
                 <span className="gp-layout-option__count">{layout.shortName}</span>
                 <LayoutGlyph layoutId={layout.id} />
@@ -162,18 +217,27 @@ export const LayoutSetupControl: React.FC = () => {
 
           </div>
 
-          <div className="gp-layout-popover__section-title">Presets BRVM</div>
+          <div className="gp-layout-popover__section-title">Presets multi-marchés</div>
           <div className="gp-layout-presets">
-            {MULTI_CHART_PRESETS.map((preset) => (
-              <button key={preset.id} onClick={() => dispatch(applyMultiChartPreset(preset.id))}>
-                {preset.name}
-              </button>
-            ))}
+            {MULTI_CHART_PRESETS.map((preset) => {
+              const isAvailable = isMultiChartPresetAvailable(preset);
+              return (
+                <button
+                  key={preset.id}
+                  disabled={!isAvailable}
+                  title={isAvailable ? preset.name : "Indisponible tant que l’API OHLCV ne fournit que des bougies 1D"}
+                  onClick={() => applyPreset(preset.id)}
+                >
+                  <span>{preset.name}</span>
+                  {!isAvailable && <small>API 1D uniquement</small>}
+                </button>
+              );
+            })}
           </div>
 
           {activeLayout.chartCount > 1 && (
             <>
-              <div className="gp-layout-popover__section-title">Sync in layout</div>
+              <div className="gp-layout-popover__section-title">Synchronisation du layout</div>
               <div className="gp-layout-sync-list">
                 {SYNC_OPTIONS.map((option) => (
                   <label

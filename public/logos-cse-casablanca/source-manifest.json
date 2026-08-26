@@ -1,0 +1,152 @@
+{
+  "contract": "logo-source-manifest-v1",
+  "exchange": "CSE",
+  "source": "official issuer sites and public exchange/brand references; normalized locally",
+  "records": [
+    {
+      "ticker": "AFRIC_INDUSTRIES_SA",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/AFRIC_INDUSTRIES_SA.webp"
+    },
+    {
+      "ticker": "AKDITAL",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/AKDITAL.webp"
+    },
+    {
+      "ticker": "AUTO_NEJMA",
+      "sourceUrl": "https://media.majarracdn.cloud/manhom/mgmt/images/591651/1730191424/%D8%B4%D8%B1%D9%83%D8%A9-%D8%A3%D9%88%D8%B7%D9%88-%D9%86%D8%AC%D9%85%D8%A9.jpg",
+      "file": "public/logos-cse-casablanca/AUTO_NEJMA.webp"
+    },
+    {
+      "ticker": "BCP",
+      "sourceUrl": "https://s3-symbol-logo.tradingview.com/bcp--600.png",
+      "file": "public/logos-cse-casablanca/BCP.webp"
+    },
+    {
+      "ticker": "BOA",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/BOA.webp"
+    },
+    {
+      "ticker": "CARTIER_SAADA",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/CARTIER_SAADA.webp"
+    },
+    {
+      "ticker": "CASH",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/CASH.webp"
+    },
+    {
+      "ticker": "DARI_COUSPATE",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/DARI_COUSPATE.webp"
+    },
+    {
+      "ticker": "OULMES",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/OULMES.webp"
+    },
+    {
+      "ticker": "PROMOPHARM_SA",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/PROMOPHARM_SA.webp"
+    },
+    {
+      "ticker": "REALISATIONS_MECANIQUES",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/REALISATIONS_MECANIQUES.webp"
+    },
+    {
+      "ticker": "RESIDENCES_DAR_SAADA",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/RESIDENCES_DAR_SAADA.webp"
+    },
+    {
+      "ticker": "S_M_MONETIQUE",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/S_M_MONETIQUE.webp"
+    },
+    {
+      "ticker": "SAMIR",
+      "sourceUrl": "https://www.akhbarona.com/thumbs/article_large/4/4/__637124528.jpg",
+      "file": "public/logos-cse-casablanca/SAMIR.webp"
+    },
+    {
+      "ticker": "SANLAM_MAROC",
+      "sourceUrl": "https://www.sanamholding.com/wp-content/uploads/2022/08/logo-sanlam.jpeg",
+      "file": "public/logos-cse-casablanca/SANLAM_MAROC.webp"
+    },
+    {
+      "ticker": "SGTM",
+      "sourceUrl": "https://saharamarbre.com/storage/2026/02/sgtm.jpg",
+      "file": "public/logos-cse-casablanca/SGTM.webp"
+    },
+    {
+      "ticker": "SMI",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/SMI.webp"
+    },
+    {
+      "ticker": "SNEP",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/SNEP.webp"
+    },
+    {
+      "ticker": "SOCIETE_DES_BOISSONS_DU_MAROC",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/SOCIETE_DES_BOISSONS_DU_MAROC.webp"
+    },
+    {
+      "ticker": "SODEP_MARSA",
+      "sourceUrl": "https://www.developmentaid.org/files/organizationLogos/societe-dexploitation-des-ports-marsa-maroc-sa-598844.webp",
+      "file": "public/logos-cse-casablanca/SODEP_MARSA.webp"
+    },
+    {
+      "ticker": "SONASID",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/SONASID.webp"
+    },
+    {
+      "ticker": "SOTHEMA",
+      "sourceUrl": "https://media.majarracdn.cloud/manhom/mgmt/images/593591/1730189856/%D8%A7%D9%84%D8%B4%D8%B1%D9%83%D8%A9-%D8%A7%D9%84%D9%85%D8%BA%D8%B1%D8%A8%D9%8A%D8%A9-%D9%84%D9%84%D8%B9%D9%84%D8%A7%D8%AC-%D8%B3%D9%88%D8%B7%D9%8A%D9%85%D8%A7.jpg",
+      "file": "public/logos-cse-casablanca/SOTHEMA.webp"
+    },
+    {
+      "ticker": "STOKVIS",
+      "sourceUrl": "https://s3-symbol-logo.tradingview.com/stokvis-nord-afrique--600.png",
+      "file": "public/logos-cse-casablanca/STOKVIS.webp"
+    },
+    {
+      "ticker": "STROC_INDUSTRIE",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/STROC_INDUSTRIE.webp"
+    },
+    {
+      "ticker": "TAQA_MOROCCO",
+      "sourceUrl": "https://www.taqamorocco.ma/sites/default/files/TQ%20blue%20logo.svg",
+      "file": "public/logos-cse-casablanca/TAQA_MOROCCO.webp"
+    },
+    {
+      "ticker": "TGCC",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/TGCC.webp"
+    },
+    {
+      "ticker": "VICENNE",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/VICENNE.webp"
+    },
+    {
+      "ticker": "WAFA_ASSURANCE",
+      "sourceUrl": "https://www.toucheverte.co.ma/images/NOS_REFERENCES/wafa%20assurance.jpg",
+      "file": "public/logos-cse-casablanca/WAFA_ASSURANCE.webp"
+    },
+    {
+      "ticker": "ZELLIDJA",
+      "sourceUrl": "https://www.google.com/s2/favicons",
+      "file": "public/logos-cse-casablanca/ZELLIDJA.webp"
+    }
+  ]
+}

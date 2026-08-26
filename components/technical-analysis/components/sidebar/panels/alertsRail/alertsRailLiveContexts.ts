@@ -1,4 +1,3 @@
-import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 import type { ChartDataPoint } from "../../../../lib/Indicators/TechnicalIndicators";
 import { buildIndicatorAlertValuesFromSeries } from "./alertsRailIndicatorMetrics";
 import type { AlertsRailContext, AlertsRailContextByTicker } from "./alertsRailTypes";
@@ -6,6 +5,7 @@ import type { ActionEntity } from "@/core/domain/entities/action.entity";
 
 export interface AlertsRailLiveSnapshot {
   code?: unknown;
+  metadata?: AlertsRailApiMetadata;
   price?: unknown;
   source?: unknown;
   sourceLabel?: unknown;
@@ -14,6 +14,13 @@ export interface AlertsRailLiveSnapshot {
   variation?: unknown;
   variationNum?: unknown;
   volume?: unknown;
+}
+
+export interface AlertsRailApiMetadata {
+  country: string | null;
+  currency: string | null;
+  exchange: string | null;
+  name: string | null;
 }
 
 /**
@@ -38,8 +45,6 @@ export const buildLiveAlertContext = (snapshot: AlertsRailLiveSnapshot): AlertsR
   const ticker = readTicker(snapshot);
   const price = toFiniteNumber(snapshot.price);
   if (!ticker || price === null) return null;
-  const security = BRVM_SECURITIES.find((entry) => entry.ticker === ticker);
-  const currency = security?.currency || "XOF";
   const changePercent = readChangePercent(snapshot);
   const volume = toFiniteNumber(snapshot.volume);
   return {
@@ -51,10 +56,10 @@ export const buildLiveAlertContext = (snapshot: AlertsRailLiveSnapshot): AlertsR
     dividendLabel: "Dividende non charge",
     hasDividend: false,
     hasNews: false,
-    marketLabel: (security?.exchange || "BRVM") + " · " + (security?.country || "UEMOA"),
-    name: security?.name || ticker,
+    marketLabel: formatMarketLabel(snapshot.metadata),
+    name: snapshot.metadata?.name || "N/D",
     newsLabel: "Flux non charge",
-    priceLabel: formatCurrency(price, currency),
+    priceLabel: formatCurrency(price, snapshot.metadata?.currency),
     sessionLabel: readText(snapshot.sourceLabel) || readText(snapshot.source) || "Snapshot marche",
     ticker,
     volumeLabel: volume === null ? "N/D" : volume.toLocaleString("fr-FR"),
@@ -71,30 +76,38 @@ export const fetchLiveAlertContexts = async (
   const wanted = new Set(tickers.map(normalizeTicker).filter(Boolean));
   if (wanted.size === 0) return {};
 
-  const contexts = await fetchBaseLiveAlertContexts(port, wanted, signal);
+  const { contexts, metadataByTicker } = await fetchBaseLiveAlertContexts(port, wanted, signal);
   const indicatorWanted = new Set(indicatorTickers.map(normalizeTicker).filter((ticker) => wanted.has(ticker)));
   if (indicatorWanted.size === 0 || signal?.aborted) return contexts;
 
-  return enrichContextsWithDailyIndicators(port, contexts, indicatorWanted, signal);
+  return enrichContextsWithDailyIndicators(port, contexts, metadataByTicker, indicatorWanted, signal);
+};
+
+type BaseLiveAlertContextResult = {
+  contexts: AlertsRailContextByTicker;
+  metadataByTicker: Record<string, AlertsRailApiMetadata>;
 };
 
 const fetchBaseLiveAlertContexts = async (
   port: AlertsRailLiveDataPort,
   wanted: Set<string>,
   signal?: AbortSignal,
-): Promise<AlertsRailContextByTicker> => {
+): Promise<BaseLiveAlertContextResult> => {
   try {
     // [MIGRATION API v2.16] Utiliser le port injecté (useActionRepository via useAlertsRailRuntime).
     const actions = await port.fetchAllActions(signal || new AbortController().signal);
 
-    return actions.reduce<AlertsRailContextByTicker>((contexts, action) => {
+    return actions.reduce<BaseLiveAlertContextResult>((result, action) => {
       const ticker = normalizeTicker(action.ticker);
-      if (!ticker || !wanted.has(ticker)) return contexts;
+      if (!ticker || !wanted.has(ticker)) return result;
 
+      const metadata = toApiMetadata(action);
+      result.metadataByTicker[ticker] = metadata;
       const metric = action.latest_price_metric;
-      if (!metric) return contexts;
+      if (!metric) return result;
 
       const snapshot: AlertsRailLiveSnapshot = {
+        metadata,
         ticker,
         symbol: action.ticker,
         price: metric.price, // PriceIndicatorEntity utilise .price, pas .close
@@ -106,18 +119,19 @@ const fetchBaseLiveAlertContexts = async (
       };
 
       const context = buildLiveAlertContext(snapshot);
-      if (context) contexts[context.ticker] = context;
-      return contexts;
-    }, {});
+      if (context) result.contexts[context.ticker] = context;
+      return result;
+    }, { contexts: {}, metadataByTicker: {} });
   } catch (error) {
     if (signal?.aborted) throw error;
-    return {};
+    return { contexts: {}, metadataByTicker: {} };
   }
 };
 
 const enrichContextsWithDailyIndicators = async (
   port: AlertsRailLiveDataPort,
   contexts: AlertsRailContextByTicker,
+  metadataByTicker: Record<string, AlertsRailApiMetadata>,
   tickers: Set<string>,
   signal?: AbortSignal,
 ): Promise<AlertsRailContextByTicker> => {
@@ -128,11 +142,11 @@ const enrichContextsWithDailyIndicators = async (
     try {
       const daily = await port.fetchDailySeries(ticker, effectiveSignal);
       if (signal?.aborted || daily.length === 0) return;
-      const baseContext = next[ticker] ?? buildDailyAlertContext(ticker, daily);
+      const baseContext = next[ticker] ?? buildDailyAlertContext(ticker, daily, metadataByTicker[ticker]);
       if (!baseContext) return;
       const indicatorValues = buildIndicatorAlertValuesFromSeries(daily, {
         livePrice: baseContext.currentPrice,
-        source: "daily-csv",
+        source: "api-cours",
         timeframe: "1D",
         updatedAt: daily[daily.length - 1]?.time,
       });
@@ -147,14 +161,16 @@ const enrichContextsWithDailyIndicators = async (
   return next;
 };
 
-export const buildDailyAlertContext = (ticker: string, data: ChartDataPoint[]): AlertsRailContext | null => {
+export const buildDailyAlertContext = (
+  ticker: string,
+  data: ChartDataPoint[],
+  metadata?: AlertsRailApiMetadata,
+): AlertsRailContext | null => {
   const normalizedTicker = normalizeTicker(ticker);
   const last = data[data.length - 1];
   const previous = data.length > 1 ? data[data.length - 2] : null;
   if (!normalizedTicker || !last || !Number.isFinite(last.close) || last.close <= 0) return null;
 
-  const security = BRVM_SECURITIES.find((entry) => entry.ticker === normalizedTicker);
-  const currency = security?.currency || "XOF";
   const changePercent = previous && Number.isFinite(previous.close) && previous.close > 0
     ? ((last.close - previous.close) / previous.close) * 100
     : null;
@@ -170,16 +186,28 @@ export const buildDailyAlertContext = (ticker: string, data: ChartDataPoint[]): 
     dividendLabel: "Dividende non charge",
     hasDividend: false,
     hasNews: false,
-    marketLabel: (security?.exchange || "BRVM") + " · " + (security?.country || "UEMOA"),
-    name: security?.name || normalizedTicker,
+    marketLabel: formatMarketLabel(metadata),
+    name: metadata?.name || "N/D",
     newsLabel: "Flux non charge",
-    priceLabel: formatCurrency(last.close, currency),
+    priceLabel: formatCurrency(last.close, metadata?.currency),
     sessionLabel: "API officielle",
     ticker: normalizedTicker,
     volumeLabel: volume === null ? "N/D" : volume.toLocaleString("fr-FR"),
     volumeRatio: volume !== null && averageVolume !== null && averageVolume > 0 ? volume / averageVolume : null,
   };
 };
+const toApiMetadata = (action: ActionEntity): AlertsRailApiMetadata => ({
+  country: readText(action.society?.country?.name),
+  currency: readText(action.bourse?.currency?.code) || readText(action.bourse?.currency?.symbol),
+  exchange: readText(action.bourse?.ticker),
+  name: readText(action.society?.name),
+});
+
+const formatMarketLabel = (metadata?: AlertsRailApiMetadata): string => {
+  const labels = [metadata?.exchange, metadata?.country].filter((value): value is string => Boolean(value));
+  return labels.length > 0 ? labels.join(" · ") : "N/D";
+};
+
 const readRows = (value: unknown): AlertsRailLiveSnapshot[] => {
   if (Array.isArray(value)) return value as AlertsRailLiveSnapshot[];
   if (!value || typeof value !== "object") return [];
@@ -215,8 +243,8 @@ const formatPercent = (value: number | null | undefined) => {
   return `${value > 0 ? "+" : ""}${formatNumber(value)}%`;
 };
 
-const formatCurrency = (value: number | null | undefined, currency: string) => {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "N/D";
+const formatCurrency = (value: number | null | undefined, currency: string | null | undefined) => {
+  if (value === null || value === undefined || !Number.isFinite(value) || !currency) return "N/D";
   return `${formatNumber(value)} ${currency}`;
 };
 

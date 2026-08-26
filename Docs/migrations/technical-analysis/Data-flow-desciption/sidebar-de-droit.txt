@@ -1,136 +1,992 @@
-SIDEBAR DROIT — VERIFICATION DU DATA FLOW API-FIRST
-======================================================
+SIDEBAR DROIT — PREUVE API-FIRST
+=================================
 
-Date de verification : 2026-08-12
-Titre controle : BOAB / BANK OF AFRICA BENIN
-ISIN controle : BJ0000000048
-API distante controlee : http://a21mldhl1xhs0dumr7kfo1fg.85.190.99.121.sslip.io/
-Proxy applicatif observe : /api/proxy/10
-Store API canonique : core/infra/store/api/
+Titre : BANK OF AFRICA BENIN
+Ticker : BOA_BJ
+ISIN : BJ0000000048
+Mode : API réelle
 
-1. FLUX ARCHITECTURAL VERIFIE
-------------------------------
+Chaque bloc indique sa source réelle. Le pipeline logiciel commun est décrit une seule fois
+dans l'en-tête ; il n'est pas répété dans chaque section.
 
-API officielle
-  -> core/infra/store/api/base.api.ts
-  -> core/infra/store/api/action.api.ts et cours.api.ts
-  -> core/infra/repositories/action.repository.impl.ts
-  -> components/technical-analysis/hooks/MarketData/useMarketData.ts
-  -> TechnicalAnalysis / modele sidebar
-  -> components/technical-analysis/components/sidebar/TechnicalAnalysisSidebarContent.tsx
 
-Le composant de sidebar ne doit pas appeler directement l'API distante. Il consomme
-les donnees deja resolues par le repository et le hook de donnees.
+1. IDENTITÉ ET COTATION
+-----------------------
 
-2. ROUTES REELLES DU STORE API
-------------------------------
+Transport applicatif :
 
-Le baseUrl vient de NEXT_PUBLIC_CLIENT_API_BASE dans
-core/infra/store/api/base.api.ts. En execution locale, la valeur observee est
-/api/proxy/10/api/v1.
+  Route Actions
+    → core/infra/store/api/action.api.ts
+    → core/infra/repositories/action.repository.impl.ts
+       getActionByTicker(ticker, isin)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+    → TechnicalAnalysis.tsx
+    → TechnicalAnalysisSidebarContent.tsx
+       identité, cotation et état de marché rendus depuis l'action résolue.
 
-Route principale du titre :
+Affichage visible :
+
+  BANK OF AFRICA BENIN
+  • BRVM
+  7 540,00 XOF
+  -55,00 (-0,72%)
+  Last update at 01:00 GMT+1
+  Market closed
+  • Volume : 3 193
+  Sector : Banking
+  • Country : Bénin
+
+Source API prouvée :
+
   GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
 
-Route equivalente de recherche par ticker du repository :
-  GET /api/proxy/10/api/v1/actions/ticker/?ticker=BOA_BJ
+Champs réellement présents dans la réponse ActionEntity :
 
-Historique OHLCV utilise par le graphique et les vues derivees :
+  action.society.name                         → BANK OF AFRICA BENIN
+  action.ticker                              → BOA_BJ
+  action.bourse.ticker                       → BRVM
+  action.bourse.currency.symbol              → XOF
+  action.latest_price_metric.price            → 7 540,00
+  action.latest_price_metric.change_1d_pct    → -0,72%
+  action.latest_price_metric.volume           → 3 193
+  action.society.industry.name/activity      → Banking
+  action.society.country.name                → Bénin
+
+Ces champs viennent de la réponse `actions`, puis sont normalisés pour le modèle
+du sidebar. Ils ne sont pas des valeurs locales.
+
+Origine distincte :
+
+  liveSnapshot.lastUpdate
+  liveSnapshot.sourceStatus → « Market closed »
+
+Ces champs viennent du cache runtime `liveSnapshotsCache` et de l'horloge du sidebar.
+La route réseau de ce snapshot n'est pas l'endpoint `actions` dans les ressources CDP
+observées ; elle ne lui est donc pas attribuée.
+
+
+2. ACTUALITÉS
+-------------
+
+Bloc visible :
+
+  Récents
+  [date] • [titre de l'article BRVM]
+
+Source applicative réelle :
+
+  GET /api/market-data/brvm-news
+
+Contrat de réponse consommé :
+
+  La route renvoie une liste d'articles. Chaque article est conservé uniquement
+  si les trois champs suivants sont des chaînes non vides :
+
+  item.date    → date affichée après le libellé Récents.
+  item.title   → titre affiché dans la carte d'actualité.
+  item.link    → URL ouverte par le lien de la carte.
+
+Transport applicatif :
+
+  GET /api/market-data/brvm-news
+    → getSharedBrvmNews() dans sidebarDataPortAdapter.ts
+    → filtrage défensif date/title/link
+    → cache mémoire partagé de 5 secondes et déduplication de requête en vol
+    → fetchNews(signal)
+    → useSidebarDataFeeds
+    → feeds.activeNews
+    → SidebarNewsPanel.tsx
+
+Règle de provenance :
+
+  Cette route est l'exception applicative documentée pour les actualités BRVM.
+  Elle consomme le flux renvoyé par la route ; aucune actualité locale ou catalogue
+  ne complète une réponse vide ou invalide. La carte affiche un skeleton pendant
+  le chargement et le titre/date/liens déjà validés par l'adaptateur.
+
+
+3. STATISTIQUES CLÉS
+--------------------
+
+Transport applicatif :
+
+  Route Actions
+    → core/infra/store/api/action.api.ts
+    → core/infra/repositories/action.repository.impl.ts
+       getActionByTicker(ticker, isin)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+       latest_price_metric et latest_valuation_ratio
+    → components/technical-analysis/components/sidebar/hooks/useTechnicalAnalysisSidebarController.ts
+    → components/technical-analysis/components/sidebar/TechnicalAnalysisSidebarContent.tsx
+    → SidebarStatsPanel.tsx
+
+Affichage visible :
+
+  Rendement YTD              +28,89%
+  P/E Ratio                  15,57
+  Volume                     3,19 K
+  Revenu/PNB (FY)            N/D
+  Volume moyen (20)          5,11 K
+  Capitalisation boursière   305.830.301,92 B FCFA
+
+Source API prouvée :
+
+  GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+
+Champs réellement présents dans la réponse :
+
+  action.latest_price_metric.change_ytd_pct  → Rendement YTD
+  action.latest_valuation_ratio.pe_ttm        → P/E Ratio
+  action.latest_price_metric.volume           → Volume
+  action.latest_price_metric.vol_avg_20d      → Volume moyen (20)
+  action.latest_valuation_ratio.market_cap    → Capitalisation boursière
+
+Limite vérifiée :
+
+  Aucun champ revenu/PNB exploitable n'est fourni par cette réponse.
+  Le sidebar affiche donc N/D. Aucune valeur locale ne complète ce champ.
+
+4. DIVIDENDS
+------------
+
+Bloc visible :
+
+  Dividends
+  Earnings retained
+  Payout ratio
+  More info
+
+Route principale :
+
+  GET /api/proxy/10/api/v1/dividends/?action_ticker={ticker}&page_size=100
+
+Route complémentaire utilisée pour le calcul du payout :
+
+  GET /api/proxy/10/api/v1/results/?action_ticker={ticker}&page_size=500
+
+Preuve CDP observée :
+
+  Route applicative :
+    GET /api/proxy/10/api/v1/dividends?action_ticker=SICOR_CI&page_size=100
+    HTTP 200, Content-Type application/json.
+
+  Route API cible équivalente :
+    GET /api/v1/dividends/?action_ticker=SICOR_CI&page_size=100
+    HTTP 200, page_size 100, count 11 792, total_pages 118.
+
+  La réponse inspectée contient les champs amount, pay_date, ex_date,
+  declared_date, record_date, frequency, type et action_ticker.
+
+Limite API constatée pendant cette preuve :
+
+  La requête demandait action_ticker=SICOR_CI, mais les premières lignes
+  observées contenaient action_ticker=FRONTIER_TRANSPORT. La réponse API
+  ne prouve donc pas que le filtrage serveur par ticker est effectif.
+  Ce n'est ni une donnée locale ni une autorisation de mélanger les titres :
+  le contrat API doit filtrer correctement les lignes du ticker demandé,
+  ou le transport doit les valider avant affichage. Cette limite doit rester
+  visible jusqu'à correction et nouvelle preuve CDP.
+
+Transport applicatif :
+
+  dividend API
+    → core/infra/store/api/dividend.api.ts
+       endpoint getAllDividends, GET /dividends/
+    → core/infra/repositories/dividend.repository.impl.ts
+       getAllDividends({ action_ticker, page_size: 100 })
+    → components/technical-analysis/components/sidebar/data/sidebarDataPortAdapter.ts
+       fetchFundamentals()
+    → useSidebarDataFeeds
+    → useSidebarDerivedMetrics
+    → buildDividendsChartOption()
+    → DividendsPanel.tsx
+
+Correspondance des données :
+
+  DividendEntity.amount
+    → BRVMDividendPoint.value
+    → montant du dividende utilisé par le graphique et l'historique.
+
+  DividendEntity.pay_date
+    → BRVMDividendPoint.year
+    → année affichée dans l'historique.
+
+  DividendEntity.ex_date
+    → BRVMDividendPoint.exDate
+    → date ex-dividende de More info.
+
+  DividendEntity.pay_date
+    → BRVMDividendPoint.payDate
+    → date de paiement de More info.
+
+Calculs réellement appliqués en mode réel :
+
+  1. Le dernier dividende valide est pris depuis la série Dividends API.
+  2. Le rendement calculé est :
+       (dernier dividende API / prix actuel API) × 100
+  3. Si un bénéfice API de la même année est disponible :
+       shares = capitalisation API / prix actuel API
+       EPS = bénéfice net API / shares
+       payout ratio = (dividende API / EPS) × 100
+       puis clamp entre 0 et 100.
+  4. La part « Earnings retained » du graphique est le complément :
+       100 - payout ratio.
+  5. Si le bénéfice correspondant est absent, le payout ratio n'est pas
+     inventé. Le graphique peut afficher le rendement dividende API comme
+     mesure de repli contrôlée ; ce rendement est alors mis à l'échelle
+     pour le cadran et ne constitue pas un payout ratio API.
+  6. Donnée API absente ou invalide → ratio N/A ou bloc indisponible.
+     Aucun dividende, bénéfice ou ratio local ne complète le mode réel.
+
+More info :
+
+  Ouvre DividendHistoryModal avec la série déjà résolue par le flux API.
+  Le modal affiche l'année, le montant, exDate et payDate ; il ne crée
+  pas une seconde source financière.
+
+Règle de provenance :
+
+  Les montants et dates viennent de l'API Dividends.
+  Earnings retained et Payout ratio sont des dérivations de présentation
+  à partir de données API ; ce ne sont pas des champs bruts de la route.
+  Le résultat API /results/ observé sur la surface actuelle peut être
+  indisponible (HTTP 401) : dans ce cas le payout reste non vérifiable,
+  sans fallback local.
+
+
+5. PERFORMANCE
+---------------
+
+Transport applicatif :
+
+  Route Actions
+    → core/infra/store/api/action.api.ts
+    → core/infra/repositories/action.repository.impl.ts
+       getActionByTicker(ticker, isin)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+    → components/technical-analysis/components/sidebar/hooks/useSidebarDerivedMetrics.ts
+       performanceRows
+    → TechnicalAnalysisSidebarContent.tsx
+    → PerformancePanel.tsx
+       mode réel : valeurs API ; champ absent : N/D, sans calcul local de remplacement.
+
+Affichage observé :
+
+  1W                         +1,89%
+  1M                         +10,07%
+  3M                         +46,41%
+  6M                         +75,35%
+  YTD                        +28,89%
+  1Y                         +70,20%
+
+Source API en mode réel :
+
+  GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+
+Champs utilisés :
+
+  1W   → action.latest_price_metric.total_return_1w_pct
+         sinon action.latest_price_metric.change_1w_pct
+  1M   → action.latest_price_metric.total_return_1m_pct
+         sinon action.latest_price_metric.change_1m_pct
+  3M   → action.latest_price_metric.total_return_3m_pct
+         sinon action.latest_price_metric.change_3m_pct
+  6M   → action.latest_price_metric.total_return_6m_pct
+         sinon action.latest_price_metric.change_6m_pct
+  YTD  → action.latest_price_metric.total_return_ytd_pct
+         sinon action.latest_price_metric.change_ytd_pct
+  1Y   → action.latest_price_metric.total_return_1y_pct
+         sinon action.latest_price_metric.change_1y_pct
+
+Règle de provenance :
+
+  Mode réel :
+    valeur API utilisée directement ;
+    champ absent → N/D/null ;
+    aucun calcul local de remplacement.
+
+  Mode mock uniquement :
+    getPerformance() peut calculer une variation depuis les clôtures OHLCV
+    du graphique. Ce calcul local ne doit jamais alimenter le mode réel.
+
+
+6. SEASONALS
+------------
+
+Transport applicatif :
+
+  Route Cours
+    → core/infra/store/api/cours.api.ts
+    → core/infra/repositories/cours.repository.impl.ts
+       getCoursHistory({ instrument }, maxPoints)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+    → lib/utils/marketDataTransform.ts
+       coursEntityToChartDataPoint → coursSeriesToChartData
+    → chartData du contexte Technical Analysis
+    → useSidebarDerivedMetrics.ts
+       seasonalYears
+    → useSidebarCharts.ts
+    → sidebarSeasonalityChartOptions.ts
+    → SeasonalityPanel.tsx
+
+Affichage :
+
+  2026
+  2025
+  2024
+  More seasonals
+
+Source des données :
+
   GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=1&page_size=100
   GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=2&page_size=100
   GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=3&page_size=100
-  ...
-  La pagination est continuee par le hook jusqu'a couvrir la fenetre requise.
 
-Routes secondaires visibles sur la meme surface :
-  GET /api/proxy/10/api/v1/results/?action_ticker=BOA_BJ&page_size=500
+Logique réelle :
+
+  1. Les clôtures OHLCV API sont chargées dans chartData.
+  2. Les années sont extraites des dates de chartData.
+  3. Les années distinctes sont triées par ordre décroissant.
+  4. Les trois années les plus récentes sont affichées.
+  5. Pour chaque année, startPrice est la première clôture de l'année.
+  6. Pour chaque clôture, le rendement est calculé ainsi :
+       ((close - startPrice) / startPrice) × 100
+  7. Les rendements sont associés aux mois correspondants.
+  8. Sans nouvelle valeur pour un mois, la dernière valeur valide est conservée.
+  9. Le graphique affiche les rendements mensuels cumulés en pourcentage.
+
+Preuve de provenance :
+
+  Les années sont dérivées localement des dates OHLCV API.
+  La formule est calculée par le graphique à partir des clôtures API.
+  Aucun champ seasonals explicite n'est consommé depuis l'API.
+  More seasonals est une navigation UI vers la page détaillée.
+
+
+7. TECHNICALS
+-------------
+
+Transport applicatif :
+
+  Route Actions
+    → core/infra/store/api/action.api.ts
+    → core/infra/repositories/action.repository.impl.ts
+       getActionByTicker(ticker, isin)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+       latest_technical_indicator
+    → components/technical-analysis/components/sidebar/hooks/useSidebarDerivedMetrics.ts
+       technicalData
+    → TechnicalAnalysisSidebarContent.tsx
+    → TechnicalsPanel.tsx
+
+Affichage observé :
+
+  Cadran : Neutral
+  Buy : 22%
+  Hold : 78%
+  Sell : 0%
+
+Source API en mode réel :
+
+  GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+
+  Champs utilisés :
+    latest_technical_indicator.rsi_14
+    latest_technical_indicator.sma_20
+    latest_technical_indicator.sma_50
+
+Condition de disponibilité :
+
+  En mode réel, si RSI14, SMA20 ou SMA50 est absent ou invalide,
+  le panneau affiche « Données techniques insuffisantes ».
+  Aucun indicateur local ou catalogue ne remplace ces champs.
+
+Calcul local du score :
+
+  RSI score =
+    clamp((RSI14 - 30) × 2,5, 0, 100)
+
+  Trend score =
+    clamp(50 + ((SMA20 - SMA50) / SMA50) × 500, 0, 100)
+
+  Price score =
+    clamp(50 + ((Prix actuel - SMA20) / SMA20) × 1000, 0, 100)
+
+  Score final =
+    RSI score × 40%
+    + Trend score × 30%
+    + Price score × 30%
+
+Conversion du score en sentiment :
+
+  score < 25       → Strong sell
+  25–44            → Sell
+  45–54            → Neutral
+  55–74            → Buy
+  75–100           → Strong buy
+
+Conversion du score en pourcentages du cadran :
+
+  directionalScore = round(score × 2 - 100)
+  hold = 100 - abs(directionalScore)
+
+  Si directionalScore >= 0 :
+    buy = directionalScore
+    sell = 0
+
+  Sinon :
+    buy = 0
+    sell = abs(directionalScore)
+
+Conclusion :
+
+  RSI14, SMA20 et SMA50 viennent de l’API.
+  Le score, le sentiment et les pourcentages Buy/Hold/Sell sont des dérivations UI.
+  Ils ne sont pas des recommandations brutes renvoyées par l’API.
+
+
+8. MODEL HEURISTIC
+-------------------
+
+Transport applicatif :
+
+  Route Actions
+    → core/infra/store/api/action.api.ts
+    → core/infra/repositories/action.repository.impl.ts
+       getActionByTicker(ticker, isin)
+    → useMarketData.ts
+       indicateurs techniques, prix et valorisation API
+    → useSidebarDataFeeds.ts
+       fondamentaux API lorsque disponibles
+    → components/technical-analysis/components/sidebar/hooks/useSidebarDerivedMetrics.ts
+       analystData
+    → TechnicalAnalysisSidebarContent.tsx
+    → ModelPanel.tsx
+
+Affichage observé :
+
+  Cadran : Neutral
+  Buy : 11%
+  Hold : 89%
+  Sell : 0%
+  1 year model target : 7 401,22 (-1,84%)
+
+Données API utilisées :
+
+  Route titre :
+    GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+
+  Indicateurs techniques :
+    latest_technical_indicator.rsi_14
+    latest_technical_indicator.sma_20
+    latest_technical_indicator.sma_50
+
+  Valorisation :
+    latest_valuation_ratio.pe_ttm
+    latest_valuation_ratio.market_cap
+
+  Fondamentaux :
+    bénéfices et dividendes API lorsqu'ils sont disponibles.
+
+Calcul local du score :
+
+  peScore = clamp(50 + (15 - P/E API) × 5, 0, 100)
+
+  divScore =
+    clamp((dividende API / prix actuel API) × 100 × 8,33, 0, 100)
+
+  Avec dividendes API vérifiés :
+    score =
+      technicalScore × 30%
+      + peScore × 30%
+      + divScore × 40%
+
+  Sans dividendes API en mode réel :
+    score =
+      technicalScore × 60%
+      + peScore × 40%
+
+Conversion du score en sentiment :
+
+  score < 25       → Strong sell
+  25–44            → Sell
+  45–54            → Neutral
+  55–74            → Buy
+  75–100           → Strong buy
+
+Conversion du score en cadran :
+
+  directionalScore = round(score × 2 - 100)
+  hold = 100 - abs(directionalScore)
+
+  Si directionalScore >= 0 :
+    buy = directionalScore
+    sell = 0
+
+  Sinon :
+    buy = 0
+    sell = abs(directionalScore)
+
+Calcul local du target à un an :
+
+  Si bénéfice API et capitalisation API permettent de calculer l'EPS :
+    shares = marketCap API / prix actuel API
+    EPS = bénéfice net API / shares
+    target = EPS × min(P/E API × 1,1, 20)
+
+  Sinon :
+    target = SMA50 API × (1 + (score - 50) / 200)
+
+  pctChange =
+    ((target - prix actuel API) / prix actuel API) × 100
+
+Limite de provenance :
+
+  Le score, le sentiment, les pourcentages et le target sont des dérivations
+  locales à partir de données API. Ils ne sont pas une recommandation brute API.
+
+  En mode réel, l'absence d'indicateurs, de P/E ou de fondamentaux requis rend
+  le modèle indisponible. Aucun catalogue local ne doit compléter ces données.
+
+
+9. HIGHEST CLEARING YIELD BONDS
+-----------------------------
+
+Transport applicatif :
+
+  Route Fixed Income
+    → core/infra/store/api/primary.api.ts
+       getAllPrimaries → GET /fixed-income/bond-securities/
+    → core/infra/repositories/primary.repository.impl.ts
+    → components/technical-analysis/components/sidebar/data/sidebarDataPortAdapter.ts
+       fetchBonds()
+    → components/technical-analysis/components/sidebar/data/sidebarFetchers.ts
+       fetchSidebarBonds()
+    → components/technical-analysis/components/sidebar/hooks/useSidebarDataFeeds.ts
+    → TechnicalAnalysisSidebarContent.tsx
+    → BondsPanel.tsx
+
+Bloc visible dans le sidebar :
+
+  Highest clearing yield bonds
+  2031-02-21
+  17,62%
+  2023-02-28
+  4,80%
+
+Source API :
+
   GET /api/proxy/10/api/v1/fixed-income/bond-securities/?page_size=100
-  GET /api/market-data/brvm-news
 
-3. CORRESPONDANCE DU BLOC AFFICHÉ
-----------------------------------
+Preuve CDP :
 
-Valeur UI                         Source API / transformation verifiee
----------------------------------------------------------------------------
-BANK OF AFRICA BENIN              actions[].society.name
-BRVM                              actions[].bourse.ticker
-7540,00                           actions[].latest_price_metric.price
-XOF                               actions[].bourse.currency.symbol
--55,00                            latest_price_metric.price - prev_close
-(-0.72%)                          latest_price_metric.change_1d_pct
-Volume: 3 193                     latest_price_metric.volume
-Sector: Banking                   actions[].society.industry.name -> normalise en Banking
-Country: Bénin                    actions[].society.country.name
+  Requête capturée :
+    GET /api/proxy/10/api/v1/fixed-income/bond-securities/?page_size=100
 
-Les champs metier ci-dessus ne proviennent pas de BRVM_SECURITIES lorsque
-l'action API BOA_BJ est resolue.
+  Réponse API inspectée :
+    count : 2
+    issue_lots[].maturity_date : présent
+    issue_lots[].clearing_yield : présent
+    coupon_rate : présent
+    ytm : absent
+    yield_to_maturity : absent
 
-4. ELEMENTS DE PRESENTATION LOCALE
------------------------------------
+Correspondance des champs :
 
-Les elements suivants ne sont pas des donnees metier inventees :
+  issue_lots[].maturity_date → date affichée sous chaque obligation.
+  issue_lots[].clearing_yield → rendement affiché dans le bloc.
+  coupon_rate → coupon de l'obligation ; il ne remplace pas clearing_yield.
 
-- format francais des nombres et separateur de milliers ;
-- format XOF ;
-- conversion d'horodatage vers GMT+1 ;
-- libelle "Last update at ..." ;
-- libelle "Market open", determine par le calendrier de session BRVM ;
-- puces, titres, espacement et ordre visuel.
+Règle d'affichage API-first :
 
-"Market open" n'est donc pas un champ brut de l'action API. C'est un etat
-de session presente localement a partir du calendrier de marche.
+  1. Les lots sont lus depuis la réponse fixed-income API.
+  2. Le lot actif dont auction_date est la plus récente fournit la maturité et le rendement retenus.
+  3. Les obligations sont triées par clearing_yield API décroissant.
+  4. Les trois premières obligations au maximum sont affichées.
+  5. La conversion 0.18500000 → 18,50 % est uniquement un format d'affichage.
+  6. Aucun YTM n'est inventé lorsque l'API ne fournit pas ytm ou yield_to_maturity.
+  7. Aucun cache local, catalogue ou valeur financière locale ne complète le bloc.
 
-5. PREUVE RESEAU ET CDP
------------------------
+Limite constatée :
 
-La page Chrome controlee :
-  http://localhost:3000/en/equity/technical-analysis
+  La route fournit clearing_yield, pas un champ YTM explicite.
+  Le libellé affiché reste donc « Highest clearing yield bonds ».
+  Si la réponse API est vide ou invalide, le bloc affiche son état indisponible.
 
-Ressources API observees via CDP :
+10. HISTORICAL VOLATILITY TERM STRUCTURE
+------------------------------------
+
+Bloc visible dans le sidebar :
+
+  Historical volatility term structure
+
+Source API :
+
+  GET /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+
+Champs API utilisés en mode réel :
+
+  action.latest_technical_indicator.hv_10
+  action.latest_technical_indicator.hv_20
+  action.latest_technical_indicator.hv_30
+  action.latest_technical_indicator.hv_60
+  action.latest_technical_indicator.hv_90
+  action.latest_technical_indicator.hv_252
+
+Correspondance des maturités :
+
+  hv_10 → 10D
+  hv_20 → 20D
+  hv_30 → 30D
+  hv_60 → 60D
+  hv_90 → 90D
+  hv_252 → 252D
+
+Règle de provenance :
+
+  1. Les valeurs du graphe sont lues depuis la réponse Actions API.
+  2. Les labels 10D, 20D, 30D, 60D, 90D et 252D présentent les horizons des champs API.
+  3. Aucun horizon approximatif 1W, 2W, 1M, 2M, 3M, 6M, 9M ou 1Y ne remplace ces champs.
+  4. Champ hv_* absent ou invalide → point indisponible ; aucune valeur locale ne complète la courbe.
+  5. Ce graphe est distinct de Historical volatility curve (28 days), qui utilise chartData OHLCV.
+
+Transport applicatif :
+
+  Action API → core/infra/store/api/action.api.ts
+  → core/infra/repositories/action.repository.impl.ts
+  → modèle de données technique
+  → sidebarVolatilityChartOptions.ts
+  → graphique Historical volatility term structure.
+
+
+
+11. HISTORICAL VOLATILITY CURVE (28 DAYS)
+-----------------------------------------
+
+Bloc visible :
+
+  Historical volatility curve (28 days)
+  Notice UI : Courbe calculée à partir des clôtures API
+
+Source des données :
+
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=1&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=2&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=3&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page={N}&page_size=100
+
+Données API utilisées :
+
+  CoursEntity.close
+    → ChartDataPoint.close
+    → closePrices transmis à buildVolatilityCurveOption()
+
+Transport applicatif :
+
+  Route API Cours
+    → core/infra/store/api/cours.api.ts
+       endpoint getAllCours, méthode GET /cours/
+    → core/infra/repositories/cours.repository.impl.ts
+       getCoursHistory({ instrument }, maxPoints)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+       getActionByTicker → action.instrument → getCoursHistory
+    → lib/utils/marketDataTransform.ts
+       coursEntityToChartDataPoint → coursSeriesToChartData
+    → chartData du contexte Technical Analysis
+    → useSidebarCharts.ts
+    → sidebarVolatilityChartOptions.ts
+       buildVolatilityCurveOption()
+    → shared/utils/volatility-engine.ts
+       getVolatilitySkew(closePrices, 28)
+    → ECharts
+
+Logique réellement appliquée :
+
+  1. La fenêtre métier est de 28 jours.
+  2. Le moteur exige actuellement prices.length >= window + 2 ; avec window=28,
+     il faut donc au moins 30 clôtures pour produire une courbe non vide.
+  3. Les dernières window + 1 clôtures sont retenues, soit 29 clôtures.
+  4. Pour chaque paire de clôtures positives consécutives :
+       logReturn = ln(close_t / close_t-1)
+       squaredReturn = logReturn²
+  5. Le domaine de prix est étendu de 10 % de chaque côté du min/max observé.
+  6. Vingt-six points sont générés sur ce domaine (numPoints=25, bornes incluses).
+  7. Pour chaque point x, le noyau gaussien est appliqué :
+       u = (price - x) / h
+       poids = exp(-0,5 × u²)
+       h = range × 0,30
+  8. La variance lissée est la moyenne pondérée des squaredReturn.
+  9. La volatilité annualisée affichée est :
+       sqrt(variance lissée × 252) × 100
+  10. Prix et volatilité sont arrondis à deux décimales avant affichage.
+
+Contrat UI et limite actuelle :
+
+  Le hook active le renderer à partir de 28 points chartData, mais le moteur
+  getVolatilitySkew() refuse encore 28 ou 29 clôtures et renvoie une série vide.
+  Cette différence de seuil est une limite d'implémentation à surveiller ; elle
+  ne doit pas être masquée par une donnée locale.
+
+Règle de provenance :
+
+  Ce graphique ne lit aucun champ de volatilité native de l'API Actions.
+  Il dérive sa courbe exclusivement des clôtures OHLCV API déjà transportées
+  dans chartData. Série vide, clôtures invalides ou historique insuffisant
+  → courbe indisponible. Aucun prix, rendement ou niveau de volatilité local
+  ne complète le mode réel.
+
+
+12. PROFILE
+------------
+
+Affichage observé :
+
+  Profile
+  Website                    N/A
+  Employees (FY)             N/A
+  ISIN                       CI0000000113
+  FIGI                       N/A
+  Description                Societe Ivoirienne de Coco Rape processes food.
+                             The Company produces shredded coconut and other
+                             coconut related products.
+
+Route API utilisée :
+
+  GET /api/proxy/10/api/v1/actions/?ticker={ticker}&page_size=1
+
+Route également observable par ISIN :
+
+  GET /api/proxy/10/api/v1/actions/?isin={isin}&page_size=1
+
+Exemple CDP pour SICOR_CI :
+
+  GET /api/proxy/10/api/v1/actions?ticker=SICOR_CI&page_size=1
+  HTTP 200
+
+Correspondance API réelle :
+
+  action.society.website
+    → Profile.Website
+    → valeur vide API => N/A
+
+  action.society.employee_count
+    → Profile.Employees (FY)
+    → valeur null ou absente => N/A
+
+  action.isin
+    → Profile.ISIN
+    → CI0000000113 pour SICOR_CI
+
+  action.society.description
+    → Profile.Description
+    → description réelle affichée lorsque le champ API est renseigné
+    → champ vide, nul ou texte « non disponible » => Description indisponible via l’API.
+
+  FIGI
+    → aucun champ FIGI vérifié dans le contrat Action utilisé par ce flux
+    → absence API => N/A
+    → aucune valeur catalogue locale ne complète ce champ en mode réel.
+
+Transport applicatif :
+
+  Action API
+    → core/infra/store/api/action.api.ts
+       endpoint actions/
+    → core/infra/repositories/action.repository.impl.ts
+       getActionByTicker(ticker)
+    → components/technical-analysis/components/sidebar/data/sidebarDataPortAdapter.ts
+       fetchFundamentals()
+       action.society → description / website / employees
+       action.isin → identifiant ISIN
+    → useSidebarDataFeeds
+    → TechnicalAnalysisSidebarContent.tsx
+    → ProfilePanel.tsx
+
+Règle de provenance :
+
+  Le composant Profile ne fait aucun appel HTTP direct.
+  Il consomme les champs déjà résolus par le repository et l’adaptateur.
+  Website, Employees, ISIN et Description viennent de l’Action API.
+  FIGI absent de l’API vérifiée => N/A.
+  Aucun profil local, aucune description inventée et aucun fallback financier
+  ne complètent le mode réel.
+
+INFORMATIONS COMPLÉMENTAIRES — FLUX TRANSVERSAUX
+=================================================
+
+Les éléments ci-dessous ne correspondent à aucune sous-section visible du sidebar.
+Ils documentent les flux partagés et les routes utilisées par plusieurs blocs.
+
+HISTORIQUE UTILISÉ PAR LE GRAPHIQUE
+--------------------------------------
+
+Bloc concerné :
+
+  Historique OHLCV utilisé par le graphique principal et les vues dérivées
+  qui ont besoin de chartData.
+
+Résolution de l'instrument :
+
+  1. L'action du titre est résolue par la route API principale.
+  2. Le champ action.instrument fournit {instrumentId}.
+  3. Ce même identifiant est transmis à la route canonique Cours.
+  4. Aucune URL historique locale ni dataset statique n'est utilisé en mode réel.
+
+Route API et paramètres :
+
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=1&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=2&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page=3&page_size=100
+  GET /api/proxy/10/api/v1/cours/?instrument={instrumentId}&page={N}&page_size=100
+
+  instrument :
+    identifiant d'instrument fourni par l'action API ;
+    paramètre obligatoire et validé avant l'appel.
+
+  page_size :
+    100 éléments par réponse API ;
+    la valeur est définie dans getCoursHistory du repository.
+
+  Fenêtre initiale :
+    500 points maximum ;
+    soit jusqu'à 5 pages de 100 éléments.
+
+Données API utilisées :
+
+  CoursEntity.timestamp          → ChartDataPoint.time
+  CoursEntity.open               → ChartDataPoint.open
+  CoursEntity.high               → ChartDataPoint.high
+  CoursEntity.low                → ChartDataPoint.low
+  CoursEntity.close              → ChartDataPoint.close
+  CoursEntity.volume             → ChartDataPoint.volume
+  CoursEntity.number_of_trades   → tradesCount / trades_count
+
+Transport applicatif réel :
+
+  Route API Cours
+    → core/infra/store/api/cours.api.ts
+       endpoint getAllCours, méthode GET /cours/
+    → core/infra/repositories/cours.repository.impl.ts
+       getCoursHistory({ instrument }, maxPoints)
+    → components/technical-analysis/hooks/MarketData/useMarketData.ts
+       getActionByTicker → action.instrument → getCoursHistory
+    → lib/utils/marketDataTransform.ts
+       coursEntityToChartDataPoint
+       coursSeriesToChartData
+    → chartData du contexte Technical Analysis
+    → graphique principal et vues dérivées autorisées
+
+Pagination réelle :
+
+  1. La page 1 est toujours chargée en premier.
+  2. Si total_pages est fourni par l'API, le repository charge les pages
+     suivantes jusqu'à la limite maxPoints.
+  3. Sinon, il suit links.next tant qu'une page suivante existe.
+  4. Les pages sont fusionnées dans leur ordre de réponse.
+  5. La série est triée par timestamp croissant dans
+     coursSeriesToChartData.
+  6. requestMoreHistory augmente la fenêtre par tranches de 500 points,
+     jusqu'à une limite UI de 10 000 points.
+
+Consommateurs :
+
+  Données OHLCV/chartData :
+    graphique principal en chandeliers ;
+    volume et vues liées au graphique ;
+    Seasonals, qui dérive ses années et ses rendements des clôtures API ;
+    Historical volatility curve (28 days), qui dérive sa courbe des clôtures API ;
+    autres indicateurs locaux explicitement documentés comme dérivés.
+
+Séparation avec le graphique term structure :
+
+  Historical volatility term structure ne lit pas cette série OHLCV en mode réel.
+  Il consomme action.latest_technical_indicator.hv_10, hv_20, hv_30,
+  hv_60, hv_90 et hv_252 depuis la route Actions.
+  La courbe OHLCV « Historical volatility curve (28 days) » est une surface
+  distincte et utilise chartData.
+
+Règle de provenance :
+
+  Mode réel :
+    les bougies et champs OHLCV viennent de l'API Cours ;
+    le tri chronologique est une normalisation de transport ;
+    champ absent ou invalide → le normalizer applique uniquement ses garde-fous de forme ;
+    série vide ou échec API → chartData vide ou état indisponible ;
+    aucune donnée financière locale ne complète la série.
+
+  Mode mock :
+    aucun mock financier ne doit remplacer la source API en mode réel ;
+    toute donnée de démonstration doit rester isolée du flux réel.
+
+DONNÉES SECONDAIRES DU SIDEBAR
+------------------------------
+
+Résultats financiers :
+
+  GET /api/proxy/10/api/v1/results/?action_ticker=BOA_BJ&page_size=500
+
+Ces routes restent séparées des douze sous-sections numérotées et des blocs graphiques complémentaires.
+Elles sont appelées par leurs surfaces respectives et ne complètent pas localement les champs absents du titre.
+
+Ressources identifiées via CDP :
+
   /api/proxy/10/api/v1/actions/?isin=BJ0000000048&page_size=1
+  /api/proxy/10/api/v1/dividends/?action_ticker=BOA_BJ&page_size=100
   /api/proxy/10/api/v1/cours/?instrument=792ff1a9-a067-4302-a3cb-8662fd23fb94&page=1&page_size=100
   /api/proxy/10/api/v1/cours/?instrument=792ff1a9-a067-4302-a3cb-8662fd23fb94&page=2&page_size=100
   /api/proxy/10/api/v1/results/?action_ticker=BOA_BJ&page_size=500
+  /api/proxy/10/api/v1/fixed-income/bond-securities/?page_size=100
   /api/market-data/brvm-news
 
-La reponse API BOA_BJ controlee contenait notamment :
-  price = 7540
-  prev_close = 7595
-  change_1d_pct = -0.7241606319947334
-  volume = 3193
-  isin = BJ0000000048
-  society.name = BANK OF AFRICA BENIN
-  society.country.name = Bénin
-  society.industry.name = Commercial Banks (normalise UI = Banking)
-  bourse.ticker = BRVM
-  bourse.currency.symbol = XOF
+RÈGLE COMMUNE
+-------------
 
-La page rendait simultanement :
-  BANK OF AFRICA BENIN
-  BRVM
-  7540,00 XOF
-  -55,00 (-0.72%)
-  Volume: 3 193
-  Sector: Banking
-  Country: Bénin
+La base URL provient de NEXT_PUBLIC_CLIENT_API_BASE dans
+core/infra/store/api/base.api.ts.
 
-6. REGLES DE NON-REGRESSION API-FIRST
---------------------------------------
+Un champ absent de l'API s'affiche N/D ou rend le bloc indisponible selon le contrat UI.
+Aucun fallback financier local ni cache de bonds n'est utilisé en mode réel.
 
-- Ne pas remplacer une reponse API par BRVM_SECURITIES quand l'action API existe.
-- Si un champ API manque, afficher N/D ou une absence explicite.
-- Les fallbacks catalogue restent limites au mode mock ou a une degradation explicitement
-  tracee lorsque l'API est indisponible.
-- Toute nouvelle donnee metier doit suivre :
-  API -> store API -> repository -> hook -> modele de presentation -> UI.
-- Les URLs de endpoints Django gardent leur slash final dans les fichiers API.
-- Le repository dedoublonne les requetes d'action en vol avant exposition au hook.
 
-7. LIMITE CONSTATEE
--------------------
+ERRATA RUNTIME — SYNCHRONISATION API-FIRST
+-------------------------------------------
 
-FIGI n'est pas fourni par la reponse API BOA_BJ controlee. La sidebar affiche donc
-FIGI = N/D. Aucune valeur FIGI du catalogue local ne doit etre injectee en mode reel.
+Cette section prévaut sur toute description antérieure d'une formule locale en mode réel.
 
-Ce fichier documente le flux existant et sa preuve ; il ne declare pas que les labels
-de presentation locale sont des champs bruts de l'API.
+RESULTS / REVENUS :
+
+  Route :
+    GET /api/proxy/10/api/v1/results/?action_ticker={ticker}&page_size=500
+
+  Le proxy BFF récupère désormais le accessToken NextAuth côté serveur et le transmet
+  à l'API distante sous la forme Authorization: Bearer <accessToken>. Le navigateur
+  ne transporte ni ne lit directement le token.
+
+  Si aucune session authentifiée n'est disponible, l'API peut encore répondre HTTP 401.
+  Dans ce cas, les revenus restent N/D. Le frontend ne reprend aucune valeur de catalogue,
+  de mock ou de cache financier pour masquer cette absence.
+
+  Le HTTP 401 n'est donc pas traité comme une donnée vide valide : il signifie
+  « données financières protégées non accessibles dans la session courante ».
+
+DEVISE :
+
+  La devise source du titre est exclusivement lue depuis
+  action.bourse.currency.symbol.
+
+  Si ce champ API est absent, la devise source reste vide et l'interface doit afficher
+  N/D ou indisponible. Le provider ne remplace plus cette absence par XOF.
+
+  XOF peut rester la préférence d'affichage initiale choisie par l'utilisateur dans
+  le sélecteur de devise ; ce n'est pas une preuve de la devise native du titre.
+
+BRANCHES D'EXECUTION :
+
+  Mode réel :
+    champs financiers API uniquement ; absence API → N/D/indisponible ;
+    aucune formule locale de saisonnalité, recommandation, objectif, dividende ou
+    volatilité ne complète les données.
+
+  Mode mock :
+    les calculateurs locaux peuvent produire des valeurs de démonstration isolées ;
+    ces valeurs ne doivent jamais être injectées dans le mode réel.

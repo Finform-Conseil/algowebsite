@@ -15,18 +15,18 @@ import {
   shallowEqual } from "react-redux";
 import clsx from "clsx";
 
-// Contexts & UI (Imports Absolus pour garantir la résolution)
-import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+// Contexts & UI (Imports Absolus pour garantir la rÃ©solution)
+import {
+  actionToSelectedTicker,
+  useTickerSelector,
+} from "@/components/design-system/commons/TickerSelectorModal";
 import { TechnicalAnalysisPortalProvider } from "@/components/technical-analysis/components/common/portal/TechnicalAnalysisPortalProvider";
-import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
-
 
 // Redux
 import {
   removeComparisonSymbol,
   clearComparisonSymbols,
   setActiveLayoutChart,
-  setEditChartTarget,
   setTimeRange,
   setModalOpen,
   setPrefilledAlert,
@@ -40,10 +40,10 @@ import {
   selectAdvancedIndicators,
   selectIndicatorPeriods,
   selectChartAppearance,
+  selectActiveMarket,
   selectDataMode,
   selectModals,
   selectMarketData,
-  selectMarketSnapshots,
   selectBollingerSettings,
   selectPineChartOverlay,
 } from "@/components/technical-analysis/store/selectors";
@@ -69,9 +69,10 @@ import type { PineChartOverlayPayload } from "./components/sidebar/panels/pineEd
 // Extracted Components
 import { ChartToolbar } from "@/components/technical-analysis/components/toolbar/ChartToolbar";
 import { TechnicalAnalysisFooter } from "@/components/technical-analysis/components/footer/TechnicalAnalysisFooter";
-import { MemoizedCurrencySelector } from "@/components/technical-analysis/components/market/CurrencySelector";
 import type { BrokerModalProps } from "@/components/technical-analysis/components/modals/broker/BrokerModal";
 import type { ModalOrchestratorProps } from "@/components/technical-analysis/components/modals/orchestration/ModalOrchestrator";
+import type { IndicatorConfigurationTarget } from "@/components/technical-analysis/config/indicators/indicatorConfigurationTarget";
+import { IndicatorConfigurationModal } from "@/components/technical-analysis/components/modals/indicators/IndicatorConfigurationModal";
 import type { ObjectTreePanelProps } from "@/components/technical-analysis/components/panels/object-tree/ObjectTreePanel";
 import type { CompareSeriesSettingsModalProps } from "@/components/technical-analysis/components/modals/compare/CompareSeriesSettingsModal";
 import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/time-axis/TimeAxisControls";
@@ -80,10 +81,15 @@ import { ToolbarButton } from "@/components/technical-analysis/components/toolba
 import { InlineTextEditor } from "@/components/technical-analysis/components/toolbar/floating/InlineTextEditor";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
 import { MultiChartLayoutGrid } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
+import { resolveLayoutTickerMarket } from "@/components/technical-analysis/components/layout/layoutTickerSelection";
 
 // Hooks & Libs
 import { useDrawingManager } from "@/components/technical-analysis/hooks/useDrawingManager";
-import { useLiveMetrics, useComparisonManager } from "@/components/technical-analysis/hooks/MarketData/useMarketData";
+import {
+  useLiveMetrics,
+  useComparisonManager,
+  type ComparisonMarketRequest,
+} from "@/components/technical-analysis/hooks/MarketData/useMarketData";
 import { useTechnicalAnalysisActions } from "@/components/technical-analysis/hooks/useTechnicalAnalysisActions";
 import { useToolbarHandlers } from "@/components/technical-analysis/hooks/useToolbarHandlers";
 import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFloatingToolbar";
@@ -97,11 +103,15 @@ import {
   useBrokerContext,
   useChartRefsContext,
   useChartStateContext,
-  useCurrencyContext,
   useDrawingContext,
   useMarketDataContext,
 } from "./context/TechnicalAnalysisProviders";
 import { getBrvmPriceAxisCountdown } from "./utils/brvmMarketSession";
+import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "@/core/data/brvm-logo-registry";
+import {
+  createMarketDataCacheKey,
+  normalizeMarketDataScope,
+} from "@/components/technical-analysis/config/market/marketDataCacheKey";
 
 // ============================================================================
 // [TENOR 2026 SRE] STRICT MEMOIZATION SHIELD
@@ -143,9 +153,10 @@ const LazyCompareSeriesSettingsModal = dynamic<CompareSeriesSettingsModalProps>(
 const MemoizedModalOrchestrator = React.memo(LazyModalOrchestrator);
 
 
-const MemoizedPremiumLoader = React.memo(() => (
+const MemoizedPremiumLoader = React.memo(({ isVisible }: { isVisible: boolean }) => (
   <div
-    className={"gp-chart-loading-overlay"}
+    className={clsx("gp-chart-loading-overlay", !isVisible && "is-hidden")}
+    aria-hidden={!isVisible}
     style={{
       position: "absolute",
       top: 0,
@@ -155,9 +166,10 @@ const MemoizedPremiumLoader = React.memo(() => (
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(10, 21, 31, 0.4)",
-      backdropFilter: "blur(4px)",
+      backgroundColor: "rgba(10, 21, 31, 0.16)",
+      backdropFilter: "none",
       zIndex: 100,
+      pointerEvents: isVisible ? "auto" : "none",
     }}
   >
     <div className={"ios-loader"}>
@@ -170,35 +182,93 @@ const MemoizedPremiumLoader = React.memo(() => (
 ));
 MemoizedPremiumLoader.displayName = "MemoizedPremiumLoader";
 
-interface TradeHUDProps {
-  convertedLivePrice: number;
-  isCurrencyRateUnavailable: boolean;
-  setIsBrokerModalOpen: (val: boolean) => void;
+const MemoizedChartEmptyState = React.memo(() => (
+  <div
+    className="gp-chart-empty-state"
+    role="status"
+    aria-live="polite"
+    style={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: 5,
+      maxWidth: "min(90%, 360px)",
+      padding: "12px 18px",
+      border: "1px solid rgba(106, 151, 196, 0.45)",
+      borderRadius: "8px",
+      backgroundColor: "rgba(10, 31, 55, 0.92)",
+      color: "#b8c9dc",
+      textAlign: "center",
+      fontSize: "13px",
+      lineHeight: 1.45,
+    }}
+  >
+    {"Aucune donn\u00e9e historique disponible pour ce titre."}
+  </div>
+));
+MemoizedChartEmptyState.displayName = "MemoizedChartEmptyState";
+
+interface ChartEmptyIdentityProps {
+  symbol: string;
+  exchange: string;
 }
 
-const MemoizedTradeHUD = React.memo(({ convertedLivePrice, isCurrencyRateUnavailable, setIsBrokerModalOpen }: TradeHUDProps) => {
-  const spread = convertedLivePrice > 1000 ? 1 : 0.01;
-  const priceLabel = isCurrencyRateUnavailable
-    ? "Rate unavailable"
-    : convertedLivePrice.toLocaleString("fr-FR", { minimumFractionDigits: 2 });
-  const buyLabel = isCurrencyRateUnavailable
-    ? "Rate unavailable"
-    : (convertedLivePrice + spread).toLocaleString("fr-FR", { minimumFractionDigits: 2 });
+const MemoizedChartEmptyIdentity = React.memo(({ symbol, exchange }: ChartEmptyIdentityProps) => (
+  <div className="gp-chart-empty-identity" aria-label={`Titre sélectionné ${symbol} ${exchange}`}>
+    <span className="gp-chart-empty-identity__symbol">{symbol}</span>
+    <span className="gp-chart-empty-identity__exchange">· {exchange}</span>
+  </div>
+));
+MemoizedChartEmptyIdentity.displayName = "MemoizedChartEmptyIdentity";
+
+interface TradeHUDProps {
+  convertedLivePrice: number;
+  convertedBidPrice: number | null;
+  convertedAskPrice: number | null;
+  hasHistoricalData: boolean;
+  isCurrencyRateUnavailable: boolean;
+  onOpenBrokerModal: (isOrderSubmissionBlocked: boolean) => void;
+}
+
+const MemoizedTradeHUD = React.memo(({ convertedLivePrice, convertedBidPrice, convertedAskPrice, hasHistoricalData, isCurrencyRateUnavailable, onOpenBrokerModal }: TradeHUDProps) => {
+  const hasLiveQuote = !isCurrencyRateUnavailable
+    && Number.isFinite(convertedBidPrice)
+    && Number.isFinite(convertedAskPrice)
+    && (convertedAskPrice as number) >= (convertedBidPrice as number);
+  const hasLastPrice = !isCurrencyRateUnavailable
+    && Number.isFinite(convertedLivePrice)
+    && convertedLivePrice > 0;
+  const isInteractionUnavailable = !hasHistoricalData || isCurrencyRateUnavailable || !hasLastPrice;
+  const isOrderSubmissionBlocked = !hasLiveQuote;
+  const formatPrice = (value: number): string => Number.isFinite(value) ? value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
+  const unavailablePriceLabel = "N/D";
+  const fallbackPriceLabel = hasLastPrice ? formatPrice(convertedLivePrice) : unavailablePriceLabel;
+  const sellLabel = hasLiveQuote ? formatPrice(convertedBidPrice as number) : fallbackPriceLabel;
+  const buyLabel = hasLiveQuote ? formatPrice(convertedAskPrice as number) : fallbackPriceLabel;
+  const spreadLabel = hasLiveQuote
+    ? formatPrice((convertedAskPrice as number) - (convertedBidPrice as number))
+    : unavailablePriceLabel;
+  const quoteAvailabilityLabel = hasLiveQuote
+    ? "Cours bid/ask en direct"
+    : hasLastPrice
+      ? "Dernier cours affiché. Cotation bid/ask indisponible."
+      : "Cours indisponible.";
   const handleBrokerClick = () => {
-    if (!isCurrencyRateUnavailable) setIsBrokerModalOpen(true);
+    if (!isInteractionUnavailable) onOpenBrokerModal(isOrderSubmissionBlocked);
   };
 
   return (
     <div className="gp-trade-btn-container">
-      <div className={clsx("gp-trade-btn sell", isCurrencyRateUnavailable && "disabled")} onClick={handleBrokerClick} aria-disabled={isCurrencyRateUnavailable}>
-        <span className="price">{priceLabel}</span>
+      <button type="button" className={clsx("gp-trade-btn sell", isInteractionUnavailable && "disabled")} onClick={handleBrokerClick} disabled={isInteractionUnavailable} aria-disabled={isInteractionUnavailable} aria-label={`SELL ${sellLabel}. ${quoteAvailabilityLabel}`} title={quoteAvailabilityLabel}>
+        <span className="price">{sellLabel}</span>
         <span className="label">SELL</span>
-      </div>
-      <div className="gp-trade-spread">{isCurrencyRateUnavailable ? "--" : spread}</div>
-      <div className={clsx("gp-trade-btn buy", isCurrencyRateUnavailable && "disabled")} onClick={handleBrokerClick} aria-disabled={isCurrencyRateUnavailable}>
+      </button>
+      <div className="gp-trade-spread" aria-label={hasLiveQuote ? "Bid/ask spread" : quoteAvailabilityLabel} title={hasLiveQuote ? "Bid/ask spread" : quoteAvailabilityLabel}>{spreadLabel}</div>
+      <button type="button" className={clsx("gp-trade-btn buy", isInteractionUnavailable && "disabled")} onClick={handleBrokerClick} disabled={isInteractionUnavailable} aria-disabled={isInteractionUnavailable} aria-label={`BUY ${buyLabel}. ${quoteAvailabilityLabel}`} title={quoteAvailabilityLabel}>
         <span className="price">{buyLabel}</span>
         <span className="label">BUY</span>
-      </div>
+      </button>
     </div>
   );
 });
@@ -225,9 +295,9 @@ const formatPriceAxisTimeLabel = (
   value?: string | number | null,
   options: { timeframe?: string | null } = {}
 ): string => {
-  if (!value) return "—";
+  if (!value) return "â";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "â";
 
   if (isDailyOrHigherTimeframe(options.timeframe)) {
     return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -250,6 +320,19 @@ const formatPriceAxisFreshnessLabel = (value?: string | number | null): string |
   });
 };
 
+const hasRenderableMarketPrice = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+const selectActiveLayoutChartBinding = (state: RootState) => {
+  const layout = state.technicalAnalysis.ui.multiChartLayout;
+  const activeCell = layout.charts.find((cell) => cell.chartId === layout.activeChartId);
+  return {
+    symbol: String(activeCell?.symbol ?? "").trim().toUpperCase(),
+    market: normalizeMarketDataScope(activeCell?.exchange || state.technicalAnalysis.ui.activeMarket.ticker),
+    requiresExplicitSymbol: layout.isEnabled && layout.charts.length > 1,
+  };
+};
+
 const createUiId = (): string => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
   return `price-axis-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -264,24 +347,27 @@ const ConnectedTradeHUD = React.memo(() => {
   const chartState = useChartStateContext();
   const brokerState = useBrokerContext();
 
+
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
   const allMarketData = useSelector(selectMarketData, shallowEqual);
   const { selectedTicker } = useTickerSelector();
-
-  const activeSymbol = chartConfig.symbol;
-  const isPrimaryActive = !activeSymbol || activeSymbol === selectedTicker?.ticker;
-
-  const activeChartData = useMemo(() => {
-    if (isPrimaryActive) return chartState.displayChartData;
-    const cached = allMarketData[activeSymbol];
-    return (cached && cached.length > 0) ? cached : marketData.chartData;
-  }, [isPrimaryActive, allMarketData, activeSymbol, chartState.displayChartData, marketData.chartData]);
-
-  const activeLiveSnapshot = useSelector(
-    (state: RootState) => selectMarketSnapshots(state)[activeSymbol] ?? null
+  const activeBinding = useSelector(selectActiveLayoutChartBinding, shallowEqual);
+  const primarySymbol = selectedTicker?.ticker || chartState.security.ticker;
+  const primaryMarketScope = normalizeMarketDataScope(chartState.security.exchange || activeBinding.market);
+  const activeSymbol = activeBinding.symbol || chartConfig.symbol || primarySymbol;
+  const hasSelectedTarget = !activeBinding.requiresExplicitSymbol || Boolean(activeBinding.symbol);
+  const isPrimaryActive = hasSelectedTarget && (
+    String(activeSymbol ?? "").trim().toUpperCase() === String(primarySymbol ?? "").trim().toUpperCase()
+    && activeBinding.market === primaryMarketScope
   );
+  const activeChartData = useMemo(() => {
+    if (!hasSelectedTarget) return [];
+    if (isPrimaryActive) return marketData.chartData;
+    return allMarketData[createMarketDataCacheKey(activeBinding.market, activeSymbol)] ?? [];
+  }, [activeBinding.market, activeSymbol, allMarketData, hasSelectedTarget, isPrimaryActive, marketData.chartData]);
+  const activeLiveSnapshot = isPrimaryActive ? marketData.liveSnapshot : null;
 
-  const { convertedLivePrice } = useLiveMetrics(
+  const { convertedLivePrice, convertedBidPrice, convertedAskPrice } = useLiveMetrics(
     activeChartData,
     activeLiveSnapshot,
     chartState.security,
@@ -291,8 +377,11 @@ const ConnectedTradeHUD = React.memo(() => {
   return (
     <MemoizedTradeHUD
       convertedLivePrice={convertedLivePrice}
+      convertedBidPrice={convertedBidPrice}
+      convertedAskPrice={convertedAskPrice}
+      hasHistoricalData={activeChartData.length > 0}
       isCurrencyRateUnavailable={chartState.isCurrencyRateUnavailable}
-      setIsBrokerModalOpen={brokerState.setIsBrokerModalOpen}
+      onOpenBrokerModal={brokerState.openBrokerSelection}
     />
   );
 });
@@ -304,13 +393,23 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, on
   const refs = useChartRefsContext();
   const dataMode = useSelector(selectDataMode);
 
-  const liveSnapshot = useSelector((state: RootState) => selectMarketSnapshots(state)[chartState.security.ticker]);
-  const { convertedLivePrice, convertedLiveChange, liveChangePercent, isMarketPositive } = useLiveMetrics(
-    chartState.displayChartData,
+  const liveSnapshot = marketData.liveSnapshot;
+  const { convertedLiveChange, liveChangePercent, isMarketPositive } = useLiveMetrics(
+    marketData.chartData,
     liveSnapshot,
     chartState.security,
     chartState.effectiveRate
   );
+
+  // The current API quote is authoritative for the sidebar. Historical chart data
+  // may end before the latest quote and must not replace it.
+  const apiLivePrice = marketData.apiPriceMetric?.price;
+  const convertedApiLivePrice = typeof apiLivePrice === "number" && Number.isFinite(apiLivePrice) && apiLivePrice > 0
+    ? apiLivePrice * chartState.effectiveRate
+    : null;
+  // A historical candle is valid for chart continuity, never as a current
+  // sidebar quote. When the API has no positive price, render N/D.
+  const sidebarLivePrice = convertedApiLivePrice ?? Number.NaN;
 
   const displaySecurity = useMemo<DisplaySecurity>(
     () => ({
@@ -321,13 +420,17 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, on
   );
 
   const deferredChartData = useDeferredValue(chartState.displayChartData);
+  const isInitialSidebarLoading = dataMode === "real"
+    ? marketData.isLiveDataLoading
+    : (chartState.globalIsLoading || marketData.isLoading) && marketData.chartData.length === 0;
 
   return (
     <MemoizedSidebar
       sidebarRef={refs.sidebarRef}
+      baseCurrency={chartState.baseCurrency}
       security={displaySecurity}
       chartData={deferredChartData}
-      livePrice={convertedLivePrice}
+      livePrice={sidebarLivePrice}
       isMarketPositive={isMarketPositive}
       liveChange={convertedLiveChange}
       liveChangePercent={liveChangePercent}
@@ -345,7 +448,7 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, on
       avgVolume={marketData.avgVolume}
       benefitsChartRef={refs.benefitsChartRef}
       dividendsChartRef={refs.dividendsChartRef}
-      isLoading={chartState.globalIsLoading || marketData.isLoading}
+      isLoading={isInitialSidebarLoading}
       dataMode={dataMode}
       overlayContent={overlayContent}
       isObjectTreeOpen={isObjectTreeOpen}
@@ -368,42 +471,37 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
 
-  // [TENOR 2026 SRE FIX] SCAR-MULTICHART-BADGE-STALE-DATA:
-  // chartState.security.ticker = the primary selectedTicker (e.g. "BOAB", set via search modal).
-  // In multi-chart mode, chartConfig.symbol = the TRULY active chart symbol (e.g. "SGBC").
-  // We must use chartConfig.symbol to pick the correct market data & live snapshot so the
-  // green last-price badge shows the ACTIVE chart's price, not BOAB's price.
+  // The active layout binding is the single source of truth for the price axis.
+  // The primary context is consulted only when that binding explicitly points to it.
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
   const allMarketData = useSelector(selectMarketData, shallowEqual);
   const { selectedTicker } = useTickerSelector();
-
-  const activeSymbol = chartConfig.symbol;
-  const isPrimaryActive = !activeSymbol || activeSymbol === selectedTicker?.ticker;
-
-  // Active chart's historical data:
-  // - Primary chart: use chartState.displayChartData (freshest, includes live ticks from polling)
-  // - Secondary chart: use allMarketData[activeSymbol] (loaded by useComparisonManager when secondary)
-  const activeChartData = useMemo(() => {
-    if (isPrimaryActive) return chartState.displayChartData;
-    const cached = allMarketData[activeSymbol];
-    return (cached && cached.length > 0) ? cached : marketData.chartData;
-  }, [isPrimaryActive, allMarketData, activeSymbol, chartState.displayChartData, marketData.chartData]);
-
-  // Active chart's live snapshot from the Redux market-snapshot cache.
-  const activeLiveSnapshot = useSelector(
-    (state: RootState) => selectMarketSnapshots(state)[activeSymbol] ?? null
+  const activeBinding = useSelector(selectActiveLayoutChartBinding, shallowEqual);
+  const primarySymbol = selectedTicker?.ticker || chartState.security.ticker;
+  const primaryMarketScope = normalizeMarketDataScope(chartState.security.exchange || activeBinding.market);
+  const activeSymbol = activeBinding.symbol || chartConfig.symbol || primarySymbol;
+  const hasSelectedTarget = !activeBinding.requiresExplicitSymbol || Boolean(activeBinding.symbol);
+  const isPrimaryActive = hasSelectedTarget && (
+    String(activeSymbol ?? "").trim().toUpperCase() === String(primarySymbol ?? "").trim().toUpperCase()
+    && activeBinding.market === primaryMarketScope
   );
+  const activeChartData = useMemo(() => {
+    if (!hasSelectedTarget) return [];
+    if (isPrimaryActive) return marketData.chartData;
+    return allMarketData[createMarketDataCacheKey(activeBinding.market, activeSymbol)] ?? [];
+  }, [activeBinding.market, activeSymbol, allMarketData, hasSelectedTarget, isPrimaryActive, marketData.chartData]);
+  const activeLiveSnapshot = isPrimaryActive ? marketData.liveSnapshot : null;
 
   const { convertedLastCandleClose, isLastPricePositive, lastCandleTime } = useLiveMetrics(
     activeChartData,
     activeLiveSnapshot,
-    chartState.security,   // currency/rate info — all BRVM stocks use XOF, safe to share
+    chartState.security,   // currency/rate info â all BRVM stocks use XOF, safe to share
     chartState.effectiveRate
   );
 
   // [TENOR 2026 SRE FIX] SCAR-PRICE-AXIS-MENU-COORD:
   // usePriceAxisMenu's container ref MUST be the same positioned ancestor as the
-  // gp-price-axis-overlay (position:absolute; inset:0 → fills gp-chart-layers-stack).
+  // gp-price-axis-overlay (position:absolute; inset:0 â fills gp-chart-layers-stack).
   // Using fullscreenChartContainerRef (gp-chart-container) was wrong in multi-chart
   // mode because gp-chart-layers-stack is offset by the cell position + 27px header.
   // Fix: use layersStackRef so both the calculation and the CSS top/left share the
@@ -427,6 +525,16 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
     };
   }, []);
 
+  const shouldRenderLastPriceOverlay =
+    !chartState.globalIsLoading
+    && activeChartData.length > 0
+    && hasRenderableMarketPrice(activeChartData[activeChartData.length - 1]?.close)
+    && hasRenderableMarketPrice(convertedLastCandleClose);
+
+  useEffect(() => {
+    if (!shouldRenderLastPriceOverlay) closePriceAxisActionMenu();
+  }, [closePriceAxisActionMenu, shouldRenderLastPriceOverlay]);
+
   const lastPriceTimeSource = lastCandleTime ?? activeLiveSnapshot?.lastUpdate;
   const priceAxisCountdown = useMemo(
     () => priceAxisClockNow === null ? null : getBrvmPriceAxisCountdown(chartConfig.timeframe, priceAxisClockNow),
@@ -448,10 +556,10 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
       `${chartState.displaySymbolName}`,
       `dernier prix ${lastPriceDisplayLabel}`,
       priceAxisClockNow === null
-        ? "horloge marché en initialisation"
+        ? "horloge marchÃ© en initialisation"
         : priceAxisCountdown ? `${priceAxisCountdown.accessibilityLabel} ${lastPriceTimeLabel}` : `bougie ${lastPriceTimeLabel}`,
     ];
-    if (updateLabel) parts.push(`dernière donnée reçue ${updateLabel}`);
+    if (updateLabel) parts.push(`derniÃ¨re donnÃ©e reÃ§ue ${updateLabel}`);
     return parts.join(", ");
   }, [
     activeLiveSnapshot?.lastUpdate,
@@ -475,7 +583,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
         dispatch(setPrefilledAlert({ price: priceValue, condition: defaultCondition }));
         dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
         addNotification({
-          title: "Alerte préparée",
+          title: "Alerte prÃ©parÃ©e",
           message: `${chartState.displaySymbolName} au niveau ${priceLabel}`,
           type: "info",
           iconType: "faBell",
@@ -503,8 +611,8 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
           drawingManager.setSelectedDrawingId(newDrawing.id);
         }
         addNotification({
-          title: "Niveau tracé",
-          message: `Ligne horizontale ajoutée à ${priceLabel}`,
+          title: "Niveau tracÃ©",
+          message: `Ligne horizontale ajoutÃ©e Ã  ${priceLabel}`,
           type: "success",
           iconType: "faCheck",
         });
@@ -526,7 +634,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
       }
 
       addNotification({
-        title: "Ticket prérempli",
+        title: "Ticket prÃ©rempli",
         message: `${side.toUpperCase()} ${chartState.displaySymbolName} @ ${priceLabel} ${orderType}`,
         type: "info",
         iconType: "faChartLine",
@@ -546,6 +654,8 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
       priceAxisActionMenu,
     ]
   );
+
+  if (!shouldRenderLastPriceOverlay) return null;
 
   return (
     <PriceAxisOverlay
@@ -578,10 +688,19 @@ const ChartUI: React.FC = () => {
   const marketData = useMarketDataContext();
   const chartState = useChartStateContext();
   const drawingManager = useDrawingContext();
-  const currencyState = useCurrencyContext();
   const brokerState = useBrokerContext();
+  const isInitialSidebarLoading = (chartState.globalIsLoading || marketData.isLoading)
+    && marketData.chartData.length === 0;
 
-  const { openModal: openTickerSelector, selectedTicker: primaryTicker, setSelectedTicker } = useTickerSelector();
+
+  const {
+    openModal: openTickerSelector,
+    openLayoutMarketModal: openLayoutTickerSelectorForMarket,
+    openLayoutMarketDirectory,
+    selectedTicker: primaryTicker,
+    preferredTicker,
+    setSelectedTicker,
+  } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
   const pineChartOverlay = useSelector(selectPineChartOverlay);
   const dispatchPineOverlay = useCallback((overlay: PineChartOverlayPayload | null) => {
@@ -596,6 +715,17 @@ const ChartUI: React.FC = () => {
   // ============================================================================
   const reduxSymbol = useSelector((state: RootState) => state.technicalAnalysis.chartConfig.symbol);
   const activeChartId = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout.activeChartId);
+  const activeLayoutState = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout, shallowEqual);
+  const primaryLayoutChartId = activeLayoutState.charts[0]?.chartId;
+  const isSecondaryLayoutActive = activeLayoutState.isEnabled
+    && activeLayoutState.charts.length > 1
+    && Boolean(activeChartId)
+    && activeChartId !== primaryLayoutChartId;
+
+  const handleRequestLayoutMarketSelection = useCallback((chartId: string) => {
+    openLayoutMarketDirectory(chartId);
+    dispatch(setModalOpen({ modal: "marketSelector", isOpen: true }));
+  }, [dispatch, openLayoutMarketDirectory]);
 
   const prevReduxSymbol = React.useRef<string>("");
   const prevContextSymbol = React.useRef<string>("");
@@ -603,10 +733,14 @@ const ChartUI: React.FC = () => {
   useEffect(() => {
     const contextSymbol = primaryTicker?.ticker || "";
 
-    // On mount, initialize the refs to avoid initial synchronization noise
+    // On mount, make the API-selected primary title authoritative. A previously
+    // persisted layout must never revive an old primary cell over it.
     if (!prevReduxSymbol.current && !prevContextSymbol.current) {
       prevReduxSymbol.current = reduxSymbol;
       prevContextSymbol.current = contextSymbol;
+      if (contextSymbol && contextSymbol !== reduxSymbol && !isSecondaryLayoutActive) {
+        dispatch(setSymbol(contextSymbol));
+      }
       return;
     }
 
@@ -614,22 +748,24 @@ const ChartUI: React.FC = () => {
     const contextChanged = contextSymbol !== prevContextSymbol.current;
 
     if (reduxChanged && reduxSymbol) {
-      // Redux is the initiator (e.g. user clicked a secondary chart cell or preset)
+      // Redux is the initiator (e.g. user clicked a secondary chart cell or preset).
+      // Keep the workspace preference observed; a secondary layout cell owns its own binding.
       prevReduxSymbol.current = reduxSymbol;
       if (reduxSymbol !== contextSymbol) {
-        prevContextSymbol.current = reduxSymbol; // speculative sync to prevent feedback loop
-        const targetSec = BRVM_SECURITIES.find((s) => s.ticker === reduxSymbol);
-        if (targetSec) {
-          setSelectedTicker(targetSec);
-        }
+        prevContextSymbol.current = contextSymbol;
+        if (!isSecondaryLayoutActive) setSelectedTicker(null);
       }
     } else if (contextChanged && contextSymbol) {
-      // Context is the initiator (e.g. user searched a ticker in the search modal)
+      // Context is the initiator (e.g. user searched a ticker in the search modal).
       prevContextSymbol.current = contextSymbol;
-      if (contextSymbol !== reduxSymbol) {
+      if (contextSymbol !== reduxSymbol && !isSecondaryLayoutActive) {
         prevReduxSymbol.current = contextSymbol; // speculative sync to prevent feedback loop
         if (activeChartId) {
-          dispatch(updateLayoutChart({ chartId: activeChartId, symbol: contextSymbol }));
+          dispatch(updateLayoutChart({
+            chartId: activeChartId,
+            symbol: contextSymbol,
+            exchange: primaryTicker?.exchange,
+          }));
         } else {
           dispatch(setSymbol(contextSymbol));
         }
@@ -641,7 +777,26 @@ const ChartUI: React.FC = () => {
       prevReduxSymbol.current = reduxSymbol;
       prevContextSymbol.current = contextSymbol;
     }
-  }, [reduxSymbol, primaryTicker, activeChartId, dispatch, setSelectedTicker]);
+  }, [reduxSymbol, primaryTicker, activeChartId, dispatch, isSecondaryLayoutActive, setSelectedTicker]);
+
+  useEffect(() => {
+    const requestedTicker = (reduxSymbol || preferredTicker || "").trim().toUpperCase();
+    const action = marketData.currentActionByTickerData;
+    const actionTicker = String(action?.ticker ?? "").trim().toUpperCase();
+
+    if (!requestedTicker || !action || actionTicker !== requestedTicker) return;
+
+    const resolvedTicker = actionToSelectedTicker(action);
+    if (!resolvedTicker || resolvedTicker.ticker === primaryTicker?.ticker) return;
+
+    setSelectedTicker(resolvedTicker);
+  }, [
+    marketData.currentActionByTickerData,
+    preferredTicker,
+    primaryTicker?.ticker,
+    reduxSymbol,
+    setSelectedTicker,
+  ]);
 
   const {
     activeTool,
@@ -709,23 +864,23 @@ const ChartUI: React.FC = () => {
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
   const replayState = useSelector((state: RootState) => state.technicalAnalysis.ui.replay, shallowEqual);
   const dataMode = useSelector(selectDataMode);
+  const activeMarket = useSelector(selectActiveMarket);
   const modals = useSelector(selectModals, shallowEqual);
-  // [TENOR 2026 — Option F] Live snapshot for the currently active chart symbol.
+  // [TENOR 2026 â Option F] Live snapshot for the currently active chart symbol.
   // Used by useObjectTreePanel to resolve provenance label in Financial Proof Mode.
-  const chartUiLiveSnapshot = useSelector(
-    (state: RootState) => selectMarketSnapshots(state)[chartConfig.symbol] ?? null,
-  );
+  const chartUiLiveSnapshot = marketData.liveSnapshot;
   const shouldMountModalOrchestrator = Object.values(modals).some(Boolean);
 
   const [showReplayFullText, setShowReplayFullText] = useState(false);
   const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
+  const [indicatorConfigurationTarget, setIndicatorConfigurationTarget] = useState<IndicatorConfigurationTarget | null>(null);
 
   const { handleTimeframeChange, handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions(marketData.setChartData);
 
   // ============================================================================
   // [TENOR 2026] KEYBOARD SHORTCUTS ENGINE
   // ============================================================================
-  const liveSnapshotForShortcuts = useSelector((state: RootState) => selectMarketSnapshots(state)[chartState.security.ticker]);
+  const liveSnapshotForShortcuts = marketData.liveSnapshot;
   const { convertedLastCandleClose } = useLiveMetrics(
     marketData.chartData,
     liveSnapshotForShortcuts,
@@ -764,7 +919,7 @@ const ChartUI: React.FC = () => {
         dispatch(setPrefilledAlert({ price: priceValue, condition: defaultCondition }));
         dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
         addNotification({
-          title: "Alerte préparée",
+          title: "Alerte prÃ©parÃ©e",
           message: `${chartState.displaySymbolName} au niveau ${priceLabel}`,
           type: "info",
           iconType: "faBell",
@@ -783,7 +938,7 @@ const ChartUI: React.FC = () => {
             triggerLabel: priceLabel,
           });
           addNotification({
-            title: "Ticket prérempli",
+            title: "Ticket prÃ©rempli",
             message: `VENTE ${chartState.displaySymbolName} @ ${priceLabel} limit`,
             type: "info",
             iconType: "faChartLine",
@@ -803,7 +958,7 @@ const ChartUI: React.FC = () => {
             triggerLabel: priceLabel,
           });
           addNotification({
-            title: "Ticket prérempli",
+            title: "Ticket prÃ©rempli",
             message: `ACHAT ${chartState.displaySymbolName} @ ${priceLabel} stop`,
             type: "info",
             iconType: "faChartLine",
@@ -811,7 +966,7 @@ const ChartUI: React.FC = () => {
         }
       }
 
-      // Shift + T: Generic Order (French: Ajouter un ordre générique)
+      // Shift + T: Generic Order (French: Ajouter un ordre gÃ©nÃ©rique)
       if (!e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "t") {
         e.preventDefault();
         if (brokerState) {
@@ -823,7 +978,7 @@ const ChartUI: React.FC = () => {
             triggerLabel: priceLabel,
           });
           addNotification({
-            title: "Ticket prérempli",
+            title: "Ticket prÃ©rempli",
             message: `ACHAT ${chartState.displaySymbolName} @ ${priceLabel} limit`,
             type: "info",
             iconType: "faChartLine",
@@ -851,8 +1006,8 @@ const ChartUI: React.FC = () => {
           drawingManager.addDrawing(newDrawing);
           drawingManager.setSelectedDrawingId(newDrawing.id);
           addNotification({
-            title: "Niveau tracé",
-            message: `Ligne horizontale ajoutée à ${priceLabel}`,
+            title: "Niveau tracÃ©",
+            message: `Ligne horizontale ajoutÃ©e Ã  ${priceLabel}`,
             type: "success",
             iconType: "faCheck",
           });
@@ -889,7 +1044,7 @@ const ChartUI: React.FC = () => {
   } = useObjectTreePanel({
     chartInstanceRef: refs.chartInstanceRef as React.RefObject<EChartsInstance | null>,
     chartData: chartState.displayChartData,
-    // [TENOR 2026 — Option F] Financial Proof: expose live snapshot availability so the
+    // [TENOR 2026 â Option F] Financial Proof: expose live snapshot availability so the
     // hook can resolve the provenance label ("BRVM Live" vs "BRVM CSV") for the Data Window.
     hasLiveSnapshot: chartUiLiveSnapshot !== null,
   });
@@ -904,34 +1059,72 @@ const ChartUI: React.FC = () => {
   );
   const editingDrawing = drawings.find((d: Drawing) => d.id === editingDrawingId);
 
-  const layoutSymbols = useMemo(
-    () =>
-      multiChartLayout.charts
-        .map((chart) => chart.symbol)
-        .filter((symbol) => symbol && symbol !== chartConfig.symbol),
-    [chartConfig.symbol, multiChartLayout.charts]
+  const comparisonRequests = useMemo<ComparisonMarketRequest[]>(() => {
+    const activeMarketScope = normalizeMarketDataScope(activeMarket.ticker);
+    const primarySymbol = String(primaryTicker?.ticker || chartState.security.ticker || preferredTicker || "")
+      .trim()
+      .toUpperCase();
+    const primaryMarketScope = normalizeMarketDataScope(
+      primaryTicker?.exchange || chartState.security.exchange || activeMarket.ticker,
+    );
+    const uniqueRequests = new Map<string, ComparisonMarketRequest>();
+    const candidates: ComparisonMarketRequest[] = [
+      ...(comparisonSymbols ?? []).map((symbol) => ({ symbol, market: activeMarketScope })),
+      ...multiChartLayout.charts.map((chart) => ({
+        symbol: chart.symbol,
+        market: normalizeMarketDataScope(chart.exchange) || activeMarketScope,
+      })),
+    ];
+
+    for (const candidate of candidates) {
+      const symbol = String(candidate.symbol ?? "").trim().toUpperCase();
+      const market = normalizeMarketDataScope(candidate.market);
+      if (!symbol || !market) continue;
+      if (symbol === primarySymbol && market === primaryMarketScope) continue;
+      uniqueRequests.set(createMarketDataCacheKey(market, symbol), { symbol, market });
+    }
+
+    return Array.from(uniqueRequests.values());
+  }, [
+    activeMarket.ticker,
+    chartState.security.exchange,
+    chartState.security.ticker,
+    comparisonSymbols,
+    multiChartLayout.charts,
+    preferredTicker,
+    primaryTicker?.exchange,
+    primaryTicker?.ticker,
+  ]);
+
+  const comparisonLoadState = useComparisonManager(comparisonRequests, dataMode);
+
+  // Keep the canonical primary series in the shared map while it is active.
+  // When focus moves to a peer, the exact market+symbol entry remains available
+  // to render the former primary immediately without another network request.
+  const primaryLayoutCell = multiChartLayout.charts[0];
+  const primaryLayoutSymbol = String(
+    primaryLayoutCell?.symbol || primaryTicker?.ticker || chartState.security.ticker || preferredTicker || "",
+  ).trim().toUpperCase();
+  const primaryLayoutMarket = normalizeMarketDataScope(
+    primaryLayoutCell?.exchange || primaryTicker?.exchange || chartState.security.exchange || activeMarket.ticker,
   );
-
-  const dataRequestSymbols = useMemo(
-    () => Array.from(new Set([...comparisonSymbols, ...layoutSymbols])),
-    [comparisonSymbols, layoutSymbols]
-  );
-
-  const comparisonLoadState = useComparisonManager(dataRequestSymbols, dataMode);
-
+  const primaryLayoutCacheKey = createMarketDataCacheKey(primaryLayoutMarket, primaryLayoutSymbol);
   const mergedMarketData = useMemo(() => {
-    return {
-      ...comparisonMarketData,
-      [chartConfig.symbol]: chartState.displayChartData,
-    };
-  }, [comparisonMarketData, chartConfig.symbol, chartState.displayChartData]);
-
-  const mergedLoadState = useMemo(() => {
-    return {
-      ...comparisonLoadState,
-      [chartConfig.symbol]: "loaded" as const,
-    };
-  }, [comparisonLoadState, chartConfig.symbol]);
+    if (comparisonMarketData[primaryLayoutCacheKey]?.length > 0) return comparisonMarketData;
+    const activeLayoutCell = multiChartLayout.charts.find(
+      (cell) => cell.chartId === multiChartLayout.activeChartId,
+    );
+    const activeKey = createMarketDataCacheKey(activeLayoutCell?.exchange, activeLayoutCell?.symbol);
+    if (activeKey !== primaryLayoutCacheKey || marketData.chartData.length === 0) return comparisonMarketData;
+    return { ...comparisonMarketData, [primaryLayoutCacheKey]: marketData.chartData };
+  }, [
+    comparisonMarketData,
+    marketData.chartData,
+    multiChartLayout.activeChartId,
+    multiChartLayout.charts,
+    primaryLayoutCacheKey,
+  ]);
+  const mergedLoadState = comparisonLoadState;
 
   const {
     activeToolbarPopup,
@@ -980,6 +1173,7 @@ const ChartUI: React.FC = () => {
       isPublishing: false,
       isCapturing: false,
       dataMode,
+      activeMarket,
       comparisonSymbols,
       comparisonSettings,
       movingAverageTrendSignals: normalizeMovingAverageTrendSignals(movingAverageTrendSignals),
@@ -997,6 +1191,7 @@ const ChartUI: React.FC = () => {
       cursorMode,
       selectedTimeRange,
       dataMode,
+      activeMarket,
       comparisonSymbols,
       comparisonSettings,
       movingAverageTrendSignals,
@@ -1012,11 +1207,11 @@ const ChartUI: React.FC = () => {
       (comparisonSymbols || [])
         .map((symbol, index) => ({
           symbol,
-          data: comparisonMarketData[symbol] ?? [],
+          data: comparisonMarketData[createMarketDataCacheKey(activeMarket.ticker, symbol)] ?? [],
           settings: resolveCompareSeriesSettings(symbol, index, comparisonSettings),
         }))
         .filter((entry) => entry.symbol.length > 0 && entry.data.length > 0),
-    [comparisonMarketData, comparisonSettings, comparisonSymbols]
+    [activeMarket.ticker, comparisonMarketData, comparisonSettings, comparisonSymbols]
   );
 
   const chartInteractionScopeKey = `${multiChartLayout.layoutId}:${multiChartLayout.activeChartId}`;
@@ -1053,27 +1248,62 @@ const ChartUI: React.FC = () => {
     : undefined;
 
   const handleActivateLayoutChart = useCallback(
-    (chartId: string) => dispatch(setActiveLayoutChart(chartId)),
+    (chartId: string) => {
+      // A layout cell owns its exchange+ticker binding. Activating it must not
+      // clear or replace the workspace-level ticker preference.
+      dispatch(setActiveLayoutChart(chartId));
+    },
     [dispatch]
   );
 
-  // [SCAR-MULTICHART-HEADER-CONTAMINATION FIX]
-  // Utilisé UNIQUEMENT quand l'utilisateur clique le HEADER d'un chart secondaire pour changer son ticker.
-  // Contrairement à handleActivateLayoutChart (setActiveLayoutChart qui écrit chartConfig.symbol),
-  // handleEditLayoutChart utilise setEditChartTarget qui UNIQUEMENT route activeChartId —
-  // sans écraser chartConfig.symbol, donc le moteur de sync bidirectionnel ne propage pas
-  // le symbole du chart secondaire vers le TickerSelectorContext (plus de contamination BOABF→BOAB).
-  const handleEditLayoutChart = useCallback(
-    (chartId: string) => dispatch(setEditChartTarget(chartId)),
-    [dispatch]
-  );
+  // A ticker edit targets a layout cell without changing the active chart. The
+  // target chart id and its exchange travel together through the selector flow,
+  // so editing CSE can never inherit the workspace's BRVM market by accident.
+  const handleRequestLayoutTickerSelection = useCallback((chartId: string, exchange: string) => {
+    const market = resolveLayoutTickerMarket(exchange);
+    if (!market) return;
+    openLayoutTickerSelectorForMarket(chartId, market);
+  }, [openLayoutTickerSelectorForMarket]);
 
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-DATA-DRIFT:
   // Dynamically compute the active chart's filtered & converted series (activeDisplayChartData).
   // Ensures the active multi-chart cell actually displays the candles & Y-axis of the selected stock
   // (e.g. ETIT @ 30.00) instead of falling back to BOAC's data (~8,600).
-  const activeSymbol = chartConfig.symbol;
-  const isPrimaryActive = !activeSymbol || activeSymbol === primaryTicker?.ticker;
+  const activeLayoutCell = multiChartLayout.charts.find((cell) => (
+    cell.chartId === multiChartLayout.activeChartId
+  ));
+  const isMultiChartMode = multiChartLayout.isEnabled && multiChartLayout.charts.length > 1;
+  const activeLayoutSymbol = String(activeLayoutCell?.symbol ?? "").trim().toUpperCase();
+  const activeSymbol = String(activeLayoutSymbol || chartConfig.symbol || chartState.security.ticker || "").trim().toUpperCase();
+  const hasExplicitActiveLayoutSymbol = Boolean(activeSymbol);
+  const activeChartMarketScope = normalizeMarketDataScope(
+    activeLayoutCell?.exchange || activeMarket.ticker,
+  );
+  const primaryMarketScope = normalizeMarketDataScope(
+    chartState.security.exchange || activeMarket.ticker,
+  );
+  const primaryChartSymbol = String(primaryTicker?.ticker ?? chartState.security.ticker ?? "").trim().toUpperCase();
+  const isPrimaryActive = hasExplicitActiveLayoutSymbol && (
+    String(activeSymbol ?? "").trim().toUpperCase()
+      === primaryChartSymbol
+    && activeChartMarketScope === primaryMarketScope
+  );
+  const activeChartCacheKey = createMarketDataCacheKey(activeChartMarketScope, activeSymbol);
+  const activeChartSymbol = hasExplicitActiveLayoutSymbol
+    ? activeSymbol || chartState.displaySymbolName
+    : "Choisir un titre";
+  const activeChartLogoUrl = hasExplicitActiveLayoutSymbol
+    ? (isPrimaryActive ? chartState.security.logoUrl : undefined)
+      ?? getBrvmLogoUrl(activeChartSymbol)
+      ?? getBrvmLogoUrlByIssuerName(isPrimaryActive ? chartState.security.name : "")
+    : undefined;
+  const chartCursorInteractionScopeKey = [
+    chartInteractionScopeKey,
+    activeChartSymbol,
+    activeChartMarketScope,
+    chartConfig.timeframe,
+    chartState.effectiveRate,
+  ].join(":");
 
   const handleShootingStarAlertRequest = useCallback(
     ({ price, condition, label }: { price: number; condition: "GREATER_THAN" | "LESS_THAN"; label: string }) => {
@@ -1083,8 +1313,8 @@ const ChartUI: React.FC = () => {
       dispatch(setPrefilledAlert({ price, condition }));
       dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
       addNotification({
-        title: "Alerte Shooting Star préparée",
-        message: `${label} · cassure ${symbolLabel} sous ${priceLabel}`,
+        title: "Alerte Shooting Star prÃ©parÃ©e",
+        message: `${label} Â· cassure ${symbolLabel} sous ${priceLabel}`,
         type: "info",
         iconType: "faBell",
       });
@@ -1100,8 +1330,8 @@ const ChartUI: React.FC = () => {
       dispatch(setPrefilledAlert({ price, condition }));
       dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
       addNotification({
-        title: "Alerte Marubozu préparée",
-        message: `${label} · ${symbolLabel} au niveau ${priceLabel}`,
+        title: "Alerte Marubozu prÃ©parÃ©e",
+        message: `${label} Â· ${symbolLabel} au niveau ${priceLabel}`,
         type: "info",
         iconType: "faBell",
       });
@@ -1118,8 +1348,8 @@ const ChartUI: React.FC = () => {
       dispatch(setPrefilledAlert({ price, condition }));
       dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
       addNotification({
-        title: "Alerte pattern chandelier préparée",
-        message: `${label} · ${symbolLabel} ${conditionLabel} ${priceLabel}`,
+        title: "Alerte pattern chandelier prÃ©parÃ©e",
+        message: `${label} Â· ${symbolLabel} ${conditionLabel} ${priceLabel}`,
         type: "info",
         iconType: "faBell",
       });
@@ -1128,10 +1358,11 @@ const ChartUI: React.FC = () => {
   );
 
   const activeRawChartData = useMemo(() => {
-    if (isPrimaryActive) return chartState.displayChartData;
-    const cached = comparisonMarketData[activeSymbol];
-    return (cached && cached.length > 0) ? cached : marketData.chartData;
-  }, [isPrimaryActive, comparisonMarketData, activeSymbol, chartState.displayChartData, marketData.chartData]);
+    if (!hasExplicitActiveLayoutSymbol) return [];
+    if (isPrimaryActive) return marketData.chartData;
+    const cachedActiveSeries = comparisonMarketData[activeChartCacheKey];
+    return cachedActiveSeries?.length ? cachedActiveSeries : marketData.chartData;
+  }, [activeChartCacheKey, comparisonMarketData, hasExplicitActiveLayoutSymbol, isPrimaryActive, marketData.chartData]);
 
   const activeFilteredChartData = useMemo(() => {
     const rawData = activeRawChartData;
@@ -1177,7 +1408,7 @@ const ChartUI: React.FC = () => {
   const activeDisplayChartData = useMemo(() => {
     const sourceData = activeFilteredChartData;
     const rate = chartState.effectiveRate;
-    if (isPrimaryActive || rate === 1) return sourceData;
+    if (rate === 1) return sourceData;
 
     return sourceData.map((p) => ({
       ...p,
@@ -1186,39 +1417,40 @@ const ChartUI: React.FC = () => {
       low: p.low * rate,
       close: p.close * rate,
     }));
-  }, [activeFilteredChartData, chartState.effectiveRate, isPrimaryActive]);
+  }, [activeFilteredChartData, chartState.effectiveRate]);
 
-  const shouldShowPrimaryChartLoader = chartState.globalIsLoading || activeDisplayChartData.length === 0;
-  const [isDrawingToolbarBooting, setIsDrawingToolbarBooting] = useState(true);
-
-  useEffect(() => {
-    if (activeDisplayChartData.length === 0) return;
-
-    const completionTimer = window.setTimeout(
-      () => setIsDrawingToolbarBooting(false),
-      160,
+  const activeSecondaryLoadStatus = isMultiChartMode && !isPrimaryActive && activeLayoutSymbol
+    ? (mergedLoadState[activeChartCacheKey] ?? "idle")
+    : null;
+  const hasActiveDisplayData = activeDisplayChartData.length > 0;
+  const shouldShowPrimaryChartLoader = (!hasActiveDisplayData && chartState.globalIsLoading) || (
+    hasExplicitActiveLayoutSymbol
+    && !isPrimaryActive
+    && isMultiChartMode
+    && (activeSecondaryLoadStatus === "idle" || activeSecondaryLoadStatus === "loading")
+    && !hasActiveDisplayData
+  );
+  const shouldShowPrimaryChartEmptyState = hasExplicitActiveLayoutSymbol
+    && !shouldShowPrimaryChartLoader
+    && activeDisplayChartData.length === 0
+    && (
+      isPrimaryActive
+      || !isMultiChartMode
+      || activeSecondaryLoadStatus === "empty"
+      || activeSecondaryLoadStatus === "loaded"
     );
-
-    return () => window.clearTimeout(completionTimer);
-  }, [activeDisplayChartData.length]);
 
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-BADGE-STALE-DATA:
   // When a secondary chart is active (e.g. SGBC), chartState.displayChartData still has BOAB's data.
   // Use comparisonMarketData[chartConfig.symbol] (pre-loaded when the cell was secondary) so that
-  // updateLastPriceAxisBadge calls convertToPixel() with the CORRECT active price — not BOAB's.
-  const lastCandle = useMemo(() => {
-    const isPrimaryActiveVal = !chartConfig.symbol || chartConfig.symbol === primaryTicker?.ticker;
-    if (isPrimaryActiveVal) {
-      const d = chartState.displayChartData;
-      return d.length > 0 ? d[d.length - 1] : null;
-    }
-    const activeData = comparisonMarketData[chartConfig.symbol];
-    if (activeData && activeData.length > 0) return activeData[activeData.length - 1];
-    // Final fallback: primary chart data (layout with only 1 symbol, etc.)
-    const d = chartState.displayChartData;
-    return d.length > 0 ? d[d.length - 1] : null;
-  }, [comparisonMarketData, chartConfig.symbol, chartState.displayChartData, primaryTicker?.ticker]);
-  const lightweightLastPrice = lastCandle ? lastCandle.close : 0;
+  // updateLastPriceAxisBadge calls convertToPixel() with the CORRECT active price â not BOAB's.
+  // The axis badge and rendered series must share the same display-currency value.
+  // This keeps convertToPixel() aligned with the values visible in the chart.
+  const lightweightLastPrice = activeDisplayChartData.length > 0
+    ? activeDisplayChartData[activeDisplayChartData.length - 1].close
+    : Number.NaN;
+  const shouldRenderLastPriceAxis =
+    !shouldShowPrimaryChartLoader && hasRenderableMarketPrice(lightweightLastPrice);
 
   const setIsDrawingSettingsModalOpen = useCallback(
     (val: boolean) => dispatch(setModalOpen({ modal: "drawingSettings", isOpen: val })),
@@ -1460,7 +1692,7 @@ const ChartUI: React.FC = () => {
                 mainContainerRef={refs.mainContainerRef as React.RefObject<HTMLDivElement>}
                 verticalToolbarRef={refs.verticalToolbarRef}
                 handleClearAllDrawings={handleClearAllDrawings}
-                isInitialLoading={isDrawingToolbarBooting}
+                isInitialLoading={isInitialSidebarLoading}
               />
 
               <div ref={refs.chartViewWrapperRef} className={"gp-chart-view-wrapper"}>
@@ -1489,25 +1721,39 @@ const ChartUI: React.FC = () => {
                     dataLoadState={mergedLoadState}
                     dataMode={dataMode}
                     activeChartInstanceRef={refs.chartInstanceRef}
-                    activeChartData={chartState.displayChartData}
-                    activeSymbol={chartConfig.symbol}
+                    activeChartData={activeDisplayChartData}
                     activeInterval={chartConfig.timeframe}
                     chartAppearance={chartAppearance}
                     onActivateChart={handleActivateLayoutChart}
-                    onEditChart={handleEditLayoutChart}
-                    openTickerSelector={openTickerSelector}
+                    onRequestMarketSelection={handleRequestLayoutMarketSelection}
+                    onRequestTickerSelection={handleRequestLayoutTickerSelection}
                   >
                     <div
                       key={chartInteractionScopeKey}
-                      className={"gp-chart-layers-stack"}
+                      className={clsx("gp-chart-layers-stack", shouldShowPrimaryChartLoader && "is-chart-loading")}
                       ref={refs.layersStackRef}
                       style={{ position: "relative", flexGrow: 1, minHeight: 0, overflow: "hidden" }}
                     >
+                      <div className="gp-chart-world-map" aria-hidden="true" />
+                      {shouldShowPrimaryChartEmptyState && (
+                        <MemoizedChartEmptyIdentity
+                          symbol={activeChartSymbol || chartState.security.ticker || "Titre sélectionné"}
+                          exchange={activeChartMarketScope || chartState.security.exchange || "Marché"}
+                        />
+                      )}
+                      {!isMultiChartMode && activeChartLogoUrl && (
+                        <img
+                          className="gp-chart-symbol-logo"
+                          src={activeChartLogoUrl}
+                          alt={`${activeChartSymbol} logo`}
+                          draggable={false}
+                        />
+                      )}
                       <div
                         id="gp-stock-chart"
                         className={clsx("technical-analysis-chart", `cursor-mode-${cursorMode.split("-")[0]}`)}
                         ref={refs.stockChartRef}
-                        style={{ width: "100%", height: "100%", touchAction: "none" }}
+                        style={{ width: "100%", height: "100%", touchAction: "none", position: "relative", zIndex: 1 }}
                       ></div>
 
                       <ChartRenderEngine
@@ -1522,18 +1768,23 @@ const ChartUI: React.FC = () => {
                           bollingerSettings,
                           chartAppearance,
                           uiState: uiStateProxy,
-                          displaySymbol: activeSymbol || chartState.displaySymbolName,
+                          displaySymbol: activeChartSymbol,
+                          displayLogoUrl: activeChartLogoUrl,
+                          marketLabel: activeChartMarketScope || chartState.security.exchange || "BRVM",
+                          hideChartTitle: isMultiChartMode,
                           lastZoomRangeRef: refs.lastZoomRangeRef,
                           cursorPriceBadgeRef: refs.cursorPriceBadgeRef,
                           cursorPriceTextRef: refs.cursorPriceTextRef,
                           cursorPriceActionRef: refs.cursorPriceActionRef,
                           lastPriceBadgeRef: refs.lastPriceBadgeRef,
                           lastPriceLineRef: refs.lastPriceLineRef,
-                          lastPriceAxisValue: lightweightLastPrice,
+                          lastPriceAxisValue: shouldRenderLastPriceAxis ? lightweightLastPrice : undefined,
                           isMainChartVisible: chartState.isMainChartVisible,
+                          isChartLoading: shouldShowPrimaryChartLoader,
                           hasLiveStitchedCandle: isPrimaryActive && chartState.hasLiveStitchedCandle,
                           comparisonSeries,
                           onCompareSeriesSettingsRequest: openCompareSettings,
+                          onIndicatorConfigurationRequest: setIndicatorConfigurationTarget,
                           onMarubozuAlertRequest: handleMarubozuAlertRequest,
                           onShootingStarAlertRequest: handleShootingStarAlertRequest,
                           onCandlestickPatternAlertRequest: handleCandlestickPatternAlertRequest,
@@ -1551,6 +1802,7 @@ const ChartUI: React.FC = () => {
                           toolbarOffsetRef,
                           chartData: activeDisplayChartData,
                           interactionScopeKey: chartInteractionScopeKey,
+                          isChartLoading: shouldShowPrimaryChartLoader,
                         }}
                         cursor={{
                           canvasRef: refs.cursorCanvasRef,
@@ -1560,7 +1812,8 @@ const ChartUI: React.FC = () => {
                           suspendForDrawing: Boolean(activeTool),
                           chartRef: refs.chartInstanceRef as React.RefObject<EChartsInstance>,
                           chartData: activeDisplayChartData,
-                          interactionScopeKey: chartInteractionScopeKey,
+                          interactionScopeKey: chartCursorInteractionScopeKey,
+                          isChartLoading: shouldShowPrimaryChartLoader,
                         }}
                       />
 
@@ -1593,19 +1846,7 @@ const ChartUI: React.FC = () => {
                         onContextMenu={(e) => e.preventDefault()}
                       />
 
-                    <ConnectedTradeHUD />
-
-                    <MemoizedCurrencySelector
-                      selectedCurrency={currencyState.selectedCurrency}
-                      setSelectedCurrency={currencyState.setSelectedCurrency}
-                      isCurrencyOpen={currencyState.isCurrencyOpen}
-                      setIsCurrencyOpen={currencyState.setIsCurrencyOpen}
-                      currencyQuery={currencyState.currencyQuery}
-                      setCurrencyQuery={currencyState.setCurrencyQuery}
-                      currencyBtnRef={currencyState.currencyBtnRef}
-                      currencyPos={currencyState.currencyPos}
-                      setCurrencyPos={currencyState.setCurrencyPos}
-                    />
+                    {hasExplicitActiveLayoutSymbol && !shouldShowPrimaryChartEmptyState && <ConnectedTradeHUD />}
 
                     {brokerState?.isBrokerModalOpen && (
                       <MemoizedBrokerModal
@@ -1617,6 +1858,8 @@ const ChartUI: React.FC = () => {
                         setBrokerConnectionState={brokerState.setBrokerConnectionState}
                         orderIntent={brokerState.brokerOrderIntent}
                         setOrderIntent={brokerState.setBrokerOrderIntent}
+                        isOrderSubmissionBlocked={brokerState.isOrderSubmissionBlocked}
+                        setIsOrderSubmissionBlocked={brokerState.setIsOrderSubmissionBlocked}
                       />
                     )}
 
@@ -1624,7 +1867,8 @@ const ChartUI: React.FC = () => {
 
                     <TimeAxisControls chartInstanceRef={refs.chartInstanceRef} />
 
-                    {shouldShowPrimaryChartLoader && <MemoizedPremiumLoader />}
+                    <MemoizedPremiumLoader isVisible={shouldShowPrimaryChartLoader} />
+                    {shouldShowPrimaryChartEmptyState && <MemoizedChartEmptyState />}
 
                     <div
                       className="gp-drawing-overlay-shield"
@@ -1737,6 +1981,7 @@ const ChartUI: React.FC = () => {
                   chartFooterRef={refs.chartFooterRef}
                   selectedTimeRange={selectedTimeRange}
                   handleTimeRangeSelect={handleTimeRangeSelect}
+                  isHistoricalDataUnavailable={shouldShowPrimaryChartEmptyState}
                   setIsDatePickerModalOpen={handleOpenDatePicker}
                 />
               </div>
@@ -1763,7 +2008,7 @@ const ChartUI: React.FC = () => {
                         handleClone={handleClone}
                         handleVisualOrder={handleVisualOrder}
                         dataWindow={dataWindow}
-                        symbolDisplay={`${chartState.displaySymbolName} · BRVM, 1D`}
+                        symbolDisplay={`${chartState.displaySymbolName} Â· ${chartState.security.exchange || activeMarket.ticker}, 1D`}
                         isMainChartVisible={chartState.isMainChartVisible}
                         setIsMainChartVisible={chartState.setIsMainChartVisible}
                         chartConfig={chartConfig}
@@ -1784,7 +2029,7 @@ const ChartUI: React.FC = () => {
           ref={refs.sidebarToggleRef}
           id="gp-sidebar-toggle"
           className={"gp-sidebar-toggle-btn"}
-          title="Basculer la barre latérale"
+          title="Basculer la barre latÃ©rale"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 6 l6 6 l-6 6" />
@@ -1801,8 +2046,14 @@ const ChartUI: React.FC = () => {
           startReplay={marketData.startReplay}
           setChartData={marketData.setChartData}
           onRevealObjectIds={revealIndicatorObjectIds}
+          onConfigureIndicator={setIndicatorConfigurationTarget}
         />
       )}
+      <IndicatorConfigurationModal
+        isOpen={indicatorConfigurationTarget !== null}
+        target={indicatorConfigurationTarget}
+        onClose={() => setIndicatorConfigurationTarget(null)}
+      />
       {compareSettingsSymbol && (
         <LazyCompareSeriesSettingsModal
           isOpen={Boolean(compareSettingsSymbol)}

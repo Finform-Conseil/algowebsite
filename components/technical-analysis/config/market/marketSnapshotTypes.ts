@@ -4,7 +4,10 @@ export type DisplaySecurity = Omit<BRVMSecurity, "currency"> & { currency: strin
 export interface LiveSnapshot {
   symbol: string;
   price: number;
+  bid?: number | null;
+  ask?: number | null;
   variation: string; // e.g., "+0,19%"
+  variationNum?: number;
   prevClose: number;
   open: number;
   high: number;

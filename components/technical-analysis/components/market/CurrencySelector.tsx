@@ -43,6 +43,9 @@ const MARKET_CURRENCIES = [
 ] as const satisfies readonly CurrencyOption[];
 export type CurrencyCode = (typeof MARKET_CURRENCIES)[number]["code"];
 
+export const isCurrencyCode = (value: string): value is CurrencyCode =>
+  MARKET_CURRENCIES.some((currency) => currency.code === value);
+
 export interface CurrencySelectorProps {
   selectedCurrency: CurrencyCode;
   setSelectedCurrency: (val: CurrencyCode) => void;
@@ -50,6 +53,7 @@ export interface CurrencySelectorProps {
   setIsCurrencyOpen: (val: boolean) => void;
   currencyQuery: string;
   setCurrencyQuery: (val: string) => void;
+  isDisabled: boolean;
   currencyBtnRef: React.RefObject<HTMLButtonElement>;
   currencyPos: { top: number; left: number };
   setCurrencyPos: (pos: { top: number; left: number }) => void;
@@ -68,6 +72,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
   setIsCurrencyOpen,
   currencyQuery,
   setCurrencyQuery,
+  isDisabled,
   currencyBtnRef,
   currencyPos,
   setCurrencyPos,
@@ -94,6 +99,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
   );
 
   const toggleCurrencyDropdown = () => {
+    if (isDisabled) return;
     if (!isCurrencyOpen && currencyBtnRef.current) {
       const rect = currencyBtnRef.current.getBoundingClientRect();
       setCurrencyPos(resolveDropdownPosition(rect));
@@ -108,7 +114,7 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
     currencyBtnRef.current?.focus();
   }, [currencyBtnRef, setCurrencyQuery, setIsCurrencyOpen, setSelectedCurrency]);
 
-  const currencyDropdown = isClientMounted && isCurrencyOpen && portalTarget
+  const currencyDropdown = !isDisabled && isClientMounted && isCurrencyOpen && portalTarget
     ? createPortal(
         <div
           className="gp-currency-dropdown-portal"
@@ -179,8 +185,10 @@ export const MemoizedCurrencySelector = React.memo(function CurrencySelector({
     <>
       <button
         ref={currencyBtnRef}
-        className="gp-currency-btn"
+        className={clsx("gp-currency-btn", isDisabled && "is-empty-state")}
         type="button"
+        disabled={isDisabled}
+        aria-disabled={isDisabled}
         aria-haspopup="listbox"
         aria-expanded={isCurrencyOpen}
         aria-controls={isCurrencyOpen ? currencyListboxId : undefined}

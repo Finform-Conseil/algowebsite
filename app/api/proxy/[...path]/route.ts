@@ -247,8 +247,10 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
           // @ts-expect-error duplex est requis pour le streaming de body dans Node.js fetch.
           duplex: 'half',
           timeout: proxyConfig.fetch.timeout,
-          retries: shouldRetry ? 3 : 0,
-          backoff: 1000, // Exponential backoff base delay
+          // One bounded retry is enough for transient network/5xx failures. Three
+          // retries multiplied a slow first attempt into user-visible stalls.
+          retries: shouldRetry ? 1 : 0,
+          retryDelay: 250,
         });
       });
       const bodyBuffer = await readBodyWithTimeout(upstream, proxyConfig.fetch.timeout);

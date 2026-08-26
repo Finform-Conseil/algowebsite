@@ -5,13 +5,12 @@
 // ================================================================================
 
 import { getCircuitBreaker } from './circuit-breaker';
-import { getDispatcher } from './resilient-scraper';
-
-// [TENOR 2026 FIX] SCAR-120: Global Fetch Dispatcher Bypass
-// Next.js overrides the global `fetch` and strips custom dispatchers.
-// We MUST import `fetch` directly from `undici` to guarantee that our custom
-// Agents (with strict TLS rules and Keep-Alive settings) are actually used.
 import { fetch as undiciFetch } from 'undici';
+
+// API proxy traffic must use Undici's standard pooled dispatcher. Reusing the
+// scraper-specific dispatcher coupled the proxy to scraper header/connect
+// timeouts and domain-specific TLS policy, turning a fast Django response into
+// a potentially long retry path. Scraper transport policy stays in the scraper.
 
 type FetchOptions = RequestInit & {
   retries?: number;
@@ -63,13 +62,10 @@ async function performFetchWithRetry(
     const id = setTimeout(() => controller.abort('timeout'), timeout);
 
     try {
-      // [TENOR 2026 FIX] SCAR-120: Use undiciFetch to enforce TLS and Keep-Alive rules.
-      // We cast to `any` for the options because undici's RequestInit is slightly stricter
-      // than the global one, and we cast the result to `unknown as Response` to satisfy
-      // Next.js's expected return type, as the proxy only reads standard properties (.body, .status).
+      // Use Undici's default pooled dispatcher for API traffic. No scraper-specific
+      // Agent is injected here; the explicit deadline below remains authoritative.
       const response = await undiciFetch(url, {
         ...fetchOptions,
-        dispatcher: getDispatcher(url),
         signal: controller.signal,
       } as any) as unknown as Response;
 

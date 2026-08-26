@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createEmptyFundamentals, isFundamentalsForTicker, normalizeTicker, type BRVMFundamentals, type FundamentalsStatus } from "../data/sidebarFundamentals";
 import { fetchSidebarBonds, fetchSidebarFundamentals, fetchSidebarIndices, fetchSidebarNews, type BRVMBond, type BRVMIndexData, type BRVMNewsItem } from "../data/sidebarFetchers";
+import { readSidebarSnapshot, writeSidebarSnapshot } from "../data/sidebarPersistence";
 import { useSidebarDataPort } from "../data/sidebarDataPortAdapter";
 
 type NewsStatus = "idle" | "loading" | "ready" | "error";
 type IndicesStatus = "idle" | "loading" | "ready" | "error";
+const SIDEBAR_MARKET = "BRVM";
 
 interface UseSidebarDataFeedsInput {
   dataMode: "mock" | "real";
@@ -37,12 +39,20 @@ export function useSidebarDataFeeds({
   const latestNewsRef = useRef<BRVMNewsItem[]>([]);
   const fundamentalsCacheRef = useRef<Map<string, BRVMFundamentals>>(new Map());
   const fundamentalsRequestIdRef = useRef(0);
+  const hasBondsDataRef = useRef(false);
 
   useEffect(() => {
     if (!isIndicesOpen) return;
 
     const controller = new AbortController();
-    setIsIndicesLoading(true);
+    void readSidebarSnapshot("indices", SIDEBAR_MARKET, "GLOBAL").then((cached) => {
+      if (!controller.signal.aborted && cached && Object.keys(cached).length > 0) {
+        latestIndicesRef.current = cached;
+        setIndicesData(cached);
+        setIndicesStatus("ready");
+      }
+    });
+    setIsIndicesLoading(!latestIndicesRef.current);
     setIndicesStatus("loading");
     setIndicesError(null);
 
@@ -52,6 +62,7 @@ export function useSidebarDataFeeds({
           latestIndicesRef.current = data;
           setIndicesData(data);
           setIndicesStatus("ready");
+          void writeSidebarSnapshot("indices", SIDEBAR_MARKET, "GLOBAL", data);
         }
       })
       .catch((error) => {
@@ -71,7 +82,7 @@ export function useSidebarDataFeeds({
       });
 
     return () => controller.abort();
-  }, [isIndicesOpen, port]);
+  }, [dataMode, isIndicesOpen, port]);
 
   useEffect(() => {
     if (!isSecondaryWorkReady) {
@@ -92,6 +103,7 @@ export function useSidebarDataFeeds({
           latestNewsRef.current = items;
           setNews(items);
           setNewsStatus("ready");
+          void writeSidebarSnapshot("news", SIDEBAR_MARKET, "GLOBAL", items);
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -102,6 +114,13 @@ export function useSidebarDataFeeds({
       }
     };
 
+    void readSidebarSnapshot("news", SIDEBAR_MARKET, "GLOBAL").then((cached) => {
+      if (Array.isArray(cached) && cached.length > 0) {
+        latestNewsRef.current = cached;
+        setNews(cached);
+        setNewsStatus("ready");
+      }
+    });
     void fetchNews();
     const interval = window.setInterval(fetchNews, 30 * 60 * 1000);
 
@@ -110,7 +129,7 @@ export function useSidebarDataFeeds({
       controllers.forEach((controller) => controller.abort());
       controllers.clear();
     };
-  }, [isSecondaryWorkReady, port]);
+  }, [dataMode, isSecondaryWorkReady, port]);
 
   const safeNews = useMemo(
     () => news.filter((item) => item.title && item.date && item.link),
@@ -152,15 +171,28 @@ export function useSidebarDataFeeds({
 
     setFundamentalsStatus("loading");
 
+    void readSidebarSnapshot("fundamentals", SIDEBAR_MARKET, normalizedSecurityTicker).then((cached) => {
+      if (fundamentalsRequestIdRef.current === requestId && isFundamentalsForTicker(cached, normalizedSecurityTicker)) {
+        fundamentalsCacheRef.current.set(normalizedSecurityTicker, cached);
+        setFundamentals(cached);
+        setFundamentalsStatus("ready");
+      }
+    });
+
     void fetchSidebarFundamentals(port, normalizedSecurityTicker, controller.signal)
       .then((normalized) => {
         if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
         fundamentalsCacheRef.current.set(normalizedSecurityTicker, normalized);
         setFundamentals(normalized);
         setFundamentalsStatus("ready");
+        void writeSidebarSnapshot("fundamentals", SIDEBAR_MARKET, normalizedSecurityTicker, normalized);
       })
       .catch(() => {
         if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
+        if (fundamentalsCacheRef.current.has(normalizedSecurityTicker)) {
+          setFundamentalsStatus("ready");
+          return;
+        }
         setFundamentals(createEmptyFundamentals(normalizedSecurityTicker));
         setFundamentalsStatus("error");
       });
@@ -177,13 +209,15 @@ export function useSidebarDataFeeds({
     const fetchBonds = async () => {
       const controller = new AbortController();
       controllers.add(controller);
-      setBondsLoading(true);
+      if (!hasBondsDataRef.current) setBondsLoading(true);
 
       try {
         const bonds = await fetchSidebarBonds(port, controller.signal);
         if (!controller.signal.aborted) {
           setTopBonds(bonds.slice(0, 5));
           bondsCacheRef.current = bonds.slice(0, 5);
+          hasBondsDataRef.current = bonds.length > 0;
+          void writeSidebarSnapshot("bonds", SIDEBAR_MARKET, "GLOBAL", bonds.slice(0, 5));
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -194,6 +228,14 @@ export function useSidebarDataFeeds({
       }
     };
 
+    void readSidebarSnapshot("bonds", SIDEBAR_MARKET, "GLOBAL").then((cached) => {
+      if (Array.isArray(cached) && cached.length > 0) {
+        hasBondsDataRef.current = true;
+        bondsCacheRef.current = cached;
+        setTopBonds(cached);
+        setBondsLoading(false);
+      }
+    });
     void fetchBonds();
     const interval = window.setInterval(fetchBonds, 30 * 60 * 1000);
 
@@ -214,7 +256,7 @@ export function useSidebarDataFeeds({
   );
   const hasIndicesData = indicesData ? Object.keys(indicesData).length > 0 : false;
   const isIndicesPanelLoading = isIndicesOpen && (
-    isIndicesLoading
+    (isIndicesLoading && !hasIndicesData)
     || (!indicesError && !hasIndicesData && (indicesStatus === "idle" || indicesStatus === "loading"))
   );
 

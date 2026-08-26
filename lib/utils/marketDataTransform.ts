@@ -36,6 +36,16 @@ const finiteOr = (value: unknown, fallback: number): number => {
   return fallback;
 };
 
+/** Returns a finite quote or null without fabricating market data. */
+const finiteQuoteOrNull = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
 /** Formate un pourcentage signé au format d'affichage BRVM ("+0.19%"). */
 const formatSignedPercent = (pct: number): string =>
   `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
@@ -93,12 +103,14 @@ export const priceMetricToLiveSnapshot = (
   symbol: string,
 ): LiveSnapshot => {
   // La variation vient de l'API. Si null -> 0 (mais reste visible via sourceStatus).
-  const change1dPct = finiteOr(metric.change_1d_pct, 0);
+  const change1dPct = finiteQuoteOrNull(metric.change_1d_pct);
 
   const snapshot: LiveSnapshot = {
     symbol,
     price: finiteOr(metric.price, 0),
-    variation: formatSignedPercent(change1dPct),
+    bid: finiteQuoteOrNull(metric.bid),
+    ask: finiteQuoteOrNull(metric.ask),
+    variation: change1dPct === null ? "N/D" : formatSignedPercent(change1dPct),
     prevClose: finiteOr(metric.prev_close, 0),
     open: finiteOr(metric.open, 0),
     // Le backend expose high/low 52 semaines (pas d'intraday high/low sur la
@@ -113,10 +125,9 @@ export const priceMetricToLiveSnapshot = (
     lastUpdate: metric.timestamp ?? new Date().toISOString(),
   };
 
-  // `variationNum` : lecture O(1) côté render (injecté au bord réseau, comme
-  // dans l'ancien pipeline) pour éviter le re-parsing regex dans la boucle React.
-  // @ts-expect-error - variationNum est un champ de performance injecté au bord réseau
-  snapshot.variationNum = change1dPct;
+  if (change1dPct !== null) {
+    snapshot.variationNum = change1dPct;
+  }
 
   return snapshot;
 };

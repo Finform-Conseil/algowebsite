@@ -4,21 +4,28 @@ import type { TechnicalIndicatorEntity } from "@/core/domain/entities/cours.enti
 import type { SidebarEChartsRuntime } from "./sidebarEChartsRuntime";
 import { escapeSidebarTooltipText } from "./sidebarChartOptions";
 
-const VOLATILITY_MATURITIES = ["1W", "2W", "1M", "2M", "3M", "6M", "9M", "1Y"] as const;
+const MOCK_VOLATILITY_MATURITIES = ["1W", "2W", "1M", "2M", "3M", "6M", "9M", "1Y"] as const;
+const API_VOLATILITY_WINDOWS = [
+  { label: "10D", field: "hv_10" },
+  { label: "20D", field: "hv_20" },
+  { label: "30D", field: "hv_30" },
+  { label: "60D", field: "hv_60" },
+  { label: "90D", field: "hv_90" },
+  { label: "252D", field: "hv_252" },
+] as const;
 
-type VolatilityMaturity = typeof VOLATILITY_MATURITIES[number];
-type VolatilityTermPoint = { label: VolatilityMaturity; value: number | null };
+type VolatilityMaturity = typeof MOCK_VOLATILITY_MATURITIES[number];
+type ApiVolatilityWindow = typeof API_VOLATILITY_WINDOWS[number]["label"];
+type VolatilityTermPoint = { label: string; value: number | null };
 
-const readApiVolatilityValues = (apiTechnicalIndicator?: TechnicalIndicatorEntity | null): Record<VolatilityMaturity, number | null> => ({
-  "1W": Number.isFinite(apiTechnicalIndicator?.hv_10) ? apiTechnicalIndicator!.hv_10! : null,
-  "2W": Number.isFinite(apiTechnicalIndicator?.hv_10) ? apiTechnicalIndicator!.hv_10! : null,
-  "1M": Number.isFinite(apiTechnicalIndicator?.hv_20) ? apiTechnicalIndicator!.hv_20! : null,
-  "2M": Number.isFinite(apiTechnicalIndicator?.hv_30) ? apiTechnicalIndicator!.hv_30! : null,
-  "3M": Number.isFinite(apiTechnicalIndicator?.hv_60) ? apiTechnicalIndicator!.hv_60! : null,
-  "6M": Number.isFinite(apiTechnicalIndicator?.hv_90) ? apiTechnicalIndicator!.hv_90! : null,
-  "9M": Number.isFinite(apiTechnicalIndicator?.hv_90) ? apiTechnicalIndicator!.hv_90! : null,
-  "1Y": Number.isFinite(apiTechnicalIndicator?.hv_252) ? apiTechnicalIndicator!.hv_252! : null,
-});
+const readApiVolatilityValues = (apiTechnicalIndicator?: TechnicalIndicatorEntity | null): Record<ApiVolatilityWindow, number | null> => (
+  Object.fromEntries(
+    API_VOLATILITY_WINDOWS.map(({ label, field }) => {
+      const value = apiTechnicalIndicator?.[field];
+      return [label, typeof value === "number" && Number.isFinite(value) ? value : null];
+    }),
+  ) as Record<ApiVolatilityWindow, number | null>
+);
 
 export const hasApiVolatilityTermStructure = (apiTechnicalIndicator?: TechnicalIndicatorEntity | null): boolean =>
   Object.values(readApiVolatilityValues(apiTechnicalIndicator)).some((value) => value !== null);
@@ -34,7 +41,7 @@ export function buildVolatilityTermStructureOption(
 
   const fallbackTermStructure = getVolatilityTermStructure(closePrices);
   const termStructure: VolatilityTermPoint[] = dataMode === "real"
-    ? VOLATILITY_MATURITIES.map((label) => ({ label, value: apiValues[label] }))
+    ? API_VOLATILITY_WINDOWS.map(({ label }) => ({ label, value: apiValues[label] }))
     : fallbackTermStructure.map((row) => ({
       label: row.label as VolatilityMaturity,
       value: Number.isFinite(row.value) ? row.value : null,

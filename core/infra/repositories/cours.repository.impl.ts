@@ -142,17 +142,21 @@ export const useCoursRepository = (): ICoursRepository => {
       if (typeof params.instrument !== "string" || params.instrument.trim() === "") {
         throw new Error("Cours history requires a valid instrument identifier.");
       }
-      const pageSize = 100;
-      const maxPages = Math.ceil(maxPoints / pageSize);
+      const requestedPageSize = Math.min(500, Math.max(100, maxPoints));
       const fetchHistoryPage = (page: number) =>
         getSharedCoursRequest(
-          `cours:history:${serializeCoursParams({ ...params, page, page_size: pageSize })}`,
-          () => triggerGetAllCours({ ...params, page, page_size: pageSize }).unwrap()
+          `cours:history:${serializeCoursParams({ ...params, page, page_size: requestedPageSize })}`,
+          () => triggerGetAllCours({ ...params, page, page_size: requestedPageSize }).unwrap()
         );
 
       const firstResponse = await fetchHistoryPage(1);
       const firstPage = firstResponse.data ?? [];
       const reportedTotalPages = Number(firstResponse.total_pages);
+      const effectivePageSize = Number(firstResponse.page_size);
+      const pageSize = Number.isFinite(effectivePageSize) && effectivePageSize > 0
+        ? effectivePageSize
+        : requestedPageSize;
+      const maxPages = Math.ceil(maxPoints / pageSize);
 
       if (Number.isFinite(reportedTotalPages)) {
         const pageCount = Math.min(maxPages, Math.max(1, reportedTotalPages));

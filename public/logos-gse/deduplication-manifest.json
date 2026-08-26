@@ -1,0 +1,11 @@
+{
+  "contract": "logo-deduplication-v1",
+  "canonical": {
+    "EGH.webp": {
+      "aliases": [
+        "ETI.webp"
+      ]
+    }
+  },
+  "quarantined": "/tmp/gse-duplicates"
+}

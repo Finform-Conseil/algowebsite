@@ -4,6 +4,7 @@ import React from "react";
 import clsx from "clsx";
 import { useSelector } from "react-redux";
 import { selectUiState } from "../../store/selectors";
+import { useCurrency } from "@/hooks/useCurrency";
 
 import { NewsSection } from "@/components/design-system/commons/CommonNewsSection/NewsSection";
 import { BRVMSecurity } from "@/core/data/brvm-securities";
@@ -29,6 +30,7 @@ export const ChartHeader: React.FC<ChartHeaderProps> = ({
   _isDemoMode,
 }) => {
   const uiState = useSelector(selectUiState);
+  const { displayCurrency } = useCurrency();
 
   // En mode Zen, le header disparaît pour laisser toute la place au graphique
   if (uiState.isZenMode) return null;
@@ -47,7 +49,7 @@ export const ChartHeader: React.FC<ChartHeaderProps> = ({
         brandLogo={security.logoUrl}
         tickerSymbol={security.ticker}
         currentPrice={livePrice}
-        currency={security.currency || "XOF"}
+        currency={displayCurrency}
         change={liveChange}
         changePercent={liveChangePercent}
         volume={liveVolume}

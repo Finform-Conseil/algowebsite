@@ -1,12 +1,7 @@
 import type { MultiChartLayoutState } from "../../config/layout/multiChartLayoutTypes";
-import { resolveSectorCompareSymbols } from "../../config/layout/brvmLayoutSymbols";
 import type { ChartState } from "../../config/state/chartStateTypes";
 
 export const normalizeChartSymbol = (symbol: string): string => symbol.trim().toUpperCase();
-
-export const isSectorComparisonLayout = (layout: MultiChartLayoutState): boolean =>
-  layout.layoutId === "four_grid"
-  && layout.charts.some((chart, index) => index > 0 && normalizeChartSymbol(chart.symbol) === "BRVMC");
 
 export const applyPrimaryLayoutSymbol = (
   layout: MultiChartLayoutState,
@@ -18,15 +13,9 @@ export const applyPrimaryLayoutSymbol = (
 
   layout.activeChartId = primaryChartId;
 
-  const sectorSymbols = isSectorComparisonLayout(layout)
-    ? resolveSectorCompareSymbols(normalized)
-    : [];
-
   layout.charts.forEach((chart, index) => {
     if (index === 0 || layout.sync.symbol) {
       chart.symbol = normalized;
-    } else if (sectorSymbols[index]) {
-      chart.symbol = sectorSymbols[index];
     }
     chart.isActive = chart.chartId === primaryChartId;
   });

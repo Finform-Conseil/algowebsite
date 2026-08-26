@@ -1,0 +1,12 @@
+{
+  "contract": "logo-deduplication-v1",
+  "canonical": {
+    "KPLC.webp": {
+      "aliases": [
+        "KPLC-P4.webp",
+        "KPLC-P7.webp"
+      ]
+    }
+  },
+  "quarantined": "/tmp/nse-duplicates"
+}

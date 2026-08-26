@@ -6,6 +6,7 @@ interface DividendsPanelProps {
   isAvailable: boolean;
   isLoading: boolean;
   onMoreInfo: () => void;
+  unavailableState?: React.ReactNode;
 }
 
 const ACTION_BUTTON_STYLE: React.CSSProperties = {
@@ -29,14 +30,20 @@ const DividendsSkeleton = () => (
   </div>
 );
 
+const DEFAULT_UNAVAILABLE_STATE = (
+  <div style={{ fontSize: "11px", color: "#64748b", textAlign: "center", padding: "12px 0" }}>
+    Données de dividendes indisponibles via l’API pour ce titre.
+  </div>
+);
+
 export const DividendsPanel = React.memo(({
   auditTrail,
   chartRef,
   isAvailable,
   isLoading,
   onMoreInfo,
+  unavailableState = DEFAULT_UNAVAILABLE_STATE,
 }: DividendsPanelProps) => {
-  if (!isLoading && !isAvailable) return null;
 
   return (
   <div className="gp-sidebar-section" style={{ borderBottom: "none" }}>
@@ -45,7 +52,7 @@ export const DividendsPanel = React.memo(({
     </div>
     {isLoading ? (
       <DividendsSkeleton />
-    ) : (
+    ) : isAvailable ? (
       <div key="ready">
         <div ref={chartRef as React.RefObject<HTMLDivElement>} style={{ width: "100%", height: "150px" }} />
         <div className="d-flex justify-content-center gap-3 mt-2" style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
@@ -59,6 +66,10 @@ export const DividendsPanel = React.memo(({
           </div>
         </div>
         {auditTrail}
+      </div>
+    ) : (
+      <div key="unavailable">
+        {unavailableState}
       </div>
     )}
     {!isLoading && isAvailable && (

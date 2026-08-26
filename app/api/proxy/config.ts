@@ -5,8 +5,8 @@
 // 🧬 LÉGAT-VULCAN PRIME: CORRECTION - Ajout d'un type explicite pour apiTargets.
 type ApiTargets = Record<string, string | undefined>;
 
-// 🧬 IMPORT CENTRALISÉ DES RÈGLES DE SÉCURITÉ
-import { RATE_LIMIT_CONFIGS } from '@/core/infra/security/rate/redis-rate-limiter';
+// Import de politique PURE : aucune initialisation Redis sur le chemin de config.
+import { RATE_LIMIT_CONFIGS } from '@/core/infra/security/rate/rate-limit-config';
 
 
 export const proxyConfig = {

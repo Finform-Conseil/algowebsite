@@ -3,6 +3,11 @@ import { ActionType, CreateActionType, UpdateActionType, ActionQueryParams } fro
 import { ActionEntity } from "@/core/domain/entities/action.entity";
 import { PaginatedResponse } from "@/core/domain/types/pagination.type";
 
+export const SEARCH_SYMBOL_ACTION_QUERY = {
+  page: 1,
+  page_size: 100,
+} satisfies ActionQueryParams;
+
 export const actionApi = api.injectEndpoints({
   endpoints: (builder) => ({
     createAction: builder.mutation<ActionType, CreateActionType>({
@@ -50,9 +55,6 @@ export const actionApi = api.injectEndpoints({
     }),
     getActionById: builder.query<ActionEntity, { id: string }>({
       query: ({ id }) => `/actions/${id}/`,
-    }),
-    getActionByTicker: builder.query<ActionEntity, { ticker: string }>({
-      query: ({ ticker }) => `/actions/ticker/?ticker=${encodeURIComponent(ticker)}`,
     }),
     deleteAction: builder.mutation<void, string>({
       query: (id) => ({

@@ -1,0 +1,278 @@
+{
+  "contract": "logo-deduplication-v2",
+  "exchange": "JSE",
+  "policy": "exact plus provenance-confirmed perceptual deduplication",
+  "canonical": {
+    "italtile_limited.webp": {
+      "aliases": [
+        "ite.webp"
+      ]
+    },
+    "stefanutti.webp": {
+      "aliases": [
+        "ssk.webp"
+      ]
+    },
+    "caxton_and_ctp_publishers.webp": {
+      "aliases": [
+        "cat.webp"
+      ]
+    },
+    "bid_corporation.webp": {
+      "aliases": [
+        "bide.webp"
+      ]
+    },
+    "universal.webp": {
+      "aliases": [
+        "uple.webp"
+      ]
+    },
+    "rainbow.webp": {
+      "aliases": [
+        "rboe.webp"
+      ]
+    },
+    "nampak_limited.webp": {
+      "aliases": [
+        "npk.webp"
+      ]
+    },
+    "super_group_limited.webp": {
+      "aliases": [
+        "spg.webp"
+      ]
+    },
+    "sygnia.webp": {
+      "aliases": [
+        "syge.webp"
+      ]
+    },
+    "outsurance_group_limited.webp": {
+      "aliases": [
+        "oute.webp"
+      ]
+    },
+    "african_dawn.webp": {
+      "aliases": [
+        "adw.webp"
+      ]
+    },
+    "texton_property_fund_limited.webp": {
+      "aliases": [
+        "anie.webp"
+      ]
+    },
+    "argent_industrial_limited.webp": {
+      "aliases": [
+        "art.webp"
+      ]
+    },
+    "astral.webp": {
+      "aliases": [
+        "arl.webp"
+      ]
+    },
+    "capital_appreciation.webp": {
+      "aliases": [
+        "axxe.webp"
+      ]
+    },
+    "calgro.webp": {
+      "aliases": [
+        "cgre.webp"
+      ]
+    },
+    "dis_chem_pharmacies_limited.webp": {
+      "aliases": [
+        "dcpe.webp"
+      ]
+    },
+    "deneb.webp": {
+      "aliases": [
+        "dnbe.webp"
+      ]
+    },
+    "eastern.webp": {
+      "aliases": [
+        "eps.webp"
+      ]
+    },
+    "emedia_holdings_limited.webp": {
+      "aliases": [
+        "emedia_holdings_limited_n.webp"
+      ]
+    },
+    "epe.webp": {
+      "aliases": [
+        "epee.webp"
+      ]
+    },
+    "frontier_transport.webp": {
+      "aliases": [
+        "fthe.webp"
+      ]
+    },
+    "invicta_holdings_limited.webp": {
+      "aliases": [
+        "ivt.webp"
+      ]
+    },
+    "kap_limited.webp": {
+      "aliases": [
+        "kap.webp"
+      ]
+    },
+    "libstar_holdings.webp": {
+      "aliases": [
+        "lbre.webp"
+      ]
+    },
+    "octodec_investments_limited.webp": {
+      "aliases": [
+        "oct.webp"
+      ]
+    },
+    "resilient_reit_limited.webp": {
+      "aliases": [
+        "rese.webp"
+      ]
+    },
+    "stadio.webp": {
+      "aliases": [
+        "sdoe.webp"
+      ]
+    },
+    "supermarket.webp": {
+      "aliases": [
+        "srie.webp"
+      ]
+    },
+    "sun_international.webp": {
+      "aliases": [
+        "sui.webp"
+      ]
+    },
+    "prosus_n_v.webp": {
+      "aliases": [
+        "prxe.webp"
+      ]
+    },
+    "quilter.webp": {
+      "aliases": [
+        "qlte.webp"
+      ]
+    },
+    "shoprite_holdings_limited.webp": {
+      "aliases": [
+        "shge.webp",
+        "shp.webp"
+      ]
+    },
+    "standard_bank.webp": {
+      "aliases": [
+        "sbk.webp"
+      ]
+    },
+    "absa.webp": {
+      "aliases": [
+        "abge.webp"
+      ]
+    },
+    "bhp_group_limited.webp": {
+      "aliases": [
+        "bhge.webp"
+      ]
+    },
+    "boxer.webp": {
+      "aliases": [
+        "boxe.webp"
+      ]
+    },
+    "crookes.webp": {
+      "aliases": [
+        "cks.webp",
+        "cpre.webp"
+      ]
+    },
+    "coronation.webp": {
+      "aliases": [
+        "cml.webp"
+      ]
+    },
+    "ca_sales_holdings.webp": {
+      "aliases": [
+        "caae.webp"
+      ]
+    },
+    "kibo.webp": {
+      "aliases": [
+        "kbo.webp"
+      ]
+    },
+    "ioco_ltd.webp": {
+      "aliases": [
+        "ioce.webp"
+      ]
+    },
+    "globe_trade_centre_s_a.webp": {
+      "aliases": [
+        "gtce.webp"
+      ]
+    },
+    "heriot_reit_limited.webp": {
+      "aliases": [
+        "hete.webp"
+      ]
+    },
+    "fortress_real_estate.webp": {
+      "aliases": [
+        "fortress_real_estate_b.webp"
+      ]
+    },
+    "investec_limited.webp": {
+      "aliases": [
+        "investec_plc.webp"
+      ]
+    },
+    "efora_energy.webp": {
+      "aliases": [
+        "eele.webp"
+      ]
+    },
+    "lewis_group_limited.webp": {
+      "aliases": [
+        "lew.webp"
+      ]
+    },
+    "mondi_plc.webp": {
+      "aliases": [
+        "mnp.webp"
+      ]
+    },
+    "mpact_limited.webp": {
+      "aliases": [
+        "mpt.webp"
+      ]
+    },
+    "merafe.webp": {
+      "aliases": [
+        "mrf.webp"
+      ]
+    },
+    "mas_plc.webp": {
+      "aliases": [
+        "msp.webp"
+      ]
+    },
+    "mc.webp": {
+      "aliases": [
+        "mcze.webp"
+      ]
+    }
+  },
+  "uncertain_visual_matches": [],
+  "canonical_count": 362,
+  "exact_duplicate_count": 0,
+  "perceptual_duplicate_count": 0
+}

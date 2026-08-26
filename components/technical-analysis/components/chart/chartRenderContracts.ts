@@ -29,6 +29,7 @@ export interface ChartOverlayRendererProps {
   toolbarOffsetRef: MutableRefObject<{ x: number; y: number }>;
   chartData: ChartDataPoint[];
   interactionScopeKey: string;
+  isChartLoading: boolean;
 }
 
 export interface ChartCursorRendererProps {
@@ -40,6 +41,7 @@ export interface ChartCursorRendererProps {
   chartRef: RefObject<EChartsInstance>;
   chartData: ChartDataPoint[];
   interactionScopeKey: string;
+  isChartLoading?: boolean;
 }
 
 export interface ChartRenderEngineProps {

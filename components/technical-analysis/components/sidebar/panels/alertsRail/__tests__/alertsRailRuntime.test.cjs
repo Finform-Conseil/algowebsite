@@ -270,13 +270,13 @@ describe("alerts rail reducer", () => {
 
 describe("alerts rail indicator metrics", () => {
   it("builds current and previous alert indicator values from a daily series", () => {
-    const values = buildIndicatorAlertValuesFromSeries(makeDailySeries(), { source: "daily-csv", timeframe: "1D" });
+    const values = buildIndicatorAlertValuesFromSeries(makeDailySeries(), { source: "api-cours", timeframe: "1D" });
 
     assert.equal(typeof values["technical:rsi14"].value, "number");
     assert.equal(typeof values["technical:rsi14"].previousValue, "number");
     assert.equal(typeof values["technical:macd_line"].value, "number");
     assert.equal(typeof values["technical:vp_poc"].value, "number");
-    assert.equal(values["technical:sma20"].source, "daily-csv");
+    assert.equal(values["technical:sma20"].source, "api-cours");
     assert.equal(values["technical:score"].timeframe, "1D");
   });
 
@@ -284,7 +284,7 @@ describe("alerts rail indicator metrics", () => {
     const inventory = indicatorResearchGradePolicy.buildIndicatorResearchGradeInventory({
       indicatorPeriods: { sma1: 5, sma2: 10, sma3: 20, rsiPeriod: 14 },
     });
-    const values = buildIndicatorAlertValuesFromSeries(makeIndicatorDailySeries(), { source: "daily-csv", timeframe: "1D" }) || {};
+    const values = buildIndicatorAlertValuesFromSeries(makeIndicatorDailySeries(), { source: "api-cours", timeframe: "1D" }) || {};
     const runtimeEntries = inventory.filter((entry) => (
       indicatorBacktestAlertPolicy.getIndicatorAlertTemplate(entry).route === "indicator-runtime"
     ));
@@ -301,11 +301,18 @@ describe("alerts rail indicator metrics", () => {
     assert.deepEqual(missingValues, []);
   });
 
-  it("builds a fallback daily context for off-screen indicator alert evaluation", () => {
-    const context = buildDailyAlertContext("BOAB", makeDailySeries());
+  it("builds an API-metadata daily context for off-screen indicator alert evaluation", () => {
+    const context = buildDailyAlertContext("BOAB", makeDailySeries(), {
+      country: "Bénin",
+      currency: "XOF",
+      exchange: "BRVM",
+      name: "BANK OF AFRICA BENIN",
+    });
 
     assert.equal(context.ticker, "BOAB");
-    assert.equal(context.sessionLabel, "Daily CSV");
+    assert.equal(context.name, "BANK OF AFRICA BENIN");
+    assert.equal(context.marketLabel, "BRVM · Bénin");
+    assert.equal(context.sessionLabel, "API officielle");
     assert.equal(context.currentPrice > 0, true);
     assert.equal(typeof context.volumeRatio, "number");
   });
@@ -529,6 +536,12 @@ describe("alerts rail notification channels", () => {
 describe("alerts rail live contexts", () => {
   it("builds an alert context from a live BRVM snapshot", () => {
     const context = buildLiveAlertContext({
+      metadata: {
+        country: "Sénégal",
+        currency: "XOF",
+        exchange: "BRVM",
+        name: "SONATEL SENEGAL",
+      },
       price: 28250,
       source: "BRVM_DIRECT",
       symbol: "SNTS",
@@ -537,8 +550,23 @@ describe("alerts rail live contexts", () => {
     });
 
     assert.equal(context.ticker, "SNTS");
+    assert.equal(context.name, "SONATEL SENEGAL");
+    assert.equal(context.marketLabel, "BRVM · Sénégal");
+    assert.equal(context.priceLabel, "28 250,00 XOF");
     assert.equal(context.currentPrice, 28250);
     assert.equal(context.changePercent, -0.6);
     assert.equal(context.sessionLabel, "BRVM_DIRECT");
+  });
+
+  it("does not invent catalogue metadata when the API metadata is absent", () => {
+    const context = buildLiveAlertContext({
+      price: 28250,
+      symbol: "UNKNOWN_TICKER",
+      volume: 5058,
+    });
+
+    assert.equal(context.name, "N/D");
+    assert.equal(context.marketLabel, "N/D");
+    assert.equal(context.priceLabel, "N/D");
   });
 });

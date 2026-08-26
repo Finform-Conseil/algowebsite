@@ -53,6 +53,8 @@ export interface BrokerModalProps {
   setBrokerConnectionState: (val: BrokerConnectionState) => void;
   orderIntent: BrokerOrderIntent | null;
   setOrderIntent: (val: BrokerOrderIntent | null) => void;
+  isOrderSubmissionBlocked: boolean;
+  setIsOrderSubmissionBlocked: (value: boolean) => void;
 }
 
 export const MemoizedBrokerModal = React.memo(function BrokerModal({
@@ -64,6 +66,8 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
   setBrokerConnectionState,
   orderIntent,
   setOrderIntent,
+  isOrderSubmissionBlocked,
+  setIsOrderSubmissionBlocked,
 }: BrokerModalProps) {
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
@@ -101,6 +105,7 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
     setSelectedBroker(null);
     setBrokerConnectionState("idle");
     setOrderIntent(null);
+    setIsOrderSubmissionBlocked(false);
   };
 
   const showBrokerInfo = (title: string, message: string) => {
@@ -125,6 +130,16 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
 
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOrderSubmissionBlocked) {
+      addNotification({
+        title: "Cotation bid/ask indisponible",
+        message: "L’ordre ne peut pas être transmis tant que l’API ne fournit pas de prix bid et ask vérifiables.",
+        type: "info",
+        iconType: "faInfoCircle",
+      });
+      return;
+    }
 
     const parsedQty = parsePositiveFiniteNumber(qty);
     const parsedPrice = orderType === "market"
@@ -547,13 +562,17 @@ export const MemoizedBrokerModal = React.memo(function BrokerModal({
             </label>
             <button
               className="gp-broker-btn"
-              disabled={brokerConnectionState === "connecting"}
+              disabled={brokerConnectionState === "connecting" || isOrderSubmissionBlocked}
+              title={isOrderSubmissionBlocked ? "Une cotation bid/ask vérifiable est requise pour continuer." : undefined}
               onClick={() => {
+                if (isOrderSubmissionBlocked) return;
                 setBrokerConnectionState("connecting");
                 setTimeout(() => setBrokerConnectionState("connected"), 1000);
               }}
             >
-              {brokerConnectionState === "connecting" ? (
+              {isOrderSubmissionBlocked ? (
+                "Cotation bid/ask requise"
+              ) : brokerConnectionState === "connecting" ? (
                 <>
                   <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                   {" "}Connecting...

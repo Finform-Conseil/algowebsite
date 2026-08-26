@@ -19,7 +19,7 @@ export interface BRVMNewsItem {
 export interface BRVMBond {
   name: string;
   maturityDate: string;
-  ytm: number;
+  clearingYield: number;
 }
 
 export interface BRVMScreenerSecurity {

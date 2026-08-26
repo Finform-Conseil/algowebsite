@@ -44,7 +44,7 @@ export const BondsPanel = React.memo(({
 }: BondsPanelProps) => (
   <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px", borderBottom: "none" }}>
     <div className="gp-sidebar-header" style={{ marginBottom: "10px" }}>
-      <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Highest YTM bonds</span>
+      <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Highest clearing yield bonds</span>
     </div>
     {isLoading ? (
       <BondsSkeleton />
@@ -52,12 +52,12 @@ export const BondsPanel = React.memo(({
       <>
         <div className="d-flex flex-column" style={{ gap: "0" }}>
           {bonds.map((bond, index) => (
-            <div key={`${bond.name}-${bond.maturityDate}-${bond.ytm}`} className="row g-0" style={{ padding: "7px 4px", borderBottom: index < bonds.length - 1 ? "1px solid rgba(42,46,57,0.4)" : "none" }}>
+            <div key={`${bond.name}-${bond.maturityDate}-${bond.clearingYield}`} className="row g-0" style={{ padding: "7px 4px", borderBottom: index < bonds.length - 1 ? "1px solid rgba(42,46,57,0.4)" : "none" }}>
               <span className="col stat-label" style={{ color: "#94a3b8", fontSize: "11px" }}>
                 {bond.maturityDate}
               </span>
               <span className="col-auto stat-value" style={{ fontWeight: 700, color: "#22ab94", fontSize: "12px" }}>
-                {bond.ytm.toFixed(2)}%
+                {bond.clearingYield.toFixed(2)}%
               </span>
             </div>
           ))}

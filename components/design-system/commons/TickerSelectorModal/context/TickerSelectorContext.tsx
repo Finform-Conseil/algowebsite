@@ -6,9 +6,19 @@
 
 "use client";
 
-import { BRVMSecurity,  BRVM_SECURITIES, getBRVMSecurityByTicker } from '@/core/data/brvm-securities';
+import type { BRVMSecurity } from '@/core/data/brvm-securities';
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { readPersistedTickerSymbol, writePersistedTickerSymbol } from "./tickerSelectorPersistence";
+import {
+  DEFAULT_PRIMARY_TICKER,
+  readPersistedTickerSymbol,
+  writePersistedTickerSymbol,
+} from "./tickerSelectorPersistence";
+
+export interface PendingMarketSelection {
+  ticker: string;
+  name: string;
+  currency: string;
+}
 
 // --- TYPES ---
 
@@ -17,12 +27,24 @@ interface TickerSelectorContextValue {
   selectedTicker: BRVMSecurity | null;
   /** Sélectionner un titre */
   setSelectedTicker: (ticker: BRVMSecurity | null) => void;
-  /** Sélectionner par symbole ticker */
-  selectByTicker: (tickerSymbol: string) => boolean;
+  /** Symbole préféré restauré; il n'est valide qu'après résolution dans le catalogue API. */
+  preferredTicker: string | null;
   /** État du modal */
   isModalOpen: boolean;
-  /** Ouvrir le modal */
+  /** Marché choisi dans le répertoire, en attente d'un titre explicite. */
+  pendingMarket: PendingMarketSelection | null;
+  /** Cellule multi-layout ciblée par la sélection en cours, sans l'activer visuellement. */
+  pendingLayoutChartId: string | null;
+  /** Ouvrir le modal pour une sélection directe de titre. */
   openModal: () => void;
+  /** Ouvrir le modal avec un marché en attente de titre explicite. */
+  openMarketModal: (market: PendingMarketSelection) => void;
+  /** Ouvrir le sélecteur pour une cellule multi-layout précise et un marché précis. */
+  openLayoutMarketModal: (chartId: string, market: PendingMarketSelection) => void;
+  /** Prepare a multi-layout cell before opening the canonical market directory. */
+  openLayoutMarketDirectory: (chartId: string) => void;
+  /** Cancel a pending multi-layout market target without opening the ticker selector. */
+  cancelLayoutMarketDirectory: () => void;
   /** Fermer le modal */
   closeModal: () => void;
   /** Toggle le modal */
@@ -39,7 +61,7 @@ const TickerSelectorContext = createContext<TickerSelectorContextValue | undefin
 
 interface TickerSelectorProviderProps {
   children: ReactNode;
-  /** Ticker initial (optionnel, ex: 'BOAB') */
+  /** Symbole préféré optionnel; jamais résolu depuis un catalogue local. */
   initialTicker?: string;
 }
 
@@ -47,17 +69,12 @@ export const TickerSelectorProvider: React.FC<TickerSelectorProviderProps> = ({
   children, 
   initialTicker 
 }) => {
-  // Initialiser avec le ticker par défaut si fourni
-  // Initialiser avec le ticker par défaut (SSR safe)
-  const [selectedTicker, setSelectedTicker] = useState<BRVMSecurity | null>(() => {
-    if (initialTicker) {
-      return getBRVMSecurityByTicker(initialTicker) || null;
-    }
-    // Par défaut : premier titre bancaire (BOAB)
-    return BRVM_SECURITIES.find(s => s.ticker === 'BOAB') || BRVM_SECURITIES[0] || null;
-  });
-
+  const normalizedInitialTicker = initialTicker?.trim().toUpperCase() || null;
+  const [selectedTicker, setSelectedTicker] = useState<BRVMSecurity | null>(null);
+  const [preferredTicker, setPreferredTicker] = useState<string | null>(normalizedInitialTicker);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingMarket, setPendingMarket] = useState<PendingMarketSelection | null>(null);
+  const [pendingLayoutChartId, setPendingLayoutChartId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
   React.useEffect(() => {
@@ -66,14 +83,8 @@ export const TickerSelectorProvider: React.FC<TickerSelectorProviderProps> = ({
     const hydrateSelectedTicker = async () => {
       try {
         const savedTickerSymbol = await readPersistedTickerSymbol();
-        if (!isActive || !savedTickerSymbol) return;
-
-        const savedSecurity = getBRVMSecurityByTicker(savedTickerSymbol);
-        if (savedSecurity) {
-          if (!initialTicker || initialTicker === 'BOAB') {
-             setSelectedTicker(savedSecurity);
-          }
-        }
+        if (!isActive || normalizedInitialTicker) return;
+        setPreferredTicker(savedTickerSymbol ?? DEFAULT_PRIMARY_TICKER);
       } finally {
         if (isActive) setIsInitialized(true);
       }
@@ -83,7 +94,7 @@ export const TickerSelectorProvider: React.FC<TickerSelectorProviderProps> = ({
     return () => {
       isActive = false;
     };
-  }, [initialTicker]);
+  }, [normalizedInitialTicker]);
 
   React.useEffect(() => {
     if (isInitialized && selectedTicker) {
@@ -92,26 +103,57 @@ export const TickerSelectorProvider: React.FC<TickerSelectorProviderProps> = ({
   }, [selectedTicker, isInitialized]);
 
 
-
-  const selectByTicker = useCallback((tickerSymbol: string): boolean => {
-    const security = getBRVMSecurityByTicker(tickerSymbol);
-    if (security) {
-      setSelectedTicker(security);
-      return true;
-    }
-    return false;
+  const openModal = useCallback(() => {
+    setPendingMarket(null);
+    setPendingLayoutChartId(null);
+    setIsModalOpen(true);
   }, []);
-
-  const openModal = useCallback(() => setIsModalOpen(true), []);
-  const closeModal = useCallback(() => setIsModalOpen(false), []);
-  const toggleModal = useCallback(() => setIsModalOpen(prev => !prev), []);
+  const openMarketModal = useCallback((market: PendingMarketSelection) => {
+    setPendingMarket(market);
+    setPendingLayoutChartId(null);
+    setIsModalOpen(true);
+  }, []);
+  const openLayoutMarketModal = useCallback((chartId: string, market: PendingMarketSelection) => {
+    const normalizedChartId = chartId.trim();
+    if (!normalizedChartId) return;
+    setPendingMarket(market);
+    setPendingLayoutChartId(normalizedChartId);
+    setIsModalOpen(true);
+  }, []);
+  const openLayoutMarketDirectory = useCallback((chartId: string) => {
+    const normalizedChartId = chartId.trim();
+    if (!normalizedChartId) return;
+    setPendingMarket(null);
+    setPendingLayoutChartId(normalizedChartId);
+    setIsModalOpen(false);
+  }, []);
+  const cancelLayoutMarketDirectory = useCallback(() => {
+    setPendingMarket(null);
+    setPendingLayoutChartId(null);
+  }, []);
+  const closeModal = useCallback(() => {
+    setPendingMarket(null);
+    setPendingLayoutChartId(null);
+    setIsModalOpen(false);
+  }, []);
+  const toggleModal = useCallback(() => {
+    setPendingMarket(null);
+    setPendingLayoutChartId(null);
+    setIsModalOpen(prev => !prev);
+  }, []);
 
   const value: TickerSelectorContextValue = {
     selectedTicker,
     setSelectedTicker,
-    selectByTicker,
+    preferredTicker,
+    pendingMarket,
+    pendingLayoutChartId,
     isModalOpen,
     openModal,
+    openMarketModal,
+    openLayoutMarketModal,
+    openLayoutMarketDirectory,
+    cancelLayoutMarketDirectory,
     closeModal,
     toggleModal,
     isLoading: !isInitialized

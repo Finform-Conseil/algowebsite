@@ -1,70 +1,123 @@
 "use client";
 
-const TICKER_SELECTOR_DB_NAME = "AlgowayTickerSelector_DB";
-const TICKER_SELECTOR_STORE_NAME = "ticker_selector_store";
-const TICKER_SELECTOR_DB_VERSION = 1;
-const SELECTED_TICKER_KEY = "algoway_selected_ticker";
+export const DEFAULT_PRIMARY_TICKER = "ORANGE_CI";
 
-const canUseIndexedDB = () => typeof window !== "undefined" && "indexedDB" in window;
+const DATABASE_NAME = "AlgowayPreferences";
+const DATABASE_VERSION = 1;
+const STORE_NAME = "preferences";
+const SELECTED_TICKER_KEY = "primary_ticker";
+const LEGACY_STORAGE_KEY = "algoway_selected_ticker";
+const OPERATION_TIMEOUT_MS = 2_000;
+let writeQueue: Promise<void> = Promise.resolve();
 
-const openTickerSelectorDatabase = () => new Promise<IDBDatabase>((resolve, reject) => {
-  if (!canUseIndexedDB()) {
-    reject(new Error("IndexedDB not supported"));
-    return;
+const normalizeTicker = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase();
+  return normalized || null;
+};
+
+const canUseIndexedDb = () =>
+  typeof window !== "undefined" && typeof window.indexedDB !== "undefined";
+
+const withTimeout = async <T,>(operation: Promise<T>): Promise<T> => {
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Ticker preference persistence timed out")),
+          OPERATION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer);
   }
+};
 
-  const request = window.indexedDB.open(TICKER_SELECTOR_DB_NAME, TICKER_SELECTOR_DB_VERSION);
-  request.onerror = () => reject(request.error ?? new Error("Unable to open ticker selector IndexedDB"));
-  request.onsuccess = () => resolve(request.result);
+const openDatabase = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
+  const request = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
   request.onupgradeneeded = () => {
-    const database = request.result;
-    if (!database.objectStoreNames.contains(TICKER_SELECTOR_STORE_NAME)) {
-      database.createObjectStore(TICKER_SELECTOR_STORE_NAME);
+    if (!request.result.objectStoreNames.contains(STORE_NAME)) {
+      request.result.createObjectStore(STORE_NAME);
     }
   };
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed"));
+  request.onblocked = () => reject(new Error("IndexedDB open blocked"));
 });
 
-export const readPersistedTickerSymbol = async (): Promise<string | null> => {
-  if (!canUseIndexedDB()) return null;
+const readTicker = (database: IDBDatabase): Promise<unknown> => new Promise((resolve, reject) => {
+  const request = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(SELECTED_TICKER_KEY);
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => reject(request.error ?? new Error("IndexedDB read failed"));
+});
 
+const writeTicker = (database: IDBDatabase, ticker: string): Promise<void> => new Promise((resolve, reject) => {
+  const transaction = database.transaction(STORE_NAME, "readwrite");
+  transaction.objectStore(STORE_NAME).put(ticker, SELECTED_TICKER_KEY);
+  transaction.oncomplete = () => resolve();
+  transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB write failed"));
+  transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB write aborted"));
+});
+
+const readLegacyTicker = (): string | null => {
   try {
-    const database = await openTickerSelectorDatabase();
-    const value = await new Promise<unknown>((resolve, reject) => {
-      const transaction = database.transaction(TICKER_SELECTOR_STORE_NAME, "readonly");
-      const request = transaction.objectStore(TICKER_SELECTOR_STORE_NAME).get(SELECTED_TICKER_KEY);
-      let result: unknown = null;
-
-      request.onsuccess = () => {
-        result = request.result;
-      };
-      transaction.oncomplete = () => resolve(result);
-      transaction.onerror = () => reject(transaction.error ?? new Error("Unable to read ticker selector IndexedDB"));
-      transaction.onabort = () => reject(transaction.error ?? new Error("Ticker selector IndexedDB read aborted"));
-    });
-    database.close();
-    return typeof value === "string" && value.trim().length > 0 ? value.trim().toUpperCase() : null;
-  } catch (error) {
-    console.warn("Ticker selector IndexedDB read failed", error);
+    return normalizeTicker(window.localStorage.getItem(LEGACY_STORAGE_KEY));
+  } catch {
     return null;
   }
 };
 
-export const writePersistedTickerSymbol = async (ticker: string): Promise<void> => {
-  if (!canUseIndexedDB()) return;
-  const normalizedTicker = ticker.trim().toUpperCase();
-  if (!normalizedTicker) return;
+const clearLegacyTicker = () => {
+  try {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // IndexedDB remains the sole authority even when legacy cleanup is blocked.
+  }
+};
+
+export const readPersistedTickerSymbol = async (): Promise<string | null> => {
+  if (!canUseIndexedDb()) return null;
+
+  let database: IDBDatabase | null = null;
 
   try {
-    const database = await openTickerSelectorDatabase();
-    await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(TICKER_SELECTOR_STORE_NAME, "readwrite");
-      transaction.objectStore(TICKER_SELECTOR_STORE_NAME).put(normalizedTicker, SELECTED_TICKER_KEY);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error("Unable to write ticker selector IndexedDB"));
-      transaction.onabort = () => reject(transaction.error ?? new Error("Ticker selector IndexedDB write aborted"));
-    });
-    database.close();
+    database = await withTimeout(openDatabase());
+    const persistedTicker = normalizeTicker(await withTimeout(readTicker(database)));
+    if (persistedTicker) return persistedTicker;
+
+    const legacyTicker = readLegacyTicker();
+    if (!legacyTicker) return null;
+    await withTimeout(writeTicker(database, legacyTicker));
+    clearLegacyTicker();
+    return legacyTicker;
   } catch (error) {
-    console.warn("Ticker selector IndexedDB write failed", error);
+    console.warn("[TickerSelector] Preference read failed", error);
+    return null;
+  } finally {
+    database?.close();
+  }
+};
+
+export const writePersistedTickerSymbol = async (ticker: string): Promise<void> => {
+  const normalizedTicker = normalizeTicker(ticker);
+  if (!normalizedTicker || !canUseIndexedDb()) return;
+
+  try {
+    const operation = writeQueue.catch(() => undefined).then(async () => {
+      const database = await withTimeout(openDatabase());
+      try {
+        await withTimeout(writeTicker(database, normalizedTicker));
+        clearLegacyTicker();
+      } finally {
+        database.close();
+      }
+    });
+    writeQueue = operation.then(() => undefined, () => undefined);
+    await operation;
+  } catch (error) {
+    console.warn("[TickerSelector] Preference write failed", error);
   }
 };

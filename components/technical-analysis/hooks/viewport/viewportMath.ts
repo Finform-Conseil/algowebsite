@@ -20,7 +20,7 @@ export const TV_INITIAL_VISIBLE_BARS = 100;
 export const TV_RESET_VISIBLE_BARS = 120;
 export const TV_MAX_FUTURE_BARS = 80;
 export const TV_MAX_HISTORY_GAP_BARS = 80;
-export const MAIN_GRID_LEFT = 35;
+export const MAIN_GRID_LEFT = 0;
 
 const WHEEL_DELTA_LINE_MODE = 1;
 const WHEEL_DELTA_PAGE_MODE = 2;
@@ -131,14 +131,17 @@ export const clampViewportWindowWithFuture = (
   endIdx: number,
   totalBars: number,
   maxFutureBars = TV_MAX_FUTURE_BARS,
+  maxHistoryGapBars = TV_MAX_HISTORY_GAP_BARS,
 ): ViewportWindow => {
   if (totalBars <= 1) return { startIdx: 0, endIdx: 0 };
 
   const { minSpan, maxSpan } = getViewportSpanBounds(totalBars);
-  const span = Math.max(minSpan, Math.min(maxSpan, endIdx - startIdx));
+  const historyGap = Math.max(0, Math.round(maxHistoryGapBars));
+  const maxViewportSpan = maxSpan + historyGap;
+  const span = Math.max(minSpan, Math.min(maxViewportSpan, endIdx - startIdx));
   const lastIndex = totalBars - 1;
   const maxEnd = lastIndex + Math.max(0, Math.round(maxFutureBars));
-  const minStart = -Math.max(0, Math.round(TV_MAX_HISTORY_GAP_BARS));
+  const minStart = -Math.max(0, Math.round(maxHistoryGapBars));
   const maxStart = Math.max(0, maxEnd - minSpan);
   let start = Number.isFinite(startIdx) ? startIdx : 0;
   let end = start + span;
@@ -151,6 +154,37 @@ export const clampViewportWindowWithFuture = (
   }
 
   return { startIdx: Math.round(start), endIdx: Math.round(end) };
+};
+
+export const reconcileViewportAfterHistoryPrepend = ({
+  startIdx,
+  endIdx,
+  prependedBars,
+  totalBars,
+  maxFutureBars = TV_MAX_FUTURE_BARS,
+  maxHistoryGapBars = TV_MAX_HISTORY_GAP_BARS,
+}: {
+  startIdx: number;
+  endIdx: number;
+  prependedBars: number;
+  totalBars: number;
+  maxFutureBars?: number;
+  maxHistoryGapBars?: number;
+}): ViewportWindow => {
+  const insertedBars = Number.isFinite(prependedBars)
+    ? Math.max(0, Math.round(prependedBars))
+    : 0;
+
+  // A prepend is a coordinate-system translation: each pre-existing candle is
+  // shifted right by exactly the number of inserted bars. Translating both
+  // viewport edges by the same amount preserves the logical candles and span.
+  return clampViewportWindowWithFuture(
+    startIdx + insertedBars,
+    endIdx + insertedBars,
+    totalBars,
+    maxFutureBars,
+    maxHistoryGapBars,
+  );
 };
 
 export const computeDirectionalZoomViewport = ({
@@ -199,28 +233,36 @@ export const computeTradingViewWheelZoomViewport = ({
   endIdx,
   totalBars,
   deltaY,
+  maxHistoryGapBars = TV_MAX_HISTORY_GAP_BARS,
+  maxFutureBars = TV_MAX_FUTURE_BARS,
 }: {
   startIdx: number;
   endIdx: number;
   totalBars: number;
   deltaY: number;
+  maxHistoryGapBars?: number;
+  maxFutureBars?: number;
 }): ViewportWindow => {
   if (totalBars <= 1 || !Number.isFinite(deltaY)) {
     return { startIdx: 0, endIdx: 0 };
   }
 
   const { minSpan, maxSpan } = getViewportSpanBounds(totalBars);
-  const currentSpan = Math.max(minSpan, Math.min(maxSpan, endIdx - startIdx));
+  const historyGap = Math.max(0, Math.round(maxHistoryGapBars));
+  const maxViewportSpan = maxSpan + historyGap;
+  const currentSpan = Math.max(minSpan, Math.min(maxViewportSpan, endIdx - startIdx));
   const normalizedWheelDirection =
     Math.sign(-deltaY) * Math.min(1, Math.abs(deltaY) / TV_WHEEL_DELTA_CAP_PX);
   const spacingFactor = 1 + (normalizedWheelDirection / 10);
-  const targetSpan = clamp(currentSpan / spacingFactor, minSpan, maxSpan);
+  const targetSpan = clamp(currentSpan / spacingFactor, minSpan, maxViewportSpan);
   const rightEdge = Number.isFinite(endIdx) ? endIdx : maxSpan;
 
   return clampViewportWindowWithFuture(
     rightEdge - targetSpan,
     rightEdge,
     totalBars,
+    maxFutureBars,
+    historyGap,
   );
 };
 
@@ -229,14 +271,22 @@ export const computeHorizontalPanViewport = ({
   endIdx,
   totalBars,
   shift,
+  maxHistoryGapBars = TV_MAX_HISTORY_GAP_BARS,
+  maxFutureBars = TV_MAX_FUTURE_BARS,
+  preserveEnd = false,
 }: {
   startIdx: number;
   endIdx: number;
   totalBars: number;
   shift: number;
+  maxHistoryGapBars?: number;
+  maxFutureBars?: number;
+  preserveEnd?: boolean;
 }): ViewportWindow =>
   clampViewportWindowWithFuture(
     startIdx + (shift * TV_PAN_DRIFT_DAMPING),
-    endIdx + (shift * TV_PAN_DRIFT_DAMPING),
+    preserveEnd ? endIdx : endIdx + (shift * TV_PAN_DRIFT_DAMPING),
     totalBars,
+    maxFutureBars,
+    maxHistoryGapBars,
   );

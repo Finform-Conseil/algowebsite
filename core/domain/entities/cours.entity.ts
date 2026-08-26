@@ -277,6 +277,8 @@ export interface PriceIndicatorEntity {
     timestamp                   : string | null;
     
     price                       : number | null;
+    bid                         ?: number | null;
+    ask                         ?: number | null;
     open                        : number | null;
     prev_close                  : number | null;
     high_52w                    : number | null;

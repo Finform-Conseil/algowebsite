@@ -8,46 +8,25 @@ import {
   type MultiChartPreset,
 } from "./multiChartLayouts";
 
-export const BRVM_LAYOUT_SYMBOL_FALLBACKS = [
-  "BRVMC",
-  "SNTS",
-  "BOAC",
-  "SGBC",
-  "ETIT",
-  "SPHC",
-  "PALC",
-  "SIVC",
-  "ORGT",
-  "CIEC",
-  "CABC",
-  "NEIC",
-  "UNXC",
-  "SHEC",
-  "BICC",
-  "CFAC",
-] as const;
-
-export const resolveSectorCompareSymbols = (primarySymbol: string): string[] => {
-  const primary = normalizeLayoutSymbol(primarySymbol) || "BOAB";
-  return [primary, "BOAC", "SGBC", "BRVMC"];
+const collectSecondarySymbols = (primarySymbol: string, comparisonSymbols: string[]): string[] => {
+  const primary = normalizeLayoutSymbol(primarySymbol);
+  return Array.from(
+    new Set(
+      comparisonSymbols
+        .map((symbol) => normalizeLayoutSymbol(symbol))
+        .filter((symbol) => symbol && symbol !== primary),
+    ),
+  );
 };
 
-export const resolveMarketMonitorSymbols = (): string[] => [
-  "BRVMC",
-  "SNTS",
-  "SGBC",
-  "TTLC",
-  "PALC",
-  "CFAC",
-];
-
-export const createBrvmLayoutCells = (
+export const createMarketLayoutCells = (
   layoutId: MultiChartLayoutId,
   primarySymbol: string,
   comparisonSymbols: string[] = [],
   previousCells: MultiChartLayoutCell[] = [],
   intervals?: string[],
   presetSymbols?: string[],
+  market = "BRVM",
 ) => createLayoutCells(
   layoutId,
   primarySymbol,
@@ -55,43 +34,65 @@ export const createBrvmLayoutCells = (
   previousCells,
   intervals,
   presetSymbols,
-  [...BRVM_LAYOUT_SYMBOL_FALLBACKS],
+  market,
 );
 
-export const createDefaultBrvmMultiChartLayout = (
+export const createDefaultMarketMultiChartLayout = (
   layoutId: MultiChartLayoutId = "single",
   primarySymbol = "BOAB",
   comparisonSymbols: string[] = [],
+  market = "BRVM",
 ): MultiChartLayoutState => createDefaultMultiChartLayout(
   layoutId,
   primarySymbol,
   comparisonSymbols,
-  [...BRVM_LAYOUT_SYMBOL_FALLBACKS],
+  market,
 );
 
-export const reconcileBrvmMultiChartLayout = (
+export const reconcileMarketMultiChartLayout = (
   current: MultiChartLayoutState,
   layoutId: MultiChartLayoutId,
   primarySymbol: string,
   comparisonSymbols: string[] = [],
+  market = "BRVM",
 ): MultiChartLayoutState => reconcileMultiChartLayout(
   current,
   layoutId,
   primarySymbol,
   comparisonSymbols,
-  [...BRVM_LAYOUT_SYMBOL_FALLBACKS],
+  market,
 );
 
-export const createPresetLayout = (preset: MultiChartPreset, primarySymbol: string): MultiChartLayoutState => {
+const buildPresetSymbols = (
+  preset: MultiChartPreset,
+  primarySymbol: string,
+  comparisonSymbols: string[],
+): string[] => {
   const definition = getLayoutDefinition(preset.layoutId);
-  const symbols = preset.id === "sector_compare"
-    ? resolveSectorCompareSymbols(primarySymbol)
-    : preset.id === "market_monitor"
-      ? resolveMarketMonitorSymbols()
-      : preset.symbols.length > 0
-        ? preset.symbols.map((symbol) => symbol || primarySymbol)
-        : Array(definition.chartCount).fill(primarySymbol);
-  const charts = createBrvmLayoutCells(preset.layoutId, primarySymbol, [], [], preset.intervals, symbols);
+  const primary = normalizeLayoutSymbol(primarySymbol);
+
+  if (preset.id === "multi_timeframe") return Array(definition.chartCount).fill(primary);
+
+  return [primary, ...collectSecondarySymbols(primary, comparisonSymbols)];
+};
+
+export const createPresetLayout = (
+  preset: MultiChartPreset,
+  primarySymbol: string,
+  market = "BRVM",
+  comparisonSymbols: string[] = [],
+): MultiChartLayoutState => {
+  const definition = getLayoutDefinition(preset.layoutId);
+  const symbols = buildPresetSymbols(preset, primarySymbol, comparisonSymbols);
+  const charts = createMarketLayoutCells(
+    preset.layoutId,
+    primarySymbol,
+    comparisonSymbols,
+    [],
+    preset.intervals,
+    symbols,
+    market,
+  );
 
   return {
     layoutId: preset.layoutId,
@@ -102,3 +103,10 @@ export const createPresetLayout = (preset: MultiChartPreset, primarySymbol: stri
     activeChartId: charts[0]?.chartId ?? "chart_1",
   };
 };
+
+/** @deprecated Use createMarketLayoutCells. */
+export const createBrvmLayoutCells = createMarketLayoutCells;
+/** @deprecated Use createDefaultMarketMultiChartLayout. */
+export const createDefaultBrvmMultiChartLayout = createDefaultMarketMultiChartLayout;
+/** @deprecated Use reconcileMarketMultiChartLayout. */
+export const reconcileBrvmMultiChartLayout = reconcileMarketMultiChartLayout;

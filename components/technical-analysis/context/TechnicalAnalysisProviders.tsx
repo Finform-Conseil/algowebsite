@@ -7,34 +7,35 @@
 
 "use client";
 
-import React, { createContext, useMemo, useRef, useContext } from "react";
+import React, { createContext, useMemo, useRef, useContext, useEffect, useLayoutEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   useSelector,
   shallowEqual } from "react-redux";
 
 // --- Types & Constants ---
 import type { RootState } from "@/core/infra/store";
+import { useAppDispatch } from "@/core/infra/store/hooks";
+import { useCurrency } from "@/hooks/useCurrency";
 import type { EChartsInstance } from "../lib/types/echarts";
-import { BRVM_SECURITIES,
-  type BRVMSecurity } from "@/core/data/brvm-securities";
+import type { BRVMSecurity } from "@/core/data/brvm-securities";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import type { CurrencyCode } from "../components/market/CurrencySelector";
-import { selectChartConfig, selectDataMode } from "../store/selectors";
+import { selectActiveMarket, selectChartConfig, selectDataMode, selectModals, selectUiState } from "../store/selectors";
 
 // --- Hooks ---
 import { useBrokerState } from "../hooks/useBrokerState";
-import { useCurrencyState } from "../hooks/useCurrencyState";
 import { useMarketData } from "../hooks/MarketData/useMarketData";
 import { useDrawingManager } from "../hooks/useDrawingManager";
-import { useCurrencyConverter, type CurrencyConversionStatus } from "../hooks/MarketData/useCurrencyConverter";
-import { TickerSelectorModal, TickerSelectorProvider, useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+import type { CurrencyConversionStatus } from "../hooks/MarketData/useCurrencyConverter";
+import { TickerSelectorProvider, useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+import { readPersistedMarketPreference } from "../hooks/MarketData/marketPreferencePersistence";
+import { setActiveMarket } from "../store/technicalAnalysisSlice";
 
 // ============================================================================
 // CONTEXT DEFINITIONS & EXPORTS
 // ============================================================================
 
 export const BrokerContext = createContext<ReturnType<typeof useBrokerState> | null>(null);
-export const CurrencyContext = createContext<ReturnType<typeof useCurrencyState> | null>(null);
 
 export type ChartRefs = {
   mainContainerRef: React.RefObject<HTMLDivElement>;
@@ -66,31 +67,20 @@ export const ChartRefsContext = createContext<ChartRefs | null>(null);
 export type MarketDataState = ReturnType<typeof useMarketData>;
 export const MarketDataContext = createContext<MarketDataState | null>(null);
 
-const BRVM_SECURITY_SECTORS = [
-  "Banking",
-  "Telecom",
-  "Energy",
-  "Industry",
-  "Distribution",
-  "Market Indices",
-  "Delisted",
-  "Other",
-] as const;
+const normalizeApiLabel = (value: string | undefined): string => value?.trim() || "";
 
-const normalizeSecuritySector = (
-  sector: string | undefined,
-  fallback: BRVMSecurity["sector"],
-): BRVMSecurity["sector"] => {
-  if (!sector) return fallback;
-  return BRVM_SECURITY_SECTORS.includes(sector as (typeof BRVM_SECURITY_SECTORS)[number])
-    ? (sector as BRVMSecurity["sector"])
-    : fallback;
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+const MarketPreferenceGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const dispatch = useAppDispatch();
+
+  useIsomorphicLayoutEffect(() => {
+    const preference = readPersistedMarketPreference();
+    if (preference) dispatch(setActiveMarket(preference));
+  }, [dispatch]);
+
+  return children;
 };
-
-const normalizeSecurityCurrency = (
-  currency: string | undefined,
-  fallback: BRVMSecurity["currency"],
-): BRVMSecurity["currency"] => currency === "XOF" || currency === "XAF" ? currency : fallback;
 
 export type ChartStateData = {
   security: BRVMSecurity;
@@ -126,17 +116,25 @@ const useRequiredTechnicalAnalysisContext = <T,>(
 };
 
 export const useBrokerContext = () => useRequiredTechnicalAnalysisContext(BrokerContext, "BrokerContext", "BrokerProvider");
-export const useCurrencyContext = () => useRequiredTechnicalAnalysisContext(CurrencyContext, "CurrencyContext", "CurrencyProvider");
 export const useChartRefsContext = () => useRequiredTechnicalAnalysisContext(ChartRefsContext, "ChartRefsContext", "ChartRefsProvider");
 export const useMarketDataContext = () => useRequiredTechnicalAnalysisContext(MarketDataContext, "MarketDataContext", "MarketDataProvider");
 export const useChartStateContext = () => useRequiredTechnicalAnalysisContext(ChartStateContext, "ChartStateContext", "ChartStateProvider");
 export const useDrawingContext = () => useRequiredTechnicalAnalysisContext(DrawingContext, "DrawingContext", "DrawingProvider");
 
-const getDefaultSecurity = (): BRVMSecurity => {
-  const security = BRVM_SECURITIES.find((item) => item.ticker === "BOAB") ?? BRVM_SECURITIES[0];
-  if (!security) throw new Error("BRVM security catalog cannot be empty");
-  return security;
-};
+const UNAVAILABLE_SECURITY: BRVMSecurity = Object.freeze({
+  name: "",
+  ticker: "",
+  sector: "" as BRVMSecurity["sector"],
+  marketCap: Number.NaN,
+  priceChangeD1: Number.NaN,
+  peRatio: Number.NaN,
+  returnYTD: Number.NaN,
+  revenueT12M: Number.NaN,
+  epsT12M: Number.NaN,
+  country: "",
+  currency: "",
+  status: "active",
+});
 
 const normalizeDisplaySymbol = (value: string | undefined, fallback: string): string => {
   const symbol = value?.trim().toUpperCase();
@@ -162,14 +160,6 @@ const buildAnonymousInitials = (pseudo: string): string => {
 const BrokerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const state = useBrokerState();
   return <BrokerContext.Provider value={state}>{children}</BrokerContext.Provider>;
-};
-
-const CurrencyProvider: React.FC<{ children: React.ReactNode; initialCurrency: CurrencyCode }> = ({
-  children,
-  initialCurrency,
-}) => {
-  const state = useCurrencyState(initialCurrency);
-  return <CurrencyContext.Provider value={state}>{children}</CurrencyContext.Provider>;
 };
 
 const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -252,55 +242,92 @@ const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
 const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dataMode = useSelector(selectDataMode);
-  const { selectedTicker } = useTickerSelector();
-  const marketData = useMarketData(dataMode, selectedTicker?.ticker, selectedTicker?.isin);
+  const activeMarket = useSelector(selectActiveMarket);
+  const uiState = useSelector(selectUiState);
+  const { selectedTicker, preferredTicker } = useTickerSelector();
+  const activeLayoutCell = uiState.multiChartLayout.charts.find(
+    (chart) => chart.chartId === uiState.multiChartLayout.activeChartId,
+  );
+  const isMultiChartMode = uiState.multiChartLayout.isEnabled
+    && uiState.multiChartLayout.charts.length > 1;
+  const layoutSymbol = isMultiChartMode ? activeLayoutCell?.symbol.trim().toUpperCase() : "";
+  const layoutMarket = isMultiChartMode ? activeLayoutCell?.exchange.trim().toUpperCase() : "";
+  const activeTicker = layoutSymbol || selectedTicker?.ticker || preferredTicker || undefined;
+  const activeMarketScope = layoutMarket || activeMarket.ticker;
+  const marketData = useMarketData(dataMode, activeTicker, undefined, activeMarketScope);
   return <MarketDataContext.Provider value={marketData}>{children}</MarketDataContext.Provider>;
 };
 
 const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const marketDataContext = useMarketDataContext();
   const { chartData, currentActionByTickerData, isLoading: marketIsLoading } = marketDataContext;
-  const dataMode = useSelector(selectDataMode);
-
-  const { selectedTicker, isLoading: isTickerLoading } = useTickerSelector();
-  const currencyState = useCurrencyContext();
+  const { selectedTicker, preferredTicker, isLoading: isTickerLoading } = useTickerSelector();
+  const { displayCurrency: targetCurrency, rates, ratesFetched } = useCurrency();
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
   const isAnonyme = useSelector((state: RootState) => state.technicalAnalysis.ui.isAnonyme);
   const selectedPseudo = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedPseudo);
+  const uiState = useSelector(selectUiState);
+  const activeLayoutCell = uiState.multiChartLayout.charts.find(
+    (chart) => chart.chartId === uiState.multiChartLayout.activeChartId,
+  );
+  const isMultiChartMode = uiState.multiChartLayout.isEnabled
+    && uiState.multiChartLayout.charts.length > 1;
 
   const security = useMemo<BRVMSecurity>(() => {
-    const fallback = selectedTicker ?? getDefaultSecurity();
+    const expectedTicker = String(
+      (isMultiChartMode ? activeLayoutCell?.symbol : "")
+        || selectedTicker?.ticker
+        || preferredTicker
+        || chartConfig.symbol
+        || "",
+    ).trim().toUpperCase();
     const action = currentActionByTickerData;
-    if (!action) return fallback;
+    const actionTicker = String(action?.ticker ?? "").trim().toUpperCase();
+
+    if (!action || !expectedTicker || actionTicker !== expectedTicker) {
+      return UNAVAILABLE_SECURITY;
+    }
+
     return {
-      ...fallback,
-      name: action.society?.name || fallback.name,
-      ticker: action.ticker || fallback.ticker,
-      isin: action.isin || fallback.isin,
-      figi: dataMode === "mock" ? (action as typeof action & { figi?: string }).figi || fallback.figi : (action as typeof action & { figi?: string }).figi || undefined,
-      sector: normalizeSecuritySector(action.society?.industry?.name, fallback.sector),
-      country: action.society?.country?.name || fallback.country,
-      exchange: action.bourse?.ticker || fallback.exchange,
-      currency: normalizeSecurityCurrency(action.bourse?.currency?.symbol, fallback.currency),
+      ...UNAVAILABLE_SECURITY,
+      name: action.society?.name ?? "",
+      ticker: action.ticker ?? "",
+      isin: action.isin ?? undefined,
+      figi: (action as typeof action & { figi?: string }).figi,
+      sector: (normalizeApiLabel(action.society?.industry?.name)
+        || normalizeApiLabel(action.society?.activity?.name)) as BRVMSecurity["sector"],
+      country: action.society?.country?.name ?? "",
+      exchange: action.bourse?.ticker ?? "",
+      currency: normalizeApiLabel(action.bourse?.currency?.symbol).toUpperCase(),
     };
-  }, [currentActionByTickerData, selectedTicker]);
+  }, [activeLayoutCell?.symbol, chartConfig.symbol, currentActionByTickerData, isMultiChartMode, preferredTicker, selectedTicker?.ticker]);
 
-  const baseCurrency = security.currency || "XOF";
-  const targetCurrency = currencyState.selectedCurrency || "XOF";
-  const { exchangeRate, isConverting, conversionStatus } = useCurrencyConverter(baseCurrency, targetCurrency);
+  const baseCurrency = security.currency;
+  const { effectiveRate, conversionStatus } = useMemo(() => {
+    if (!baseCurrency || !targetCurrency || baseCurrency === targetCurrency) {
+      return { effectiveRate: 1, conversionStatus: "native" as CurrencyConversionStatus };
+    }
+
+    const baseRate = rates[baseCurrency];
+    const targetRate = rates[targetCurrency];
+    if (!Number.isFinite(baseRate) || baseRate <= 0 || !Number.isFinite(targetRate) || targetRate <= 0) {
+      return { effectiveRate: 1, conversionStatus: "unavailable" as CurrencyConversionStatus };
+    }
+
+    return {
+      effectiveRate: targetRate / baseRate,
+      conversionStatus: (ratesFetched ? "live" : "loading") as CurrencyConversionStatus,
+    };
+  }, [baseCurrency, rates, ratesFetched, targetCurrency]);
+
   const isCurrencyRateUnavailable = conversionStatus === "unavailable";
+  const currencyDisplayLabel = targetCurrency;
 
-  const effectiveRate = useMemo(() => {
-    if (baseCurrency === targetCurrency) return 1;
-    if (conversionStatus === "live" && exchangeRate !== null) return exchangeRate;
-    return 1;
-  }, [baseCurrency, targetCurrency, conversionStatus, exchangeRate]);
-
-  const currencyDisplayLabel = isCurrencyRateUnavailable ? "Rate unavailable" : targetCurrency;
-
-  // [TENOR 2026 FIX] SCAR-UX-LOADER: Restored marketIsLoading dependency to prevent 2-minute blank chart
-  const globalIsLoading = isTickerLoading || isConverting || (marketIsLoading && chartData.length === 0);
+  // Currency conversion is ancillary: it must never cover a chart whose API candles are already available.
+  const globalIsLoading = (
+    isTickerLoading && !preferredTicker && !chartConfig.symbol
+  ) || (marketIsLoading && chartData.length === 0);
 
   const hasLiveStitchedCandle = false;
 
@@ -400,8 +427,8 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const userInitials = useMemo(() => (isAnonyme ? buildAnonymousInitials(selectedPseudo) : "DA"), [isAnonyme, selectedPseudo]);
   const displaySymbolName = useMemo(
-    () => normalizeDisplaySymbol(chartConfig.symbol || selectedTicker?.ticker || security.ticker, getDefaultSecurity().ticker),
-    [chartConfig.symbol, security.ticker, selectedTicker?.ticker]
+    () => normalizeDisplaySymbol(chartConfig.symbol || selectedTicker?.ticker || preferredTicker || security.ticker, ""),
+    [chartConfig.symbol, preferredTicker, security.ticker, selectedTicker?.ticker]
   );
   const [isMainChartVisible, setIsMainChartVisible] = React.useState(true);
 
@@ -457,6 +484,42 @@ const DrawingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
 };
 
 // ============================================================================
+// DEFERRED NON-CRITICAL MODULES
+// ============================================================================
+
+const LazyTickerSelectorModal = dynamic(
+  () => import("@/components/design-system/commons/TickerSelectorModal").then((module) => module.TickerSelectorModal),
+  { ssr: false, loading: () => null },
+);
+
+const LazyMarketSelectorModal = dynamic(
+  () => import("../components/market/MarketSelectorModal").then((module) => module.MarketSelectorModal),
+  { ssr: false, loading: () => null },
+);
+
+const DeferredTechnicalAnalysisModals: React.FC = () => {
+  const { isModalOpen } = useTickerSelector();
+  const isMarketSelectorOpen = useSelector(selectModals).marketSelector;
+  // The ticker modal is non-critical. Mounting it eagerly triggered an initial
+  // /actions lookup even while the modal was closed, duplicating MarketData's
+  // metadata revalidation and delaying the chart bootstrap. Mount on first open.
+  const [hasMountedTickerSelector, setHasMountedTickerSelector] = React.useState(false);
+  const [hasMountedMarketSelector, setHasMountedMarketSelector] = React.useState(false);
+
+  useEffect(() => {
+    if (isModalOpen) setHasMountedTickerSelector(true);
+    if (isMarketSelectorOpen) setHasMountedMarketSelector(true);
+  }, [isMarketSelectorOpen, isModalOpen]);
+
+  return (
+    <>
+      {hasMountedTickerSelector ? <LazyTickerSelectorModal /> : null}
+      {hasMountedMarketSelector ? <LazyMarketSelectorModal /> : null}
+    </>
+  );
+};
+
+// ============================================================================
 // MASTER WRAPPER
 // ============================================================================
 
@@ -466,21 +529,21 @@ const DrawingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
  */
 export const TechnicalAnalysisProviderTree: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <TickerSelectorProvider initialTicker="BOAB">
-      <BrokerProvider>
-        <CurrencyProvider initialCurrency="XOF">
-          <ChartRefsProvider>
-            <MarketDataProvider>
-              <ChartStateProvider>
-                <DrawingProvider>
-                  {children}
-                  <TickerSelectorModal />
-                </DrawingProvider>
-              </ChartStateProvider>
-            </MarketDataProvider>
-          </ChartRefsProvider>
-        </CurrencyProvider>
-      </BrokerProvider>
+    <TickerSelectorProvider>
+      <MarketPreferenceGate>
+        <BrokerProvider>
+        <ChartRefsProvider>
+          <MarketDataProvider>
+            <ChartStateProvider>
+              <DrawingProvider>
+                {children}
+                <DeferredTechnicalAnalysisModals />
+              </DrawingProvider>
+            </ChartStateProvider>
+          </MarketDataProvider>
+        </ChartRefsProvider>
+        </BrokerProvider>
+      </MarketPreferenceGate>
     </TickerSelectorProvider>
   );
 };

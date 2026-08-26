@@ -47,6 +47,7 @@ interface UseCursorRendererProps {
   chartRef: React.RefObject<EChartsInstance>;
   chartData: CandleData[];
   interactionScopeKey?: string;
+  isChartLoading?: boolean;
 }
 
 // ============================================================================
@@ -70,8 +71,12 @@ interface Particle {
   size: number;
 }
 
-const formatCursorDateText = (time: string | number): string => {
+const CURSOR_HISTORY_AXIS_CATEGORY_PREFIX = "__history__";
+const CURSOR_FUTURE_AXIS_CATEGORY_PREFIX = "__future__";
+
+const formatCursorDateText = (time: string | number): string | null => {
   const date = new Date(time);
+  if (!Number.isFinite(date.getTime())) return null;
   const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
   const day = date.getDate().toString().padStart(2, '0');
   const month = date.toLocaleDateString('en-US', { month: 'short' });
@@ -86,17 +91,16 @@ const formatCursorDateText = (time: string | number): string => {
     : `${dayName} ${day} ${month} ${year}`;
 };
 
-const fallbackCursorDateText = (): string => {
-  const now = new Date();
-  return `${now.toLocaleDateString('en-US', { weekday: 'short' })} ${now.getDate().toString().padStart(2, '0')} ${now.toLocaleDateString('en-US', { month: 'short' })} ${now.getFullYear()}`;
-};
-
 type CursorXAxisOption = {
   data?: unknown[];
 };
 
 const toCursorTimeValue = (value: unknown): string | number | null => {
-  if (typeof value === 'string' && value.trim().length > 0) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const isVirtualAxisCategory = value.startsWith(CURSOR_HISTORY_AXIS_CATEGORY_PREFIX)
+      || value.startsWith(CURSOR_FUTURE_AXIS_CATEGORY_PREFIX);
+    return isVirtualAxisCategory ? null : value;
+  }
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   return null;
 };
@@ -105,14 +109,6 @@ const resolvePrimaryXAxisData = (chart: EChartsInstance): unknown[] | null => {
   const option = chart.getOption() as { xAxis?: CursorXAxisOption | CursorXAxisOption[] };
   const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
   return Array.isArray(xAxis?.data) ? xAxis.data : null;
-};
-
-const resolveAxisTimeAtIndex = (chart: EChartsInstance, dataIndex: number): string | number | null => {
-  const axisData = resolvePrimaryXAxisData(chart);
-  if (!axisData || axisData.length === 0) return null;
-
-  const safeIndex = Math.max(0, Math.min(axisData.length - 1, dataIndex));
-  return toCursorTimeValue(axisData[safeIndex]);
 };
 
 const resolveCandleTimeAtIndex = (data: CandleData[], dataIndex: number): string | number | null => {
@@ -124,26 +120,67 @@ const resolveCandleTimeAtIndex = (data: CandleData[], dataIndex: number): string
   return toCursorTimeValue(time);
 };
 
+const resolveCandleIndexAtClientPoint = (
+  chart: EChartsInstance,
+  data: CandleData[],
+  clientX: number,
+  clientY: number,
+): number | null => {
+  if (data.length === 0 || chart.isDisposed()) return null;
+
+  try {
+    const chartPixel = resolveChartPixelFromClient(chart, clientX, clientY);
+    const pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, chartPixel);
+    if (!pointInData || !Array.isArray(pointInData)) return null;
+
+    const axisValue = pointInData[0];
+    const candleIndexByTime = new Map<string, number>();
+    data.forEach((candle, index) => {
+      const candleTime = Array.isArray(candle) ? candle[0] : candle?.time;
+      if (candleTime !== undefined) candleIndexByTime.set(String(candleTime), index);
+    });
+
+    const directCandleIndex = candleIndexByTime.get(String(axisValue));
+    if (directCandleIndex !== undefined) return directCandleIndex;
+
+    const axisData = resolvePrimaryXAxisData(chart);
+    if (!axisData || axisData.length === 0) return null;
+
+    const categoryIndex = axisData.findIndex((value) => String(value) === String(axisValue));
+    const numericAxisIndex = Number(axisValue);
+    const axisIndex = categoryIndex >= 0
+      ? categoryIndex
+      : Number.isInteger(numericAxisIndex) && numericAxisIndex >= 0 && numericAxisIndex < axisData.length
+        ? numericAxisIndex
+        : -1;
+    if (axisIndex < 0) return null;
+
+    const candleIndexAtCategory = candleIndexByTime.get(String(axisData[axisIndex]));
+    if (candleIndexAtCategory !== undefined) return candleIndexAtCategory;
+
+    const firstCandleAxisIndex = axisData.findIndex((category) => candleIndexByTime.has(String(category)));
+    if (firstCandleAxisIndex < 0) return null;
+
+    const normalizedDataIndex = axisIndex - firstCandleAxisIndex;
+    return normalizedDataIndex >= 0 && normalizedDataIndex < data.length ? normalizedDataIndex : null;
+  } catch {
+    return null;
+  }
+};
+
 const resolveCursorDateText = (
   chart: EChartsInstance | null,
   data: CandleData[],
   clientX: number,
   clientY: number
-): string => {
-  if (!chart || chart.isDisposed()) return fallbackCursorDateText();
+): string | null => {
+  if (!chart || chart.isDisposed()) return null;
 
-  try {
-    const chartPixel = resolveChartPixelFromClient(chart, clientX, clientY);
-    const pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, chartPixel);
-    if (!pointInData || !Array.isArray(pointInData)) return fallbackCursorDateText();
+  const dataIndex = resolveCandleIndexAtClientPoint(chart, data, clientX, clientY);
+  if (dataIndex === null) return null;
 
-    const dataIndex = Math.round(pointInData[0]);
-    const time = resolveAxisTimeAtIndex(chart, dataIndex) ?? resolveCandleTimeAtIndex(data, dataIndex);
-
-    return time ? formatCursorDateText(time) : fallbackCursorDateText();
-  } catch {
-    return fallbackCursorDateText();
-  }
+  const time = resolveCandleTimeAtIndex(data, dataIndex);
+  return time ? formatCursorDateText(time) : null;
 };
 
 /**
@@ -163,6 +200,7 @@ export const useCursorRenderer = ({
   chartRef,
   chartData,
   interactionScopeKey,
+  isChartLoading = false,
 }: UseCursorRendererProps) => {
   const mouseRef = useRef<{ x: number, y: number, clientX: number, clientY: number } | null>(null);
   const isReadyRef = useRef(false);
@@ -193,6 +231,10 @@ export const useCursorRenderer = ({
   const canvasMetricsRef = useRef<{ width: number; height: number; dpr: number } | null>(null);
   const hasCanvasContentRef = useRef(false);
   const cursorVisualsVisibleRef = useRef(false);
+  const isChartLoadingRef = useRef(Boolean(isChartLoading));
+  const hoveredHeaderChartRef = useRef<EChartsInstance | null>(null);
+  const hoveredHeaderBaseTextRef = useRef<string | null>(null);
+  const hoveredHeaderLastTextRef = useRef<string | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -308,6 +350,14 @@ export const useCursorRenderer = ({
 
     const clearPointerState = () => {
       if (!mouseRef.current && !hasCanvasContentRef.current && !cursorVisualsVisibleRef.current) return;
+      const hoveredChart = hoveredHeaderChartRef.current;
+      const baseTitle = hoveredHeaderBaseTextRef.current;
+      if (hoveredChart && baseTitle && !hoveredChart.isDisposed()) {
+        hoveredChart.setOption({ title: { text: baseTitle } });
+      }
+      hoveredHeaderChartRef.current = null;
+      hoveredHeaderBaseTextRef.current = null;
+      hoveredHeaderLastTextRef.current = null;
       mouseRef.current = null;
       cursorVisualsVisibleRef.current = false;
       hideTooltipElement(tooltipRef.current);
@@ -417,6 +467,23 @@ export const useCursorRenderer = ({
   }, [canvasRef, containerRef, eventSourceRef, interactionScopeKey]);
 
   useEffect(() => {
+    isChartLoadingRef.current = Boolean(isChartLoading);
+    if (isChartLoadingRef.current) {
+      mouseRef.current = null;
+      pointerGestureActiveRef.current = false;
+      cursorVisualsVisibleRef.current = false;
+      hideTooltipElement(tooltipRef.current);
+      hideCrosshairElements(crosshairElementsRef.current);
+      if (hasCanvasContentRef.current && canvasRef.current) {
+        const context = canvasRef.current.getContext("2d");
+        context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        hasCanvasContentRef.current = false;
+      }
+    }
+    isDirtyRef.current = true;
+  }, [canvasRef, isChartLoading]);
+
+  useEffect(() => {
     modeRef.current = mode;
     isDirtyRef.current = true;
   }, [mode]);
@@ -437,6 +504,13 @@ export const useCursorRenderer = ({
     chartDataRef.current = chartData;
     isDirtyRef.current = true;
   }, [chartData]);
+
+  useEffect(() => {
+    hoveredHeaderChartRef.current = null;
+    hoveredHeaderBaseTextRef.current = null;
+    hoveredHeaderLastTextRef.current = null;
+    isDirtyRef.current = true;
+  }, [interactionScopeKey]);
 
   useEffect(() => {
     let isActive = true;
@@ -628,7 +702,7 @@ export const useCursorRenderer = ({
     const logicalHeight = Math.max(1, canvasMetrics.height);
     ctx.setTransform(canvasMetrics.dpr, 0, 0, canvasMetrics.dpr, 0, 0);
 
-    const shouldSuspendCursorRender = suspendForDrawingRef.current || (pointerGestureActiveRef.current && currentMode !== 'magic');
+    const shouldSuspendCursorRender = isChartLoadingRef.current || suspendForDrawingRef.current || (pointerGestureActiveRef.current && currentMode !== 'magic');
     if (shouldSuspendCursorRender) {
       if (hasCanvasContentRef.current) {
         ctx.clearRect(0, 0, logicalWidth, logicalHeight);
@@ -665,22 +739,15 @@ export const useCursorRenderer = ({
       w: number,
       h: number,
       chart: EChartsInstance,
-      data: CandleData[]
+      data: CandleData[],
+      headerOnly = false,
     ) => {
       const hideHtmlTooltip = () => hideTooltipElement(tooltipRef.current);
 
       // 1. Get Candle Data
       if (chart.isDisposed()) return;
-      let pointInData;
-      try {
-        pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, resolveChartPixelFromClient(chart, clientX, clientY));
-      } catch {
-        return;
-      }
-
-      if (!pointInData || !Array.isArray(pointInData)) return;
-      const dataIndex = Math.round(pointInData[0]);
-      if (dataIndex < 0 || dataIndex >= data.length) return;
+      const dataIndex = resolveCandleIndexAtClientPoint(chart, data, clientX, clientY);
+      if (dataIndex === null) return;
 
       const candle = data[dataIndex];
       let dOpen, dHigh, dLow, dClose, dVol;
@@ -703,6 +770,34 @@ export const useCursorRenderer = ({
       }
 
       // 2. Calculations
+      if (headerOnly) {
+        const option = chart.getOption() as { title?: Array<{ text?: unknown }> | { text?: unknown } };
+        const title = Array.isArray(option.title) ? option.title[0] : option.title;
+        const currentTitle = typeof title?.text === "string" ? title.text : "";
+        if (!hoveredHeaderBaseTextRef.current) hoveredHeaderBaseTextRef.current = currentTitle;
+        hoveredHeaderChartRef.current = chart;
+        const baseTitle = hoveredHeaderBaseTextRef.current;
+        const prefix = baseTitle.split("{ohlcLabel|O}")[0].trim();
+        const previousCandle = data[dataIndex - 1];
+        const previousClose = Array.isArray(previousCandle) ? Number(previousCandle[2]) : Number(previousCandle?.close);
+        const change = Number.isFinite(previousClose) && previousClose !== 0 ? dClose - previousClose : null;
+        const changePercent = change !== null ? (change / previousClose) * 100 : null;
+        const changeText = change !== null && changePercent !== null
+          ? "{change| " + (change >= 0 ? "+" : "") + change.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " (" + (changePercent >= 0 ? "+" : "") + changePercent.toFixed(2) + "%)}"
+          : "";
+        const nextTitle = prefix + " " +
+          "{ohlcLabel|O}{ohlcValue|" + dOpen.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "} " +
+          "{ohlcLabel|H}{ohlcValue|" + dHigh.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "} " +
+          "{ohlcLabel|L}{ohlcValue|" + dLow.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "} " +
+          "{ohlcLabel|C}{ohlcValue|" + dClose.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "}" + changeText;
+        if (prefix && nextTitle !== hoveredHeaderLastTextRef.current) {
+          chart.setOption({ title: { text: nextTitle } });
+          hoveredHeaderLastTextRef.current = nextTitle;
+        }
+        hideHtmlTooltip();
+        return;
+      }
+
       const isBullish = dClose >= dOpen;
       const colorBull = '#00da3c'; // Green
       const colorBear = '#ce4243'; // Red
@@ -975,31 +1070,23 @@ export const useCursorRenderer = ({
       const showCrosshairLines = currentMode === 'cross' || currentMode === 'cross-tooltip' || currentMode === 'eraser';
       const showDateLabel = currentMode === 'cross' || currentMode === 'cross-tooltip' || currentMode === 'arrow-tooltip';
 
+      const cursorDateText = showDateLabel ? resolveCursorDateText(chart ?? null, currentChartData, clientX, clientY) : null;
       updateCrosshairElements(crosshairElementsRef.current, {
         x,
         y,
         width: w,
         height: h,
         showLines: showCrosshairLines,
-        showDateLabel,
-        dateText: showDateLabel ? resolveCursorDateText(chart ?? null, currentChartData, clientX, clientY) : '',
+        showDateLabel: showDateLabel && cursorDateText !== null,
+        dateText: cursorDateText ?? ""
       });
 
-      if (currentMode !== 'cross-tooltip' && currentMode !== 'arrow-tooltip') {
+      if (currentMode !== 'cross' && currentMode !== 'cross-tooltip' && currentMode !== 'arrow-tooltip') {
         hideTooltipElement(tooltipRef.current);
       }
 
-      // --- MODE: CROSS & CROSS-TOOLTIP ---
-      if (currentMode === 'cross' || currentMode === 'cross-tooltip') {
-        if (currentMode === 'cross-tooltip') {
-          if (chart && currentChartData.length > 0) {
-            drawProTooltip(ctx, x, y, clientX, clientY, w, h, chart, currentChartData);
-          } else {
-            hideTooltipElement(tooltipRef.current);
-          }
-        } else {
-          hideTooltipElement(tooltipRef.current);
-        }
+      if (chart && currentChartData.length > 0) {
+        drawProTooltip(ctx, x, y, clientX, clientY, w, h, chart, currentChartData, true);
       }
 
       // --- MODE: ARROW-TOOLTIP ---

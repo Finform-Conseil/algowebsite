@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { getExchangeMarketStatus } from "@/core/data/ExchangesStaticData";
 import {
   formatBrvmDisplayMinute,
   getBrvmMarketStatus,
 } from "../../../utils/brvmMarketSession";
 
-export function useSidebarMarketClock(lastUpdate: string | undefined) {
+export function useSidebarMarketClock(lastUpdate: string | undefined, exchangeCode?: string) {
   const [marketClockNow, setMarketClockNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -25,8 +26,8 @@ export function useSidebarMarketClock(lastUpdate: string | undefined) {
   }, []);
 
   const sidebarMarketStatus = useMemo(
-    () => getBrvmMarketStatus(marketClockNow ?? 0),
-    [marketClockNow],
+    () => getExchangeMarketStatus(exchangeCode, marketClockNow ?? Date.now()),
+    [exchangeCode, marketClockNow],
   );
 
   const sidebarLastUpdateLabel = useMemo(() => {

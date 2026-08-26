@@ -6,6 +6,7 @@ import type { PineChartOverlayPayload } from "./panels/pineEditor/pineTypes";
 
 export interface TechnicalAnalysisSidebarProps {
   sidebarRef: React.RefObject<HTMLElement | null>;
+  baseCurrency: string;
   security: DisplaySecurity;
   chartData: ChartDataPoint[];
   livePrice: number;

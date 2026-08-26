@@ -25,10 +25,12 @@ import {
   clampViewportWindow,
   normalizeWheelDeltaPx,
 } from "../../hooks/useChartViewport";
+import { ensureLayoutEChartsModulesRegistered } from "./layoutEChartsRegistry";
 import {
   createEmptyLayoutOhlcState,
   createLayoutOhlcState,
   formatLayoutCompactPrice,
+  getLayoutPriceChangeColor,
   formatLayoutPrice,
   formatLayoutShortDate,
   getRenderableOhlcvSeries,
@@ -256,21 +258,30 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   const displayDataRef = useRef<ChartDataPoint[]>(displayData);
   useEffect(() => { displayDataRef.current = displayData; }, [displayData]);
 
-  const updateOhlcFromPoint = useCallback((point: ChartDataPoint | undefined) => {
+  const updateOhlcFromPoint = useCallback((
+    point: ChartDataPoint | undefined,
+    previousPoint?: ChartDataPoint,
+  ) => {
     if (!point) {
       setOhlc(createEmptyLayoutOhlcState());
       return;
     }
-    setOhlc(createLayoutOhlcState(point));
+    setOhlc(createLayoutOhlcState(point, previousPoint));
   }, []);
 
   useEffect(() => {
-    updateOhlcFromPoint(latestPoint);
+    const previousPoint = filteredData[filteredData.length - 2];
+    updateOhlcFromPoint(latestPoint, previousPoint);
     if (latestPoint) {
-      setLastPriceColor(getCandleDirectionColor(latestDirection, chartAppearance.upColor, chartAppearance.downColor));
+      setLastPriceColor(getLayoutPriceChangeColor(
+        latestPoint,
+        previousPoint,
+        chartAppearance.upColor,
+        chartAppearance.downColor,
+      ));
       setLastPriceText(formatLayoutPrice(latestPoint.close));
     }
-  }, [chartAppearance.downColor, chartAppearance.upColor, latestDirection, latestPoint, updateOhlcFromPoint]);
+  }, [chartAppearance.downColor, chartAppearance.upColor, filteredData, latestPoint, updateOhlcFromPoint]);
 
   const updateLastPriceBadgePosition = useCallback(() => {
     const chart = chartInstanceRef.current;
@@ -296,6 +307,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
 
     let chart = chartInstanceRef.current;
     if (!chart || chart.isDisposed()) {
+      ensureLayoutEChartsModulesRegistered();
       chart = echarts.init(canvasEl, undefined, { renderer: "canvas" });
       chartInstanceRef.current = chart;
       onChartReady(cell.chartId, chart);
@@ -307,12 +319,15 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
         if (xInfo && xInfo.value !== undefined) {
           const current = displayDataRef.current;
           let point: ChartDataPoint | undefined;
+          let pointIndex = -1;
           if (typeof xInfo.value === "string") {
-            point = current.find((p) => p.time === xInfo.value);
+            pointIndex = current.findIndex((p) => p.time === xInfo.value);
+            point = pointIndex >= 0 ? current[pointIndex] : undefined;
           } else if (typeof xInfo.value === "number") {
-            point = current[xInfo.value];
+            pointIndex = xInfo.value;
+            point = current[pointIndex];
           }
-          if (point) updateOhlcFromPoint(point);
+          if (point) updateOhlcFromPoint(point, current[pointIndex - 1]);
         }
       });
     }
@@ -717,29 +732,38 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     }
   };
 
+  const hasSelectedSymbol = cell.symbol.trim().length > 0;
+  const displaySymbol = hasSelectedSymbol ? cell.symbol : "Choisir un titre";
   const hasRenderableCandles = displayData.length > 0;
-  const hasTerminalNoData =
-    !hasRenderableCandles && (dataMode !== "real" || loadStatus === "empty" || loadStatus === "failed");
-  const shouldShowPeerLoader =
-    dataMode === "real" && !hasTerminalNoData && (!hasRenderableCandles || !hasPaintedCandles);
+  const hasTerminalNoData = hasSelectedSymbol
+    && !hasRenderableCandles
+    && (dataMode !== "real" || loadStatus === "empty" || loadStatus === "failed");
+  const shouldShowPeerLoader = hasSelectedSymbol
+    && dataMode === "real"
+    && !hasTerminalNoData
+    && !hasRenderableCandles;
   const shouldShowEmptyState = hasTerminalNoData;
-  const peerLoaderLabel = hasRenderableCandles ? "Rendering candles" : "Loading data";
-  const peerEmptyLabel = loadStatus === "failed" ? "Data unavailable" : "No data";
+  const shouldShowSelectionState = !hasSelectedSymbol;
+  const peerLoaderLabel = "Chargement des données";
+  const peerEmptyLabel = loadStatus === "failed" ? "Données indisponibles" : "Aucune donnée disponible";
 
   return (
     <div
       ref={containerRef}
       className="gp-peer-chart"
-      onClick={onActivate}
+      onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onActivate();
+          if (hasSelectedSymbol) onActivate();
+          else onHeaderClick();
         }
       }}
-      aria-label={`Activer le graphique secondaire de ${cell.symbol}`}
+      aria-label={hasSelectedSymbol
+        ? "Activer le graphique secondaire de " + displaySymbol
+        : `Choisir un titre · ${cell.exchange || "N/D"}`}
     >
       <div className="gp-peer-chart__header">
         <span
@@ -748,9 +772,10 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           onKeyDown={handleHeaderKeyDown}
           role="button"
           tabIndex={0}
-          aria-label={`Modifier le symbole ${cell.symbol}`}
+          aria-label={"Modifier le symbole " + displaySymbol}
         >
-          <strong className="gp-peer-chart__symbol">{cell.symbol}</strong>
+          <strong className="gp-peer-chart__symbol">{displaySymbol}</strong>
+          <span className="gp-peer-chart__interval">{cell.exchange || "N/D"}</span>
           <span className="gp-peer-chart__interval">{cell.interval}</span>
           <i className="bi bi-search gp-peer-chart__search-icon" aria-hidden="true" />
         </span>
@@ -767,19 +792,26 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
       </div>
 
       <div className="gp-peer-chart__canvas">
-        <div ref={canvasRef} className="gp-peer-chart__echart" aria-hidden={shouldShowPeerLoader || shouldShowEmptyState} />
+        <div ref={canvasRef} className="gp-peer-chart__echart" aria-hidden={shouldShowPeerLoader || shouldShowEmptyState || shouldShowSelectionState} />
         {shouldShowPeerLoader && (
           <div className="gp-peer-chart__loading" aria-live="polite">
             <span className="gp-mini-data-spinner" aria-hidden="true" />
             <strong>{peerLoaderLabel}</strong>
-            <em>{cell.symbol}</em>
+            <em>{displaySymbol}</em>
+          </div>
+        )}
+        {shouldShowSelectionState && (
+          <div className="gp-peer-chart__empty-state" aria-live="polite">
+            <i className="bi bi-plus-circle" aria-hidden="true" />
+            <strong>Choisir un titre</strong>
+            <em>{cell.exchange}</em>
           </div>
         )}
         {shouldShowEmptyState && (
           <div className="gp-peer-chart__empty-state" aria-live="polite">
             <i className="bi bi-exclamation-triangle" aria-hidden="true" />
             <strong>{peerEmptyLabel}</strong>
-            <em>{cell.symbol}</em>
+            <em>{displaySymbol}</em>
           </div>
         )}
         {lastPriceY !== null && hasPaintedCandles && !shouldShowPeerLoader && !shouldShowEmptyState && (

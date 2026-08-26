@@ -132,21 +132,40 @@ export const getLayoutSeriesStats = (
   };
 };
 
-export const createLayoutOhlcState = (point: ChartDataPoint | undefined): LayoutOhlcState => {
+export const createLayoutOhlcState = (
+  point: ChartDataPoint | undefined,
+  previousPoint?: ChartDataPoint,
+): LayoutOhlcState => {
   if (!isRenderableOhlcvPoint(point)) return createEmptyLayoutOhlcState();
 
-  const change = point.close - point.open;
-  const changePercent = point.open === 0 ? 0 : (change / point.open) * 100;
-  const sign = change >= 0 ? "+" : "";
+  const previousClose = isRenderableOhlcvPoint(previousPoint) && previousPoint.close !== 0
+    ? previousPoint.close
+    : null;
+  const change = previousClose === null ? null : point.close - previousClose;
+  const changePercent = change === null || previousClose === null
+    ? null
+    : (change / previousClose) * 100;
+  const sign = change !== null && change >= 0 ? "+" : "";
 
   return {
     open: formatLayoutPrice(point.open),
     high: formatLayoutPrice(point.high),
     low: formatLayoutPrice(point.low),
     close: formatLayoutPrice(point.close),
-    change: `${sign}${formatLayoutPrice(change)}`,
-    changePercent: `${sign}${changePercent.toFixed(2)}%`,
+    change: change === null ? LAYOUT_EMPTY_VALUE : `${sign}${formatLayoutPrice(change)}`,
+    changePercent: changePercent === null ? LAYOUT_EMPTY_VALUE : `${sign}${changePercent.toFixed(2)}%`,
     volume: formatLayoutVolume(point.volume),
     time: formatLayoutDateTime(point.time),
   };
+};
+
+export const getLayoutPriceChangeColor = (
+  point: ChartDataPoint | undefined,
+  previousPoint: ChartDataPoint | undefined,
+  upColor = "#00e676",
+  downColor = "#ff1744",
+): string => {
+  if (!isRenderableOhlcvPoint(point)) return "#94a3b8";
+  const comparisonPrice = isRenderableOhlcvPoint(previousPoint) ? previousPoint.close : point.open;
+  return point.close >= comparisonPrice ? upColor : downColor;
 };

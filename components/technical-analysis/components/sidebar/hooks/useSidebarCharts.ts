@@ -23,6 +23,7 @@ interface UseSidebarChartsInput extends SidebarChartRefs {
   canRenderIncomeStatement: boolean;
   chartData: ChartDataPoint[];
   dataMode: "mock" | "real";
+  displayCurrency: string;
   financialMetrics: SidebarFinancialMetrics;
   hasVerifiedDividends: boolean;
   hasVerifiedEarnings: boolean;
@@ -43,6 +44,7 @@ export function useSidebarCharts(input: UseSidebarChartsInput): void {
     canRenderIncomeStatement,
     chartData,
     dataMode,
+    displayCurrency,
     dividendsChartRef,
     financialMetrics,
     hasVerifiedDividends,
@@ -64,8 +66,8 @@ export function useSidebarCharts(input: UseSidebarChartsInput): void {
   useSidebarChart({
     chartRef: benefitsChartRef,
     enabled: isChartRuntimeReady && !isFundamentalsPanelLoading && hasVerifiedEarnings,
-    dependencies: [sidebarChartMountKey, isChartRuntimeReady, dataMode, hasVerifiedEarnings, isFundamentalsPanelLoading, validFundamentals],
-    render: () => buildBenefitsChartOption(dataMode, validFundamentals),
+    dependencies: [sidebarChartMountKey, isChartRuntimeReady, dataMode, hasVerifiedEarnings, isFundamentalsPanelLoading, validFundamentals, displayCurrency],
+    render: () => buildBenefitsChartOption(dataMode, validFundamentals, displayCurrency),
   });
 
   useSidebarChart({
@@ -78,8 +80,8 @@ export function useSidebarCharts(input: UseSidebarChartsInput): void {
   useSidebarChart({
     chartRef: incomeChartRef,
     enabled: isChartRuntimeReady && !isFundamentalsPanelLoading && canRenderIncomeStatement,
-    dependencies: [sidebarChartMountKey, isChartRuntimeReady, canRenderIncomeStatement, dataMode, incomeViewMode, isFundamentalsPanelLoading, normalizedSecurityTicker, validFundamentals],
-    render: (_chart, echarts) => buildIncomeChartOption({ dataMode, echarts, fundamentals: validFundamentals, incomeViewMode, ticker: normalizedSecurityTicker }),
+    dependencies: [sidebarChartMountKey, isChartRuntimeReady, canRenderIncomeStatement, dataMode, incomeViewMode, isFundamentalsPanelLoading, normalizedSecurityTicker, validFundamentals, displayCurrency],
+    render: (_chart, echarts) => buildIncomeChartOption({ dataMode, displayCurrency, echarts, fundamentals: validFundamentals, incomeViewMode, ticker: normalizedSecurityTicker }),
     setOptionOptions: { notMerge: true },
   });
 
@@ -92,15 +94,15 @@ export function useSidebarCharts(input: UseSidebarChartsInput): void {
 
   useSidebarChart({
     chartRef: volatilityChartRef,
-    enabled: isChartRuntimeReady && (dataMode === "mock" ? chartData.length >= 5 : hasApiVolatilityTermStructure(apiTechnicalIndicator)) && !isLoading,
-    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, dataMode, apiTechnicalIndicator, isLoading],
-    render: (_chart, echarts) => buildVolatilityTermStructureOption(chartData.map((point) => point.close), echarts, apiTechnicalIndicator, dataMode),
+    enabled: isChartRuntimeReady && hasApiVolatilityTermStructure(apiTechnicalIndicator) && !isLoading,
+    dependencies: [sidebarChartMountKey, isChartRuntimeReady, apiTechnicalIndicator, isLoading],
+    render: (_chart, echarts) => buildVolatilityTermStructureOption([], echarts, apiTechnicalIndicator, "real"),
   });
 
   useSidebarChart({
     chartRef: volatilityCurveChartRef,
-    enabled: isChartRuntimeReady && chartData.length >= 28 && !isLoading,
-    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, isLoading],
+    enabled: false,
+    dependencies: [sidebarChartMountKey, isChartRuntimeReady, chartData, dataMode, isLoading],
     render: (_chart, echarts) => buildVolatilityCurveOption(chartData.map((point) => point.close), echarts),
   });
 }

@@ -40,7 +40,7 @@ export interface MultiChartLayoutSync {
 export interface MultiChartLayoutCell {
   chartId: string;
   symbol: string;
-  exchange: "BRVM";
+  exchange: string;
   interval: string;
   indicators: string[];
   isActive: boolean;

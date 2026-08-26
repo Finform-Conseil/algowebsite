@@ -64,6 +64,7 @@ const toolbarConfig = require("../../toolbar-config-antigravity.json");
 const fibDefaults = require("../drawing/fibDefaults.ts");
 const pureMultiChartLayouts = require("../layout/multiChartLayouts.ts");
 const brvmLayoutSymbols = require("../layout/brvmLayoutSymbols.ts");
+const marketDataCacheKey = require("../market/marketDataCacheKey.ts");
 
 const createAdvancedMaState = (overrides = {}) => ({
   activeWma: [],
@@ -310,39 +311,53 @@ test("drawing config exposes pure specs and drawing constants without icon coupl
 });
 
 
-test("multiChartLayout preserves layout counts, dense sync behavior, and preset symbols", () => {
+test("multiChartLayout preserves layout counts, market scope, and caller-supplied symbols", () => {
   assert.equal(pureMultiChartLayouts.getLayoutDefinition("four_grid").chartCount, 4);
   assert.equal(pureMultiChartLayouts.getLayoutDefinition("unknown_layout").id, "single");
   assert.equal(pureMultiChartLayouts.normalizeLayoutSymbol(" boab "), "BOAB");
   assert.equal(pureMultiChartLayouts.isDenseMultiChartLayout("eight_grid"), true);
   assert.equal(pureMultiChartLayouts.isDenseMultiChartLayout("four_grid"), false);
 
-  const pureFourGrid = pureMultiChartLayouts.createDefaultMultiChartLayout("four_grid", "BOAB", ["SGBC"]);
-  assert.deepEqual(
-    pureFourGrid.charts.map((chart) => chart.symbol),
-    ["BOAB", "SGBC", "BOAB", "BOAB"],
-  );
-  assert.deepEqual(brvmLayoutSymbols.BRVM_LAYOUT_SYMBOL_FALLBACKS.slice(0, 3), ["BRVMC", "SNTS", "BOAC"]);
+  const pureFourGrid = pureMultiChartLayouts.createDefaultMultiChartLayout("four_grid", "BCP", ["BOA"], "CSE");
+  assert.deepEqual(pureFourGrid.charts.map((chart) => chart.symbol), ["BCP", "BOA", "", ""]);
+  assert.deepEqual(pureFourGrid.charts.map((chart) => chart.exchange), ["CSE", "CSE", "", ""]);
+  assert.equal(Object.hasOwn(brvmLayoutSymbols, "BRVM_LAYOUT_SYMBOL_FALLBACKS"), false);
 
-  const defaultFourGrid = brvmLayoutSymbols.createDefaultBrvmMultiChartLayout("four_grid", "BOAB", ["SGBC"]);
+  const defaultFourGrid = brvmLayoutSymbols.createDefaultBrvmMultiChartLayout("four_grid", "BCP", ["BOA"], "CSE");
   assert.equal(defaultFourGrid.isEnabled, true);
   assert.equal(defaultFourGrid.activeChartId, "chart_1");
   assert.deepEqual(
-    defaultFourGrid.charts.map((chart) => [chart.chartId, chart.symbol, chart.interval, chart.isActive]),
+    defaultFourGrid.charts.map((chart) => [chart.chartId, chart.symbol, chart.exchange, chart.interval, chart.isActive]),
     [
-      ["chart_1", "BOAB", "1D", true],
-      ["chart_2", "SGBC", "1D", false],
-      ["chart_3", "BRVMC", "1D", false],
-      ["chart_4", "SNTS", "1D", false],
+      ["chart_1", "BCP", "CSE", "1D", true],
+      ["chart_2", "BOA", "CSE", "1D", false],
+      ["chart_3", "", "", "1D", false],
+      ["chart_4", "", "", "1D", false],
     ],
   );
+
+  const legacyCurrent = {
+    ...defaultFourGrid,
+    charts: defaultFourGrid.charts.map((chart, index) => index === 1
+      ? { ...chart, symbol: "BRVMC", exchange: "BRVM" }
+      : chart),
+  };
+  const sanitizedLegacy = brvmLayoutSymbols.reconcileBrvmMultiChartLayout(
+    legacyCurrent,
+    "two_horizontal",
+    "BCP",
+    [],
+    "CSE",
+  );
+  assert.deepEqual(sanitizedLegacy.charts.map((chart) => chart.symbol), ["BCP", ""]);
+  assert.deepEqual(sanitizedLegacy.charts.map((chart) => chart.exchange), ["CSE", ""]);
 
   const denseCurrent = {
     ...defaultFourGrid,
     layoutId: "six_grid",
     sync: { symbol: true, interval: true, crosshair: true, time: true, dateRange: true },
   };
-  const reconciled = brvmLayoutSymbols.reconcileBrvmMultiChartLayout(denseCurrent, "eight_grid", "BOAB", ["SGBC"]);
+  const reconciled = brvmLayoutSymbols.reconcileBrvmMultiChartLayout(denseCurrent, "eight_grid", "BCP", ["BOA"], "CSE");
   assert.equal(reconciled.charts.length, 8);
   assert.deepEqual(reconciled.sync, {
     symbol: false,
@@ -353,12 +368,28 @@ test("multiChartLayout preserves layout counts, dense sync behavior, and preset 
   });
 
   const sectorPreset = pureMultiChartLayouts.MULTI_CHART_PRESETS.find((preset) => preset.id === "sector_compare");
-  const sectorLayout = brvmLayoutSymbols.createPresetLayout(sectorPreset, "BOAB");
+  const sectorLayout = brvmLayoutSymbols.createPresetLayout(sectorPreset, "BCP", "CSE", ["BOA", "CASH", "AFRIC_INDUSTRIES_SA"]);
   assert.equal(sectorLayout.layoutId, "four_grid");
-  assert.deepEqual(sectorLayout.charts.map((chart) => chart.symbol), ["BOAB", "BOAC", "SGBC", "BRVMC"]);
+  assert.deepEqual(sectorLayout.charts.map((chart) => chart.symbol), ["BCP", "BOA", "CASH", "AFRIC_INDUSTRIES_SA"]);
+  assert.deepEqual(sectorLayout.charts.map((chart) => chart.exchange), ["CSE", "CSE", "CSE", "CSE"]);
 
   const marketMonitorPreset = pureMultiChartLayouts.MULTI_CHART_PRESETS.find((preset) => preset.id === "market_monitor");
-  const marketMonitor = brvmLayoutSymbols.createPresetLayout(marketMonitorPreset, "BOAB");
+  const marketMonitor = brvmLayoutSymbols.createPresetLayout(
+    marketMonitorPreset,
+    "GTCO",
+    "NGX",
+    ["ZENITH", "ACCESS", "DANGC", "MTNN", "BUAC"],
+  );
   assert.equal(marketMonitor.charts.length, 6);
-  assert.deepEqual(marketMonitor.charts.map((chart) => chart.symbol), ["BRVMC", "SNTS", "SGBC", "TTLC", "PALC", "CFAC"]);
+  assert.deepEqual(marketMonitor.charts.map((chart) => chart.symbol), ["GTCO", "ZENITH", "ACCESS", "DANGC", "MTNN", "BUAC"]);
+  assert.deepEqual(marketMonitor.charts.map((chart) => chart.exchange), ["NGX", "NGX", "NGX", "NGX", "NGX", "NGX"]);
+});
+
+test("market data cache key isolates identical tickers across exchanges", () => {
+  assert.equal(marketDataCacheKey.createMarketDataCacheKey(" brvm ", " boab "), "BRVM::BOAB");
+  assert.equal(marketDataCacheKey.createMarketDataCacheKey("CSE", "BOAB"), "CSE::BOAB");
+  assert.notEqual(
+    marketDataCacheKey.createMarketDataCacheKey("BRVM", "BOAB"),
+    marketDataCacheKey.createMarketDataCacheKey("CSE", "BOAB"),
+  );
 });

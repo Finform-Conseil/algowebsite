@@ -9,13 +9,28 @@ import type { TechnicalAnalysisState } from "../../config/state/technicalAnalysi
 import {
   getLayoutDefinition,
   isDenseMultiChartLayout,
+  isMultiChartPresetAvailable,
   MULTI_CHART_PRESETS,
 } from "../../config/layout/multiChartLayouts";
 import {
-  createDefaultBrvmMultiChartLayout as createDefaultMultiChartLayout,
+  createDefaultMarketMultiChartLayout as createDefaultMultiChartLayout,
   createPresetLayout,
-  reconcileBrvmMultiChartLayout as reconcileMultiChartLayout,
+  reconcileMarketMultiChartLayout as reconcileMultiChartLayout,
 } from "../../config/layout/brvmLayoutSymbols";
+
+type SetMultiChartLayoutPayload = MultiChartLayoutId | {
+  layoutId: MultiChartLayoutId;
+  primarySymbol?: string;
+  market?: string;
+};
+
+type ApplyMultiChartPresetPayload = string | {
+  presetId: string;
+  primarySymbol?: string;
+  market?: string;
+};
+
+const normalizeLayoutBinding = (value: string | undefined): string => value?.trim().toUpperCase() ?? "";
 
 const forcePrimaryLayoutChartActive = (layout: MultiChartLayoutState): MultiChartLayoutState => {
   const primaryChartId = layout.charts[0]?.chartId ?? layout.activeChartId;
@@ -29,15 +44,21 @@ const forcePrimaryLayoutChartActive = (layout: MultiChartLayoutState): MultiChar
 export const multiChartReducers = {
   setMultiChartLayout: (
     state: TechnicalAnalysisState,
-    action: PayloadAction<MultiChartLayoutId>,
+    action: PayloadAction<SetMultiChartLayoutPayload>,
   ) => {
+    const payload = typeof action.payload === "string"
+      ? { layoutId: action.payload }
+      : action.payload;
+    const primarySymbol = normalizeLayoutBinding(payload.primarySymbol) || normalizeLayoutBinding(state.chartConfig.symbol);
+    const market = normalizeLayoutBinding(payload.market) || normalizeLayoutBinding(state.ui.activeMarket.ticker) || "BRVM";
     const nextLayout = reconcileMultiChartLayout(
       state.ui.multiChartLayout,
-      action.payload,
-      state.chartConfig.symbol,
+      payload.layoutId,
+      primarySymbol,
       state.ui.comparisonSymbols,
+      market,
     );
-    state.ui.multiChartLayout = isDenseMultiChartLayout(action.payload)
+    state.ui.multiChartLayout = isDenseMultiChartLayout(payload.layoutId)
       ? forcePrimaryLayoutChartActive({ ...nextLayout, sync: { ...nextLayout.sync, symbol: false, crosshair: false } })
       : nextLayout;
   },
@@ -59,8 +80,12 @@ export const multiChartReducers = {
 
       if (action.payload.key === "symbol") {
         const targetSymbol = activeChart ? activeChart.symbol : state.chartConfig.symbol;
+        const targetExchange = normalizeLayoutBinding(activeChart?.exchange)
+          || normalizeLayoutBinding(state.ui.activeMarket.ticker)
+          || "BRVM";
         state.ui.multiChartLayout.charts.forEach((chart) => {
           chart.symbol = targetSymbol;
+          chart.exchange = targetExchange;
         });
       } else if (action.payload.key === "interval") {
         const targetInterval = activeChart ? activeChart.interval : state.chartConfig.timeframe;
@@ -72,18 +97,20 @@ export const multiChartReducers = {
   },
   setActiveLayoutChart: (state: TechnicalAnalysisState, action: PayloadAction<string>) => {
     const target = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === action.payload);
-    if (!target) return;
+    // An unbound slot is a configuration placeholder, never an interactive
+    // canonical chart. Market/ticker selection for it is handled separately.
+    if (!target?.symbol.trim()) return;
 
     state.ui.multiChartLayout.activeChartId = target.chartId;
     state.ui.multiChartLayout.charts.forEach((chart) => {
       chart.isActive = chart.chartId === target.chartId;
     });
-    state.chartConfig.symbol = target.symbol;
+    if (target.symbol) state.chartConfig.symbol = target.symbol;
     state.chartConfig.timeframe = target.interval;
   },
   setEditChartTarget: (state: TechnicalAnalysisState, action: PayloadAction<string>) => {
     const target = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === action.payload);
-    if (!target) return;
+    if (!target?.symbol.trim()) return;
     state.ui.multiChartLayout.activeChartId = target.chartId;
     state.ui.multiChartLayout.charts.forEach((chart) => {
       chart.isActive = chart.chartId === target.chartId;
@@ -91,16 +118,23 @@ export const multiChartReducers = {
   },
   updateLayoutChart: (
     state: TechnicalAnalysisState,
-    action: PayloadAction<{ chartId: string; symbol?: string; interval?: string }>,
+    action: PayloadAction<{ chartId: string; symbol?: string; interval?: string; exchange?: string }>,
   ) => {
     const layout = state.ui.multiChartLayout;
     const normalizedSymbol = action.payload.symbol?.trim().toUpperCase();
+    const normalizedExchange = action.payload.exchange?.trim().toUpperCase();
     const target = layout.charts.find((chart) => chart.chartId === action.payload.chartId);
     if (!target) return;
 
     layout.charts.forEach((chart) => {
       const isTarget = chart.chartId === target.chartId;
-      if (normalizedSymbol && (layout.sync.symbol || isTarget)) chart.symbol = normalizedSymbol;
+      if (normalizedSymbol && (layout.sync.symbol || isTarget)) {
+        chart.symbol = normalizedSymbol;
+        // Exchange is part of the symbol binding. Never infer or preserve a
+        // stale workspace/cell exchange when a caller changes the symbol
+        // without supplying its market: fail closed to an unbound exchange.
+        chart.exchange = normalizedExchange ?? "";
+      }
       if (action.payload.interval && (layout.sync.interval || isTarget)) chart.interval = action.payload.interval;
     });
 
@@ -109,10 +143,20 @@ export const multiChartReducers = {
       if (action.payload.interval) state.chartConfig.timeframe = action.payload.interval;
     }
   },
-  applyMultiChartPreset: (state: TechnicalAnalysisState, action: PayloadAction<string>) => {
-    const preset = MULTI_CHART_PRESETS.find((entry) => entry.id === action.payload);
-    if (!preset) return;
-    state.ui.multiChartLayout = createPresetLayout(preset, state.chartConfig.symbol);
+  applyMultiChartPreset: (state: TechnicalAnalysisState, action: PayloadAction<ApplyMultiChartPresetPayload>) => {
+    const payload = typeof action.payload === "string"
+      ? { presetId: action.payload }
+      : action.payload;
+    const preset = MULTI_CHART_PRESETS.find((entry) => entry.id === payload.presetId);
+    if (!preset || !isMultiChartPresetAvailable(preset)) return;
+    const primarySymbol = normalizeLayoutBinding(payload.primarySymbol) || normalizeLayoutBinding(state.chartConfig.symbol);
+    const market = normalizeLayoutBinding(payload.market) || normalizeLayoutBinding(state.ui.activeMarket.ticker) || "BRVM";
+    state.ui.multiChartLayout = createPresetLayout(
+      preset,
+      primarySymbol,
+      market,
+      state.ui.comparisonSymbols,
+    );
     const active = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === state.ui.multiChartLayout.activeChartId);
     if (active) {
       state.chartConfig.symbol = active.symbol;
@@ -124,28 +168,39 @@ export const multiChartReducers = {
     action: PayloadAction<MultiChartLayoutState>,
   ) => {
     const isDenseLayout = isDenseMultiChartLayout(action.payload.layoutId);
-    const primarySymbol = isDenseLayout
-      ? state.chartConfig.symbol
-      : action.payload.charts[0]?.symbol || state.chartConfig.symbol;
+    const primarySymbol = state.chartConfig.symbol || action.payload.charts[0]?.symbol || "";
+    const persistedPrimary = action.payload.charts[0];
+    const persistedPrimarySymbol = normalizeLayoutBinding(persistedPrimary?.symbol);
+    const persistedPrimaryMarket = normalizeLayoutBinding(persistedPrimary?.exchange);
+    const hydrationMarket = persistedPrimarySymbol === primarySymbol && persistedPrimaryMarket
+      ? persistedPrimaryMarket
+      : state.ui.activeMarket.ticker;
     const hydrated = reconcileMultiChartLayout(
       action.payload,
       action.payload.layoutId,
       primarySymbol,
       state.ui.comparisonSymbols,
+      hydrationMarket,
     );
     const normalizedHydrated = isDenseLayout ? forcePrimaryLayoutChartActive(hydrated) : hydrated;
+    const persistedSync = action.payload.sync ?? normalizedHydrated.sync;
     state.ui.multiChartLayout = {
       ...normalizedHydrated,
       sync: {
-        symbol: false,
-        interval: false,
-        crosshair: false,
-        time: false,
-        dateRange: false,
+        symbol: isDenseLayout ? false : Boolean(persistedSync.symbol),
+        interval: Boolean(persistedSync.interval),
+        crosshair: Boolean(persistedSync.crosshair),
+        time: Boolean(persistedSync.time),
+        dateRange: Boolean(persistedSync.dateRange),
       },
     };
   },
   resetMultiChartLayout: (state: TechnicalAnalysisState) => {
-    state.ui.multiChartLayout = createDefaultMultiChartLayout("single", state.chartConfig.symbol);
+    state.ui.multiChartLayout = createDefaultMultiChartLayout(
+      "single",
+      state.chartConfig.symbol,
+      state.ui.comparisonSymbols,
+      state.ui.activeMarket.ticker,
+    );
   },
 };

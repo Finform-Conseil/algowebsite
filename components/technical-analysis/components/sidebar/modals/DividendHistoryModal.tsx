@@ -10,6 +10,7 @@ interface DividendHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   ticker: string;
+  currency: string;
   dividends?: BRVMDividendPoint[];
 }
 
@@ -26,6 +27,7 @@ export const DividendHistoryModal: React.FC<DividendHistoryModalProps> = ({
   isOpen,
   onClose,
   ticker,
+  currency,
   dividends,
 }) => {
   const titleId = useId();
@@ -120,7 +122,7 @@ export const DividendHistoryModal: React.FC<DividendHistoryModalProps> = ({
                 sortedDividends.map((dividend, index) => (
                   <tr key={`${dividend.year}-${dividend.value}-${index}`} className="hover:bg-[#2a2e39] transition-colors">
                     <td className="px-4 py-3 text-white">{dividend.year}</td>
-                    <td className="px-4 py-3 text-[#10b981] font-bold">{formatDividendAmount(dividend.value)}</td>
+                    <td className="px-4 py-3 text-[#10b981] font-bold">{formatDividendAmount(dividend.value, currency)}</td>
                     <td className="px-4 py-3">{dividend.exDate || "N/D"}</td>
                     <td className="px-4 py-3">{dividend.payDate || "N/D"}</td>
                   </tr>
@@ -141,9 +143,9 @@ export const DividendHistoryModal: React.FC<DividendHistoryModalProps> = ({
   );
 };
 
-function formatDividendAmount(value: number): string {
+function formatDividendAmount(value: number, currency: string): string {
   if (!Number.isFinite(value)) return "N/D";
-  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} FCFA`;
+  return value.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " " + currency;
 }
 
 function focusFirstDialogElement(dialog: HTMLDivElement | null): void {

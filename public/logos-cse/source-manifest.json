@@ -1,0 +1,14 @@
+{
+  "contract": "logo-source-manifest-v1",
+  "exchange": "CSE",
+  "source_manifest": "manifest.json",
+  "normalized_manifest": "normalization-manifest.json",
+  "source": {
+    "api": "https://www.cse.lk/api/",
+    "logo_cdn": "https://cdn.cse.lk/cmt/"
+  },
+  "license": "Unspecified by source; trademark and redistribution review required",
+  "records": 268,
+  "normalized_records": 246,
+  "failed_source_records": 16
+}

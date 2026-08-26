@@ -57,12 +57,13 @@ require.extensions[".ts"] = function loadTypeScript(module, filename) {
 const mappingPath = path.join(projectRoot, "public/logos-brvm/mapping.json");
 const logosDir = path.dirname(mappingPath);
 const mapping = JSON.parse(fs.readFileSync(mappingPath, "utf8"));
-const mappingTickers = Object.keys(mapping).sort();
+const mappingTickers = Object.keys(mapping).filter((ticker) => ticker !== "etit").sort();
 
 const {
   BRVM_LOGO_TICKERS,
   getBrvmLogoIssuerName,
   getBrvmLogoUrl,
+  getBrvmLogoUrlByIssuerName,
   hasBrvmLogo,
 } = require("../brvm-logo-registry.ts");
 const { BRVM_SECURITIES } = require("../brvm-securities.ts");
@@ -71,32 +72,45 @@ const isMarketIndex = (security) => security.sector === "Market Indices";
 const isDelisted = (security) => security.status === "delisted";
 const isListedEquity = (security) => !isMarketIndex(security) && !isDelisted(security);
 
-test("logos-brvm mapping and PNG assets stay in one-to-one sync", () => {
+test("logos-brvm mapping and WebP assets stay in one-to-one sync", () => {
   const pngTickers = fs.readdirSync(logosDir)
-    .filter((fileName) => fileName.endsWith(".png"))
-    .map((fileName) => path.basename(fileName, ".png"))
+    .filter((fileName) => fileName.endsWith(".webp"))
+    .map((fileName) => path.basename(fileName, ".webp"))
     .sort();
 
   assert.deepEqual(pngTickers, mappingTickers);
   assert.deepEqual(BRVM_LOGO_TICKERS.map((ticker) => ticker.toLowerCase()).sort(), mappingTickers);
 
   mappingTickers.forEach((ticker) => {
-    const assetPath = path.join(logosDir, `${ticker}.png`);
-    assert.equal(fs.existsSync(assetPath), true, `${ticker}.png must exist`);
-    assert.equal(getBrvmLogoUrl(ticker.toUpperCase()), `/logos-brvm/${ticker}.png`);
+    const assetPath = path.join(logosDir, `${ticker}.webp`);
+    assert.equal(fs.existsSync(assetPath), true, `${ticker}.webp must exist`);
+    assert.equal(getBrvmLogoUrl(ticker.toUpperCase()), `/logos-brvm/${ticker}.webp`);
     assert.equal(hasBrvmLogo(ticker.toUpperCase()), true);
     assert.equal(getBrvmLogoIssuerName(ticker.toUpperCase()), mapping[ticker]);
   });
 });
 
+test("API issuer names resolve to canonical local WebP assets", () => {
+  assert.equal(getBrvmLogoUrlByIssuerName("ORANGE COTE D'IVOIRE"), "/logos-brvm/orac.webp");
+  assert.equal(
+    getBrvmLogoUrlByIssuerName("ECOBANK TRANSNATIONAL INCORPORATED"),
+    "/logos-brvm/ecoc.webp",
+  );
+  assert.equal(
+    getBrvmLogoUrlByIssuerName("SOCIETE IVOIRIENNE DES TABACS"),
+    "/logos-brvm/stbc.webp",
+  );
+  assert.equal(getBrvmLogoUrlByIssuerName("Unknown issuer"), undefined);
+});
+
 test("listed BRVM securities use only canonical logos-brvm URLs", () => {
   const listedSecurities = BRVM_SECURITIES.filter(isListedEquity);
-  const listedTickers = listedSecurities.map((security) => security.ticker.toLowerCase()).sort();
+  const listedTickers = listedSecurities.filter((security) => security.ticker.toLowerCase() !== "etit").map((security) => security.ticker.toLowerCase()).sort();
 
   assert.deepEqual(listedTickers, mappingTickers);
 
   listedSecurities.forEach((security) => {
-    const expectedLogoUrl = `/logos-brvm/${security.ticker.toLowerCase()}.png`;
+    const expectedLogoUrl = security.ticker.toLowerCase() === "etit" ? "/logos-brvm/ecoc.webp" : "/logos-brvm/" + security.ticker.toLowerCase() + ".webp";
     assert.equal(security.logoUrl, expectedLogoUrl, `${security.ticker} must use the real local logo asset`);
   });
 });

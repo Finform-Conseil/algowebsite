@@ -28,6 +28,29 @@ export interface ICacheAdapter {
   set: (key: string, response: Response, ttlSeconds: number) => Promise<void>;
 }
 
+const REDIS_OPERATION_BUDGET_MS = Math.max(
+  50,
+  Number.parseInt(process.env.PROXY_REDIS_CACHE_BUDGET_MS || '100', 10) || 100,
+);
+const MAX_IN_MEMORY_CACHE_ENTRIES = 2_000;
+
+const withRedisBudget = async <T>(operation: Promise<T>, label: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Redis cache ${label} exceeded ${REDIS_OPERATION_BUDGET_MS}ms latency budget`)),
+          REDIS_OPERATION_BUDGET_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+};
+
 /**
  * [FIX #3 — DRY] Construit une entrée de cache canonique à partir d'une réponse.
  * Unique fabrique partagée par TOUS les adaptateurs : garantit que `timestamp` et
@@ -60,8 +83,16 @@ const noOpCacheAdapter: ICacheAdapter = {
   }
 };
 
-// --- Implémentation 2 : Adaptateur EN MÉMOIRE (Pour le Développement / Non-persistant) ---
+// --- Implémentation 2 : Adaptateur EN MÉMOIRE / L1 ---
 const inMemoryCache = new Map<string, CachedResponse>();
+
+const setMemoryEntry = (key: string, entry: CachedResponse): void => {
+  if (!inMemoryCache.has(key) && inMemoryCache.size >= MAX_IN_MEMORY_CACHE_ENTRIES) {
+    const oldestKey = inMemoryCache.keys().next().value;
+    if (oldestKey) inMemoryCache.delete(oldestKey);
+  }
+  inMemoryCache.set(key, entry);
+};
 
 const inMemoryAdapter: ICacheAdapter = {
   async get(key: string): Promise<CachedResponse | null> {
@@ -79,7 +110,7 @@ const inMemoryAdapter: ICacheAdapter = {
   },
   async set(key: string, response: Response, ttlSeconds: number): Promise<void> {
     if (ttlSeconds <= 0) return;
-    inMemoryCache.set(key, await buildCacheEntry(response, ttlSeconds));
+    setMemoryEntry(key, await buildCacheEntry(response, ttlSeconds));
   }
 };
 
@@ -123,25 +154,38 @@ function markRedisDown(error: any) {
 // --- Implémentation 3 : Adaptateur Redis (Pour la Production sur l'Edge) ---
 const redisAdapter: ICacheAdapter = {
   async get(key: string): Promise<CachedResponse | null> {
-    if (!checkRedisStatus()) return null; // Fail-Open: On simule un cache miss instantané
+    // Redis mode is two-level: L1 memory must be checked before any remote RTT.
+    const localEntry = await inMemoryAdapter.get(key);
+    if (localEntry) return localEntry;
+    if (!checkRedisStatus()) return null;
 
     try {
-      return await redisClient!.get<CachedResponse>(key);
+      const remoteEntry = await withRedisBudget(
+        redisClient!.get<CachedResponse>(key),
+        'GET',
+      );
+      if (!remoteEntry || Date.now() >= remoteEntry.expiresAt) return null;
+      setMemoryEntry(key, remoteEntry);
+      return remoteEntry;
     } catch (error) {
       markRedisDown(error);
       return null;
     }
   },
   async set(key: string, response: Response, ttlSeconds: number): Promise<void> {
-    if (ttlSeconds <= 0 || !checkRedisStatus()) return;
+    if (ttlSeconds <= 0) return;
+
+    // L1 is committed before remote persistence. A slow Upstash round-trip may
+    // never become a multi-second blocker on the trading data path.
+    const dataToCache = await buildCacheEntry(response, ttlSeconds);
+    setMemoryEntry(key, dataToCache);
+    if (!checkRedisStatus()) return;
 
     try {
-      // [FIX #3 — DRY + contrat honnête] Même fabrique que l'adaptateur mémoire :
-      // l'entrée porte TOUJOURS `timestamp` ET `expiresAt` (l'ancienne version
-      // omettait `timestamp`, rendant l'interface CachedResponse mensongère).
-      // Redis gère aussi l'éviction native via `ex:` (double filet de sécurité).
-      const dataToCache = await buildCacheEntry(response, ttlSeconds);
-      await redisClient!.set(key, dataToCache, { ex: ttlSeconds });
+      await withRedisBudget(
+        redisClient!.set(key, dataToCache, { ex: ttlSeconds }),
+        'SET',
+      );
     } catch (error) {
       markRedisDown(error);
     }

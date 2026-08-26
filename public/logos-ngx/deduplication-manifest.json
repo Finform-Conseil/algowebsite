@@ -1,0 +1,15 @@
+{
+  "contract": "logo-deduplication-v1",
+  "source": "NGX LOGOS (Community).zip",
+  "canonical": {
+    "TRANSCOHOT.webp": {
+      "aliases": ["TRANSCORP.webp", "TRANSPOWER.webp"],
+      "sha256": "75587cc90b5949310f80538d6c0413e4d2ab6a97f5f4414878a61f4be8598c5f"
+    },
+    "UPDC.webp": {
+      "aliases": ["UPDCREIT.webp"],
+      "sha256": "b10ef22e8763176e6a6e110444df302356c5720cd650ae97d2fd7224650f2c13"
+    }
+  },
+  "quarantined": "/tmp/ngx-duplicates"
+}

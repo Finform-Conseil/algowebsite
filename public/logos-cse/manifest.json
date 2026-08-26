@@ -1,0 +1,2332 @@
+{
+  "exchange": "CSE",
+  "api": "https://www.cse.lk/api/",
+  "logo_cdn": "https://cdn.cse.lk/cmt/",
+  "records": [
+    {
+      "symbol": "AAF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1108_1608702562.jpeg",
+      "local_path": "public/logos-cse/AAF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 162683,
+      "sha256": "e467d46b8557f9fc90e0a0846423b2d56a87fc6cc80f6869e8e5e9380b33e682"
+    },
+    {
+      "symbol": "AAF.R0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1108_1608702562.jpeg",
+      "local_path": "public/logos-cse/AAF_R0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 162683,
+      "sha256": "e467d46b8557f9fc90e0a0846423b2d56a87fc6cc80f6869e8e5e9380b33e682"
+    },
+    {
+      "symbol": "AAIC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/364_1637638812.jpeg",
+      "local_path": "public/logos-cse/AAIC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7864,
+      "sha256": "d0ef970a457827d4623e91fd8e31a3f3f439915c83aade724cec88fddbbb3ba9"
+    },
+    {
+      "symbol": "ABAN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/642_1603172106.jpeg",
+      "local_path": "public/logos-cse/ABAN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9056,
+      "sha256": "d5f37f9edc3769da735545cfc52f12e5130df62210438399b1a42e857e47fdcd"
+    },
+    {
+      "symbol": "ABL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1303_1601610015.jpeg",
+      "local_path": "public/logos-cse/ABL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11172,
+      "sha256": "1b722c63bb573bc1abe7855be8a08f7ceae78d6e5d326486953df5e7be332823"
+    },
+    {
+      "symbol": "ACL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/644_1601622355.jpeg",
+      "local_path": "public/logos-cse/ACL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5793,
+      "sha256": "2af5e5f946b3e92ad8de40eed4d9925d51d32f4ab2ac7a05ec4e0370edb902b8"
+    },
+    {
+      "symbol": "ACME.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/661_1601609771.jpeg",
+      "local_path": "public/logos-cse/ACME_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 26447,
+      "sha256": "aebc9bc9073f47a262d8fb9c647716912e85fa78286ca6e46c670ee1a1886c3f"
+    },
+    {
+      "symbol": "AEL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1141_1601609745.jpeg",
+      "local_path": "public/logos-cse/AEL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 29357,
+      "sha256": "14a0f073665a9ec382c14dca3d4f33b96f3109e2f54e8e7bf91e146fdb9e9ecd"
+    },
+    {
+      "symbol": "AFS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/v6y3L37xQx5YEfFo_30Jan2026074838GMT_1769759318307.jpeg",
+      "local_path": "public/logos-cse/AFS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 62184,
+      "sha256": "ec57e3c17dd62c92c52bf5c320759672d38c8773168885ddfeeadc7713567e59"
+    },
+    {
+      "symbol": "AFSL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1069_1601609724.jpeg",
+      "local_path": "public/logos-cse/AFSL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 25821,
+      "sha256": "085d906f0f0272e6c315424a151446b69c5a1c4642a762d5d5c01fb5cb90653c"
+    },
+    {
+      "symbol": "AGAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/704_1601609799.jpeg",
+      "local_path": "public/logos-cse/AGAL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 51708,
+      "sha256": "0418cde9e4cbb0396894b758f113872308c4c70a87bca415cd2d4d9566db1481"
+    },
+    {
+      "symbol": "AGPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/uZoIWZANtLhpMSE5_1Sep2023095916GMT_1693562356724.jpeg",
+      "local_path": "public/logos-cse/AGPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 19199,
+      "sha256": "300156ba05da0c99f3830887c0058be34ccee37a0c58e75b9e1ccad81b7c73b0"
+    },
+    {
+      "symbol": "AGST.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1121_1601609820.jpeg",
+      "local_path": "public/logos-cse/AGST_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7057,
+      "sha256": "c47470c53e043c34d763777d9e30c5c5c4c366047317759f955b7e3cee17cc31"
+    },
+    {
+      "symbol": "AGST.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1121_1601609820.jpeg",
+      "local_path": "public/logos-cse/AGST_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7057,
+      "sha256": "c47470c53e043c34d763777d9e30c5c5c4c366047317759f955b7e3cee17cc31"
+    },
+    {
+      "symbol": "AHPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/690_1603172194.jpeg",
+      "local_path": "public/logos-cse/AHPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 385361,
+      "sha256": "108f987fe5acc9294d669878cffee391f3191883b3105f681a87d7ab16c4e66e"
+    },
+    {
+      "symbol": "AHUN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/521_1192527461.gif",
+      "local_path": "public/logos-cse/AHUN_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 2871,
+      "sha256": "497095bd539228a936ca5a00bd577b51cdc7a6a37bd6684d26a3822a213c65a2"
+    },
+    {
+      "symbol": "AINS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1405_1601610236.jpeg",
+      "local_path": "public/logos-cse/AINS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9489,
+      "sha256": "93f1bbd9b0dab399cf9db5b5bdcdea5497f5c93ac5e8764a3729a1eb636617ec"
+    },
+    {
+      "symbol": "ALLI.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/341_1601446036.jpeg",
+      "local_path": "public/logos-cse/ALLI_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 71250,
+      "sha256": "1d66315f28103664fd4f6f69a2c75c615850e8c30c1dac265c7edbbd4e92e4a7"
+    },
+    {
+      "symbol": "ALUM.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1323_1396002566.jpeg",
+      "local_path": "public/logos-cse/ALUM_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 154442,
+      "sha256": "31043ca777998a0de86ff76da880d521a10b7f766e4166c5213246fb73daf6b7"
+    },
+    {
+      "symbol": "AMSL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/513_1601448612.jpeg",
+      "local_path": "public/logos-cse/AMSL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5496,
+      "sha256": "973c79da3688a73bb7deb686bdebb400d1928917d54ddbf2e127f1f945d38667"
+    },
+    {
+      "symbol": "APLA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/643_1601622375.jpeg",
+      "local_path": "public/logos-cse/APLA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 4855,
+      "sha256": "800a1a51cb7f23593b6ea50e999c45d37d548940de64acacfc60b6aaec87b191"
+    },
+    {
+      "symbol": "ASCO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/401_1667891703.jpeg",
+      "local_path": "public/logos-cse/ASCO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 41168,
+      "sha256": "cf1e2b2b9c7684c9b2aacf513ad6f4ef49e5bef4949c4570b02f70f7440c58fd"
+    },
+    {
+      "symbol": "ASHO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/695_1601610877.jpeg",
+      "local_path": "public/logos-cse/ASHO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7458,
+      "sha256": "fa372a9bbdc8fea2e487477310fbaa33f84fdcc08eb396dc549a3dd3914bce1e"
+    },
+    {
+      "symbol": "ASIR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/512_1457953165.jpeg",
+      "local_path": "public/logos-cse/ASIR_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6472,
+      "sha256": "fc3585d37b2d2ebd9672829ad9e183629d53a1402daf5301c0a629002827ac07"
+    },
+    {
+      "symbol": "ASIY.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1205_1601610256.jpeg",
+      "local_path": "public/logos-cse/ASIY_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9544,
+      "sha256": "5ecef119609ed6f3115bd4a8d7f10d1f27557023df99e42ed915cb14af40bb66"
+    },
+    {
+      "symbol": "ASPH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/495_1645043761.jpeg",
+      "local_path": "public/logos-cse/ASPH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 583060,
+      "sha256": "f35f77718b9b770938738f1698fbe8cf8a78b0c4550f40c2c74d0edaa3d6a253"
+    },
+    {
+      "symbol": "ATL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/361_1611738994.jpeg",
+      "local_path": "public/logos-cse/ATL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 117886,
+      "sha256": "7899a671185167a5a1a298b9c456f8e6966233c5685c25c47ecb9d534041202b"
+    },
+    {
+      "symbol": "ATLL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1484_1611738974.jpeg",
+      "local_path": "public/logos-cse/ATLL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 105454,
+      "sha256": "78eda1aba126e04995dff784ec83f808e1f15a3c219bf1c83d421bbd83688c1f"
+    },
+    {
+      "symbol": "AUTO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/692_1192707479.gif",
+      "local_path": "public/logos-cse/AUTO_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 3007,
+      "sha256": "37bf952663b812c5eebb6b6a127dd0f976aadcd7c34ecaef340f0bf37f6b805c"
+    },
+    {
+      "symbol": "BALA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/705_1601622430.jpeg",
+      "local_path": "public/logos-cse/BALA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 4953,
+      "sha256": "f258b4174d835dd125f65b0e043c8223acaa80d1d0f9a1b34059f651ddac25e9"
+    },
+    {
+      "symbol": "BERU.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1201_1346313886.jpeg",
+      "local_path": "public/logos-cse/BERU_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 172600,
+      "sha256": "188b587afec4e8753be51a922e5bace94b2e6bf032eaa52731b005ef59b770c4"
+    },
+    {
+      "symbol": "BFL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/452_1601448788.jpeg",
+      "local_path": "public/logos-cse/BFL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 4850,
+      "sha256": "538e031990ae2e6ccb4db199a6d5ad1d9b539f2d88497189dee855329ac86083"
+    },
+    {
+      "symbol": "BFN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/eYiY5IqPRW8jl1xm_28May2025041707GMT_1748405827532.jpeg",
+      "local_path": "public/logos-cse/BFN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 24244,
+      "sha256": "7abca4c91d482f70d10fe61fd5f651bc29db37cbdca4b42b108aebe4de65c312"
+    },
+    {
+      "symbol": "BIL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1077_1601449335.jpeg",
+      "local_path": "public/logos-cse/BIL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6882,
+      "sha256": "034f9b750ec948f8b9be766f1eaf57a2c44630199c1aeef139fe91c83a364234"
+    },
+    {
+      "symbol": "BOGA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/664_1192689751.gif",
+      "local_path": "public/logos-cse/BOGA_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1900,
+      "sha256": "036d33f69f855ff1d5d72b59b14fd555bb29ced7717764e1ddd19edca489a8d9"
+    },
+    {
+      "symbol": "BOPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/706_1601622455.jpeg",
+      "local_path": "public/logos-cse/BOPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 36413,
+      "sha256": "4f9d8440aaaa91a07eeb774761259daf384aea5ea87df72cd46fb0c96b31a511"
+    },
+    {
+      "symbol": "BPPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1524_1601448654.jpeg",
+      "local_path": "public/logos-cse/BPPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 37264,
+      "sha256": "714b99b516f41d455075706e70fc595fefeec2dc58a7a3d2621223d8be4f2a9c"
+    },
+    {
+      "symbol": "BRR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1322_1601448868.jpeg",
+      "local_path": "public/logos-cse/BRR_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5040,
+      "sha256": "13a9b7073337ccebb9132fedf3c2ff9e9fd788d82f81ad55f0b7a4c217a3e2dd"
+    },
+    {
+      "symbol": "BRWN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/764_1601449263.jpeg",
+      "local_path": "public/logos-cse/BRWN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7584,
+      "sha256": "c11180ae1ba84566e1f4437fda85f4219b2eb2b4e587e558a80aaa9ad21b3e97"
+    },
+    {
+      "symbol": "BUKI.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/3vwETqSVpTRUBdxR_8Jul2026051452GMT_1783487692051.png",
+      "local_path": "public/logos-cse/BUKI_N0000.png",
+      "content_type": "image/png",
+      "bytes": 89097,
+      "sha256": "8585bc3ef4f7164cdce772cabc7a5280ce57288ae47491ff31d6099a19571e2b"
+    },
+    {
+      "symbol": "CALC.U0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/i32p5Iv2DCTjxUkb_19Mar2025105945GMT_1742381985306.png",
+      "local_path": "public/logos-cse/CALC_U0000.png",
+      "content_type": "image/png",
+      "bytes": 8509,
+      "sha256": "2d0a0a455ea2ae9cb78378995d8d254b4f10cceaeb32f68d8b0395edbd24ed73"
+    },
+    {
+      "symbol": "CALF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1101_1603172320.jpeg",
+      "local_path": "public/logos-cse/CALF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7945,
+      "sha256": "563fc73f85bb5baeff99c8a35859a84922383549f8781ca3cc8edf5ce2890069"
+    },
+    {
+      "symbol": "CALH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/juW3RbOmNxCs9Okc_29May2025100308GMT_1748512988639.png",
+      "local_path": "public/logos-cse/CALH_N0000.png",
+      "content_type": "image/png",
+      "bytes": 8371,
+      "sha256": "0323a1f9f38de45f42e6ac28c6ad3a7d5f2d08a9c910d19218735fb727eaf2a7"
+    },
+    {
+      "symbol": "CALT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2647_1639498293.jpeg",
+      "local_path": "public/logos-cse/CALT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 2981,
+      "sha256": "7ccd9827bde219eaa8d3ae1a22e8d51d37d33e72661cb1faa2efca0cc193c35f"
+    },
+    {
+      "symbol": "CARE.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/681_1259581320.jpeg",
+      "local_path": "public/logos-cse/CARE_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1530,
+      "sha256": "c025edd8179b4b7b68d86007afc0cdb6e79b06e82a236160afa40e60de7c29ba"
+    },
+    {
+      "symbol": "CARG.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/457_1601449513.jpeg",
+      "local_path": "public/logos-cse/CARG_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8322,
+      "sha256": "29bc9651663cd56db10bbab3d0e654e6159dc4cc5f9e040d7e6e0b6e67a81dc7"
+    },
+    {
+      "symbol": "CARS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/pVMpch8beahifA8b_13Mar2026055859GMT_1773381539637.png",
+      "local_path": "public/logos-cse/CARS_N0000.png",
+      "content_type": "image/png",
+      "bytes": 14741,
+      "sha256": "be5ef02f72ad4e4e0f3ea0814e7dd75c535b99602828aa6705a2257ac6a7956a"
+    },
+    {
+      "symbol": "CBNK.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/ktg0RldudT9ERjkC_8Jan2024105958GMT_1704711598288.jpeg",
+      "local_path": "public/logos-cse/CBNK_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 39567,
+      "sha256": "968110bc07dc293cc7ae62678208ac17fb87bcdcc77d6e52d6ccc1ee34f25fac"
+    },
+    {
+      "symbol": "CCS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/462_1603172226.jpeg",
+      "local_path": "public/logos-cse/CCS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 107627,
+      "sha256": "f39ea0ef7d1624aead335770db7ed6e13f66894fc0732e02b5ccdc601fc41d55"
+    },
+    {
+      "symbol": "CDB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/981_1603172283.jpeg",
+      "local_path": "public/logos-cse/CDB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9620,
+      "sha256": "791adbb505507a17fbc92e834ba135f28f6b7857c6625519a6f8d607ffc3d8b6"
+    },
+    {
+      "symbol": "CDB.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/981_1603172283.jpeg",
+      "local_path": "public/logos-cse/CDB_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9620,
+      "sha256": "791adbb505507a17fbc92e834ba135f28f6b7857c6625519a6f8d607ffc3d8b6"
+    },
+    {
+      "symbol": "CERA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/676_1601611077.jpeg",
+      "local_path": "public/logos-cse/CERA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8273,
+      "sha256": "e34b6184b07ff465542842084c68e5af085cbc520c8b3704ee2a6980f6ccfc8b"
+    },
+    {
+      "symbol": "CFIN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/366_1601449552.jpeg",
+      "local_path": "public/logos-cse/CFIN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 190624,
+      "sha256": "3ac7a3269910b412098bd6c23219ba371d2811d4c2d1bfa8ff9cc0787c5fad96"
+    },
+    {
+      "symbol": "CFVF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/698_1669717288.jpeg",
+      "local_path": "public/logos-cse/CFVF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 87216,
+      "sha256": "a6818df68e6c6e68c06fa8f379f9385998b1f0bd054803dd3d6d3c79d0cecbcf"
+    },
+    {
+      "symbol": "CHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/514_1520504240.jpeg",
+      "local_path": "public/logos-cse/CHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 44173,
+      "sha256": "0e80d3d2cbf219893249102e7043b5eccea3942c86dd4fc0e096c329628f32fc"
+    },
+    {
+      "symbol": "CHL.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/514_1520504240.jpeg",
+      "local_path": "public/logos-cse/CHL_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 44173,
+      "sha256": "0e80d3d2cbf219893249102e7043b5eccea3942c86dd4fc0e096c329628f32fc"
+    },
+    {
+      "symbol": "CHMX.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/492_1601449856.jpeg",
+      "local_path": "public/logos-cse/CHMX_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7565,
+      "sha256": "b3b9cef9d1d41bf8ae89999ee592da2851c489a8055377e19938de3989e36f24"
+    },
+    {
+      "symbol": "CHOT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/545_1601449777.jpeg",
+      "local_path": "public/logos-cse/CHOT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7078,
+      "sha256": "108142aea2a2124573a20959f4e2ee9e9d80fe1781c4b5755978208380a3e012"
+    },
+    {
+      "symbol": "CIC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/493_1601449921.jpeg",
+      "local_path": "public/logos-cse/CIC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6080,
+      "sha256": "6c08166e9ff2fa0f58de3081dcbe112879e3974b7c408a541755c7cebaaeaaef"
+    },
+    {
+      "symbol": "CIC.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/493_1601449921.jpeg",
+      "local_path": "public/logos-cse/CIC_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6080,
+      "sha256": "6c08166e9ff2fa0f58de3081dcbe112879e3974b7c408a541755c7cebaaeaaef"
+    },
+    {
+      "symbol": "CIND.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/665_1601449594.jpeg",
+      "local_path": "public/logos-cse/CIND_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6317,
+      "sha256": "51aaee936684b0c8b1352261fe6c187db6201b5a519ff734d5099dfb2a84d5b5"
+    },
+    {
+      "symbol": "CINS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/367_1601449623.jpeg",
+      "local_path": "public/logos-cse/CINS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10333,
+      "sha256": "b8541eee318bcbfc0a1faa81084f9350a96c9c55e9f79ef8d47368720b53a5e6"
+    },
+    {
+      "symbol": "CINS.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/367_1601449623.jpeg",
+      "local_path": "public/logos-cse/CINS_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10333,
+      "sha256": "b8541eee318bcbfc0a1faa81084f9350a96c9c55e9f79ef8d47368720b53a5e6"
+    },
+    {
+      "symbol": "CINV.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/OBJMVCq0YaEpJ0bc_8Jul2026051556GMT_1783487756226.png",
+      "local_path": "public/logos-cse/CINV_N0000.png",
+      "content_type": "image/png",
+      "bytes": 85576,
+      "sha256": "926f19f38b6eca0b72ea657f041cba70d522309f8bbe752d4d4144cbd230c7b2"
+    },
+    {
+      "symbol": "CIT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/610_1601449959.jpeg",
+      "local_path": "public/logos-cse/CIT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6602,
+      "sha256": "2d7c6419bd1dcadae104734059965df0e98c079a3723261556246fcb12f36f00"
+    },
+    {
+      "symbol": "CITH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1222_1601461493.jpeg",
+      "local_path": "public/logos-cse/CITH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11180,
+      "sha256": "2b6798d13deceac4cea66a5dd5f6d51352bf2875a351fd76996d1831101d1891"
+    },
+    {
+      "symbol": "CITW.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1106_1601464353.jpeg",
+      "local_path": "public/logos-cse/CITW_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11200,
+      "sha256": "78208eb4a85e279f875f72625939ed5336f3ab5e749e83a6aeb3171a75257abf"
+    },
+    {
+      "symbol": "CLND.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/618_1601449988.jpeg",
+      "local_path": "public/logos-cse/CLND_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7247,
+      "sha256": "b2794da75fc165e94430838a45be8b2f3aee59d235cfc9b6ed88465f286b855d"
+    },
+    {
+      "symbol": "COCO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/461_1414044348.jpeg",
+      "local_path": "public/logos-cse/COCO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 64695,
+      "sha256": "352be45555b8016fb0a5351ccda94b7d42df4797feb996aee3ae8eee6ad567b6"
+    },
+    {
+      "symbol": "COCO.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/461_1414044348.jpeg",
+      "local_path": "public/logos-cse/COCO_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 64695,
+      "sha256": "352be45555b8016fb0a5351ccda94b7d42df4797feb996aee3ae8eee6ad567b6"
+    },
+    {
+      "symbol": "COCR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1063_1448356254.jpeg",
+      "local_path": "public/logos-cse/COCR_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9044,
+      "sha256": "25cad377410072b0749cfb6e9d4eb7cb7a6d535d80e7cc02588bb1d96386f3fa"
+    },
+    {
+      "symbol": "COLO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/693_1192767073.gif",
+      "local_path": "public/logos-cse/COLO_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 4151,
+      "sha256": "f736fbed896b30dc9af43104ac60d7daff465e4a64b5b5f8b4bd156614b1caf7"
+    },
+    {
+      "symbol": "COMB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/328m7MwB2CexSgiJ_3Jan2024051241GMT_1704258761020.jpeg",
+      "local_path": "public/logos-cse/COMB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 49333,
+      "sha256": "8945aa77c27950a41eeb8d34ca49a6329e614e7477d3fde248e02ed1dee22262"
+    },
+    {
+      "symbol": "COMB.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/328m7MwB2CexSgiJ_3Jan2024051241GMT_1704258761020.jpeg",
+      "local_path": "public/logos-cse/COMB_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 49333,
+      "sha256": "8945aa77c27950a41eeb8d34ca49a6329e614e7477d3fde248e02ed1dee22262"
+    },
+    {
+      "symbol": "COMD.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/619_1603172301.jpeg",
+      "local_path": "public/logos-cse/COMD_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7641,
+      "sha256": "dfaed741f8826cc4bc22deaee21f1736996a5bb66618618d0fc89624fc110acb"
+    },
+    {
+      "symbol": "CONN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/532_1633404386.jpeg",
+      "local_path": "public/logos-cse/CONN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 38145,
+      "sha256": "c5f87db0709696ecf57bb33d5f7039ac17e7de2eeaec27ba8ca74402fbe3f6f5"
+    },
+    {
+      "symbol": "COOP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2692_1640837641.jpeg",
+      "local_path": "public/logos-cse/COOP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 13251,
+      "sha256": "cf89eac42ac24e8deda464936cf1300090835627e6bb6b64fe8b0dd218c3cf93"
+    },
+    {
+      "symbol": "CPRT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1LTQGJ3waHpDHPKW_4Nov2025090350GMT_1762247030603.jpeg",
+      "local_path": "public/logos-cse/CPRT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7472,
+      "sha256": "1c1aaf53ec7054f86d310412e1d53b6d0aed9fec3369b0105b6fa1a802d622b3"
+    },
+    {
+      "symbol": "CRL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/0WEOnw7dF6Ge7OLA_21Jul2026055520GMT_1784613320628.png",
+      "local_path": "public/logos-cse/CRL_N0000.png",
+      "content_type": "image/png",
+      "bytes": 38634,
+      "sha256": "498ed78701e70804d92d7a95a4f2cb38a5f02544e9a6d382526cc4fe2c94fbda"
+    },
+    {
+      "symbol": "CSD.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/617_1601463238.jpeg",
+      "local_path": "public/logos-cse/CSD_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 32296,
+      "sha256": "f6059c04dbe8b55b2174dea7a6e48f46897667012764051f45cad2b5f3b7b204"
+    },
+    {
+      "symbol": "CSLK.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/k48gY439Uk34hc17_13Aug2024110307GMT_1723546987305.png",
+      "local_path": "public/logos-cse/CSLK_N0000.png",
+      "content_type": "image/png",
+      "bytes": 35011,
+      "sha256": "2967323a7a8b53ff3a58a034e001e399e4f13122209640321599ea460742a6f3"
+    },
+    {
+      "symbol": "CTBL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/XiizQv3XyPTBvQ30_12Feb2026093906GMT_1770889146090.jpeg",
+      "local_path": "public/logos-cse/CTBL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9046,
+      "sha256": "a1d5c2b6a783260fcd679202694a16ebcedb54d8cb1dfa29e014fb39c4ad9228"
+    },
+    {
+      "symbol": "CTC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/460_1603172267.jpeg",
+      "local_path": "public/logos-cse/CTC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 233012,
+      "sha256": "7c795a54cd9f35d544a16e50729f4423e5bd3a33746445158a25f4b0498f4ae2"
+    },
+    {
+      "symbol": "CTEA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1orFSbyKm4RqnVTl_12Aug2026031241GMT_1786504361458.png",
+      "local_path": "public/logos-cse/CTEA_N0000.png",
+      "content_type": "image/png",
+      "bytes": 276446,
+      "sha256": "9ef26f37ccd3ebe8ba76c8f1bce759ed1577f16e143cde22de08b789b069deac"
+    },
+    {
+      "symbol": "CTHR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/503_1601610958.jpeg",
+      "local_path": "public/logos-cse/CTHR_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7129,
+      "sha256": "c5a78f408caefd84b20199939b5dbf6242697781710bad1dbf6d565c78f7e747"
+    },
+    {
+      "symbol": "CTLD.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/614_1601449440.jpeg",
+      "local_path": "public/logos-cse/CTLD_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11109,
+      "sha256": "224959888cc0a2b45cc42221892fb1b3d1bb3159c00e0e3f92388561fdedc3cf"
+    },
+    {
+      "symbol": "CWL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2236_1621314719.jpeg",
+      "local_path": "public/logos-cse/CWL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 50226,
+      "sha256": "1d6d7bb0cb5b179926d81021644a2e26ebd0096fd9ad8c41558f90ebb3fd0a0b"
+    },
+    {
+      "symbol": "CWM.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/765_1601449476.jpeg",
+      "local_path": "public/logos-cse/CWM_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9935,
+      "sha256": "64ed976ddf9faf02b905a94e331d25f3976d4b0c7f048991ce7deb7210f2a023"
+    },
+    {
+      "symbol": "DFCC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/371_1601452506.jpeg",
+      "local_path": "public/logos-cse/DFCC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7875,
+      "sha256": "429ac35a48da6b2ecbb6b46b8eae67930e6651ecc24666fc82c266783dc6eb19"
+    },
+    {
+      "symbol": "DIAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/389_1601452556.jpeg",
+      "local_path": "public/logos-cse/DIAL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 28849,
+      "sha256": "23cf648de1b311f11b3a3583c14b0f19718b4d3a77115ada14c0d5796cd2655b"
+    },
+    {
+      "symbol": "DIMO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/694_1631431440.jpeg",
+      "local_path": "public/logos-cse/DIMO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 14207,
+      "sha256": "74536f7e63fe0a23da5c8fe8e7bcd39885d346baa7e71ca337495fc49bd851cc"
+    },
+    {
+      "symbol": "DIPD.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/670_1603172470.jpeg",
+      "local_path": "public/logos-cse/DIPD_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 27699,
+      "sha256": "366af572f274278026b62e7ac28c850171de39dfebace42967ba98942c9a2dfc"
+    },
+    {
+      "symbol": "DIST.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/463_1601452641.jpeg",
+      "local_path": "public/logos-cse/DIST_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 23871,
+      "sha256": "490c321de459f2c80b84e7985be823dbca0963e29fdae6a2895f03ad82d7ee9c"
+    },
+    {
+      "symbol": "DOCK.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/442_1271068612.jpeg",
+      "local_path": "public/logos-cse/DOCK_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 2338,
+      "sha256": "fd634a78366771596efad980daaa90a034d78eeb126e2e58311de163f5a92596"
+    },
+    {
+      "symbol": "EAST.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/620_1601622496.jpeg",
+      "local_path": "public/logos-cse/EAST_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 685979,
+      "sha256": "534a7b6aedffd7a5e6f3e731361fdd3f78953327ba69eb93578c004e04019e1f"
+    },
+    {
+      "symbol": "EBCR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/745_1193029512.gif",
+      "local_path": "public/logos-cse/EBCR_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1831,
+      "sha256": "363bd7f5ac726e7a3641ee476f013359c82b6f40d79c8011906f29f50c4c5112"
+    },
+    {
+      "symbol": "ECL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/374_1637918475.jpeg",
+      "local_path": "public/logos-cse/ECL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 20744,
+      "sha256": "3493e51c7765610032db0a6826913878ee460b339708ec22a31902a1c5fdc4bb"
+    },
+    {
+      "symbol": "EDEN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/533_1601458948.jpeg",
+      "local_path": "public/logos-cse/EDEN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5564,
+      "sha256": "23183fb3dd873f772555baf9537262496009dedd380df2f36cdffb362b515fd7"
+    },
+    {
+      "symbol": "ELPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/707_1601610752.jpeg",
+      "local_path": "public/logos-cse/ELPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8560,
+      "sha256": "8cc7d9f92ab14a3e80e28ed546b976391c42207288e4ca8b083e4eb2052d3ddf"
+    },
+    {
+      "symbol": "EMER.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/767_1601622536.jpeg",
+      "local_path": "public/logos-cse/EMER_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5354,
+      "sha256": "daebed18245998b0f97912c8b6b759a7846ffa4926668347ff3d403acc69a0cb"
+    },
+    {
+      "symbol": "EML.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2386_1632584450.jpeg",
+      "local_path": "public/logos-cse/EML_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 3878,
+      "sha256": "1d625f34abc9bdff7313c60361ce3cdb9de07b41f3fca749890975a6a315e068"
+    },
+    {
+      "symbol": "ETWO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/iSWpV4qdq3xakQoB_8Jul2026051730GMT_1783487850992.png",
+      "local_path": "public/logos-cse/ETWO_N0000.png",
+      "content_type": "image/png",
+      "bytes": 82021,
+      "sha256": "de852b95474fab85ec2dd1a5cf08f3c5b522bbe72265f449f322ecd402412d51"
+    },
+    {
+      "symbol": "EXT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2741_1648550242.jpeg",
+      "local_path": "public/logos-cse/EXT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 165495,
+      "sha256": "f84996afae44784050af8070339457ee00de183cd637cbcc53ac209507524c40"
+    },
+    {
+      "symbol": "FCT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1426_1669717257.jpeg",
+      "local_path": "public/logos-cse/FCT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 87216,
+      "sha256": "a6818df68e6c6e68c06fa8f379f9385998b1f0bd054803dd3d6d3c79d0cecbcf"
+    },
+    {
+      "symbol": "GEST.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/746_1601459113.jpeg",
+      "local_path": "public/logos-cse/GEST_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 12965,
+      "sha256": "bf9a30df33a25c44d4c160e280e19d3c17fe4b33d420b45f29f0640b3454fcf4"
+    },
+    {
+      "symbol": "GHLL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/541_1601610774.jpeg",
+      "local_path": "public/logos-cse/GHLL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 25984,
+      "sha256": "47a4e7d2bfb4dd17451546fa7d40f4840c7a56702f0c93bad360a4d50726ea40"
+    },
+    {
+      "symbol": "GLAS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/666_1637124028.jpeg",
+      "local_path": "public/logos-cse/GLAS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1222,
+      "sha256": "8df73ed0b7174ac9b76ffa28a1c44c6cc2b635ed64eebede13c7956e057ed1de"
+    },
+    {
+      "symbol": "GRAN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/671_1601449742.jpeg",
+      "local_path": "public/logos-cse/GRAN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 108559,
+      "sha256": "67d53cedb6d7a0fe31151c8aeced847332cfd5fb1d53760cfcc1eb938879da6f"
+    },
+    {
+      "symbol": "GREG.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/782_1601622413.jpeg",
+      "local_path": "public/logos-cse/GREG_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10263,
+      "sha256": "7c089ae85b7e4914136593a65838a2c24a12c13c6c005543526495ceb197077f"
+    },
+    {
+      "symbol": "GUAR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/gRm1zeo1pR55bsiB_8Jul2026052513GMT_1783488313494.png",
+      "local_path": "public/logos-cse/GUAR_N0000.png",
+      "content_type": "image/png",
+      "bytes": 97580,
+      "sha256": "8a6392975dc7fe179310708ca5d8f0f7b9aefbfa2f3e8fe095cbf8a26cc1ff69"
+    },
+    {
+      "symbol": "HAPU.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/708_1192775435.gif",
+      "local_path": "public/logos-cse/HAPU_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1329,
+      "sha256": "90515ccce3f63246c85d34d98c5b5c0307a93d2c87530aed5824be2377ebb586"
+    },
+    {
+      "symbol": "HASU.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/sbROYA30RtDfF3Dk_7Apr2026092342GMT_1775553822302.jpeg",
+      "local_path": "public/logos-cse/HASU_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1335841,
+      "sha256": "f9d4fecbcea837fc5d17ad392520d0a87b0a598db7ad1c4ccd67810ab9ffca9d"
+    },
+    {
+      "symbol": "HAYC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/494_1600924411.jpeg",
+      "local_path": "public/logos-cse/HAYC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11976,
+      "sha256": "ac88bca22dd5aee4a37fb044aa5f202fae9651bc7cc1d0510e19fb4349b58644"
+    },
+    {
+      "symbol": "HAYL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/505_1600924002.jpeg",
+      "local_path": "public/logos-cse/HAYL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 42129,
+      "sha256": "1419467aa1ef283e57ef191129036f06f488e54ca9058669b05f8e9e5f9148b0"
+    },
+    {
+      "symbol": "HBS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2652_1640063399.jpeg",
+      "local_path": "public/logos-cse/HBS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8602,
+      "sha256": "3a40e053fe9a8258cd31e6e762ca56e78caaf2b22b65ce4294034e6e9a75f9bd"
+    },
+    {
+      "symbol": "HDFC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/376_1649304781.jpeg",
+      "local_path": "public/logos-cse/HDFC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5962,
+      "sha256": "56efc4afa1941fd24b685881296d1250a5c004bffa926525271309990c96749f"
+    },
+    {
+      "symbol": "HEXP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/768_1352700410.jpeg",
+      "local_path": "public/logos-cse/HEXP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 3649,
+      "sha256": "cd683e9e54fdc188f1dd4f26a04b096ee6b8d9a43660ec7eaacc3ce96cc7dc19"
+    },
+    {
+      "symbol": "HHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/506_1601461453.jpeg",
+      "local_path": "public/logos-cse/HHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10235,
+      "sha256": "14f7576a41d491dc84bfaee5634aa5ccdb49fd2a991f8f8d2798d933dee3b993"
+    },
+    {
+      "symbol": "HNB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/q5ADDCBJcSu1tpSc_16May2023081336GMT_1684224816035.jpeg",
+      "local_path": "public/logos-cse/HNB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 3435,
+      "sha256": "7a9d2702d489d1237be53eba5e01816059d8637fbf01f7d4964251e7262f4d57"
+    },
+    {
+      "symbol": "HNB.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/q5ADDCBJcSu1tpSc_16May2023081336GMT_1684224816035.jpeg",
+      "local_path": "public/logos-cse/HNB_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 3435,
+      "sha256": "7a9d2702d489d1237be53eba5e01816059d8637fbf01f7d4964251e7262f4d57"
+    },
+    {
+      "symbol": "HNBF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Tn86429VCj6DiVc0_11Jun2024091959GMT_1718097599558.png",
+      "local_path": "public/logos-cse/HNBF_N0000.png",
+      "content_type": "image/png",
+      "bytes": 11651,
+      "sha256": "415024b15c8e16fb45ff36495644ddb6af7e2e4e72cbddfefc7c93c056992165"
+    },
+    {
+      "symbol": "HNBF.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Tn86429VCj6DiVc0_11Jun2024091959GMT_1718097599558.png",
+      "local_path": "public/logos-cse/HNBF_X0000.png",
+      "content_type": "image/png",
+      "bytes": 11651,
+      "sha256": "415024b15c8e16fb45ff36495644ddb6af7e2e4e72cbddfefc7c93c056992165"
+    },
+    {
+      "symbol": "HOPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/709_1192776068.gif",
+      "local_path": "public/logos-cse/HOPL_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 938,
+      "sha256": "d574cf1774611786cb1d13a917743087112567badda6a9bd88b7211f7684fb09"
+    },
+    {
+      "symbol": "HPFL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1000_1603173465.jpeg",
+      "local_path": "public/logos-cse/HPFL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6430,
+      "sha256": "84cc2b1ac60f462452d6ce3b6d1038407b0e4887557f8737b40ff8b0f8acd5d0"
+    },
+    {
+      "symbol": "HPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1045_1601461418.jpeg",
+      "local_path": "public/logos-cse/HPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8143,
+      "sha256": "2df4e980f7b06555ec92d7581c924697163e01b8c8ec581526c145d9112ba9f5"
+    },
+    {
+      "symbol": "HPWR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/881_1604034999.jpeg",
+      "local_path": "public/logos-cse/HPWR_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7321,
+      "sha256": "16aa2d95f5590ea27ba78b99d8d440f63a1c014e436971ffe685a2203498bdee"
+    },
+    {
+      "symbol": "HUNA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/546_1679650234.jpeg",
+      "local_path": "public/logos-cse/HUNA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 79011,
+      "sha256": "c8dd1d1e74ac832e420384bea7a4f5ae7f8b699f78f44e5b6d4124dee5bd2e88"
+    },
+    {
+      "symbol": "HVA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1046_1603172491.jpeg",
+      "local_path": "public/logos-cse/HVA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 541601,
+      "sha256": "6163fa712a7ae18dc3819cd0ae16c138b590b80a3b3df5fd89b42224e0233c3a"
+    },
+    {
+      "symbol": "INME.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/k5ZI4bwCR2ebyC13_1Dec2025061934GMT_1764569974876.png",
+      "local_path": "public/logos-cse/INME_N0000.png",
+      "content_type": "image/png",
+      "bytes": 12891,
+      "sha256": "c198810045d91c06de3db70f6c43ddc8ce0448c3da3ec0f08976ed3d36776437"
+    },
+    {
+      "symbol": "JAT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2353_1628739293.jpeg",
+      "local_path": "public/logos-cse/JAT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 20690,
+      "sha256": "0c9213f90c18c8680ffaa83dc2a3511bbab12beb87d0bc26e7acc4618215f47a"
+    },
+    {
+      "symbol": "JETS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1686_1601461685.jpeg",
+      "local_path": "public/logos-cse/JETS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 32320,
+      "sha256": "051f07958a23242695aca80a558a9f9a889f19ce840359439cfce1d34adccca1"
+    },
+    {
+      "symbol": "JFP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Z6lznKl0t3AEpkcg_18Nov2025135046GMT_1763473846131.jpeg",
+      "local_path": "public/logos-cse/JFP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7159,
+      "sha256": "7dfc16619ddbfc160eea9ab61b956a626bc34505e9756b6a2b35a0cf7439bc2f"
+    },
+    {
+      "symbol": "JINS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/841_1601610813.jpeg",
+      "local_path": "public/logos-cse/JINS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9307,
+      "sha256": "933ac9a7ee6e0ec2c7eeb71561244dd0aecb0dfe644208e7dc03b5bfc8859eb4"
+    },
+    {
+      "symbol": "JKH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/dzfJJcujeDHnGn8j_27Dec2025052535GMT_1766813135197.jpeg",
+      "local_path": "public/logos-cse/JKH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8377,
+      "sha256": "01a3995c7e11c0a6ed60b5ad5c4826b9d24b0d7b0a3f2b70534cde637c112fed"
+    },
+    {
+      "symbol": "JKL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/731_1601461860.jpeg",
+      "local_path": "public/logos-cse/JKL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 12511,
+      "sha256": "4e196d9bfbdeef4232f08522414b5a2aa4773ed8aaec52d308de9af709c88992"
+    },
+    {
+      "symbol": "JXG.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Xs4j2sXBjwj18fqR_24Apr2026060012GMT_1777010412343.jpeg",
+      "local_path": "public/logos-cse/JXG_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10167,
+      "sha256": "5423146259c4701d3e486129cb8ce9019e4267b4062460186a2f4f890df369f4"
+    },
+    {
+      "symbol": "KAHA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/710_1192776530.gif",
+      "local_path": "public/logos-cse/KAHA_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1228,
+      "sha256": "8edaa4e4269833af8f4ed53473a85260d7bf17487b1cc924e35b96eb3d574177"
+    },
+    {
+      "symbol": "KCAB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/672_1400232738.jpeg",
+      "local_path": "public/logos-cse/KCAB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 78194,
+      "sha256": "3467359fa6a1486640276238be0be55dbe86a72465282ad87afb9b3733bb1188"
+    },
+    {
+      "symbol": "KFP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/483_1603172511.jpeg",
+      "local_path": "public/logos-cse/KFP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 189126,
+      "sha256": "aae432453a28350b5ca891bd3267bf39ccbb926dbeac7adb13cde62772ca8c6d"
+    },
+    {
+      "symbol": "KGAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/711_1192777282.gif",
+      "local_path": "public/logos-cse/KGAL_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1100,
+      "sha256": "af922916439409b37ed1cf9475309f48650be5aac6f2e108e0b68e54a86f2d06"
+    },
+    {
+      "symbol": "KHC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/547_1601463820.jpeg",
+      "local_path": "public/logos-cse/KHC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 88656,
+      "sha256": "d8de47b2b6c2b914735b1a4b57b5725d1d6157eb86d6f4f8f34eac15c08d644f"
+    },
+    {
+      "symbol": "KHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/561_1601461800.jpeg",
+      "local_path": "public/logos-cse/KHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10110,
+      "sha256": "055dcdebe4e4ff8813270e95a309aa0d76da7c5f801b5971277579a4b1633d2b"
+    },
+    {
+      "symbol": "KOTA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/713_1192778513.gif",
+      "local_path": "public/logos-cse/KOTA_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1166,
+      "sha256": "5fe125c03e29aa6fe0f614ab002a69c84346a7c9a0129b3e24b8b34dfefdfc6a"
+    },
+    {
+      "symbol": "KPHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/oBzbDpcH7nghgCyp_22Dec2025081928GMT_1766391568600.png",
+      "local_path": "public/logos-cse/KPHL_N0000.png",
+      "content_type": "image/png",
+      "bytes": 16211,
+      "sha256": "39f99924f1c1e7bcef14770739f1d7c2ecad731f1ff10528ec066d7eb15c209f"
+    },
+    {
+      "symbol": "KVAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/712_1370325823.jpeg",
+      "local_path": "public/logos-cse/KVAL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 596797,
+      "sha256": "3d8adb65ee0d5ca9f97c09d17e3ca076268787979d09f360c2ac23736a41705f"
+    },
+    {
+      "symbol": "KZOO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/m32hhCDE73KZ3hFw_22Jun2026065741GMT_1782111461795.jpeg",
+      "local_path": "public/logos-cse/KZOO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 72133,
+      "sha256": "ed31a2c37d8bff95c2994ceb3fd26033fa63f33d964376e0044cc1d6da80b972"
+    },
+    {
+      "symbol": "LALU.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/674_1192698681.gif",
+      "local_path": "public/logos-cse/LALU_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1154,
+      "sha256": "fcfe86f0f19372938a3bd7805b39be9cb45d2a1c6687a07c6e92a152032fa6f3"
+    },
+    {
+      "symbol": "LCBF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2512_1637033956.jpeg",
+      "local_path": "public/logos-cse/LCBF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7614,
+      "sha256": "6c813f89c02c032589ba566bc1651468cb8a7ebfcbbd778e4a7e95063b9bc987"
+    },
+    {
+      "symbol": "LCEY.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/497_1192179288.gif",
+      "local_path": "public/logos-cse/LCEY_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1639,
+      "sha256": "450d91aee1bc9ec5789f2d6d6d358a9062c481c451fd652425b09570e532ae44"
+    },
+    {
+      "symbol": "LDEV.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/446_1192516470.gif",
+      "local_path": "public/logos-cse/LDEV_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1849,
+      "sha256": "f7d8ce3255329ccf73a445d2dbb9a6436733b9404ff450c43ab1115306f7f990"
+    },
+    {
+      "symbol": "LFIN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/379_1601610854.jpeg",
+      "local_path": "public/logos-cse/LFIN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 25515,
+      "sha256": "ae365b00b191b694a65c8f83d419c5dcc82f7d8849ad4d861b7258e3e8458f3c"
+    },
+    {
+      "symbol": "LGIL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2693_1640884312.jpeg",
+      "local_path": "public/logos-cse/LGIL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 73353,
+      "sha256": "396d024e0139981134d1b0bf9343d1d28a75efd86784ab48a2e0d63f4af2a02d"
+    },
+    {
+      "symbol": "LGL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1020_1536297346.jpeg",
+      "local_path": "public/logos-cse/LGL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 174984,
+      "sha256": "a21eaa26288ba1af9ade7a3a2ab90b90bec807fd69d96d5b6cb5c7fa9fb577e6"
+    },
+    {
+      "symbol": "LGL.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1020_1536297346.jpeg",
+      "local_path": "public/logos-cse/LGL_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 174984,
+      "sha256": "a21eaa26288ba1af9ade7a3a2ab90b90bec807fd69d96d5b6cb5c7fa9fb577e6"
+    },
+    {
+      "symbol": "LHCL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/GHINQ2ckAkcGo4wS_12Jul2023160107GMT_1689177667856.png",
+      "local_path": "public/logos-cse/LHCL_N0000.png",
+      "content_type": "image/png",
+      "bytes": 31905,
+      "sha256": "01b8b481db688121564b5888d6e93e3830631ceefa6c10e9eb72d656dc8a68f9"
+    },
+    {
+      "symbol": "LHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/562_1603172566.jpeg",
+      "local_path": "public/logos-cse/LHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 37120,
+      "sha256": "610c0d6250536ac8d6a12e9858a71ebc914a3b764f9316f8ac37fccbc88a5127"
+    },
+    {
+      "symbol": "LIOC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/729_1603173445.jpeg",
+      "local_path": "public/logos-cse/LIOC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5796,
+      "sha256": "19d94ef62e702fa917599d87ee8f60a5a904e5ee55b36b2b95aa15a7d261935a"
+    },
+    {
+      "symbol": "LION.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/h86lOvFReO03p0OK_13Mar2026060110GMT_1773381670392.png",
+      "local_path": "public/logos-cse/LION_N0000.png",
+      "content_type": "image/png",
+      "bytes": 15827,
+      "sha256": "5e25e25d8a7cfd3cf6cbda8d63bb034d7ca39900785484a535349fee081a45ff"
+    },
+    {
+      "symbol": "LLUB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/668_1674725006.jpeg",
+      "local_path": "public/logos-cse/LLUB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 198490,
+      "sha256": "56251f2103a1a46a0c9383d1d8ad09cc6a371c954b079500ad70034cee68feff"
+    },
+    {
+      "symbol": "LMF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/486_1192178729.gif",
+      "local_path": "public/logos-cse/LMF_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 3848,
+      "sha256": "fa05f1c53e49c62c08128782c28c15a04053caeff8e39eb97f01c3d82cb1635f"
+    },
+    {
+      "symbol": "LOFC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/TsNgkWUI2a1CtTbN_27Dec2025051430GMT_1766812470566.jpeg",
+      "local_path": "public/logos-cse/LOFC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 54265,
+      "sha256": "720e6ffc5e9d162e353f30c91b4886e75633ce3cd767d1c78880323836d4b764"
+    },
+    {
+      "symbol": "LOLC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/378_1601611239.jpeg",
+      "local_path": "public/logos-cse/LOLC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6392,
+      "sha256": "d70945cf57815e5c1259fcee8abe10d8523a6ff5f304ae243b2caafee3dce1fc"
+    },
+    {
+      "symbol": "LPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1930_1583209637.jpeg",
+      "local_path": "public/logos-cse/LPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 210372,
+      "sha256": "af4ae4d9675f93cae09e8308b242f5d89afb724740af9e49eb1da23b11da90b1"
+    },
+    {
+      "symbol": "LPL.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1930_1583209637.jpeg",
+      "local_path": "public/logos-cse/LPL_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 210372,
+      "sha256": "af4ae4d9675f93cae09e8308b242f5d89afb724740af9e49eb1da23b11da90b1"
+    },
+    {
+      "symbol": "LUMX.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2790_1655963030.jpeg",
+      "local_path": "public/logos-cse/LUMX_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10406,
+      "sha256": "0678556d99773b392f636310ea01f662beac45fb4ca133e977cf88d77afa6063"
+    },
+    {
+      "symbol": "LVEF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1707_1601611265.jpeg",
+      "local_path": "public/logos-cse/LVEF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9226,
+      "sha256": "55622bf88812d0b721011c2ed094cc51abd128708776c42c1ee56baf008a8d92"
+    },
+    {
+      "symbol": "LVEN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/377_1601611136.jpeg",
+      "local_path": "public/logos-cse/LVEN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8231,
+      "sha256": "aa126a8e2630ccda7818742532da0f7d112a305855e72de794843e0855a3d8e9"
+    },
+    {
+      "symbol": "LWL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/rjQu3MIImbVm4Q5c_22Jul2024093537GMT_1721640937226.jpeg",
+      "local_path": "public/logos-cse/LWL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 17565,
+      "sha256": "2f02ed1ca8c7d117845ef5fde1bd74633fde034ac66c32e6b79888751f0a9682"
+    },
+    {
+      "symbol": "MASK.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/723_1192785889.gif",
+      "local_path": "public/logos-cse/MASK_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 583,
+      "sha256": "6d655b4f2b24d9dbdd1b3653f78c3e18f3d79d9208113f2fb09deb2b9bc503dc"
+    },
+    {
+      "symbol": "MBSL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/380_1601462338.jpeg",
+      "local_path": "public/logos-cse/MBSL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 33223,
+      "sha256": "86adcc5edc88235e6f42bda8703486d89b436df69f3b1282036619e983ef3420"
+    },
+    {
+      "symbol": "MBSL.P0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/380_1601462338.jpeg",
+      "local_path": "public/logos-cse/MBSL_P0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 33223,
+      "sha256": "86adcc5edc88235e6f42bda8703486d89b436df69f3b1282036619e983ef3420"
+    },
+    {
+      "symbol": "MCPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1907_1601611287.jpeg",
+      "local_path": "public/logos-cse/MCPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7927,
+      "sha256": "20415ed4841910958d7fcfef25df5efdff81f7a5d42b5b0e65a35f40c1aa89be"
+    },
+    {
+      "symbol": "MDL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2672_1640636102.jpeg",
+      "local_path": "public/logos-cse/MDL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 703753,
+      "sha256": "1c9fa59eae0d5ce792d99af9aee1dba97c5df5bbfe16a17942435b82a3f2cecc"
+    },
+    {
+      "symbol": "MEL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Ehl7iE9DqgrZwAbZ_13Feb2024123138GMT_1707827498001.jpeg",
+      "local_path": "public/logos-cse/MEL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 32400,
+      "sha256": "e9a97da4035f6337679353c1d7ff32cdb1337697119715d900461dca13764664"
+    },
+    {
+      "symbol": "MELS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1507_1483005125.jpeg",
+      "local_path": "public/logos-cse/MELS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7277,
+      "sha256": "a340c0d56dba9baa1cd08117bb1490fc9ee5d8c2df29473bf1eec0a6b1ccb8c2"
+    },
+    {
+      "symbol": "MERC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1064_1601462304.jpeg",
+      "local_path": "public/logos-cse/MERC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 28153,
+      "sha256": "5a1d0353c6f1a93c7f9fde1da5f95f8d5844737263e1dc2161e945af78376967"
+    },
+    {
+      "symbol": "MFPE.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/rKOVwiiAhFtKTrxH_25Jul2024100137GMT_1721901697163.png",
+      "local_path": "public/logos-cse/MFPE_N0000.png",
+      "content_type": "image/png",
+      "bytes": 55056,
+      "sha256": "f87d7cbf109421fa68c006825f055cae36703462d0c022e3236eb56b4e70e9ee"
+    },
+    {
+      "symbol": "MGT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/403_1442910137.jpeg",
+      "local_path": "public/logos-cse/MGT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 93899,
+      "sha256": "1c8acc0cf93a8bb8ed3696f71f60316319349350fb8339fbffbf4cc84056d627"
+    },
+    {
+      "symbol": "MHDL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Md092Izk3utFjFJX_10Jun2026040913GMT_1781064553438.jpeg",
+      "local_path": "public/logos-cse/MHDL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 131624,
+      "sha256": "a03be6e9766e8e77a4d1b55579938ebb94dfd955370ed83fe73a8b3b42387d3b"
+    },
+    {
+      "symbol": "MRH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/563_1601462254.jpeg",
+      "local_path": "public/logos-cse/MRH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7373,
+      "sha256": "20ab131b4a5f713fbe440148e6bd8527ee1ad9363d18555cbab413a8c55203eb"
+    },
+    {
+      "symbol": "MSL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/742_1193026791.gif",
+      "local_path": "public/logos-cse/MSL_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 2574,
+      "sha256": "d3153564470315912cfde059e455820372812c717ff8dd4110a67e83e6f179c4"
+    },
+    {
+      "symbol": "MULL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/763_1193039070.gif",
+      "local_path": "public/logos-cse/MULL_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1236,
+      "sha256": "197177fdb8ee0479ec4fa436e5aa37ecf07679356eaf53b1bc11ec6ac05674d6"
+    },
+    {
+      "symbol": "NAMU.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/725_1192787431.gif",
+      "local_path": "public/logos-cse/NAMU_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1230,
+      "sha256": "474f50f81b846864b5506d6e6444c929b28ffb7789e5d7f2f13c1a16c2939394"
+    },
+    {
+      "symbol": "NDB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/7rxY42O5iDArNVtY_9Feb2024065548GMT_1707461748749.jpeg",
+      "local_path": "public/logos-cse/NDB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 20387,
+      "sha256": "0c185511f4a6b599e81b5825ab9b3775e939f670399ccc67ad9485225b85e05f"
+    },
+    {
+      "symbol": "NEH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/566_1601463914.jpeg",
+      "local_path": "public/logos-cse/NEH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 55134,
+      "sha256": "e2c31957efa2b1767ceb2b68744f00bcfb7619218a355c0d28b575382e97663b"
+    },
+    {
+      "symbol": "NHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/980_1639713051.jpeg",
+      "local_path": "public/logos-cse/NHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 4428,
+      "sha256": "6bfa31e173e6d21798663bf482eb42d5684e4d01b88bd655a57102ad170e50c0"
+    },
+    {
+      "symbol": "NTB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/387_1216701989.gif",
+      "local_path": "public/logos-cse/NTB_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 3708,
+      "sha256": "ff16e57dc983e38f3563ae9560598819e88c35d66fd38a45512c58fa0cd8a562"
+    },
+    {
+      "symbol": "NTB.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/387_1216701989.gif",
+      "local_path": "public/logos-cse/NTB_X0000.gif",
+      "content_type": "image/gif",
+      "bytes": 3708,
+      "sha256": "ff16e57dc983e38f3563ae9560598819e88c35d66fd38a45512c58fa0cd8a562"
+    },
+    {
+      "symbol": "OFEQ.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/769_1603173546.jpeg",
+      "local_path": "public/logos-cse/OFEQ_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9021,
+      "sha256": "2a6915692894f85d6923ee58180552b08b43caa6c6d78627de4d121eba5514b8"
+    },
+    {
+      "symbol": "ONAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/627_1601462418.jpeg",
+      "local_path": "public/logos-cse/ONAL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6927,
+      "sha256": "a61d249c579db6e6d36c7ed4b652bcf22ed4c9612b1de0d3da5c05a30105145a"
+    },
+    {
+      "symbol": "OSEA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/628_1601462449.jpeg",
+      "local_path": "public/logos-cse/OSEA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 25144,
+      "sha256": "7cebf0c2727b76a59e48646e0d34942984db82a169caaade908f1dacab8a88f6"
+    },
+    {
+      "symbol": "PABC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/388_1601462524.jpeg",
+      "local_path": "public/logos-cse/PABC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 43343,
+      "sha256": "f9f7bf4722b17561d94fc75afe74857a23b4aa57f3ac4bd063fae3b673887238"
+    },
+    {
+      "symbol": "PACK.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2511_1636519151.jpeg",
+      "local_path": "public/logos-cse/PACK_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5970,
+      "sha256": "ad150eee17c6a33250b90784f389856989d394ac6f8577a722194eecb6f033fc"
+    },
+    {
+      "symbol": "PAP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1040_1601462556.jpeg",
+      "local_path": "public/logos-cse/PAP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1913,
+      "sha256": "42d21a569ef180568b9935a13fa5fe989306429c37344b0d0486934b59fad9f2"
+    },
+    {
+      "symbol": "PARA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/743_1603173619.jpeg",
+      "local_path": "public/logos-cse/PARA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9697,
+      "sha256": "45ca859b346e2b358e0bcb918a005b6dedf049d79485228f38ce21f3c2a1afa1"
+    },
+    {
+      "symbol": "PARQ.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/679_1600926900.jpeg",
+      "local_path": "public/logos-cse/PARQ_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 22768,
+      "sha256": "1bef82215b27e041b33acaa64c86536767b0cf91455695b6d623a2b76bf64e54"
+    },
+    {
+      "symbol": "PEG.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/H0UKYIp7DUCwkuxJ_13Mar2026060036GMT_1773381636463.png",
+      "local_path": "public/logos-cse/PEG_N0000.png",
+      "content_type": "image/png",
+      "bytes": 16551,
+      "sha256": "1f75ae5ac55bb6a2e894cc16ab09569975714eb82cbcf611ff495143f561f9f6"
+    },
+    {
+      "symbol": "PHAR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/744_1601622476.jpeg",
+      "local_path": "public/logos-cse/PHAR_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8338,
+      "sha256": "4b45ea13470c13d164b7dba9e65bf83f2cf3d95bdf71ba666f51ef554e40b4d2"
+    },
+    {
+      "symbol": "PINS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/eMGMdbZtt5XQ0nTL_2Jun2023052542GMT_1685683542305.png",
+      "local_path": "public/logos-cse/PINS_N0000.png",
+      "content_type": "image/png",
+      "bytes": 32339,
+      "sha256": "0357485f9693073b7a01f694db678da94a94a6e82c7d7d61d5786675d6f5c743"
+    },
+    {
+      "symbol": "PKME.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/N9aA4wMSQYIhnOjV_4Oct2024065808GMT_1728025088129.png",
+      "local_path": "public/logos-cse/PKME_N0000.png",
+      "content_type": "image/png",
+      "bytes": 9833,
+      "sha256": "260c9374bdd68e6854ac8bba44553ba91a01cf58eb31f2485c2e8c2f24ab27a3"
+    },
+    {
+      "symbol": "PLC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1103_1600926857.jpeg",
+      "local_path": "public/logos-cse/PLC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 13377,
+      "sha256": "e33da5ec77514116b555e810096cd8acfae100dae2a8499d2512157c929c473e"
+    },
+    {
+      "symbol": "PLR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/oc39KineiYln5UAB_20Jun2024104606GMT_1718880366051.png",
+      "local_path": "public/logos-cse/PLR_N0000.png",
+      "content_type": "image/png",
+      "bytes": 21284,
+      "sha256": "4468669cf0d77f49466fa8fd5310b97c5ba0a305fd32d1e9fe81909df73f7229"
+    },
+    {
+      "symbol": "PMB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/405_1668414284.jpeg",
+      "local_path": "public/logos-cse/PMB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 36735,
+      "sha256": "f75be21fbae258cee8e988456fe17f3eb6a077b8e12a5af0ee8a5de9df9c873d"
+    },
+    {
+      "symbol": "RAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/901_1414044223.jpeg",
+      "local_path": "public/logos-cse/RAL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 65437,
+      "sha256": "46264532f15fc9e5e96ea749c7feb875b88845b2f9ec690b7efd715e0c801a8b"
+    },
+    {
+      "symbol": "RCH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1631_1511238293.jpeg",
+      "local_path": "public/logos-cse/RCH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 22821,
+      "sha256": "d5a187a07c31cc03a5c5914612c0fa0f1c6da8c1d0935041c0b1f6dc7aaa45d9"
+    },
+    {
+      "symbol": "RCL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/683_1282729788.jpeg",
+      "local_path": "public/logos-cse/RCL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10578,
+      "sha256": "d56ec8309cb57a3a38841088ea86f2ea753173b25d7cb9694a9a01ca0c500f8d"
+    },
+    {
+      "symbol": "RENU.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/569_1192600579.gif",
+      "local_path": "public/logos-cse/RENU_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1484,
+      "sha256": "b3ffb90f92161abc7a4411c7bd12706cdb42a02893d6f97b1bac65fb91d4cd73"
+    },
+    {
+      "symbol": "REXP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/771_1601622600.jpeg",
+      "local_path": "public/logos-cse/REXP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7110,
+      "sha256": "38f44ce8a4011cb393a550b475a20b6f6252ca558c41a6ba3b09101a8bb0bbf7"
+    },
+    {
+      "symbol": "RFL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1185_1347261816.jpeg",
+      "local_path": "public/logos-cse/RFL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 12966,
+      "sha256": "23052c136117b91b50d78480f62ce487e5c23b65338a1e3d6d2c1948ea623d49"
+    },
+    {
+      "symbol": "RHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Ou2cXXprvQWaAT6r_5Jul2023093116GMT_1688549476409.jpeg",
+      "local_path": "public/logos-cse/RHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 28924,
+      "sha256": "7a6021a5c3bc87afcaef1afc8b2b14bff0420afbf1599fa7b31d1c5dec5ba555"
+    },
+    {
+      "symbol": "RHL.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/Ou2cXXprvQWaAT6r_5Jul2023093116GMT_1688549476409.jpeg",
+      "local_path": "public/logos-cse/RHL_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 28924,
+      "sha256": "7a6021a5c3bc87afcaef1afc8b2b14bff0420afbf1599fa7b31d1c5dec5ba555"
+    },
+    {
+      "symbol": "RHTL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/534_1601463761.jpeg",
+      "local_path": "public/logos-cse/RHTL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 81515,
+      "sha256": "edd0a4c6dfa4e5129831343062011ba64e180c2355637847c7f383e8ecff63a9"
+    },
+    {
+      "symbol": "RICH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/509_1603172545.jpeg",
+      "local_path": "public/logos-cse/RICH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11635,
+      "sha256": "63ea56a80156df3a5d8583499c79f3ff9fc2cc513911580f67d8cd1b894172c7"
+    },
+    {
+      "symbol": "RIL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1544_1496204709.jpeg",
+      "local_path": "public/logos-cse/RIL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 222500,
+      "sha256": "ad76bebb8ff5a594776745b45faf3ce8ffdb26508c96bfdf84b05e4b68a931be"
+    },
+    {
+      "symbol": "RPBH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/581_1601611404.jpeg",
+      "local_path": "public/logos-cse/RPBH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8130,
+      "sha256": "97072e4317ef1d4621431daab9a12438535a71dcd4b45a0793a39963c16e860c"
+    },
+    {
+      "symbol": "SAMP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/431_1601463036.jpeg",
+      "local_path": "public/logos-cse/SAMP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1436,
+      "sha256": "9f4ea3d02f88937c9c029490c38312c69cb4203babc951ad911db4963e44a7ab"
+    },
+    {
+      "symbol": "SCAP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1100_1601463499.jpeg",
+      "local_path": "public/logos-cse/SCAP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8206,
+      "sha256": "2de4367268e444ad919571ed1d4f40ca9f8751a33a6abcbaaa8074d093e1f68e"
+    },
+    {
+      "symbol": "SDB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1182_1601463071.jpeg",
+      "local_path": "public/logos-cse/SDB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 18454,
+      "sha256": "3e1dbbbced87ee992a6ca796d6561899aef60213aa727e423221b00e29242904"
+    },
+    {
+      "symbol": "SDF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2567_1639498208.jpeg",
+      "local_path": "public/logos-cse/SDF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6666,
+      "sha256": "c0361fadfb84ed00756082b539c74b0048b335bfd8e2ae68f60f005c939d3bed"
+    },
+    {
+      "symbol": "SEMB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/445_1192177094.gif",
+      "local_path": "public/logos-cse/SEMB_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 980,
+      "sha256": "9ff7c8002eedc5c2df14eb6f1cb2da9f667c11dd108f700b9dab36901e596ec8"
+    },
+    {
+      "symbol": "SEMB.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/445_1192177094.gif",
+      "local_path": "public/logos-cse/SEMB_X0000.gif",
+      "content_type": "image/gif",
+      "bytes": 980,
+      "sha256": "9ff7c8002eedc5c2df14eb6f1cb2da9f667c11dd108f700b9dab36901e596ec8"
+    },
+    {
+      "symbol": "SERV.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/543_1603176056.jpeg",
+      "local_path": "public/logos-cse/SERV_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9922,
+      "sha256": "e99a3fab3d0c7631de272c6d9a0aa29b2e6fd66f17e6fdd79e203b57cbd7fd10"
+    },
+    {
+      "symbol": "SEYB.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/6OoZ3E8teF5pa4qJ_5Feb2026113246GMT_1770291166161.jpeg",
+      "local_path": "public/logos-cse/SEYB_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 55890,
+      "sha256": "fb3a3854cf7518770cd629ebd3f05860fa3bfcb2ffaa38162cd0771d63f8a8d9"
+    },
+    {
+      "symbol": "SEYB.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/6OoZ3E8teF5pa4qJ_5Feb2026113246GMT_1770291166161.jpeg",
+      "local_path": "public/logos-cse/SEYB_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 55890,
+      "sha256": "fb3a3854cf7518770cd629ebd3f05860fa3bfcb2ffaa38162cd0771d63f8a8d9"
+    },
+    {
+      "symbol": "SFCL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/441_1601464990.jpeg",
+      "local_path": "public/logos-cse/SFCL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 31867,
+      "sha256": "8de86b1d4b05ddaf8bbe077c502d4cf12185898d44cfb77b542dbfc3558fd12c"
+    },
+    {
+      "symbol": "SFIN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1041_1601463438.jpeg",
+      "local_path": "public/logos-cse/SFIN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 46148,
+      "sha256": "49b897584fd7f5f0180528969a44e7b4acee65894923e2aea7204f6931c58ada"
+    },
+    {
+      "symbol": "SHL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1075_1388056466.jpeg",
+      "local_path": "public/logos-cse/SHL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 19576,
+      "sha256": "638dcff7625a0bd7a3ebb00a2e92139ed76e959aaf7338f49d4675e21e3f4389"
+    },
+    {
+      "symbol": "SIGV.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/602_1192601968.gif",
+      "local_path": "public/logos-cse/SIGV_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 2371,
+      "sha256": "1a98d3382fd892dd228e9194a79a9def5c2a7ed2a29157b432befb4851b6f18e"
+    },
+    {
+      "symbol": "SIL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/684_1192703973.gif",
+      "local_path": "public/logos-cse/SIL_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 3202,
+      "sha256": "b0a90144c690af23f6cc7c662fa0a707baf1a5c9974e915d681624064eb98359"
+    },
+    {
+      "symbol": "SINH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1444_1601463466.jpeg",
+      "local_path": "public/logos-cse/SINH_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 5997,
+      "sha256": "d18f6dcb9e3435f093312e545dbc26a104d94d50e05696a5a733ce86bcacb2fb"
+    },
+    {
+      "symbol": "SINS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/772_1601463343.jpeg",
+      "local_path": "public/logos-cse/SINS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6284,
+      "sha256": "0a804eb1903f2b785c072c18bd4229bcb800d71a4d95f8075879540dd4ad5549"
+    },
+    {
+      "symbol": "SIRA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/685_1601637927.jpeg",
+      "local_path": "public/logos-cse/SIRA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 40599,
+      "sha256": "27afac6362cc3d34b090e7ca1d6316be072a551b3e0fd473353fda7da76eb059"
+    },
+    {
+      "symbol": "SLND.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/630_1192683179.gif",
+      "local_path": "public/logos-cse/SLND_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 947,
+      "sha256": "7727454cf569e734b888990f510b53e4a37669e0fda4a603035f367b9b59dbe3"
+    },
+    {
+      "symbol": "SLTL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/390_1645355503.jpeg",
+      "local_path": "public/logos-cse/SLTL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1580,
+      "sha256": "d4df1a9e15e72b4697f89162dacf87e412353170f67c0ff9e664419ae3008d85"
+    },
+    {
+      "symbol": "SMOT.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/696_1601463159.jpeg",
+      "local_path": "public/logos-cse/SMOT_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6315,
+      "sha256": "e13d24566c45308b9f383885602b4a87f6ab5ef40eecaf0d5fa7f14a2a7f7c04"
+    },
+    {
+      "symbol": "SOY.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/488_1601450088.jpeg",
+      "local_path": "public/logos-cse/SOY_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 35641,
+      "sha256": "10c74e183cd9bef0d0da013d0696060795ee0f1b045fe654df88edbf5f823b07"
+    },
+    {
+      "symbol": "SPEN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/501_1601609954.jpeg",
+      "local_path": "public/logos-cse/SPEN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9413,
+      "sha256": "b3aa2e8560858effa4517af4cb9d6fad6b9a3fa83971e60818ddffc9891a8eef"
+    },
+    {
+      "symbol": "SUN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/510_1601463649.jpeg",
+      "local_path": "public/logos-cse/SUN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 1794,
+      "sha256": "bb23289a57f320c9f39b5f65aea9ec6b72699f9a7f1a5606a1eab322095cb682"
+    },
+    {
+      "symbol": "SWAD.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/687_1192705508.gif",
+      "local_path": "public/logos-cse/SWAD_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 3264,
+      "sha256": "51253dcfe22ddb63de85600f9bdbf9bf5c3f18ca7b53617a520a7814e28d3e48"
+    },
+    {
+      "symbol": "TAFL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/491_1601463969.jpeg",
+      "local_path": "public/logos-cse/TAFL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 272074,
+      "sha256": "51ba4e5bd577b1d4f2ec817f7bda4bfcdc9b1ed082ad87076f26019622c163ce"
+    },
+    {
+      "symbol": "TAJ.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/604_1603176032.jpeg",
+      "local_path": "public/logos-cse/TAJ_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 6759,
+      "sha256": "9b4a438c977a374f74d01f62e1624aefa998ff0c1c02924c1d55ee239773cd82"
+    },
+    {
+      "symbol": "TANG.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/605_1601622667.jpeg",
+      "local_path": "public/logos-cse/TANG_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 9839,
+      "sha256": "b185cdfa4ca23676cf62ffa3dd616d51b20b232caaa66d823d17cbfeaac33076"
+    },
+    {
+      "symbol": "TAP.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1181_1601622394.jpeg",
+      "local_path": "public/logos-cse/TAP_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10001,
+      "sha256": "33361a8c1214c62c9671952c09f263973c4a60f050877ae3b88c61cfc7556f56"
+    },
+    {
+      "symbol": "TESS.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/781_1601463701.jpeg",
+      "local_path": "public/logos-cse/TESS_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 71411,
+      "sha256": "87b602854c218187e96845ef2dee2b1af3e45ed4ea070f793235f564d1999892"
+    },
+    {
+      "symbol": "TESS.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/781_1601463701.jpeg",
+      "local_path": "public/logos-cse/TESS_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 71411,
+      "sha256": "87b602854c218187e96845ef2dee2b1af3e45ed4ea070f793235f564d1999892"
+    },
+    {
+      "symbol": "TILE.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/FADtPapIV26yow9G_22Jul2024093715GMT_1721641035603.jpeg",
+      "local_path": "public/logos-cse/TILE_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 17565,
+      "sha256": "2f02ed1ca8c7d117845ef5fde1bd74633fde034ac66c32e6b79888751f0a9682"
+    },
+    {
+      "symbol": "TJL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/SlYmHEpBkJ7IGHjb_29May2025075204GMT_1748505124741.png",
+      "local_path": "public/logos-cse/TJL_N0000.png",
+      "content_type": "image/png",
+      "bytes": 6846,
+      "sha256": "fd09ec932dc769fff5a869750dbdf8080461ad806fe8d25e3b54963a4d288c18"
+    },
+    {
+      "symbol": "TKYO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/688_1601611429.jpeg",
+      "local_path": "public/logos-cse/TKYO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 79161,
+      "sha256": "df9998c42bd4a72b9ec7415e8cf86c4874b2917f18518c01057d0a6626e01722"
+    },
+    {
+      "symbol": "TKYO.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/688_1601611429.jpeg",
+      "local_path": "public/logos-cse/TKYO_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 79161,
+      "sha256": "df9998c42bd4a72b9ec7415e8cf86c4874b2917f18518c01057d0a6626e01722"
+    },
+    {
+      "symbol": "TPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/XWr77jtotXuVcPxG_20Jun2024104229GMT_1718880149194.jpeg",
+      "local_path": "public/logos-cse/TPL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 41588,
+      "sha256": "9d297ab14622e5e2f5d08205a75b9f3fd0795da259afc2c46f9e4e5e1105e762"
+    },
+    {
+      "symbol": "TRAN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/606_1603172582.jpeg",
+      "local_path": "public/logos-cse/TRAN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 397036,
+      "sha256": "b4f3e2caaa7c9bd72d39da79c81c51337f9cc341a2baf8b2b0e5d07c11fe468c"
+    },
+    {
+      "symbol": "TSML.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/490_1192178811.gif",
+      "local_path": "public/logos-cse/TSML_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1689,
+      "sha256": "6ee93a1d5220f4c40f9bab46f1bd99ca4aa6cbf6943af789400fa6a73df37486"
+    },
+    {
+      "symbol": "TYRE.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/673_1192693045.gif",
+      "local_path": "public/logos-cse/TYRE_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 2506,
+      "sha256": "1a9271b2538b9d9b093c114b64c6548d9e03b4805c9364de388c857b6710346f"
+    },
+    {
+      "symbol": "UAL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/450_1601464021.jpeg",
+      "local_path": "public/logos-cse/UAL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 16558,
+      "sha256": "79ebc16f3a17f16257d0a3af775bbfc0257bf480b35293d049f4a2cdf4f146f0"
+    },
+    {
+      "symbol": "UBC.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/rr4Ed6HnT90HuQz6_30May2024035232GMT_1717041152037.jpeg",
+      "local_path": "public/logos-cse/UBC_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 22298,
+      "sha256": "44ad05af9dfddb8fa211210b5bf6d39d97c0163e6482f2f7d7ccf187c733c8a8"
+    },
+    {
+      "symbol": "UBF.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/VnqqltHyDgNeTEjy_9Sep2024035533GMT_1725854133227.jpeg",
+      "local_path": "public/logos-cse/UBF_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 615205,
+      "sha256": "b6e3486753d192e68bcfa8248ffda04aebb764c5dd5311055f27ebdc5b212c6f"
+    },
+    {
+      "symbol": "UCAR.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/500_1192515200.gif",
+      "local_path": "public/logos-cse/UCAR_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 904,
+      "sha256": "523db16b1c6d5b534bfea9323a1b78dce88ccace87f0122059daa6a003a216ea"
+    },
+    {
+      "symbol": "UDPL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/727_1192788842.gif",
+      "local_path": "public/logos-cse/UDPL_N0000.gif",
+      "content_type": "image/gif",
+      "bytes": 1357,
+      "sha256": "0437083f8c77b9439f2921c25aed2a400c9ad00b434bff02a7ff14760b4635d5"
+    },
+    {
+      "symbol": "UML.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/697_1601464236.jpeg",
+      "local_path": "public/logos-cse/UML_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 7639,
+      "sha256": "94c8df01b82d06b5fc6ffe6c1aa5dfff94afe55ca84c41a643515093b78acad2"
+    },
+    {
+      "symbol": "VFIN.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/949_1603173391.jpeg",
+      "local_path": "public/logos-cse/VFIN_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 64609,
+      "sha256": "7b0c5f24934bb57caa391464698578014261bd5a17c588d18cc977027af7bfb2"
+    },
+    {
+      "symbol": "VLL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/455_1601464327.jpeg",
+      "local_path": "public/logos-cse/VLL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10105,
+      "sha256": "2ca65ef46237cec2961cb863317399d19921c25b33db19fbc3cffda1b810a4fe"
+    },
+    {
+      "symbol": "VLL.X0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/455_1601464327.jpeg",
+      "local_path": "public/logos-cse/VLL_X0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 10105,
+      "sha256": "2ca65ef46237cec2961cb863317399d19921c25b33db19fbc3cffda1b810a4fe"
+    },
+    {
+      "symbol": "VONE.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/1074_1601464262.jpeg",
+      "local_path": "public/logos-cse/VONE_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 8290,
+      "sha256": "a675c8a2e82d9cc1b2b9a7f1c7e7f9ec066c899550a39fa43fb8e02290fb0705"
+    },
+    {
+      "symbol": "VPEL.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/454_1601464296.jpeg",
+      "local_path": "public/logos-cse/VPEL_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 11890,
+      "sha256": "7b6d8752ad493d7e19d30a3ebffca5f0a37dbdc0b3f0cf755b9694adf8098173"
+    },
+    {
+      "symbol": "WAPO.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/612_1646800683.jpeg",
+      "local_path": "public/logos-cse/WAPO_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 170720,
+      "sha256": "3640244be324a5030fd111e1252852fc7bdbc07cb0192a2999e630113a16c826"
+    },
+    {
+      "symbol": "WATA.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/728_1601464378.jpeg",
+      "local_path": "public/logos-cse/WATA_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 28937,
+      "sha256": "7f17ac8f235b15cf7f1751abd5666b189febab3ad6bcad32250056144ab33832"
+    },
+    {
+      "symbol": "WIND.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/2173_1621840165.jpeg",
+      "local_path": "public/logos-cse/WIND_N0000.jpeg",
+      "content_type": "image/jpeg",
+      "bytes": 3674,
+      "sha256": "104ee233bfb56b741f2c1139dd46079bae2d9a5f1eed6352841bab5c50ce87c2"
+    },
+    {
+      "symbol": "WLTH.N0000",
+      "source_url": "https://cdn.cse.lk/cmt/upload_logo/6JlwF7SSHFQHvh2x_16Apr2026045013GMT_1776315013298.png",
+      "local_path": "public/logos-cse/WLTH_N0000.png",
+      "content_type": "image/png",
+      "bytes": 101977,
+      "sha256": "e0df549ee517c5517d62d76711b1bc80a183b54ccc9f3a8028d670889359d64b"
+    }
+  ],
+  "failures": [
+    {
+      "symbol": "CABO.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "CALU.U0000",
+      "reason": "invalid image response"
+    },
+    {
+      "symbol": "CFI.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "CFLB.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "DPL.N0000",
+      "reason": "invalid image response"
+    },
+    {
+      "symbol": "HSIG.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "LITE.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "MADU.N0000",
+      "reason": "invalid image response"
+    },
+    {
+      "symbol": "MARA.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "ODEL.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "REEF.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "RWSL.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "SHAW.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "SING.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "STAF.N0000",
+      "reason": "missing official logo path"
+    },
+    {
+      "symbol": "YORK.N0000",
+      "reason": "missing official logo path"
+    }
+  ],
+  "aliases": [
+    {
+      "alias": "TESS_X0000.jpeg",
+      "canonical": "TESS_N0000.jpeg",
+      "sha256": "87b602854c218187e96845ef2dee2b1af3e45ed4ea070f793235f564d1999892"
+    },
+    {
+      "alias": "SEMB_X0000.gif",
+      "canonical": "SEMB_N0000.gif",
+      "sha256": "9ff7c8002eedc5c2df14eb6f1cb2da9f667c11dd108f700b9dab36901e596ec8"
+    },
+    {
+      "alias": "CINS_X0000.jpeg",
+      "canonical": "CINS_N0000.jpeg",
+      "sha256": "b8541eee318bcbfc0a1faa81084f9350a96c9c55e9f79ef8d47368720b53a5e6"
+    },
+    {
+      "alias": "NTB_X0000.gif",
+      "canonical": "NTB_N0000.gif",
+      "sha256": "ff16e57dc983e38f3563ae9560598819e88c35d66fd38a45512c58fa0cd8a562"
+    },
+    {
+      "alias": "FCT_N0000.jpeg",
+      "canonical": "CFVF_N0000.jpeg",
+      "sha256": "a6818df68e6c6e68c06fa8f379f9385998b1f0bd054803dd3d6d3c79d0cecbcf"
+    },
+    {
+      "alias": "TKYO_X0000.jpeg",
+      "canonical": "TKYO_N0000.jpeg",
+      "sha256": "df9998c42bd4a72b9ec7415e8cf86c4874b2917f18518c01057d0a6626e01722"
+    },
+    {
+      "alias": "CHL_X0000.jpeg",
+      "canonical": "CHL_N0000.jpeg",
+      "sha256": "0e80d3d2cbf219893249102e7043b5eccea3942c86dd4fc0e096c329628f32fc"
+    },
+    {
+      "alias": "LGL_X0000.jpeg",
+      "canonical": "LGL_N0000.jpeg",
+      "sha256": "a21eaa26288ba1af9ade7a3a2ab90b90bec807fd69d96d5b6cb5c7fa9fb577e6"
+    },
+    {
+      "alias": "COCO_X0000.jpeg",
+      "canonical": "COCO_N0000.jpeg",
+      "sha256": "352be45555b8016fb0a5351ccda94b7d42df4797feb996aee3ae8eee6ad567b6"
+    },
+    {
+      "alias": "AAF_R0000.jpeg",
+      "canonical": "AAF_N0000.jpeg",
+      "sha256": "e467d46b8557f9fc90e0a0846423b2d56a87fc6cc80f6869e8e5e9380b33e682"
+    },
+    {
+      "alias": "RHL_X0000.jpeg",
+      "canonical": "RHL_N0000.jpeg",
+      "sha256": "7a6021a5c3bc87afcaef1afc8b2b14bff0420afbf1599fa7b31d1c5dec5ba555"
+    },
+    {
+      "alias": "MBSL_P0000.jpeg",
+      "canonical": "MBSL_N0000.jpeg",
+      "sha256": "86adcc5edc88235e6f42bda8703486d89b436df69f3b1282036619e983ef3420"
+    },
+    {
+      "alias": "VLL_X0000.jpeg",
+      "canonical": "VLL_N0000.jpeg",
+      "sha256": "2ca65ef46237cec2961cb863317399d19921c25b33db19fbc3cffda1b810a4fe"
+    },
+    {
+      "alias": "CIC_X0000.jpeg",
+      "canonical": "CIC_N0000.jpeg",
+      "sha256": "6c08166e9ff2fa0f58de3081dcbe112879e3974b7c408a541755c7cebaaeaaef"
+    },
+    {
+      "alias": "LPL_X0000.jpeg",
+      "canonical": "LPL_N0000.jpeg",
+      "sha256": "af4ae4d9675f93cae09e8308b242f5d89afb724740af9e49eb1da23b11da90b1"
+    },
+    {
+      "alias": "TILE_N0000.jpeg",
+      "canonical": "LWL_N0000.jpeg",
+      "sha256": "2f02ed1ca8c7d117845ef5fde1bd74633fde034ac66c32e6b79888751f0a9682"
+    },
+    {
+      "alias": "CDB_X0000.jpeg",
+      "canonical": "CDB_N0000.jpeg",
+      "sha256": "791adbb505507a17fbc92e834ba135f28f6b7857c6625519a6f8d607ffc3d8b6"
+    },
+    {
+      "alias": "AGST_X0000.jpeg",
+      "canonical": "AGST_N0000.jpeg",
+      "sha256": "c47470c53e043c34d763777d9e30c5c5c4c366047317759f955b7e3cee17cc31"
+    },
+    {
+      "alias": "HNBF_X0000.png",
+      "canonical": "HNBF_N0000.png",
+      "sha256": "415024b15c8e16fb45ff36495644ddb6af7e2e4e72cbddfefc7c93c056992165"
+    },
+    {
+      "alias": "SEYB_X0000.jpeg",
+      "canonical": "SEYB_N0000.jpeg",
+      "sha256": "fb3a3854cf7518770cd629ebd3f05860fa3bfcb2ffaa38162cd0771d63f8a8d9"
+    },
+    {
+      "alias": "COMB_X0000.jpeg",
+      "canonical": "COMB_N0000.jpeg",
+      "sha256": "8945aa77c27950a41eeb8d34ca49a6329e614e7477d3fde248e02ed1dee22262"
+    },
+    {
+      "alias": "HNB_X0000.jpeg",
+      "canonical": "HNB_N0000.jpeg",
+      "sha256": "7a9d2702d489d1237be53eba5e01816059d8637fbf01f7d4964251e7262f4d57"
+    }
+  ],
+  "duplicate_files_removed": 22,
+  "physical_source_files": 246,
+  "deduplication_policy": "Exact SHA-256 duplicates only; canonical filename is lexicographically first."
+}

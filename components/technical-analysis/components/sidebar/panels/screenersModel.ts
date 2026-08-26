@@ -53,6 +53,7 @@ export interface ScreenerRow {
 
 export interface ScreenerBuildInput {
   activeCurrency: string;
+  convertValue?: (amount: number | null | undefined, fromCurrency: string) => number | null;
   activeTicker: string;
   livePrice: number | null | undefined;
   liveVolume: number | null | undefined;
@@ -161,10 +162,10 @@ const formatPercent = (value: number | null | undefined) => {
   return `${value > 0 ? "+" : ""}${formatNumber(value)}%`;
 };
 
-const formatMarketCap = (value: number | null | undefined) => {
+const formatMarketCap = (value: number | null | undefined, currency: string) => {
   if (value === null || value === undefined || !Number.isFinite(value)) return "N/D";
-  if (Math.abs(value) >= 1000) return `${formatNumber(value / 1000, 1)} Md`;
-  return `${formatNumber(value, 0)} M`;
+  if (Math.abs(value) >= 1000) return formatNumber(value / 1000, 1) + " Md " + currency;
+  return formatNumber(value, 0) + " M " + currency;
 };
 
 const readSnapshotChangePercent = (snapshot: LiveSnapshot | undefined): number | null => {
@@ -186,6 +187,7 @@ export const isListedEquity = (security: BRVMScreenerSecurity) => (
 export const buildScreenerRows = ({
   activeCurrency,
   activeTicker,
+  convertValue = (amount) => toFiniteValue(amount),
   livePrice,
   liveVolume,
   marketSnapshots,
@@ -195,10 +197,15 @@ export const buildScreenerRows = ({
   .map((security) => {
     const snapshot = marketSnapshots[security.ticker];
     const isActive = security.ticker === activeTicker;
-    const price = toFiniteValue(security.price) ?? toFiniteValue(snapshot?.price) ?? (isActive ? toFiniteValue(livePrice) : null);
+    const currency = security.currency || activeCurrency;
+    const catalogPrice = toFiniteValue(security.price) ?? toFiniteValue(snapshot?.price);
+    const price = catalogPrice === null
+      ? (isActive ? toFiniteValue(livePrice) : null)
+      : (convertValue(catalogPrice, currency) ?? catalogPrice);
     const volume = toFiniteValue(security.volume) ?? toFiniteValue(snapshot?.volume) ?? (isActive ? toFiniteValue(liveVolume) : null);
     const changePercent = toFiniteValue(security.priceChangeD1) ?? readSnapshotChangePercent(snapshot);
-    const currency = security.currency || activeCurrency;
+    const displayMarketCap = convertValue(security.marketCap, currency);
+    const displayEps = convertValue(security.epsT12M, currency);
     const searchText = normalizeSearchText([
       security.ticker,
       security.name,
@@ -211,16 +218,16 @@ export const buildScreenerRows = ({
       changePercent,
       changeLabel: formatPercent(changePercent),
       country: security.country || "UEMOA",
-      epsLabel: formatPercent(security.epsT12M),
-      epsValue: toFiniteValue(security.epsT12M),
+      epsLabel: displayEps === null ? "N/D" : formatNumber(displayEps) + " " + activeCurrency,
+      epsValue: displayEps,
       exchange: security.exchange || "BRVM",
       isActive,
-      marketCapLabel: formatMarketCap(security.marketCap),
-      marketCapValue: security.marketCap,
+      marketCapLabel: formatMarketCap(displayMarketCap, activeCurrency),
+      marketCapValue: displayMarketCap,
       name: security.name,
       peLabel: formatNumber(security.peRatio),
       peValue: security.peRatio !== null && security.peRatio > 0 ? security.peRatio : null,
-      priceLabel: price === null ? "N/D" : `${formatInteger(price)} ${currency}`,
+      priceLabel: price === null ? "N/D" : formatInteger(price) + " " + activeCurrency,
       priceValue: price,
       searchText,
       sector: security.sector,

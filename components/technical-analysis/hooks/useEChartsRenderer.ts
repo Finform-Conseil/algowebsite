@@ -25,8 +25,10 @@ import {
   TV_Y_AXIS_WIDTH,
   TV_X_AXIS_HEIGHT,
   TV_MAX_FUTURE_BARS,
+  TV_MAX_HISTORY_GAP_BARS,
   MAIN_GRID_LEFT,
   clamp,
+  clampViewportWindowWithFuture,
   getSafeGridRect,
   resolveAutoViewportPriceRange,
   resolveInitialViewportWindow,
@@ -56,6 +58,7 @@ import {
 } from "../config/indicators/movingAverageSeries";
 import { resolvePriceVsSmaSourceAveragePeriods } from "../config/indicators/priceVsSmaMetrics";
 import { resolvePriceVsEmaSourceAveragePeriods } from "../config/indicators/priceVsEmaMetrics";
+import { resolveIndicatorConfigurationTargetFromSeries, type IndicatorConfigurationTarget } from "../config/indicators/indicatorConfigurationTarget";
 import {
   buildAdvancedMovingAverageSeriesDefinitions,
   type AdvancedMovingAverageFamily,
@@ -83,16 +86,38 @@ import {
 } from "./chart-rendering/comparisonSeries";
 import type { PineChartOverlayPayload } from "../components/sidebar/panels/pineEditor/pineTypes";
 import type { EChartsInstance, TechnicalEChartsOption } from "../lib/types/echarts";
+import {
+  resolveChartCommitMode,
+  resolveChartStructureSignature,
+  type ChartCommitMode,
+} from "./chart-rendering/chartCommitPolicy";
 
 let areEChartsModulesRegistered = false;
 
 const CHART_OPTION_REPLACE_MERGE = ["series", "xAxis", "yAxis", "grid", "dataZoom", "graphic"];
 
-const applyChartOption = (chart: EChartsInstance, option: TechnicalEChartsOption): void => {
+const applyChartOption = (
+  chart: EChartsInstance,
+  option: TechnicalEChartsOption,
+  mode: ChartCommitMode = "structural",
+): void => {
+  if (mode === "history-prepend-stable") {
+    // Preserve the existing ECharts component models during a pure history prepend.
+    // Replacing axes/dataZoom tears down the coordinate system and is visible as a
+    // one-to-several-frame candle/volume shake even when animation is disabled.
+    chart.setOption(option, {
+      notMerge: false,
+      lazyUpdate: false,
+      silent: true,
+    });
+    return;
+  }
+
   chart.setOption(option, {
     notMerge: false,
     replaceMerge: CHART_OPTION_REPLACE_MERGE,
     lazyUpdate: false,
+    silent: true,
   });
 };
 
@@ -191,6 +216,10 @@ export interface UseEChartsRendererProps {
   chartAppearance: ChartAppearance;
   uiState: UiState;
   displaySymbol: string;
+  displayLogoUrl?: string | null;
+  marketLabel?: string;
+  /** Hide the embedded ECharts identity/OHLC title when a multi-chart cell header already owns that information. */
+  hideChartTitle?: boolean;
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
   cursorPriceBadgeRef?: RefObject<HTMLDivElement | null>;
   cursorPriceTextRef?: RefObject<HTMLSpanElement | null>;
@@ -199,8 +228,10 @@ export interface UseEChartsRendererProps {
   lastPriceLineRef?: RefObject<HTMLDivElement | null>;
   lastPriceAxisValue?: number;
   isMainChartVisible?: boolean;
+  isChartLoading?: boolean;
   comparisonSeries?: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
   onCompareSeriesSettingsRequest?: (symbol: string) => void;
+  onIndicatorConfigurationRequest?: (target: IndicatorConfigurationTarget) => void;
   onMarubozuAlertRequest?: (request: MarubozuAlertRequest) => void;
   onShootingStarAlertRequest?: (request: ShootingStarAlertRequest) => void;
   onCandlestickPatternAlertRequest?: (request: CandlestickPatternAlertRequest) => void;
@@ -268,13 +299,59 @@ const COMPACT_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 });
 
 const FUTURE_AXIS_CATEGORY_PREFIX = "__future__";
+const HISTORY_AXIS_CATEGORY_PREFIX = "__history__";
 
 const formatCompactUtcDate = (value: unknown): string => {
-  if (typeof value === "string" && value.startsWith(FUTURE_AXIS_CATEGORY_PREFIX)) return "";
+  if (typeof value === "string" && (value.startsWith(FUTURE_AXIS_CATEGORY_PREFIX) || value.startsWith(HISTORY_AXIS_CATEGORY_PREFIX))) return "";
   if (typeof value !== "string" && typeof value !== "number") return String(value ?? "");
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : COMPACT_DATE_FORMATTER.format(date);
 };
+const alignSeriesWithHistoryAxis = (series: ChartOptionPart, historyGapBars: number): ChartOptionPart => {
+  if (!Array.isArray(series.data) || series.data.length === 0) return series;
+
+  const axisIndexOffset = Math.max(TV_MAX_HISTORY_GAP_BARS, Math.round(historyGapBars));
+  const data = series.data as unknown[];
+  const first = data.find((item) => item !== null && item !== undefined);
+  if (first === undefined) return series;
+
+  const firstValue = (
+    typeof first === "object" && first !== null && "value" in first
+      ? (first as { value?: unknown }).value
+      : first
+  );
+  const seriesId = typeof series.id === "string" ? series.id : "";
+
+  if (seriesId.startsWith("pine-") && Array.isArray(firstValue) && firstValue.length === 2 && isFiniteHistoryAxisNumber(firstValue[0])) {
+    return {
+      ...series,
+      data: data.map((item) => {
+        if (item === null || item === undefined) return item;
+        if (Array.isArray(item) && isFiniteHistoryAxisNumber(item[0])) {
+          return [item[0] + axisIndexOffset, ...item.slice(1)];
+        }
+        if (typeof item === "object" && "value" in item) {
+          const value = (item as { value?: unknown }).value;
+          if (Array.isArray(value) && isFiniteHistoryAxisNumber(value[0])) {
+            return { ...item, value: [value[0] + axisIndexOffset, ...value.slice(1)] };
+          }
+        }
+        return item;
+      }),
+    };
+  }
+
+  if (seriesId !== "main-series" || !Array.isArray(firstValue) || firstValue.length < 4 || !firstValue.slice(0, 4).every(isFiniteHistoryAxisNumber)) {
+    return series;
+  }
+
+  const emptyOhlcSlots = Array.from({ length: axisIndexOffset }, () => ({
+    value: ["-", "-", "-", "-"],
+    itemStyle: { opacity: 0 },
+  }));
+  return { ...series, data: [...emptyOhlcSlots, ...data] };
+};
+
 const PANE_SHIELD_GUTTER_PX = 34;
 
 const isPaneShieldSeries = (series: ChartOptionPart): boolean =>
@@ -323,17 +400,39 @@ const withStableInitialViewport = ({
   hasComparisonEndLabels,
   lastPriceAxisValue,
   zoomRange,
+  historyGapBars,
+  liveViewport,
 }: {
   option: TechnicalEChartsOption;
   chartData: ChartDataPoint[];
   hasComparisonEndLabels: boolean;
   lastPriceAxisValue?: number;
   zoomRange?: ZoomRangeSnapshot;
+  historyGapBars: number;
+  liveViewport?: {
+    startIdx: number;
+    endIdx: number;
+    historyGapBars: number;
+    lastDataLength: number;
+  };
 }): TechnicalEChartsOption => {
   if (chartData.length === 0) return option;
 
   const seedableOption = option as ViewportSeedableOption;
-  const viewport = resolveInitialViewportWindow(chartData.length, zoomRange);
+  const hasLiveViewport = liveViewport !== undefined && liveViewport.lastDataLength > 0;
+  const axisIndexOffset = Math.max(
+    TV_MAX_HISTORY_GAP_BARS,
+    Math.round(hasLiveViewport ? liveViewport.historyGapBars : historyGapBars),
+  );
+  const viewport = hasLiveViewport
+    ? clampViewportWindowWithFuture(
+        liveViewport.startIdx,
+        liveViewport.endIdx,
+        chartData.length,
+        TV_MAX_FUTURE_BARS,
+        axisIndexOffset,
+      )
+    : resolveInitialViewportWindow(chartData.length, zoomRange);
   const priceRange = resolveAutoViewportPriceRange({
     chartData,
     startIdx: viewport.startIdx,
@@ -355,8 +454,11 @@ const withStableInitialViewport = ({
       ...zoomOption,
       xAxisIndex: timeAxisIndexes,
       filterMode: "none",
-      startValue: viewport.startIdx,
-      endValue: viewport.endIdx,
+      zoomOnMouseWheel: false,
+      moveOnMouseMove: false,
+      moveOnMouseWheel: false,
+      startValue: axisIndexOffset + viewport.startIdx,
+      endValue: axisIndexOffset + viewport.endIdx,
     };
   });
 
@@ -368,8 +470,8 @@ const withStableInitialViewport = ({
       zoomOnMouseWheel: false,
       moveOnMouseMove: false,
       filterMode: "none",
-      startValue: viewport.startIdx,
-      endValue: viewport.endIdx,
+      startValue: axisIndexOffset + viewport.startIdx,
+      endValue: axisIndexOffset + viewport.endIdx,
     });
   }
 
@@ -421,6 +523,9 @@ interface ChartBuilderContext {
   chartAppearance: ChartAppearance;
   uiState: UiState;
   displaySymbol: string;
+  displayLogoUrl?: string | null;
+  marketLabel: string;
+  hideChartTitle: boolean;
   indicatorsData: Record<string, (number | string)[]>;
   structuredResults: IndicatorStructuredResults;
   comparisonSeries: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
@@ -428,10 +533,12 @@ interface ChartBuilderContext {
   latestPrice: number;
   liveColor: string;
   isMainChartVisible: boolean;
+  isChartLoading: boolean;
   legendSelection: Record<string, boolean>;
   comparisonBaselineIndex: number;
   hasLiveStitchedCandle: boolean;
   pineOverlay: PineChartOverlayPayload | null;
+  viewportWindowRef: MutableRefObject<{ startIdx: number; endIdx: number; historyGapBars: number }>;
 }
 
 const formatAxisPriceValue = (value: number): string => {
@@ -450,6 +557,58 @@ const formatSignalNumber = (value: number | null, fractionDigits = 2): string =>
   });
 };
 
+const formatChartLegendValue = (value: number): string => {
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+interface ChartTitlePresentation {
+  text: string;
+}
+
+const buildChartTitlePresentation = (
+  displaySymbol: string,
+  marketLabel: string,
+  chartConfig: ChartState,
+  chartData: ChartDataPoint[],
+): ChartTitlePresentation => {
+  const prefix = [displaySymbol.trim(), chartConfig.timeframe.trim(), marketLabel.trim()].filter(Boolean).join(" · ");
+  const latest = chartData[chartData.length - 1];
+  if (!latest || ![latest.open, latest.high, latest.low, latest.close].every(Number.isFinite)) {
+    return { text: "{title|" + prefix + "}" };
+  }
+
+  const previous = chartData.length > 1 ? chartData[chartData.length - 2] : null;
+  const hasPreviousClose = previous !== null && Number.isFinite(previous.close) && previous.close !== 0;
+  const change = hasPreviousClose ? latest.close - previous.close : null;
+  const changePercent = hasPreviousClose ? (change! / previous!.close) * 100 : null;
+  const changeText = change !== null && changePercent !== null
+    ? " " + (change >= 0 ? "+" : "") + formatChartLegendValue(change) + " (" + (changePercent >= 0 ? "+" : "") + changePercent.toFixed(2) + "%)"
+    : "";
+
+  return {
+    text: "{title|" + prefix + "} " +
+      "{ohlcLabel|O}{ohlcValue|" + formatChartLegendValue(latest.open) + "} " +
+      "{ohlcLabel|H}{ohlcValue|" + formatChartLegendValue(latest.high) + "} " +
+      "{ohlcLabel|L}{ohlcValue|" + formatChartLegendValue(latest.low) + "} " +
+      "{ohlcLabel|C}{ohlcValue|" + formatChartLegendValue(latest.close) + "}{change|" + changeText + "}",
+  };
+};
+
+const formatCandleTooltip = (params: unknown, chartData: ChartDataPoint[]): string => {
+  const point = Array.isArray(params) ? params[0] : params;
+  const record = point && typeof point === "object" ? point as { dataIndex?: unknown; axisValue?: unknown } : {};
+  const dataIndex = typeof record.dataIndex === "number" && Number.isInteger(record.dataIndex) ? record.dataIndex : -1;
+  const axisValue = typeof record.axisValue === "string" ? record.axisValue : "";
+  const candle = chartData[dataIndex] ?? chartData.find((entry) => String(entry.time) === axisValue);
+  if (!candle || ![candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)) return "";
+
+  const dateLabel = new Date(candle.time).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+  const value = (label: string, amount: number): string =>
+    "<span style=\"color:#FF9F04;font-weight:700\">" + label + "</span> <span style=\"color:#e2e8f0\">" + formatChartLegendValue(amount) + "</span>";
+  return "<div style=\"min-width:180px\"><div style=\"color:#94a3b8;margin-bottom:6px\">" + escapeTooltipHtml(dateLabel) + "</div><div style=\"display:grid;grid-template-columns:1fr 1fr;gap:4px 14px\">" + value("O", candle.open) + value("H", candle.high) + value("L", candle.low) + value("C", candle.close) + "</div></div>";
+};
+
 const escapeTooltipHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -464,7 +623,7 @@ const toFiniteNumber = (value: unknown): number | null => {
   return Number.isFinite(numberValue) ? numberValue : null;
 };
 
-const isFiniteNumber = (value: unknown): value is number =>
+const isFiniteHistoryAxisNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
 const resolveIndicatorQualityLabel = (
@@ -675,14 +834,23 @@ const buildEChartsOption = ({
   latestPrice,
   liveColor,
   isMainChartVisible,
+  isChartLoading,
   legendSelection,
   comparisonBaselineIndex,
   hasLiveStitchedCandle,
   pineOverlay,
+  marketLabel,
+  displayLogoUrl,
+  hideChartTitle,
+  viewportWindowRef,
 }: ChartBuilderContext): TechnicalEChartsOption => {
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
   const textColor = "#a0aec0";
+  const subtleHorizontalGrid = {
+    show: chartAppearance.showGrid,
+    lineStyle: { color: "rgba(148, 163, 184, 0.12)", width: 1, type: "dashed" },
+  };
   const paneShieldFill = chartAppearance.backgroundColor && chartAppearance.backgroundColor !== "transparent"
     ? chartAppearance.backgroundColor
     : "#0d2136";
@@ -1039,9 +1207,44 @@ const buildEChartsOption = ({
     volumeColorMode: chartAppearance.volumeColorMode,
   });
   const renderDates = chartTypePlan.dates;
-  const axisDates = renderDates.concat(
-    Array.from({ length: TV_MAX_FUTURE_BARS }, (_unused, index) => `${FUTURE_AXIS_CATEGORY_PREFIX}${index + 1}`),
+  const historyGapBars = Math.max(
+    TV_MAX_HISTORY_GAP_BARS,
+    Math.round(Number(viewportWindowRef.current.historyGapBars) || TV_MAX_HISTORY_GAP_BARS),
   );
+  const axisDates = [
+    ...Array.from({ length: historyGapBars }, (_unused, index) => HISTORY_AXIS_CATEGORY_PREFIX + (index + 1)),
+    ...renderDates,
+    ...Array.from({ length: TV_MAX_FUTURE_BARS }, (_unused, index) => FUTURE_AXIS_CATEGORY_PREFIX + (index + 1)),
+  ];
+  // Both panes use the same category axis. ECharts automatic interval is not
+  // deterministic across panes because their label visibility differs; that
+  // makes vertical grid lines drift between candles and volume. Compute one
+  // viewport-aware predicate and reuse it for every time axis.
+  const resolveSharedVerticalGridInterval = (index: number): boolean => {
+    const axisLength = axisDates.length;
+    if (axisLength === 0 || Number.isInteger(index) === false || index < 0 || index >= axisLength) return false;
+
+    const viewport = viewportWindowRef.current;
+    const axisStart = clamp(
+      historyGapBars + Math.floor(Number(viewport?.startIdx) || 0),
+      0,
+      axisLength - 1,
+    );
+    const axisEnd = clamp(
+      historyGapBars + Math.ceil(Number(viewport?.endIdx) || 0),
+      axisStart,
+      axisLength - 1,
+    );
+    const visibleSpan = Math.max(1, axisEnd - axisStart);
+    const interval = Math.max(1, Math.ceil(visibleSpan / 7));
+    return index >= axisStart && (index - axisStart) % interval === 0;
+  };
+
+  const subtleVerticalGrid = {
+    show: chartAppearance.showGrid,
+    interval: resolveSharedVerticalGridInterval,
+    lineStyle: { color: "rgba(148, 163, 184, 0.10)", width: 1, type: "solid" },
+  };
   const mainSeriesData = chartTypePlan.series.find((series) => series.id === "main-series")?.data;
   const renderedMainSeriesPointCount = Array.isArray(mainSeriesData) ? mainSeriesData.length : chartData.length;
   const priceOverlayPointCount = Math.min(renderDates.length, chartTypePlan.volumeSourceData.length || chartData.length, renderedMainSeriesPointCount);
@@ -1223,6 +1426,7 @@ const buildEChartsOption = ({
     // first category overflows to the left of the grid edge.
     boundaryGap: true,
     axisLine: { onZero: false, lineStyle: { color: textColor } },
+    axisTick: { show: false },
     axisLabel: lowerPanelCount === 0
       ? {
           color: textColor,
@@ -1233,7 +1437,7 @@ const buildEChartsOption = ({
           formatter: formatCompactUtcDate,
         }
       : { show: false },
-    splitLine: { show: false },
+    splitLine: subtleVerticalGrid,
     min: "dataMin",
     max: "dataMax",
   });
@@ -1244,9 +1448,9 @@ const buildEChartsOption = ({
     scale: true,
     axisLine: { show: false },
     axisTick: { show: false },
-    splitLine: { show: chartAppearance.showGrid, lineStyle: { color: "rgba(42, 46, 57, 0.5)", type: "dashed" } },
+    splitLine: subtleHorizontalGrid,
     axisLabel: { color: textColor, fontSize: 11, formatter: formatAxisPriceValue },
-    axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: false } },
+    axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: false } },
     ...priceAxisBoundaryLevelPadding,
   });
 
@@ -1350,7 +1554,7 @@ const buildEChartsOption = ({
           }
         : { show: false },
       axisTick: { show: false },
-      splitLine: { show: false },
+      splitLine: subtleVerticalGrid,
       min: "dataMin",
       max: "dataMax"
     });
@@ -1364,8 +1568,8 @@ const buildEChartsOption = ({
       axisLabel: { show: false },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { show: false },
-      axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: false } },
+      splitLine: subtleHorizontalGrid,
+      axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: false } },
       max: getVolumeAxisMax,
       boundaryGap: [0, 0],
     });
@@ -1375,7 +1579,7 @@ const buildEChartsOption = ({
       "volume-panel-background",
       volumeXAxisIndex,
       volumeYAxisIndex,
-      paneShieldFill,
+      "transparent",
       PANE_CONTENT_MIN_Z + 3,
       "rgba(203, 213, 225, 0.82)",
     );
@@ -4186,7 +4390,7 @@ const buildEChartsOption = ({
       // so the time axis labels align with bar/candle centers across all panels.
       boundaryGap: true,
       axisTick: { show: false },
-      splitLine: { show: false },
+      splitLine: subtleVerticalGrid,
       axisLabel: shouldShowLowerTimeAxis(oscillatorPanelOrdinal)
         ? {
             color: textColor,
@@ -4208,12 +4412,12 @@ const buildEChartsOption = ({
       gridIndex,
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { show: chartAppearance.showGrid, lineStyle: { color: "rgba(42, 46, 57, 0.5)", type: "dashed" } },
+      splitLine: subtleHorizontalGrid,
       axisLabel: { color: textColor, fontSize: 10 },
       scale: !(bounded0to100 || boundedWillR || boundedCmo || boundedAroonOsc || boundedCmf || zeroBasedPositive),
       min: bounded0to100 || zeroBasedPositive ? 0 : boundedWillR || boundedCmo || boundedAroonOsc ? -100 : boundedCmf ? -1 : undefined,
       max: bounded0to100 ? 100 : boundedWillR ? 0 : boundedCmo || boundedAroonOsc ? 100 : boundedCmf ? 1 : undefined,
-      axisPointer: { show: uiState.cursorMode !== "arrow", label: { show: true } },
+      axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: true } },
     });
 
     pushPaneBackgroundSeries(
@@ -5049,7 +5253,23 @@ const buildEChartsOption = ({
     });
   });
 
-  const clippedSeriesOptions = seriesOptions.map(clipSeriesToOwnGrid);
+  // ECharts derives the inside dataZoom extent from series data, not only from
+  // category labels. Keep every time axis pannable across the configured future
+  // categories with null-only, silent boundary series; they cannot render a candle,
+  // volume bar, tooltip value, or legend entry.
+  const viewportBoundarySeries: ChartOptionPart[] = xAxisOptions.map((_axis, axisIndex) => ({
+    id: `viewport-boundary-${axisIndex}`,
+    type: "line",
+    xAxisIndex: axisIndex,
+    yAxisIndex: axisIndex,
+    data: Array.from({ length: axisDates.length }, () => null),
+    silent: true,
+    show: false,
+    animation: false,
+    tooltip: { show: false },
+  }));
+  const alignedSeriesOptions = [...seriesOptions, ...viewportBoundarySeries].map((series) => alignSeriesWithHistoryAxis(series, historyGapBars));
+  const clippedSeriesOptions = alignedSeriesOptions.map(clipSeriesToOwnGrid);
 
   const seriesOptionsWithTooltipPolicy = clippedSeriesOptions.map((series) => {
     const seriesId = typeof series.id === "string" ? series.id : "";
@@ -5099,13 +5319,26 @@ const buildEChartsOption = ({
     });
   }
 
+  const chartTitle = buildChartTitlePresentation(displaySymbol, marketLabel, chartConfig, chartData);
+
   return {
     backgroundColor: "transparent",
     animation: false,
     title: {
-      text: displaySymbol,
-      left: 0,
-      textStyle: { color: textColor, fontSize: 14, fontWeight: "normal" },
+      show: !hideChartTitle,
+      text: chartTitle.text,
+      left: displayLogoUrl ? 28 : 0,
+      textStyle: {
+        color: textColor,
+        fontSize: 14,
+        fontWeight: "normal",
+        rich: {
+          title: { color: textColor, fontSize: 14, fontWeight: "normal" },
+          ohlcLabel: { color: "#FF9F04", fontSize: 12, fontWeight: 700 },
+          ohlcValue: { color: "#e2e8f0", fontSize: 12, fontWeight: 600 },
+          change: { color: "#e2e8f0", fontSize: 12, fontWeight: 600 },
+        },
+      },
     },
     legend: {
       top: 0,
@@ -5119,8 +5352,8 @@ const buildEChartsOption = ({
       itemHeight: 10
     },
     tooltip: {
-      show: true,
-      trigger: "item",
+      show: false,
+      trigger: "axis",
       confine: true,
       appendToBody: true,
       transitionDuration: 0,
@@ -5130,13 +5363,15 @@ const buildEChartsOption = ({
       padding: 8,
       extraCssText: "box-shadow:0 10px 28px rgba(2,6,23,.34);border-radius:6px;",
       textStyle: { color: "#e2e8f0" },
+      axisPointer: { type: "line", lineStyle: { color: "rgba(148, 163, 184, 0.58)", width: 1, type: "dashed" } },
+      formatter: (params: unknown) => formatCandleTooltip(params, chartData),
     },
     axisPointer: { show: false },
     grid: gridOptions,
     xAxis: xAxisOptions,
     yAxis: yAxisOptions,
     graphic: graphicOptions,
-    dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: true, preventDefaultMouseMove: true, filterMode: "none" }],
+    dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false, preventDefaultMouseMove: true, filterMode: "none" }],
     series: seriesOptionsWithTooltipPolicy,
   };
 };
@@ -5163,6 +5398,7 @@ interface UseChartBadgesProps {
   getLastLine: () => HTMLDivElement | null;
   lastPriceAxisValue?: number;
   uiState: UiState;
+  isChartLoading: boolean;
 }
 
 const useChartBadges = ({
@@ -5175,7 +5411,8 @@ const useChartBadges = ({
   getLastBadge,
   getLastLine,
   lastPriceAxisValue,
-  uiState
+  uiState,
+  isChartLoading,
 }: UseChartBadgesProps) => {
   const hideCursorPriceAxisBadge = useCallback(() => {
     const cursorBadge = getCursorBadge();
@@ -5222,6 +5459,10 @@ const useChartBadges = ({
   }, [chartInstanceRef, getChartContainer]);
 
   const updateLastPriceAxisBadge = useCallback(() => {
+    if (isChartLoading) {
+      hideLastPriceAxisBadge();
+      return;
+    }
     const chart = chartInstanceRef.current;
     // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
     // Use getLayersStack() (stable gp-chart-layers-stack) instead of
@@ -5259,7 +5500,7 @@ const useChartBadges = ({
     } catch {
       hideLastPriceAxisBadge();
     }
-  }, [chartInstanceRef, getLayersStack, getMainGridVerticalBounds, hideLastPriceAxisBadge, lastPriceAxisValue, getLastBadge, getLastLine]);
+  }, [chartInstanceRef, getLayersStack, getMainGridVerticalBounds, hideLastPriceAxisBadge, isChartLoading, lastPriceAxisValue, getLastBadge, getLastLine]);
 
   const updateCursorPriceAxisBadge = useCallback((clientX: number, clientY: number) => {
     const chart = chartInstanceRef.current;
@@ -5274,6 +5515,7 @@ const useChartBadges = ({
     const cursorAction = getCursorAction();
 
     if (
+      isChartLoading ||
       uiState.cursorMode === "arrow" ||
       !chart ||
       chart.isDisposed() ||
@@ -5328,7 +5570,7 @@ const useChartBadges = ({
     } catch {
       hideCursorPriceAxisBadge();
     }
-  }, [chartInstanceRef, getCursorAction, getCursorBadge, getCursorText, getMainGridVerticalBounds, hideCursorPriceAxisBadge, getLayersStack, uiState.cursorMode]);
+  }, [chartInstanceRef, getCursorAction, getCursorBadge, getCursorText, getMainGridVerticalBounds, hideCursorPriceAxisBadge, getLayersStack, isChartLoading, uiState.cursorMode]);
 
   return { updateCursorPriceAxisBadge, updateLastPriceAxisBadge };
 };
@@ -5347,6 +5589,9 @@ export const useEChartsRenderer = ({
   chartAppearance,
   uiState,
   displaySymbol,
+  displayLogoUrl,
+  marketLabel = "",
+  hideChartTitle = false,
   lastZoomRangeRef,
   cursorPriceBadgeRef,
   cursorPriceTextRef,
@@ -5355,8 +5600,10 @@ export const useEChartsRenderer = ({
   lastPriceLineRef,
   lastPriceAxisValue,
   isMainChartVisible = true,
+  isChartLoading = false,
   comparisonSeries = [],
   onCompareSeriesSettingsRequest,
+  onIndicatorConfigurationRequest,
   onMarubozuAlertRequest,
   onShootingStarAlertRequest,
   onCandlestickPatternAlertRequest,
@@ -5380,6 +5627,7 @@ export const useEChartsRenderer = ({
   const chartMutationOrderRef = useRef<string[]>([]);
   const chartMutationRafRef = useRef<number | null>(null);
   const isChartMutationFlushingRef = useRef(false);
+  const lastCommittedChartStructureSignatureRef = useRef<string | null>(null);
 
   const clearChartMutationQueue = useCallback(() => {
     if (chartMutationRafRef.current !== null) {
@@ -5404,21 +5652,24 @@ export const useEChartsRenderer = ({
       return;
     }
 
-    const nextKey = chartMutationOrderRef.current.shift();
-    if (!nextKey) return;
-
-    const mutation = chartMutationTasksRef.current.get(nextKey);
-    chartMutationTasksRef.current.delete(nextKey);
-    if (!mutation) {
-      if (chartMutationOrderRef.current.length > 0) {
-        chartMutationRafRef.current = requestAnimationFrame(flushChartMutationQueue);
-      }
-      return;
-    }
+    // Drain the current keyed snapshot in one browser frame. The former one-task-
+    // per-RAF policy could visibly paint `viewport -> full-option -> viewport` over
+    // three frames during a prepend. Canvas mutations are synchronous, so executing
+    // the bounded, de-duplicated snapshot in one RAF lets the browser paint only the
+    // final coherent chart state. Tasks scheduled while flushing stay for next RAF.
+    const mutationKeys = chartMutationOrderRef.current;
+    chartMutationOrderRef.current = [];
+    const mutations = mutationKeys
+      .map((key) => {
+        const mutation = chartMutationTasksRef.current.get(key);
+        chartMutationTasksRef.current.delete(key);
+        return mutation;
+      })
+      .filter((mutation): mutation is Parameters<ChartMutationScheduler>[1] => Boolean(mutation));
 
     isChartMutationFlushingRef.current = true;
     try {
-      mutation(chart);
+      for (const mutation of mutations) mutation(chart);
     } catch (error) {
       console.warn("[SRE] ECharts mutation failed", error);
     } finally {
@@ -5685,7 +5936,8 @@ export const useEChartsRenderer = ({
     getLastBadge,
     getLastLine,
     lastPriceAxisValue,
-    uiState
+    uiState,
+    isChartLoading,
   });
 
   const chartInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}`;
@@ -5777,9 +6029,20 @@ export const useEChartsRenderer = ({
   // 3. Viewport Engine (Extracted to useChartViewport.ts for SRP)
   // Keep viewport anchored to executable candles; projections must not push the main series left.
   // Bind interactions to the chart cell, matching TradingView's direct cell listeners.
-  const { applyViewport, resetManualYViewport, viewportWindowRef } = useChartViewport({
+  const {
+    applyViewport,
+    historyGapBars,
+    resetManualYViewport,
+    viewportWindowRef,
+    historyPrependCommitRef,
+    completeHistoryPrependCommit,
+  } = useChartViewport({
     chartInstanceRef,
-    getChartContainer,
+    // Bind wheel/pointer interactions to the stable layers stack. The drawing/cursor
+    // canvases sit above the ECharts host, so events targeting those overlays never
+    // reach stockChartRef. Binding at the shared ancestor keeps pan/zoom alive across
+    // single <-> multi-chart remounts and overlay re-creation.
+    getChartContainer: getLayersStack,
     chartData: renderChartData,
     lastZoomRangeRef,
     updateCursorPriceAxisBadge,
@@ -5844,9 +6107,15 @@ export const useEChartsRenderer = ({
   // --- ECHARTS RENDER LOGIC (React Cycle) ---
   useEffect(() => {
     const container = stockChartRef.current;
-    if (!container || renderChartData.length === 0) return;
-
     const existingChart = chartInstanceRef.current;
+    if (renderChartData.length === 0) {
+      if (existingChart && !existingChart.isDisposed()) {
+        existingChart.clear();
+      }
+      return;
+    }
+    if (!container) return;
+
     if (existingChart?.isDisposed()) {
       chartInstanceRef.current = null;
     } else if (existingChart && existingChart.getDom() !== container) {
@@ -5934,6 +6203,9 @@ export const useEChartsRenderer = ({
       chartAppearance,
       uiState,
       displaySymbol,
+      displayLogoUrl,
+      marketLabel,
+      hideChartTitle,
       indicatorsData,
       structuredResults: structuredIndicatorResults,
       comparisonSeries: renderComparisonSeries,
@@ -5941,6 +6213,8 @@ export const useEChartsRenderer = ({
       latestPrice,
       liveColor,
       isMainChartVisible,
+      isChartLoading,
+      viewportWindowRef,
       legendSelection: legendSelectionRef.current,
       comparisonBaselineIndex: comparisonBaselineIndexRef.current,
       hasLiveStitchedCandle,
@@ -5984,7 +6258,10 @@ export const useEChartsRenderer = ({
       hasComparisonEndLabels: hasVisibleComparisonEndLabels,
       lastPriceAxisValue,
       zoomRange: lastZoomRangeRef?.current,
+      historyGapBars,
+      liveViewport: viewportWindowRef.current,
     });
+    const chartStructureSignature = resolveChartStructureSignature(option);
 
     // [TENOR 2026 SRE] RAF Cleanup Enforcement
     let rafId: number;
@@ -6018,10 +6295,36 @@ export const useEChartsRenderer = ({
               });
             }
           }
-          applyChartOption(targetChart, option);
-        });
-        scheduleChartMutation("post-option-viewport", () => {
-          applyViewport();
+          const liveViewport = viewportWindowRef.current;
+          const liveHistoryGapBars = Math.max(
+            TV_MAX_HISTORY_GAP_BARS,
+            Math.round(liveViewport.historyGapBars),
+          );
+          const liveDataZoom = Array.isArray(option.dataZoom)
+            ? option.dataZoom.map((zoom: any) => zoom?.id === "time-zoom"
+              ? {
+                  ...zoom,
+                  startValue: liveHistoryGapBars + liveViewport.startIdx,
+                  endValue: liveHistoryGapBars + liveViewport.endIdx,
+                }
+              : zoom)
+            : option.dataZoom;
+
+          const pendingHistoryPrepend = historyPrependCommitRef.current;
+          const isMatchingHistoryPrepend = pendingHistoryPrepend?.dataLength === renderChartData.length;
+          const commitMode = resolveChartCommitMode({
+            isHistoryPrepend: isMatchingHistoryPrepend,
+            previousSignature: lastCommittedChartStructureSignatureRef.current,
+            currentSignature: chartStructureSignature,
+          });
+
+          // Dataset, axes and reconciled viewport are committed as one visual
+          // transaction. A pure prepend merges into the existing chart topology;
+          // structural changes still use replaceMerge to remove obsolete panes.
+          applyChartOption(targetChart, { ...option, dataZoom: liveDataZoom }, commitMode);
+          lastCommittedChartStructureSignatureRef.current = chartStructureSignature;
+          completeHistoryPrependCommit(renderChartData.length);
+          applyViewport("immediate");
         });
         if (renderComparisonSeries.length > 0) {
           scheduleComparisonBaselines();
@@ -6097,9 +6400,16 @@ export const useEChartsRenderer = ({
       if (compareSymbol) onCompareSeriesSettingsRequest?.(compareSymbol);
     };
 
+    const handleIndicatorDoubleClick = (params: any) => {
+      if (!isMountedRef.current) return;
+      const target = resolveIndicatorConfigurationTargetFromSeries(params?.seriesId, params?.seriesName);
+      if (target) onIndicatorConfigurationRequest?.(target);
+    };
+
     chart.on('finished', reportVisualReady);
     chart.on('legendselectchanged', handleLegendChange);
     chart.on('click', handleChartItemClick);
+    chart.on('dblclick', handleIndicatorDoubleClick);
     chart.on('datazoom', scheduleComparisonBaselines);
     chart.on('restore', scheduleComparisonBaselines);
 
@@ -6115,6 +6425,7 @@ export const useEChartsRenderer = ({
         chart.off('finished', reportVisualReady);
         chart.off('legendselectchanged', handleLegendChange);
         chart.off('click', handleChartItemClick);
+        chart.off('dblclick', handleIndicatorDoubleClick);
         chart.off('datazoom', scheduleComparisonBaselines);
         chart.off('restore', scheduleComparisonBaselines);
       }
@@ -6131,6 +6442,8 @@ export const useEChartsRenderer = ({
     uiState,
     uiState.replay.isActive,
     displaySymbol,
+    displayLogoUrl,
+    hideChartTitle,
     chartAppearance,
     indicatorPeriods,
     bollingerSettings,
@@ -6155,9 +6468,11 @@ export const useEChartsRenderer = ({
     legendSelection,
     applyViewport,
     resetManualYViewport,
+    historyGapBars,
     updateCursorPriceAxisBadge,
     updateLastPriceAxisBadge,
     isMainChartVisible,
+    isChartLoading,
     renderComparisonSeries,
     hasSize,
     dates,
@@ -6168,8 +6483,10 @@ export const useEChartsRenderer = ({
     hasVisibleComparisonEndLabels,
     scheduleChartMutation,
     scheduleComparisonBaselines,
+    completeHistoryPrependCommit,
     visibleCompareSymbolLookup,
     onCompareSeriesSettingsRequest,
+    onIndicatorConfigurationRequest,
     onMarubozuAlertRequest,
     onShootingStarAlertRequest,
     onCandlestickPatternAlertRequest,

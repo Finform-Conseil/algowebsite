@@ -1,18 +1,17 @@
 import React from "react";
 
-const ACTION_BUTTON_STYLE: React.CSSProperties = {
-  backgroundColor: "rgba(255, 255, 255, 0.05)",
-  color: "#f1f5f9",
-  border: "1px solid #363a45",
-  borderRadius: "50px",
-  padding: "4px 32px",
-  fontSize: "11px",
-  fontWeight: "600",
-  cursor: "pointer",
+const INFO_NOTICE_STYLE: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  transition: "all 0.2s ease",
+  alignItems: "flex-start",
+  gap: "6px",
+  margin: "0 0 10px",
+  padding: "7px 8px",
+  border: "1px solid rgba(96, 165, 250, 0.22)",
+  borderRadius: "6px",
+  backgroundColor: "rgba(96, 165, 250, 0.06)",
+  color: "#94a3b8",
+  fontSize: "10px",
+  lineHeight: 1.35,
 };
 
 const VolatilitySkeleton = ({ paddingClass }: { paddingClass: string }) => (
@@ -26,6 +25,7 @@ const VolatilitySection = ({
   chartRef,
   isLoading,
   isReady,
+  notice,
   title,
   unavailableState,
 }: {
@@ -33,6 +33,7 @@ const VolatilitySection = ({
   chartRef: React.RefObject<HTMLDivElement | null>;
   isLoading: boolean;
   isReady: boolean;
+  notice?: React.ReactNode;
   title: string;
   unavailableState: React.ReactNode;
 }) => (
@@ -40,6 +41,12 @@ const VolatilitySection = ({
     <div className="gp-sidebar-header" style={{ marginBottom: "10px" }}>
       <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>{title}</span>
     </div>
+    {!isLoading && notice ? (
+      <div role="status" style={INFO_NOTICE_STYLE}>
+        <span aria-hidden="true" style={{ color: "#60a5fa", fontSize: "12px", lineHeight: 1 }}>ⓘ</span>
+        <span>{notice}</span>
+      </div>
+    ) : null}
     {isLoading ? (
       <VolatilitySkeleton paddingClass="p-0" />
     ) : !isReady ? (
@@ -55,22 +62,22 @@ const VolatilitySection = ({
 
 export const VolatilityPanels = React.memo(({
   curveAuditTrail,
+  curveNotice,
   curveUnavailableState,
   isCurveReady,
   isLoading,
   isTermReady,
-  onSource,
   termAuditTrail,
   termUnavailableState,
   volatilityChartRef,
   volatilityCurveChartRef,
 }: {
   curveAuditTrail: React.ReactNode;
+  curveNotice?: React.ReactNode;
   curveUnavailableState: React.ReactNode;
   isCurveReady: boolean;
   isLoading: boolean;
   isTermReady: boolean;
-  onSource: () => void;
   termAuditTrail: React.ReactNode;
   termUnavailableState: React.ReactNode;
   volatilityChartRef: React.RefObject<HTMLDivElement | null>;
@@ -86,19 +93,11 @@ export const VolatilityPanels = React.memo(({
       unavailableState={termUnavailableState}
     />
     <VolatilitySection
-      auditTrail={
-        <>
-          {curveAuditTrail}
-          <div className="d-flex justify-content-center mt-0 pt-0">
-            <button className="hover-lift" style={ACTION_BUTTON_STYLE} onClick={onSource}>
-              Source BRVM
-            </button>
-          </div>
-        </>
-      }
+      auditTrail={curveAuditTrail}
       chartRef={volatilityCurveChartRef}
       isLoading={isLoading}
       isReady={isCurveReady}
+      notice={curveNotice}
       title="Historical volatility curve (28 days)"
       unavailableState={curveUnavailableState}
     />

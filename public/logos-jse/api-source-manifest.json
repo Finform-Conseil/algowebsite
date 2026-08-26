@@ -1,0 +1,937 @@
+{
+  "contract": "logo-api-source-manifest-v1",
+  "exchange": "JSE",
+  "api": "http://a21mldhl1xhs0dumr7kfo1fg.85.190.99.121.sslip.io/api/v1/actions/",
+  "records": [
+    {
+      "ticker": "4SIGHT",
+      "name": "4SIGHT HOLDINGS LIMITED",
+      "website": "www.4sightholdings.com",
+      "file": "public/logos-jse/4sight.webp"
+    },
+    {
+      "ticker": "ABSA",
+      "name": "ABSA GROUP LIMITED",
+      "website": "www.absa.africa",
+      "file": "public/logos-jse/absa.webp"
+    },
+    {
+      "ticker": "ACCELERATE_PROPERTY",
+      "name": "ACCELERATE PROPERTY FUND LIMITED",
+      "website": "acceleratepf.co.za",
+      "file": "public/logos-jse/accelerate_property.webp"
+    },
+    {
+      "ticker": "ACSION_LIMITED",
+      "name": "ACSION LIMITED",
+      "website": "www.acsionsa.co.za",
+      "file": "public/logos-jse/acsion_limited.webp"
+    },
+    {
+      "ticker": "ADCOCK",
+      "name": "ADCOCK INGRAM HOLDINGS LIMITED",
+      "website": "www.adcock.co.za",
+      "file": "public/logos-jse/adcock.webp"
+    },
+    {
+      "ticker": "ADVTECH_LIMITED",
+      "name": "ADVTECH LIMITED",
+      "website": "www.advtech.co.za",
+      "file": "public/logos-jse/advtech_limited.webp"
+    },
+    {
+      "ticker": "AFRICAN_&_OVERSEAS",
+      "name": "AFRICAN & OVERSEAS ENTERPRISES LIMITED",
+      "website": "www.rextrueform.co.za",
+      "file": "public/logos-jse/african_overseas.webp"
+    },
+    {
+      "ticker": "AFRICAN_DAWN",
+      "name": "AFRICAN DAWN CAPITAL LTD.",
+      "website": "www.afdawn.co.za",
+      "file": "public/logos-jse/african_dawn.webp"
+    },
+    {
+      "ticker": "AFRICAN_MEDIA_ENTERTAINMENT",
+      "name": "AFRICAN MEDIA ENTERTAINMENT LIMITED",
+      "website": "www.ame.co.za",
+      "file": "public/logos-jse/african_media_entertainment.webp"
+    },
+    {
+      "ticker": "AFRICAN_RAINBOW",
+      "name": "AFRICAN RAINBOW CAPITAL INVESTMENTS LTD.",
+      "website": "www.arci.mu",
+      "file": "public/logos-jse/african_rainbow.webp"
+    },
+    {
+      "ticker": "AFROCENTRIC",
+      "name": "AFROCENTRIC INVESTMENT CORPORATION LIMITED",
+      "website": "www.afrocentric.za.com",
+      "file": "public/logos-jse/afrocentric.webp"
+    },
+    {
+      "ticker": "AH-VEST_LIMITED",
+      "name": "AH-VEST LIMITED",
+      "website": "www.alljoy.co.za",
+      "file": "public/logos-jse/ah_vest_limited.webp"
+    },
+    {
+      "ticker": "ALEXANDER",
+      "name": "ALEXANDER FORBES GROUP HOLDINGS LTD.",
+      "website": "www.alexanderforbes.co.za",
+      "file": "public/logos-jse/alexander.webp"
+    },
+    {
+      "ticker": "ALPHAMIN_RESOURCES",
+      "name": "ALPHAMIN RESOURCES CORPORATION",
+      "website": "www.alphaminresources.com",
+      "file": "public/logos-jse/alphamin_resources.webp"
+    },
+    {
+      "ticker": "ALTRON_LIMITED",
+      "name": "ALTRON LIMITED",
+      "website": "www.altron.com",
+      "file": "public/logos-jse/altron_limited.webp"
+    },
+    {
+      "ticker": "ALTVEST",
+      "name": "ALTVEST CAPITAL LIMITED",
+      "website": "www.altvestcapital.co.za",
+      "file": "public/logos-jse/altvest.webp"
+    },
+    {
+      "ticker": "ANGLOGOLD",
+      "name": "ANGLOGOLD ASHANTI PLC",
+      "website": "www.anglogoldashanti.com",
+      "file": "public/logos-jse/anglogold.webp"
+    },
+    {
+      "ticker": "ANGLO_AMERICAN_PLC",
+      "name": "ANGLO AMERICAN PLC",
+      "website": "www.angloamerican.com",
+      "file": "public/logos-jse/anglo_american_plc.webp"
+    },
+    {
+      "ticker": "ANHEUSER",
+      "name": "ANHEUSER-BUSCH INBEV SA/NV",
+      "website": "www.ab-inbev.com",
+      "file": "public/logos-jse/anheuser.webp"
+    },
+    {
+      "ticker": "ARGENT_INDUSTRIAL_LIMITED",
+      "name": "ARGENT INDUSTRIAL LIMITED",
+      "website": "www.argent.co.za",
+      "file": "public/logos-jse/argent_industrial_limited.webp"
+    },
+    {
+      "ticker": "ASPEN",
+      "name": "ASPEN PHARMACARE HOLDINGS LIMITED",
+      "website": "www.aspenpharma.com",
+      "file": "public/logos-jse/aspen.webp"
+    },
+    {
+      "ticker": "ASTRAL",
+      "name": "ASTRAL FOODS LIMITED",
+      "website": "www.astralfoods.com",
+      "file": "public/logos-jse/astral.webp"
+    },
+    {
+      "ticker": "ATTACQ_LIMITED",
+      "name": "ATTACQ LIMITED",
+      "website": "www.attacq.co.za",
+      "file": "public/logos-jse/attacq_limited.webp"
+    },
+    {
+      "ticker": "AVI",
+      "name": "AVI LIMITED",
+      "website": "www.avi.co.za",
+      "file": "public/logos-jse/avi.webp"
+    },
+    {
+      "ticker": "AYO_TECHNOLOGY",
+      "name": "AYO TECHNOLOGY SOLUTIONS LIMITED",
+      "website": "www.ayotsl.com",
+      "file": "public/logos-jse/ayo_technology.webp"
+    },
+    {
+      "ticker": "BALWIN_PROPERTIES_LIMITED",
+      "name": "BALWIN PROPERTIES LIMITED",
+      "website": "www.balwin.co.za",
+      "file": "public/logos-jse/balwin_properties_limited.webp"
+    },
+    {
+      "ticker": "BARLOWORLD_LIMITED",
+      "name": "BARLOWORLD LIMITED",
+      "website": "www.barloworld.com",
+      "file": "public/logos-jse/barloworld_limited.webp"
+    },
+    {
+      "ticker": "BHP_GROUP_LIMITED",
+      "name": "BHP GROUP LIMITED",
+      "website": "www.bhp.com",
+      "file": "public/logos-jse/bhp_group_limited.webp"
+    },
+    {
+      "ticker": "BID_CORPORATION",
+      "name": "BID CORPORATION LIMITED",
+      "website": "www.bidcorpgroup.com",
+      "file": "public/logos-jse/bid_corporation.webp"
+    },
+    {
+      "ticker": "BLUE_LABEL_TELECOMS_LIMITED",
+      "name": "BLUE LABEL TELECOMS LIMITED",
+      "website": "www.bluelabeltelecoms.co.za",
+      "file": "public/logos-jse/blue_label_telecoms_limited.webp"
+    },
+    {
+      "ticker": "BOXER",
+      "name": "BOXER RETAIL LIMITED",
+      "website": "www.boxer.co.za",
+      "file": "public/logos-jse/boxer.webp"
+    },
+    {
+      "ticker": "BRAIT",
+      "name": "BRAIT PLC",
+      "website": "www.brait.investoreports.com",
+      "file": "public/logos-jse/brait.webp"
+    },
+    {
+      "ticker": "BRIKOR_LIMITED",
+      "name": "BRIKOR LIMITED",
+      "website": "www.brikor.co.za",
+      "file": "public/logos-jse/brikor_limited.webp"
+    },
+    {
+      "ticker": "BURSTONE_GROUP_LIMITED",
+      "name": "BURSTONE GROUP LIMITED",
+      "website": "www.burstone.com",
+      "file": "public/logos-jse/burstone_group_limited.webp"
+    },
+    {
+      "ticker": "CAFCA_LIMITED",
+      "name": "CAFCA LIMITED",
+      "website": "www.cafca.co.zw",
+      "file": "public/logos-jse/cafca_limited.webp"
+    },
+    {
+      "ticker": "CALGRO",
+      "name": "CALGRO M3 HOLDINGS LIMITED",
+      "website": "www.calgrom3.com",
+      "file": "public/logos-jse/calgro.webp"
+    },
+    {
+      "ticker": "CAPITAL_APPRECIATION",
+      "name": "CAPITAL APPRECIATION LIMITED",
+      "website": "www.capitalappreciation.co.za",
+      "file": "public/logos-jse/capital_appreciation.webp"
+    },
+    {
+      "ticker": "CAPITEC_BANK",
+      "name": "CAPITEC BANK HOLDINGS LIMITED",
+      "website": "www.capitecbank.co.za",
+      "file": "public/logos-jse/capitec_bank.webp"
+    },
+    {
+      "ticker": "CASHBUILD_LIMITED",
+      "name": "CASHBUILD LIMITED",
+      "website": "www.cashbuild.co.za",
+      "file": "public/logos-jse/cashbuild_limited.webp"
+    },
+    {
+      "ticker": "CASTLEVIEW_PROPERTY",
+      "name": "CASTLEVIEW PROPERTY FUND LIMITED",
+      "website": "www.castleview.co.za",
+      "file": "public/logos-jse/castleview_property.webp"
+    },
+    {
+      "ticker": "CAXTON_AND_CTP_PUBLISHERS",
+      "name": "CAXTON AND CTP PUBLISHERS AND PRINTERS LIMITED",
+      "website": "www.caxton.co.za",
+      "file": "public/logos-jse/caxton_and_ctp_publishers.webp"
+    },
+    {
+      "ticker": "CA_SALES_HOLDINGS",
+      "name": "CA SALES HOLDINGS LIMITED",
+      "website": "http://www.casholdings.co.za/",
+      "file": "public/logos-jse/ca_sales_holdings.webp"
+    },
+    {
+      "ticker": "CILO",
+      "name": "CILO CYBIN HOLDINGS LIMITED",
+      "website": "www.cilocybin.com",
+      "file": "public/logos-jse/cilo.webp"
+    },
+    {
+      "ticker": "CLICKS_GROUP_LIMITED",
+      "name": "CLICKS GROUP LIMITED",
+      "website": "www.clicksgroup.co.za",
+      "file": "public/logos-jse/clicks_group_limited.webp"
+    },
+    {
+      "ticker": "COMBINED_MOTOR_HOLDINGS",
+      "name": "COMBINED MOTOR HOLDINGS LIMITED",
+      "website": "www.cmh.co.za",
+      "file": "public/logos-jse/combined_motor_holdings.webp"
+    },
+    {
+      "ticker": "COMPAGNIE",
+      "name": "COMPAGNIE FINANCIERE RICHEMONT SA",
+      "website": "www.richemont.com/",
+      "file": "public/logos-jse/compagnie.webp"
+    },
+    {
+      "ticker": "CONDUIT",
+      "name": "CONDUIT CAPITAL LIMITED",
+      "website": "www.conduitcapital.co.za",
+      "file": "public/logos-jse/conduit.webp"
+    },
+    {
+      "ticker": "COPPER",
+      "name": "COPPER 360 LIMITED",
+      "website": "www.copper360.co.za",
+      "file": "public/logos-jse/copper.webp"
+    },
+    {
+      "ticker": "CORONATION",
+      "name": "CORONATION FUND MANAGERS LTD.",
+      "website": "www.coronation.co.za",
+      "file": "public/logos-jse/coronation.webp"
+    },
+    {
+      "ticker": "CROOKES",
+      "name": "CROOKES BROTHERS LIMITED",
+      "website": "www.cbl.co.za",
+      "file": "public/logos-jse/crookes.webp"
+    },
+    {
+      "ticker": "DENEB",
+      "name": "DENEB INVESTMENTS LTD.",
+      "website": "www.deneb.co.za",
+      "file": "public/logos-jse/deneb.webp"
+    },
+    {
+      "ticker": "DIPULA_INCOME_FUND",
+      "name": "DIPULA INCOME FUND LIMITED",
+      "website": "www.dipula.co.za/",
+      "file": "public/logos-jse/dipula_income_fund.webp"
+    },
+    {
+      "ticker": "DIS-CHEM_PHARMACIES_LIMITED",
+      "name": "DIS-CHEM PHARMACIES LIMITED",
+      "website": "www.dischem.co.za",
+      "file": "public/logos-jse/dis_chem_pharmacies_limited.webp"
+    },
+    {
+      "ticker": "DISCOVERY_LIMITED",
+      "name": "DISCOVERY LIMITED",
+      "website": "www.discovery.co.za",
+      "file": "public/logos-jse/discovery_limited.webp"
+    },
+    {
+      "ticker": "EASTERN",
+      "name": "EASTERN PLATINUM LIMITED",
+      "website": "www.eastplats.com",
+      "file": "public/logos-jse/eastern.webp"
+    },
+    {
+      "ticker": "EFORA_ENERGY",
+      "name": "EFORA ENERGY LIMITED",
+      "website": "www.eforaenergy.com",
+      "file": "public/logos-jse/efora_energy.webp"
+    },
+    {
+      "ticker": "EMEDIA_HOLDINGS_LIMITED",
+      "name": "EMEDIA HOLDINGS LIMITED",
+      "website": "www.emediaholdings.co.za",
+      "file": "public/logos-jse/emedia_holdings_limited.webp"
+    },
+    {
+      "ticker": "EMIRA_PROPERTY",
+      "name": "EMIRA PROPERTY FUND LIMITED",
+      "website": "www.emira.co.za",
+      "file": "public/logos-jse/emira_property.webp"
+    },
+    {
+      "ticker": "ENX_GROUP_LIMITED",
+      "name": "ENX GROUP LIMITED",
+      "website": "enxgroup.co.za",
+      "file": "public/logos-jse/enx_group_limited.webp"
+    },
+    {
+      "ticker": "EPE",
+      "name": "EPE CAPITAL PARTNERS LTD.",
+      "website": "www.ethoscapital.mu",
+      "file": "public/logos-jse/epe.webp"
+    },
+    {
+      "ticker": "EQUITES_PROPERTY",
+      "name": "EQUITES PROPERTY FUND LIMITED",
+      "website": "www.equites.co.za/",
+      "file": "public/logos-jse/equites_property.webp"
+    },
+    {
+      "ticker": "EXXARO",
+      "name": "EXXARO RESOURCES LIMITED",
+      "website": "www.exxaro.com",
+      "file": "public/logos-jse/exxaro.webp"
+    },
+    {
+      "ticker": "FAIRVEST_LIMITED",
+      "name": "FAIRVEST LIMITED",
+      "website": "fairvest.co.za",
+      "file": "public/logos-jse/fairvest_limited.webp"
+    },
+    {
+      "ticker": "FAMOUS_BRANDS_LIMITED",
+      "name": "FAMOUS BRANDS LIMITED",
+      "website": "www.famousbrands.co.za",
+      "file": "public/logos-jse/famous_brands_limited.webp"
+    },
+    {
+      "ticker": "FINBOND",
+      "name": "FINBOND GROUP LIMITED",
+      "website": "www.finbond.co.za",
+      "file": "public/logos-jse/finbond.webp"
+    },
+    {
+      "ticker": "FORTRESS_REAL_ESTATE",
+      "name": "FORTRESS REAL ESTATE INVESTMENTS LIMITED",
+      "website": "www.fortressfund.co.za/",
+      "file": "public/logos-jse/fortress_real_estate.webp"
+    },
+    {
+      "ticker": "FRONTIER_TRANSPORT",
+      "name": "FRONTIER TRANSPORT HOLDINGS LIMITED",
+      "website": "www.hplr.co.za/",
+      "file": "public/logos-jse/frontier_transport.webp"
+    },
+    {
+      "ticker": "GLENCORE",
+      "name": "GLENCORE PLC",
+      "website": "glencore.com",
+      "file": "public/logos-jse/glencore.webp"
+    },
+    {
+      "ticker": "GLOBE_TRADE_CENTRE_S.A.",
+      "name": "GLOBE TRADE CENTRE S.A.",
+      "website": "www.gtc.com.pl",
+      "file": "public/logos-jse/globe_trade_centre_s_a.webp"
+    },
+    {
+      "ticker": "GRAND",
+      "name": "GRAND PARADE INVESTMENTS LTD.",
+      "website": "www.grandparade.co.za",
+      "file": "public/logos-jse/grand.webp"
+    },
+    {
+      "ticker": "GROWTHPOINT_PROPERTIES",
+      "name": "GROWTHPOINT PROPERTIES LIMITED",
+      "website": "www.growthpoint.co.za",
+      "file": "public/logos-jse/growthpoint_properties.webp"
+    },
+    {
+      "ticker": "HAMMERSON_PLC",
+      "name": "HAMMERSON PLC",
+      "website": "www.hammerson.com/",
+      "file": "public/logos-jse/hammerson_plc.webp"
+    },
+    {
+      "ticker": "HARMONY",
+      "name": "HARMONY GOLD MINING COMPANY LIMITED",
+      "website": "www.harmony.co.za",
+      "file": "public/logos-jse/harmony.webp"
+    },
+    {
+      "ticker": "HERIOT_REIT_LIMITED",
+      "name": "HERIOT REIT LIMITED",
+      "website": "www.heriotreit.com",
+      "file": "public/logos-jse/heriot_reit_limited.webp"
+    },
+    {
+      "ticker": "HYPROP_INVESTMENTS_LIMITED",
+      "name": "HYPROP INVESTMENTS LIMITED",
+      "website": "www.hyprop.co.za",
+      "file": "public/logos-jse/hyprop_investments_limited.webp"
+    },
+    {
+      "ticker": "IMPALA",
+      "name": "IMPALA PLATINUM HOLDINGS LIMITED",
+      "website": "www.implats.co.za",
+      "file": "public/logos-jse/impala.webp"
+    },
+    {
+      "ticker": "INSIMBI",
+      "name": "INSIMBI INDUSTRIAL HOLDINGS LIMITED",
+      "website": "www.insimbi-alloys.co.za",
+      "file": "public/logos-jse/insimbi.webp"
+    },
+    {
+      "ticker": "INVESTEC_LIMITED",
+      "name": "INVESTEC LIMITED",
+      "website": "www.investec.com",
+      "file": "public/logos-jse/investec_limited.webp"
+    },
+    {
+      "ticker": "INVICTA_HOLDINGS_LIMITED",
+      "name": "INVICTA HOLDINGS LIMITED",
+      "website": "www.invictaholdings.co.za",
+      "file": "public/logos-jse/invicta_holdings_limited.webp"
+    },
+    {
+      "ticker": "IOCO_LTD",
+      "name": "IOCO LIMITED",
+      "website": "www.ioco.tech",
+      "file": "public/logos-jse/ioco_ltd.webp"
+    },
+    {
+      "ticker": "ITALTILE_LIMITED",
+      "name": "ITALTILE LIMITED",
+      "website": "www.italtile.com",
+      "file": "public/logos-jse/italtile_limited.webp"
+    },
+    {
+      "ticker": "JSE",
+      "name": "JSE LTD.",
+      "website": "www.jse.co.za",
+      "file": "public/logos-jse/jse.webp"
+    },
+    {
+      "ticker": "JUBILEE_METALS",
+      "name": "JUBILEE METALS GROUP PLC",
+      "website": "www.jubileemetalsgroup.com",
+      "file": "public/logos-jse/jubilee_metals.webp"
+    },
+    {
+      "ticker": "KAP_LIMITED",
+      "name": "KAP LIMITED",
+      "website": "www.kap.co.za",
+      "file": "public/logos-jse/kap_limited.webp"
+    },
+    {
+      "ticker": "KONSULT",
+      "name": "PSG KONSULT LTD.",
+      "website": "www.psg.co.za",
+      "file": "public/logos-jse/konsult.webp"
+    },
+    {
+      "ticker": "KORE",
+      "name": "KORE POTASH PLC",
+      "website": "www.korepotash.com",
+      "file": "public/logos-jse/kore.webp"
+    },
+    {
+      "ticker": "LEWIS_GROUP_LIMITED",
+      "name": "LEWIS GROUP LIMITED",
+      "website": "www.lewisgroup.co.za",
+      "file": "public/logos-jse/lewis_group_limited.webp"
+    },
+    {
+      "ticker": "LIBSTAR_HOLDINGS",
+      "name": "LIBSTAR HOLDINGS LIMITED",
+      "website": "www.libstar.co.za",
+      "file": "public/logos-jse/libstar_holdings.webp"
+    },
+    {
+      "ticker": "MAHUBE",
+      "name": "MAHUBE INFRASTRUCTURE LTD.",
+      "website": "www.mahube.africa/",
+      "file": "public/logos-jse/mahube.webp"
+    },
+    {
+      "ticker": "MASTER",
+      "name": "MASTER DRILLING GROUP LIMITED",
+      "website": "www.masterdrilling.com",
+      "file": "public/logos-jse/master.webp"
+    },
+    {
+      "ticker": "MAS_PLC",
+      "name": "MAS PLC",
+      "website": "www.masrei.com",
+      "file": "public/logos-jse/mas_plc.webp"
+    },
+    {
+      "ticker": "MC",
+      "name": "MC MINING LIMITED",
+      "website": "www.mcmining.co.za",
+      "file": "public/logos-jse/mc.webp"
+    },
+    {
+      "ticker": "MERAFE",
+      "name": "MERAFE RESOURCES LIMITED",
+      "website": "www.meraferesources.co.za",
+      "file": "public/logos-jse/merafe.webp"
+    },
+    {
+      "ticker": "METAIR",
+      "name": "METAIR INVESTMENTS LIMITED",
+      "website": "www.metair.co.za",
+      "file": "public/logos-jse/metair.webp"
+    },
+    {
+      "ticker": "MOMENTUM_GROUP_LIMITED",
+      "name": "MOMENTUM GROUP LIMITED",
+      "website": "https://www.momentumgroupltd.co.za/",
+      "file": "public/logos-jse/momentum_group_limited.webp"
+    },
+    {
+      "ticker": "MONDI_PLC",
+      "name": "MONDI PLC",
+      "website": "www.mondigroup.com",
+      "file": "public/logos-jse/mondi_plc.webp"
+    },
+    {
+      "ticker": "MOTUS_HOLDINGS_LIMITED",
+      "name": "MOTUS HOLDINGS LIMITED",
+      "website": "www.motuscorp.co.za",
+      "file": "public/logos-jse/motus_holdings_limited.webp"
+    },
+    {
+      "ticker": "MPACT_LIMITED",
+      "name": "MPACT LIMITED",
+      "website": "www.mpact.co.za",
+      "file": "public/logos-jse/mpact_limited.webp"
+    },
+    {
+      "ticker": "MR_PRICE_GROUP_LIMITED",
+      "name": "MR PRICE GROUP LIMITED",
+      "website": "www.mrpricegroup.com",
+      "file": "public/logos-jse/mr_price_group_limited.webp"
+    },
+    {
+      "ticker": "MTN_GROUP_LIMITED",
+      "name": "MTN GROUP LIMITED",
+      "website": "www.mtn.com",
+      "file": "public/logos-jse/mtn_group_limited.webp"
+    },
+    {
+      "ticker": "MUSTEK_LIMITED",
+      "name": "MUSTEK LIMITED",
+      "website": "www.mustek.co.za",
+      "file": "public/logos-jse/mustek_limited.webp"
+    },
+    {
+      "ticker": "NASPERS_LIMITED",
+      "name": "NASPERS LIMITED",
+      "website": "www.naspers.com",
+      "file": "public/logos-jse/naspers_limited.webp"
+    },
+    {
+      "ticker": "NEPI_ROCKCASTLE_N.V",
+      "name": "NEPI ROCKCASTLE N.V",
+      "website": "www.nepirockcastle.com",
+      "file": "public/logos-jse/nepi_rockcastle_n_v.webp"
+    },
+    {
+      "ticker": "NETCARE",
+      "name": "NETCARE LIMITED",
+      "website": "www.netcare.co.za",
+      "file": "public/logos-jse/netcare.webp"
+    },
+    {
+      "ticker": "NOVUS_HOLDINGS_LIMITED",
+      "name": "NOVUS HOLDINGS LIMITED",
+      "website": "www.paarlmedia.co.za",
+      "file": "public/logos-jse/novus_holdings_limited.webp"
+    },
+    {
+      "ticker": "NU_WORLD",
+      "name": "NU-WORLD HOLDINGS LIMITED",
+      "website": "http://www.nuworld.co.za/",
+      "file": "public/logos-jse/nu_world.webp"
+    },
+    {
+      "ticker": "OCEANA",
+      "name": "OCEANA GROUP LIMITED",
+      "website": "www.oceana.co.za",
+      "file": "public/logos-jse/oceana.webp"
+    },
+    {
+      "ticker": "OCTODEC_INVESTMENTS_LIMITED",
+      "name": "OCTODEC INVESTMENTS LIMITED",
+      "website": "www.octodec.co.za",
+      "file": "public/logos-jse/octodec_investments_limited.webp"
+    },
+    {
+      "ticker": "OLD_MUTUAL_LIMITED",
+      "name": "OLD MUTUAL LIMITED",
+      "website": "www.oldmutual.co.za",
+      "file": "public/logos-jse/old_mutual_limited.webp"
+    },
+    {
+      "ticker": "OMNIA",
+      "name": "OMNIA HOLDINGS LIMITED",
+      "website": "www.omnia.co.za",
+      "file": "public/logos-jse/omnia.webp"
+    },
+    {
+      "ticker": "ORION",
+      "name": "ORION MINERALS LIMITED",
+      "website": "www.orionminerals.com.au",
+      "file": "public/logos-jse/orion.webp"
+    },
+    {
+      "ticker": "OUTSURANCE_GROUP_LIMITED",
+      "name": "OUTSURANCE GROUP LIMITED",
+      "website": "https://group.outsurance.co.za/",
+      "file": "public/logos-jse/outsurance_group_limited.webp"
+    },
+    {
+      "ticker": "PAN",
+      "name": "PAN AFRICAN RESOURCES PLC",
+      "website": "www.panafricanresources.com",
+      "file": "public/logos-jse/pan.webp"
+    },
+    {
+      "ticker": "PBT_GROUP_LIMITED",
+      "name": "PBT GROUP LIMITED",
+      "website": "www.pbtgroup.co.za",
+      "file": "public/logos-jse/pbt_group_limited.webp"
+    },
+    {
+      "ticker": "PEPKOR_HOLDINGS_LIMITED",
+      "name": "PEPKOR HOLDINGS LIMITED",
+      "website": "www.pepkor.co.za",
+      "file": "public/logos-jse/pepkor_holdings_limited.webp"
+    },
+    {
+      "ticker": "PPC",
+      "name": "PPC LIMITED",
+      "website": "www.ppc.co.za",
+      "file": "public/logos-jse/ppc.webp"
+    },
+    {
+      "ticker": "PRIMARY",
+      "name": "PRIMARY HEALTH PROPERTIES PLC",
+      "website": "https://www.phpgroup.co.uk/",
+      "file": "public/logos-jse/primary.webp"
+    },
+    {
+      "ticker": "PRIMESERV_GROUP_LIMITED",
+      "name": "PRIMESERV GROUP LIMITED",
+      "website": "www.primeserv.co.za",
+      "file": "public/logos-jse/primeserv_group_limited.webp"
+    },
+    {
+      "ticker": "PROSUS_N.V",
+      "name": "PROSUS N.V",
+      "website": "www.prosus.com",
+      "file": "public/logos-jse/prosus_n_v.webp"
+    },
+    {
+      "ticker": "PURPLE",
+      "name": "PURPLE GROUP LIMITED",
+      "website": "www.purplegroup.co.za",
+      "file": "public/logos-jse/purple.webp"
+    },
+    {
+      "ticker": "PUTPROP_LIMITED",
+      "name": "PUTPROP LIMITED",
+      "website": "www.putprop.co.za",
+      "file": "public/logos-jse/putprop_limited.webp"
+    },
+    {
+      "ticker": "QUANTUM",
+      "name": "QUANTUM FOODS HOLDINGS LIMITED",
+      "website": "quantumfoods.co.za",
+      "file": "public/logos-jse/quantum.webp"
+    },
+    {
+      "ticker": "QUILTER",
+      "name": "QUILTER PLC",
+      "website": "www.quilter.com",
+      "file": "public/logos-jse/quilter.webp"
+    },
+    {
+      "ticker": "RAINBOW",
+      "name": "RAINBOW CHICKEN LIMITED",
+      "website": "www.rainbowchickens.co.za",
+      "file": "public/logos-jse/rainbow.webp"
+    },
+    {
+      "ticker": "RCL",
+      "name": "RCL FOODS LIMITED",
+      "website": "www.rclfoods.com",
+      "file": "public/logos-jse/rcl.webp"
+    },
+    {
+      "ticker": "REDEFINE_PROPERTIES_LIMITED",
+      "name": "REDEFINE PROPERTIES LIMITED",
+      "website": "www.redefine.co.za",
+      "file": "public/logos-jse/redefine_properties_limited.webp"
+    },
+    {
+      "ticker": "REINET",
+      "name": "REINET INVESTMENTS S.C.A",
+      "website": "www.reinet.com",
+      "file": "public/logos-jse/reinet.webp"
+    },
+    {
+      "ticker": "REMGRO",
+      "name": "REMGRO LIMITED",
+      "website": "www.remgro.com",
+      "file": "public/logos-jse/remgro.webp"
+    },
+    {
+      "ticker": "RENERGEN_LIMITED",
+      "name": "RENERGEN LIMITED",
+      "website": "www.renergen.co.za",
+      "file": "public/logos-jse/renergen_limited.webp"
+    },
+    {
+      "ticker": "RESILIENT_REIT_LIMITED",
+      "name": "RESILIENT REIT LIMITED",
+      "website": "www.resilient.co.za",
+      "file": "public/logos-jse/resilient_reit_limited.webp"
+    },
+    {
+      "ticker": "REUNERT_LIMITED",
+      "name": "REUNERT LIMITED",
+      "website": "www.reunert.com",
+      "file": "public/logos-jse/reunert_limited.webp"
+    },
+    {
+      "ticker": "REX_TRUEFORM",
+      "name": "REX TRUEFORM GROUP LIMITED",
+      "website": "www.rextrueform.com",
+      "file": "public/logos-jse/rex_trueform.webp"
+    },
+    {
+      "ticker": "RH",
+      "name": "RH BOPHELO LTD.",
+      "website": "www.rhbophelo.co.za",
+      "file": "public/logos-jse/rh.webp"
+    },
+    {
+      "ticker": "SABVEST",
+      "name": "SABVEST CAPITAL LIMITED",
+      "website": "www.sabvest.com",
+      "file": "public/logos-jse/sabvest.webp"
+    },
+    {
+      "ticker": "SANLAM_LIMITED",
+      "name": "SANLAM LIMITED",
+      "website": "www.sanlam.co.za",
+      "file": "public/logos-jse/sanlam_limited.webp"
+    },
+    {
+      "ticker": "SANTOVA_LIMITED",
+      "name": "SANTOVA LIMITED",
+      "website": "www.santova.com",
+      "file": "public/logos-jse/santova_limited.webp"
+    },
+    {
+      "ticker": "SAPPI_LIMITED",
+      "name": "SAPPI LIMITED",
+      "website": "www.sappi.com",
+      "file": "public/logos-jse/sappi_limited.webp"
+    },
+    {
+      "ticker": "SA_CORPORATE_REAL",
+      "name": "SA CORPORATE REAL ESTATE LIMITED",
+      "website": "www.sacorporatefund.co.za",
+      "file": "public/logos-jse/sa_corporate_real.webp"
+    },
+    {
+      "ticker": "SCHRODER_EUROPEAN",
+      "name": "SCHRODER EUROPEAN REAL ESTATE INVESTMENT TRUST PLC",
+      "website": "http://www.srei.co.uk/",
+      "file": "public/logos-jse/schroder_european.webp"
+    },
+    {
+      "ticker": "SEA",
+      "name": "SEA HARVEST GROUP LIMITED",
+      "website": "www.seaharvest.co.za",
+      "file": "public/logos-jse/sea.webp"
+    },
+    {
+      "ticker": "SHAFTESBURY",
+      "name": "SHAFTESBURY CAPITAL PLC",
+      "website": "http://www.shaftesburycapital.com/",
+      "file": "public/logos-jse/shaftesbury.webp"
+    },
+    {
+      "ticker": "SHOPRITE_HOLDINGS_LIMITED",
+      "name": "SHOPRITE HOLDINGS LIMITED",
+      "website": "www.shopriteholdings.co.za",
+      "file": "public/logos-jse/shoprite_holdings_limited.webp"
+    },
+    {
+      "ticker": "SOUTH32",
+      "name": "SOUTH32 LIMITED",
+      "website": "www.south32.net",
+      "file": "public/logos-jse/south32.webp"
+    },
+    {
+      "ticker": "SOUTHERN_PALLADIUM",
+      "name": "SOUTHERN PALLADIUM LIMITED",
+      "website": "www.southernpalladium.com",
+      "file": "public/logos-jse/southern_palladium.webp"
+    },
+    {
+      "ticker": "SPEAR_REIT_LIMITED",
+      "name": "SPEAR REIT LIMITED",
+      "website": "www.spearprop.co.za",
+      "file": "public/logos-jse/spear_reit_limited.webp"
+    },
+    {
+      "ticker": "SPUR_CORPORATION",
+      "name": "SPUR CORPORATION LIMITED",
+      "website": "www.spur.co.za",
+      "file": "public/logos-jse/spur_corporation.webp"
+    },
+    {
+      "ticker": "STADIO",
+      "name": "STADIO HOLDINGS LIMITED",
+      "website": "www.stadio.co.za",
+      "file": "public/logos-jse/stadio.webp"
+    },
+    {
+      "ticker": "STANDARD_BANK",
+      "name": "STANDARD BANK GROUP LTD",
+      "website": "www.standardbank.com",
+      "file": "public/logos-jse/standard_bank.webp"
+    },
+    {
+      "ticker": "SUN_INTERNATIONAL",
+      "name": "SUN INTERNATIONAL LIMITED",
+      "website": "www.suninternational.com",
+      "file": "public/logos-jse/sun_international.webp"
+    },
+    {
+      "ticker": "SUPERMARKET",
+      "name": "SUPERMARKET INCOME REIT PLC",
+      "website": "https://supermarketincomereit.com/",
+      "file": "public/logos-jse/supermarket.webp"
+    },
+    {
+      "ticker": "SUPER_GROUP_LIMITED",
+      "name": "SUPER GROUP LIMITED",
+      "website": "www.supergroup.co.za",
+      "file": "public/logos-jse/super_group_limited.webp"
+    },
+    {
+      "ticker": "SYGNIA",
+      "name": "SYGNIA LIMITED",
+      "website": "www.sygnia.co.za",
+      "file": "public/logos-jse/sygnia.webp"
+    },
+    {
+      "ticker": "THE_FOSCHINI_GROUP_LIMITED",
+      "name": "THE FOSCHINI GROUP LIMITED",
+      "website": "www.tfg.co.za",
+      "file": "public/logos-jse/the_foschini_group_limited.webp"
+    },
+    {
+      "ticker": "TRUSTCO",
+      "name": "TRUSTCO GROUP HOLDINGS LIMITED",
+      "website": "https://www.tgh.na/",
+      "file": "public/logos-jse/trustco.webp"
+    },
+    {
+      "ticker": "UNIVERSAL",
+      "name": "UNIVERSAL PARTNERS LIMITED",
+      "website": "www.universalpartners.mu",
+      "file": "public/logos-jse/universal.webp"
+    }
+  ]
+}

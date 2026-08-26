@@ -12,6 +12,12 @@ export type CursorModeType =
   | "arrow-tooltip"
   | "cross-tooltip";
 
+export interface ActiveMarketState {
+  ticker: string;
+  name: string;
+  currency: string;
+}
+
 export interface UiState {
   isZenMode: boolean;
   isAnonyme: boolean;
@@ -21,6 +27,7 @@ export interface UiState {
   isPublishing: boolean;
   isCapturing: boolean;
   dataMode: "mock" | "real";
+  activeMarket: ActiveMarketState;
   comparisonSymbols: string[];
   comparisonSettings: CompareSeriesSettingsMap;
   movingAverageTrendSignals: MovingAverageTrendSignalsState;
@@ -41,6 +48,7 @@ export interface UiState {
     publish: boolean;
     drawingSettings: boolean;
     imageNote: boolean;
+  marketSelector: boolean;
   };
   replay: {
     isActive: boolean;

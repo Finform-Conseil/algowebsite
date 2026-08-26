@@ -113,7 +113,7 @@ const buildSnapshotAlertContext = (snapshot: LiveSnapshot, currentSecurity: Disp
   const price = toFiniteNumberOrNull(snapshot.price);
   if (!ticker || price === null) return null;
   const isCurrentSecurity = currentSecurity.ticker.toUpperCase() === ticker;
-  const currency = isCurrentSecurity ? currentSecurity.currency : "XOF";
+  const currency = isCurrentSecurity ? (currentSecurity.currency || "N/D") : "N/D";
   const changePercent = readSnapshotChangePercent(snapshot);
   const volume = toFiniteNumberOrNull(snapshot.volume);
   return {
@@ -125,7 +125,9 @@ const buildSnapshotAlertContext = (snapshot: LiveSnapshot, currentSecurity: Disp
     dividendLabel: "Dividende non charge",
     hasDividend: false,
     hasNews: false,
-    marketLabel: isCurrentSecurity ? (currentSecurity.exchange || "BRVM") + " · " + (currentSecurity.country || "UEMOA") : "BRVM · UEMOA",
+    marketLabel: isCurrentSecurity
+      ? [currentSecurity.exchange, currentSecurity.country].filter(Boolean).join(" · ") || "N/D"
+      : "N/D",
     name: isCurrentSecurity ? currentSecurity.name : ticker,
     newsLabel: "Flux non charge",
     priceLabel: formatCurrency(price, currency),
@@ -159,6 +161,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     isDescriptionExpanded,
     isDividendModalOpen,
     isFundamentalsPanelLoading,
+    isSecondaryWorkReady,
     isSettingsOpen,
     marketClock,
     metrics,
@@ -174,10 +177,16 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
   const [popoverStyle, setPopoverStyle] = React.useState<React.CSSProperties>({});
   const toolbarRef = React.useRef<HTMLDivElement>(null);
   const marketSnapshots = useSelector((state: RootState) => selectMarketSnapshots(state));
-  const currency = security.currency || "XOF";
+  const currency = security.currency || "N/D";
+  const marketStatusLabel = marketClock.sidebarMarketStatus.label === "N/D"
+    ? "Statut de séance indisponible pour cette bourse."
+    : (marketClock.sidebarMarketStatus.isOpen ? "Market open" : "Market closed");
+  const sidebarLastUpdateLabel = dataMode === "real" && !props.lastUpdate
+    ? "N/D"
+    : marketClock.sidebarLastUpdateLabel;
   const activeEntry: SidebarRailEntryId = props.isObjectTreeOpen ? "object-tree" : activeSidebarEntry;
-  const latestDividend = feeds.validFundamentals?.dividends[feeds.validFundamentals.dividends.length - 1] ?? null;
-  const marketLabel = (security.exchange || "BRVM") + " · " + (security.country || "UEMOA");
+  const latestDividend = chartConfig.validFundamentals?.dividends[chartConfig.validFundamentals.dividends.length - 1] ?? null;
+  const marketLabel = [security.exchange, security.country].filter(Boolean).join(" · ") || "N/D";
   const profileDescription = normalizeProfileDescription(feeds.validFundamentals?.description)
     ?? (dataMode === "real" ? "Description indisponible via l’API." : buildProfileDescriptionFallback(security));
 
@@ -253,23 +262,27 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       onToggleSettings={actions.toggleSettings}
       security={security}
       settings={watchlistSettings}
-      sidebarLastUpdateLabel={marketClock.sidebarLastUpdateLabel}
-      sidebarMarketStatus={marketClock.sidebarMarketStatus}
+      sidebarLastUpdateLabel={sidebarLastUpdateLabel}
+      marketStatusLabel={marketStatusLabel}
     />
   );
   const isNewsPanelLoading = Boolean(isLoading) || feeds.isNewsLoading;
   const newsPanel = <SidebarNewsPanel activeNews={feeds.activeNews} isLoading={isNewsPanelLoading} newsKey={feeds.currentNewsIdx} onHoverChange={actions.setIsNewsHovered} />;
-  const statsPanel = <SidebarStatsPanel auditTrail={auditTrail([...combinedAudit, { label: "Formule", value: "YTD, P/E, Vol, Avg20, Cap, PNB/FY" }, { label: "Devise", value: metrics.auditCurrency }])} avgVolume={props.avgVolume} currentVolume={props.currentVolume} isLoading={isFundamentalsPanelLoading} marketCap={displayMarketCap} peRatio={displayPeRatio} returnYTD={displayReturnYTD} revenueT12M={metrics.displayRevenueT12M} />;
-  const fundamentalsPanel = <FundamentalsPanel chartRef={props.benefitsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedEarnings} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Benefice net lu BRVM, trie par exercice" }, { label: "Devise", value: "M FCFA" }])} onMoreInfo={() => openBrvmEquityPage(security.ticker)} />;
-  const dividendsPanel = <DividendsPanel chartRef={props.dividendsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedDividends} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Yield=Div/Last; Payout=Div/EPS" }, { label: "Devise", value: metrics.auditCurrency }])} onMoreInfo={() => actions.setIsDividendModalOpen(true)} />;
-  const incomePanel = <IncomeStatementPanel chartRef={refs.incomeChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={chartConfig.canRenderIncomeStatement} viewMode={incomeViewMode} onModeChange={actions.setIncomeViewMode} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Marge nette = Resultat net / Revenu" }, { label: "Devise", value: "M FCFA" }])} onMoreFinancials={() => openBrvmEquityPage(security.ticker)} />;
-  const performancePanel = <PerformancePanel rows={metrics.performanceRows} auditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "(Close actuel - Close ancre) / Close ancre" }, { label: "Devise", value: "% depuis clotures " + metrics.auditCurrency }])} />;
-  const seasonalityPanel = <SeasonalityPanel auditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource + " · OHLCV API", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "(Close mois API - Close debut annee API) / Close debut annee API" }, { label: "Devise", value: "% depuis clotures API " + metrics.auditCurrency }])} chartRef={refs.seasonalChartRef} isAvailable={metrics.seasonalYears.length > 0} isLoading={Boolean(isLoading)} onMoreSeasonals={() => openBrvmEquityPage(security.ticker)} unavailableState={unavailable("Saisonnalite indisponible: aucune cloture OHLCV API exploitable.")} years={metrics.seasonalYears} />;
-  const technicalsPanel = <TechnicalsPanel auditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "RSI14 Wilder + SMA20/SMA50; score 40/30/30" }, { label: "Devise", value: "Prix " + metrics.auditCurrency }])} isAvailable={Boolean(metrics.technicalData)} technicalData={metrics.technicalData} isLoading={Boolean(isLoading)} onMoreTechnicals={() => openBrvmEquityPage(security.ticker)} unavailableState={unavailable("Donnees techniques insuffisantes: RSI14 et SMA50 exigent au moins 50 clotures verifiees.")} />;
-  const modelPanel = <ModelHeuristicPanel auditTrail={auditTrail([{ label: "Source", value: `${metrics.marketDataSource} + ${metrics.fundamentalsSource}`, tone: asAuditTone(metrics.combinedAuditTone) }, { label: "Date", value: `Prix ${metrics.marketAuditDate} / FY ${metrics.fundamentalsAuditYear}` }, { label: "Formule", value: `Score dérivé RSI/SMA/P-E/Yield API; Target=${metrics.analystData?.targetFormula ?? "N/A"}` }, { label: "Devise", value: metrics.auditCurrency }])} isLoading={isFundamentalsPanelLoading} modelData={metrics.analystData} onSeeSource={() => openBrvmEquityPage(security.ticker)} unavailableState={unavailable("Recommandation indisponible: indicateurs techniques ou P/E API insuffisants.")} />;
-  const bondsPanel = <BondsPanel auditTrail={auditTrail([{ label: "Source", value: "API /fixed-income/bond-securities/", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "Top 3 obligations triees par YTM decroissant" }, { label: "Devise", value: "% annualise" }])} bonds={feeds.topBonds} isLoading={feeds.bondsLoading} onMoreBonds={openBrvmBondsPage} unavailableState={<div style={{ fontSize: "11px", color: "#64748b", textAlign: "center", padding: "12px 0" }}>Donnees obligataires indisponibles</div>} />;
-  const isVolatilityTermReady = dataMode === "real" ? hasApiVolatilityTermStructure(apiTechnicalIndicator) : chartData.length >= 5;
-  const volatilityPanels = <VolatilityPanels curveAuditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "Kernel gaussien sur rendements log2 28j" }, { label: "Devise", value: "% annualise" }])} curveUnavailableState={unavailable("Courbe de volatilite indisponible: au moins 28 clotures verifiees sont necessaires.")} isCurveReady={chartData.length >= 28} isLoading={Boolean(isLoading)} isTermReady={isVolatilityTermReady} onSource={() => openBrvmEquityPage(security.ticker)} termAuditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "HV=stdev(log returns) x sqrt(252)" }, { label: "Devise", value: "% annualise" }])} termUnavailableState={unavailable(dataMode === "real" ? "Structure de volatilite indisponible via l’API." : "Volatilite historique indisponible: au moins 5 clotures verifiees sont necessaires.")} volatilityChartRef={refs.volatilityChartRef} volatilityCurveChartRef={refs.volatilityCurveChartRef} />;
+  const statsPanel = <SidebarStatsPanel auditTrail={auditTrail([...combinedAudit, { label: "Formule", value: "YTD, P/E, Vol, Avg20, Cap, PNB/FY" }, { label: "Devise", value: metrics.auditCurrency }])} avgVolume={props.avgVolume} currentVolume={props.currentVolume} isLoading={isFundamentalsPanelLoading} marketCap={displayMarketCap} currency={currency} peRatio={displayPeRatio} returnYTD={displayReturnYTD} revenueT12M={metrics.displayRevenueT12M} />;
+  const fundamentalsPanel = <FundamentalsPanel chartRef={props.benefitsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedEarnings} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Benefice net lu BRVM, trie par exercice" }, { label: "Devise", value: "M " + currency }])} onMoreInfo={() => openBrvmEquityPage(security.ticker)} />;
+  const dividendsPanel = <DividendsPanel chartRef={props.dividendsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedDividends} auditTrail={auditTrail([...fundamentalsAudit, { label: "Source", value: "Ratios natifs API; absence => N/D" }, { label: "Devise", value: metrics.auditCurrency }])} onMoreInfo={() => actions.setIsDividendModalOpen(true)} />;
+  const incomePanel = <IncomeStatementPanel chartRef={refs.incomeChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={chartConfig.canRenderIncomeStatement} viewMode={incomeViewMode} onModeChange={actions.setIncomeViewMode} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Marge nette = Resultat net / Revenu" }, { label: "Devise", value: "M " + currency }])} onMoreFinancials={() => openBrvmEquityPage(security.ticker)} />;
+  const performancePanel = <PerformancePanel rows={metrics.performanceRows} auditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Devise", value: "%" }])} />;
+  const seasonalityPanel = <SeasonalityPanel auditTrail={auditTrail([{ label: "Source", value: dataMode === "real" ? "Saisonnalité native API" : metrics.marketDataSource + " · OHLCV mock", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: dataMode === "real" ? "Aucun calcul local; absence API => indisponible" : "(Close mois - Close debut annee) / Close debut annee" }, { label: "Devise", value: "%" }])} chartRef={refs.seasonalChartRef} isAvailable={metrics.seasonalYears.length > 0} isLoading={Boolean(isLoading)} onMoreSeasonals={() => openBrvmEquityPage(security.ticker)} unavailableState={unavailable(dataMode === "real" ? "Saisonnalité native indisponible via l’API." : "Saisonnalite indisponible: aucune cloture exploitable.")} years={metrics.seasonalYears} />;
+  const technicalsPanel = <TechnicalsPanel auditTrail={auditTrail([{ label: "Source", value: dataMode === "real" ? "Recommandation native API" : metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: dataMode === "real" ? "Aucun score local; absence API => indisponible" : "RSI14 Wilder + SMA20/SMA50; score 40/30/30" }, { label: "Devise", value: "Prix " + metrics.auditCurrency }])} isAvailable={Boolean(metrics.technicalData)} technicalData={metrics.technicalData} isLoading={Boolean(isLoading)} onMoreTechnicals={() => openBrvmEquityPage(security.ticker)} unavailableState={unavailable(dataMode === "real" ? "Recommandation technique native indisponible via l’API." : "Donnees techniques insuffisantes: RSI14 et SMA50 exigent au moins 50 clotures verifiees.")} />;
+  const hasApiTechnicalInputs = [apiTechnicalIndicator?.rsi_14, apiTechnicalIndicator?.sma_20, apiTechnicalIndicator?.sma_50].every((value) => typeof value === "number" && Number.isFinite(value));
+  const modelUnavailableMessage = dataMode === "real"
+    ? "Recommandation et objectif natifs indisponibles via l’API pour ce titre."
+    : "Recommandation indisponible : données de démonstration insuffisantes.";
+  const modelPanel = <ModelHeuristicPanel auditTrail={auditTrail([{ label: "Source", value: `${metrics.marketDataSource} + ${metrics.fundamentalsSource}`, tone: asAuditTone(metrics.combinedAuditTone) }, { label: "Date", value: `Prix ${metrics.marketAuditDate} / FY ${metrics.fundamentalsAuditYear}` }, { label: "Champs", value: dataMode === "real" ? "Score et objectif natifs API; absence => indisponible" : "Calcul mock; Target=" + (metrics.analystData?.targetFormula ?? "N/A") }, { label: "Devise", value: metrics.auditCurrency }])} isLoading={isFundamentalsPanelLoading || !isSecondaryWorkReady} modelData={metrics.analystData} onSeeSource={() => openBrvmEquityPage(security.ticker)} unavailableState={unavailable(modelUnavailableMessage)} />;
+  const bondsPanel = <BondsPanel auditTrail={auditTrail([{ label: "Source", value: "API /fixed-income/bond-securities/", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Devise", value: "% annualise" }])} bonds={feeds.topBonds} isLoading={feeds.bondsLoading} onMoreBonds={openBrvmBondsPage} unavailableState={<div style={{ fontSize: "11px", color: "#64748b", textAlign: "center", padding: "12px 0" }}>Donnees obligataires indisponibles</div>} />;
+  const isVolatilityTermReady = hasApiVolatilityTermStructure(apiTechnicalIndicator);
+  const volatilityPanels = <VolatilityPanels curveAuditTrail={auditTrail([{ label: "Source", value: "Courbe native API", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "Aucun calcul local; absence API => indisponible" }, { label: "Devise", value: "% annualisé" }])} curveNotice={undefined} curveUnavailableState={unavailable("Courbe native indisponible via l’API.")} isCurveReady={false} isLoading={Boolean(isLoading)} isTermReady={isVolatilityTermReady} termAuditTrail={auditTrail([{ label: "Source", value: "Indicateurs de volatilité API", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Champs", value: "hv_10, hv_20, hv_30, hv_60, hv_90, hv_252" }, { label: "Devise", value: "% annualisé" }])} termUnavailableState={unavailable("Structure de volatilite indisponible via l’API.")} volatilityChartRef={refs.volatilityChartRef} volatilityCurveChartRef={refs.volatilityCurveChartRef} />;
   const profilePanel = <ProfilePanel auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: dataMode === "real" ? "Identifiants lus depuis l’API; absence => N/D" : "Profil BRVM normalise; identifiants catalogue mock" }, { label: "Devise", value: "N/A" }])} clipboardStatus={clipboardStatus} description={profileDescription} employees={feeds.validFundamentals?.employees} figi={security.figi} getClipboardLabel={getClipboardLabel} isDescriptionExpanded={isDescriptionExpanded} isLoading={isFundamentalsPanelLoading} isin={security.isin} onCopyIdentifier={(key, value) => void actions.copyIdentifier(key, value)} onToggleDescription={actions.toggleDescription} website={feeds.validFundamentals?.website} />;
   const screenersPanel = <ScreenersPanel activeCurrency={currency} activeTicker={security.ticker} auditDate={metrics.marketAuditDate} bondsLoading={feeds.bondsLoading} livePrice={livePrice} liveVolume={liveVolume} marketSnapshots={marketSnapshots} onOpenBondsPage={openBrvmBondsPage} onOpenEquityPage={() => openBrvmEquityPage(security.ticker)} onOpenTickerSelector={() => props.openTickerSelector?.()} topBonds={feeds.topBonds} />;
   const calendarPanel = (
@@ -278,14 +291,15 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       bonds={feeds.topBonds}
       corporateEvents={[]}
       displayTimeZoneLabel={BRVM_DISPLAY_TIME_ZONE_LABEL}
-      dividends={feeds.validFundamentals?.dividends ?? []}
+      currency={currency}
+      dividends={chartConfig.validFundamentals?.dividends ?? []}
       ipos={[]}
       isBondLoading={feeds.bondsLoading}
       isFundamentalsLoading={isFundamentalsPanelLoading}
-      marketStatusLabel={marketClock.sidebarMarketStatus.isOpen ? "Marche ouvert" : "Marche ferme"}
+      marketStatusLabel={marketStatusLabel}
       onOpenBondsPage={openBrvmBondsPage}
       onOpenDividends={() => actions.setIsDividendModalOpen(true)}
-      sessionUpdateLabel={marketClock.sidebarLastUpdateLabel}
+      sessionUpdateLabel={sidebarLastUpdateLabel}
       ticker={security.ticker}
       upcomingIPOs={[]}
     />
@@ -316,7 +330,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       onAttachToChart={props.onPineOverlayAttach}
       onClearOverlay={props.onPineOverlayClear}
       runtimeTone={asAuditTone(metrics.auditTone) ?? "neutral"}
-      sessionLabel={marketClock.sidebarMarketStatus.isOpen ? "Market open" : "Market closed"}
+      sessionLabel={marketStatusLabel}
       ticker={security.ticker}
     />
   );
@@ -338,7 +352,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     name: security.name,
     newsLabel: feeds.activeNews ? "News: " + feeds.activeNews.date : "Flux calme",
     priceLabel: formatCurrency(livePrice, currency),
-    sessionLabel: marketClock.sidebarMarketStatus.isOpen ? "Marche ouvert" : "Marche ferme",
+    sessionLabel: marketStatusLabel,
     ticker: security.ticker,
     volumeLabel: formatVolumeRatio(props.currentVolume, props.avgVolume),
     volumeRatio: resolveVolumeRatio(props.currentVolume, props.avgVolume),
@@ -350,7 +364,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     latestDividend,
     liveChangePercent,
     livePrice,
-    marketClock.sidebarMarketStatus.isOpen,
+    marketStatusLabel,
     props.avgVolume,
     props.currentVolume,
     marketLabel,
@@ -370,7 +384,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
 
   return (
     <>
-      {activeEntry !== "alerts" && <AlertsRailRuntime context={alertsContext} contextsByTicker={alertContextsByTicker} onEditAlert={openAlertsForEdit} />}
+      {isSecondaryWorkReady && activeEntry !== "alerts" && <AlertsRailRuntime context={alertsContext} contextsByTicker={alertContextsByTicker} onEditAlert={openAlertsForEdit} />}
       <div className="gp-sidebar-main-content" style={{ position: "relative" }}>
         {props.overlayContent && activeEntry === "object-tree" && (
           <div id="gp-object-tree-overlay" style={{ position: "absolute", inset: 0, zIndex: 100, overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--gp-bg-toolbar, #0d2136)" }}>
@@ -387,7 +401,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
           {activeEntry === "calendar" && calendarPanel}
           {activeEntry === "ideas" && communityPanel}
           {activeEntry === "notifications" && notificationsPanel}
-          {activeEntry === "help" && <BrvmRailPanel title="Aide BRVM" subtitle="Reperes de lecture pour l'analyse technique" rows={[{ label: "Devise", value: currency }, { label: "Temps", value: BRVM_DISPLAY_TIME_ZONE_LABEL }, { label: "Data window", value: "OHLCV et indicateurs au curseur" }, { label: "Sources", value: "Badges d'audit sous chaque panneau" }]} tags={["OHLCV", "XOF", "BRVM", "Audit"]} />}
+          {activeEntry === "help" && <BrvmRailPanel title="Aide BRVM" subtitle="Reperes de lecture pour l'analyse technique" rows={[{ label: "Devise", value: currency }, { label: "Temps", value: BRVM_DISPLAY_TIME_ZONE_LABEL }, { label: "Data window", value: "OHLCV et indicateurs au curseur" }, { label: "Sources", value: "Badges d'audit sous chaque panneau" }]} tags={["OHLCV", currency, "BRVM", "Audit"]} />}
           {activeEntry === "fundamentals" && fundamentalsPanel}
           {activeEntry === "bonds" && bondsPanel}
           {activeEntry === "seasonality" && seasonalityPanel}
@@ -398,7 +412,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
         </div>
       </div>
 
-      {isDividendModalOpen && <DividendHistoryModal isOpen={isDividendModalOpen} onClose={() => actions.setIsDividendModalOpen(false)} ticker={security.ticker} dividends={feeds.validFundamentals?.dividends} />}
+      {isDividendModalOpen && <DividendHistoryModal isOpen={isDividendModalOpen} onClose={() => actions.setIsDividendModalOpen(false)} ticker={security.ticker} currency={currency} dividends={chartConfig.validFundamentals?.dividends} />}
 
       <div className="gp-sidebar-toolbar" ref={toolbarRef}>
         {isLoading ? (

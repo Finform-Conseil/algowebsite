@@ -25,6 +25,12 @@ export interface MultiChartPreset {
 
 export const MULTI_CHART_STORAGE_KEY = "technical-analysis.multiChartLayout.v1";
 
+/**
+ * Values emitted by the first multi-chart prototype. They were never selected
+ * from the API and must not survive local-storage hydration as a real cell.
+ */
+const LEGACY_LAYOUT_PLACEHOLDER_SYMBOLS = new Set(["BRVMC"]);
+
 export const DEFAULT_MULTI_CHART_SYNC: MultiChartLayoutSync = {
   symbol: false,
   interval: false,
@@ -80,7 +86,7 @@ export const MULTI_CHART_LAYOUTS: MultiChartLayoutDefinition[] = [
     shortName: "6",
     chartCount: 6,
     cssClass: "layout-six-grid",
-    description: "Mini-terminal BRVM 3 par 2",
+    description: "Mini-terminal multi-marchés 3 par 2",
   },
   {
     id: "eight_grid",
@@ -104,7 +110,7 @@ export const MULTI_CHART_LAYOUTS: MultiChartLayoutDefinition[] = [
     shortName: "12",
     chartCount: 12,
     cssClass: "layout-twelve-grid",
-    description: "Mur de surveillance BRVM 4 par 3",
+    description: "Mur de surveillance multi-marchés 4 par 3",
   },
   {
     id: "sixteen_grid",
@@ -130,7 +136,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     name: "Titre vs marché",
     layoutId: "two_horizontal",
     sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
-    symbols: ["", "BRVMC"],
+    symbols: [],
     intervals: ["1D", "1D"],
   },
   {
@@ -138,7 +144,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     name: "Comparaison secteur",
     layoutId: "four_grid",
     sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
-    symbols: ["", "BOAC", "SGBC", "BRVMC"],
+    symbols: [],
     intervals: ["1D", "1D", "1D", "1D"],
   },
   {
@@ -146,15 +152,25 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     name: "Market Monitor",
     layoutId: "six_grid",
     sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
-    symbols: ["BRVMC", "SNTS", "BOAC", "SGBC", "ETIT", "SPHC"],
+    symbols: [],
     intervals: ["1D", "1D", "1D", "1D", "1D", "1D"],
   },
 ];
+
+// API-first contract: /cours currently exposes native OHLCV only for 1D.
+// Keep unsupported presets visible for forward compatibility, but never activate
+// them until their intervals can be rendered from real API data.
+export const MULTI_CHART_NATIVE_INTERVALS = new Set(["1D"]);
+export const isMultiChartPresetAvailable = (preset: MultiChartPreset): boolean =>
+  preset.intervals.every((interval) => MULTI_CHART_NATIVE_INTERVALS.has(interval));
 
 export const getLayoutDefinition = (layoutId: MultiChartLayoutId): MultiChartLayoutDefinition =>
   MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId) ?? MULTI_CHART_LAYOUTS[0];
 
 export const normalizeLayoutSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+
+const isLegacyLayoutPlaceholderSymbol = (symbol: string | undefined): boolean =>
+  LEGACY_LAYOUT_PLACEHOLDER_SYMBOLS.has(normalizeLayoutSymbol(symbol ?? ""));
 
 export const isDenseMultiChartLayout = (layoutId: MultiChartLayoutId): boolean =>
   getLayoutDefinition(layoutId).chartCount >= 8;
@@ -168,14 +184,10 @@ export const hasCollapsedLayoutSymbols = (layout: MultiChartLayoutState): boolea
 const getUniqueLayoutSymbols = (cells: MultiChartLayoutCell[]): string[] =>
   Array.from(new Set(cells.map((cell) => normalizeLayoutSymbol(cell.symbol)).filter(Boolean)));
 
-const buildSecondarySymbolCandidates = (
-  primary: string,
-  comparisonSymbols: string[],
-  fallbackSymbols: string[],
-): string[] =>
+const buildSecondarySymbolCandidates = (primary: string, comparisonSymbols: string[]): string[] =>
   Array.from(
     new Set(
-      [...comparisonSymbols, ...fallbackSymbols]
+      comparisonSymbols
         .map((symbol) => normalizeLayoutSymbol(symbol))
         .filter((symbol) => symbol && symbol !== primary),
     ),
@@ -188,22 +200,40 @@ export const createLayoutCells = (
   previousCells: MultiChartLayoutCell[] = [],
   intervals?: string[],
   presetSymbols?: string[],
-  fallbackSymbols: string[] = [],
+  market = "BRVM",
 ): MultiChartLayoutCell[] => {
   const definition = getLayoutDefinition(layoutId);
-  const primary = normalizeLayoutSymbol(primarySymbol) || "BOAB";
-  const candidates = buildSecondarySymbolCandidates(primary, comparisonSymbols, fallbackSymbols);
+  const primary = normalizeLayoutSymbol(primarySymbol);
+  const normalizedMarket = normalizeLayoutSymbol(market) || "BRVM";
+  const candidates = buildSecondarySymbolCandidates(primary, comparisonSymbols);
   const previousSymbols = getUniqueLayoutSymbols(previousCells);
   const shouldPreservePreviousSymbols = !presetSymbols && !(definition.chartCount > 1 && previousCells.length > 1 && previousSymbols.length <= 1);
 
   return Array.from({ length: definition.chartCount }, (_, index) => {
     const existing = previousCells[index];
     const presetSymbol = presetSymbols?.[index];
-    const symbol = presetSymbols ? normalizeLayoutSymbol(presetSymbol || primary) : index === 0 ? primary : candidates[index - 1] ?? primary;
+    const defaultSymbol = index === 0 ? primary : candidates[index - 1] ?? "";
+    const canReuseExistingBinding = Boolean(
+      !presetSymbols
+      && index > 0
+      && existing?.symbol
+      && !isLegacyLayoutPlaceholderSymbol(existing.symbol)
+      && shouldPreservePreviousSymbols,
+    );
+    const symbol = canReuseExistingBinding
+      ? normalizeLayoutSymbol(existing?.symbol ?? "")
+      : normalizeLayoutSymbol(presetSymbols ? (presetSymbol ?? defaultSymbol) : defaultSymbol);
+    // An exchange belongs to a concrete symbol binding, never to an empty slot.
+    // Empty panels must remain market-agnostic until the user chooses a bourse.
+    const exchange = symbol
+      ? (canReuseExistingBinding
+        ? normalizeLayoutSymbol(existing?.exchange ?? "") || normalizedMarket
+        : normalizedMarket)
+      : "";
     return {
       chartId: existing?.chartId ?? `chart_${index + 1}`,
-      symbol: index > 0 && existing?.symbol && shouldPreservePreviousSymbols ? existing.symbol : symbol,
-      exchange: "BRVM",
+      symbol,
+      exchange,
       interval: intervals?.[index] ?? existing?.interval ?? "1D",
       indicators: existing?.indicators ?? (index === 0 ? ["volume", "sma"] : ["volume"]),
       isActive: index === 0,
@@ -215,10 +245,10 @@ export const createDefaultMultiChartLayout = (
   layoutId: MultiChartLayoutId = "single",
   primarySymbol = "BOAB",
   comparisonSymbols: string[] = [],
-  fallbackSymbols: string[] = [],
+  market = "BRVM",
 ): MultiChartLayoutState => {
   const definition = getLayoutDefinition(layoutId);
-  const charts = createLayoutCells(layoutId, primarySymbol, comparisonSymbols, [], undefined, undefined, fallbackSymbols);
+  const charts = createLayoutCells(layoutId, primarySymbol, comparisonSymbols, [], undefined, undefined, market);
   return {
     layoutId,
     name: definition.name,
@@ -234,13 +264,18 @@ export const reconcileMultiChartLayout = (
   layoutId: MultiChartLayoutId,
   primarySymbol: string,
   comparisonSymbols: string[] = [],
-  fallbackSymbols: string[] = [],
+  market = "BRVM",
 ): MultiChartLayoutState => {
   const definition = getLayoutDefinition(layoutId);
-  const charts = createLayoutCells(layoutId, primarySymbol, comparisonSymbols, current.charts, undefined, undefined, fallbackSymbols);
-  const activeChartId = charts.some((chart) => chart.chartId === current.activeChartId)
-    ? current.activeChartId
-    : charts[0]?.chartId ?? "chart_1";
+  const charts = createLayoutCells(layoutId, primarySymbol, comparisonSymbols, current.charts, undefined, undefined, market);
+  const currentActive = charts.find((chart) => chart.chartId === current.activeChartId);
+  const firstBoundChart = charts.find((chart) => chart.symbol.trim().length > 0);
+  // An empty placeholder can never own the canonical active chart surface. This
+  // repairs legacy/persisted layouts that marked an unbound slot active and
+  // prevents the full chart engine from being mounted inside an empty panel.
+  const activeChartId = currentActive?.symbol.trim()
+    ? currentActive.chartId
+    : firstBoundChart?.chartId ?? charts[0]?.chartId ?? "chart_1";
 
   return {
     ...current,

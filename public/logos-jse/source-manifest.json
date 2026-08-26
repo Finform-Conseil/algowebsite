@@ -1,0 +1,16 @@
+{
+  "contract": "logo-source-manifest-v1",
+  "exchange": "JSE",
+  "source_manifest": "manifest.json",
+  "normalized_manifest": "normalization-manifest.json",
+  "source": {
+    "catalog_url": "https://clientportal.jse.co.za/_vti_bin/JSE/CustomerRoleService.svc/GetAllIssuers",
+    "logo_source": "AllInvestView Ticker Logos CDN",
+    "logo_source_url": "https://www.allinvestview.com/tools/ticker-logos/",
+    "logo_cdn": "https://cdn.tickerlogos.com/"
+  },
+  "license": "Unspecified by source; trademark and redistribution review required",
+  "records": 159,
+  "normalized_records": 151,
+  "failed_source_records": 138
+}

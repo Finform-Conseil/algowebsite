@@ -50,12 +50,12 @@ import {
   MAIN_GRID_LEFT,
   TV_X_AXIS_HEIGHT,
   TV_Y_AXIS_WIDTH,
+  clientPointToLocalPixel,
   getInteractiveGridRect,
   getPriceSeriesIndex,
-  isChartTimeValue,
   isChartUsable,
   isInsideGridRect,
-  safeConvertFromPixel,
+  safeConvertFromPixelToChartPoint,
   safeConvertToPixel,
 } from "./drawing/drawingCoordinates";
 import { SpatialHashGrid } from "./drawing/drawingSpatialIndex";
@@ -732,74 +732,42 @@ export const useDrawingManager = ({
 
 
   // --- Coordinate Conversion ---
+  // Canonical contract: every drawing interaction uses ECharts DOM-local pixels.
+  // Never mix drawing-canvas-local coordinates with chart.convertTo/FromPixel().
+  const getChartLocalPixel = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): { x: number; y: number } | null => {
+    if (!isChartUsable(chartInstanceRef.current)) return null;
+    const chartRect = chartInstanceRef.current.getDom().getBoundingClientRect();
+    const point = clientPointToLocalPixel(e, chartRect);
+    if (point.x < 0 || point.y < 0 || point.x > chartRect.width || point.y > chartRect.height) return null;
+    return point;
+  }, [chartInstanceRef]);
+
   const getChartCoordinates = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): DrawingPoint | null => {
-    if (!isChartUsable(chartInstanceRef.current) || !drawingCanvasRef.current) return null;
+    if (!isChartUsable(chartInstanceRef.current)) return null;
     const chart = chartInstanceRef.current;
-    const chartRect = chart.getDom().getBoundingClientRect();
-    const x = e.clientX - chartRect.left;
-    const y = e.clientY - chartRect.top;
-    if (x < 0 || y < 0 || x > chartRect.width || y > chartRect.height) return null;
-    if (!isInsideGridRect({ x, y }, getInteractiveGridRect(chart))) return null;
+    const pointerPixel = getChartLocalPixel(e);
+    if (!pointerPixel) return null;
+    const { x, y } = pointerPixel;
+    if (!isInsideGridRect(pointerPixel, getInteractiveGridRect(chart))) return null;
     const priceSeriesIndex = getPriceSeriesIndex(chart);
-    let option: ReturnType<EChartsType["getOption"]>;
-    try {
-      option = chart.getOption();
-    } catch {
-      return null;
-    }
-    const point = safeConvertFromPixel(chart, [x, y], priceSeriesIndex);
-
-    if (point && point.length >= 2) {
-      let time = point[0] as string | number;
-      const value = point[1] as number;
-      
-      const xAxis = (Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis) as { type?: string; data?: unknown[] } | undefined;
-      if (xAxis && xAxis.type === 'category' && Array.isArray(xAxis.data) && typeof time === 'number') {
-        const index = Math.round(time);
-        if (index >= 0 && index < xAxis.data.length) {
-          const axisTime = xAxis.data[index];
-          if (!isChartTimeValue(axisTime)) return null;
-          time = axisTime;
-        } else if (index >= xAxis.data.length) {
-          const lastIdx = xAxis.data.length - 1;
-          const lastAxisTime = xAxis.data[lastIdx];
-          const prevAxisTime = xAxis.data[lastIdx - 1];
-          if (!isChartTimeValue(lastAxisTime)) return null;
-
-          const lastTime = new Date(lastAxisTime).getTime();
-          const prevTime =
-            xAxis.data.length > 1 && isChartTimeValue(prevAxisTime)
-              ? new Date(prevAxisTime).getTime()
-              : lastTime - 86400000;
-          const gap = lastTime - prevTime;
-          const futureTime = lastTime + (index - lastIdx) * gap;
-          time = new Date(futureTime).toISOString();
-        }
-      }
-      return { time, value };
-    }
-    return null;
-  }, [chartInstanceRef, drawingCanvasRef]);
+    const point = safeConvertFromPixelToChartPoint(chart, [x, y], priceSeriesIndex);
+    return point ? { time: point[0], value: point[1] } : null;
+  }, [chartInstanceRef, getChartLocalPixel]);
 
   const getChartPointerPixel = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): { x: number; y: number } | null => {
     if (!isChartUsable(chartInstanceRef.current)) return null;
-    const chartRect = chartInstanceRef.current.getDom().getBoundingClientRect();
-    const x = e.clientX - chartRect.left;
-    const y = e.clientY - chartRect.top;
-    if (x < 0 || y < 0 || x > chartRect.width || y > chartRect.height) return null;
-    if (!isInsideGridRect({ x, y }, getInteractiveGridRect(chartInstanceRef.current))) return null;
-    return { x, y };
-  }, [chartInstanceRef]);
+    const pointerPixel = getChartLocalPixel(e);
+    if (!pointerPixel) return null;
+    if (!isInsideGridRect(pointerPixel, getInteractiveGridRect(chartInstanceRef.current))) return null;
+    return pointerPixel;
+  }, [chartInstanceRef, getChartLocalPixel]);
 
   const getFreehandCoordinates = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): DrawingPoint | null => {
     const pointerPixel = getChartPointerPixel(e);
     if (!pointerPixel || !isChartUsable(chartInstanceRef.current)) return null;
-    const point = safeConvertFromPixel(chartInstanceRef.current, [pointerPixel.x, pointerPixel.y], getPriceSeriesIndex(chartInstanceRef.current));
-    if (!point || point.length < 2) return null;
-    const time = Number(point[0]);
-    const value = Number(point[1]);
-    if (!Number.isFinite(time) || !Number.isFinite(value)) return null;
-    return { time, value };
+    const point = safeConvertFromPixelToChartPoint(chartInstanceRef.current, [pointerPixel.x, pointerPixel.y], getPriceSeriesIndex(chartInstanceRef.current));
+    if (!point) return null;
+    return { time: point[0], value: point[1] };
   }, [chartInstanceRef, getChartPointerPixel]);
 
   const resolveTimeToChartIndex = useCallback((time: string | number): number => {
@@ -1020,9 +988,9 @@ export const useDrawingManager = ({
     }
     lastTapRef.current = now;
 
-    const rect = drawingCanvasRef.current!.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const pointerPixel = getChartLocalPixel(e);
+    if (!pointerPixel) return;
+    const { x: mx, y: my } = pointerPixel;
 
     const currentActiveTool = activeToolRef.current;
     const mode = cursorModeRef.current;
@@ -1683,7 +1651,7 @@ export const useDrawingManager = ({
             if (p0Pix && p1Pix && p2Pix) {
               const radius = Math.hypot(p1Pix[0] - p0Pix[0], p1Pix[1] - p0Pix[1]);
               const angle2 = Math.atan2(p2Pix[1] - p0Pix[1], p2Pix[0] - p0Pix[0]);
-              const constP2 = safeConvertFromPixel(chart, [p0Pix[0] + radius * Math.cos(angle2), p0Pix[1] + radius * Math.sin(angle2)], priceIdx);
+              const constP2 = safeConvertFromPixelToChartPoint(chart, [p0Pix[0] + radius * Math.cos(angle2), p0Pix[1] + radius * Math.sin(angle2)], priceIdx);
               if (constP2) updatedPoints[2] = { time: constP2[0], value: constP2[1] };
             }
           }
@@ -1722,15 +1690,15 @@ export const useDrawingManager = ({
       }
       return;
     }
-  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
+  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
     if (!drawingCanvasRef.current) return;
 
-    const rect = drawingCanvasRef.current.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const pointerPixel = getChartLocalPixel(e);
+    if (!pointerPixel) return;
+    const { x: mx, y: my } = pointerPixel;
     mousePosRef.current = { x: mx, y: my };
     markDirty();
 
@@ -1745,26 +1713,17 @@ export const useDrawingManager = ({
       let newPoints = [...d.points];
       if (type === 'shape') {
         const priceIdx = getPriceSeriesIndex(dragChart);
-        const isFreehand = d.type === 'brush' || d.type === 'highlighter';
         newPoints = initialPoints.map(p => {
           const startPix = safeConvertToPixel(dragChart, [p.time, p.value], priceIdx);
           if (!startPix) return p;
           const newPix: [number, number] = [startPix[0] + dx, startPix[1] + dy];
-          const newCoords = safeConvertFromPixel(dragChart, newPix, priceIdx);
-          if (!newCoords) return p;
-          const rawTime = newCoords[0];
-          let finalTime: string | number = rawTime;
-          if (!isFreehand && typeof rawTime === 'number') {
-            const idx = Math.round(rawTime);
-            const clampedIdx = Math.max(0, Math.min(idx, chartDataRef.current.length - 1));
-            finalTime = chartDataRef.current[clampedIdx].time;
-          }
-          return { time: finalTime, value: newCoords[1] as number };
+          const newCoords = safeConvertFromPixelToChartPoint(dragChart, newPix, priceIdx);
+          return newCoords ? { time: newCoords[0], value: newCoords[1] } : p;
         });
       } else if (type === 'point') {
         const chart = dragChart;
         const priceIdx = getPriceSeriesIndex(chart);
-        const currentCoords = safeConvertFromPixel(chart, [mx, my], priceIdx);
+        const currentCoords = safeConvertFromPixelToChartPoint(chart, [mx, my], priceIdx);
         if (currentCoords) {
           if (d.type === 'rotated_rectangle' && pointIndex === 2 && d.points.length >= 3) {
             const p0Pix = safeConvertToPixel(chart, [d.points[0].time, d.points[0].value], priceIdx);
@@ -1789,7 +1748,7 @@ export const useDrawingManager = ({
                   centerX + relX * cos - relY * sin,
                   centerY + relX * sin + relY * cos,
                 ];
-                const rotatedCoords = safeConvertFromPixel(dragChart, rotated, priceIdx);
+                const rotatedCoords = safeConvertFromPixelToChartPoint(dragChart, rotated, priceIdx);
                 return rotatedCoords ? { time: rotatedCoords[0], value: rotatedCoords[1] } : p;
               });
             }
@@ -1805,7 +1764,7 @@ export const useDrawingManager = ({
                 newPoints[1] = { time: currentCoords[0], value: currentCoords[1] };
                 if (p2Pix) {
                   const a2 = Math.atan2(p2Pix[1] - p0Pix[1], p2Pix[0] - p0Pix[0]);
-                  const cP2 = safeConvertFromPixel(chart, [p0Pix[0] + rad * Math.cos(a2), p0Pix[1] + rad * Math.sin(a2)], priceIdx);
+                  const cP2 = safeConvertFromPixelToChartPoint(chart, [p0Pix[0] + rad * Math.cos(a2), p0Pix[1] + rad * Math.sin(a2)], priceIdx);
                   if (cP2) newPoints[2] = { time: cP2[0], value: cP2[1] };
                 }
               } else if (pointIndex === 2 && d.points.length >= 3) {
@@ -1814,17 +1773,16 @@ export const useDrawingManager = ({
                 if (p1Pix) {
                   const a1 = Math.atan2(p1Pix[1] - p0Pix[1], p1Pix[0] - p0Pix[0]);
                   const angle = Math.atan2(my - p0Pix[1], mx - p0Pix[0]);
-                  const cP1 = safeConvertFromPixel(chart, [p0Pix[0] + rad * Math.cos(a1), p0Pix[1] + Math.sin(a1)], priceIdx);
-                  const cP2 = safeConvertFromPixel(chart, [p0Pix[0] + rad * Math.cos(angle), p0Pix[1] + rad * Math.sin(angle)], priceIdx);
+                  const cP1 = safeConvertFromPixelToChartPoint(chart, [p0Pix[0] + rad * Math.cos(a1), p0Pix[1] + rad * Math.sin(a1)], priceIdx);
+                  const cP2 = safeConvertFromPixelToChartPoint(chart, [p0Pix[0] + rad * Math.cos(angle), p0Pix[1] + rad * Math.sin(angle)], priceIdx);
                   if (cP1) newPoints[1] = { time: cP1[0], value: cP1[1] };
                   if (cP2) newPoints[2] = { time: cP2[0], value: cP2[1] };
                 }
               }
             }
           } else if (d.type === 'anchored_vwap' || d.type === 'anchored_volume_profile') {
-            const categoryIndex = Math.round(currentCoords[0] as number);
-            const clampedIndex = Math.max(0, Math.min(categoryIndex, chartDataRef.current.length - 1));
-            const nearestBar = chartDataRef.current[clampedIndex];
+            const nearestIndex = resolveTimeToChartIndex(currentCoords[0]);
+            const nearestBar = nearestIndex >= 0 ? chartDataRef.current[nearestIndex] : undefined;
             if (nearestBar) {
               newPoints[pointIndex] = { time: nearestBar.time, value: currentCoords[1] as number };
             }
@@ -1834,7 +1792,7 @@ export const useDrawingManager = ({
         }
       } else if (type === 'position_zone' && dragTargetRef.current?.positionZone) {
         const priceIdx = getPriceSeriesIndex(dragChart);
-        const cur = safeConvertFromPixel(dragChart, [mx, my], priceIdx);
+        const cur = safeConvertFromPixelToChartPoint(dragChart, [mx, my], priceIdx);
         if (cur) {
           const entryVal = d.points[0].value;
           const off = Math.abs(cur[1] - entryVal);
@@ -1883,7 +1841,7 @@ export const useDrawingManager = ({
         const dirY = (edge === 'topLeft' || edge === 'topRight') ? -1 : 1;
         const newCenterX = fixedX + dirX * (newW / 2);
         const newCenterY = fixedY + dirY * (newH / 2);
-        const newCoords = safeConvertFromPixel(dragChart, [newCenterX, newCenterY], priceIdx);
+        const newCoords = safeConvertFromPixelToChartPoint(dragChart, [newCenterX, newCenterY], priceIdx);
         if (!newCoords) return;
         draggedDrawingRef.current = {
           ...d,
@@ -1940,7 +1898,11 @@ export const useDrawingManager = ({
         const hit = rendererRef.current?.hitTest(mx, my, candidates[i], hoverChart, 15);
         if (hit?.isHit) {
           hoveringInt = true;
-          cursor = hit.hitType === "point" ? "grab" : "move";
+          if (hit.hitType === "point") cursor = "grab";
+          else if (hit.hitType?.startsWith("zone_")) cursor = "ns-resize";
+          else if (hit.hitType === "width_resize") cursor = "ew-resize";
+          else if (hit.resizeEdge) cursor = "nwse-resize";
+          else cursor = "move";
           break;
         }
       }
@@ -1948,7 +1910,7 @@ export const useDrawingManager = ({
 
     if (!hoveringInt) cursor = (activeToolRef.current || isDrawingRef.current) ? "crosshair" : "default";
     drawingCanvasRef.current.style.cursor = cursor;
-  }, [chartInstanceRef, drawingCanvasRef, getChartPointerPixel, getFreehandCoordinates, markDirty]);
+  }, [chartInstanceRef, drawingCanvasRef, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, markDirty]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (drawingCanvasRef.current && e.pointerId !== undefined) {
@@ -1979,6 +1941,15 @@ export const useDrawingManager = ({
         markDirty();
       }
       dragTargetRef.current = null;
+    }
+
+    // Drag branches return early from pointermove, so the browser cursor can
+    // otherwise remain stuck in grab/grabbing/move after pointerup/cancel.
+    // Reset immediately; the next pointermove re-runs the canonical hit-test.
+    if (drawingCanvasRef.current) {
+      drawingCanvasRef.current.style.cursor = (activeToolRef.current || isDrawingRef.current)
+        ? "crosshair"
+        : "default";
     }
   }, [cancelDrawingSession, completeDrawingSession, drawingCanvasRef, pushHistory, markDirty]);
 
@@ -2104,7 +2075,7 @@ export const useDrawingManager = ({
       grid.x + grid.width / 2,
       grid.y + grid.height / 2,
     ];
-    const centerCoords = safeConvertFromPixel(chart, centerPx, priceIdx);
+    const centerCoords = safeConvertFromPixelToChartPoint(chart, centerPx, priceIdx);
     if (!centerCoords) return null;
 
     const { cssWidth, cssHeight } = computeImageCssSize(

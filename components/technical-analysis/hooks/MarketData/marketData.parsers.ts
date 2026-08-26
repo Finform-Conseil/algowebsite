@@ -137,7 +137,6 @@ export const parseIndicatorCSV = (csvText: string): Partial<LiveSnapshot> | null
   return {
     price,
     variation: variationStr,
-    // @ts-expect-error - Dynamically injected for high-performance UI reads
     variationNum,
     prevClose,
     open: cleanNum(getVal("Ouverture"), price),

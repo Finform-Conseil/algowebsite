@@ -6,6 +6,7 @@ import { escapeSidebarTooltipText } from "./sidebarChartOptions";
 export function buildBenefitsChartOption(
   dataMode: "mock" | "real",
   fundamentals: BRVMFundamentals | null,
+  currency = "FCFA",
 ): EChartsCoreOption {
   const earningsRows = dataMode === "real"
     ? (fundamentals?.earnings || []).slice(-5)
@@ -17,7 +18,7 @@ export function buildBenefitsChartOption(
         { year: "Q2 '26", value: 1.8, isEstimate: true },
       ];
   const benefitsData = earningsRows.map((row) => row.value);
-  const tooltipUnit = dataMode === "real" ? "M FCFA" : "%";
+  const tooltipUnit = dataMode === "real" ? "M " + currency : "%";
 
   return {
     backgroundColor: "transparent",
@@ -73,7 +74,7 @@ export function buildDividendsChartOption(metrics: SidebarFinancialMetrics): ECh
   const { payoutRatio, hasValidPayout, calculatedYield, hasValidYield } = metrics;
   const hasAnyValue = hasValidPayout || hasValidYield;
   const displayValue = hasValidPayout ? `${payoutRatio.toFixed(1)}%` : (hasValidYield ? `${calculatedYield.toFixed(2)}%` : "N/A");
-  const activeValue = hasValidPayout ? payoutRatio : calculatedYield * 10;
+  const activeValue = Math.min(100, Math.max(0, hasValidPayout ? payoutRatio : calculatedYield));
 
   return {
     backgroundColor: "transparent",

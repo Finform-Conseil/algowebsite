@@ -19,8 +19,6 @@ import { Check,
   Eye,
   EyeOff } from "lucide-react";
 import { BaseModal } from "../../common/primitives/BaseModal";
-import { IndicatorBacktestPanel } from "./IndicatorBacktestPanel";
-import { useIndicatorBacktestDashboard } from "./useIndicatorBacktestDashboard";
 import type { AdvancedIndicatorsState,
   BollingerSettings,
   MovingAverageTrendSignalId,
@@ -50,10 +48,10 @@ import {
   selectChartConfig,
   selectIndicatorPeriods,
   selectBollingerSettings,
-  selectMarketData,
-  selectMarketSnapshots,
 } from "../../../store/selectors";
 import type { RootState } from "@/core/infra/store";
+import type { TechnicalIndicatorEntity } from "@/core/domain/entities/cours.entity";
+import type { LiveSnapshot } from "../../../config/market/marketSnapshotTypes";
 
 import {
   SettingsNumberInput,
@@ -98,22 +96,32 @@ import {
   type CompositeIndicatorSpec,
 } from "../../../config/indicators/indicatorModalRegistry";
 import {
+  INDICATOR_FOCUS_FILTERS,
+  getIndicatorFocusForGroup,
+  matchesIndicatorFocus,
+  matchesIndicatorSearch360,
+  sortIndicatorGroupsForTrader,
+  type IndicatorFocusFilter,
+} from "../../../config/indicators/indicatorCatalogSearch";
+import {
+  createAdvancedMovingAverageConfigurationTarget,
+  createCatalogConfigurationTarget,
+  createCompositeConfigurationTarget,
+  createMovingAverageConfigurationTarget,
+  type IndicatorConfigurationTarget,
+} from "../../../config/indicators/indicatorConfigurationTarget";
+import {
   calculateMovingAverageTrendSignals,
   type MovingAverageTrendSignalResult,
   type MovingAverageTrendState
 } from "../../../lib/Indicators/movingAverageTrendSignals";
-import {
-  calculatePriceVsSmaMetrics,
-  type PriceVsSmaMetricResult,
-} from "../../../lib/Indicators/priceVsSmaMetrics";
-import {
-  calculatePriceVsEmaMetrics,
-  type PriceVsEmaMetricResult,
-} from "../../../lib/Indicators/priceVsEmaMetrics";
+import type { PriceVsSmaMetricResult } from "../../../lib/Indicators/priceVsSmaMetrics";
+import type { PriceVsEmaMetricResult } from "../../../lib/Indicators/priceVsEmaMetrics";
 import { useTechnicalAnalysisPortalTarget } from "../../common/portal/useTechnicalAnalysisPortalTarget";
+import { useMarketDataContext } from "../../../context/TechnicalAnalysisProviders";
+import { useSingleDoubleClick } from "./useSingleDoubleClick";
 
 const INDICATOR_SEARCH_INPUT_ID = "technical-analysis-indicator-search";
-const EMPTY_CHART_DATA: ReturnType<typeof selectMarketData>[string] = [];
 
 interface IndicatorsModalProps {
   isOpen: boolean;
@@ -123,6 +131,7 @@ interface IndicatorsModalProps {
   onRevealObjectIds?: (objectIds: readonly IndicatorObjectId[]) => void;
   initialScrollTop?: number;
   onScrollPositionChange?: (scrollTop: number) => void;
+  onConfigureIndicator?: (target: IndicatorConfigurationTarget) => void;
 }
 
 const MAX_BOTTOM_INDICATORS = 5;
@@ -475,7 +484,8 @@ const MACard = React.memo(({
   label,
   color,
   isActive,
-  onToggle
+  onToggle,
+  onConfigure,
 }: {
   type: "sma" | "ema";
   period: number;
@@ -483,6 +493,7 @@ const MACard = React.memo(({
   color: string;
   isActive: boolean;
   onToggle: (type: "sma" | "ema", period: number) => void;
+  onConfigure: () => void;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
 
@@ -496,6 +507,10 @@ const MACard = React.memo(({
       onToggle(type, period);
     }, 16);
   };
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleClick,
+    onConfigure,
+  );
 
   return (
     <div className="col p-1">
@@ -506,7 +521,9 @@ const MACard = React.memo(({
           cursor: "pointer",
           backgroundColor: optimisticActive ? `${color}1A` : "#0f172a",
         }}
-        onClick={handleClick}
+        onClick={handleSingleOrDoubleClick}
+        onDoubleClick={handleNativeDoubleClick}
+        title="Clic pour activer · double-clic pour configurer"
       >
         <div
           className="d-flex align-items-center justify-content-center me-2 flex-shrink-0"
@@ -541,13 +558,15 @@ const IndicatorCard = React.memo(({
   isActive,
   isWired,
   canToggle,
-  onToggle
+  onToggle,
+  onConfigure,
 }: {
   ind: BackendIndicatorItem;
   isActive: boolean;
   isWired: boolean;
   canToggle: (id: string) => boolean;
   onToggle: (id: string) => void;
+  onConfigure: () => void;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
 
@@ -558,7 +577,7 @@ const IndicatorCard = React.memo(({
   const activeColor = "#2962ff";
   const anchorRef = useRef<HTMLElement | null>(null);
   const infoPanelId = getIndicatorInfoPanelId("catalog", ind.key);
-  const statusLabel = isWired ? (optimisticActive ? "Actif" : "Disponible") : "Backend seulement";
+  const statusLabel = isWired ? (optimisticActive ? "Actif" : "Disponible") : "Source uniquement";
 
   const handleClick = () => {
     if (isWired && ind.wiredId) {
@@ -570,6 +589,11 @@ const IndicatorCard = React.memo(({
       }, 16);
     }
   };
+
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleClick,
+    onConfigure,
+  );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isWired) return;
@@ -594,8 +618,10 @@ const IndicatorCard = React.memo(({
           display: "flex",
           alignItems: "center"
         }}
-        onClick={handleClick}
+        onClick={handleSingleOrDoubleClick}
+        onDoubleClick={handleNativeDoubleClick}
         onKeyDown={handleKeyDown}
+        title="Clic pour activer · double-clic pour configurer"
         ref={(node) => { anchorRef.current = node; }}
         tabIndex={0}
       >
@@ -625,7 +651,7 @@ const IndicatorCard = React.memo(({
         </div>
         {!isWired && (
           <span style={{ fontSize: "9px", fontWeight: 600, color: "#94a3b8", backgroundColor: "#1e293b", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px" }}>
-            BACKEND
+            SOURCE
           </span>
         )}
         <IndicatorHoverInfoPanel
@@ -675,11 +701,13 @@ const MovingAverageTrendSignalCard = React.memo(({
   isActive,
   sourceLinesEnabled,
   onToggle,
+  onConfigure,
 }: {
   result: MovingAverageTrendSignalResult;
   isActive: boolean;
   sourceLinesEnabled: boolean;
   onToggle: (id: MovingAverageTrendSignalId, active: boolean) => void;
+  onConfigure: () => void;
 }) => {
   const meta = TREND_STATE_META[result.state];
   const [optimisticActive, setOptimisticActive] = useState(isActive);
@@ -697,11 +725,17 @@ const MovingAverageTrendSignalCard = React.memo(({
     globalThis.setTimeout(() => onToggle(result.spec.id, nextActive), 16);
   }, [onToggle, result.spec.id]);
 
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleToggle,
+    onConfigure,
+  );
+
   const sourceLineStatus = sourceLinesEnabled && optimisticActive
     ? "ligne visible"
     : optimisticActive
       ? "signal seul"
       : "signal inactif";
+
   const distanceLabel = result.distancePercent === null ? "N/D" : formatSignalPercent(result.distancePercent);
   const metricLine = result.distancePercent === null
     ? "Distance N/D"
@@ -711,7 +745,7 @@ const MovingAverageTrendSignalCard = React.memo(({
     ? "N/D"
     : result.isConfirmedBar
       ? "CONFIRMÉ"
-      : "LIVE";
+      : null;
   const statusColor = result.distancePercent === null
     ? "#94a3b8"
     : result.isConfirmedBar
@@ -722,18 +756,19 @@ const MovingAverageTrendSignalCard = React.memo(({
     result.spec.description,
     metricLine,
     sourceLine,
-    `${statusLabel} · ${result.qualityLabel} · ${sourceLineStatus}`,
+    `${statusLabel ?? "Donnée courante"} · ${result.qualityLabel} · ${sourceLineStatus}`,
     `${result.availableBars}/${result.requiredBars} bougies`,
     result.reason,
   ].join("\n");
 
   return (
     <button
-      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel}`}
+      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel ?? "donnée courante"}`}
       aria-pressed={optimisticActive}
       className={`gp-ma-trend-output-card ${optimisticActive ? "active" : ""} is-${result.state}`}
-      onClick={handleToggle}
-      title={detailsLabel}
+      onClick={handleSingleOrDoubleClick}
+      onDoubleClick={handleNativeDoubleClick}
+      title={detailsLabel + "\nClic pour activer · double-clic pour configurer"}
       type="button"
     >
       <span className="gp-composite-indicator-check gp-ma-trend-output-check" aria-hidden="true">
@@ -753,9 +788,11 @@ const MovingAverageTrendSignalCard = React.memo(({
           <span className="gp-ma-trend-output-value" style={{ color: meta.color }}>
             {distanceLabel}
           </span>
-          <span className="gp-ma-trend-output-status" style={{ color: statusColor }}>
-            {statusLabel}
-          </span>
+          {statusLabel && (
+            <span className="gp-ma-trend-output-status" style={{ color: statusColor }}>
+              {statusLabel}
+            </span>
+          )}
         </span>
       </span>
     </button>
@@ -804,10 +841,12 @@ const PriceVsSmaMetricCard = React.memo(({
   result,
   isActive,
   onToggle,
+  onConfigure,
 }: {
   result: PriceVsSmaMetricResult;
   isActive: boolean;
   onToggle: (id: PriceVsSmaMetricId, active: boolean) => void;
+  onConfigure: () => void;
 }) => {
   const meta = TREND_STATE_META[result.state];
   const [optimisticActive, setOptimisticActive] = useState(isActive);
@@ -825,6 +864,11 @@ const PriceVsSmaMetricCard = React.memo(({
     globalThis.setTimeout(() => onToggle(result.spec.id, nextActive), 16);
   }, [onToggle, result.spec.id]);
 
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleToggle,
+    onConfigure,
+  );
+
   const distanceLabel = result.distancePercent === null ? "N/D" : formatSignalPercent(result.distancePercent);
   const metricLine = result.distancePercent === null
     ? "Distance N/D"
@@ -834,7 +878,7 @@ const PriceVsSmaMetricCard = React.memo(({
     ? "N/D"
     : result.isConfirmedBar
       ? "CONFIRMÉ"
-      : "LIVE";
+      : null;
   const statusColor = result.distancePercent === null
     ? "#94a3b8"
     : result.isConfirmedBar
@@ -852,11 +896,12 @@ const PriceVsSmaMetricCard = React.memo(({
 
   return (
     <button
-      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel}, ${result.qualityLabel}`}
+      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel ?? "donnée courante"}, ${result.qualityLabel}`}
       aria-pressed={optimisticActive}
       className={`gp-price-vs-sma-card ${optimisticActive ? "active" : ""} is-${result.state}`}
-      onClick={handleToggle}
-      title={detailsLabel}
+      onClick={handleSingleOrDoubleClick}
+      onDoubleClick={handleNativeDoubleClick}
+      title={detailsLabel + "\nClic pour activer · double-clic pour configurer"}
       type="button"
     >
       <span className="gp-composite-indicator-check gp-price-vs-sma-check" aria-hidden="true">
@@ -874,9 +919,11 @@ const PriceVsSmaMetricCard = React.memo(({
           <span className="gp-price-vs-sma-value" style={{ color: meta.color }}>
             {distanceLabel}
           </span>
-          <span className="gp-price-vs-sma-status" style={{ color: statusColor }}>
-            {statusLabel}
-          </span>
+          {statusLabel && (
+            <span className="gp-price-vs-sma-status" style={{ color: statusColor }}>
+              {statusLabel}
+            </span>
+          )}
         </span>
       </span>
     </button>
@@ -888,10 +935,12 @@ const PriceVsEmaMetricCard = React.memo(({
   result,
   isActive,
   onToggle,
+  onConfigure,
 }: {
   result: PriceVsEmaMetricResult;
   isActive: boolean;
   onToggle: (id: PriceVsEmaMetricId, active: boolean) => void;
+  onConfigure: () => void;
 }) => {
   const meta = TREND_STATE_META[result.state];
   const [optimisticActive, setOptimisticActive] = useState(isActive);
@@ -909,6 +958,11 @@ const PriceVsEmaMetricCard = React.memo(({
     globalThis.setTimeout(() => onToggle(result.spec.id, nextActive), 16);
   }, [onToggle, result.spec.id]);
 
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleToggle,
+    onConfigure,
+  );
+
   const distanceLabel = result.distancePercent === null ? "N/D" : formatSignalPercent(result.distancePercent);
   const metricLine = result.distancePercent === null
     ? "Distance N/D"
@@ -918,7 +972,7 @@ const PriceVsEmaMetricCard = React.memo(({
     ? "N/D"
     : result.isConfirmedBar
       ? "CONFIRMÉ"
-      : "LIVE";
+      : null;
   const statusColor = result.distancePercent === null
     ? "#94a3b8"
     : result.isConfirmedBar
@@ -936,11 +990,12 @@ const PriceVsEmaMetricCard = React.memo(({
 
   return (
     <button
-      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel}, ${result.qualityLabel}`}
+      aria-label={`${result.spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${stateLabel}, ${metricLine}, ${statusLabel ?? "donnée courante"}, ${result.qualityLabel}`}
       aria-pressed={optimisticActive}
       className={`gp-price-vs-sma-card gp-price-vs-ema-card ${optimisticActive ? "active" : ""} is-${result.state}`}
-      onClick={handleToggle}
-      title={detailsLabel}
+      onClick={handleSingleOrDoubleClick}
+      onDoubleClick={handleNativeDoubleClick}
+      title={detailsLabel + "\nClic pour activer · double-clic pour configurer"}
       type="button"
     >
       <span className="gp-composite-indicator-check gp-price-vs-sma-check" aria-hidden="true">
@@ -958,9 +1013,11 @@ const PriceVsEmaMetricCard = React.memo(({
           <span className="gp-price-vs-sma-value" style={{ color: meta.color }}>
             {distanceLabel}
           </span>
-          <span className="gp-price-vs-sma-status" style={{ color: statusColor }}>
-            {statusLabel}
-          </span>
+          {statusLabel && (
+            <span className="gp-price-vs-sma-status" style={{ color: statusColor }}>
+              {statusLabel}
+            </span>
+          )}
         </span>
       </span>
     </button>
@@ -973,11 +1030,13 @@ const AdvancedMovingAverageCard = React.memo(({
   isActive,
   availableBars,
   onToggle,
+  onConfigure,
 }: {
   spec: AdvancedMovingAverageSpec;
   isActive: boolean;
   availableBars: number;
   onToggle: (id: AdvancedMovingAverageId, active: boolean) => void;
+  onConfigure: () => void;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
   const optimisticActiveRef = useRef(isActive);
@@ -994,10 +1053,13 @@ const AdvancedMovingAverageCard = React.memo(({
     globalThis.setTimeout(() => onToggle(spec.id, nextActive), 16);
   }, [onToggle, spec.id]);
 
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleToggle,
+    onConfigure,
+  );
+
   const isReady = availableBars >= spec.requiredBars;
-  const statusLabel = isReady ? "LIVE" : "N/D";
-  const statusColor = isReady ? "#facc15" : "#94a3b8";
-  const visibleSourceLabel = spec.family === "vwma" ? "Src: Close x Vol" : "Src: Close";
+  const readinessLabel = isReady ? "disponible" : "données insuffisantes";
   const sourceLabel = spec.family === "vwma" ? "Price source: Close · Weight: Volume" : "Price source: Close";
   const detailsLabel = [
     spec.description,
@@ -1009,11 +1071,12 @@ const AdvancedMovingAverageCard = React.memo(({
 
   return (
     <button
-      aria-label={`${spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${spec.horizon}, ${statusLabel}`}
+      aria-label={`${spec.label}: ${optimisticActive ? "actif" : "inactif"}, ${spec.horizon}, ${readinessLabel}`}
       aria-pressed={optimisticActive}
       className={`gp-advanced-ma-card ${optimisticActive ? "active" : ""} is-${spec.family}`}
-      onClick={handleToggle}
-      title={detailsLabel}
+      onClick={handleSingleOrDoubleClick}
+      onDoubleClick={handleNativeDoubleClick}
+      title={detailsLabel + "\nClic pour activer · double-clic pour configurer"}
       type="button"
     >
       <span className="gp-composite-indicator-check gp-advanced-ma-check" aria-hidden="true">
@@ -1027,14 +1090,6 @@ const AdvancedMovingAverageCard = React.memo(({
           </span>
         </span>
         <small>{spec.horizon}</small>
-        <span className="gp-advanced-ma-value-row">
-          <span className="gp-advanced-ma-source" style={{ color: spec.color }}>
-            {visibleSourceLabel}
-          </span>
-          <span className="gp-advanced-ma-status" style={{ color: statusColor }}>
-            {statusLabel}
-          </span>
-        </span>
       </span>
     </button>
   );
@@ -1165,6 +1220,7 @@ const CompositeIndicatorCard = React.memo(({
   isWired,
   canToggle,
   onToggle,
+  onConfigure,
   children
 }: {
   spec: CompositeIndicatorSpec;
@@ -1173,6 +1229,7 @@ const CompositeIndicatorCard = React.memo(({
   isWired: boolean;
   canToggle: (id: string) => boolean;
   onToggle: (id: string) => void;
+  onConfigure: () => void;
   children?: React.ReactNode;
 }) => {
   const [optimisticActive, setOptimisticActive] = useState(isActive);
@@ -1195,6 +1252,11 @@ const CompositeIndicatorCard = React.memo(({
     }
   };
 
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    handleClick,
+    onConfigure,
+  );
+
   return (
     <div className={`gp-composite-indicator ${optimisticActive ? "active" : ""} ${!isWired ? "is-backend-only" : ""}`} style={{ marginBottom: "8px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -1202,7 +1264,9 @@ const CompositeIndicatorCard = React.memo(({
           aria-pressed={isWired ? optimisticActive : undefined}
           className="gp-composite-indicator-parent"
           disabled={!isWired}
-          onClick={handleClick}
+          onClick={handleSingleOrDoubleClick}
+          onDoubleClick={handleNativeDoubleClick}
+          title="Clic pour activer · double-clic pour configurer"
           type="button"
           style={{
             flex: 1,
@@ -1238,7 +1302,7 @@ const CompositeIndicatorCard = React.memo(({
           </span>
           {!isWired && (
             <span style={{ fontSize: "9px", fontWeight: 600, color: "#94a3b8", backgroundColor: "#1e293b", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px" }}>
-              BACKEND
+              SOURCE
             </span>
           )}
         </button>
@@ -1278,6 +1342,103 @@ const CompositeIndicatorCard = React.memo(({
 });
 CompositeIndicatorCard.displayName = "CompositeIndicatorCard";
 
+const readFiniteMetricValue = (value: unknown): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? value : null
+);
+
+const readNativeMovingAverageValue = (
+  technicalIndicator: TechnicalIndicatorEntity,
+  key: string,
+): number | null => readFiniteMetricValue(technicalIndicator[key as keyof TechnicalIndicatorEntity]);
+
+const resolveNativeMovingAverageState = (distancePercent: number | null) => {
+  if (distancePercent === null) return "unknown" as const;
+  if (Math.abs(distancePercent) < Number.EPSILON) return "neutral" as const;
+  return distancePercent > 0 ? "above" as const : "below" as const;
+};
+
+const buildNativePriceVsSmaMetrics = (
+  technicalIndicator: TechnicalIndicatorEntity | null | undefined,
+  apiPrice: number | null,
+  liveSnapshot: LiveSnapshot | null,
+  timeframe: string,
+  fallbackClose: number | null,
+  fallbackTimestamp: string | null,
+): PriceVsSmaMetricResult[] => {
+  const close = readFiniteMetricValue(apiPrice) ?? readFiniteMetricValue(liveSnapshot?.price) ?? fallbackClose;
+  const signalBarTimestamp = technicalIndicator?.timestamp || liveSnapshot?.lastUpdate || fallbackTimestamp;
+
+  return PRICE_VS_SMA_METRIC_SPECS.map((spec) => {
+    const period = spec.period as 20 | 50 | 150 | 200;
+    const distanceKey = "price_vs_sma" + period + "_pct";
+    const sma = technicalIndicator ? readNativeMovingAverageValue(technicalIndicator, "sma_" + period) : null;
+    const distancePercent = technicalIndicator ? readNativeMovingAverageValue(technicalIndicator, distanceKey) : null;
+    const distance = close !== null && sma !== null ? close - sma : null;
+
+    return {
+      spec,
+      state: resolveNativeMovingAverageState(distancePercent),
+      close,
+      sma,
+      distance,
+      distancePercent,
+      epsilonPercent: null,
+      tickSize: null,
+      availableBars: distancePercent !== null && sma !== null ? spec.period : 0,
+      requiredBars: spec.period,
+      signalBarTimestamp,
+      timeframe,
+      isConfirmedBar: technicalIndicator?.timestamp != null,
+      qualityLabel: distancePercent !== null ? "API natif" : "Champ API indisponible",
+      qualityTone: distancePercent !== null ? "success" : "danger",
+      reason: distancePercent !== null
+        ? spec.label + " lu depuis latest_technical_indicator." + distanceKey + "."
+        : "latest_technical_indicator." + distanceKey + " est absent ou invalide.",
+    };
+  });
+};
+
+const buildNativePriceVsEmaMetrics = (
+  technicalIndicator: TechnicalIndicatorEntity | null | undefined,
+  apiPrice: number | null,
+  liveSnapshot: LiveSnapshot | null,
+  timeframe: string,
+  fallbackClose: number | null,
+  fallbackTimestamp: string | null,
+): PriceVsEmaMetricResult[] => {
+  const close = readFiniteMetricValue(apiPrice) ?? readFiniteMetricValue(liveSnapshot?.price) ?? fallbackClose;
+  const signalBarTimestamp = technicalIndicator?.timestamp || liveSnapshot?.lastUpdate || fallbackTimestamp;
+
+  return PRICE_VS_EMA_METRIC_SPECS.map((spec) => {
+    const period = spec.period as 20 | 50 | 200;
+    const distanceKey = "price_vs_ema" + period + "_pct";
+    const ema = technicalIndicator ? readNativeMovingAverageValue(technicalIndicator, "ema_" + period) : null;
+    const distancePercent = technicalIndicator ? readNativeMovingAverageValue(technicalIndicator, distanceKey) : null;
+    const distance = close !== null && ema !== null ? close - ema : null;
+
+    return {
+      spec,
+      state: resolveNativeMovingAverageState(distancePercent),
+      close,
+      ema,
+      distance,
+      distancePercent,
+      epsilonPercent: null,
+      tickSize: null,
+      availableBars: distancePercent !== null && ema !== null ? spec.period : 0,
+      requiredBars: spec.period,
+      signalBarTimestamp,
+      timeframe,
+      isConfirmedBar: technicalIndicator?.timestamp != null,
+      qualityLabel: distancePercent !== null ? "API natif" : "Champ API indisponible",
+      qualityTone: distancePercent !== null ? "success" : "danger",
+      reason: distancePercent !== null
+        ? spec.label + " lu depuis latest_technical_indicator." + distanceKey + "."
+        : "latest_technical_indicator." + distanceKey + " est absent ou invalide.",
+    };
+  });
+};
+
 // ============================================================================
 // MAIN MODAL COMPONENT
 // ============================================================================
@@ -1288,13 +1449,13 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   onRevealObjectIds,
   initialScrollTop = 0,
   onScrollPositionChange,
+  onConfigureIndicator,
 }) => {
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
+  const marketData = useMarketDataContext();
   const advancedIndicators = useSelector(selectAdvancedIndicators, shallowEqual);
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
-  const marketDataBySymbol = useSelector(selectMarketData, shallowEqual);
-  const comparisonSymbols = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSymbols, shallowEqual);
   const chartIndicators = chartConfig.indicators;
   const advancedMovingAverages = useMemo<AdvancedMovingAverageActivationState>(() => ({
     activeWma: chartIndicators.activeWma ?? [],
@@ -1333,11 +1494,13 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     () => normalizePriceVsEmaMetrics(rawPriceVsEmaMetrics),
     [rawPriceVsEmaMetrics],
   );
-  const currentSymbol = (chartConfig.symbol || "BOAB").trim().toUpperCase();
-  const currentChartData = marketDataBySymbol[currentSymbol] ?? EMPTY_CHART_DATA;
-  const currentLiveSnapshot = useSelector((state: RootState) => selectMarketSnapshots(state)[currentSymbol] ?? null);
+  const currentChartData = marketData.chartData;
+  const currentLiveSnapshot = marketData.liveSnapshot;
+  const currentApiTechnicalIndicator = marketData.apiTechnicalIndicator;
+  const currentApiPrice = marketData.apiPriceMetric?.price ?? null;
 
   const [indicatorSearch, setIndicatorSearch] = useState("");
+  const [indicatorFocus, setIndicatorFocus] = useState<IndicatorFocusFilter>("all");
   const deferredSearch = useDeferredValue(indicatorSearch);
   const modalContentRef = useRef<HTMLDivElement | null>(null);
   const savedScrollTopRef = useRef(Math.max(0, initialScrollTop));
@@ -1457,98 +1620,108 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     () => new Map(movingAverageTrendSignalResults.map((result) => [result.spec.id, result])),
     [movingAverageTrendSignalResults],
   );
+  const currentFallbackClose = currentChartData[currentChartData.length - 1]?.close ?? null;
+  const currentFallbackTimestamp = currentChartData[currentChartData.length - 1]?.time ?? null;
   const priceVsSmaMetricResults = useMemo(
-    () => calculatePriceVsSmaMetrics(currentChartData, currentLiveSnapshot, chartConfig.timeframe),
-    [chartConfig.timeframe, currentChartData, currentLiveSnapshot],
+    () => buildNativePriceVsSmaMetrics(
+      currentApiTechnicalIndicator,
+      currentApiPrice,
+      currentLiveSnapshot,
+      chartConfig.timeframe,
+      currentFallbackClose,
+      currentFallbackTimestamp,
+    ),
+    [chartConfig.timeframe, currentApiPrice, currentApiTechnicalIndicator, currentFallbackClose, currentFallbackTimestamp, currentLiveSnapshot],
   );
   const priceVsSmaMetricResultById = useMemo(
     () => new Map(priceVsSmaMetricResults.map((result) => [result.spec.id, result])),
     [priceVsSmaMetricResults],
   );
   const priceVsEmaMetricResults = useMemo(
-    () => calculatePriceVsEmaMetrics(currentChartData, currentLiveSnapshot, chartConfig.timeframe),
-    [chartConfig.timeframe, currentChartData, currentLiveSnapshot],
+    () => buildNativePriceVsEmaMetrics(
+      currentApiTechnicalIndicator,
+      currentApiPrice,
+      currentLiveSnapshot,
+      chartConfig.timeframe,
+      currentFallbackClose,
+      currentFallbackTimestamp,
+    ),
+    [chartConfig.timeframe, currentApiPrice, currentApiTechnicalIndicator, currentFallbackClose, currentFallbackTimestamp, currentLiveSnapshot],
   );
   const priceVsEmaMetricResultById = useMemo(
     () => new Map(priceVsEmaMetricResults.map((result) => [result.spec.id, result])),
     [priceVsEmaMetricResults],
   );
-  const comparisonBacktestData = useMemo(() => comparisonSymbols
-    .map((rawSymbol) => rawSymbol.trim().toUpperCase())
-    .filter((comparisonSymbol) => comparisonSymbol.length > 0 && comparisonSymbol !== currentSymbol)
-    .map((comparisonSymbol) => ({
-      data: marketDataBySymbol[comparisonSymbol] ?? EMPTY_CHART_DATA,
-      symbol: comparisonSymbol,
-    })), [comparisonSymbols, currentSymbol, marketDataBySymbol]);
-
-  const indicatorBacktestState = useIndicatorBacktestDashboard({
-    comparisonData: comparisonBacktestData,
-    data: currentChartData,
-    enabled: isOpen,
-    indicatorPeriods,
-    symbol: currentSymbol,
-  });
-  const indicatorBacktestDashboard = indicatorBacktestState.dashboard;
-
   const backendIndicatorGroups = INDICATOR_MODAL_GROUPS;
 
-  const indicatorSearchTerm = deferredSearch.trim().toLowerCase();
+  const indicatorSearchTerm = deferredSearch.trim();
   const hasIndicatorSearch = indicatorSearchTerm.length > 0;
-
-  const matchesIndicatorSearch = useCallback((...values: Array<string | number | undefined>) =>
-    !hasIndicatorSearch || values.some((value) => String(value ?? "").toLowerCase().includes(indicatorSearchTerm)),
-    [hasIndicatorSearch, indicatorSearchTerm]
-  );
+  const showMovingAverageFamily = indicatorFocus === "all" || indicatorFocus === "trend";
 
   const filteredSmaIndicators = useMemo(
-    () => smaIndicators.filter(({ key, period, label }) =>
-      matchesIndicatorSearch(key, period, label, "sma", "simple moving average", "moyenne mobile simple")
-    ),
-    [matchesIndicatorSearch, smaIndicators]
+    () => showMovingAverageFamily
+      ? smaIndicators
+        .filter(({ key, period, label }) => matchesIndicatorSearch360(
+          indicatorSearchTerm,
+          [label, key, period, "sma", "simple moving average", "moyenne mobile simple", "tendance"],
+        ))
+        .sort((left, right) => left.period - right.period)
+      : [],
+    [indicatorSearchTerm, showMovingAverageFamily, smaIndicators],
   );
 
   const filteredEmaIndicators = useMemo(
-    () => emaIndicators.filter(({ key, period, label }) =>
-      matchesIndicatorSearch(key, period, label, "ema", "exponential moving average", "moyenne mobile exponentielle")
-    ),
-    [emaIndicators, matchesIndicatorSearch]
+    () => showMovingAverageFamily
+      ? emaIndicators
+        .filter(({ key, period, label }) => matchesIndicatorSearch360(
+          indicatorSearchTerm,
+          [label, key, period, "ema", "exponential moving average", "moyenne mobile exponentielle", "tendance"],
+        ))
+        .sort((left, right) => left.period - right.period)
+      : [],
+    [emaIndicators, indicatorSearchTerm, showMovingAverageFamily],
   );
 
   const filteredMovingAverageTrendIndicators = useMemo(
-    () => MOVING_AVERAGE_TREND_SIGNAL_SPECS.filter((item) =>
-      matchesIndicatorSearch(
-        item.id,
-        item.label,
-        item.horizon,
-        item.description,
-        item.interpretation,
-        "tendance moyenne mobile",
-        "prix au-dessus moyenne mobile",
-        "sma",
-        "ema"
-      )
-    ),
-    [matchesIndicatorSearch]
+    () => showMovingAverageFamily
+      ? MOVING_AVERAGE_TREND_SIGNAL_SPECS
+        .filter((item) => matchesIndicatorSearch360(
+          indicatorSearchTerm,
+          [item.id, item.label, item.horizon, item.description, item.interpretation, "tendance moyenne mobile", "prix au-dessus moyenne mobile", item.family, item.period],
+        ))
+        .sort((left, right) => left.period - right.period || left.family.localeCompare(right.family))
+      : [],
+    [indicatorSearchTerm, showMovingAverageFamily],
   );
 
   const filteredBackendIndicatorGroups = useMemo(
-    () => backendIndicatorGroups
-      .map((group) => {
-        const groupMatches = matchesIndicatorSearch(group.title, group.subtitle);
-        const sections = group.sections
-          .map((section) => {
-            const sectionMatches = groupMatches || matchesIndicatorSearch(section.title);
-            const filteredItems = sectionMatches ? section.items : section.items.filter((item) =>
-              matchesIndicatorSearch(item.key, item.name, item.desc, group.title, group.subtitle, section.title)
-            );
-            const items = expandRequiredCompositeSectionItems(section, filteredItems);
-            return { ...section, items };
-          })
-          .filter((section) => section.items.length > 0);
-        return { ...group, sections };
-      })
-      .filter((group) => group.sections.length > 0),
-    [backendIndicatorGroups, matchesIndicatorSearch]
+    () => sortIndicatorGroupsForTrader(
+      backendIndicatorGroups
+        .filter((group) => matchesIndicatorFocus(group.title, indicatorFocus))
+        .map((group) => {
+          const groupMatches = matchesIndicatorSearch360(indicatorSearchTerm, [group.title, group.subtitle]);
+          const sections = group.sections
+            .map((section) => {
+              const sectionMatches = groupMatches || matchesIndicatorSearch360(
+                indicatorSearchTerm,
+                [section.title, group.title, group.subtitle],
+              );
+              const filteredItems = sectionMatches
+                ? section.items
+                : section.items.filter((item) => matchesIndicatorSearch360(
+                  indicatorSearchTerm,
+                  [item.key, item.name, item.desc, group.title, group.subtitle, section.title],
+                ));
+              const items = expandRequiredCompositeSectionItems(section, filteredItems);
+              return { ...section, items };
+            })
+            .filter((section) => section.items.length > 0);
+          return { ...group, sections };
+        })
+        .filter((group) => group.sections.length > 0),
+      indicatorSearchTerm,
+    ),
+    [backendIndicatorGroups, indicatorFocus, indicatorSearchTerm],
   );
 
   const visibleMovingAverageCount = filteredSmaIndicators.length + filteredEmaIndicators.length + filteredMovingAverageTrendIndicators.length;
@@ -1924,6 +2097,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                 result={result}
                 isActive={priceVsSmaMetrics.active[result.spec.id]}
                 onToggle={handleTogglePriceVsSmaMetric}
+                onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", result.spec.period))}
               />
             ))}
           </div>
@@ -1947,6 +2121,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                 result={result}
                 isActive={priceVsEmaMetrics.active[result.spec.id]}
                 onToggle={handleTogglePriceVsEmaMetric}
+                onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", result.spec.period))}
               />
             ))}
           </div>
@@ -1974,6 +2149,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                 isActive={isAdvancedMovingAverageActive(advancedMovingAverages, spec.id)}
                 availableBars={currentChartData.length}
                 onToggle={handleToggleAdvancedMovingAverage}
+                onConfigure={() => onConfigureIndicator?.(createAdvancedMovingAverageConfigurationTarget(spec))}
               />
             ))}
           </div>
@@ -2000,6 +2176,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
               isWired={!!spec.wiredId}
               canToggle={canActivateBottomIndicator}
               onToggle={handleToggleAdvanced}
+              onConfigure={() => onConfigureIndicator?.(createCompositeConfigurationTarget(spec))}
             >
               {/* [TENOR 2026 HDR] Inject Bollinger Settings Panel if applicable */}
               {spec.id === "bollinger" && <BollingerSettingsPanel />}
@@ -2015,6 +2192,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                   isWired={!!item.wiredId}
                   canToggle={canActivateBottomIndicator}
                   onToggle={handleToggleAdvanced}
+                  onConfigure={() => onConfigureIndicator?.(createCatalogConfigurationTarget(item))}
                 />
               ))}
             </div>
@@ -2034,6 +2212,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
               isWired={!!item.wiredId}
               canToggle={canActivateBottomIndicator}
               onToggle={handleToggleAdvanced}
+              onConfigure={() => onConfigureIndicator?.(createCatalogConfigurationTarget(item))}
             />
           ))}
         </div>
@@ -2066,6 +2245,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                 isWired={!!item.wiredId}
                 canToggle={canActivateBottomIndicator}
                 onToggle={handleToggleAdvanced}
+                onConfigure={() => onConfigureIndicator?.(createCatalogConfigurationTarget(item))}
               />
             ))}
           </div>
@@ -2080,6 +2260,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     handleTogglePriceVsEmaMetric,
     handleTogglePriceVsSmaMetric,
     isIndicatorActive,
+    onConfigureIndicator,
     advancedMovingAverages,
     currentChartData.length,
     priceVsEmaMetricResultById,
@@ -2132,26 +2313,57 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
             )}
           </div>
           <div className="gp-indicator-search-meta" aria-live="polite">
-            <span style={{ color: "#2962ff", fontWeight: 700, textTransform: "uppercase", fontSize: "11px" }}>
+            <span className="gp-indicator-search-count">
               {hasIndicatorSearch ? `${visibleIndicatorCount} résultats` : `${visibleIndicatorCount} indicateurs disponibles`}
             </span>
-            {hasIndicatorSearch && <span style={{ color: "#ff9800", fontSize: "11px" }}>Filtre actif</span>}
+            {hasIndicatorSearch && (
+              <span className="gp-indicator-search-state">
+                <i className="bi bi-funnel-fill" aria-hidden="true"></i>
+                Filtre actif
+              </span>
+            )}
             {isBottomIndicatorLimitReached && (
-              <span style={{ color: "#f59e0b", fontSize: "11px" }}>
+              <span className="gp-indicator-search-limit">
                 {activeBottomIndicatorCount}/{MAX_BOTTOM_INDICATORS} panneaux bas actifs · désactive un panneau pour ajouter un oscillateur
               </span>
             )}
           </div>
+        <section className="gp-indicator-control-strip" aria-label="Contrôles du catalogue des indicateurs">
+          <div className="gp-indicator-control-head">
+            <div className="gp-indicator-control-heading">
+              <span className="gp-indicator-control-heading__title">Focus trader</span>
+              <span className="gp-indicator-control-heading__subtitle">Classement par usage</span>
+            </div>
+          </div>
+          <div className="gp-indicator-focus-filters" role="tablist" aria-label="Filtrer les indicateurs par usage trader">
+            {INDICATOR_FOCUS_FILTERS.map((filter) => (
+              <button
+                aria-selected={indicatorFocus === filter.id}
+                className={"gp-indicator-focus-filter " + (indicatorFocus === filter.id ? "is-active" : "")}
+                data-focus={filter.id}
+                key={filter.id}
+                onClick={() => setIndicatorFocus(filter.id)}
+                role="tab"
+                type="button"
+              >
+                <span className="gp-indicator-focus-filter__marker" aria-hidden="true"></span>
+                <span>{filter.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="gp-indicator-search-guidance" aria-label="Interactions disponibles">
+            <span className="gp-indicator-search-guidance__label">Interactions</span>
+            <span className="gp-indicator-search-guidance__item">
+              <kbd className="gp-indicator-search-guidance__key">Clic</kbd>
+              <span>Activer</span>
+            </span>
+            <span className="gp-indicator-search-guidance__item">
+              <kbd className="gp-indicator-search-guidance__key">Double-clic</kbd>
+              <span>Configurer</span>
+            </span>
+          </div>
+        </section>
         </div>
-
-        {indicatorBacktestDashboard && (
-          <IndicatorBacktestPanel
-            comparisonDashboards={indicatorBacktestState.dashboards.filter((entry) => entry.symbol !== currentSymbol)}
-            dashboard={indicatorBacktestDashboard}
-            symbol={currentSymbol}
-            timeframe={String(chartConfig.timeframe || "1D")}
-          />
-        )}
 
         {/* --- SECTION 1: MOYENNES MOBILES --- */}
         {hasVisibleMovingAverages && (
@@ -2179,6 +2391,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                         color={color}
                         isActive={(chartIndicators.activeSma || []).includes(period)}
                         onToggle={handleToggleMA}
+                        onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", period))}
                       />
                     ))}
                   </div>
@@ -2201,6 +2414,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                         color={color}
                         isActive={(chartIndicators.activeEma || []).includes(period)}
                         onToggle={handleToggleMA}
+                        onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", period))}
                       />
                     ))}
                   </div>
@@ -2244,6 +2458,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
                             isActive={movingAverageTrendSignals.active[spec.id]}
                             sourceLinesEnabled={movingAverageTrendSignals.showSourceAverages}
                             onToggle={handleToggleMovingAverageTrendSignal}
+                            onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget(result.spec.family, result.spec.period))}
                           />
                         );
                       })}
@@ -2262,18 +2477,18 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           </div>
         )}
 
-        {/* --- SECTION 2: CATALOGUE BACKEND STRUCTURÉ --- */}
+        {/* --- SECTION 2: CATALOGUE DES INDICATEURS STRUCTURÉ --- */}
         {filteredBackendIndicatorGroups.length > 0 && (
           <div className="mb-4">
             <div className="d-flex align-items-center mb-3 px-1">
               <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #2962ff, #00bcd4)", borderRadius: "2px", marginRight: "8px" }} />
               <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-                Catalogue Backend
+                Catalogue des indicateurs
               </small>
             </div>
             <div className="gp-indicator-catalog">
               {filteredBackendIndicatorGroups.map((group) => (
-                <section className="gp-indicator-family mb-4" key={group.title}>
+                <section className="gp-indicator-family mb-4" data-focus={getIndicatorFocusForGroup(group.title) ?? "other"} key={group.title}>
                   <div className="gp-indicator-family-header mb-2">
                     <div>
                       <strong style={{ color: "#f8fafc", fontSize: "14px", display: "block" }}>{group.title}</strong>
@@ -2298,7 +2513,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           <div className="gp-indicator-empty-state" style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
             <i className="bi bi-search" aria-hidden="true" style={{ fontSize: "24px", display: "block", marginBottom: "10px" }}></i>
             <strong style={{ display: "block", color: "#cbd5e1" }}>Aucun indicateur trouvé</strong>
-            <span style={{ fontSize: "12px" }}>Essaie un nom, une période, une famille ou une clé backend.</span>
+            <span style={{ fontSize: "12px" }}>Essaie un nom, une période, une famille ou une clé de recherche.</span>
           </div>
         )}
       </div>

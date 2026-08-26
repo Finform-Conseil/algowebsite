@@ -1,0 +1,350 @@
+{
+  "exchange": "NSE",
+  "records": [
+    {
+      "ticker": "EGAD",
+      "url": "https://stocks.or.ke/media/company_images/EAAGADS_logo_JBwi7Fb.png",
+      "file": "/tmp/nse-sources/EGAD.png"
+    },
+    {
+      "ticker": "KAPC",
+      "url": "https://stocks.or.ke/media/company_images/kapchoru-tm.png",
+      "file": "/tmp/nse-sources/KAPC.png"
+    },
+    {
+      "ticker": "KUKZ",
+      "url": "https://stocks.or.ke/media/company_images/kakuzi-logo.jpg",
+      "file": "/tmp/nse-sources/KUKZ.jpg"
+    },
+    {
+      "ticker": "LIMT",
+      "url": "https://stocks.or.ke/media/company_images/ke-limt-logo_.webp",
+      "file": "/tmp/nse-sources/LIMT.webp"
+    },
+    {
+      "ticker": "SASN",
+      "url": "https://stocks.or.ke/media/company_images/Sasini-Logo-2025.png",
+      "file": "/tmp/nse-sources/SASN.png"
+    },
+    {
+      "ticker": "WTK",
+      "url": "https://stocks.or.ke/media/company_images/williamson-tea-logo.jpg",
+      "file": "/tmp/nse-sources/WTK.jpg"
+    },
+    {
+      "ticker": "CGEN",
+      "url": "https://stocks.or.ke/media/company_images/ke-cg-logo-min.webp",
+      "file": "/tmp/nse-sources/CGEN.webp"
+    },
+    {
+      "ticker": "ABSA",
+      "url": "https://stocks.or.ke/media/company_images/absa-logo-bg.png",
+      "file": "/tmp/nse-sources/ABSA.png"
+    },
+    {
+      "ticker": "BKG",
+      "url": "https://stocks.or.ke/media/company_images/bk-group-plc-vector-logo.png",
+      "file": "/tmp/nse-sources/BKG.png"
+    },
+    {
+      "ticker": "COOP",
+      "url": "https://stocks.or.ke/media/company_images/ke-coop-logo.webp",
+      "file": "/tmp/nse-sources/COOP.webp"
+    },
+    {
+      "ticker": "DTK",
+      "url": "https://stocks.or.ke/media/company_images/dtb-logo.webp",
+      "file": "/tmp/nse-sources/DTK.webp"
+    },
+    {
+      "ticker": "EQTY",
+      "url": "https://stocks.or.ke/media/company_images/Equity_Bank_Logo.png",
+      "file": "/tmp/nse-sources/EQTY.png"
+    },
+    {
+      "ticker": "HFCK",
+      "url": "https://stocks.or.ke/media/company_images/hfck-logo.webp",
+      "file": "/tmp/nse-sources/HFCK.webp"
+    },
+    {
+      "ticker": "IMH",
+      "url": "https://stocks.or.ke/media/company_images/im-logo.png",
+      "file": "/tmp/nse-sources/IMH.png"
+    },
+    {
+      "ticker": "KCB",
+      "url": "https://stocks.or.ke/media/company_images/kcb-group-plc-logo.png",
+      "file": "/tmp/nse-sources/KCB.png"
+    },
+    {
+      "ticker": "NBK",
+      "url": "https://stocks.or.ke/media/company_images/National-bank-logo.jpg",
+      "file": "/tmp/nse-sources/NBK.jpg"
+    },
+    {
+      "ticker": "NCBA",
+      "url": "https://stocks.or.ke/media/company_images/ncba-logo.png",
+      "file": "/tmp/nse-sources/NCBA.png"
+    },
+    {
+      "ticker": "SBIC",
+      "url": "https://stocks.or.ke/media/company_images/Stanbic-Bank-Logo.jpg",
+      "file": "/tmp/nse-sources/SBIC.jpg"
+    },
+    {
+      "ticker": "SCBK",
+      "url": "https://stocks.or.ke/media/company_images/stanchart-logo.png",
+      "file": "/tmp/nse-sources/SCBK.png"
+    },
+    {
+      "ticker": "ARM",
+      "url": "https://stocks.or.ke/media/company_images/arm.png",
+      "file": "/tmp/nse-sources/ARM.png"
+    },
+    {
+      "ticker": "BAMB",
+      "url": "https://stocks.or.ke/media/company_images/bamburi-logo.png",
+      "file": "/tmp/nse-sources/BAMB.png"
+    },
+    {
+      "ticker": "CABL",
+      "url": "https://stocks.or.ke/media/company_images/ea-cables.jpg",
+      "file": "/tmp/nse-sources/CABL.jpg"
+    },
+    {
+      "ticker": "CRWN",
+      "url": "https://stocks.or.ke/media/company_images/crown-logo.png",
+      "file": "/tmp/nse-sources/CRWN.png"
+    },
+    {
+      "ticker": "DCON",
+      "url": "https://stocks.or.ke/media/company_images/deacons-logo.webp",
+      "file": "/tmp/nse-sources/DCON.webp"
+    },
+    {
+      "ticker": "EVRD",
+      "url": "https://stocks.or.ke/media/company_images/eveready-logo.webp",
+      "file": "/tmp/nse-sources/EVRD.webp"
+    },
+    {
+      "ticker": "HBE",
+      "url": "https://stocks.or.ke/media/company_images/homeboyz.png",
+      "file": "/tmp/nse-sources/HBE.png"
+    },
+    {
+      "ticker": "KQ",
+      "url": "https://stocks.or.ke/media/company_images/KQ-logo.jpg",
+      "file": "/tmp/nse-sources/KQ.jpg"
+    },
+    {
+      "ticker": "LKL",
+      "url": "https://stocks.or.ke/media/company_images/Longhorn_Publishers_PLC_logo.png",
+      "file": "/tmp/nse-sources/LKL.png"
+    },
+    {
+      "ticker": "NBV",
+      "url": "https://stocks.or.ke/media/company_images/nairobi-business-ventures--600.png",
+      "file": "/tmp/nse-sources/NBV.png"
+    },
+    {
+      "ticker": "NMG",
+      "url": "https://stocks.or.ke/media/company_images/nmg-logo.webp",
+      "file": "/tmp/nse-sources/NMG.webp"
+    },
+    {
+      "ticker": "PORT",
+      "url": "https://stocks.or.ke/media/company_images/eapc_logo2.png",
+      "file": "/tmp/nse-sources/PORT.png"
+    },
+    {
+      "ticker": "SCAN",
+      "url": "https://stocks.or.ke/media/company_images/scan-logo.webp",
+      "file": "/tmp/nse-sources/SCAN.webp"
+    },
+    {
+      "ticker": "SGL",
+      "url": "https://stocks.or.ke/media/company_images/standard-logo.png",
+      "file": "/tmp/nse-sources/SGL.png"
+    },
+    {
+      "ticker": "SMER",
+      "url": "https://stocks.or.ke/media/company_images/sameer-logo.png",
+      "file": "/tmp/nse-sources/SMER.png"
+    },
+    {
+      "ticker": "TPSE",
+      "url": "https://stocks.or.ke/media/company_images/tps-eastern-africa--600.png",
+      "file": "/tmp/nse-sources/TPSE.png"
+    },
+    {
+      "ticker": "UCHM",
+      "url": "https://stocks.or.ke/media/company_images/uchumi-logo.png",
+      "file": "/tmp/nse-sources/UCHM.png"
+    },
+    {
+      "ticker": "XPRS",
+      "url": "https://stocks.or.ke/media/company_images/express-logo.webp",
+      "file": "/tmp/nse-sources/XPRS.webp"
+    },
+    {
+      "ticker": "KEGN",
+      "url": "https://stocks.or.ke/media/company_images/kegn-logo.webp",
+      "file": "/tmp/nse-sources/KEGN.webp"
+    },
+    {
+      "ticker": "KPC",
+      "url": "https://stocks.or.ke/media/company_images/kpc-logo.jpg",
+      "file": "/tmp/nse-sources/KPC.jpg"
+    },
+    {
+      "ticker": "KPLC",
+      "url": "https://stocks.or.ke/media/company_images/kplc-logo.webp",
+      "file": "/tmp/nse-sources/KPLC.webp"
+    },
+    {
+      "ticker": "KPLC-P4",
+      "url": "https://stocks.or.ke/media/company_images/kplc-logo_hNN3V6p.webp",
+      "file": "/tmp/nse-sources/KPLC-P4.webp"
+    },
+    {
+      "ticker": "KPLC-P7",
+      "url": "https://stocks.or.ke/media/company_images/kplc-logo_8OOMeOR.webp",
+      "file": "/tmp/nse-sources/KPLC-P7.webp"
+    },
+    {
+      "ticker": "TOTL",
+      "url": "https://stocks.or.ke/media/company_images/totalenergies-logo.jpg",
+      "file": "/tmp/nse-sources/TOTL.jpg"
+    },
+    {
+      "ticker": "UMME",
+      "url": "https://stocks.or.ke/media/company_images/umme-logo.webp",
+      "file": "/tmp/nse-sources/UMME.webp"
+    },
+    {
+      "ticker": "GLD",
+      "url": "https://stocks.or.ke/media/company_images/newgold-logo.png",
+      "file": "/tmp/nse-sources/GLD.png"
+    },
+    {
+      "ticker": "SMWF",
+      "url": "https://stocks.or.ke/media/company_images/satrix-logo.png",
+      "file": "/tmp/nse-sources/SMWF.png"
+    },
+    {
+      "ticker": "BRIT",
+      "url": "https://stocks.or.ke/media/company_images/britam-logo.png",
+      "file": "/tmp/nse-sources/BRIT.png"
+    },
+    {
+      "ticker": "CIC",
+      "url": "https://stocks.or.ke/media/company_images/ke-cic-logo.webp",
+      "file": "/tmp/nse-sources/CIC.webp"
+    },
+    {
+      "ticker": "CTUM",
+      "url": "https://stocks.or.ke/media/company_images/ke-centum.webp",
+      "file": "/tmp/nse-sources/CTUM.webp"
+    },
+    {
+      "ticker": "HAFR",
+      "url": "https://stocks.or.ke/media/company_images/home-afrika-logo.webp",
+      "file": "/tmp/nse-sources/HAFR.webp"
+    },
+    {
+      "ticker": "JUB",
+      "url": "https://stocks.or.ke/media/company_images/jubilee-logo.webp",
+      "file": "/tmp/nse-sources/JUB.webp"
+    },
+    {
+      "ticker": "KNRE",
+      "url": "https://stocks.or.ke/media/company_images/knre-logo.png",
+      "file": "/tmp/nse-sources/KNRE.png"
+    },
+    {
+      "ticker": "KURV",
+      "url": "https://stocks.or.ke/media/company_images/kurwitu-logo.webp",
+      "file": "/tmp/nse-sources/KURV.webp"
+    },
+    {
+      "ticker": "LBTY",
+      "url": "https://stocks.or.ke/media/company_images/liberty-logo.png",
+      "file": "/tmp/nse-sources/LBTY.png"
+    },
+    {
+      "ticker": "OCH",
+      "url": "https://stocks.or.ke/media/company_images/olympia-logo.webp",
+      "file": "/tmp/nse-sources/OCH.webp"
+    },
+    {
+      "ticker": "SLAM",
+      "url": "https://stocks.or.ke/media/company_images/sanlam-logo.webp",
+      "file": "/tmp/nse-sources/SLAM.webp"
+    },
+    {
+      "ticker": "TCL",
+      "url": "https://stocks.or.ke/media/company_images/trancentury-logo.webp",
+      "file": "/tmp/nse-sources/TCL.webp"
+    },
+    {
+      "ticker": "NSE",
+      "url": "https://stocks.or.ke/media/company_images/nse-logo.webp",
+      "file": "/tmp/nse-sources/NSE.webp"
+    },
+    {
+      "ticker": "AMAC",
+      "url": "https://stocks.or.ke/media/company_images/ke-amac-logo.webp",
+      "file": "/tmp/nse-sources/AMAC.webp"
+    },
+    {
+      "ticker": "BAT",
+      "url": "https://stocks.or.ke/media/company_images/BAT-Kenya.png",
+      "file": "/tmp/nse-sources/BAT.png"
+    },
+    {
+      "ticker": "BOC",
+      "url": "https://stocks.or.ke/media/company_images/boc-logo.png",
+      "file": "/tmp/nse-sources/BOC.png"
+    },
+    {
+      "ticker": "CARB",
+      "url": "https://stocks.or.ke/media/company_images/ke-carb-logo.webp",
+      "file": "/tmp/nse-sources/CARB.webp"
+    },
+    {
+      "ticker": "EABL",
+      "url": "https://stocks.or.ke/media/company_images/EABL_2022_Logo.png",
+      "file": "/tmp/nse-sources/EABL.png"
+    },
+    {
+      "ticker": "FTGH",
+      "url": "https://stocks.or.ke/media/company_images/flametree-logo.webp",
+      "file": "/tmp/nse-sources/FTGH.webp"
+    },
+    {
+      "ticker": "MSC",
+      "url": "https://stocks.or.ke/media/company_images/mumias-sugar-logo.webp",
+      "file": "/tmp/nse-sources/MSC.webp"
+    },
+    {
+      "ticker": "SKL",
+      "url": "https://stocks.or.ke/media/company_images/skl-logo.png",
+      "file": "/tmp/nse-sources/SKL.png"
+    },
+    {
+      "ticker": "UNGA",
+      "url": "https://stocks.or.ke/media/company_images/unga-logo.png",
+      "file": "/tmp/nse-sources/UNGA.png"
+    },
+    {
+      "ticker": "LAPR",
+      "url": "https://stocks.or.ke/media/company_images/laptrust-logo.png",
+      "file": "/tmp/nse-sources/LAPR.png"
+    },
+    {
+      "ticker": "SCOM",
+      "url": "https://stocks.or.ke/media/company_images/saf-logo.b574a92f.png",
+      "file": "/tmp/nse-sources/SCOM.png"
+    }
+  ]
+}

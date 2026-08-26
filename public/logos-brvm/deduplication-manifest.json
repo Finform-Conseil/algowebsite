@@ -1,0 +1,11 @@
+{
+  "contract": "logo-deduplication-v1",
+  "canonical": {
+    "ecoc.webp": {
+      "aliases": [
+        "etit.webp"
+      ]
+    }
+  },
+  "quarantined": "/tmp/brvm-duplicates"
+}

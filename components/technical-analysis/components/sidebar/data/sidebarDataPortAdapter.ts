@@ -9,19 +9,24 @@
 // ================================================================================
 
 import { useCallback, useMemo } from "react";
-import { useResultRepository } from "@/core/infra/repositories/result.repository.impl";
 import { useDividendRepository } from "@/core/infra/repositories/dividend.repository.impl";
 import { useIndiceRepository } from "@/core/infra/repositories/indice.repository.impl";
 import { usePrimaryRepository } from "@/core/infra/repositories/primary.repository.impl";
 import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
 import type { ActionEntity } from "@/core/domain/entities/action.entity";
+import type { DividendEntity } from "@/core/domain/entities/dividend.entity";
+import type { PrimaryEntity } from "@/core/domain/entities/primary.entity";
 import type { ActionQueryParams } from "@/core/domain/types/action.type";
-import type { PaginatedResponse } from "@/core/domain/types/pagination.type";
+import type { PaginatedResponse, QueryParams } from "@/core/domain/types/pagination.type";
 import type { SidebarDataPort } from "./sidebarDataPort";
 import type { BRVMFundamentals, BRVMFundamentalPoint, BRVMDividendPoint } from "./sidebarFundamentals";
 import type { BRVMIndexData, BRVMNewsItem, BRVMBond, BRVMScreenerSecurity } from "./sidebarFetchers";
 import { createEmptyFundamentals, normalizeTicker } from "./sidebarFundamentals";
 import { createFundamentalsProvenance } from "./sidebarProvenance";
+import {
+  buildScopedDividendQuery,
+  filterDividendsForTicker,
+} from "./sidebarDividendPolicy";
 
 const ACTION_PAGE_SIZE = 100;
 const ACTION_PAGE_CONCURRENCY = 4;
@@ -90,6 +95,21 @@ const waitForAbortable = <T>(request: Promise<T>, signal: AbortSignal): Promise<
 };
 
 type GetAllActions = (params?: ActionQueryParams) => Promise<PaginatedResponse<ActionEntity>>;
+type GetAllDividends = (params?: QueryParams) => Promise<PaginatedResponse<DividendEntity>>;
+
+const fetchScopedDividends = async (
+  getAllDividends: GetAllDividends,
+  ticker: string,
+  signal: AbortSignal,
+): Promise<DividendEntity[]> => {
+  throwIfAborted(signal);
+  const query = buildScopedDividendQuery(ticker);
+  if (!query) return [];
+
+  const response = await getAllDividends(query);
+  throwIfAborted(signal);
+  return filterDividendsForTicker(response.data || [], ticker);
+};
 
 const throwIfAborted = (signal: AbortSignal): void => {
   if (signal.aborted) throw new DOMException("The screener request was aborted.", "AbortError");
@@ -100,8 +120,8 @@ const readFinite = (value: number | null | undefined): number | null => (
 );
 
 const toScreenerSecurity = (action: ActionEntity): BRVMScreenerSecurity => ({
-  country: action.society?.country?.name || "UEMOA",
-  currency: action.bourse?.currency?.symbol || "XOF",
+  country: action.society?.country?.name || "N/D",
+  currency: action.bourse?.currency?.symbol || "N/D",
   epsT12M: null,
   exchange: action.bourse?.ticker || "",
   marketCap: readFinite(action.latest_valuation_ratio?.market_cap) === null
@@ -113,7 +133,7 @@ const toScreenerSecurity = (action: ActionEntity): BRVMScreenerSecurity => ({
   priceChangeD1: readFinite(action.latest_price_metric?.change_1d_pct),
   returnYTD: readFinite(action.latest_price_metric?.change_ytd_pct),
   revenueT12M: null,
-  sector: action.society?.industry?.name || action.society?.activity?.name || "Other",
+  sector: action.society?.industry?.name || action.society?.activity?.name || "N/D",
   status: "active",
   ticker: action.ticker,
   volume: readFinite(action.latest_price_metric?.volume),
@@ -151,17 +171,15 @@ const fetchAllActionPages = async (
  * Respecte ARCHITECTURE_DATA_FLOW.md : passage par use*Repository, jamais de fetch brut.
  */
 export function useSidebarDataPort(): SidebarDataPort {
-  const resultRepo = useResultRepository();
   const dividendRepo = useDividendRepository();
   const indiceRepo = useIndiceRepository();
   const primaryRepo = usePrimaryRepository();
   const actionRepo = useActionRepository();
 
-  const { getAllResults } = resultRepo;
   const { getAllDividends } = dividendRepo;
   const { getAllIndices, getIndicesCoursByIndice } = indiceRepo;
   const { getAllPrimaries } = primaryRepo;
-  const { getAllActions } = actionRepo;
+  const { getActionByTicker, getAllActions } = actionRepo;
 
   const fetchFundamentals = useCallback(
     async (ticker: string, signal: AbortSignal): Promise<BRVMFundamentals> => {
@@ -169,38 +187,45 @@ export function useSidebarDataPort(): SidebarDataPort {
       if (!normalized) return createEmptyFundamentals(ticker);
 
       try {
-        // Récupérer /results/ pour earnings (net-income) et revenues (revenue).
-        // QueryParams supporte [key: string]: any → on peut passer action_ticker.
-        const resultsResp = await getAllResults({
-          action_ticker: normalized,
-          page_size: 500,
-        });
-        const results = resultsResp.data || [];
+        throwIfAborted(signal);
 
+        // The fundamentals endpoint is protected in anonymous mode.
+        // Keep this public analysis page quiet and expose unavailable fundamentals as empty API data.
+        const [actionResult, dividendsResult] = await Promise.allSettled([
+          getActionByTicker(normalized),
+          fetchScopedDividends(getAllDividends, normalized, signal),
+        ]);
+
+        throwIfAborted(signal);
+
+        if (actionResult.status === "rejected") {
+          console.warn(
+            `[SidebarDataPort] Action profile fetch failed for ${normalized}:`,
+            actionResult.reason instanceof Error ? actionResult.reason.message : actionResult.reason,
+          );
+        }
+        if (dividendsResult.status === "rejected") {
+          console.warn(
+            `[SidebarDataPort] Dividends fetch failed for ${normalized}:`,
+            dividendsResult.reason instanceof Error ? dividendsResult.reason.message : dividendsResult.reason,
+          );
+        }
+
+        const action = actionResult.status === "fulfilled" ? actionResult.value : null;
         const earnings: BRVMFundamentalPoint[] = [];
         const revenues: BRVMFundamentalPoint[] = [];
 
-        for (const r of results) {
-          const metricSlug = (r.metric as any)?.slug || "";
-          const year = (r.period as any)?.year;
-          const value = r.value;
-          if (typeof value !== "number" || !year) continue;
-
-          if (metricSlug.includes("net-income") || metricSlug.includes("net_income")) {
-            earnings.push({ year: String(year), value, isEstimate: false });
-          }
-          if (metricSlug.includes("revenue") && !metricSlug.includes("non-revenue")) {
-            revenues.push({ year: String(year), value, isEstimate: false });
-          }
+        const divs = dividendsResult.status === "fulfilled" ? dividendsResult.value : [];
+        const scopedDivs = filterDividendsForTicker(divs, normalized);
+        if (scopedDivs.length !== divs.length) {
+          console.warn("[SidebarDataPort] Dividend rows rejected by ticker scope", {
+            requestedTicker: normalized,
+            receivedCount: divs.length,
+            acceptedCount: scopedDivs.length,
+            rejectedCount: divs.length - scopedDivs.length,
+          });
         }
-
-        // Récupérer /dividends/ filtré par action_ticker.
-        const dividendsResp = await getAllDividends({
-          action_ticker: normalized,
-          page_size: 100,
-        });
-        const divs = dividendsResp.data || [];
-        const dividends: BRVMDividendPoint[] = divs
+        const dividends: BRVMDividendPoint[] = scopedDivs
           .filter((d) => d.amount != null && d.pay_date)
           .map((d) => ({
             year: new Date(d.pay_date).getFullYear().toString(),
@@ -210,6 +235,9 @@ export function useSidebarDataPort(): SidebarDataPort {
             payDate: d.pay_date || undefined,
           }));
 
+        const society = action?.society;
+        const employeeCount = society?.employee_count;
+
         return {
           ticker: normalized,
           earnings: earnings.sort((a, b) => Number(a.year) - Number(b.year)),
@@ -217,9 +245,11 @@ export function useSidebarDataPort(): SidebarDataPort {
           dividends: dividends.sort((a, b) => Number(a.year) - Number(b.year)),
           provenance: createFundamentalsProvenance("API"),
           fetchedAt: new Date().toISOString(),
-          description: "",
-          website: "",
-          employees: "N/A",
+          description: society?.description?.trim() || "",
+          website: society?.website?.trim() || "",
+          employees: typeof employeeCount === "number" && Number.isFinite(employeeCount)
+            ? String(employeeCount)
+            : "N/A",
           source: "API",
         };
       } catch (error) {
@@ -227,7 +257,7 @@ export function useSidebarDataPort(): SidebarDataPort {
         return createEmptyFundamentals(ticker);
       }
     },
-    [getAllResults, getAllDividends]
+    [getActionByTicker, getAllDividends]
   );
 
   const fetchIndices = useCallback(
@@ -311,13 +341,11 @@ export function useSidebarDataPort(): SidebarDataPort {
       try {
         const allPrimaries = await getAllPrimaries({ page_size: 100 });
         return allPrimaries.data
-          .filter((p) => p.status === "ACTIVE" && p.tenor && p.coupon_rate)
-          .slice(0, 5)
-          .map((p) => ({
-            name: p.isin || p.ticker || p.reference || "N/A",
-            maturityDate: calculateMaturityDate(p.tenor),
-            ytm: parseCouponRate(p.coupon_rate),
-          }));
+          .filter((primary) => primary.status === "ACTIVE")
+          .map(toVerifiedApiBond)
+          .filter((bond): bond is BRVMBond => bond !== null)
+          .sort((left, right) => right.clearingYield - left.clearingYield)
+          .slice(0, 3);
       } catch (error) {
         if (signal.aborted) throw error;
         return [];
@@ -333,18 +361,40 @@ export function useSidebarDataPort(): SidebarDataPort {
 }
 
 // Helpers
-function calculateMaturityDate(tenor: string | number | undefined): string {
-  if (!tenor) return "N/A";
-  const years = typeof tenor === "string" ? parseFloat(tenor) : tenor;
-  if (!Number.isFinite(years)) return "N/A";
-  const now = new Date();
-  const maturity = new Date(now.getFullYear() + Math.round(years), now.getMonth(), now.getDate());
-  return maturity.toISOString().split("T")[0];
+type ApiIssueLotWithClearingYield = {
+  auction_date?: string | null;
+  clearing_yield?: number | string | null;
+  maturity_date?: string | null;
+  status?: string | null;
+};
+
+function toVerifiedApiBond(primary: PrimaryEntity): BRVMBond | null {
+  const issueLot = [...(primary.issue_lots ?? []) as ApiIssueLotWithClearingYield[]]
+    .filter((candidate) => (
+      Boolean(candidate.maturity_date)
+      && candidate.clearing_yield !== null
+      && candidate.clearing_yield !== undefined
+      && (!candidate.status || candidate.status.toUpperCase() === "ACTIVE")
+    ))
+    .sort((left, right) => (
+      String(left.auction_date ?? "").localeCompare(String(right.auction_date ?? ""))
+    ))
+    .pop();
+
+  const clearingYield = parseApiPercentage(issueLot?.clearing_yield);
+  if (clearingYield === null || !issueLot?.maturity_date) return null;
+
+  return {
+    name: primary.reference || primary.isin || primary.ticker || "N/A",
+    maturityDate: issueLot.maturity_date,
+    clearingYield,
+  };
 }
 
-function parseCouponRate(rate: string | number | undefined): number {
-  if (rate == null) return 0;
-  const val = typeof rate === "string" ? parseFloat(rate) : rate;
-  return Number.isFinite(val) ? val * 100 : 0;
+function parseApiPercentage(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  const numericValue = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(numericValue)) return null;
+  return Math.abs(numericValue) <= 1 ? numericValue * 100 : numericValue;
 }
 

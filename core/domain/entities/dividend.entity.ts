@@ -4,6 +4,7 @@ import { ActionEntity } from "./action.entity";
 export interface DividendEntity {
     id: string;
     action: ActionEntity;
+    action_ticker?: string;
     ex_date: string;
     declared_date: string;
     record_date: string;

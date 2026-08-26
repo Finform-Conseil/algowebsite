@@ -120,9 +120,10 @@ test("slice uses the extracted initialState as its default state", () => {
   assert.deepEqual(technicalAnalysisSlice.getInitialState(), initialState);
 });
 
-test("chart defaults remain identical to the Phase 1 extraction contract", () => {
+test("chart bootstrap waits for the API-selected security", () => {
+  assert.equal(initialState.ui.multiChartLayout.charts[0]?.symbol, "");
   assert.deepEqual(initialState.chartConfig, {
-    symbol: "BOAB",
+    symbol: "",
     timeframe: "1D",
     chartType: "candles",
     indicators: {

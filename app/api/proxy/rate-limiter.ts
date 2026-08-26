@@ -7,6 +7,27 @@ import { proxyConfig } from './config';
 import { Redis } from '@upstash/redis';
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN ? Redis.fromEnv() : null;
+const REDIS_RATE_LIMIT_BUDGET_MS = Math.max(
+  50,
+  Number.parseInt(process.env.PROXY_REDIS_RATE_LIMIT_BUDGET_MS || '100', 10) || 100,
+);
+
+const withRedisBudget = async <T>(operation: Promise<T>): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Redis rate limiter exceeded ${REDIS_RATE_LIMIT_BUDGET_MS}ms latency budget`)),
+          REDIS_RATE_LIMIT_BUDGET_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+};
 
 if (!redis && proxyConfig.rateLimitingEnabled) {
   console.warn("[SECURITY] PROXY_RATE_LIMITING_ENABLED est 'true' mais Redis n'est pas configuré. Le Fallback In-Memory sera utilisé exclusivement.");
@@ -102,10 +123,12 @@ export async function checkRateLimit(identifier: string) {
   if (checkRedisStatus()) {
     try {
       const key = `proxy_rate_limit:${identifier}`;
-      const result = await redis!.multi()
-        .incr(key)
-        .expire(key, windowSec, 'NX')
-        .exec();
+      const result = await withRedisBudget(
+        redis!.multi()
+          .incr(key)
+          .expire(key, windowSec, 'NX')
+          .exec(),
+      );
 
       const count = result[0] as number;
       const isRateLimited = count > limit;

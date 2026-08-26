@@ -16,13 +16,13 @@ export function getLatestFundamentalValue(rows: BRVMFundamentalPoint[] | undefin
   return null;
 }
 
-export function formatMillionsFcfa(value: number | null | undefined): string {
+export function formatMillionsFcfa(value: number | null | undefined, currency = "FCFA"): string {
   if (!Number.isFinite(value)) return "N/D";
   const safeValue = Number(value);
   if (Math.abs(safeValue) >= 1000) {
-    return `${(safeValue / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} B FCFA`;
+    return `${(safeValue / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} B ${currency}`;
   }
-  return `${safeValue.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} M FCFA`;
+  return `${safeValue.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} M ${currency}`;
 }
 
 export function formatAuditDate(value: string | number | Date | null | undefined): string {
@@ -53,5 +53,5 @@ export function getLatestFinancialYear(fundamentals: BRVMFundamentals | null): s
 
 export function getVerifiedSourceLabel(source: string | null | undefined): string {
   const label = getSourceHost(source);
-  return label || "Fallback catalogue local (non verifie live)";
+  return label || "Source API non vérifiée";
 }

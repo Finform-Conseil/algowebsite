@@ -1,6 +1,7 @@
 .root {
   --brvm-logo-size: 36px;
   --brvm-logo-scale: 1.18;
+  --brvm-logo-image-offset-y: 0px;
   --brvm-logo-radius: 999px;
   --brvm-logo-label-size: 0.72rem;
 
@@ -50,9 +51,14 @@
   position: relative;
   z-index: 1;
   object-fit: contain;
-  transform: scale(var(--brvm-logo-scale));
+  transform: translateY(var(--brvm-logo-image-offset-y)) scale(var(--brvm-logo-scale));
   image-rendering: auto;
   transform-origin: center;
+  transition: opacity 140ms ease-out;
+}
+
+.imageLoading {
+  opacity: 0;
 }
 
 .label {

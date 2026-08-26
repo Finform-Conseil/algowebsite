@@ -1,0 +1,466 @@
+{
+  "contract": "logo-normalization-v1",
+  "records": [
+    {
+      "file": "public/logos-brvm/abjc.webp",
+      "sha256": "e9252045ccc0ba4e6138ff5cc5672218d9def898f5c47e5b88c2b1e6de3b604f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/bicb.webp",
+      "sha256": "fd822e75555087383cb63b49075c75f0935e69ed3c94d350f367b3e7569e2788",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/bicc.webp",
+      "sha256": "ce43581ee0f1a9ab6431ad0809e98009b7744a4087b29b4ad751573546f95c4a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/bnbc.webp",
+      "sha256": "d07ba005b578c932929e1e04763497a57b6da3eded0488fee4498f2156d399f9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/boab.webp",
+      "sha256": "43e6c9af5635cac2de51cb6074b2a6385b126b1261e2fceae4bdae4289efeb45",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/boabf.webp",
+      "sha256": "a9d1c5b42e93d7c22613461cb1ea5a24d55a31fdd81a5831e930a0fc1735720f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/boac.webp",
+      "sha256": "c37456f9ce9ae287d799145f38376d2fb2eeb47eec93e3fd6e03bcc350f7c8dc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/boam.webp",
+      "sha256": "88a65cc652216d7c734753d5f4462a8eea0e3635c3171b4d63457cad52c4011c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/boan.webp",
+      "sha256": "7908b51be6e655f2ddb4b40c6b10844df905ea669a3d55f76a9265d21ad6fe1e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/boas.webp",
+      "sha256": "3abb4981446bcaccbc4c3e651176c663e3ec0763c37981375f2707cbb1ed89e8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/cabc.webp",
+      "sha256": "534cbe14a2c03e1ded3265d326fd73c690a5c8f11d037874585f01bbc0b7bc73",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/cbibf.webp",
+      "sha256": "0d8895327279c632d49c82513654eb4b0fec219477acf25cbd461fc587ab7ed5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/cfac.webp",
+      "sha256": "41aa1ec9b1db18398063a55209c1a12652d4fbf48d55cfc91aaf53650c170c8b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ciec.webp",
+      "sha256": "4941c1cd9264f97206b40c8f6b8905ba42069e4d1e93cd08830a451bfede0530",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ecoc.webp",
+      "sha256": "f0c924baefeaef3070233eeea9db3929910337603f19d0b5b890cae3c91f188b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ftsc.webp",
+      "sha256": "a9d20f58427e8564b734e586f99fae7669a8c3ad7c8c642c85723466aa50d8b9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/lnbb.webp",
+      "sha256": "af9446af0f1140573ef5250fc23d7d282b1a3b28d930522ee3f6419662c20474",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/neic.webp",
+      "sha256": "e145e7202c1b8f04034157b04fe6ddc00aeb8a9052640ee17641e92ca17f60f4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/nsbc.webp",
+      "sha256": "f76d3998f9da6b4e157edf8904e6195087a3a3be3cb2bf50ed38c9121975b2e4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ntlc.webp",
+      "sha256": "83ae1d2fe4b44a25e3989ff635c3c3d1b1ab6094ba2968d13809e97e6c6865e9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ontbf.webp",
+      "sha256": "aeaae769af010f826aa3921c2cb6c69bcb47278560726a066ae7e98bd2f56997",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/orac.webp",
+      "sha256": "7674c53250f8853e56e2dbd49611a646b301c63fd7da576700aa96338754fbbc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/orgt.webp",
+      "sha256": "fe1312736f952ecadd94ad8e82601b4e3228a827bcd5a4fa8e2edb1e9253c94e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/palc.webp",
+      "sha256": "fab50b66550fb39b381245e2e020a3424fb7813ba90defc012f105e4ce1366b5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/prsc.webp",
+      "sha256": "14ec8a6b6dc76da790dfeb1d86286ada446236a85358de86e3cfc18cbf05b79a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/safc.webp",
+      "sha256": "43ffe9074dd5dfc08db07fa50db79e986bd760451839a7af6d6b352371fa1504",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/scrc.webp",
+      "sha256": "7a41419696aae4c7f7de3b8f4ce1debb0a69548e20d3119dd4ce85a3ed9ca867",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sdcc.webp",
+      "sha256": "4a9325bba477e364f7ced7fabdd869f5f3b5ea9910a6086ec6396ffc57818097",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sdsc.webp",
+      "sha256": "a21a4cfdf35967be431b16e7af05491bee7974afdd88bac86b79cfe1d17b0997",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/semc.webp",
+      "sha256": "b6e406ad6bbdf0bb1956a4799f573d99546d122c2e84e0e7ddbee31375fd7f0c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sgbc.webp",
+      "sha256": "b05e6ff125d332f4aab108d1f5a560672d064307c92155bafb3c81d6c1783e4d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/shec.webp",
+      "sha256": "0bdc0e6bf90c5b8630f6a2f1917c3dc6d88baaa45e4efe607a06a7d8dc8b0f8e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sibc.webp",
+      "sha256": "876eb27e75040d924a7bdce7facf05a8bb95b67b0a9cb3c81228ae2a4ee38f06",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sicc.webp",
+      "sha256": "f019e78d9697fd6070717e191a8b39d08410c5827838d946e4e9a3222430406b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sivc.webp",
+      "sha256": "f1fc8838105b2b6f58f46c89785cb86fbc81609e95743b87733ec471c757be90",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/slbc.webp",
+      "sha256": "22278763b426a0da4f4e1a82ede2a16c14f583c7eef4a103cc22b64203382a6c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/smbc.webp",
+      "sha256": "2ae024389806a877fde85f3719741114818a59786dab81adfd4890d809e26eb9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/snts.webp",
+      "sha256": "2de8698783b7d3ae1f87f67954d955765548de7b017a4fed92232bba5b525ec0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sogc.webp",
+      "sha256": "eedefa6264678d91ae91daef66ede35c4215a77635e7917e3a8ab463a6bdd8b4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/sphc.webp",
+      "sha256": "ae8878f04b216fafb86fff50b6e52f88225dedda00dde4c3b712bf59fe32db3f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/stac.webp",
+      "sha256": "412ea132ffcd491503ecdbb73f18bcbccac7aabefd5cc23e3ac0fc5798a06185",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/stbc.webp",
+      "sha256": "2ef5b57d0a8a2e962aeaf61c1f5626b9fc893faaaf1dc92c8e5bc58aa4b8bb56",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ttlc.webp",
+      "sha256": "86fd07ed06db99065771580ba8129072b3a5992bfd8eee5c016647cdec838b3e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/ttls.webp",
+      "sha256": "9fa3fc886f4b7901a3a5c0f0932dea600a716689dcf959507e8bc93a7adb147a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/unlc.webp",
+      "sha256": "ebb90273f1634c378c0026524b837de3d7f7961b19b63313f455313a9e349216",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-brvm/unxc.webp",
+      "sha256": "a93a4139c94b9b72c2d4e0634d5042d387db4441c98eee69fd9cdb5030727bc0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    }
+  ],
+  "failures": []
+}

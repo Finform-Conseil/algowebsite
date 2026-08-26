@@ -17,6 +17,15 @@ export const useBrokerState = () => {
   const [selectedBroker, setSelectedBroker] = useState<Broker | null>(null);
   const [brokerConnectionState, setBrokerConnectionState] = useState<BrokerConnectionState>("idle");
   const [brokerOrderIntent, setBrokerOrderIntent] = useState<BrokerOrderIntent | null>(null);
+  const [isOrderSubmissionBlocked, setIsOrderSubmissionBlocked] = useState(false);
+
+  const openBrokerSelection = useCallback((isSubmissionBlocked: boolean) => {
+    setBrokerOrderIntent(null);
+    setSelectedBroker(null);
+    setBrokerConnectionState("idle");
+    setIsOrderSubmissionBlocked(isSubmissionBlocked);
+    setIsBrokerModalOpen(true);
+  }, []);
 
   const openPrefilledBrokerFlow = useCallback((intent: BrokerOrderIntent) => {
     // Fallback to "paper" trading broker, or the first available, or null
@@ -25,6 +34,7 @@ export const useBrokerState = () => {
     setBrokerOrderIntent(intent);
     setSelectedBroker(preferredBroker);
     setBrokerConnectionState("idle");
+    setIsOrderSubmissionBlocked(false);
     setIsBrokerModalOpen(true);
   }, []);
 
@@ -37,6 +47,9 @@ export const useBrokerState = () => {
     setBrokerConnectionState,
     brokerOrderIntent,
     setBrokerOrderIntent,
+    isOrderSubmissionBlocked,
+    setIsOrderSubmissionBlocked,
+    openBrokerSelection,
     openPrefilledBrokerFlow,
   };
 };

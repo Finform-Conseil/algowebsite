@@ -11,6 +11,7 @@ export type CurrencyConversionStatus = "native" | "loading" | "live" | "unavaila
 // [TENOR 2026] In-memory cache to avoid spamming the API during the same session.
 // Persists across component mounts/unmounts.
 const rateCache = new Map<string, number>();
+const CURRENCY_REQUEST_TIMEOUT_MS = 10_000;
 
 export const useCurrencyConverter = (baseCurrency: string, targetCurrency: string) => {
   const isNativeRate = !baseCurrency || !targetCurrency || baseCurrency === targetCurrency;
@@ -68,6 +69,11 @@ export const useCurrencyConverter = (baseCurrency: string, targetCurrency: strin
       }
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      let timedOut = false;
+      const timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, CURRENCY_REQUEST_TIMEOUT_MS);
 
       try {
         // [TENOR 2026] Strict URI Encoding for security
@@ -122,12 +128,13 @@ export const useCurrencyConverter = (baseCurrency: string, targetCurrency: strin
         }
       } catch (error: unknown) {
         const err = error as Error;
-        if (err.name !== 'AbortError') {
-          console.warn(`[CurrencyConverter] Rate unavailable for ${baseCurrency}->${targetCurrency}.`, err);
+        if (err.name !== 'AbortError' || timedOut) {
+          console.warn(`[CurrencyConverter] Rate unavailable for ${baseCurrency}->${targetCurrency}.`, timedOut ? "timeout" : err);
           setExchangeRate(null);
           setConversionStatus("unavailable");
         }
       } finally {
+        window.clearTimeout(timeoutId);
         if (abortControllerRef.current === controller) {
           setIsConverting(false);
         }

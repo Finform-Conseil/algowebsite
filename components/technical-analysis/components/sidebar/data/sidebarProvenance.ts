@@ -1,6 +1,5 @@
 export type SidebarProvenanceKind =
   | "verified_external"
-  | "local_catalog"
   | "derived_model"
   | "synthetic_mock"
   | "unavailable";
@@ -27,21 +26,31 @@ export function getSourceHost(source: string | null | undefined): string {
 }
 
 export function createFundamentalsProvenance(source: string | null | undefined): SidebarProvenance {
-  const host = getSourceHost(source);
+  const normalizedSource = source?.trim() || "";
+  if (/^api(?: officielle)?$/i.test(normalizedSource)) {
+    return {
+      kind: "verified_external",
+      label: "API officielle",
+      tone: "success",
+      source: normalizedSource || "API",
+    };
+  }
+
+  const host = getSourceHost(normalizedSource);
   if (host) {
     return {
       kind: "verified_external",
       label: host,
       tone: "success",
-      source: source || host,
+      source: normalizedSource,
     };
   }
 
   return {
-    kind: "local_catalog",
-    label: "Fallback catalogue local",
+    kind: "unavailable",
+    label: "Source API indisponible",
     tone: "warning",
-    detail: "Aucune source BRVM distante declaree",
+    detail: "Aucune source API vérifiée",
   };
 }
 

@@ -47,6 +47,37 @@ export const uiReducers = {
   setDataMode: (state: TechnicalAnalysisState, action: PayloadAction<"mock" | "real">) => {
     state.ui.dataMode = action.payload;
   },
+  setActiveMarket: (
+    state: TechnicalAnalysisState,
+    action: PayloadAction<{ ticker: string; name: string; currency: string }>,
+  ) => {
+    const ticker = action.payload.ticker.trim().toUpperCase();
+    if (!ticker) return;
+    const marketChanged = state.ui.activeMarket.ticker !== ticker;
+    state.ui.activeMarket = {
+      ticker,
+      name: action.payload.name.trim() || ticker,
+      currency: action.payload.currency.trim().toUpperCase() || "N/D",
+    };
+    if (!marketChanged) return;
+
+    const layout = state.ui.multiChartLayout;
+    const primaryChartId = layout.charts[0]?.chartId ?? "chart_1";
+    state.ui.multiChartLayout = {
+      ...layout,
+      activeChartId: primaryChartId,
+      charts: layout.charts.map((chart, index) => ({
+        ...chart,
+        // A market preference belongs to the workspace, not to an unbound
+        // layout slot. Empty slots must remain exchange-agnostic until the
+        // user explicitly chooses a bourse and then a title for that panel.
+        symbol: "",
+        exchange: "",
+        isActive: index === 0,
+      })),
+    };
+    state.chartConfig.symbol = "";
+  },
   setSearchMode: (state: TechnicalAnalysisState, action: PayloadAction<"replace" | "compare">) => {
     state.ui.searchMode = action.payload;
   },

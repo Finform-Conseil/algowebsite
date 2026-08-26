@@ -1,8 +1,9 @@
 import React from "react";
+import { useCurrency } from "@/hooks/useCurrency";
 import clsx from "clsx";
 import { ChevronDown, LoaderCircle, RotateCcw, Search, Star, X } from "lucide-react";
 import type { LiveSnapshot } from "../../../config/market/marketSnapshotTypes";
-import { fetchSidebarBonds, fetchSidebarScreenerSecurities, type BRVMBond, type BRVMScreenerSecurity } from "../data/sidebarFetchers";
+import { fetchSidebarScreenerSecurities, type BRVMBond, type BRVMScreenerSecurity } from "../data/sidebarFetchers";
 import { useSidebarDataPort } from "../data/sidebarDataPortAdapter";
 import {
   buildScreenerPersistenceSnapshot,
@@ -31,9 +32,7 @@ import {
   type ScreenerState,
 } from "./screenersModel";
 import {
-  readCachedScreenersBonds,
   readPersistedScreenersState,
-  writeCachedScreenersBonds,
   writePersistedScreenersState,
 } from "./screenersPersistence";
 
@@ -51,13 +50,11 @@ interface ScreenersPanelProps {
   topBonds: BRVMBond[];
 }
 
-type BondsFetchStatus = "idle" | "loading" | "ready" | "error";
 type ScreenerFetchStatus = "loading" | "ready" | "error";
 type PersistenceStatus = "loading" | "ready";
 
 const PERSISTENCE_WRITE_DEBOUNCE_MS = 260;
 const SEARCH_MAX_LENGTH = 80;
-const BONDS_LOADING_STALE_MS = 9_000;
 
 const METRIC_FILTER_META: Record<ScreenerMetricKey, { label: string; maxLabel: string; minLabel: string }> = {
   change: { label: "Chg %", maxLabel: "Max %", minLabel: "Min %" },
@@ -82,21 +79,16 @@ const getFilterLabel = (filterId: ScreenerFilterId) => (
 
 export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
   const sidebarDataPort = useSidebarDataPort();
+  const { convert, displayCurrency } = useCurrency();
+  const targetCurrency = displayCurrency || props.activeCurrency;
   const persistenceReadyRef = React.useRef(false);
-  const fallbackBondsControllerRef = React.useRef<AbortController | null>(null);
-  const fallbackBondsRequestIdRef = React.useRef(0);
-  const fallbackBondsStaleTimerRef = React.useRef<number | null>(null);
-  const fallbackBondsStatusRef = React.useRef<BondsFetchStatus>("idle");
+
   const [screenerSecurities, setScreenerSecurities] = React.useState<BRVMScreenerSecurity[]>([]);
   const [screenerFetchStatus, setScreenerFetchStatus] = React.useState<ScreenerFetchStatus>("loading");
   const [screenerFetchError, setScreenerFetchError] = React.useState<string | null>(null);
   const [screenerRetry, setScreenerRetry] = React.useState(0);
-  const topBondsLengthRef = React.useRef(props.topBonds.length);
   const [screenerState, setScreenerState] = React.useState<ScreenerState>(() => createDefaultScreenerState());
   const [openFilter, setOpenFilter] = React.useState<ScreenerFilterId | null>(null);
-
-  const [fallbackBonds, setFallbackBonds] = React.useState<BRVMBond[]>([]);
-  const [fallbackBondsStatus, setFallbackBondsStatus] = React.useState<BondsFetchStatus>("idle");
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -140,92 +132,19 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
     return () => window.clearTimeout(timeoutId);
   }, [screenerState]);
 
-  const clearFallbackBondsStaleTimer = React.useCallback(() => {
-    if (fallbackBondsStaleTimerRef.current === null) return;
-    window.clearTimeout(fallbackBondsStaleTimerRef.current);
-    fallbackBondsStaleTimerRef.current = null;
-  }, []);
 
-  const setTrackedFallbackBondsStatus = React.useCallback((status: BondsFetchStatus) => {
-    fallbackBondsStatusRef.current = status;
-    setFallbackBondsStatus(status);
-  }, []);
-
-  const requestFallbackBonds = React.useCallback((mode: "initial" | "force" = "initial") => {
-    if (topBondsLengthRef.current > 0) return;
-    const currentStatus = fallbackBondsStatusRef.current;
-    if (currentStatus === "loading") return;
-    if (mode === "initial" && currentStatus === "ready") return;
-
-    fallbackBondsControllerRef.current?.abort();
-    clearFallbackBondsStaleTimer();
-
-    const controller = new AbortController();
-    const requestId = fallbackBondsRequestIdRef.current + 1;
-    fallbackBondsControllerRef.current = controller;
-    fallbackBondsRequestIdRef.current = requestId;
-    setTrackedFallbackBondsStatus("loading");
-
-    fallbackBondsStaleTimerRef.current = window.setTimeout(() => {
-      if (fallbackBondsRequestIdRef.current !== requestId) return;
-      if (fallbackBondsStatusRef.current === "loading") setTrackedFallbackBondsStatus("error");
-    }, BONDS_LOADING_STALE_MS);
-
-    void fetchSidebarBonds(sidebarDataPort, controller.signal)
-      .then((bonds) => {
-        if (controller.signal.aborted || fallbackBondsRequestIdRef.current !== requestId) return;
-        clearFallbackBondsStaleTimer();
-        if (bonds.length === 0) {
-          setTrackedFallbackBondsStatus("error");
-          return;
-        }
-        setFallbackBonds(bonds);
-        setTrackedFallbackBondsStatus("ready");
-        void writeCachedScreenersBonds(bonds);
-      })
-      .catch((error) => {
-        if (controller.signal.aborted || fallbackBondsRequestIdRef.current !== requestId) return;
-        clearFallbackBondsStaleTimer();
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setTrackedFallbackBondsStatus("error");
-      });
-  }, [clearFallbackBondsStaleTimer, setTrackedFallbackBondsStatus, sidebarDataPort]);
-
-  React.useEffect(() => {
-    topBondsLengthRef.current = props.topBonds.length;
-    if (props.topBonds.length === 0) return;
-    clearFallbackBondsStaleTimer();
-    fallbackBondsControllerRef.current?.abort();
-    setTrackedFallbackBondsStatus("ready");
-    void writeCachedScreenersBonds(props.topBonds);
-  }, [clearFallbackBondsStaleTimer, props.topBonds, props.topBonds.length, setTrackedFallbackBondsStatus]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    void readCachedScreenersBonds().then((bonds) => {
-      if (cancelled || bonds.length === 0 || topBondsLengthRef.current > 0) return;
-      setFallbackBonds((current) => (current.length > 0 ? current : bonds));
-      if (fallbackBondsStatusRef.current !== "ready") setTrackedFallbackBondsStatus("ready");
-    });
-    requestFallbackBonds("force");
-
-    return () => {
-      cancelled = true;
-      fallbackBondsRequestIdRef.current += 1;
-      fallbackBondsControllerRef.current?.abort();
-      clearFallbackBondsStaleTimer();
-    };
-  }, [clearFallbackBondsStaleTimer, requestFallbackBonds, setTrackedFallbackBondsStatus]);
 
   const allRows = React.useMemo(() => buildScreenerRows({
-    activeCurrency: props.activeCurrency,
+    activeCurrency: targetCurrency,
+    convertValue: convert,
     activeTicker: props.activeTicker,
     livePrice: props.livePrice,
     liveVolume: props.liveVolume,
     marketSnapshots: props.marketSnapshots,
     securities: screenerSecurities,
   }), [
-    props.activeCurrency,
+    convert,
+    targetCurrency,
     props.activeTicker,
     props.livePrice,
     props.liveVolume,
@@ -240,9 +159,9 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
   const availableExchanges = React.useMemo(() => getAvailableExchanges(allRows), [allRows]);
   const watchlistSet = React.useMemo(() => new Set(screenerState.watchlistTickers), [screenerState.watchlistTickers]);
   const activeAdvancedFilterCount = countActiveAdvancedFilters(screenerState);
-  const visibleBonds = props.topBonds.length > 0 ? props.topBonds : fallbackBonds;
+  const visibleBonds = props.topBonds;
   const hasVisibleBonds = visibleBonds.length > 0;
-  const isBondLoading = !hasVisibleBonds && fallbackBondsStatus === "loading";
+  const isBondLoading = props.bondsLoading;
   const bondSummary = isBondLoading ? "Chargement" : hasVisibleBonds ? `${visibleBonds.length} obligations` : "Indisponible";
   const subtitle = screenerState.activeFilter === "bonds"
     ? "Bonds - BRVM - " + bondSummary
@@ -261,10 +180,9 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
   }, []);
 
   const handleFilterSelect = React.useCallback((filterId: ScreenerFilterId) => {
-    if (filterId === "bonds") requestFallbackBonds("force");
     updateScreenerState((current) => selectScreenerFilter(current, filterId));
     setOpenFilter((current) => (isPanelFilter(filterId) ? (current === filterId ? null : filterId) : null));
-  }, [requestFallbackBonds, updateScreenerState]);
+  }, [updateScreenerState]);
 
   const handleSortSelect = React.useCallback((sortId: ScreenerSortId) => {
     updateScreenerState((current) => selectScreenerSort(current, sortId));
@@ -577,14 +495,13 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
             visibleBonds.map((bond) => (
               <div key={`${bond.name}-${bond.maturityDate}`} className="gp-screeners-bond-row">
                 <span>{bond.name}</span>
-                <strong>{bond.ytm > 0 ? "+" : ""}{bond.ytm.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%</strong>
+                <strong>{bond.clearingYield > 0 ? "+" : ""}{bond.clearingYield.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%</strong>
                 <small>{bond.maturityDate}</small>
               </div>
             ))
           ) : (
             <div className="gp-screeners-empty">
               <span>Donnees obligations indisponibles.</span>
-              <button type="button" onClick={() => requestFallbackBonds("force")}>Recharger</button>
               <button type="button" onClick={props.onOpenBondsPage}>Ouvrir la page obligations</button>
             </div>
           )}
@@ -600,7 +517,7 @@ export const ScreenersPanel = React.memo((props: ScreenersPanelProps) => {
           {visibleBonds.slice(0, 3).map((bond) => (
             <div key={`${bond.name}-${bond.maturityDate}`} className="gp-screeners-bond-row">
               <span>{bond.name}</span>
-              <strong>{bond.ytm > 0 ? "+" : ""}{bond.ytm.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%</strong>
+              <strong>{bond.clearingYield > 0 ? "+" : ""}{bond.clearingYield.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%</strong>
               <small>{bond.maturityDate}</small>
             </div>
           ))}

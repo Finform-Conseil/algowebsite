@@ -94,9 +94,9 @@ const normalizeBondsCacheSnapshot = (snapshot: unknown): BRVMBond[] => {
   return candidate.bonds.flatMap((bond) => {
     if (!bond || typeof bond !== "object") return [];
     const value = bond as Partial<BRVMBond>;
-    if (typeof value.name !== "string" || typeof value.maturityDate !== "string" || typeof value.ytm !== "number") return [];
-    if (!Number.isFinite(value.ytm) || value.name.trim().length === 0 || value.maturityDate.trim().length === 0) return [];
-    return [{ name: value.name.trim(), maturityDate: value.maturityDate.trim(), ytm: value.ytm }];
+    if (typeof value.name !== "string" || typeof value.maturityDate !== "string" || typeof value.clearingYield !== "number") return [];
+    if (!Number.isFinite(value.clearingYield) || value.name.trim().length === 0 || value.maturityDate.trim().length === 0) return [];
+    return [{ name: value.name.trim(), maturityDate: value.maturityDate.trim(), clearingYield: value.clearingYield }];
   });
 };
 

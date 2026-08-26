@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 const SIDEBAR_SECONDARY_IDLE_DELAY_MS = 4_000;
 const SIDEBAR_SECONDARY_IDLE_TIMEOUT_MS = 12_000;
 
-export function useSidebarSecondaryWorkReady(): boolean {
+export function useSidebarSecondaryWorkReady(primaryLoadComplete = true): boolean {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (isReady) return;
+    if (isReady || !primaryLoadComplete) return;
 
     let isDisposed = false;
     let idleId: number | null = null;
@@ -33,7 +33,7 @@ export function useSidebarSecondaryWorkReady(): boolean {
         window.cancelIdleCallback(idleId);
       }
     };
-  }, [isReady]);
+  }, [isReady, primaryLoadComplete]);
 
   return isReady;
 }

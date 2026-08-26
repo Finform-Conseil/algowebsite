@@ -39,6 +39,7 @@ export const bourseApi = api.injectEndpoints({
             method: "GET",
             params: params || {},
         }),
+        keepUnusedDataFor: 600,
         providesTags: (result) =>
             result
             ? [

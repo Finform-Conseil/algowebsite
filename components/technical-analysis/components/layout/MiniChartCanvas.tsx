@@ -11,6 +11,7 @@ import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
 import { buildDirectionalOhlcvSeries, buildDirectionalVolumeBarData } from "../../lib/chart/directionalOhlcv";
 import { MULTI_CHART_MINI_DATA_ZOOM_ID } from "../../hooks/useMultiChartSync";
+import { ensureLayoutEChartsModulesRegistered } from "./layoutEChartsRegistry";
 import {
   formatLayoutCompactPrice,
   formatLayoutDate,
@@ -229,6 +230,7 @@ export const MiniChartCanvas: React.FC<MiniChartCanvasProps> = ({
 
     let chart = chartInstanceRef.current;
     if (!chart || chart.isDisposed()) {
+      ensureLayoutEChartsModulesRegistered();
       chart = echarts.init(element, undefined, { renderer: "canvas" });
       chartInstanceRef.current = chart;
       onChartReady(chartId, chart);
@@ -263,6 +265,7 @@ export interface ActiveChartPreviewProps {
 }
 
 export const ActiveChartPreview: React.FC<ActiveChartPreviewProps> = ({ cell, data, dataMode, displaySymbol, chartAppearance }) => {
+  const resolvedDisplaySymbol = cell.symbol.trim() || displaySymbol.trim() || "Choisir un titre";
   const stats = useMemo(() => getLayoutSeriesStats(data), [data]);
   const isPositive = (stats?.changePercent ?? 0) >= 0;
   const chartColor = isPositive ? "#22c55e" : "#ef4444";
@@ -287,7 +290,7 @@ export const ActiveChartPreview: React.FC<ActiveChartPreviewProps> = ({ cell, da
           </em>
         </span>
         <span className={clsx("gp-multi-chart-cell__audit", stats.isStale && "is-warning")}>
-          {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatLayoutDate(stats.last.time)}
+          {stats.isStale ? "Données à actualiser" : "OHLCV"} · {formatLayoutDate(stats.last.time)}
         </span>
       </div>
     );
@@ -297,8 +300,8 @@ export const ActiveChartPreview: React.FC<ActiveChartPreviewProps> = ({ cell, da
     return (
       <span className="gp-multi-chart-cell__loading" aria-live="polite">
         <span className="gp-mini-data-spinner" aria-hidden="true" />
-        <strong>Loading data</strong>
-        <em>{displaySymbol}</em>
+        <strong>Chargement des données</strong>
+        <em>{resolvedDisplaySymbol}</em>
       </span>
     );
   }
@@ -306,7 +309,7 @@ export const ActiveChartPreview: React.FC<ActiveChartPreviewProps> = ({ cell, da
   return (
     <span className="gp-multi-chart-cell__empty">
       <i className="bi bi-exclamation-triangle" aria-hidden="true" />
-      No data
+      Aucune donnée disponible
     </span>
   );
 };
@@ -338,15 +341,21 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
   onChartReady,
   onChartDispose,
 }) => {
+  const hasSelectedSymbol = cell.symbol.trim().length > 0;
+  const displaySymbol = hasSelectedSymbol ? cell.symbol : "Choisir un titre";
   const stats = useMemo(() => getLayoutSeriesStats(data), [data]);
   const isPositive = (stats?.changePercent ?? 0) >= 0;
   const chartColor = isPositive ? "#22c55e" : "#ef4444";
-  const isWaitingForData = !stats && dataMode === "real" && (loadStatus === "idle" || loadStatus === "loading");
+  const isWaitingForData = hasSelectedSymbol
+    && !stats
+    && dataMode === "real"
+    && (loadStatus === "idle" || loadStatus === "loading");
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    onActivate();
+    if (hasSelectedSymbol) onActivate();
+    else onHeaderClick();
   };
 
   const handleHeaderClick = (event: React.MouseEvent<HTMLSpanElement>) => {
@@ -365,11 +374,13 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
   return (
     <div
       className={clsx("gp-multi-chart-cell gp-multi-chart-cell--secondary", renderMode === "ohlcv" && "is-full-ohlcv")}
-      onClick={onActivate}
+      onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
       onKeyDown={handleKeyDown}
       role="button"
       tabIndex={0}
-      aria-label={`Activer ${cell.symbol}`}
+      aria-label={hasSelectedSymbol
+        ? "Activer " + displaySymbol
+        : `Choisir un titre · ${cell.exchange || "N/D"}`}
     >
       <span
         className="gp-multi-chart-cell__header gp-multi-chart-cell--interactive-header"
@@ -377,9 +388,10 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
         onKeyDown={handleHeaderKeyDown}
         role="button"
         tabIndex={0}
-        aria-label={`Rechercher un titre pour remplacer ${cell.symbol}`}
+        aria-label={"Rechercher un titre pour remplacer " + displaySymbol}
       >
-        <strong>{cell.symbol}</strong>
+        <strong>{displaySymbol}</strong>
+        <span>{cell.exchange || "N/D"}</span>
         <span>{cell.interval}</span>
         <i className="bi bi-search" style={{ marginLeft: "auto", fontSize: "10px", opacity: 0.7 }} aria-hidden="true" />
       </span>
@@ -404,19 +416,24 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
             </em>
           </span>
           <span className={clsx("gp-multi-chart-cell__audit", stats.isStale && "is-warning")}>
-            {stats.isStale ? "Stale data" : "BRVM OHLCV"} · {formatLayoutDate(stats.last.time)}
+            {stats.isStale ? "Données à actualiser" : "OHLCV"} · {formatLayoutDate(stats.last.time)}
           </span>
         </>
       ) : isWaitingForData ? (
         <span className="gp-multi-chart-cell__loading" aria-live="polite">
           <span className="gp-mini-data-spinner" aria-hidden="true" />
-          <strong>Loading data</strong>
-          <em>{cell.symbol}</em>
+          <strong>Chargement des données</strong>
+          <em>{displaySymbol}</em>
+        </span>
+      ) : !hasSelectedSymbol ? (
+        <span className="gp-multi-chart-cell__empty">
+          <i className="bi bi-plus-circle" aria-hidden="true" />
+          Choisir un titre · {cell.exchange}
         </span>
       ) : (
         <span className="gp-multi-chart-cell__empty">
           <i className="bi bi-exclamation-triangle" aria-hidden="true" />
-          No data
+          Aucune donnée disponible
         </span>
       )}
     </div>

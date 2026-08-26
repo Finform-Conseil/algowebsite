@@ -39,7 +39,7 @@ export interface BRVMSecurity {
   /** Place boursière */
   exchange?: string;
   /** Devise de cotation */
-  currency: 'XOF' | 'XAF';
+  currency: string;
   /** Secteur boursier (pour les indices) */
   indexSector?: string;
   /** Statut de cotation (ex: actif ou retiré) */

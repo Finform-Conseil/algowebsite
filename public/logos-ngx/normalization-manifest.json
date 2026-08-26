@@ -1,0 +1,1546 @@
+{
+  "contract": "logo-normalization-v1",
+  "records": [
+    {
+      "file": "public/logos-ngx/ABBEYBDS.webp",
+      "sha256": "0407e43991fc680fa0cecfda268bcf9a39bec52222de90f09365af54d97d9b30",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ABCTRANS.webp",
+      "sha256": "8278393db9396a42d4b8a2ba330f671a3b43cf4518479d0d1b0315f24d376f81",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ACADEMY.webp",
+      "sha256": "744840c410531c5eae19e2b37f80c6b78e89c6c4150c522ee804d109707d049b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ACCESSCORP.webp",
+      "sha256": "07973a9bed6389ac72a175a4a011745c6d01cbcd64745d04108687e03cd33585",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AFRINSURE.webp",
+      "sha256": "30e439a26a9f63b65b725777268dde8c275fb1939cf58f63ca903a40582688ca",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AFRIPRUD.webp",
+      "sha256": "da387e881edaf2617a6f11a1d458dd57696bdc20c93a055b5931da4f5396efe5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AFROMEDIA.webp",
+      "sha256": "cc655842efa39c7abd90971a59a9146d6190bccc384951280171a551b5bf8618",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AIICO.webp",
+      "sha256": "d2f4d92a3e77cf9ec367175c02a371475736106aded99f41e93d49f989569df6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AIRTELAFRI.webp",
+      "sha256": "fbb3d595e72c24770e1d95238429673a4995c09c12b6c6f3c7e5a36381da9184",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ALEX.webp",
+      "sha256": "92f17ef12a2aac020e3d9b6fc750c5d1590238c0cb503c73e10949ad3bdd6586",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ARADEL.webp",
+      "sha256": "34c5a8baec4e073b52222029c3cd76f5aa7bf480e54c81bfc24514044269a2bb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ASOSAVINGS.webp",
+      "sha256": "400eb111b29ea8c8ce64d86cb6281e6339149417a76bef22b1261c0aaaacd429",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AUSTINLAZ.webp",
+      "sha256": "eb84889c45e703da0af7bba43065bfa91af3acbd7b7dd37d569e548d9101082a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AVAIF.webp",
+      "sha256": "ba9cf8f36549fe4e929100a305309b32eee8af173acd5947c67226690ea16ee5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/AXAMANSARD.webp",
+      "sha256": "9ef0fefcf2dc9de6c7bb872f6953242e46f66d1dfc77366e8ee709f62237db89",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/BAPLC.webp",
+      "sha256": "0fd8781ce989816824f4aba7463e31a98c18dc38668109f9267a46db0330e472",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/BERGER.webp",
+      "sha256": "92a89b86d462143e3212a17c9332d43cd4324e30241fdb0f177a542806a68508",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/BETAGLAS.webp",
+      "sha256": "b0b291b88522fa65d6f40676301e5551518fb8b7dd96c960688fceb3f7d0d00c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/BRICLINKS_AFRICA.webp",
+      "sha256": "a56eb7fd7f8c4c2d6fbe63a037c0f78f8f01ca36240f7930a3f338bac222308f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/BUACEMENT.webp",
+      "sha256": "dab8d61ad76c6d691d45aa07d434b3c9fbeb18cf353306b6ba013d296200491e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/BUAFOODS.webp",
+      "sha256": "58832a7b55fd83cee1e36221649720be74ba60941a852799d3b028f5d67d1d1d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CADBURY.webp",
+      "sha256": "c7e865c2e6a40e014f6908c0e684bc436a9628a628849d05bf1f91f61bc87e46",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CAP.webp",
+      "sha256": "1ec5ae51aae07ed41b09643f234d4b8ed9f555f97de2cdf36a81c41b82d7f93c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CAVERTON.webp",
+      "sha256": "a17b2de1f92f021a2addaecc77dfd2f3ba0674373077b543386428f47be57087",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CHAMPION.webp",
+      "sha256": "2478d40407b9282ca0ee065e559683feaa95f3736ef69848db9c8ab27b421e3a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CHAMS.webp",
+      "sha256": "3604327c25c710b79f9debcaadbff3d2d5e7b0bfdda15b28cf2512e5b6e673b5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CHELLARAM.webp",
+      "sha256": "98db0d38e19f0daede3da542f51b7ff996713217f9400a3ab4664a53ca730922",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CILEASING.webp",
+      "sha256": "3f2b554f1df340997714a9ec39992ae5b3f50d7d86e2077a983d700e304eb313",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CONHALLPLC.webp",
+      "sha256": "ea078029aaebd7894bf31884392500ceef4b2a04362ff502875fea7e66d484b9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CONOIL.webp",
+      "sha256": "45bf587911870335b4ca73b956400557567644dea80587a8afc35f14782fcb79",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CORNERST.webp",
+      "sha256": "1f888281d6057852e2c640c91faec53bd9c5467171e266fc248580cddaea5c94",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CORONATION_INSURANCE.webp",
+      "sha256": "6af26c0e644c5f73f56f0fa8188b4fb917931bfd2f62332e8d08915abd208948",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CUSTODIAN.webp",
+      "sha256": "5071783e601e2f0322e105786cd7ff66c77ccb6f171c7abb77d8f0780670c11c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CUTIX.webp",
+      "sha256": "7ea85109f80d36a3eaaa951fd4d833b528deaa1d9d3e00ba65bb8b5d0bb22311",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/CWG.webp",
+      "sha256": "b390105b512e169ee1614173e8687a18c3b5e1c29916c58ee9fba0bd0d3eb7f9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/DAARCOMM.webp",
+      "sha256": "081f563569681f59e477162c20ca2a362d3057c1eecacb6c1713c63ce2595fc7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/DANGCEM.webp",
+      "sha256": "cd2136cb5d53a510abecb625a57efbb807ad900551131ee564e9ed92d0fbf86f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/DANGSUGAR.webp",
+      "sha256": "7a576e92e5399772485fb6f5e42d36ae4f3713d79ea2e870488dd9e9c6a7bad6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/DEAPCAP.webp",
+      "sha256": "8e9d2611b304cd71705a7ddb888c919d55fa410d3d597a238157788bb250a910",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/DUNLOP.webp",
+      "sha256": "5e4f9eb05ce200716e5711366f709f0814f733f1a1596b10ccc95acf8596085a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/EKOCORP.webp",
+      "sha256": "acf212d57fdf49a037e17e1c47bdaec4023074b2fe677205ed62d8ec52d289a7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ELLAHLAKES.webp",
+      "sha256": "f8ad228ca0a40749c38dd72318618cd629251182ef0deec257a5a789922d9158",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ENAMELWA.webp",
+      "sha256": "f14c7c8b59912a9b0a12acfcaedc0a2f9d8954cd508057d2be73c1dca9a9f10b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ETERNA.webp",
+      "sha256": "22d536f06436725da476e88da12111dbbe5fa3b2f3d75a243a8016f8c8ea296d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ETI.webp",
+      "sha256": "f44008901dee2339a3140783888b7ad31ede92f19695a997817bf2a1c1b18a82",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ETRANZACT.webp",
+      "sha256": "6868dcd274002c00285911033829289fff1ced96488b387c2665343768d8134e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/EUNISELL.webp",
+      "sha256": "e5467796b5213c2b10dbea714026a4fbb175154fdfc7c0a2be1fa6d2aeb7fc81",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/FCMB.webp",
+      "sha256": "7f0ee5c0768092744b0c029b784576acb31d05ef9effbc6c32cd200595d400aa",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/FIDELITYBK.webp",
+      "sha256": "4c4626f7047c8fbb6272d08b35b7dbe066bcde71c40a9d6f6317652bda7ea7fc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/FIDSON.webp",
+      "sha256": "23532905dfe26303e1d5a73c949f4072a46c09c27e96d74bc5b3a87d89b46863",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/FIRSTHOLDCO.webp",
+      "sha256": "8b57bc7d6c97a94fc28879aa859daf249ecdfe20d985dcf1a63cc884eff0c79d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/FTGINSURE.webp",
+      "sha256": "0abbedc635dce3eebb624d01f360945438ba4072ed5d9d4330c7c5823165856e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/FTNCOCOA.webp",
+      "sha256": "c6ca2ac13b8e29b920ad1b95c911b429bd19e4d139fe939aed5459a1078e98f5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/GEREGU.webp",
+      "sha256": "53a26167d29d062a29427700089b0ba831795db35df4128b2b35832478898d58",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/GOLDBREW.webp",
+      "sha256": "01a841379dc06666e49c99e133ca50e0fdb4a31d672d2d3aa519c8f8b0682ee3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/GREIF_NIGERIA.webp",
+      "sha256": "38c8ab2a81ed558afdeca842d73d09458ef64becd51ccf14cf7139e13498ef27",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/GTCO.webp",
+      "sha256": "f7460a8a2cd930c2378825123813a6aa814282c0e339a3dec9ea1ec6ecaa9972",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/GUINEAINS.webp",
+      "sha256": "1fe3d7d607a9df2ce7b33c9997951027bc7b4ad2d85abea584f4f62d64ad6992",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/GUINNESS.webp",
+      "sha256": "01ea6cf9226589e03f09361709bc2fd8f381fe84379198c7150dcfa47bd174f6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/HMCALL.webp",
+      "sha256": "5598f206565921f68abc43b21c3c0ea67b63f2e876abcd5c6ba1de824bfdc15a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/HONYFLOUR.webp",
+      "sha256": "2a2bfcc881e4923e9f2c02e49094119c12f8e6e5c30c51a1bec5da76eb2f4189",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/IKEJAHOTEL.webp",
+      "sha256": "f7a540bb93eab5384666e98cf49634ca09c06381356c7e2d871af044d335d931",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/IMG.webp",
+      "sha256": "44bbd5a2fd2414543c1344de4e853ddb4265d914cef64fbb597e7b3d2316d7da",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/INFINITY.webp",
+      "sha256": "38b89ea0d328666858efe3cb5ae8bfe595fed3981b31fc048df55ef1000c6d2a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/INTBREW.webp",
+      "sha256": "985bce589ef123848a4506c4b756d2c4c91de9732122faf77db288e7663d7299",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/INTENEGINS.webp",
+      "sha256": "8b63d0273a6e3036b1758e18df72caa636f67e995fd74afb73a5fb9725c5af65",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/JAIZBANK.webp",
+      "sha256": "7780fc7a6f135fcefe738948fa3fb5905afd6a829b3ea20732a97046358159c3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/JAPAULGOLD.webp",
+      "sha256": "058954eba54f5d3853b4a8faa065c3568809db97c08c4beb9d96c334bea763ac",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/JBERGER.webp",
+      "sha256": "8e1be6eb43e8507c86109ac6b005fe0f72feec678aeebd01bc4a7991d208e6e7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/JOHNHOLT.webp",
+      "sha256": "cf1304e35cc486388bd08f0b49926475be38aea3666fd1c06c92204d04d8221d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/JULI.webp",
+      "sha256": "76d3de8c08ca88a3054052b1eb327f69535a7a074942458912d950b474edec71",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/LASACO.webp",
+      "sha256": "86b73302cf187718a765982e84691a196885c727c353d7ad4cf64e58cb1cdacc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/LEARNAFRCA.webp",
+      "sha256": "d5117a54f56a84ca58d3d81d0e3da759f1a64270a57f58127811357922e54d67",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/LEGEND.webp",
+      "sha256": "651f490185e69d2f700c9ed68f7052bb5032e1716f223bba48964185ba369478",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/LINKASSURE.webp",
+      "sha256": "7f0b3ddb30f627bceda448b239e7f697fdc3a2787d64643e9ebbbf467b440572",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/LIVESTOCK.webp",
+      "sha256": "3787d5e46841bafc8f0c95632e7f404aaec18aa733d7a41ba330c5f5a4b4a6f9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/LIVINGTRUST.webp",
+      "sha256": "ccc1572c210708c55d1ab58dbc36fda962ab547cd9afab78582a87700ea66a83",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MANSARD.webp",
+      "sha256": "088c179bcb453e0909acf0bb6cdd8774e178476ee2f6dd9017e71d06a847821c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MAYBAKER.webp",
+      "sha256": "bf6546c5969b7887c3bb7a56fd3b71431fd23e4fe424f7a42e2c664f76f3c814",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MBENEFIT.webp",
+      "sha256": "c2c06991effac17449fbe614656dacf46685b37eca68bd236dff45de1f5ae707",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MCNICHOLS.webp",
+      "sha256": "5fab8f81f6afde12486969c4b708fe5fc79da86453828d77f5a61008a9528d03",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MECURE.webp",
+      "sha256": "338037c9b4a0479258dcf1c4be71fc986e15d6ddadf3e441eca7a666506b03d7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MEYER.webp",
+      "sha256": "b307f8b8c46b624dcbaacbdb145a7f8091e79ed05dcf46807d30e1b5112b17a6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MOFI.webp",
+      "sha256": "1226718652d7792379b5cc0117fdcd320a881b5ec134a75681bb20691c825c4e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MORISON.webp",
+      "sha256": "dfeb81a6d3bcbe7d9e63e113c8e745d6c34d139cf3f15816f15c598ee0c9f1e8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MRS.webp",
+      "sha256": "c49a8ed87d62ab67f17b218e8cf3b29e5a3a9ba8e5a3fa9b269f7566f1045496",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MTNN.webp",
+      "sha256": "f24275464ba65c01ad7361b277e6b3dfe7a6ac278926fd67bbaac493fdff1fe6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MULTITREX.webp",
+      "sha256": "528b5234d6b62eb2eeb2ca591d9aa4a44184f942c61403957e43adac422ed1fc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/MULTIVERSE.webp",
+      "sha256": "643090f5ba5769806f36df3b3a6ac0afe53d48d6d8886eac6e96590845d03892",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NAHCO.webp",
+      "sha256": "24b6f95331c79bf334cd9a1c1d661af2483420b2bca1f99545eeec39c7ff6e0f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NASCON.webp",
+      "sha256": "2e98268a676124fa2b0f190038dcf8008c5e268ab1e1a6e63e7402cbd70d7328",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NB-1.webp",
+      "sha256": "ba417ced3db0892434e34569b4b7cadef82a69cda1fd902b5c3fb617bc9620db",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NB.webp",
+      "sha256": "95c4c53b92199a11ea6c1842d1d3f41e7212af9514ed83252a384890baf94e64",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NCR.webp",
+      "sha256": "6e0fdb3a2d63c50419adbd13ef9911504520c5def5e7117a3dc80c85a2856c1e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NEIMETH.webp",
+      "sha256": "b7e4986caa6a8549c103a16431255db3bad2fc6ce77b276db2ce2e6eab40e816",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NEM.webp",
+      "sha256": "5d30a9aabf6c5299ef43e235667bc7013f0412d2b9fe8356545018b7e6390084",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NESTLE.webp",
+      "sha256": "e80bbe1c4c44643e947d5ab3c08464037ebb70f11d796d2c18e1479fbbeade6e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NGXGROUP.webp",
+      "sha256": "965f1afbb6de9d3078577cd2874ff09ad60f97df1665a21e73c5631f3cd247e2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NIDF.webp",
+      "sha256": "91da411690b1a5c7bdde9ae7c6c1e80afe2afaf6420c42496c2b5c4bbd9b80b8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NNFM.webp",
+      "sha256": "0827d989bee4486dca76255f32fc61fbe694fae7ef8bf33267f61c2a52186159",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NPFMCRFBK.webp",
+      "sha256": "dd60d6ab5bc700c2ff949d8237a4fce2c5456243c1d7b373276179c04ad929cd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/NSLTECH.webp",
+      "sha256": "ddd679fbf1894dca7f348199796a5c9dc500e0a7188b344f24912381562df1d3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/OANDO.webp",
+      "sha256": "a29eeceada5f53b44e949554dcec07c014d757bd18a9cb70055944c80b7ea395",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/OKOMUOIL.webp",
+      "sha256": "326d8a6c0f557364b5d6816a910e689eea3b98184c722963c89e89b6211c9857",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/OMATEK.webp",
+      "sha256": "cac9d34944de0a66295cef927271814329f6a7a692774cadcdefe5d9d062e571",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/PHARMDEKO.webp",
+      "sha256": "675eb722470d9d4dabb3ca4629b8568cbfddc6fcb1c7b070483b13439b5ca92b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/PREMPAINTS.webp",
+      "sha256": "d60e57e3fd08774be9328f41321439186978cc05003ec9df7d74ba6ddc88cd09",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/PRESCO.webp",
+      "sha256": "992af66fcb6e54fcd38d44447f6340d1025505387d29212623962f5070e5f09b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/PRESTIGE.webp",
+      "sha256": "f69e1b30143780604d908109eff535bbd22b81c011b495cbdbe5eb2ea04daa50",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/PZ.webp",
+      "sha256": "4df4558d173ae0c56844b2b2a9fb89bb31b762798c6871c61495615777f066b9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/REDSTAREX.webp",
+      "sha256": "2208ca502dc8bd7a0853ffbfa415a5ef129fda05015d8a367a97dec8c6f86497",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/REGALINS.webp",
+      "sha256": "e1aaa6ee12828de91f6d84488285189da7172238e98094d1e8dc6822e9c55dba",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/RONCHESS.webp",
+      "sha256": "6186f98f1d47db74b393855c5b0348ba6010876da75b8bf9be7db3f3112e8fc0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ROYALEX.webp",
+      "sha256": "95b8f4f12ce1ce68c716c1ab76e065890aa45f5cd84e88be656409d18ef3ad93",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/RTBRISCOE.webp",
+      "sha256": "a64a007128a12c89e2bea18163d04f384aec942bd97ab15c2da24ccb6ca9a905",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SCOA.webp",
+      "sha256": "365c929f9731326cfbe7823a70b269aa0dae445586305dfd551fada431ed7a2e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SEPLAT.webp",
+      "sha256": "e8265278738025fd1a9cbd51a2c78e3c25035a42d12be6f16cc9adb7342b1b82",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SFSREIT.webp",
+      "sha256": "83dcdc3f700ad7f1c0fe7149eccd8d88df46b6d8526aadf1aa80ab7226dfdacf",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SKYAVN.webp",
+      "sha256": "220436b5698d8751e5332e0b1f68aaa002c121f964d797d276f66c4fd2d860fd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SMURFIT.webp",
+      "sha256": "763ce22d214ef52199f1c531b384e7ddb48accc163f234e7f4a61185d03b1251",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SOVRENINS.webp",
+      "sha256": "b28fe08d952c78e91f9cb691cd366d929587e0063e36c0849d21f5e49eb0e04f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/STACO.webp",
+      "sha256": "10426ced7794b780a45ba65935d013d8ea59eeefbd405f1ac7f38529f77747ca",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/STANBIC.webp",
+      "sha256": "48e77bf300482bd570d21d541c69a6069a1ccdfb0978c09f608a04de95b1cd19",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/STERLINGNG.webp",
+      "sha256": "7c8fbf9a386a9b5461cc2c133ff86e885c45437172c26f2badf96385e91d1048",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/SUNUASSUR.webp",
+      "sha256": "067202712a49251394a4175856a3e76281ab5d867e43237c534b9806a503a6fc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TANTALIZER.webp",
+      "sha256": "df8cf692eb1ab6317e9cf9b0a855b058327f6956679201b403c49fa1396f65fe",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/THE_INITIATES.webp",
+      "sha256": "3046efc2a39899a5438c7c04673a021315634ababb860fd75b92c2c72857d18a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/THOMASWY.webp",
+      "sha256": "1e5355be4e6fbb3735e8268b357b6c7211bce1015a0bb2113bf2eb5fa6675af8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TIP.webp",
+      "sha256": "ad9204ccbdd319c8c39234b72ded013a21f02f7e71b86d3a335dad7991dd8e62",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TOTAL.webp",
+      "sha256": "e1cfc4066e9d64c5be801516aef098e7560774251969c8bf4acdbe1978f70c40",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TRANSCOHOT.webp",
+      "sha256": "75587cc90b5949310f80538d6c0413e4d2ab6a97f5f4414878a61f4be8598c5f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TRANSCORP.webp",
+      "sha256": "00c9c4686e74448926ca67d51784ab38e0997d85a9a2d1b18599894bc006a43f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TRANSEXPR.webp",
+      "sha256": "a989ee71fbee5a83ccf6d2c92d4740432f27060dcd7bf38c3f2beb904aab2704",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TRANSPOWER.webp",
+      "sha256": "de88a63f60eeb52641467621b4b2775e3daef7c33dbb0eca9701fce6e3ed1970",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/TRIPPLEG.webp",
+      "sha256": "0ed8c7dde3091888a5275d18f2799f6a0e43f9ac82b0273e129098f1c9562e06",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UACN.webp",
+      "sha256": "5b6ec74b25e1cd5ddcb29a976795d60fff06913b901b329ce52ff94839ac9ac6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UBA.webp",
+      "sha256": "cf7966989b9dd2ac18f90496bc3166e79b3cf60b1d822b0bc2f8478584f505bb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UCAP.webp",
+      "sha256": "43dd57e3e7ef0ae06b2ec820de757296706561f5d5c89a2f9b2571d5fcbb3aec",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UHOMREIT.webp",
+      "sha256": "52bc66b94dc84403a29c723532d15e4971d08eb101d460cfa1b485e4290d595e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UNILEVER.webp",
+      "sha256": "440b8937a13da93a389ec9854d13bc131158f84c0386bdb8774f0a6847ed4ab1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UNIONDICON.webp",
+      "sha256": "e76b9b2967629500dcfb8c4422f4faa6a00da21ef0a081fbdda2c62b594bd2d9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UNITYBNK.webp",
+      "sha256": "3a6e4506a68c8f6b9a1414d03b747c377ac84e0c3291ed9aa26f938a6d68f155",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UNIVINSURE.webp",
+      "sha256": "ff65f990af248eb5dae374af60fbb90374ef3d6aeca4df0de7c26ac6747d7065",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UPDC.webp",
+      "sha256": "b10ef22e8763176e6a6e110444df302356c5720cd650ae97d2fd7224650f2c13",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/UPL.webp",
+      "sha256": "d9538cf39d26de03be4740c3668ebce7897b31fb887e3428ca36c670d8d8d7a1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/VANLEER.webp",
+      "sha256": "54baca26ce89a25687cd24cb2f9481fe560100d50850fb8496859614026c7c34",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/VERITASKAP.webp",
+      "sha256": "fd8564ae679c67a052a0ffe2b0fd1bd87c80c80d74d6b8435af3b127475630cb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/VFDGROUP.webp",
+      "sha256": "7d52e1992295d5fa3804ab42d906b3b90523ab05e87c0451be2c9eef24c92b12",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/VITAFOAM.webp",
+      "sha256": "39fa7516888c9a6b668228f75c1e5754bc04a64f423512df5372d13297a2aee3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/WAPCO.webp",
+      "sha256": "ef50a9f7e1dfef8ff6572f5e58dbb5171a668ac81d5d128e1ead40149c9f3a60",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/WAPIC.webp",
+      "sha256": "4fbc5be06d64d63400c13f66f54a3a1beffb29bbcded41ce971643d5f73d5164",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/WEMABANK.webp",
+      "sha256": "a2a1cc747006916d6868b3155fbbba236963bb8d5bcb324103fdab989b7e7d1e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ZENITHBANK.webp",
+      "sha256": "a42d0b4d760b91659cb261d9780885925fcd598a27111e100b9a38a1373d030a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-ngx/ZICHIS.webp",
+      "sha256": "9b080c1674607e3081842db03b56a8e6a00c5b4e67d99a012e7950d91503c27e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    }
+  ],
+  "failures": []
+}

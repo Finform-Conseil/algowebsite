@@ -1,6 +1,7 @@
 import React from "react";
 import clsx from "clsx";
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
+import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "@/core/data/brvm-logo-registry";
 import type { DisplaySecurity } from "../../../config/market/marketSnapshotTypes";
 import type { BRVMIndexData } from "../data/sidebarFetchers";
 
@@ -36,10 +37,10 @@ interface WatchlistPanelProps {
   security: DisplaySecurity;
   settings: WatchlistSettings;
   sidebarLastUpdateLabel: string;
-  sidebarMarketStatus: { isOpen: boolean; title: string };
-}
+  marketStatusLabel: string;}
 
 const SIDEBAR_BRAND_LOGO_SIZE = 32;
+const SIDEBAR_BRAND_LOGO_MARK_SIZE = 32;
 const SIDEBAR_BRAND_LOGO_SCALE = 1.72;
 const SIDEBAR_BRAND_LOGO_SCALE_BY_TICKER: Record<string, number> = {
   ORAC: 1.24,
@@ -65,6 +66,9 @@ const SIDEBAR_BRAND_LOGO_STYLE: React.CSSProperties = {
   width: SIDEBAR_BRAND_LOGO_SIZE,
   height: SIDEBAR_BRAND_LOGO_SIZE,
   flexBasis: SIDEBAR_BRAND_LOGO_SIZE,
+  background: "transparent",
+  border: "none",
+  overflow: "visible",
 };
 
 const SIDEBAR_BRAND_LOGO_FRAME_STYLE_BY_TICKER: Record<string, React.CSSProperties> = {
@@ -208,8 +212,16 @@ export const WatchlistPanel = React.memo(({
   security,
   settings,
   sidebarLastUpdateLabel,
-  sidebarMarketStatus,
-}: WatchlistPanelProps) => (
+  marketStatusLabel,
+}: WatchlistPanelProps) => {
+  const hasLiveChange = typeof liveChange === "number" && Number.isFinite(liveChange);
+  const hasLiveChangePercent = typeof liveChangePercent === "number" && Number.isFinite(liveChangePercent);
+  const changeColor = hasLiveChangePercent ? (liveChangePercent >= 0 ? "#22ab94" : "#f23645") : "#94a3b8";
+  const sidebarLogoUrl = security.logoUrl
+    ?? getBrvmLogoUrl(security.ticker)
+    ?? getBrvmLogoUrlByIssuerName(security.name);
+
+  return (
   <div className="gp-sidebar-section">
     <div className={clsx("gp-sidebar-header", "head", "pt-1 py-1")}>
       <span className="gp-sidebar-title" style={{ cursor: "pointer", userSelect: "none" }} onClick={onToggleIndices}>
@@ -249,36 +261,36 @@ export const WatchlistPanel = React.memo(({
           <div className="gp-brand-header-v3">
             {settings.showLogo && (
               <div className="gp-logo-v3" style={getSidebarBrandLogoStyle(security.ticker)}>
-                <BrvmLogoMark ticker={security.ticker} name={security.name} logoUrl={security.logoUrl} sector={security.sector} status={security.status} size={SIDEBAR_BRAND_LOGO_SIZE} scale={getSidebarBrandLogoScale(security.ticker)} shape={getSidebarBrandLogoShape(security.ticker)} imageSizes="96px" quality={100} unoptimized />
+                <BrvmLogoMark ticker={security.ticker} name={security.name} logoUrl={sidebarLogoUrl} sector={security.sector} status={security.status} size={SIDEBAR_BRAND_LOGO_MARK_SIZE} scale={1} shape="circle" imageSizes="96px" quality={100} unoptimized />
               </div>
             )}
             <div className="gp-ticker-meta-v3">
               {settings.showSymbol && <div className="gp-ticker-row-v3"><span className="gp-ticker-symbol-v3">{security.ticker}</span></div>}
               <div className="gp-company-info-v3">
                 {settings.showName && <div className="gp-company-name-v3">{security.name}</div>}
-                <span className="gp-exchange-badge-v3"> • BRVM</span>
+                <span className="gp-exchange-badge-v3"> • {security.exchange || "N/D"}</span>
               </div>
             </div>
           </div>
           <div className="gp-price-block-v3">
             <div className="gp-main-price-container">
               <div className="gp-price-row-primary">
-                {settings.showLast && <><span className="gp-main-price-v3">{livePrice.toFixed(2).replace(".", ",")}</span><span className="gp-currency-label-v3">{security.currency || "XOF"}</span></>}
+                {settings.showLast && <><span className="gp-main-price-v3">{Number.isFinite(livePrice) ? livePrice.toFixed(2).replace(".", ",") : "N/D"}</span><span className="gp-currency-label-v3">{security.currency || "N/D"}</span></>}
                 {(settings.showChange || settings.showChangePercent) && (
-                  <div className="gp-price-change-row-v3" style={{ color: isMarketPositive ? "#22ab94" : "#f23645" }}>
-                    {settings.showChange && <span>{isMarketPositive ? "+" : ""}{liveChange.toFixed(2).replace(".", ",")}</span>}
-                    {settings.showChangePercent && <span>({isMarketPositive ? "+" : ""}{liveChangePercent.toFixed(2)}%)</span>}
+                  <div className="gp-price-change-row-v3" style={{ color: changeColor }}>
+                    {settings.showChange && <span>{hasLiveChange ? (isMarketPositive ? "+" : "") + liveChange.toFixed(2).replace(".", ",") : "N/D"}</span>}
+                    {settings.showChangePercent && <span>{hasLiveChangePercent ? (liveChangePercent >= 0 ? "(" + "+" + liveChangePercent.toFixed(2) + "%)" : "(" + liveChangePercent.toFixed(2) + "%)") : "(N/D)"}</span>}
                   </div>
                 )}
               </div>
               <div className="price-timestamp-v3">Last update at {sidebarLastUpdateLabel} {displayTimeZoneLabel}</div>
             </div>
           </div>
-          <div className={clsx("gp-market-status-v3", !sidebarMarketStatus.isOpen && "closed")} title={sidebarMarketStatus.title}>
+          <div className="gp-market-status-v3" title={marketStatusLabel}>
             <div className="d-flex align-items-center gap-2">
               <div className="status-indicator-dot" />
-              <span className="status-text">{sidebarMarketStatus.isOpen ? "Market open" : "Market closed"}</span>
-              {settings.showVolume && <><span className="status-separator">•</span><span className="status-volume">Volume: {liveVolume == null ? "N/D" : liveVolume.toLocaleString("fr-FR")}</span></>}
+              <span className="status-text">{marketStatusLabel}</span>
+              {settings.showVolume && <><span className="status-separator">•</span><span className="status-volume">Volume: {typeof liveVolume === "number" && Number.isFinite(liveVolume) ? liveVolume.toLocaleString("fr-FR") : "N/D"}</span></>}
             </div>
           </div>
           <div className="gp-security-details-v3">
@@ -291,6 +303,7 @@ export const WatchlistPanel = React.memo(({
       )}
     </div>
   </div>
-));
+);
+});
 
 WatchlistPanel.displayName = "WatchlistPanel";

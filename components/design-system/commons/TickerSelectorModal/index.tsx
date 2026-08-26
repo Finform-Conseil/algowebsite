@@ -4,7 +4,7 @@
 // ================================================================================
 
 export { TickerSelectorProvider, useTickerSelector } from './context/TickerSelectorContext';
-export { TickerSelectorModal } from './TickerSelectorModal';
+export { TickerSelectorModal, actionToSelectedTicker } from './TickerSelectorModal';
 export { TickerBreadcrumbTrigger } from './TickerBreadcrumbTrigger';
 
 // Re-export types

@@ -6,12 +6,14 @@ import { escapeSidebarTooltipText } from "./sidebarChartOptions";
 
 export function buildIncomeChartOption({
   dataMode,
+  displayCurrency,
   echarts,
   fundamentals,
   incomeViewMode,
   ticker,
 }: {
   dataMode: "mock" | "real";
+  displayCurrency: string;
   echarts: SidebarEChartsRuntime;
   fundamentals: BRVMFundamentals | null;
   incomeViewMode: IncomeViewMode;
@@ -66,7 +68,7 @@ export function buildIncomeChartOption({
           const symbol = row.seriesType === "line" ? "○" : "●";
           const value = row.seriesType === "line"
             ? `<span style="color:#ff9800;">${row.value.toFixed(1)}%</span>`
-            : `<span style="color:#fff;">${row.value.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} M</span>`;
+            : `<span style="color:#fff;">${row.value.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} M ${displayCurrency}</span>`;
           html += `<div style="display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:4px;">
             <span style="color:#94a3b8;font-size:11px;"><span style="color:${row.color};margin-right:6px;">${symbol}</span>${escapeSidebarTooltipText(row.seriesName)}</span>
             <span style="font-weight:600;font-size:11px;">${value}</span>

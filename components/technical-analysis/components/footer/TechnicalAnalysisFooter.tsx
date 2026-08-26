@@ -12,6 +12,7 @@ interface TechnicalAnalysisFooterProps {
   chartFooterRef: React.Ref<HTMLDivElement>;
   selectedTimeRange: string;
   handleTimeRangeSelect: (range: string) => void;
+  isHistoricalDataUnavailable: boolean;
   setIsDatePickerModalOpen: (open: boolean) => void;
 }
 
@@ -39,6 +40,7 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
   chartFooterRef,
   selectedTimeRange,
   handleTimeRangeSelect,
+  isHistoricalDataUnavailable,
   setIsDatePickerModalOpen,
 }) => {
   const [{ time, marketStatus }, setClockState] = useState(createInitialFooterClockState);
@@ -64,9 +66,13 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
             <button
               key={range}
               type="button"
-              className={clsx("gp-time-range-btn", isActive && "active")}
+              className={clsx("gp-time-range-btn", isActive && "active", isHistoricalDataUnavailable && "disabled")}
               aria-pressed={isActive}
-              onClick={() => handleTimeRangeSelect(range)}
+              aria-disabled={isHistoricalDataUnavailable}
+              disabled={isHistoricalDataUnavailable}
+              onClick={() => {
+                if (!isHistoricalDataUnavailable) handleTimeRangeSelect(range);
+              }}
             >
               {range}
             </button>
@@ -74,10 +80,14 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
         })}
         <button
           type="button"
-          className={clsx("gp-toolbar-btn", "hover-lift")}
+          className={clsx("gp-toolbar-btn", "hover-lift", isHistoricalDataUnavailable && "disabled")}
           title="Plage de dates"
           aria-label="Ouvrir la selection de plage de dates"
-          onClick={() => setIsDatePickerModalOpen(true)}
+          aria-disabled={isHistoricalDataUnavailable}
+          disabled={isHistoricalDataUnavailable}
+          onClick={() => {
+            if (!isHistoricalDataUnavailable) setIsDatePickerModalOpen(true);
+          }}
         >
           <Calendar size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>

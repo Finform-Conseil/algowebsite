@@ -34,6 +34,16 @@ import type {
   DataAnomalyFlag,
 } from "../config/object-tree/objectTreeTypes";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import {
+  isAxisPointerPayload,
+  readPrimaryXAxisCategories,
+  resolveAxisPointerIndex,
+  resolvePixelPointerIndex,
+  type AxisCategories,
+  type ZrMouseMovePayload,
+} from "../lib/chart/pointerCandleIndex";
+
+export { resolveAxisPointerIndex, resolvePixelPointerIndex } from "../lib/chart/pointerCandleIndex";
 
 // ============================================================================
 // HELPERS — Formatters
@@ -85,77 +95,6 @@ const resolveChangeMetrics = (
     lastDayChange: change,
     lastDayChangePercent: changePercent,
   };
-};
-
-// ============================================================================
-// HELPERS — ECharts pointer index resolution
-// ============================================================================
-
-const resolveAxisPointerIndex = (
-  params: {
-    dataIndex?: number;
-    axesInfo?: Array<{ value?: string | number }>;
-  },
-  data: ChartDataPoint[],
-): number | null => {
-  if (Number.isInteger(params.dataIndex)) return params.dataIndex as number;
-  const rawValue = params.axesInfo?.find((axis) => axis.value !== undefined)?.value;
-  if (rawValue === undefined) return null;
-
-  const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
-  if (Number.isInteger(numericValue)) return numericValue;
-
-  const rawTime = String(rawValue);
-  const exactIndex = data.findIndex((candle) => candle.time === rawTime);
-  if (exactIndex !== -1) return exactIndex;
-
-  const rawTimestamp = new Date(rawTime).getTime();
-  if (!Number.isFinite(rawTimestamp)) return null;
-
-  const timestampIndex = data.findIndex(
-    (candle) => new Date(candle.time).getTime() === rawTimestamp,
-  );
-  return timestampIndex === -1 ? null : timestampIndex;
-};
-
-type AxisPointerPayload = {
-  dataIndex?: number;
-  axesInfo?: Array<{ value?: string | number }>;
-};
-
-const isAxisPointerPayload = (value: unknown): value is AxisPointerPayload =>
-  typeof value === "object" && value !== null;
-
-type ZrMouseMovePayload = {
-  offsetX?: number;
-  offsetY?: number;
-  event?: {
-    offsetX?: number;
-    offsetY?: number;
-  };
-};
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
-
-const resolveZrMousePoint = (payload: ZrMouseMovePayload): [number, number] | null => {
-  const offsetX = isFiniteNumber(payload.offsetX) ? payload.offsetX : payload.event?.offsetX;
-  const offsetY = isFiniteNumber(payload.offsetY) ? payload.offsetY : payload.event?.offsetY;
-  return isFiniteNumber(offsetX) && isFiniteNumber(offsetY) ? [offsetX, offsetY] : null;
-};
-
-const resolvePixelPointerIndex = (
-  chart: EChartsType,
-  payload: ZrMouseMovePayload,
-): number | null => {
-  const point = resolveZrMousePoint(payload);
-  if (!point) return null;
-  if (!chart.containPixel({ gridIndex: 0 }, point)) return null;
-
-  const pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, point);
-  const rawIndex = Array.isArray(pointInData) ? pointInData[0] : pointInData;
-  if (!isFiniteNumber(rawIndex)) return null;
-  return Math.round(rawIndex);
 };
 
 // ============================================================================
@@ -351,10 +290,11 @@ export const useObjectTreePanel = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return;
-
-    let rafId: number;
+    let boundChart: EChartsType | null = null;
+    let boundZr: ReturnType<EChartsType["getZr"]> | null = null;
+    let axisCategories: AxisCategories = [];
+    let rafId: number | null = null;
+    lastDataWindowIndexRef.current = null;
 
     const updateDataWindowAtIndex = (idx: number) => {
       const data = chartDataRef.current;
@@ -362,6 +302,8 @@ export const useObjectTreePanel = ({
 
       const candle = data[idx];
       if (!candle) return;
+      const chart = boundChart;
+      if (!chart || chart.isDisposed()) return;
 
       const isUp = candle.close >= candle.open;
       const changeMetrics = resolveChangeMetrics(data, idx, candle);
@@ -407,7 +349,7 @@ export const useObjectTreePanel = ({
       }
 
       // 2. High-Frequency Path: Direct DOM Manipulation via RAF (Zero-Lag)
-      cancelAnimationFrame(rafId);
+      if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const candleColor = isUp ? "#26a69a" : "#ef5350";
         const changeColor = changeMetrics.change >= 0 ? "#26a69a" : "#ef5350";
@@ -540,29 +482,54 @@ export const useObjectTreePanel = ({
       if (!isAxisPointerPayload(params)) return;
 
       const data = chartDataRef.current;
-      const idx = resolveAxisPointerIndex(params, data);
+      const idx = resolveAxisPointerIndex(params, data, axisCategories);
       if (idx !== null) updateDataWindowAtIndex(idx);
     };
 
     const handleCanvasMouseMove = (payload: ZrMouseMovePayload) => {
-      const idx = resolvePixelPointerIndex(chart, payload);
+      const chart = boundChart;
+      if (!chart || chart.isDisposed()) return;
+      const idx = resolvePixelPointerIndex(chart, payload, chartDataRef.current, axisCategories);
       if (idx !== null) updateDataWindowAtIndex(idx);
     };
 
-    // ECharts ne peut pas émettre updateAxisPointer si tooltip/axisPointer sont désactivés.
-    // Le fallback ZRender maintient le Data Window alimenté par le pixel souris réel.
-    chart.on("updateAxisPointer", handleAxisPointerMove);
-    const zr = chart.getZr();
-    zr.on("mousemove", handleCanvasMouseMove);
+    const unbindChart = () => {
+      if (boundChart && boundZr && !boundChart.isDisposed()) {
+        boundChart.off("updateAxisPointer", handleAxisPointerMove);
+        boundZr.off("mousemove", handleCanvasMouseMove);
+      }
+      boundChart = null;
+      boundZr = null;
+      axisCategories = [];
+    };
+
+    const syncChartBinding = () => {
+      const nextChart = chartInstanceRef.current;
+      if (!nextChart || nextChart.isDisposed()) {
+        unbindChart();
+        return;
+      }
+      if (nextChart === boundChart && boundZr) return;
+
+      unbindChart();
+      boundChart = nextChart;
+      boundZr = nextChart.getZr();
+      axisCategories = readPrimaryXAxisCategories(nextChart);
+      // ECharts ne peut pas émettre updateAxisPointer si tooltip/axisPointer sont désactivés.
+      // Le fallback ZRender maintient le Data Window alimenté par le pixel souris réel.
+      boundChart.on("updateAxisPointer", handleAxisPointerMove);
+      boundZr.on("mousemove", handleCanvasMouseMove);
+    };
+
+    syncChartBinding();
+    const bindingIntervalId = window.setInterval(syncChartBinding, 250);
 
     return () => {
-      cancelAnimationFrame(rafId);
-      if (!chart.isDisposed()) {
-        chart.off("updateAxisPointer", handleAxisPointerMove);
-        zr.off("mousemove", handleCanvasMouseMove);
-      }
+      window.clearInterval(bindingIntervalId);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      unbindChart();
     };
-  }, [isOpen, chartInstanceRef]);
+  }, [isOpen, chartData.length, chartInstanceRef]);
 
   return {
     isOpen,

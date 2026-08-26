@@ -10,8 +10,6 @@ import {
   setChartConfig,
   addComparisonSymbol,
   setSearchMode,
-  setAnonyme,
-  setSelectedPseudo,
   applyTemplate,
   setReplaySpeed,
 } from "../../../store/technicalAnalysisSlice";
@@ -22,10 +20,11 @@ import {
 } from "../../../store/selectors";
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { IndicatorObjectId } from "../../../config/object-tree/indicatorObjectVisibility";
+import type { IndicatorConfigurationTarget } from "../../../config/indicators/indicatorConfigurationTarget";
 import type { ChartDataPoint } from "../../../lib/Indicators/TechnicalIndicators";
-import { ANONYMOUS_PSEUDOS } from "../../../config/ui/anonymousPseudos";
 import { useModalOrchestrator } from "../../../hooks/useModalOrchestrator";
 import { BaseModal } from "../../common/primitives/BaseModal";
+import { SearchSymbolModal } from "../search-symbol/SearchSymbolModal";
 import {
   getPreloadedIndicatorsModalComponent,
   loadIndicatorsModalComponent,
@@ -155,10 +154,6 @@ const IndicatorsModalLoading = ({
 // ============================================================================
 // DYNAMIC IMPORTS (Code Splitting)
 // ============================================================================
-const SearchSymbolModal = dynamic(
-  () => import("../search-symbol/SearchSymbolModal").then((module) => module.SearchSymbolModal),
-  { ssr: false, loading: () => null }
-);
 const ReplayModal = dynamic(
   () => import("../replay/ReplayModal").then((module) => module.ReplayModal),
   { ssr: false, loading: () => null }
@@ -191,8 +186,8 @@ const DatePickerModal = dynamic(
   () => import("../date-picker/DatePickerModal").then((module) => module.DatePickerModal),
   { ssr: false, loading: () => null }
 );
-const PublishOptionsModal = dynamic(
-  () => import("../publish/PublishOptionsModal").then((module) => module.PublishOptionsModal),
+const ShareOptionsModal = dynamic(
+  () => import("../publish/PublishOptionsModal").then((module) => module.ShareOptionsModal),
   { ssr: false, loading: () => null }
 );
 
@@ -217,7 +212,7 @@ export interface ModalOrchestratorProps {
   startReplay: () => void;
   setChartData: React.Dispatch<React.SetStateAction<ChartDataPoint[]>>;
   onRevealObjectIds?: (objectIds: readonly IndicatorObjectId[]) => void;
-
+  onConfigureIndicator?: (target: IndicatorConfigurationTarget) => void;
 }
 
 // ============================================================================
@@ -231,6 +226,7 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   startReplay,
   setChartData,
   onRevealObjectIds,
+  onConfigureIndicator,
 }) => {
   const dispatch = useDispatch();
   const { savedAnalysesList, handleLoadAnalysis, handleDeleteAnalysis, openLoadModal } = useModalOrchestrator(setChartData);
@@ -241,7 +237,6 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   const uiState = useSelector(selectUiState);
   const replaySpeed = uiState.replay.speed;
   const searchMode = uiState.searchMode;
-  const [isPublishPseudoDropdownOpen, setIsPublishPseudoDropdownOpen] = useState(false);
   const indicatorsModalScrollTopRef = useRef(0);
   const indicatorsModalLoadRequestRef = useRef(0);
   const [LoadedIndicatorsModal, setLoadedIndicatorsModal] = useState<IndicatorsModalComponent | null>(() => getPreloadedIndicatorsModalComponent());
@@ -408,6 +403,7 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
             initialScrollTop={indicatorsModalScrollTopRef.current || readStoredIndicatorsModalScrollTop()}
             onScrollPositionChange={rememberIndicatorsModalScrollTop}
             onRevealObjectIds={onRevealObjectIds}
+            onConfigureIndicator={onConfigureIndicator}
           />
         ) : (
           <IndicatorsModalLoading
@@ -493,16 +489,12 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
       )}
 
       {modals.publish && (
-        <PublishOptionsModal
+        <ShareOptionsModal
           isOpen={modals.publish}
           onClose={() => closeModal("publish")}
-          isAnonyme={uiState.isAnonyme}
-          setIsAnonyme={(value) => dispatch(setAnonyme(value))}
-          selectedPseudo={uiState.selectedPseudo}
-          isPseudoDropdownOpen={isPublishPseudoDropdownOpen}
-          setIsPseudoDropdownOpen={setIsPublishPseudoDropdownOpen}
-          setSelectedPseudo={(value) => dispatch(setSelectedPseudo(value))}
-          ANONYMOUS_PSEUDOS={[...ANONYMOUS_PSEUDOS]}
+          symbol={chartConfig.symbol}
+          timeframe={String(chartConfig.timeframe)}
+          market={uiState.activeMarket}
         />
       )}
     </>

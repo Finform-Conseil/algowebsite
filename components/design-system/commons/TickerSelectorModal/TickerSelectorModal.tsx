@@ -1,12 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from "react";
+import { useSelector } from "react-redux";
+import { useAppDispatch } from "@/core/infra/store/hooks";
 import { createPortal } from "react-dom";
 import { BRVMSecurity, SECTOR_COLORS } from "@/core/data/brvm-securities";
 import type { ActionEntity } from "@/core/domain/entities/action.entity";
+import type { PaginatedResponse } from "@/core/domain/types/pagination.type";
 import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
 import { useTickerSelector } from "./context/TickerSelectorContext";
+import { selectActiveMarket, selectUiState } from "@/components/technical-analysis/store/selectors";
+import { setActiveMarket, updateLayoutChart } from "@/components/technical-analysis/store/technicalAnalysisSlice";
+import { writePersistedMarketPreference } from "@/components/technical-analysis/hooks/MarketData/marketPreferencePersistence";
+import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
+import {
+  BACKGROUND_PREFETCH_CONCURRENCY,
+  getSpeculativeCatalogPages,
+  readPersistedTickerCatalog,
+  writePersistedTickerCatalog,
+  type PersistedTickerCatalogSecurity,
+  type PersistedTickerCatalogSnapshot,
+} from "./context/tickerCatalogPersistence";
 
 // ============================================================================
 // [TENOR 2026 SRE] ZERO-LAG TICKER SELECTOR MODAL
@@ -69,7 +84,74 @@ type SelectorSecurity = Omit<
   epsT12M?: number | null;
 };
 
+const SELECTOR_SECTORS: readonly SelectorSecurity["sector"][] = [
+  "Banking",
+  "Telecom",
+  "Energy",
+  "Industry",
+  "Distribution",
+  "Market Indices",
+  "Delisted",
+  "Other",
+];
+
+const restorePersistedCatalog = (
+  snapshot: PersistedTickerCatalogSnapshot,
+): SelectorSecurity[] => snapshot.securities.map((security) => ({
+  ...security,
+  sector: SELECTOR_SECTORS.includes(security.sector as SelectorSecurity["sector"])
+    ? security.sector as SelectorSecurity["sector"]
+    : "Other",
+  status: security.status === "delisted" ? "delisted" : "active",
+}));
+
+const normalizeOptionalString = (value: string | null | undefined): string | undefined => {
+  const normalized = value?.trim();
+  return normalized || undefined;
+};
+
+const toPersistedCatalog = (
+  securities: readonly SelectorSecurity[],
+): PersistedTickerCatalogSecurity[] => securities.map((security) => {
+  const {
+    logoUrl: rawLogoUrl,
+    isin: rawIsin,
+    exchange: rawExchange,
+    ...baseSecurity
+  } = security;
+  const logoUrl = normalizeOptionalString(rawLogoUrl);
+  const isin = normalizeOptionalString(rawIsin);
+  const exchange = normalizeOptionalString(rawExchange);
+
+  return {
+    ...baseSecurity,
+    ...(logoUrl ? { logoUrl } : {}),
+    ...(isin ? { isin } : {}),
+    ...(exchange ? { exchange } : {}),
+    status: security.status === "delisted" ? "delisted" : "active",
+    marketCap: security.marketCap ?? null,
+    priceChangeD1: security.priceChangeD1 ?? null,
+    peRatio: security.peRatio ?? null,
+    returnYTD: security.returnYTD ?? null,
+    revenueT12M: security.revenueT12M ?? null,
+    epsT12M: security.epsT12M ?? null,
+  };
+});
+
 const normalizeSearch = (value: unknown) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+
+const CATALOG_REVALIDATION_WINDOW_MS = 30_000;
+const INITIAL_EAGER_LOGO_COUNT = 8;
+
+const toSelectedTicker = (security: SelectorSecurity): BRVMSecurity => ({
+  ...security,
+  marketCap: security.marketCap ?? Number.NaN,
+  priceChangeD1: security.priceChangeD1 ?? Number.NaN,
+  peRatio: security.peRatio ?? Number.NaN,
+  returnYTD: security.returnYTD ?? Number.NaN,
+  revenueT12M: security.revenueT12M ?? Number.NaN,
+  epsT12M: security.epsT12M ?? Number.NaN,
+});
 
 const toSelectorSector = (action: ActionEntity): SelectorSecurity["sector"] => {
   const value = normalizeSearch(
@@ -91,11 +173,11 @@ const toSelectorSector = (action: ActionEntity): SelectorSecurity["sector"] => {
   return "Other";
 };
 
-const isBrvmAction = (action: ActionEntity | null | undefined): action is ActionEntity => {
+const isActionInMarket = (action: ActionEntity | null | undefined, marketTicker: string): action is ActionEntity => {
   if (!action || typeof action !== "object") return false;
-  const exchangeTicker = String(action.bourse?.ticker ?? "").trim().toUpperCase();
-  const exchangeName = String(action.bourse?.name ?? "").trim().toUpperCase();
-  return exchangeTicker.includes("BRVM") || exchangeName.includes("BRVM");
+  const normalizedMarketTicker = normalizeSearch(marketTicker);
+  return Boolean(normalizedMarketTicker)
+    && normalizeSearch(action.bourse?.ticker) === normalizedMarketTicker;
 };
 
 const toSelectorSecurity = (action: ActionEntity): SelectorSecurity | null => {
@@ -113,10 +195,33 @@ const toSelectorSecurity = (action: ActionEntity): SelectorSecurity | null => {
     epsT12M: null,
     country: action.society?.country?.name || "UEMOA",
     isin: action.isin,
-    exchange: action.bourse?.ticker || "BRVM",
-    currency: action.bourse?.currency?.symbol === "XAF" ? "XAF" : "XOF",
-    status: "active"
+    exchange: String(action.bourse?.ticker ?? "N/D").trim().toUpperCase(),
+    currency: String(action.bourse?.currency?.symbol ?? "N/D").trim().toUpperCase(),
+    status: "active",
+    logoUrl: getMarketLogoUrl(action.bourse?.ticker, ticker, String(action.society?.name ?? "")),
   };
+};
+
+const selectSecuritiesForMarket = (
+  actions: readonly ActionEntity[] | null | undefined,
+  marketTicker: string,
+): SelectorSecurity[] => {
+  if (!Array.isArray(actions) || !normalizeSearch(marketTicker)) return [];
+
+  const uniqueByTicker = new Map<string, SelectorSecurity>();
+  actions.forEach((action) => {
+    if (!isActionInMarket(action, marketTicker)) return;
+    const security = toSelectorSecurity(action);
+    if (security && !uniqueByTicker.has(security.ticker)) {
+      uniqueByTicker.set(security.ticker, security);
+    }
+  });
+  return Array.from(uniqueByTicker.values());
+};
+
+export const actionToSelectedTicker = (action: ActionEntity): BRVMSecurity | null => {
+  const security = toSelectorSecurity(action);
+  return security ? toSelectedTicker(security) : null;
 };
 
 // --- TYPES ---
@@ -129,13 +234,14 @@ type FlattenedItem =
 // ============================================================================
 interface TickerRowProps {
   item: SelectorSecurity;
+  globalIndex: number;
   isActive: boolean;
   query: string;
   onSelect: (ticker: string) => void;
   onHover: (ticker: string) => void;
 }
 
-const TickerRow = React.memo(({ item, isActive, query, onSelect, onHover }: TickerRowProps) => {
+const TickerRow = React.memo(({ item, globalIndex, isActive, query, onSelect, onHover }: TickerRowProps) => {
   const rowRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll into view when navigated via keyboard
@@ -162,10 +268,12 @@ const TickerRow = React.memo(({ item, isActive, query, onSelect, onHover }: Tick
         ticker={item.ticker}
         name={item.name}
         logoUrl={item.logoUrl}
+        exchange={item.exchange}
         sector={item.sector}
         status={item.status}
         size={38}
         imageSizes="38px"
+        loading={globalIndex < INITIAL_EAGER_LOGO_COUNT ? "eager" : "lazy"}
       />
 
       <div className="tsm-info">
@@ -195,80 +303,506 @@ TickerRow.displayName = "TickerRow";
 // MAIN MODAL COMPONENT
 // ============================================================================
 export const TickerSelectorModal: React.FC = () => {
-  const { isModalOpen, closeModal, selectByTicker } = useTickerSelector();
-  const { getAllActions } = useActionRepository();
+  const {
+    isModalOpen,
+    closeModal,
+    selectedTicker,
+    setSelectedTicker,
+    preferredTicker,
+    pendingMarket,
+    pendingLayoutChartId,
+    isLoading: isTickerSelectorLoading,
+  } = useTickerSelector();
+  const dispatch = useAppDispatch();
+  const { getActionByTicker, getAllActions } = useActionRepository();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  const activeMarket = useSelector(selectActiveMarket);
+  const uiState = useSelector(selectUiState);
+  const isMultiChartSelection = uiState.multiChartLayout.isEnabled
+    && uiState.multiChartLayout.charts.length > 1;
+  const catalogMarketTicker = (pendingMarket?.ticker ?? activeMarket.ticker).trim().toUpperCase();
+
 
   const [searchQuery, setSearchQuery] = useState("");
   const deferredQuery = useDeferredValue(searchQuery);
   const [activeTicker, setActiveTicker] = useState<string | null>(null);
   const [apiSecurities, setApiSecurities] = useState<SelectorSecurity[] | null>(null);
-  const [sourceState, setSourceState] = useState<"loading" | "api" | "api_empty" | "api_error">("loading");
+  const [sourceState, setSourceState] = useState<"loading" | "api" | "api_empty" | "api_error" | "api_stale">("loading");
   const [isLoadingSecurities, setIsLoadingSecurities] = useState(false);
-  
+  const [isRevalidating, setIsRevalidating] = useState(false);
+  const [isPrefetching, setIsPrefetching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [apiTotalCount, setApiTotalCount] = useState<number | null>(null);
+  const apiSecuritiesRef = useRef<SelectorSecurity[]>([]);
+  const apiPagesRef = useRef(new Map<number, SelectorSecurity[]>());
+  const totalPagesRef = useRef(1);
+  const catalogExactRef = useRef(false);
+  const catalogGenerationRef = useRef(0);
+  const lastCatalogRevalidatedAtRef = useRef(0);
+  const didCompleteInitialTickerResolutionRef = useRef(false);
+  const catalogMarketRef = useRef(catalogMarketTicker);
+  const isCatalogSynchronized = catalogMarketRef.current === catalogMarketTicker;
+
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const loadingPageRef = useRef(false);
+  const loadCatalogPageRef = useRef<((page: number) => Promise<boolean>) | null>(null);
+  const preservedCatalogRef = useRef<SelectorSecurity[] | null>(null);
+
+  const loadNextPage = useCallback(async () => {
+    if (loadingPageRef.current || isLoadingSecurities || !apiPagesRef.current.has(1)) return;
+    const requestGeneration = catalogGenerationRef.current;
+    const requestMarket = catalogMarketTicker;
+    const isCurrentCatalog = () => catalogGenerationRef.current === requestGeneration
+      && catalogMarketRef.current === requestMarket;
+
+    const loadedPages = new Set(apiPagesRef.current.keys());
+    const nextPage = Array.from(
+      { length: totalPagesRef.current },
+      (_, index) => index + 1,
+    ).find((page) => !loadedPages.has(page));
+
+    if (!nextPage) {
+      if (isCurrentCatalog()) setIsLoadingMore(false);
+      return;
+    }
+
+    const loadPage = loadCatalogPageRef.current;
+    if (!loadPage) return;
+
+    loadingPageRef.current = true;
+    if (isCurrentCatalog()) setIsLoadingMore(true);
+    try {
+      await loadPage(nextPage);
+    } finally {
+      loadingPageRef.current = false;
+      if (isCurrentCatalog()) setIsLoadingMore(false);
+    }
+  }, [catalogMarketTicker, isLoadingSecurities]);
+
+  const handleListScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    if (element.scrollHeight - element.scrollTop - element.clientHeight < 80) void loadNextPage();
+  }, [loadNextPage]);
 
   // Reset state on open
   useEffect(() => {
-    if (isModalOpen) {
-      setSearchQuery("");
-      setActiveTicker(null);
-      // Focus input after a tiny delay to allow CSS transition
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (!isModalOpen) return;
+    setSearchQuery("");
+    setActiveTicker(null);
+    const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(focusTimer);
   }, [isModalOpen]);
 
   useEffect(() => {
     if (!isModalOpen) return;
+
+    const loadGeneration = catalogGenerationRef.current + 1;
+    catalogGenerationRef.current = loadGeneration;
     let cancelled = false;
-    setIsLoadingSecurities(true);
-    setApiSecurities(null);
-    setSourceState("loading");
+    const isCurrentLoad = () => !cancelled
+      && catalogGenerationRef.current === loadGeneration
+      && catalogMarketRef.current === catalogMarketTicker;
 
-    const loadApiSecurities = async () => {
-      try {
-        const firstPage = await getAllActions({ page: 1, page_size: 100 });
-        const totalPages = Math.max(1, firstPage.total_pages || 1);
-        const pageResults = totalPages > 1
-          ? await Promise.allSettled(
-              Array.from({ length: totalPages - 1 }, (_, index) =>
-                getAllActions({ page: index + 2, page_size: 100 })
-              )
-            )
-          : [];
-        if (cancelled) return;
+    const catalogMatchesMarket = catalogMarketRef.current === catalogMarketTicker;
+    loadingPageRef.current = false;
+    if (!catalogMatchesMarket) {
+      apiPagesRef.current.clear();
+      apiSecuritiesRef.current = [];
+      preservedCatalogRef.current = null;
+      catalogExactRef.current = false;
+      setApiTotalCount(null);
+      catalogMarketRef.current = catalogMarketTicker;
+    }
+    let previousCatalog = catalogMatchesMarket ? apiSecuritiesRef.current : [];
+    let hasCachedCatalog = previousCatalog.length > 0;
+    let cacheAge = Date.now() - lastCatalogRevalidatedAtRef.current;
+    let shouldRevalidate = isModalOpen
+      && catalogExactRef.current
+      && hasCachedCatalog
+      && cacheAge >= CATALOG_REVALIDATION_WINDOW_MS;
 
-        const pages = [
-          firstPage,
-          ...pageResults.flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
-        ];
-        const unique = new Map<string, SelectorSecurity>();
-        pages
-          .flatMap((page) => Array.isArray(page.data) ? page.data : [])
-          .filter(isBrvmAction)
-          .forEach((action) => {
-            const security = toSelectorSecurity(action);
-            if (security && !unique.has(security.ticker)) unique.set(security.ticker, security);
-          });
+    setApiSecurities(hasCachedCatalog ? previousCatalog : null);
+    setSourceState(hasCachedCatalog ? "api" : "loading");
+    setIsLoadingSecurities(!hasCachedCatalog);
+    setIsRevalidating(shouldRevalidate);
+    setIsPrefetching(false);
+    setIsLoadingMore(false);
 
-        const securities = Array.from(unique.values());
-        setApiSecurities(securities);
-        setSourceState(securities.length > 0 ? "api" : "api_empty");
-      } catch {
-        if (!cancelled) {
-          setApiSecurities([]);
-          setSourceState("api_error");
+    const rebuildCatalog = () => {
+      const orderedPages = Array.from(apiPagesRef.current.entries())
+        .sort(([left], [right]) => left - right)
+        .flatMap(([, page]) => page);
+      const uniqueByTicker = new Map<string, SelectorSecurity>();
+      orderedPages.forEach((security) => {
+        const ticker = normalizeSearch(security.ticker);
+        if (ticker && !uniqueByTicker.has(ticker)) uniqueByTicker.set(ticker, security);
+      });
+      return Array.from(uniqueByTicker.values());
+    };
+
+    const publishPage = (page: number, response: PaginatedResponse<ActionEntity>) => {
+      if (!isCurrentLoad()) return;
+      if (Number.isFinite(response.total_pages)) totalPagesRef.current = Math.max(1, response.total_pages);
+      const pageData = selectSecuritiesForMarket(response.data, catalogMarketTicker);
+      apiPagesRef.current.set(page, pageData);
+      const nextCatalog = rebuildCatalog();
+      const visibleCatalog = preservedCatalogRef.current ?? nextCatalog;
+      apiSecuritiesRef.current = visibleCatalog;
+      setApiSecurities(visibleCatalog);
+      setIsLoadingSecurities(false);
+      setSourceState(visibleCatalog.length > 0 ? "api" : "api_empty");
+      if (!catalogExactRef.current && visibleCatalog.length > 0) {
+        void writePersistedTickerCatalog(
+          catalogMarketTicker,
+          toPersistedCatalog(visibleCatalog),
+          visibleCatalog.length,
+          false,
+        );
+      }
+    };
+
+    const retryDelaysMs = [250, 500];
+
+    const waitBeforeRetry = (attempt: number) => new Promise<void>((resolve) => {
+      window.setTimeout(resolve, retryDelaysMs[attempt] ?? retryDelaysMs[retryDelaysMs.length - 1]);
+    });
+
+    const pendingPageRequests = new Map<
+      number,
+      Promise<{ ok: boolean; response: PaginatedResponse<ActionEntity> | null }>
+    >();
+
+    const fetchPage = (page: number, forceRefetch: boolean) => {
+      const existingRequest = pendingPageRequests.get(page);
+      if (existingRequest) return existingRequest;
+
+      const request = (async () => {
+        for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+          if (!isCurrentLoad()) return { ok: false, response: null };
+
+          try {
+            const response = await getAllActions(
+              { bourse: catalogMarketTicker, page, page_size: 100 },
+              forceRefetch ? { forceRefetch: true } : undefined,
+            );
+            if (!isCurrentLoad()) return { ok: false, response: null };
+            publishPage(page, response);
+            return { ok: true, response };
+          } catch (error) {
+            if (attempt === retryDelaysMs.length) {
+              console.warn("[TickerSelector] API catalog page failed", { page, error });
+              return { ok: false, response: null };
+            }
+            await waitBeforeRetry(attempt);
+          }
         }
+
+        return { ok: false, response: null };
+      })();
+
+      pendingPageRequests.set(page, request);
+      void request.then(
+        () => {
+          if (pendingPageRequests.get(page) === request) pendingPageRequests.delete(page);
+        },
+        () => {
+          if (pendingPageRequests.get(page) === request) pendingPageRequests.delete(page);
+        },
+      );
+      return request;
+    };
+
+    loadCatalogPageRef.current = (page) => fetchPage(page, false).then((result) => result.ok);
+
+    const prefetchPages = async (pages: number[], forceRefetch: boolean) => {
+      const results: Array<{ ok: boolean; response: PaginatedResponse<ActionEntity> | null }> = [];
+      let nextIndex = 0;
+
+      const worker = async () => {
+        while (isCurrentLoad()) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          if (currentIndex >= pages.length) return;
+          results[currentIndex] = await fetchPage(pages[currentIndex], forceRefetch);
+        }
+      };
+
+      const workerCount = Math.min(BACKGROUND_PREFETCH_CONCURRENCY, pages.length);
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      return results;
+    };
+    const loadApiSecurities = async () => {
+      const hydratePersistedCatalog = async (): Promise<void> => {
+        if (hasCachedCatalog) return;
+        const snapshot = await readPersistedTickerCatalog(catalogMarketTicker);
+        if (!isCurrentLoad() || !snapshot) return;
+
+        const restoredCatalog = restorePersistedCatalog(snapshot);
+        if (restoredCatalog.length === 0) return;
+
+        const snapshotIsExact = snapshot.complete !== false;
+        apiPagesRef.current.clear();
+        catalogMarketRef.current = catalogMarketTicker;
+        totalPagesRef.current = 1;
+        catalogExactRef.current = snapshotIsExact;
+        lastCatalogRevalidatedAtRef.current = snapshot.updatedAt;
+        apiSecuritiesRef.current = restoredCatalog;
+        preservedCatalogRef.current = restoredCatalog;
+        previousCatalog = restoredCatalog;
+        hasCachedCatalog = true;
+        cacheAge = Math.max(0, Date.now() - snapshot.updatedAt);
+        shouldRevalidate = cacheAge >= CATALOG_REVALIDATION_WINDOW_MS;
+        setApiSecurities(restoredCatalog);
+        setApiTotalCount(snapshotIsExact ? snapshot.totalCount : null);
+        setSourceState("api");
+        setIsLoadingSecurities(false);
+      };
+
+      let backgroundCompletionStarted = false;
+
+      const publishExactCatalogIfComplete = (): boolean => {
+        if (!isCurrentLoad()) return false;
+        const expectedPages = totalPagesRef.current;
+        const allPagesLoaded = Array.from(
+          { length: expectedPages },
+          (_, index) => index + 1,
+        ).every((page) => apiPagesRef.current.has(page));
+        if (!allPagesLoaded) return false;
+
+        const exactCatalog = rebuildCatalog();
+        apiSecuritiesRef.current = exactCatalog;
+        setApiSecurities(exactCatalog);
+        setApiTotalCount(exactCatalog.length);
+        catalogExactRef.current = true;
+        preservedCatalogRef.current = null;
+        lastCatalogRevalidatedAtRef.current = Date.now();
+        void writePersistedTickerCatalog(
+          catalogMarketTicker,
+          toPersistedCatalog(exactCatalog),
+          exactCatalog.length,
+          true,
+        );
+        return true;
+      };
+
+      const prefetchRemainingCatalogPages = async (forceRefetch: boolean): Promise<boolean> => {
+        for (let round = 0; round < 4 && !cancelled; round += 1) {
+          const pagesToLoad = Array.from(
+            { length: totalPagesRef.current },
+            (_, index) => index + 1,
+          ).filter((page) => !apiPagesRef.current.has(page));
+          if (pagesToLoad.length === 0) return publishExactCatalogIfComplete();
+
+          const results = await prefetchPages(pagesToLoad, forceRefetch);
+          if (!isCurrentLoad()) return false;
+          const allPagesReported = results.length === pagesToLoad.length;
+          const hasFailedPage = results.some((result) => !result.ok);
+          if ((!allPagesReported || hasFailedPage) && round === 3) return false;
+          if (publishExactCatalogIfComplete()) return true;
+        }
+        return false;
+      };
+
+      const scheduleBackgroundCompletion = (
+        speculativePrefetch: Promise<Array<{ ok: boolean; response: PaginatedResponse<ActionEntity> | null }>>,
+        forceRefetch: boolean,
+      ) => {
+        backgroundCompletionStarted = true;
+        setIsPrefetching(true);
+        void speculativePrefetch
+          .then(async () => {
+            if (!isCurrentLoad()) return false;
+            for (const page of apiPagesRef.current.keys()) {
+              if (page > totalPagesRef.current) apiPagesRef.current.delete(page);
+            }
+            if (publishExactCatalogIfComplete()) return true;
+            return prefetchRemainingCatalogPages(forceRefetch);
+          })
+          .then((exactCatalogPublished) => {
+            if (!isCurrentLoad()) return;
+            const hasCatalog = apiSecuritiesRef.current.length > 0;
+            setSourceState(exactCatalogPublished
+              ? "api"
+              : hasCatalog ? "api_stale" : "api_error");
+          })
+          .catch((error) => {
+            if (!isCurrentLoad()) return;
+            console.warn("[TickerSelector] Background catalog completion failed", {
+              market: catalogMarketTicker,
+              error,
+            });
+            setSourceState(apiSecuritiesRef.current.length > 0 ? "api_stale" : "api_error");
+          })
+          .finally(() => {
+            if (isCurrentLoad()) setIsPrefetching(false);
+          });
+      };
+
+      try {
+        await hydratePersistedCatalog();
+        if (!isCurrentLoad()) return;
+
+        if (hasCachedCatalog && catalogExactRef.current && !shouldRevalidate) {
+          setIsLoadingSecurities(false);
+          setIsRevalidating(false);
+          return;
+        }
+
+        preservedCatalogRef.current = shouldRevalidate && hasCachedCatalog
+          ? previousCatalog
+          : preservedCatalogRef.current;
+        const firstResult = await fetchPage(1, shouldRevalidate);
+        if (!isCurrentLoad()) return;
+
+        if (!firstResult.ok) {
+          setIsLoadingSecurities(false);
+          return;
+        }
+
+        const totalPages = Math.max(
+          1,
+          firstResult.response?.total_pages
+            ?? Math.max(1, ...Array.from(apiPagesRef.current.keys())),
+        );
+        totalPagesRef.current = totalPages;
+        const speculativePages = getSpeculativeCatalogPages(totalPages);
+        const speculativePrefetch = prefetchPages(speculativePages, shouldRevalidate);
+        preservedCatalogRef.current = shouldRevalidate && hasCachedCatalog
+          ? previousCatalog
+          : preservedCatalogRef.current;
+        for (const page of apiPagesRef.current.keys()) {
+          if (page > totalPages) apiPagesRef.current.delete(page);
+        }
+
+        const visibleCatalog = preservedCatalogRef.current ?? rebuildCatalog();
+        const catalogAvailable = visibleCatalog.length > 0;
+        apiSecuritiesRef.current = visibleCatalog;
+        setApiSecurities(visibleCatalog);
+        setIsLoadingSecurities(false);
+        setSourceState(catalogAvailable ? "api" : "api_empty");
+        scheduleBackgroundCompletion(speculativePrefetch, shouldRevalidate);
       } finally {
-        if (!cancelled) setIsLoadingSecurities(false);
+        if (isCurrentLoad()) {
+          setIsRevalidating(false);
+          if (!backgroundCompletionStarted) setIsPrefetching(false);
+        }
       }
     };
 
     void loadApiSecurities();
-    return () => { cancelled = true; };
-  }, [getAllActions, isModalOpen]);
+    return () => {
+      cancelled = true;
+      loadCatalogPageRef.current = null;
+      pendingPageRequests.clear();
+    };
+  }, [catalogMarketTicker, getAllActions, isModalOpen]);
 
-  const searchCatalog = apiSecurities ?? [];
+  useEffect(() => {
+    if (
+      didCompleteInitialTickerResolutionRef.current
+      || isModalOpen
+      || pendingMarket
+      || selectedTicker
+      || isTickerSelectorLoading
+    ) return;
+
+    // The bootstrap is complete only after a real API-backed ticker has been
+    // resolved. The previous implementation marked it complete before awaiting
+    // the API. If React then cleaned up the effect (market/preference hydration)
+    // or the first cold request failed, selectedTicker stayed null forever and
+    // the page remained behind its loading skeleton.
+    let cancelled = false;
+    const resolveInitialTicker = async () => {
+      const retryDelaysMs = [0, 1500] as const;
+      let lastError: unknown = null;
+
+      for (const retryDelayMs of retryDelaysMs) {
+        if (cancelled) return;
+        if (retryDelayMs > 0) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, retryDelayMs));
+          if (cancelled) return;
+        }
+
+        try {
+          // RTK Query owns the finite transport timeout (35s by default). This
+          // layer retries only a failed bootstrap and never races/aborts a valid
+          // slow cold-start response with a second competing timeout.
+          const action = await (async () => {
+            let preferredLookupError: unknown = null;
+            if (preferredTicker) {
+              try {
+                const preferredAction = await getActionByTicker(preferredTicker);
+                // A ticker chosen in a secondary multi-layout panel can belong to
+                // CSE/NGX/etc. while the workspace market remains BRVM. Such a
+                // persisted preference must never poison the next page bootstrap.
+                if (preferredAction && isActionInMarket(preferredAction, activeMarket.ticker)) {
+                  return preferredAction;
+                }
+              } catch (error) {
+                // A stale/unavailable preferred ticker is not fatal: the active
+                // market catalogue is the authoritative fallback for bootstrap.
+                preferredLookupError = error;
+              }
+            }
+
+            const fallbackResponse = await getAllActions({ page: 1, page_size: 100 });
+            const fallbackAction = fallbackResponse?.data?.find(
+              (candidate) => isActionInMarket(candidate, activeMarket.ticker),
+            ) ?? null;
+            if (!fallbackAction && preferredLookupError) throw preferredLookupError;
+            return fallbackAction;
+          })();
+
+          if (cancelled) return;
+          if (!action || !isActionInMarket(action, activeMarket.ticker)) {
+            lastError = new Error(`No API ticker available for market ${activeMarket.ticker}.`);
+            continue;
+          }
+          const ticker = actionToSelectedTicker(action);
+          if (!ticker || cancelled) return;
+
+          didCompleteInitialTickerResolutionRef.current = true;
+          setSelectedTicker(ticker);
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!cancelled && lastError) {
+        console.warn("[TickerSelector] Initial API ticker resolution failed after retry", lastError);
+      }
+    };
+
+    void resolveInitialTicker();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMarket.ticker, getActionByTicker, getAllActions, isModalOpen, isTickerSelectorLoading, pendingMarket, preferredTicker, selectedTicker, setSelectedTicker]);
+
+  const searchCatalog = useMemo(
+    () => (isCatalogSynchronized ? apiSecurities ?? [] : []),
+    [apiSecurities, isCatalogSynchronized],
+  );
+  const isCatalogLoading = isLoadingSecurities || !isCatalogSynchronized;
+  const catalogCountLabel = apiTotalCount === null
+    ? searchCatalog.length > 0 ? String(searchCatalog.length) + "+" : "…"
+    : String(apiTotalCount);
+
+  useEffect(() => {
+    if (pendingMarket || selectedTicker || searchCatalog.length === 0) return;
+    const preferred = preferredTicker
+      ? searchCatalog.find((security) => security.ticker === preferredTicker)
+      : undefined;
+    const firstApiSecurity = preferred ?? searchCatalog[0];
+    setSelectedTicker(toSelectedTicker(firstApiSecurity));
+  }, [pendingMarket, preferredTicker, searchCatalog, selectedTicker, setSelectedTicker]);
 
   // --- FILTERING & GROUPING (Background Thread via useDeferredValue) ---
   const { flattenedList, selectableTickers, totalCount } = useMemo(() => {
@@ -334,10 +868,43 @@ export const TickerSelectorModal: React.FC = () => {
 
   // --- HANDLERS ---
   const handleSelect = useCallback((ticker: string) => {
-    if (selectByTicker(ticker)) {
+    const security = searchCatalog.find((item) => item.ticker === ticker);
+    if (!security) return;
+
+    const selectedSecurity = toSelectedTicker(security);
+    if (pendingLayoutChartId && isMultiChartSelection) {
+      const exchange = String(security.exchange ?? pendingMarket?.ticker ?? catalogMarketTicker)
+        .trim()
+        .toUpperCase();
+      if (!exchange) return;
+
+      // A layout edit is not a global ticker selection. Bind the chosen symbol
+      // directly to its target cell and keep the currently active chart intact.
+      dispatch(updateLayoutChart({
+        chartId: pendingLayoutChartId,
+        symbol: selectedSecurity.ticker,
+        exchange,
+      }));
       closeModal();
+      return;
     }
-  }, [selectByTicker, closeModal]);
+
+    if (pendingMarket && !isMultiChartSelection) {
+      dispatch(setActiveMarket(pendingMarket));
+      void writePersistedMarketPreference(pendingMarket);
+    }
+    setSelectedTicker(selectedSecurity);
+    closeModal();
+  }, [
+    catalogMarketTicker,
+    closeModal,
+    dispatch,
+    isMultiChartSelection,
+    pendingLayoutChartId,
+    pendingMarket,
+    searchCatalog,
+    setSelectedTicker,
+  ]);
 
   const handleHover = useCallback((ticker: string) => {
     setActiveTicker(ticker);
@@ -376,10 +943,14 @@ export const TickerSelectorModal: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isModalOpen, activeTicker, selectableTickers, handleSelect, closeModal]);
 
-  if (!isModalOpen || typeof document === "undefined") return null;
+  if (!isMounted || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="tsm-overlay" onMouseDown={closeModal}>
+    <div
+      className={isModalOpen ? "tsm-overlay" : "tsm-overlay tsm-overlay-hidden"}
+      aria-hidden={!isModalOpen}
+      onMouseDown={closeModal}
+    >
       {/* INJECTED CSS FOR EXACT FIDELITY */}
       <style>{`
         .tsm-overlay {
@@ -387,6 +958,9 @@ export const TickerSelectorModal: React.FC = () => {
           background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
           display: flex; align-items: flex-start; justify-content: center;
           padding-top: 13vh; animation: tsmFadeIn 0.2s ease-out;
+        }
+        .tsm-overlay-hidden {
+          display: none;
         }
         .tsm-modal {
           width: 100%; max-width: 640px; background: rgba(16, 42, 67, 0.98);
@@ -473,7 +1047,14 @@ export const TickerSelectorModal: React.FC = () => {
         .tsm-key-label { color: var(--gp-text-secondary, #a0aec0); font-size: 11px; }
         .tsm-total { color: var(--gp-accent-gold, #ff9f04); font-size: 12px; font-weight: 600; }
         .tsm-total span { color: var(--gp-text-secondary, #a0aec0); font-weight: 400; }
+        .tsm-refresh-status, .tsm-stale-status {
+          padding: 8px 20px; font-size: 11px; border-bottom: 1px solid var(--gp-border-color-light, #2d455c);
+        }
+        .tsm-refresh-status { color: var(--gp-text-secondary, #a0aec0); }
+        .tsm-stale-status { color: #ffcf66; background: rgba(255, 159, 4, 0.08); }
         .tsm-empty { padding: 40px 20px; text-align: center; color: var(--gp-text-secondary, #a0aec0); font-size: 14px; }
+        .tsm-load-more { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; color: var(--gp-text-secondary, #a0aec0); font-size: 11px; border-top: 1px solid var(--gp-border-color-light, #2d455c); }
+        .tsm-load-more-spinner { width: 12px; height: 12px; border: 2px solid rgba(255, 159, 4, 0.25); border-top-color: #ff9f04; border-radius: 50%; animation: tsmSpin 0.8s linear infinite; }
         @keyframes tsmFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes tsmSlideDown { from { opacity: 0; transform: translateY(-20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes tsmSpin { to { transform: rotate(360deg); } }
@@ -489,7 +1070,7 @@ export const TickerSelectorModal: React.FC = () => {
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
               </svg>
             </span>
-            Sélectionner un Titre BRVM
+            Sélectionner un titre · {catalogMarketTicker}
           </div>
           <button className="tsm-close" onClick={closeModal} aria-label="Fermer">
             <CloseIcon />
@@ -502,6 +1083,8 @@ export const TickerSelectorModal: React.FC = () => {
             <span className="tsm-search-icon"><SearchIcon /></span>
             <input
               ref={inputRef}
+              id="ticker-selector-search"
+              name="ticker"
               type="text"
               className="tsm-input"
               placeholder="Rechercher par nom, ticker ou secteur..."
@@ -514,8 +1097,18 @@ export const TickerSelectorModal: React.FC = () => {
         </div>
 
         {/* LIST */}
-        <div className="tsm-list">
-          {isLoadingSecurities ? (
+        <div className="tsm-list" ref={listRef} onScroll={handleListScroll}>
+          {isRevalidating && searchCatalog.length > 0 ? (
+            <div className="tsm-refresh-status" role="status" aria-live="polite">
+              Mise à jour des titres…
+            </div>
+          ) : null}
+          {sourceState === "api_stale" && searchCatalog.length > 0 && !isRevalidating ? (
+            <div className="tsm-stale-status" role="alert">
+              Données précédentes conservées — revalidation API indisponible.
+            </div>
+          ) : null}
+          {isCatalogLoading ? (
             <div
               className="tsm-empty"
               role="status"
@@ -548,6 +1141,7 @@ export const TickerSelectorModal: React.FC = () => {
                   <TickerRow
                     key={item.data.ticker}
                     item={item.data}
+                    globalIndex={item.globalIndex}
                     isActive={activeTicker === item.data.ticker}
                     query={deferredQuery}
                     onSelect={handleSelect}
@@ -557,6 +1151,11 @@ export const TickerSelectorModal: React.FC = () => {
               }
             })
           )}
+          {isLoadingMore ? (
+            <div className="tsm-load-more" role="status" aria-live="polite">
+              <span aria-hidden="true" className="tsm-load-more-spinner" />
+            </div>
+          ) : null}
         </div>
 
         {/* FOOTER */}
@@ -577,7 +1176,7 @@ export const TickerSelectorModal: React.FC = () => {
             </div>
           </div>
           <div className="tsm-total">
-            {totalCount} <span>titres</span>
+            {catalogCountLabel} <span>titres</span>
           </div>
         </div>
 

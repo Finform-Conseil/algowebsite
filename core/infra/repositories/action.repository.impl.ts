@@ -1,23 +1,22 @@
-import { useState, useCallback }  from 'react';
+import { useState, useCallback, useRef }  from 'react';
 import { 
   useCreateActionMutation,
   useDeleteActionMutation, 
   useGetActionByIdQuery, 
-  useLazyGetActionByTickerQuery,
   useLazyGetAllActionsQuery,
-  useGetAllActionsQuery, 
+
   useUpdateActionMutation,
   useUploadActionsMutation, 
 } from "../store/api";
 import { skipToken } from '@reduxjs/toolkit/query/react';
-import { IActionRepository } from '@/core/domain/repositories/action.repository';
+import { ActionRequestOptions, IActionRepository } from '@/core/domain/repositories/action.repository';
 import { ActionType, CreateActionType, UpdateActionType, ActionQueryParams } from '@/core/domain/types/action.type';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
 import { PaginatedResponse } from '@/core/domain/types/pagination.type';
-
-const isNotFoundError = (error: unknown): boolean => (
-  typeof error === 'object' && error !== null && 'status' in error && error.status === 404
-);
+import {
+  writePersistedActionIdentities,
+  writePersistedActionIdentity,
+} from './action-identity.persistence';
 
 const actionRequestsInFlight = new Map<string, Promise<unknown>>();
 
@@ -103,18 +102,13 @@ export const useActionRepository = (): IActionRepository => {
     isLoading: isLoadingActionByIdQuery,
     isFetching: isFetchingActionByIdQuery,
     error: actionByIdQueryError,
-    refetch: refetchActionByIdQuery,
   } = useGetActionByIdQuery(actionIdArg === skipToken ? skipToken : { id: actionIdArg as string });
 
-  const [
-    triggerGetActionByTicker,
-    {
-      data: currentActionByTickerQueryResult,
-      isLoading: isLoadingActionByTickerQuery,
-      isFetching: isFetchingActionByTickerQuery,
-      error: actionByTickerQueryError,
-    },
-  ] = useLazyGetActionByTickerQuery();
+  const [currentActionByTickerQueryResult, setCurrentActionByTickerQueryResult] = useState<ActionEntity | null>(null);
+  const [isLoadingActionByTickerQuery, setIsLoadingActionByTickerQuery] = useState(false);
+  const [isFetchingActionByTickerQuery, setIsFetchingActionByTickerQuery] = useState(false);
+  const [actionByTickerQueryError, setActionByTickerQueryError] = useState<unknown>();
+  const actionByTickerRequestIdRef = useRef(0);
 
 
   const isMutationLoading = isCreating || isUpdating || isDeleting || isUploading;
@@ -145,10 +139,17 @@ export const useActionRepository = (): IActionRepository => {
 
   const getAllActions = useCallback(
     async (
-      params: ActionQueryParams = {}
+      params: ActionQueryParams = {},
+      options: ActionRequestOptions = {},
     ): Promise<PaginatedResponse<ActionEntity>> => {
       const key = `actions:list:${serializeActionParams(params)}`;
-      return getSharedActionRequest(key, () => triggerGetAllActions(params).unwrap());
+      const preferCacheValue = options.forceRefetch !== true;
+      const response = await getSharedActionRequest(
+        key,
+        () => triggerGetAllActions(params, preferCacheValue).unwrap(),
+      );
+      writePersistedActionIdentities(response.data ?? []);
+      return response;
     },
     [triggerGetAllActions]
   );
@@ -162,20 +163,43 @@ export const useActionRepository = (): IActionRepository => {
   const getActionByTicker = useCallback(async (ticker: string, isin?: string): Promise<ActionEntity> => {
     const normalizedTicker = ticker.trim().toUpperCase();
     const normalizedIsin = isin?.trim().toUpperCase();
+    if (!normalizedTicker) throw new Error("Cannot resolve an action without a ticker.");
+
+    const requestId = actionByTickerRequestIdRef.current + 1;
+    actionByTickerRequestIdRef.current = requestId;
+    setIsLoadingActionByTickerQuery(true);
+    setIsFetchingActionByTickerQuery(true);
+    setActionByTickerQueryError(undefined);
     const key = `actions:ticker:${normalizedTicker}:isin:${normalizedIsin ?? ""}`;
 
-    return getSharedActionRequest(key, async () => {
-      if (normalizedIsin) {
-        const isinResult = await triggerGetAllActions({ isin: normalizedIsin, page_size: 1 }).unwrap();
-        const isinAction = isinResult.data?.[0];
-        if (isinAction) return isinAction;
+    try {
+      const action = await getSharedActionRequest(key, async () => {
+        if (normalizedIsin) {
+          const isinResult = await triggerGetAllActions({ isin: normalizedIsin, page_size: 1 }, true).unwrap();
+          const isinAction = isinResult.data?.[0];
+          if (isinAction) return isinAction;
+        }
+        const result = await triggerGetAllActions({ ticker: normalizedTicker, page_size: 1 }, true).unwrap();
+        const resolvedAction = result.data?.[0];
+        if (!resolvedAction) throw new Error(`API action not found for ticker ${normalizedTicker}.`);
+        return resolvedAction;
+      });
+      writePersistedActionIdentity(action);
+      if (actionByTickerRequestIdRef.current === requestId) {
+        setCurrentActionByTickerQueryResult(action);
+        setIsLoadingActionByTickerQuery(false);
+        setIsFetchingActionByTickerQuery(false);
       }
-      const result = await triggerGetAllActions({ ticker: normalizedTicker, page_size: 1 }).unwrap();
-      const action = result.data?.[0];
-      if (action) return action;
-      return triggerGetActionByTicker({ ticker: normalizedTicker }).unwrap();
-    });
-  }, [triggerGetActionByTicker, triggerGetAllActions]);
+      return action;
+    } catch (error) {
+      if (actionByTickerRequestIdRef.current === requestId) {
+        setActionByTickerQueryError(error);
+        setIsLoadingActionByTickerQuery(false);
+        setIsFetchingActionByTickerQuery(false);
+      }
+      throw error;
+    }
+  }, [triggerGetAllActions]);
 
   return {
     createAction,

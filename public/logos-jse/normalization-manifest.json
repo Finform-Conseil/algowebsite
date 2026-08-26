@@ -1,0 +1,4395 @@
+{
+  "contract": "logo-normalization-v1",
+  "records": [
+    {
+      "file": "public/logos-jse/4sight.webp",
+      "sha256": "38e29091a0ca6c0cd02f28befadf2e285805552ef1bb1d7722fca0b24e9ad0c5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/absa.webp",
+      "sha256": "2901ed4ad277e9832f31486e0b7cc6c3d50b141308a3ab8912aab6b8405af281",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/accelerate_property.webp",
+      "sha256": "7ec3ecdfc0e4658b82cd028acdf4702098d8cd9365dfce99381091efe7318895",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/acse.webp",
+      "sha256": "ce13f9a7fe9f759dffdf326fcccdcb6be3122326c762e73fed904f587cd6c006",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/acsion_limited.webp",
+      "sha256": "2af66ed0b8a6aa61e1e8f33d4ae7953f8d3dbaa2761d0a7665f5a5aada5d6aeb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/act.webp",
+      "sha256": "17c63cfaea7942ed472fd6d019d36da3bb2434c343862bf122f7afceaba887ba",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/adcock.webp",
+      "sha256": "a3e20cb44c5698522f0844961086d8efcef6f2b9667ba788f412ee4c4338f64b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/adcorp_holdings_limited.webp",
+      "sha256": "03f3d71595c7519ce938ebfd5a0c8059f963bfc7ccb7a910fd36f86923014af3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/adh.webp",
+      "sha256": "2e58882bf13e1eed1d51308cc2f9c5d072ce0d7cd6373af38bd5879359bf8145",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/adr.webp",
+      "sha256": "da3dbd0cd6b46b5fb76a14bbb71132aaa24d2843575bd84799dbf5370a83d24a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/advtech_limited.webp",
+      "sha256": "0ce613d7bd503353c45fb34beb0e8197ef82c509ba466b67faa70ef294c80e52",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aeg.webp",
+      "sha256": "2528c6be58bca7aa17de17163c32e979fe4ef496c839a3750ff63b479f1d5907",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aele.webp",
+      "sha256": "93b3c56f8f02419dd500f8e1353033c39cc6b80d1836bef48357f55735203865",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/afe.webp",
+      "sha256": "cd0ece40f8f55d118ea702d484acfa4706aacc183c50a0703952da7770eb7bb5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/afh.webp",
+      "sha256": "6f7559af1de284d8d64cd170824d3e4d4d8f2100f3680eefbeff845e83eda839",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/african_dawn.webp",
+      "sha256": "059253254fdc654692c356f01c3f737d5f19216ddb826472ad3fe293f01bc401",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/african_media_entertainment.webp",
+      "sha256": "71766e8ce9e76a674b129cca7b0a03f87c6f060957c83bcfda1de9a712dfc91c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/african_overseas.webp",
+      "sha256": "709989ffd13eaab63fb51a5a4273d0973a3af937f1387481efa864632e88e69c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/african_rainbow.webp",
+      "sha256": "f9904b4f6f3129156e88627772b964ee081b6299829888c893fc348590140ed6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/afrocentric.webp",
+      "sha256": "50520d8bdf27ccfb3af4199f5e4811cfde169b4344309e1a042c941fc69ae19f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aft.webp",
+      "sha256": "a76b8a533bb181d567484f6fc5973093e5a5b3fbadc5a449ff882c417f6b08fd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/agr.webp",
+      "sha256": "8d22e804e448ec95cf68a307e48d799bb2b4c43fa5ae2b1e7d786382bd998b03",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ah_vest_limited.webp",
+      "sha256": "ec0736eb818c8d04394a13e1ecbf6f300a6b471ca8f1c81953b96c05a0b7e3b2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aiie.webp",
+      "sha256": "ac41edb0ee0896e4507cbf5378cb1f6a0df8364dd8efb969fa58b86612ffa8a7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/alexander.webp",
+      "sha256": "136b99f2639faa334607c77278bc299fec17e7f7086098cf70bf1e02245c406b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/alphamin_resources.webp",
+      "sha256": "df0da741a1d672bcf20193ac0d49fa30ad76c9048d7430b2b204d3adafbfd759",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/altron_limited.webp",
+      "sha256": "314a532ca6f22ff2c374cd007c99223912816e8202e2cf5fa5d0cfdebed51c7c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/altvest.webp",
+      "sha256": "b438befb4932a12a92432d274d64d669d8417d7eeb5eb30a3142e66bc8d3f705",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ame.webp",
+      "sha256": "81a4ea762d709f26b8c8b775a5df6a18f1aba5fe4752eb152087b2d91a53c1f3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/anenm.webp",
+      "sha256": "fa761bf6e58a6b181273c7f354f701f9cf99eb5627f782175bca5d81e45782f9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ange.webp",
+      "sha256": "a98eca8a96e62dc8a6cdd7184a751e0fc90610be68e1608f8a58c31b633b6142",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/anglo_american_plc.webp",
+      "sha256": "a27e607d29a2a14bb37ec1a491f66cde6ee6b2b1e58bf88e237d538f3515c7ec",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/anglogold.webp",
+      "sha256": "3020a2465f0cc2a347444f99bfc50fbec599d3c48dfb9d4845bb0a72d088ae2a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/anhe.webp",
+      "sha256": "4972c4477ad49ab7ce9c1bb18aad9453e868b3253fb47b24555bd09330d9d8ec",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/anheuser.webp",
+      "sha256": "92dfd0e9897e8123fc4fc445b2a2be91c089da8d1d40abb63720723fa593fcd8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aoo.webp",
+      "sha256": "23c3e44a66f27cb69574bcbbb89f94c4e23dcf1b944820a0ec757a577f22571c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/apf.webp",
+      "sha256": "d17b5e783fcf5134cb042665d43c2fcfcc41d11bdd9c1ccf448ad487fddea0dc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aphe.webp",
+      "sha256": "f4f00650d2033d31a6df6d0efa2aa63d094f9ed0901510c1372f58413535d835",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/apn.webp",
+      "sha256": "c43063c4c6d4ee043ce5538b68295a1f4df625220e9c3817a9bed9ef349ba0d4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/apoe.webp",
+      "sha256": "1766b1d03ba92b023e919000727fc6366a6401cb13f1132f81c889c3c219d866",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/argent_industrial_limited.webp",
+      "sha256": "0c50ef744ccfd009101e0313670abc6fda593f43234c52ca1c8e1ab4f096300e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/arim.webp",
+      "sha256": "88635a44e4403c44793e9f226fe41396ac06908bd557deb280f55d2ff9b6fc72",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aspen.webp",
+      "sha256": "d9d39c66702a0847cd4588ab65e7e717af451f6711f7ba61de13d13ba3ee32f5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/astral.webp",
+      "sha256": "cbebc2d45efaeb755f5ee5a6d6d5b43f2661d4da40ae79d65533376d871065b6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/atmnm.webp",
+      "sha256": "a435b8b4c036c782b927d132fbc0016a97865fabf80c224f5d6cdbe216a4a0ee",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/att.webp",
+      "sha256": "c15863bab5d6322eaff4070f71093aef30c0e530431f5fbe1b97617da3d7e78c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/attacq_limited.webp",
+      "sha256": "748e36cc40dc22f8c90dccb1ca54b18493e9be146087dd847e8faf41aa05fe4b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aveng_limited.webp",
+      "sha256": "e2bb0d9895487c37ed12ff71813820e75f00ed8184e1b498e18f276128ecd039",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/avi.webp",
+      "sha256": "86444bf218f789db024330a0ee54686d7ec5dbbf49f5644dc16ce742b209010b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ayo_technology.webp",
+      "sha256": "6e9e210567e5dd46a7ff6076d00ed31762f3c0edd720499e22b156a8a8e7ecc9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/b2g.webp",
+      "sha256": "5753272425770017592a0a520aa307fc7f0d128404887cf9175a58a483a33589",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bace.webp",
+      "sha256": "0583952859bfb92a247c56302e7a0590ab87435c75c88ada9cfee526d843f393",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/balwin_properties_limited.webp",
+      "sha256": "6c29b2f471507bbc3f83d2ef71d7c2b8c04efd073eba6118c8bc6ca1d8672976",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/barloworld_limited.webp",
+      "sha256": "ae69428dfba693c2b5b402ebaac086a1b602393e92ae300c0758fe8e18449707",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bat.webp",
+      "sha256": "0936261158c2a3d044c23f1c8ed5ff461f469204adeb065b431f7266248526e1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bcf.webp",
+      "sha256": "ad053a895bb647eeec9d9706f16e44694846ee85114afff3b3c6e55767827f2a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bel.webp",
+      "sha256": "d6191441f5d5afd904db9b8de0b41dfcd64509520e77c638d15152134c1f6295",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bhp_group_limited.webp",
+      "sha256": "60add18448963eed520e567c7818e7bf0fc65c1b4ce9fd98d50912365d223f07",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bid_corporation.webp",
+      "sha256": "820fc684b12fde39b50ab6134905282da9e0ea671e7b4fec62fde002dbc29bed",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bik.webp",
+      "sha256": "99fa7907001f89337ca03651a6e875b264afff20e241309d3f8a1421109f99e8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/blu.webp",
+      "sha256": "7e8037a1908c3372420eadcf42763bf0580b1635f8170674af98e2eec93cb2e7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/blue_label_telecoms_limited.webp",
+      "sha256": "9fc27a8452fbee21844778bf210a01b7b03fd6d1c299c3ba02ab43745252ac1c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bmn.webp",
+      "sha256": "9064e326ce2c33137846258215c7dddf775fe00b9ef002379e22c897d30b5080",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/boxer.webp",
+      "sha256": "4cf6049fa28d6b8ffbe288a1714467638d868d86123d15a2f377648b0f2bcbb2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/brait.webp",
+      "sha256": "4d729aa00b6cdfe9b703a89a96e0c76c3f0d222323db7686fad09889ca83fadd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/brikor_limited.webp",
+      "sha256": "0f607a2ca63c3b30706bc9ea920c2af76f5feb4917610cbf98b71d811daea2d7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/brimstone.webp",
+      "sha256": "63c2256c41fe91861ad2783be0bbda900b1f105ee4b50aae129fad870fbb6175",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/brt.webp",
+      "sha256": "de8f144da041c3759603ce046744325fe1a45318092b30cdbdb01cce595b44a5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bti.webp",
+      "sha256": "fd7b8b2ee5291a27ef6ce297c3591fde639729b513933c6a7dbf158f3b49ccae",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/btne.webp",
+      "sha256": "1020e904daeb552cdebe7bd3fca5f0ec6fc3220c5a9b881f595f3f5c5fc09844",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/burstone_group_limited.webp",
+      "sha256": "7f65fe13721352dfe07da53b2f8381929d13f4291c4743c19a1c5152a4f5898e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bvt.webp",
+      "sha256": "61259fdbc4a18e88551a447f68037ffedf3f2b27f8c26ffdf9155737dafab783",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bwne.webp",
+      "sha256": "f85314265bfbf69286876c6d9264e0fcbee43f4ab887c2ff1f6286552d162333",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/byie.webp",
+      "sha256": "24b2e8d4b8af93efb401e29d8813ffd266ef3b80438d94fc0957b5ef30c68d58",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ca_sales_holdings.webp",
+      "sha256": "5da69683f10127141e8b91eeeb07de710e60679fcadce943c85733128cf34da2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cac.webp",
+      "sha256": "08983f5fbcc7523977353c0d3a7a08baa9d4df42b8c44de9f02e7355f2e65c3b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cafca_limited.webp",
+      "sha256": "48b98df38a1168f38b0d17249abf4b12fe4267a14adb89b3f03e15a69e27c5ff",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/calgro.webp",
+      "sha256": "fbfa0a5b0ec2514a4ab13e06f2aaad37c977a810610836c57a51618144457d63",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/capital_appreciation.webp",
+      "sha256": "cf58037dc80dcf631fc1e2296960f3055a3f7105f118b368b664d042b827c8ed",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/capitec_bank.webp",
+      "sha256": "302c503a75fbe0dffd2bcd3f7e6f3d0ae01a29e7f759cb442dd683eb705c60ab",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cashbuild_limited.webp",
+      "sha256": "6c79bbfe4e8dac2be4eb2dbc4486706a2fb00b405402c4cf28d08276016df5c3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/castleview_property.webp",
+      "sha256": "c24f38036d034f42ce4156dffffdd012788341817a095eee37b18a146ba9bab7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/caxton_and_ctp_publishers.webp",
+      "sha256": "ffc41b6187565d21d93133c670b29255cee368cec89f5f6535ae0976da931bc1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ccce.webp",
+      "sha256": "fc5d20561e747340a210e4b0e775234bb9a01bec581567b06eecae8dbbabb347",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ccde.webp",
+      "sha256": "3f7d717b070a61580bd84e4776ffbd03b4a8c3cdaca06f01344ac246fe940150",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ccpe.webp",
+      "sha256": "48b8147348e32931044541999c3380ce4e35ea41c0264525701f3a5eebb2c1cf",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cfr.webp",
+      "sha256": "dfbea066c495c2ef6234cb54cfe7d3591ea2c8cfb690191998751ba6049632d1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/chp.webp",
+      "sha256": "3d9a13fc77b0ccf6bb18100a444278e18a2b22d88a62dc8661759e90705dc360",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cilo.webp",
+      "sha256": "4ac05e884262e862f81f244c34034adafdb67cf3da37f2b41e5dbe96382f6c2e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/clh.webp",
+      "sha256": "eea6611e6be595ba644bd8215ec08923af5506fbf6fd795bc7b57c97102960e1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/clicks_group_limited.webp",
+      "sha256": "0fe9e2d974e7ffe2870973c30a06edc06e8b20fa64f48653434c4dae94f9207e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/clientele_limited.webp",
+      "sha256": "3a6d4b7e2659067890a9a2157aeb971320d37684304d0ab5e7ae849018c1246a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cls.webp",
+      "sha256": "d3551988df69916437a9971f4708ad09a6ebd33ef58430a68111d8e455a056dd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cmh.webp",
+      "sha256": "8882b513ba0ffc95b839bae64962dedee16f2e5d5337fc9fd11bf2f3af9d8998",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cnpe.webp",
+      "sha256": "8f3ee6901686b8ece127050ddbf67b43ef7b0303b9d2fcfc5f5fc4130ded60f7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/combined_motor_holdings.webp",
+      "sha256": "a5c59120d05527a494f3d7d969c74a9b65d223a1b4da70792d4028d0316715a6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/compagnie.webp",
+      "sha256": "126b29ce0a5662b71f700e4dae8cc1ced6cc087de00138bb6b9b90b12f02d755",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/conduit.webp",
+      "sha256": "2b1695076fb67ddec202ab9806427a1df6de1173191f2b0a6bd763ee76efcdce",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/copper.webp",
+      "sha256": "ee8f7fbe46e6ccfb11531b50b3e4f1b69afc02613b5d9c3e9cd8afeec9c33201",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/coronation.webp",
+      "sha256": "c931ca814a8fa05684ea6fe5746a829e4f6e1d10b9b24f088a4325885357190e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cpi.webp",
+      "sha256": "e2aa6ae5fe0d891c24319748b9181eab5362a18f73217947e4f941ad9ff37833",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/crookes.webp",
+      "sha256": "4c61b7443f745e512c6a9796a24b81ee672c883c9e49a1433f099833071af38f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/csb.webp",
+      "sha256": "586fef882dd1b6b4d2c91aa9bfdd0dd1eec247c48a90ddd9bb44a5599fdc4d28",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/cvwe.webp",
+      "sha256": "149accfc4411c96be01b2ae9d4745e1361897ecc0121b088bdc919cd1c3e3832",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/deneb.webp",
+      "sha256": "0459c44121a02f895eea5fcc8a9e894882fe7a7eaceda0cedda1f1a668315e6a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/dipula_income_fund.webp",
+      "sha256": "539b6ba4a57b8aa3722949a912c4c26abc3156d5381367f4923f329dcec5e7a1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/dis_chem_pharmacies_limited.webp",
+      "sha256": "de4f995c9e91643a0a026deb827481ed3c7df08e64d4b94db427497ffcaed884",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/discovery_limited.webp",
+      "sha256": "11e69a59627c639a09ccce79e0b356af64a5e20466cf6fcbfd3d6d1691df8671",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/dpl.webp",
+      "sha256": "b269ef3bca9cb6a1c258b700c0df15d30fc387a1c694351d32cba3407d93ab42",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/drd.webp",
+      "sha256": "887c3ac6d669efdb74c1f9d0bc5cdb8a3b711eda2c90b1c711cb995a71bbf00d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/dsy.webp",
+      "sha256": "7397f91331b748983d8e5a9a86616ebddcdb489223be023aafd70e99d7e24ec4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/dtc.webp",
+      "sha256": "ed6dcb5e41c7a0510ff0e8994069f16999414ada931e4ac909115bc4dc78c713",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/dyl.webp",
+      "sha256": "d8aa663ede57b2331fac379c05372c17045abeb51046b544c337aa5866d281e9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/eastern.webp",
+      "sha256": "d2cbf37d9f1d141a000f541722cd44475b096f11791dbfcab58f758fbc80873d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/efora_energy.webp",
+      "sha256": "2b5afdd4f555110f039250ae78d7574cea88f8762288bc56b2cda2064edadc17",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/el8.webp",
+      "sha256": "69c4c8cba5b82b91580f4b15e466e368223dd6dfa4c281814376e126a5385cae",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/emedia_holdings_limited.webp",
+      "sha256": "8d303ee958f138491451f675dd7c5f88984f48216ce36c84c8202713eb53a97c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/emie.webp",
+      "sha256": "b724088cd6cf08d674a4705329922b2694975976886c1ba5a4d708d336b66a9d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/emira_property.webp",
+      "sha256": "abeaad826adb731196bad444013e47697e2e9868a34f6475e374deaae89fcecb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/emne.webp",
+      "sha256": "10563c6d8522864b0cd964013af50dd0980ad50c831d37e851f0d6c33ca73acd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/enx.webp",
+      "sha256": "c09620fd039da0feea803cec9d8cd1aabbe75c7a6a41371857a36c91c925c62f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/enx_group_limited.webp",
+      "sha256": "f68f9b2c87c2ad1b6c0cd532063edc281eec1410373168c4c76c194f21cfeba5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/epe.webp",
+      "sha256": "48985906500097b78e84be34b67bcede112309a51faae18229e7c6c0599bf90c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/equ.webp",
+      "sha256": "d5e4679194bef851ba6c1ae841cb253f8822038fd853e2bb5654f6df744bc8dd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/equites_property.webp",
+      "sha256": "c34344b4783aa938af66ea7cac2e7d3ab276eb8906bf098f4475789db7547d06",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/euze.webp",
+      "sha256": "1ed14feb70546d2e20e0421e1225ba25c4ff9280ebce531210890bec3ba0a1e3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/expe.webp",
+      "sha256": "450f51ec87d15a1e4bd9c20e745df2b2b71f71a739b8c7baa20854848a786757",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/exx.webp",
+      "sha256": "77f894ea1f20a3ac9b842572be0037249278815a554e69931473a8ba8ec18055",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/exxaro.webp",
+      "sha256": "fd2b4560f4d70ed6816fe30c427bc216e5dc012a2f62a41db16f118f8e2deda1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fairvest_limited.webp",
+      "sha256": "e3dd48c3892d905b4d397229aa69b14a166fe6f078493687a40ef21ca9d842ff",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/famous_brands_limited.webp",
+      "sha256": "401d6650c1734ba42546ed847045f447eff795967619e94d6c56bed5d0e7031e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fbr.webp",
+      "sha256": "d40f6d9bd49a3da3dffb44c15db8283d66797f0d5ca0a4be7c1ffef234fe5123",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ffbe.webp",
+      "sha256": "93f2cfb0ccfec25879f4ddbd1bbb70f44877c74ba05af2dfbe0361da6cd5080a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fgl.webp",
+      "sha256": "4e7e1e9e48b0047ad12822e2187ad9d2624155bf2bebc53bd8a8d84595e16793",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/finbond.webp",
+      "sha256": "999abc8fdf2db7272583ad1531d2a8708879ce320cd495f972ea7f816ebddce2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fnb.webp",
+      "sha256": "ccc8b3131a915824cc7e14750b623d8229b20889710dc279420a28a2e6a45e63",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fortress_real_estate.webp",
+      "sha256": "fdc2b3814b86920761156876077ae4bcf447ab666426f40abe3997bab13e4e63",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/frontier_transport.webp",
+      "sha256": "71d994ed2db3d85a2207ee84cdd4f2aa9dac61a691637b88bb5b1044ec77e00c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fsr.webp",
+      "sha256": "11887ca4028ede5e35fa14f6e12918fe4b409575fd1d65297d443775ca131d9e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/fsy.webp",
+      "sha256": "2409c5b456f324f7cb3fc3a6db3d62bc2277e6cc2af6c142c051cac0d149452d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ftae.webp",
+      "sha256": "1099a94f0f79bcc20805435b7f58fe74537104bd4f3a5fe20c7e94f2608ab5e5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gcte.webp",
+      "sha256": "7861bb1ad373d6e7bdf4ee26376d1557d393decd97db18193af6ff4c3f4ced2a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gfie.webp",
+      "sha256": "e71ea80a73bb4a13157eed30428273776a554d2970e529e7d54a757c28b8e2bd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/glencore.webp",
+      "sha256": "d2b4c42a255a14d4fa7627fd3d069c6dc6ff2ce7a6b24a6687a8ad03e7873bf3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gln.webp",
+      "sha256": "6a3cda98b6755b53c62619005e802cc58df0eea568f63b399a60a112de72454d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/globe_trade_centre_s_a.webp",
+      "sha256": "6286a24ba0ac3f0d5f4c25645d45d2952198213147f741af90a34d75d134d671",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gmle.webp",
+      "sha256": "6b4ba545caf812f2f62e8061c3980e7026d3cd46450dbb45d3b2f046a598a8f0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gnde.webp",
+      "sha256": "99f6f697647df11ecd40bf8d9a3d6f051a86155ec84dd6feb499df01c4eab571",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gple.webp",
+      "sha256": "0e53cee8d8f7cb294aaa3f48252795aaf840af2039e8418b6d2622143f1ddd95",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/grand.webp",
+      "sha256": "ac19c38e280e36f1eaaa110d3d90c531f01af4de679d7372d2dcc00593c4d7a1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/growthpoint_properties.webp",
+      "sha256": "461aa32f90a33fc40d7e50646f2a53abf008115ea857e3657f5583fa065165cc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/grte.webp",
+      "sha256": "6857aab044d4063e2d6707905cbdc8416cf18c7eb5015cbfc94c8582a01e7cfb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hammerson_plc.webp",
+      "sha256": "2c88af6e572878fb1e36c52ebfd299e9e3603e243fb1929633dd57cde06a6161",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hare.webp",
+      "sha256": "0becab10833b21443d36644cdc697b9eb7cbb1213cdfa2db8b3606aa6bbdd3a0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/harmony.webp",
+      "sha256": "28f0dd686d4955a776688cbda1a5d563f7723462c17c18c76abc78021692a809",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hci.webp",
+      "sha256": "851357cf0f9b691a5777ffdbf0d3a23e1470be2c3de97c29976dc161ac06e201",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hdc.webp",
+      "sha256": "52560b9dfdf3e635dc997b7bdd0730b75d2c8a0e9f8580f09fa087f673d3742e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/heriot_reit_limited.webp",
+      "sha256": "622c62d1fd5539f83178b07798def127aaa2fc7d8f5f3f086246659f9a51333a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hlm.webp",
+      "sha256": "a07851be66c2532fdb5b8a2777b737c3d03be98b21fc70fb6a46c5eefeca9df8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hmne.webp",
+      "sha256": "179914d8b7f082e2ccdf3d96066bc7ab575aa9e061de7a6a16fc28905a912ba3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hug.webp",
+      "sha256": "3c8ea633e95d5cc621e5738e75cc4d8d0a21d759fb5dd84017b0e03c5f1e71f3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hype.webp",
+      "sha256": "aa69861ca35e45e128b2ce7d2060f574206c31f1a2da5d0ea9c7b55a3fde2678",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hyprop_investments_limited.webp",
+      "sha256": "a7e79d362df37e7543cb72bd1010c87f9e3af8199e8eb77c977f1f88cdfbc738",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ifpnm.webp",
+      "sha256": "77d7bf8ed68517ada6fc83ffddcc06c3c7cb8d3a54e0dfe1e27bd6839c766607",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/impala.webp",
+      "sha256": "408cf660a62058c35ac4ab685d36b67bc283f6245dff46b913b7ae539afdc06d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/impe.webp",
+      "sha256": "260ce3387e55cd50128b3c6b673177a3b26bc3681b05c8f384a36aeed88967ab",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/inl.webp",
+      "sha256": "4637d015900d56e3a1d14880950392d0ff976156dc5826fe6153d52829f58c6e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/insimbi.webp",
+      "sha256": "4ca1a34d68ee63ea485097ae8016de419757bf38231aa0cc55aeb1daf2eb6357",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/investec_limited.webp",
+      "sha256": "9a0cbe86696b41630d10185fe6de3134866e80bca63f32b4a58092ad109f080b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/invicta_holdings_limited.webp",
+      "sha256": "07da8c679645db005124deab08b0a644edee2dfc07ab69cfd8ee121acb366df2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ioco_ltd.webp",
+      "sha256": "50114db64f1e826519b7dfcee1ee04edc261cee9157ba30e16db5b7677cd3ce0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/isbe.webp",
+      "sha256": "ebea9060da332ea7a4e7c7ab7cc0824c703ddd318bf39ed3cf2409494a383640",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/isoe.webp",
+      "sha256": "49c9165a7ea9d166a5303b69bda95cd927aec0711baf1d10b414b17cf67bdff4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/italtile_limited.webp",
+      "sha256": "46045b5b8f83fd50d0cbf88e9ee3fa7ff4727315465b380ce764292db2c0e35b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/jble.webp",
+      "sha256": "2c55d071e99d6be236065382b7dd22c9f5efb2d7efe6101b8390f5a75f6b9ede",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/jse.webp",
+      "sha256": "b5100cd718c78a645d8c627d147ef9108a6a10b148c37717723a94366d46280e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/jubilee_metals.webp",
+      "sha256": "4fab7a041fde163267d6b4839f6da87610201e171e693ad64861dff40fe194b3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kal.webp",
+      "sha256": "d7817bbb32acf3da357820f9b530abc312b6abc826d5f54c5bfce67f784c9d9c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kap_limited.webp",
+      "sha256": "78ee9ca5f9da34acd66cc5b95d0f047902116bff8261980dee11d1244edb61bf",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kfs.webp",
+      "sha256": "d7abb47b78f986d2d37f4165e33758f28f9aee76b6144155177ec4e2711c8000",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kibo.webp",
+      "sha256": "20294dac49f3b2abe2e5a727a8133480e5704f7da3f58971a0d508039853e27f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kio.webp",
+      "sha256": "43b46a639484d4165f83428485bba3edefb78ec98b16a075e8f40e944eed65fd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/konsult.webp",
+      "sha256": "07640106453927c777880b9d03635b6fe4a64e2c1d0fb4c9c3249e8663ee23f9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kore.webp",
+      "sha256": "49713cb910b89b6f969831bdb44d45d164b1f3774cb54fbf7cdb61370c3bf4e4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kp2e.webp",
+      "sha256": "08063a0d478b4785db6ebf39c8cded49992592da4693e34e0de19d0a27b916db",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kroe.webp",
+      "sha256": "777540c6e34ec13282d32937b99e76b236ec7293ba481071bf15d724affe383f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/kyxnm.webp",
+      "sha256": "238c25937b3cd1e051cd3a58be2e84ad55fccdc93d5e59dc5eb08dc9c5325a99",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/lab.webp",
+      "sha256": "9af058ff1bbe3e66f07a54e72cd07a8e3f2da2979223ecac91ceacfbc6474b4c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/labat_africa_limited.webp",
+      "sha256": "3e2528d4ff83791253dd6981d827d3646a495e2ccf22d25bf66b9ccc1d0e147d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/lewis_group_limited.webp",
+      "sha256": "bf555b4bdb88b3f3ba5f1092caf906edfdd66d45020dd8496b16168fc778da21",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/lhc.webp",
+      "sha256": "5fd6dd22e6dd0452c57edf4e7d24f776fe75fb03de2a7b35a3e3f3ed4e12a3ba",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/libstar_holdings.webp",
+      "sha256": "75c61a680c4138b9156473aea12fae8aa7d7ff84e540965f0123d3cd65ba3b79",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/lske.webp",
+      "sha256": "62abd4a7b0c127639d28e960d96c56b0e596c70004717e98b6726831dd520cde",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mahube.webp",
+      "sha256": "c8f3586ca35293cdae2d84fd6ce5669ae0cb4a9b5fe1112ddfd4890e31d2901f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mas_plc.webp",
+      "sha256": "aba9d95c29a571df752ae2c90a4065feed1ce84bb23921fcd669838c39b8b777",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/master.webp",
+      "sha256": "8bd3370abfb995cf135a4a3ba9d893ab0851d2e241575ac88a5a1b3007143a9a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mc.webp",
+      "sha256": "dd9a8527b866752a3b8434e6d1a37fc47c65e2b0854f912ee7c531213839f5fe",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mdi.webp",
+      "sha256": "cfd872d0adbdd0cf4883cf13573eae6cb508bfe5e1a6f54867b19630cafa19c2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/merafe.webp",
+      "sha256": "468899e02367f3e4c6856ce358ed822cf5b7d9e69c540861f0a81bdd37dd6895",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/metair.webp",
+      "sha256": "3f38e20da09dace6e7cd33201875066a1acba6b16dfd7a0e1f0c0296dd3866d7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mhbe.webp",
+      "sha256": "248547c879d19e6957a268fd65513724dce6dc5cfca3a43b74763f327461e5f1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mmp.webp",
+      "sha256": "59fd1e653af0b6a829ec52a0114b6f647d0cbc08e559f3716846072944df0231",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mmte.webp",
+      "sha256": "19d9e82d4c9bc7d3e376dbeb4c48ee694b93ae260198703adf263d0e185eae1f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/momentum_group_limited.webp",
+      "sha256": "a3c2b31062282726dd6c26a027ddee4241af0d6b72cec8230f8998ddb9665e10",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mondi_plc.webp",
+      "sha256": "f1c8171487007562756e856eeaac5d55ec658d63dc67c05c3d1c512ef7f109d4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/motus_holdings_limited.webp",
+      "sha256": "39f477e0a33a995b7ccde0f61252be900a6bfecf215b75f72771849233796650",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mpact_limited.webp",
+      "sha256": "6eabf3f95f89ab56f1e9530facab7b666509b7264ed1d76efa56eee1a8525333",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mr_price_group_limited.webp",
+      "sha256": "038e4b36bbfb036f207efe1448880af99be77c77c49faee5f0a7e36e2b3081e9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mrpe.webp",
+      "sha256": "954c0a30a67a9492c226f0640cc48efd4424b26a175c836b2d4cd1de7e999969",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mst.webp",
+      "sha256": "0cba14b8bef79fe65a21d17f5e5f123141b3cd9c68c154064dcfd97bfca53660",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mtae.webp",
+      "sha256": "ddb00bf10a67f6364c7d274909a2cef81d8075efccf6001c682e42818bc3255b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mthe.webp",
+      "sha256": "e6ed9ceb86c4a6f6d3402400203215fe021676a8a35d8fddcdb323e702de24ba",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mtn.webp",
+      "sha256": "51e337f767e815649f3178f115e1521ff249ce0ecee38c38705701333ac85cfe",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mtn_group_limited.webp",
+      "sha256": "e2c8ab9655f54e16650e68ea0736877b8eb30a8335a217c272b98e33dc1b5af4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mtue.webp",
+      "sha256": "495697570f31052800cee0fd2aa19723a066b64f95b0228197280d8fbd5e58de",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mustek_limited.webp",
+      "sha256": "546fdf34161442069df514b371da14a61ea5b9473263f08f1816c4c80626467c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/n91e.webp",
+      "sha256": "8ea47bdfa380e18c4a9b4bec20ccbc60bf2411b28bb28b1a140e3d3fb14387c2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nam.webp",
+      "sha256": "6f28cac5d5e21834f31ce2c3bd70812758b282c58baa0e09c964ba5e74500f5e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nampak_limited.webp",
+      "sha256": "9d6c71668a935969bc3f0cae92ace92a845625425bfb54607b0ec38374b47e15",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/naspers_limited.webp",
+      "sha256": "da19bb00063ff7aaade055f60a3b11485031956eb75b73ff25a21b23d5b5fec0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nbnsx.webp",
+      "sha256": "f76d943229a7c72e6d5458364602aae21872661eb8b7d0b35a372477a47ed695",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nbs.webp",
+      "sha256": "7f487f295869190c76fe7c24b2961dcc0e3e5563e6d2765b551050820a8fb1ce",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ncs.webp",
+      "sha256": "448ad14f20fb0930681a143ee63f2382145d1fe0b4fae23ef9c7e1e1d721e844",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nedbank_group.webp",
+      "sha256": "22be117b3a6d36ca992db6d7e46188f3b558f67888c52e004749a0b42698e50a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nepi_rockcastle_n_v.webp",
+      "sha256": "ed359b79a9bac50c099a04f8ecaeb40b3557f0a343e1ae380712dffee7696fcb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/netcare.webp",
+      "sha256": "45c1084c790077687103f582d788b2796682315adf03ce94f003ac69ee09ce05",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nhl.webp",
+      "sha256": "76d132900a1e53b5e16db5bc89930a8ee94f30f473d1518bd8b3652fd090eac9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ninety_one.webp",
+      "sha256": "a8838d941d7e42870535e33c813fe11de91dfd712cc05b89ba20717a2d0ecce5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/novus_holdings_limited.webp",
+      "sha256": "d39980dbf42bd173c2a2fb9611fd0a75e3056d3d4aa713e684cd58eb27c0a763",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nphe.webp",
+      "sha256": "6b3ab678aa819fbbc386ed680cfb183a249f3c9596c493fac6a26e24b0ec9335",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/npn.webp",
+      "sha256": "b5958bec5cb42e170f4a6f1bdf525335310ca87a4f3d89a312bb50004e1f9c74",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nrle.webp",
+      "sha256": "3b3716aa10bb3821582d42a4310a60c9aee22f751a9312d8fcca4654782136f9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nrpe.webp",
+      "sha256": "9d08b9221c686e1f079310341e6c658c0ea01dc5806c315cbf82ba409b39f1a8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ntc.webp",
+      "sha256": "88f79614f75cf14fcd467b8f84273effd99c11cd0bf69f15bcbdf0400584a4cb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ntue.webp",
+      "sha256": "0ced504f4c6a544f72848799f108d246bc41c44aadb3884f3b4154f5d0443681",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nu_world.webp",
+      "sha256": "34ace0a1c3cc264cb660ccd1168f019bfa5ceb219e5b66b983487bb85330d33b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nutun_ltd.webp",
+      "sha256": "a9b6aff96771281eacc96cdc0e815f447448bf37fff317cca632f008126787d5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nvse.webp",
+      "sha256": "537c321fb5eb081d2af22dff018625c7fa2363d1e49fff1a98683beaf548ff93",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/nwl.webp",
+      "sha256": "8cd0dbf8c0884c4cb6466ec0281b8f00f827683dc385833be4eba22f144cb019",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/oando_plc.webp",
+      "sha256": "4060d98f8450c5ec516a05dde84c091d14506873252f801949bffc3a27f08fd0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/oas.webp",
+      "sha256": "ce751af04872ad467af4c07cdc5cc453d12bf902ff9f35e4f142f0a9251a07c0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/oce.webp",
+      "sha256": "98d54c97f9bd008a9557aa2039bc2f3764523c82fc3bae3e265535571b45bf73",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/oceana.webp",
+      "sha256": "fe985606be06e387529f23b7a784fc2bc2276d232b1b66ba5e95c4aae8bccc28",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/octodec_investments_limited.webp",
+      "sha256": "8522a8fdde00652e6173cb8e52eaa6a8707060015aeef27bf10bd735be65cac0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/old_mutual_limited.webp",
+      "sha256": "25a907a1705ff3052c91917979ed7b6846e68ecb9aeaf6c8cafa25089169d01f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ommnm.webp",
+      "sha256": "1b5028719285ec3f812e367a99919496ff050baba806165c808bceb0f76dc82e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/omn.webp",
+      "sha256": "bbb750cbc0835759a00b73044df10f15deb6421423db7dc1361cab9cef9fe62e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/omnia.webp",
+      "sha256": "438c9003a4f1430c881201953a655a42adf030dd130cef57955acd98e06c1bb3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ongnm.webp",
+      "sha256": "4b52e293392435b9f1a069c666bd62f69630e3ad856b0693ef36f47240d69c61",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/opae.webp",
+      "sha256": "875b4dcdc224e61709b542c90b764f271553d232cc15691c86e7f14bb72a0972",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/orion.webp",
+      "sha256": "f3dd738a4340d664d8a7d6a26f6d638e94775624cacecbe61b39a1289124793e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/orne.webp",
+      "sha256": "3561071de79564377abd05d0774e38d0067168490dec8d936fffbf996f202736",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ory.webp",
+      "sha256": "d0efa64659f4ca8923e7fd0119b24dc89131e93135638de68044ffde776c8f0a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/outsurance_group_limited.webp",
+      "sha256": "ea67b80226d406e5bad9125138f47cefcdbfcb11848c0f98922463d2a354985d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pan.webp",
+      "sha256": "8041dd3b99ce815afa98a74ca254ccc36f367f4ad0bec0a892a8094bacc69e0c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pbt_group_limited.webp",
+      "sha256": "e62b098e024a447f5a2396c5f59682546c4b20be2912055bb7c0da925dabc2c2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pbte.webp",
+      "sha256": "8bd994c78fc3e45844e68178a523dbd96be73eaa5dfd69d9f60c9f3f11527fbb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pdn.webp",
+      "sha256": "f7d0e852965d2681631e353b20fb6bc38c5a7690dd6c5ea9534113f2b66f3253",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pepkor_holdings_limited.webp",
+      "sha256": "078c1dbb64a098cd59e93cab5eb59f70098933794e45c1710fbdabf09ab7315f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/phpe.webp",
+      "sha256": "ad575c787ff2dc0c2e6acf59f225dfd20eba4d9d9c25a6c6bf62062c57d7c73b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pik.webp",
+      "sha256": "cda466cfd7babf124274f6a75d7b21e07ff7df247a6c5ce258d46a171c49a209",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pmre.webp",
+      "sha256": "78ccbe5fd11c1727b493c9ffa0a48f0d829bd9538d01265793f2774e2b58d325",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pmv.webp",
+      "sha256": "dc3220aecdeb3a47a7ab8535ae18acc7d55358c612a32e86c9f81eb39e2bc657",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pnhnm.webp",
+      "sha256": "3bc47ee8f8f12cf15afb76b075e80f81a28f22e12d6e13c19e46e9bc38f9b7bb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ppc.webp",
+      "sha256": "cb37ff5bef3d3fed91f7796beb3f80d371488dea012c52c5ba49ec558aa67679",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ppe.webp",
+      "sha256": "b0aea7e03f70e8c42c6a0196001b2c0460f99d4645234b85ee5c00d65e1ed88d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pphe.webp",
+      "sha256": "c0f4286d67e2fd9dd97926c5d589f25d1491bbd77bc9a62503160560129c2f81",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ppr.webp",
+      "sha256": "e1ca1c27756b73f2c85c3c3a82a62a8ac0046d1551ea075c0f4b250f24f27221",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/primary.webp",
+      "sha256": "c92dbf51bd72c889a6788bf6622aadb6ba2a470edeecff13f272e19c182d3e98",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/primeserv_group_limited.webp",
+      "sha256": "71cc68f49fd6e25b8007aefbbf931ed5dfd511e95788e405b988646ece49b022",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/prosus_n_v.webp",
+      "sha256": "1fd2cbae8285be94278a75cfd6607ced744da7afea63dad8e15cc88aedfb4f20",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/purple.webp",
+      "sha256": "0a43888b7cd11fd2eb66af585c2bd25a97a506292fd5d673953361540e7e988c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/putprop_limited.webp",
+      "sha256": "f192480ab2bc18c61533923af94751f4713941872a6197ca71d1a2117f5e3e22",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pwre.webp",
+      "sha256": "1845fc4c9dd46bb1d5f27ef19afc08d3a646abf4decdf031001bf595b4b5867f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/qfh.webp",
+      "sha256": "325c67779c7844caa25f9f48528f7fbf1df05b34c749ddf7650af86141865353",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/quantum.webp",
+      "sha256": "85cc49ae7aa47bf305b06eb17798ed5ac4e59033ab4f0a73a0e7e891fe9407d7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/quilter.webp",
+      "sha256": "4aa3c871f69c3cfa059138cda4b4888eb9199f39bc41770bb6d0e6e7c1d433b6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rainbow.webp",
+      "sha256": "7975bb7118e1e3f3ec718f88e3ef6761a6c9134e74b6d4cb202c7f6dd1c56a18",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rbx.webp",
+      "sha256": "4aba3ee1097533f3878f98cc001b17934401014d6d599b3a25529ce6d55dab0c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rcl.webp",
+      "sha256": "430f766339147c10def49422b44546ea1c1d2f70c7a17b145be75141d0942c2a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rdf.webp",
+      "sha256": "a14dc249df1ed3c46c9bed9da196709ca272fcb57f615c7952fcc2940383484e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/recnm.webp",
+      "sha256": "a98d384476c754cc35aed5ca54310c09411427f9841c15e2714e0070057226bc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/redefine_properties_limited.webp",
+      "sha256": "091e4bcd736648cf486f943dada71ead96f262652a1dbde7ac038aa04bb3b402",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/reinet.webp",
+      "sha256": "65ebee14fefe3ca2ecd19e4d1afb904261776c51ec1634dc28ef213e40af2257",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rem.webp",
+      "sha256": "73d1b22400b8636d304f079cc4b9b55d3f4d7f7362443f34376358ae0270a449",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/remgro.webp",
+      "sha256": "9cbaab00f1d912cb19c29715eb2bbd3e38762b6bd072e58771bad8b735c5fef7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/renergen_limited.webp",
+      "sha256": "ceaf77c016d1c41093d3a99e45697394b2da7795f6a53bc64238a31617eb999b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/resilient_reit_limited.webp",
+      "sha256": "30fe2aaf5b33009e444f5e79d77872c1173b60d3f36f9a8e33f9e3ec52b07e0d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/reunert_limited.webp",
+      "sha256": "f17310effd1fe89414cc7e6f582e8afeb6510e6323158a52605991e91a82949d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rex_trueform.webp",
+      "sha256": "35149709f60c37135529cbd411526e702c6b5b536ebdb2c924f780754e8cd396",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rh.webp",
+      "sha256": "cf141d82a0b4553bf98b7e0e278486935a143c8b8e002c4a279ed1728dca2d55",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rhbe.webp",
+      "sha256": "467af573da08bf3337a69c2e05e7e57f58bf7c63e430a7671e92713fdd24dad1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rlo.webp",
+      "sha256": "be91583bec7fb6b38267057e16aa9d60e2c9f15f19baa847ec2fe6e13577fc01",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rmh.webp",
+      "sha256": "3cca48fbad7056528847dd4e27138f21e3b4c9bb39787a8ced80b881d63761d6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rnie.webp",
+      "sha256": "66ee475cf297784cb9c6ecb4ec0ed0ba629f173034e4b4d0b605d4dabe9abe2b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/s32.webp",
+      "sha256": "d0e2d8936818c189cec7743e03351ced19819459fa34301a4d50965cce98d753",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sa_corporate_real.webp",
+      "sha256": "d8ff5a8bccfbb09036aaefcc19409cda5a37ed3e0d4bfd63280a25c74c9a4508",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sab.webp",
+      "sha256": "6a876d5bc81f9608df1a39605bcb3aef973d816c3cbdb28a7d4cd85e6248fb81",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sabvest.webp",
+      "sha256": "9c935a4c6f66c519ed0393468da3a5213b18930e48ecbc5cd72054a7cf7fee56",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sace.webp",
+      "sha256": "2064a2cfd997cc3e7ae3fa29ae3278b5edec05c7aace745d766e0ff5fc440a9c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sanlam_limited.webp",
+      "sha256": "cb540b2d02816c3fe6e13612373304e295c98efb1f3eb8cfd63eecc808ed9e06",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/santam.webp",
+      "sha256": "6f12824a2ebd779bb26d55cbbf4d8a8be0f8d49f434a0d8a2415f4683c02b785",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/santova_limited.webp",
+      "sha256": "54d314b2fb22503ab2fe1069d51f48c2f4f8354b6516356d50bf5bb1f15c1308",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sappi_limited.webp",
+      "sha256": "7a3155544323b0dd608afc4edca58dd07309f710ebf5f279f4e630a3a4ed7a78",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sasol.webp",
+      "sha256": "aa62f4142b262d9f3eac079a0a727a1f3cb7a8254103da2821a63011c4de3c66",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/savvi.webp",
+      "sha256": "f3608bd7ffecd11637a3187e901b33b02d0c517020a6af880bd2cc670669f9c9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sbpe.webp",
+      "sha256": "60bc0a5d973b72db9b6caf9a773c9af96a0bf7c3fae436982c484265ef7e3c22",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/scde.webp",
+      "sha256": "e9857f1b5fc92768e781c28978e7182930e6e7b55a95631f65e2d363ab48a72c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/schroder_european.webp",
+      "sha256": "215bbed821ff8359c468ea0cbceed271d77d6483ee5d30675d97a43fb1df0283",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sdle.webp",
+      "sha256": "baac81524edb2a83103e54edb138fc8e2ab24df6718f8a0c3d7da0388a8d60e0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sea.webp",
+      "sha256": "2121d8aee6e30c11c5cff99cb5c739f98a747ac385f9e00fbe4bb83219492c9a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/seae.webp",
+      "sha256": "912a71a90167b305546e62562eed74509838a153e962158f79258e2553359290",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sebe.webp",
+      "sha256": "5e99375a5f552301c8cc8a4c07dc214e14f24d25b4712f1bf54b68d737ea44cb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sep.webp",
+      "sha256": "6a1771fcf948ec30efa9304f1c0396080041f29308bed23840f9bab7976163e8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sgpe.webp",
+      "sha256": "51a2f9566ff7cb8a0dfd5c3556e0cc24567aa04c67f33e23c17070e9043684df",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/shaftesbury.webp",
+      "sha256": "d5ddddb349f1a9e371bf37d20affe4a7ff215d6fe183fc42e00f206bb299666a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/shce.webp",
+      "sha256": "5df493ba3fd00f382c0cfca81f9de9c751518e08c4e5e63c2de788a94bfaf540",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/shoprite_holdings_limited.webp",
+      "sha256": "abc8b929dcaa7fb2156b05c633ff7376553503d123ca6feebbe66d7a0522d5c3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/skae.webp",
+      "sha256": "087b7a9ddabb7088a710ee0e21f5a95d2cc380395d930c49a1e2716878bf2928",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/slge.webp",
+      "sha256": "6fa49565166cbc12d8279c63cdaae80808b224a5062c493ca43f06220eafcdf4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/slm.webp",
+      "sha256": "0eb3109480003d916e46a34fd8e1f413499e6d7d95a9f00b97d98ab11c09d811",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/snt.webp",
+      "sha256": "dca9ca670f170224bc9a5ebe4bf1cccd4451127188ae19617a2cf73d1a8001bf",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/soh.webp",
+      "sha256": "99ae5cafae523a4104f6ab4199ca722bdd76969880544b1eb0cbd20bf1a7aba5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/south32.webp",
+      "sha256": "ce6672f52822cd1181d6afb6fd9af07540a08f05c39f95e9c4839d0049428782",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/southern_palladium.webp",
+      "sha256": "4970cf25c161627342334af0f5a30bad272c7e20a610b626275ae06898ea8c94",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/southern_sun_limited.webp",
+      "sha256": "bc5528d16dbf5c2130893f3afa48db92ae3b4d15d33550aa402135f21dbc32cd",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/spear_reit_limited.webp",
+      "sha256": "94ffc6fb9c6484a4ea82192f200ee35ee62a82fdae950217b954e76d096ffded",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/spur_corporation.webp",
+      "sha256": "9ac9b2d5e1d097ff85abca4cc822b8e4c48070a6f49aef9a85573d1c3509b757",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sree.webp",
+      "sha256": "64b69208e8943beac4d6bf85236d9350950e2eaf76b69c10b414e63d55fd4253",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/srh.webp",
+      "sha256": "84194b21c986ea6176ebc5cc34af0d5ccd0c0667888cba8d45bbc251e6be91e4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ssse.webp",
+      "sha256": "3ef766d8b24d365b9a9dcd4fe498e23bc5169d5d137658f2d1ef8b32b554ce16",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ssue.webp",
+      "sha256": "0c390fa423cb617667d87109baef563eef53dc5992b7b1ba386d9412012fcbb2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sswe.webp",
+      "sha256": "bf8d4c501bc7153a6e9fcfa9b510ca3f8310ef8eb5c7d29209228c6adc58f3d1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/stadio.webp",
+      "sha256": "6ab222641c7a32fe2679f9d42247947b62b028a8980dd9e12488c2935ebe4117",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/standard_bank.webp",
+      "sha256": "73cbab81728427f205f9e6a0111e8976fa166b0439ffbc5f278f521270c33b7a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/stefanutti.webp",
+      "sha256": "dc15ae0da1b65ad9c1a0411963ff939998284878913e18eb44c12889a287f9da",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sun_international.webp",
+      "sha256": "a2ff4137c765c2633d4b94e195316117010f7fba43b5a91519e74649d33d7c4b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/super_group_limited.webp",
+      "sha256": "ef1bceaee14f24c6c5f20e01793617dcac2926e3651a2c1384fc17d7fdb847c6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/supermarket.webp",
+      "sha256": "2de9d5a8f16450c45b53190c4afaded1575adeaebb2dde066220656aada3b0e3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sur.webp",
+      "sha256": "1e469d49242b237c8a8676925f6bbdee13fbf6e99a315c85d0e795dd96f2a394",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sygnia.webp",
+      "sha256": "dfac032a4ca09818e1a928ff6d6b7cf810351692d5978443aa5835db99fa5604",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tadn.webp",
+      "sha256": "d54146deb5234d8c12681779400c5aac7f65f3cd6d58350ee66a892e6a4ff1b1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tex.webp",
+      "sha256": "2dc45be2496b23151c85dcd0bebf0585572aa2c4cacd6a35a57038d5a937057f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/texton_property_fund_limited.webp",
+      "sha256": "e51056ffdcbb0a0347969db99087af471581ae434ba3406604319f9ccdd4ab00",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tfg.webp",
+      "sha256": "aaefd241424d36249e42c449a215fc7bb38cccb09f42facd264e17354a03dd42",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tgae.webp",
+      "sha256": "c5731dc72b7f8c0b049fe35d05930c40f64b93d787da0afcf584cdd890ca27ea",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tha.webp",
+      "sha256": "0c57345ab0434bff38cde9d57c14de3451056166228008f3f892f887aea53ca4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/the_foschini_group_limited.webp",
+      "sha256": "1fa199937035adb32c2b7bf6fd97bfc94af69cac5da632458db7369b5d5c2a48",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tiih.webp",
+      "sha256": "da50ccd7b15166e74665f1f71938b54386656ed3ee1116d07e6795bfe3277afa",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tkg.webp",
+      "sha256": "aa398e9e3b25c34e7b2585c15b668639944de8639a0d5867666b071cb3a30407",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tlm.webp",
+      "sha256": "dccbdde14e57fdb242a12c16df10bb624d96709a4d1396b146db8f9eb4c9aaa2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tmt.webp",
+      "sha256": "ae31d19fb755636a4a4e7f2672a26cc8d21754f363acfc3c8371fb34b88413d7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/transaction.webp",
+      "sha256": "8056d3d21d7f8fa79ef9da64779d702e0d066dff80347941be5a2c5121465bfb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/trle.webp",
+      "sha256": "3cec890b191584e4b51b1caec53c0ca233a4556d2e3e6121e965c800f0910724",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tru.webp",
+      "sha256": "ec4c9f76be0c659417b9944fdcd5d28b1c5c14c840680f40bcffb844bf556688",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/trustco.webp",
+      "sha256": "ded55a4a44dfef4c7a113e8212dd89c56c967ee8253e0dcb92f1a2edb444dfcb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tsge.webp",
+      "sha256": "e59431f500b0e12dfe1e200d5553b289def3dc59fb22c561828d3e692315ce78",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tto.webp",
+      "sha256": "d7e2ae466894d04a2ee353237bd9d43098692a6b84c3442695d09f4d95f547fc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/universal.webp",
+      "sha256": "e4b8089eeb1046b11481011f78a43a4715d551f5d92958af3ff09f9e1d018174",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/untp.webp",
+      "sha256": "5e156fd1d3c914faa2083e2d74889247f780b3d8e3a32d1a5eae01b789194bc6",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/vale.webp",
+      "sha256": "417b6e8a7a77e0d5e709de7f737110ef15004003cd07a5a9f29d02fbaa82950a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/vke.webp",
+      "sha256": "554a4c9f783bcbb7bfda832f8c3376b9a4440e3bb3851118050afb936da8c28d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/vod.webp",
+      "sha256": "2704c6da7de10833e689cf35fbbffa7c205b05f4a2c1c6ee11d48084f3e94375",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/vukile_property.webp",
+      "sha256": "185de63212cc93c802d2dcc5915cc3de170c65579bcc467f35edfda972972fe7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/vunani.webp",
+      "sha256": "8d854d2733bb04e9db46c93ea830415a45464f005f7bb904ff11fbe42326fd20",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/wbce.webp",
+      "sha256": "0461dd56e7db56e3091916e2738f23814753acbd71d74b99ecf8ba6d77a1a2b4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/wbo.webp",
+      "sha256": "aeb7c8c8715d766ba55c340a42f560b68c32b0359220f84e03123ade4c71b4e1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/wez.webp",
+      "sha256": "2062cb121193c30dd0959d80a8b05264c5a84627a35095b7bfc91cb57e4a0290",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/yebo.webp",
+      "sha256": "ac36c0ea911f54cb49529c6052f74ca898cf9e831ab86e806bb6780fcd2dfe1c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/yrk.webp",
+      "sha256": "223e32d97552b52c63f852d605bf26891a3bac54f08741c604eefed85af8aa03",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/zed.webp",
+      "sha256": "748d90f221d065d5cf7e48bbf34158718f1f432af3014426d47b07afabbcff24",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/zzde.webp",
+      "sha256": "468c0bcad323f01d3da04ca65236a09f97c454b2894f1cf3ba6e1fb219dbea88",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bidvest.webp",
+      "sha256": "81dcc8d62fb8b99a2bc7b09866ae9d258b12f370a54a542f44693980c950f874",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tongaat.webp",
+      "sha256": "2052c0e1c424cfd7eef2f6512e06bcfdcc0eb3b3790769e3347141c6892881ee",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/montauk.webp",
+      "sha256": "4e59a2cc870115145d9ac21e7854bff6a493b64fc80de3509c666a1b39b7cb1e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/salungano.webp",
+      "sha256": "a20c8c109f7c08a59e828418ce8fe6d60703e04b6c5538e00a80c55f66dd52b2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/thungela.webp",
+      "sha256": "10b0860ccbe79be7023a827bcff474381bb7bd1b7cf96ca561f19da7858f5f03",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/telkom.webp",
+      "sha256": "1968ec210d659b2432a449013e9b0570b0ce168f139caf42b70fbc373dce04ce",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/mantengu.webp",
+      "sha256": "be74dd81fd82a0dc60281f85f2f1aa1399ade351dc85e283ba89ed9ffc6945e8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sail.webp",
+      "sha256": "04d55a7e31d6e2a773a22ed2d749041a028385f4ba3d3c3f25b76b130faa26e7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/psv.webp",
+      "sha256": "efe3dc7e3cd57381e197be1b34ba0227ffe577cf1551ff2913499afe3377acd7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ellies.webp",
+      "sha256": "7696454e9aa4da2879d502d091455c98fff748618f6a74d54aaf272a13362453",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/gold_fields.webp",
+      "sha256": "c7a85f0e0812697c0790c5e73b79147fb4babb2107dc7345a3650e86eb8e9b2b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/grindrod.webp",
+      "sha256": "ffb2eebc09d1a03d45ef66184e75067324371f39c376326438527c1a88219f75",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/chrometco.webp",
+      "sha256": "3dadf0142a41243dccf9e53deeca43968efaea6853e7af98209b557bdf77b267",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/hulamin.webp",
+      "sha256": "c4eb627ddccb820613f7391718680b2817c5804ea16fe875c51769a91023229d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/lesaka.webp",
+      "sha256": "7b19376882b144b73fe987f88af2f1cf290cbd219cae0db0f480cee61684ca8d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/pick_n_pay.webp",
+      "sha256": "0451cf40f3130da483ce5ce53fb2607d3a3fed63b39d573692b9a854fca94606",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/premier.webp",
+      "sha256": "c84df3f947ad9ecc14f18879c65254d37e7e027294a2d87b05ea108327876a02",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/investec_property.webp",
+      "sha256": "21fa8b4a5ae3f4bab3488db194ff38f82aae0b3eebccb77fae8963c71a165e5b9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sirius.webp",
+      "sha256": "902ad43883007fd6822874444dcece9b5a8c2ba0b57021f2f61b2ffe1c1ed686",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/collins.webp",
+      "sha256": "8a1ec161a9939f88be72a345a454ee90d941204e3a427978ef44a01773ef3dbc",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tradehold.webp",
+      "sha256": "2f58b3021940dc318c761043b348e7cdbe8d35611a7c9782c13ffa742c979b73",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/liberty_two_degrees.webp",
+      "sha256": "b431bc8748938feaaac308e0da0249d0fdb60f45749be6722d1aa505e2a3a9a7",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/afine.webp",
+      "sha256": "3143843c1ccfac1c064651e9cd736b5dc48256b56ec2133d1ce93072815910f3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/areit.webp",
+      "sha256": "0f3fddacb5072968819b83890b96d16cdc13bf7e3538e3dc6cb14963a09442de",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/ascendis.webp",
+      "sha256": "95b0eb4d43a412043c41fa29e5153a27d3367fa84a87b5f3e483efb27e950cf9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/capital_counties.webp",
+      "sha256": "eb339a249c9b4e9a90ca83b6f3781fd1c8665d2a32a7ca1feb1500fe37555e48",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/aeci.webp",
+      "sha256": "1b724a633e7004b5f8117f43d7bd78f68c781b2260919ee9f0e8993f7c3df75a",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/anglo_american_platinum.webp",
+      "sha256": "6ad05259090dacc2665c3bf2ff4b90533813a32227f7b63be097a559b40f0b9b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/arcelormittal.webp",
+      "sha256": "16a43a95103a3e2c48fb9d865632b199bd2153ea3bc4f4ec04a0599e194eaf0c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bell.webp",
+      "sha256": "e01e54f092c512ee6ce670a1822cc6bf807d434dfe99cf66456882e9b99365bb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/bowler_metcalf.webp",
+      "sha256": "8718f65eac3b735d64cac987e0aa64ac702feace42d8189a865fffe622de5016",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/raubex.webp",
+      "sha256": "82e32e8216c9eeecf9c691f1522ac004478c133fb6bfc342e994d54b9d40c779",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rfg.webp",
+      "sha256": "78d9e5925deab7be8ed9728121848eb8f314334e1e6156d75d5f5e95834ae367",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sephaku.webp",
+      "sha256": "ec8ce4ed018671c2cc6b73f49ac82319a0826adc3f2f873826a29b46997a17b9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sibanye.webp",
+      "sha256": "8d62680e89bc7d564c12b7cca888d71fd48bd15348cef74ee91364eeafd27bff",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sable.webp",
+      "sha256": "3c33c268156ef64ecf6611fc3b55caa6928065b05bfc8a0384b0707551ca0cef",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tiger.webp",
+      "sha256": "137400edb1f964ec85abfc7587830f2026dd659fa4ff3bd9d769567be172ba83",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/transpaco.webp",
+      "sha256": "07aea2973fdf1d727da80c923898510745734065cfdfaae3b85bbeb8aac4bf2f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/trellidor.webp",
+      "sha256": "8088ba3640c4562359d1eae240fb20acd0610457885a2ca744716ca3d1509017",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/wesizwe_platinum.webp",
+      "sha256": "529bfab080fe2aa04d9b4dfb11799d7226cc10db688815dd17be44c9603da01d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/wg_wearne.webp",
+      "sha256": "1e0cfe48948a147ae6ab6ed0f59548e1c590000f9846b09762b8975013ecff39",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/york_timber.webp",
+      "sha256": "90f46fc0dfae6cb7706e9dbd8aa295c9ca8f8d91d61d669b257ae2ad31c6816f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/trencor.webp",
+      "sha256": "bd637451a9086c1b8a8a7ad04455c2113c5cc14ffd2ce6cf2a85fd0a5e9493d2",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/south_ocean_holdings.webp",
+      "sha256": "908cddb02bf888605c6773ef256de5443a5f3124afa4b9ab968722a64d8d6490",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/spar_group.webp",
+      "sha256": "4100fef63a77d5640965378b6e8000094297ca902fdb460df16cf89450c110be",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tharisa.webp",
+      "sha256": "9bc378785b98148d89b0f1308df8c671f680fb0bec524e1bfd781319962c1a5f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/truworths.webp",
+      "sha256": "36f3a30d51627abea39ae740bace9df7337308399dde7f072b8df9684cbf1fd8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/webuycars.webp",
+      "sha256": "29b91af7ce33ab8a69173db47019f5d73f354f5228388079805442ed00d10fc9",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/weaver.webp",
+      "sha256": "8fe382d859d3f7823109acb9f87ca8cde7a05f00a6b23f378faebf963fe5bfb5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/woolworths.webp",
+      "sha256": "ae3aa42ee37c224459d18a67cdb7b30e32668de31dac54f80537de589e2f0022",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/delta_property.webp",
+      "sha256": "646665d50cc0508d4b77c4b127ec897d511b29550479686ed347d2cc035e3d79",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/exemplar_retail.webp",
+      "sha256": "3cae2467f373aee83c47fcfaacf53835203b359f2592902e399f41eff5059c02",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/go_life.webp",
+      "sha256": "ed10ca6f28148a41634c225c062439b6f1ccc060734961047593a2185898933d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/isa_holdings.webp",
+      "sha256": "676aec6f5ce1923b8cf8e7143fc17ae7c1525f88c572cf85c33869a07c117fe3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/lighthouse_properties.webp",
+      "sha256": "b28e34fc07974eab9b6277b2e24623c375aa23a06f307dc22d2ef7384260fb77",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/newpark.webp",
+      "sha256": "206443201491e0e22d9565f89ed9cf7e41d0754ff973d4312580b28035977d9d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/numeral.webp",
+      "sha256": "7fe0b2e8168220e8fdec4ba24a123a16e83d19077528f1a176283ffee662c469",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rebosis.webp",
+      "sha256": "c7aad353eadb23ffb9053733c42c62484609adb470e53f4f8e2f30c9f50ae876",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/rmb.webp",
+      "sha256": "a581f6d53cd56b8a054086354ca76a82e1a19051552a35157ab45aa5c1d83491",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/sebata.webp",
+      "sha256": "b4c0b11ebb4e63011b0cccf6d4aa411324012748b7ac51104a65abb9fbbd012c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/stor_age_property.webp",
+      "sha256": "73cc6ebc56d2dc04d04d0ea4ddc4df898ef11d7dc0d4c558ed95cc8fab50312d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/transcend_residential.webp",
+      "sha256": "5c0039d3d901b7d716980a15e55d0c1a09683547bfd37477de82afde2133a413",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/trematon.webp",
+      "sha256": "29ea406c1b79d421c37be372cd1af0f41df751eae57bb7ed84efc5110c0140a5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/tsogo_sun.webp",
+      "sha256": "944c1f37b924317fdf9921c488b72101c8f0a5dcc5076a7fe8cde4634e6caaa0",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/visual_international.webp",
+      "sha256": "8c629db5e9b393d054307815f263c4b3c62cbc38713b0d46be01b573ac6e8786",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-jse/zeda.webp",
+      "sha256": "45eb6084dcd078a5955de5ce432edcb7b51da1ce26d092bc51c336f2bf7759a5",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    }
+  ],
+  "failures": [
+    {
+      "file": "public/logos-jse/orne.webp",
+      "reason": "[Errno 2] No such file or directory: '/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/public/logos-jse/tmp3xmzhjnf.webp'"
+    },
+    {
+      "file": "public/logos-jse/universal.webp",
+      "reason": "[Errno 2] No such file or directory: '/home/jack-josias/sys/systemd/sysctl/sysstat/config/linux/FINFORM/algowebsite/algowebsite/public/logos-jse/tmp2zun86fd.webp'"
+    }
+  ]
+}

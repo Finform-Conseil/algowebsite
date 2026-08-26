@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { CurrencyCode } from "../components/market/CurrencySelector";
+import { isCurrencyCode, type CurrencyCode } from "../components/market/CurrencySelector";
 
 /**
  * [TENOR 2026 SRE] useCurrencyState
@@ -7,11 +7,17 @@ import type { CurrencyCode } from "../components/market/CurrencySelector";
  * click-outside logic to prevent root component bloat.
  * Designed to be consumed via React Context (CurrencyContext).
  */
-export const useCurrencyState = (initialCurrency: CurrencyCode) => {
+export const useCurrencyState = (initialCurrency: CurrencyCode, marketCurrency?: string) => {
   const [isCurrencyOpen, setIsCurrencyOpen] = useState<boolean>(false);
   const [currencyQuery, setCurrencyQuery] = useState<string>("");
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(initialCurrency);
   const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  useEffect(() => {
+    const normalizedMarketCurrency = marketCurrency?.trim().toUpperCase();
+    if (!normalizedMarketCurrency || !isCurrencyCode(normalizedMarketCurrency)) return;
+    setSelectedCurrency(normalizedMarketCurrency);
+  }, [marketCurrency]);
   const currencyBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {

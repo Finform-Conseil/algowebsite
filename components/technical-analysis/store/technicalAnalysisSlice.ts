@@ -57,6 +57,7 @@ export const {
   setPublishing,
   setCapturing,
   setDataMode,
+  setActiveMarket,
   setSearchMode,
   addComparisonSymbol,
   removeComparisonSymbol,

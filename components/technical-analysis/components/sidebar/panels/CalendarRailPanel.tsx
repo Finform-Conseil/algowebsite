@@ -27,6 +27,7 @@ interface CalendarRailPanelProps {
   bonds: BRVMBond[];
   corporateEvents: CorporateEvent[];
   displayTimeZoneLabel: string;
+  currency: string;
   dividends: BRVMDividendPoint[];
   ipos: IPO[];
   isBondLoading: boolean;
@@ -67,8 +68,8 @@ const EVENT_KIND_LABELS: Record<CalendarEventKind, string> = {
   session: "Session",
 };
 
-const formatMoney = (value: number) => (
-  Number.isFinite(value) ? value.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " FCFA" : "N/D"
+const formatMoney = (value: number, currency: string) => (
+  Number.isFinite(value) ? value.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " " + currency : "N/D"
 );
 
 const parseSortKey = (value: string | undefined, fallback: number) => {
@@ -86,13 +87,13 @@ const toDisplayDate = (value: string | undefined, fallback: string) => {
   return new Date(timestamp).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const buildDividendEvents = (dividends: BRVMDividendPoint[], ticker: string): CalendarEvent[] => (
+const buildDividendEvents = (dividends: BRVMDividendPoint[], ticker: string, currency: string): CalendarEvent[] => (
   dividends.slice(-6).map((dividend, index) => {
     const dateValue = dividend.payDate || dividend.exDate || dividend.year;
     const lifecycle = dividend.payDate ? "Pay date" : dividend.exDate ? "Ex-date" : "Fiscal year";
     return {
       dateLabel: toDisplayDate(dateValue, dividend.year),
-      detail: lifecycle + " - " + formatMoney(dividend.value),
+      detail: lifecycle + " - " + formatMoney(dividend.value, currency),
       id: `dividend-${dividend.year}-${index}`,
       kind: "dividend",
       sortKey: parseSortKey(dateValue, Date.UTC(Number(dividend.year) || 1970, 11, 31)),
@@ -107,7 +108,7 @@ const buildDividendEvents = (dividends: BRVMDividendPoint[], ticker: string): Ca
 const buildBondEvents = (bonds: BRVMBond[]): CalendarEvent[] => (
   bonds.slice(0, 8).map((bond, index) => ({
     dateLabel: toDisplayDate(bond.maturityDate, bond.maturityDate || "N/D"),
-    detail: "YTM " + (Number.isFinite(bond.ytm) ? bond.ytm.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + "%" : "N/D"),
+    detail: "Clearing yield " + (Number.isFinite(bond.clearingYield) ? bond.clearingYield.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + "%" : "N/D"),
     id: `bond-${bond.name}-${index}`,
     kind: "bond",
     sortKey: parseSortKey(bond.maturityDate, Number.MAX_SAFE_INTEGER - index),
@@ -169,15 +170,15 @@ const buildSessionEvents = (status: string, updateLabel: string, timezone: strin
   ...buildUpcomingSessionEvents(timezone, ticker),
 ]);
 
-const buildCorporateActionEvents = (events: CorporateEvent[]): CalendarEvent[] => (
+const buildCorporateActionEvents = (events: CorporateEvent[], currency: string): CalendarEvent[] => (
   events.map((event) => ({
     dateLabel: toDisplayDate(event.date, event.date),
     detail: (event.type === "Split" || event.type === "Reverse Split") && event.details?.splitRatio
       ? event.type + " " + event.details.splitRatio
       : event.type === "Merger" && event.details?.dealValue
-        ? event.details.dealValue.toLocaleString("fr-FR") + " FCFA"
+        ? formatMoney(event.details.dealValue, currency)
         : event.type === "Dividend" && event.details?.dividendAmount
-          ? event.details.dividendAmount.toLocaleString("fr-FR") + " FCFA"
+          ? formatMoney(event.details.dividendAmount, currency)
           : event.description.slice(0, 80),
     id: event.id,
     kind: "corporate-action" as CalendarEventKind,
@@ -271,6 +272,7 @@ export const CalendarRailPanel = React.memo(({
   bonds,
   corporateEvents,
   displayTimeZoneLabel,
+  currency,
   dividends,
   ipos,
   isBondLoading,
@@ -286,9 +288,9 @@ export const CalendarRailPanel = React.memo(({
   const [query, setQuery] = React.useState("");
   const events = React.useMemo(() => {
     const sessionEvents = buildSessionEvents(marketStatusLabel, sessionUpdateLabel, displayTimeZoneLabel, ticker);
-    const dividendEvents = buildDividendEvents(dividends, ticker);
+    const dividendEvents = buildDividendEvents(dividends, ticker, currency);
     const bondEvents = buildBondEvents(bonds);
-    const corporateActionEvents = buildCorporateActionEvents(corporateEvents);
+    const corporateActionEvents = buildCorporateActionEvents(corporateEvents, currency);
     const ipoEvents = buildIPOEvents(ipos, upcomingIPOs);
     const statusEvents = [
       ...(dividendEvents.length > 0 ? [] : [buildStatusEvent("dividend", ticker, "Dividend calendar pending", "Aucune date de dividende verifiee chargee pour ce titre.", 1)]),
@@ -310,6 +312,7 @@ export const CalendarRailPanel = React.memo(({
     bonds,
     corporateEvents,
     displayTimeZoneLabel,
+    currency,
     dividends,
     ipos,
     marketStatusLabel,

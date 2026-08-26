@@ -1,0 +1,396 @@
+{
+  "contract": "logo-normalization-v1",
+  "records": [
+    {
+      "file": "public/logos-gse/ACCESS.webp",
+      "sha256": "217c57ac16c38745a29b5de3abe6abc271a88e4d8725cf060a76f4fb7c79d12d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/ADB.webp",
+      "sha256": "efcdbaedfb24584f95694945812ba6ece0dd3f1d35701a68f29e004f733b223d",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/AGA.webp",
+      "sha256": "cdd26ff422b6a3881152ad19e2fa581c2fce34abc8c30f7f552b55843cd0bd4f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/ALLGH.webp",
+      "sha256": "755b31fa82dded9090de813c1939983e17b809233a2671d566c1317d01448894",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/ASG.webp",
+      "sha256": "aef9b20615466288f7384c528800e9b5935329ff3c958b47c830d8a1a39b8681",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/BOPP.webp",
+      "sha256": "6a7570ccc30501cc2e1f301b9dde5f80566fdc48e1e668ec305b97d03c98c58f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/CAL.webp",
+      "sha256": "6e8eaf25594acdaf4f0be3aac10792837170d6cf78187ee7a4fce2608bf94e94",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/CLYD.webp",
+      "sha256": "18666eb6c15b10e736dafaba3422d144db34d2dea17862e75c4f466e91f3f2cb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/CMLT.webp",
+      "sha256": "298309d6490d69e029a3d311768b3985445c358b7edf7d7b346e83c46846df03",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/CPC.webp",
+      "sha256": "2129469d06f95eb3a202434767fbed571dfd48c8a29219eb3dffb47ba5877f2e",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/DASPHARMA.webp",
+      "sha256": "8eb0953deac9aaf50606ce941b1a50e0ddc183009def0b94ac84782aa343060b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/DIGICUT.webp",
+      "sha256": "9640a144fbd41613ddee9afd2034a0389b0c843565f298892a49be662c07ef02",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/EGH.webp",
+      "sha256": "6667a05c5639a85ba272a81fe77eaf85dbea9d36593d0945d97b6a324a0df7ed",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/EGL.webp",
+      "sha256": "82d6504b85fcaf20f62b0e9f81459f9f70d15c56cac51fc4bf342f617430db11",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/FAB.webp",
+      "sha256": "3cf5bea28b2dc1ae29bd336a5e73fe714ec4d715f329a1b78a151d2c5e3cb881",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/FML.webp",
+      "sha256": "d6c46214a0b7bdd8dbaf2d87cf148a3b81ca56a36974700f69b78f29c5b7adf1",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/GCB.webp",
+      "sha256": "38505aa9a73998ffaa27ad955e62170270d2016fd12ea0e8d72cc9aa5dce03e4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/GGBL.webp",
+      "sha256": "ca2dfae347fe52ae600d9c1a10eca10b2b418671c72f8d10b21f05f35dd8505b",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/GLD.webp",
+      "sha256": "fc488a37c98fc5703d5361057e09a4f48c235ca2717f665c6944a2b1db09ae31",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/GOIL.webp",
+      "sha256": "28aae0fb8b9e5aaba281b3df8381e10cf0b7594bdc6e3dd71f060658700e5f09",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/HORDS.webp",
+      "sha256": "7736873db7538d6f38c7a3f2406a5a4c76dd863eab9634f9a2eed8d61e3a8889",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/IIL.webp",
+      "sha256": "7dd93365a3bdf0836041e68048d09fc2f91c5e784f64d68214de0dce59823e0f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/KASA.webp",
+      "sha256": "a2582e816bd737584bcad109e77efc4ea6198daaf23ed4b8821c6330edbd99eb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/MAC.webp",
+      "sha256": "613fb3e3f86546ea902f29816a22dccc6c3a30e77906c3bdbd6e60b3c91ea6a4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/MMH.webp",
+      "sha256": "456499d84facd84bfdc8c5f8554cc9744ac588c50796dcfb5052f4ddf8baa6b8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/MTNGH.webp",
+      "sha256": "97e46a70956e992ef94889d6b4016e92f43e33b42a0b3cd08995f5c74e7b9e12",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/PBC.webp",
+      "sha256": "de8405b5742a2b9f573b761f9e113424301125dc606073b6e1a56fe23f8aa40c",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/RBGH.webp",
+      "sha256": "807be5e4e725f3497a9a1c2cb02daa655df414be3077710497940773fc2f6268",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/SAMBA.webp",
+      "sha256": "b8801a111362078255a0bd747ac5afcb29b0ca7158d4846d1980ad5780fd32fb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/SCB.webp",
+      "sha256": "75116b2323808714e42c85221efe3be1b44416c8a50f22e1a6e9d08949aa67c8",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/SIC.webp",
+      "sha256": "35ca3f958c5d4dc76c28681f8e68a006a7b2e08dce7bd13181a399fb280507cf",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/SOGEGH.webp",
+      "sha256": "ffaf3c8f212af6c424c09fc9a71a8263e62c5d41ee6f2e241b8ab9f1c8c093bb",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/TBL.webp",
+      "sha256": "fa7f19ee57bda65cc0529688394abd67c57c308d9197160dfecf27c802cf26f3",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/TLW.webp",
+      "sha256": "fa6e638941503669fc5a3b5ff8868f9dd2f0175a00ff0c6e8b0aed7375af034f",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/TOTAL.webp",
+      "sha256": "a5d58eaaf302092979df1676b934b50c7841db512b778d8b9c3b5ae9072f61e4",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/UNIL.webp",
+      "sha256": "716a143f71abf632a3a98dfd462e460632752e0910e3bee15ff846aefbafec19",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/ZEN.webp",
+      "sha256": "4992de8742061148c19ddd804a01e9d5a434f147ed7ef9aa50b8939c9d959796",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/ALW.webp",
+      "sha256": "50ad0f252296005ec495f00659a6e76c91c57308dc443bf67edc2c7cf8d02283",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    },
+    {
+      "file": "public/logos-gse/SWL.webp",
+      "sha256": "5c0039d3d901b7d716980a15e55d0c1a09683547bfd37477de82afde2133a413",
+      "canvas": [
+        256,
+        256
+      ],
+      "background": "#ffffff",
+      "artwork_ratio": 0.7
+    }
+  ],
+  "failures": []
+}

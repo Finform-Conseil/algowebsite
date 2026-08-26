@@ -1,4 +1,5 @@
 import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
+import { normalizeMarketDataScope } from "../../config/market/marketDataCacheKey";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import { normalizeChartSymbol } from "./chartConfigPolicy";
 
@@ -64,11 +65,14 @@ const applyOptionalCountFields = (target: LiveSnapshot, source: LiveSnapshot): b
 export const normalizeMarketSymbol = (symbol: string): string => normalizeChartSymbol(symbol);
 
 export const normalizeMarketDataPayload = (
-  payload: { symbol: string; data: ChartDataPoint[] },
-): { symbol: string; data: ChartDataPoint[] } | null => {
+  payload: { symbol: string; data: ChartDataPoint[]; market?: string },
+): { symbol: string; data: ChartDataPoint[]; market?: string } | null => {
   const symbol = normalizeMarketSymbol(payload.symbol);
   if (!symbol || !Array.isArray(payload.data)) return null;
-  return { symbol, data: payload.data };
+  const market = normalizeMarketDataScope(payload.market);
+  return market
+    ? { symbol, data: payload.data, market }
+    : { symbol, data: payload.data };
 };
 
 export const normalizeMarketSnapshotPayload = (
