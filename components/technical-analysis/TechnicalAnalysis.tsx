@@ -2029,7 +2029,7 @@ const ChartUI: React.FC = () => {
           ref={refs.sidebarToggleRef}
           id="gp-sidebar-toggle"
           className={"gp-sidebar-toggle-btn"}
-          title="Basculer la barre latÃ©rale"
+          title="Basculer la barre latérale"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 6 l6 6 l-6 6" />
