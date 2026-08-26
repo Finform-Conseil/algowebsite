@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { proxyConfig } from '../config';
-import { createSecureHeaders, isValidApiIdentifier, isValidTargetUrl, arePathSegmentsSafe, sanitizePath } from '../security';
+import { createSecureHeaders, isRequestOriginAllowed, isValidApiIdentifier, isValidTargetUrl, arePathSegmentsSafe, sanitizePath } from '../security';
 import { checkRateLimit } from '../rate-limiter';
 import { getCachedResponse, setCachedResponse } from '../cache';
 import { fetchWithRetry } from '@/shared/utils/fetchWithRetry';
@@ -153,7 +153,9 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
     return NextResponse.json({ error: 'Chemin API invalide', requestId }, { status: 400 });
   }
 
-  if (origin && !proxyConfig.allowedOrigins.includes(origin)) {
+  const requestOrigin = request.nextUrl.origin;
+  if (!isRequestOriginAllowed(origin, requestOrigin, proxyConfig.allowedOrigins)) {
+    logger.warn('Origin non autorisé.', { ...baseLogContext, origin, requestOrigin });
     return NextResponse.json({ error: 'Accès non autorisé', requestId }, { status: 403 });
   }
 
@@ -189,6 +191,7 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
   const targetBaseUrl = proxyConfig.apiTargets[apiIdentifier];
 
   if (!isValidTargetUrl(targetBaseUrl)) {
+    logger.error('Cible API invalide ou non configurée.', { ...logContext, apiIdentifier, targetBaseUrl });
     return NextResponse.json({ error: 'Erreur de configuration interne', requestId }, { status: 500 });
   }
 

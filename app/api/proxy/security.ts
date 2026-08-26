@@ -11,6 +11,11 @@ const securityLogger = {
 };
 
 const ALLOWED_API_IDENTIFIERS = new Set(Object.keys(proxyConfig.apiTargets));
+const CONFIGURED_TARGET_URLS = new Set(
+  Object.values(proxyConfig.apiTargets).filter(
+    (target): target is string => typeof target === 'string' && target.length > 0,
+  ),
+);
 
 export function isValidApiIdentifier(identifier: string): boolean {
   const formatValid = /^[a-zA-Z0-9_-]+$/.test(identifier);
@@ -27,24 +32,28 @@ export function arePathSegmentsSafe(segments: string[]): boolean {
   return true;
 }
 
+export function isRequestOriginAllowed(
+  origin: string | null,
+  requestOrigin: string,
+  allowedOrigins: readonly string[],
+): boolean {
+  return origin === null || origin === requestOrigin || allowedOrigins.includes(origin);
+}
+
 export function isValidTargetUrl(url: string | undefined): url is string {
   if (!url) return false;
 
   try {
     const parsed = new URL(url);
 
-    if (process.env.NODE_ENV === 'production') {
-      // [FIX #6 — Dette technique : backend Django en HTTP]
-      // API_TARGET_10 pointe actuellement vers http://…sslip.io (certificat auto-signé).
-      // En prod, HTTPS est obligatoire pour tous les backends SAUF cette whitelist temporaire.
-      // ⚠️ DETTE CRITIQUE : migrer ce backend vers HTTPS avec certificat valide AVANT le
-      // lancement prod. Ce hack n'existe QUE pour débloquer le dev/staging. Ne JAMAIS
-      // étendre cette liste — obtenir un vrai certificat (Let's Encrypt) est gratuit.
-      const DEV_BACKEND_HTTP_WHITELIST = new Set([
-        'a21mldhl1xhs0dumr7kfo1fg.85.190.99.121.sslip.io',
-      ]);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
 
-      if (parsed.protocol !== 'https:' && !DEV_BACKEND_HTTP_WHITELIST.has(parsed.hostname)) {
+    if (process.env.NODE_ENV === 'production') {
+      // HTTP reste autorisé uniquement pour une cible explicitement déclarée
+      // via API_TARGET_*. Aucun hostname d'infrastructure n'est codé en dur.
+      if (parsed.protocol === 'http:' && !CONFIGURED_TARGET_URLS.has(url)) {
         return false;
       }
 

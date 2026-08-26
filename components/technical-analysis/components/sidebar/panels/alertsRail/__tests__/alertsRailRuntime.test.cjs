@@ -1,4 +1,5 @@
 /* eslint-env node */
+process.env.NEXT_PUBLIC_CLIENT_API_BASE ||= "/api/proxy/10";
 require("../../../../../store/__tests__/testTypeScriptLoader.cjs");
 
 const assert = require("node:assert/strict");

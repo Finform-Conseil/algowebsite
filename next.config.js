@@ -7,6 +7,14 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  compiler: {
+    // Keep diagnostics in development; strip noisy application console calls
+    // only from production bundles while preserving console.error.
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error"] }
+        : false,
+  },
   allowedDevOrigins: ["127.0.0.1", "localhost", "*.trycloudflare.com"],
   turbopack: {
     root: path.resolve(__dirname),

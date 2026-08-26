@@ -26,7 +26,7 @@ const resultHash = computeSha256(resultCss);
 // Banner — no date to keep determinism
 const banner = [
   "/* GENERATED FILE — DO NOT EDIT */",
-  `/* Bootstrap v${bootstrapVersion} — ${BOOTSTRAP_SRC} */`,
+  `/* Bootstrap v${bootstrapVersion} — node_modules/bootstrap/dist/css/bootstrap.min.css */`,
   `/* Source SHA-256: ${sourceHash} */`,
   `/* Scope: :where(.technical-analysis-bootstrap-scope) */`,
   `/* Generator: scripts/lib/scope-bootstrap-css.mjs */`,
