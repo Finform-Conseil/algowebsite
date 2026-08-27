@@ -119,8 +119,8 @@ export const BrvmLogoMark = memo(({
   unoptimized,
   loading = "lazy",
 }: BrvmLogoMarkProps) => {
-  const [hasImageError, setHasImageError] = useState(false);
-  const [hasImageLoaded, setHasImageLoaded] = useState(false);
+  const [loadedLogoUrl, setLoadedLogoUrl] = useState<string | null>(null);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
   const [logoRetryAttempt, setLogoRetryAttempt] = useState(0);
   const retryTimerRef = useRef<number | null>(null);
   const normalizedTicker = normalizeTicker(ticker);
@@ -136,6 +136,8 @@ export const BrvmLogoMark = memo(({
   const effectiveLogoUrl = resolvedLogoUrl
     ? getLogoRetryUrl(resolvedLogoUrl, logoRetryAttempt)
     : undefined;
+  const hasImageLoaded = Boolean(effectiveLogoUrl) && loadedLogoUrl === effectiveLogoUrl;
+  const hasImageError = Boolean(effectiveLogoUrl) && failedLogoUrl === effectiveLogoUrl;
   const hasUsableLogo = Boolean(effectiveLogoUrl) && !hasImageError;
   const bypassImageOptimization = unoptimized
     ?? (typeof effectiveLogoUrl === "string" && effectiveLogoUrl.startsWith("/"));
@@ -145,8 +147,7 @@ export const BrvmLogoMark = memo(({
       window.clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
-    setHasImageError(false);
-    setHasImageLoaded(false);
+    setFailedLogoUrl(null);
     setLogoRetryAttempt(0);
     return () => {
       if (retryTimerRef.current !== null) {
@@ -161,14 +162,14 @@ export const BrvmLogoMark = memo(({
       window.clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
-    setHasImageError(false);
-    setHasImageLoaded(true);
+    setFailedLogoUrl(null);
+    setLoadedLogoUrl(effectiveLogoUrl ?? null);
   };
 
   const handleImageError = () => {
-    setHasImageLoaded(false);
+    setLoadedLogoUrl((currentUrl) => currentUrl === effectiveLogoUrl ? null : currentUrl);
     if (logoRetryAttempt >= MAX_LOGO_LOAD_RETRIES) {
-      setHasImageError(true);
+      setFailedLogoUrl(effectiveLogoUrl ?? null);
       return;
     }
     if (retryTimerRef.current !== null) return;

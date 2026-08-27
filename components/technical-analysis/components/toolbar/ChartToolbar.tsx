@@ -31,6 +31,7 @@ import {
 import { preloadIndicatorsModal } from "../modals/orchestration/indicatorsModalLoader";
 import { actionApi, SEARCH_SYMBOL_ACTION_QUERY } from "@/core/infra/store/api/action.api";
 import { ANONYMOUS_PSEUDOS } from "../../config/ui/anonymousPseudos";
+import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
 import { renderChartTypeIcon } from "./chart/chartTypeIcons";
 import {
   horizontalToolbarClassNames,
@@ -59,6 +60,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   onOpenLoadModal,
 }) => {
   const dispatch = useAppDispatch();
+  const { openLayoutMarketDirectory } = useTickerSelector();
   const chartConfig = useSelector(selectChartConfig);
   const advancedIndicators = useSelector(selectAdvancedIndicators);
   const uiState = useSelector(selectUiState);
@@ -135,6 +137,9 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   };
 
   const openMarketSelector = () => {
+    if (isMultiChartMode && activeLayoutCell?.chartId) {
+      openLayoutMarketDirectory(activeLayoutCell.chartId);
+    }
     dispatch(setModalOpen({ modal: "marketSelector", isOpen: true }));
   };
 

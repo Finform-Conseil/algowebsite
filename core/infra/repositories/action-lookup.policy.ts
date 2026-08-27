@@ -48,11 +48,30 @@ export const buildActionLookupQuery = (
   };
 
   if (criteria.marketTicker) {
-    query.view_type = "screener";
+    // The list endpoint is an index lookup only. Multi-exchange full-list
+    // projections can be expensive or fail server-side (notably CSE), while
+    // the screener projection reliably exposes the canonical action id.
+    // The repository hydrates that id through /actions/{id}/ before returning.
     query.bourse_tickers = criteria.marketTicker;
+    query.view_type = "screener";
   }
 
   return query;
+};
+
+export const buildActionMarketCatalogQuery = (
+  criteria: NormalizedActionLookupCriteria,
+  page = 1,
+): ActionQueryParams => {
+  if (!criteria.marketTicker) {
+    throw new Error("A market ticker is required for catalog fallback.");
+  }
+  return {
+    page: Math.max(1, Math.floor(page)),
+    page_size: 100,
+    bourse_tickers: criteria.marketTicker,
+    view_type: "screener",
+  };
 };
 
 export const actionMatchesLookup = (

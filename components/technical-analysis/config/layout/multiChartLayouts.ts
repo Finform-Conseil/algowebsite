@@ -201,6 +201,7 @@ export const createLayoutCells = (
   intervals?: string[],
   presetSymbols?: string[],
   market = "BRVM",
+  preservePrimaryBinding = false,
 ): MultiChartLayoutCell[] => {
   const definition = getLayoutDefinition(layoutId);
   const primary = normalizeLayoutSymbol(primarySymbol);
@@ -215,7 +216,7 @@ export const createLayoutCells = (
     const defaultSymbol = index === 0 ? primary : candidates[index - 1] ?? "";
     const canReuseExistingBinding = Boolean(
       !presetSymbols
-      && index > 0
+      && (index > 0 || preservePrimaryBinding)
       && existing?.symbol
       && !isLegacyLayoutPlaceholderSymbol(existing.symbol)
       && shouldPreservePreviousSymbols,
@@ -267,7 +268,22 @@ export const reconcileMultiChartLayout = (
   market = "BRVM",
 ): MultiChartLayoutState => {
   const definition = getLayoutDefinition(layoutId);
-  const charts = createLayoutCells(layoutId, primarySymbol, comparisonSymbols, current.charts, undefined, undefined, market);
+  // A layout transition is a pure geometry change: existing chart bindings are
+  // state, not defaults. Preserve chart_1 exactly like every peer so expanding
+  // 2H -> 4 (or rotating 2H -> 2V) cannot overwrite a valid panel with the
+  // currently focused symbol. Same-layout reconciliation intentionally keeps
+  // the historical primary-rebind behavior used by state repair paths.
+  const preservePrimaryBinding = current.layoutId !== layoutId;
+  const charts = createLayoutCells(
+    layoutId,
+    primarySymbol,
+    comparisonSymbols,
+    current.charts,
+    undefined,
+    undefined,
+    market,
+    preservePrimaryBinding,
+  );
   const currentActive = charts.find((chart) => chart.chartId === current.activeChartId);
   const firstBoundChart = charts.find((chart) => chart.symbol.trim().length > 0);
   // An empty placeholder can never own the canonical active chart surface. This

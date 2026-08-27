@@ -3,6 +3,7 @@ import {
   useCreateActionMutation,
   useDeleteActionMutation, 
   useGetActionByIdQuery, 
+  useLazyGetActionByIdQuery,
   useLazyGetAllActionsQuery,
 
   useUpdateActionMutation,
@@ -21,6 +22,7 @@ import {
   actionMatchesLookup,
   buildActionLookupQuery,
   buildActionLookupRequestKey,
+  buildActionMarketCatalogQuery,
   normalizeActionLookupCriteria,
 } from './action-lookup.policy';
 
@@ -102,6 +104,7 @@ export const useActionRepository = (): IActionRepository => {
         error: allActionsQueryError,
       },
     ] = useLazyGetAllActionsQuery();
+  const [triggerGetActionById] = useLazyGetActionByIdQuery();
 
   const {
     data: currentActionQueryResult,
@@ -179,29 +182,100 @@ export const useActionRepository = (): IActionRepository => {
 
     try {
       const action = await getSharedActionRequest(key, async () => {
+        const indexCriteria = {
+          ticker: normalizedCriteria.ticker,
+          ...(normalizedCriteria.marketTicker ? { marketTicker: normalizedCriteria.marketTicker } : {}),
+        };
+
+        const hydrateIndexedAction = async (candidate: ActionEntity | undefined): Promise<ActionEntity | null> => {
+          if (!candidate) return null;
+          const candidateId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+          if (!candidateId) {
+            throw new Error(`API action index entry for ${normalizedCriteria.ticker} has no id.`);
+          }
+          const detailedAction = await triggerGetActionById({ id: candidateId }, true).unwrap();
+          if (!actionMatchesLookup(detailedAction, normalizedCriteria)) {
+            throw new Error(`API action detail mismatch for ${normalizedCriteria.ticker}.`);
+          }
+          return detailedAction;
+        };
+
+        const findIndexedCandidate = (actions: readonly ActionEntity[]): ActionEntity | undefined => (
+          actions.find((candidate) => actionMatchesLookup(candidate, indexCriteria))
+        );
+
+        const resolveFromMarketCatalog = async (): Promise<ActionEntity | null> => {
+          if (!normalizedCriteria.marketTicker) return null;
+          let page = 1;
+          let totalPages = 1;
+          const maxFallbackPages = 20;
+
+          do {
+            const catalogResult = await triggerGetAllActions(
+              buildActionMarketCatalogQuery(normalizedCriteria, page),
+              true,
+            ).unwrap();
+            const indexedCandidate = findIndexedCandidate(catalogResult.data ?? []);
+            const hydratedCandidate = await hydrateIndexedAction(indexedCandidate);
+            if (hydratedCandidate) return hydratedCandidate;
+
+            const reportedTotalPages = Number(catalogResult.total_pages);
+            totalPages = Number.isFinite(reportedTotalPages) && reportedTotalPages > 0
+              ? Math.min(maxFallbackPages, Math.floor(reportedTotalPages))
+              : 1;
+            page += 1;
+          } while (page <= totalPages);
+
+          return null;
+        };
+
+        const resolveIndexedLookup = async (field: "isin" | "ticker"): Promise<ActionEntity | null> => {
+          let filteredLookupFailed = false;
+          try {
+            const result = await triggerGetAllActions(
+              buildActionLookupQuery(normalizedCriteria, field),
+              true,
+            ).unwrap();
+            if (!normalizedCriteria.marketTicker && result.count > 1) {
+              throw new Error(
+                `Ambiguous API action ticker ${normalizedCriteria.ticker}: ${result.count} matches; marketTicker is required.`,
+              );
+            }
+            const hydratedCandidate = await hydrateIndexedAction(findIndexedCandidate(result.data ?? []));
+            if (hydratedCandidate) return hydratedCandidate;
+          } catch (error) {
+            if (!normalizedCriteria.marketTicker) throw error;
+            filteredLookupFailed = true;
+            console.warn("[ActionRepository] Filtered action lookup failed; trying bounded market catalog fallback", {
+              market: normalizedCriteria.marketTicker,
+              ticker: normalizedCriteria.ticker,
+              field,
+            });
+          }
+
+          if (normalizedCriteria.marketTicker) {
+            try {
+              const catalogCandidate = await resolveFromMarketCatalog();
+              if (catalogCandidate) return catalogCandidate;
+            } catch (error) {
+              if (filteredLookupFailed) {
+                console.warn("[ActionRepository] Market catalog fallback also failed", {
+                  market: normalizedCriteria.marketTicker,
+                  ticker: normalizedCriteria.ticker,
+                });
+              }
+              throw error;
+            }
+          }
+          return null;
+        };
+
         if (normalizedCriteria.isin) {
-          const isinResult = await triggerGetAllActions(
-            buildActionLookupQuery(normalizedCriteria, "isin"),
-            true,
-          ).unwrap();
-          const isinAction = (isinResult.data ?? []).find((candidate) => (
-            actionMatchesLookup(candidate, normalizedCriteria)
-          ));
-          if (isinAction) return isinAction;
+          const resolvedByIsin = await resolveIndexedLookup("isin");
+          if (resolvedByIsin) return resolvedByIsin;
         }
 
-        const result = await triggerGetAllActions(
-          buildActionLookupQuery(normalizedCriteria, "ticker"),
-          true,
-        ).unwrap();
-        if (!normalizedCriteria.marketTicker && result.count > 1) {
-          throw new Error(
-            `Ambiguous API action ticker ${normalizedCriteria.ticker}: ${result.count} matches; marketTicker is required.`,
-          );
-        }
-        const resolvedAction = (result.data ?? []).find((candidate) => (
-          actionMatchesLookup(candidate, normalizedCriteria)
-        ));
+        const resolvedAction = await resolveIndexedLookup("ticker");
         if (!resolvedAction) {
           throw new Error(
             `API action not found for ${normalizedCriteria.ticker}${normalizedCriteria.marketTicker ? ` on ${normalizedCriteria.marketTicker}` : ""}.`,
@@ -224,7 +298,7 @@ export const useActionRepository = (): IActionRepository => {
       }
       throw error;
     }
-  }, [triggerGetAllActions]);
+  }, [triggerGetActionById, triggerGetAllActions]);
 
   return {
     createAction,

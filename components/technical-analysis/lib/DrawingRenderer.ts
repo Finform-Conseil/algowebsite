@@ -97,13 +97,16 @@ export class DrawingRenderer {
   ) {
     if (!DrawingRenderer.isChartRenderable(chart)) return;
 
-    const dpr = window.devicePixelRatio || 1;
-
-    // 1. Reset & Clear (Use full canvas size)
+    // Clear stale drawings first. During a ticker/market switch ECharts can be
+    // mounted without a coordinate system until the first OHLCV series arrives.
+    // Calling convertToPixel in that window floods the console every RAF frame.
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+    if (chartData.length === 0) return;
 
-    // 2. Apply Unified Scale
+    const dpr = window.devicePixelRatio || 1;
+
+    // Apply Unified Scale only when a real chart coordinate system can exist.
     this.ctx.scale(dpr, dpr);
 
     // Update cached helpers context and dimensions
@@ -166,14 +169,42 @@ export class DrawingRenderer {
       return DrawingRenderer.NO_HIT;
     }
 
+    if (!DrawingRenderer.isChartRenderable(chart)) {
+      return DrawingRenderer.NO_HIT;
+    }
+
     const strategy = drawingStrategyRegistry.getStrategy(drawing.type);
     if (!strategy) {
       return DrawingRenderer.NO_HIT;
     }
 
-    // Note: Pixel conversion for hitTest is handled inside the strategies
-    // to allow them to optimize their own hit-testing logic.
-    return strategy.hitTest(mx, my, drawing, chart, threshold);
+    // Strategies own their high-fidelity projection logic. During a rapid
+    // multi-chart layout transition, however, ECharts can keep the instance
+    // mounted for a few synchronous events while its coordinate system is
+    // already being rebuilt. In that narrow window convertToPixel() throws
+    // from ECharts' internal queryComponents() path.
+    //
+    // We deliberately do not blanket-catch strategy errors: only a proven
+    // chart/coordinate-system transition is converted into NO_HIT. If the
+    // chart can still project the drawing anchor, the original error remains
+    // a real strategy failure and is rethrown.
+    try {
+      return strategy.hitTest(mx, my, drawing, chart, threshold);
+    } catch (error) {
+      if (!DrawingRenderer.isChartRenderable(chart)) {
+        return DrawingRenderer.NO_HIT;
+      }
+
+      const anchor = drawing.points[0];
+      if (
+        anchor &&
+        DrawingRenderer.safeConvertToPixel(chart, [anchor.time, anchor.value]) === null
+      ) {
+        return DrawingRenderer.NO_HIT;
+      }
+
+      throw error;
+    }
   }
 
   /**

@@ -11,10 +11,10 @@ const PRICE_AXIS_MENU_MIN_MARGIN = 12;
  * Exporté pour être réutilisé par les composants connectés.
  */
 export const formatPriceAxisLabel = (value: number): string => {
-  const decimals = Math.abs(value) < 10 ? 4 : 2;
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+  return value.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
   });
 };
 

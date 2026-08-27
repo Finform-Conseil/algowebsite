@@ -71,6 +71,15 @@ import {
 type DataMode = "mock" | "real";
 export type ComparisonLoadStatus = "idle" | "loading" | "loaded" | "empty" | "failed";
 export type ComparisonLoadState = Record<string, ComparisonLoadStatus>;
+export type ComparisonCurrencyState = Record<string, string>;
+export interface ComparisonManagerState {
+  loadState: ComparisonLoadState;
+  currencyByKey: ComparisonCurrencyState;
+}
+type ComparisonFetchResult = {
+  series: ChartDataPoint[];
+  currency: string;
+};
 export interface ComparisonMarketRequest {
   symbol: string;
   market: string;
@@ -208,6 +217,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
   const [resolvedActionByTicker, setResolvedActionByTicker] = useState<ActionEntity | null>(null);
   const [showReplayFullText, setShowReplayFullText] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState<ComparisonLoadStatus>(symbol ? "loading" : "idle");
 
   // --- STABLE REFS (préservation de la mécanique SRE existante) ---
   const replayOriginalData = useRef<ChartDataPoint[]>([]);
@@ -282,6 +292,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       applyWindowFirstData(symbol, cachedSeries);
     }
     resolvedDataSymbolRef.current = symbol;
+    setLoadStatus("loaded");
     setIsLoading(false);
   }, [applyWindowFirstData, marketDataCache, marketScope, mode, symbol]);
 
@@ -356,10 +367,16 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     }
 
     // [SRE] Race Condition Guard (Fetch ID).
-    currentFetchIdRef.current += 1;
+    // Silent SWR refreshes belong to the current market+ticker generation and
+    // must never supersede the blocking bootstrap request. Otherwise the
+    // bootstrap `finally` cannot close its loader and the UI can remain stuck.
+    if (!isSilentRefresh) currentFetchIdRef.current += 1;
     const thisFetchId = currentFetchIdRef.current;
 
-    if (!isSilentRefresh) setIsLoading(true);
+    if (!isSilentRefresh) {
+      setLoadStatus("loading");
+      setIsLoading(true);
+    }
     const upperTicker = ticker.toUpperCase();
     const cachedSeries = chartDataSymbolRef.current === upperTicker ? chartDataRef.current : [];
     if (!deferApply && (historyPage === null || previousSymbol !== ticker)) {
@@ -500,10 +517,16 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         } else {
           commitChartSeries(upperTicker, series);
         }
+        if (!isSilentRefresh) setLoadStatus("loaded");
+      } else if (!isSilentRefresh) {
+        setLoadStatus("empty");
       }
     } catch (error: unknown) {
       const err = error as Error;
       console.warn(`[MarketData] API fetch failed for ${upperTicker}:`, err?.message ?? err);
+      if (!isSilentRefresh && chartDataRef.current.length === 0 && isMounted.current && currentFetchIdRef.current === thisFetchId) {
+        setLoadStatus("failed");
+      }
       if (chartDataRef.current.length === 0 && isMounted.current && currentFetchIdRef.current === thisFetchId) {
         addNotificationRef.current({
           title: "Échec du flux de données",
@@ -670,6 +693,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     if (uiState.replay.isActive) return;
     if (mode !== "real") {
       resolvedDataSymbolRef.current = symbol;
+      setLoadStatus(symbol ? "loaded" : "idle");
       setIsLoading(false);
       return;
     }
@@ -681,7 +705,8 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       resolvedDataSymbolRef.current = "";
       setChartData([]);
       setResolvedActionByTicker(null);
-      setIsLoading(true);
+      setLoadStatus("idle");
+      setIsLoading(false);
       return;
     }
 
@@ -708,6 +733,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       resolvedDataSymbolRef.current = hasCachedScopeSeries ? symbol : "";
       chartDataRef.current = hasCachedScopeSeries ? cachedScopeSeries : [];
       setChartData(cachedScopeSeries);
+      setLoadStatus(hasCachedScopeSeries ? "loaded" : "loading");
       setIsLoading(!hasCachedScopeSeries);
       setResolvedActionByTicker(null);
       resolvedActionRef.current = null;
@@ -776,6 +802,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         // Cached candles are already renderable. Close the blocking bootstrap
         // loader before the silent API revalidation so stale-while-revalidate
         // never leaves the chart dimmed indefinitely when that request fails.
+        setLoadStatus("loaded");
         setIsLoading(false);
         // Persisted history is stored as a contiguous page prefix (page 1..N).
         // Restore the pagination cursor from the cached bar count so a reload or
@@ -887,6 +914,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     isLoading: !hasRenderableData && (
       isLoading || (mode === "real" && symbol.length > 0 && resolvedDataSymbolRef.current !== symbol)
     ),
+    loadStatus,
     startReplay,
     stopReplay,
     showReplayFullText,
@@ -967,14 +995,16 @@ export const useComparisonManager = (
 ) => {
   const dispatch = useDispatch();
   const marketDataCache = useSelector(selectMarketData);
-  const { getAllActions } = useActionRepository();
+  const { getActionByTicker } = useActionRepository();
   const { getAllCours } = useCoursRepository();
-  const inflightFetches = useRef<Set<string>>(new Set());
+  const inflightFetches = useRef<Map<string, Promise<ComparisonFetchResult>>>(new Map());
   const comparisonGraceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const marketDataCacheRef = useRef(marketDataCache);
-  const getAllActionsRef = useRef(getAllActions);
+  const getActionByTickerRef = useRef(getActionByTicker);
   const getAllCoursRef = useRef(getAllCours);
   const [loadState, setLoadState] = useState<ComparisonLoadState>({});
+  const [currencyByKey, setCurrencyByKey] = useState<ComparisonCurrencyState>({});
+  const currencyByKeyRef = useRef(currencyByKey);
   const normalizedRequests = useMemo(
     () => normalizeComparisonRequests(comparisonRequests),
     [comparisonRequests],
@@ -985,8 +1015,9 @@ export const useComparisonManager = (
   );
 
   useEffect(() => { marketDataCacheRef.current = marketDataCache; }, [marketDataCache]);
-  useEffect(() => { getAllActionsRef.current = getAllActions; }, [getAllActions]);
+  useEffect(() => { getActionByTickerRef.current = getActionByTicker; }, [getActionByTicker]);
   useEffect(() => { getAllCoursRef.current = getAllCours; }, [getAllCours]);
+  useEffect(() => { currencyByKeyRef.current = currencyByKey; }, [currencyByKey]);
 
   useEffect(() => {
     setLoadState((current) => {
@@ -1046,42 +1077,73 @@ export const useComparisonManager = (
 
     safeRequests.forEach(({ market, symbol }) => {
       const requestKey = createMarketDataCacheKey(market, symbol);
-      if (marketDataCacheRef.current[requestKey]?.length > 0) {
+      const cachedSeries = marketDataCacheRef.current[requestKey] ?? [];
+      const hasCachedSeries = cachedSeries.length > 0;
+      const hasKnownCurrency = Boolean(currencyByKeyRef.current[requestKey]);
+
+      if (hasCachedSeries) {
         setRequestStatus(requestKey, "loaded");
-        return;
+        // Cached OHLCV is immediately renderable. Metadata hydration may continue
+        // in the background so peer charts can still honor the global display currency.
+        if (hasKnownCurrency) return;
+      } else {
+        setRequestStatus(requestKey, "loading");
       }
-      if (inflightFetches.current.has(requestKey)) return;
 
-      inflightFetches.current.add(requestKey);
-      setRequestStatus(requestKey, "loading");
       const startedAt = Date.now();
-
-      getAllActionsRef.current({ ticker: symbol, view_type: "screener", bourse_tickers: market, page_size: 100 })
-        .then((response) => {
-          const action = (response.data ?? []).find((candidate) => (
-            isActionForMarket(candidate, symbol, market)
-          ));
-          if (!action?.instrument) {
-            throw new Error("Unable to resolve the requested market action.");
+      const existingRequest = inflightFetches.current.get(requestKey);
+      const request: Promise<ComparisonFetchResult> = existingRequest ?? getActionByTickerRef.current({ ticker: symbol, marketTicker: market })
+        .then(async (action): Promise<ComparisonFetchResult> => {
+          const currency = typeof action.bourse?.currency?.symbol === "string"
+            ? action.bourse.currency.symbol.trim().toUpperCase()
+            : "";
+          const latestCachedSeries = marketDataCacheRef.current[requestKey] ?? [];
+          if (latestCachedSeries.length > 0) {
+            return { series: latestCachedSeries, currency };
           }
-          return getAllCoursRef.current({ instrument: action.instrument, page_size: OHLCV_PAGE_SIZE });
-        })
-        .then((paginated) => {
-          if (!isActive) return;
+
+          const instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
+          if (!instrumentId) {
+            throw new Error(`Action ${symbol} on ${market} has no instrument identifier.`);
+          }
+          const paginated = await getAllCoursRef.current({ instrument: instrumentId, page: 1, page_size: OHLCV_PAGE_SIZE });
           const series = coursSeriesToChartData(paginated?.data ?? []);
           if (series.length > 0) {
             dispatch(updateMarketData({ market, symbol, data: series }));
-            settleRequestStatus(requestKey, "loaded", startedAt);
-          } else {
-            settleRequestStatus(requestKey, "empty", startedAt);
           }
+          return { series, currency };
+        });
+
+      if (!existingRequest) {
+        inflightFetches.current.set(requestKey, request);
+        const clearRequest = () => {
+          if (inflightFetches.current.get(requestKey) === request) {
+            inflightFetches.current.delete(requestKey);
+          }
+        };
+        void request.then(clearRequest, clearRequest);
+      }
+
+      void request
+        .then(({ series, currency }) => {
+          if (!isActive || !requestKeys.has(requestKey)) return;
+          if (currency) {
+            setCurrencyByKey((current) => (
+              current[requestKey] === currency ? current : { ...current, [requestKey]: currency }
+            ));
+          }
+          settleRequestStatus(requestKey, series.length > 0 ? "loaded" : "empty", startedAt);
         })
-        .catch((error) => {
-          if (!isActive) return;
+        .catch((error: unknown) => {
+          if (!isActive || !requestKeys.has(requestKey)) return;
+          if (hasCachedSeries) {
+            console.warn("[ComparisonManager] Currency metadata unavailable for cached market data", { market, symbol, error });
+            setRequestStatus(requestKey, "loaded");
+            return;
+          }
           console.warn("[ComparisonManager] Unable to load market comparison", { market, symbol, error });
           settleRequestStatus(requestKey, "failed", startedAt);
-        })
-        .finally(() => { inflightFetches.current.delete(requestKey); });
+        });
     });
 
     return () => {
@@ -1092,6 +1154,6 @@ export const useComparisonManager = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeRequests, dataMode, dispatch]);
 
-  return loadState;
+  return { loadState, currencyByKey } satisfies ComparisonManagerState;
 };
 // --- EOF ---

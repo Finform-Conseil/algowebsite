@@ -5,8 +5,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  convertLayoutSeriesCurrency,
   createLayoutOhlcState,
   getLayoutPriceChangeColor,
+  resolveLayoutDisplayRate,
 } = require("./layoutChartData.ts");
 
 const point = (time, open, high, low, close, volume = 1) => ({
@@ -42,4 +44,28 @@ test("layout change color follows previous close rather than candle direction", 
   const latest = point("2026-04-09T00:00:00.000Z", 120, 125, 105, 110);
 
   assert.equal(getLayoutPriceChangeColor(latest, previous, "UP", "DOWN"), "UP");
+});
+
+test("peer currency conversion uses the same USD pivot convention as the platform", () => {
+  const series = [point("2026-04-09T00:00:00.000Z", 200, 210, 190, 203, 12_345)];
+  const rates = { USD: 1, MAD: 10 };
+
+  assert.equal(resolveLayoutDisplayRate("MAD", "USD", rates), 0.1);
+  const converted = convertLayoutSeriesCurrency(series, "MAD", "USD", rates);
+  assert.deepEqual(converted[0], {
+    ...series[0],
+    open: 20,
+    high: 21,
+    low: 19,
+    close: 20.3,
+  });
+  assert.equal(converted[0].volume, 12_345);
+});
+
+test("peer currency conversion never invents missing API metadata or rates", () => {
+  const series = [point("2026-04-09T00:00:00.000Z", 200, 210, 190, 203)];
+
+  assert.equal(convertLayoutSeriesCurrency(series, "", "USD", { USD: 1, MAD: 10 }), series);
+  assert.equal(convertLayoutSeriesCurrency(series, "MAD", "USD", { USD: 1 }), series);
+  assert.equal(convertLayoutSeriesCurrency(series, "MAD", "MAD", { MAD: 10 }), series);
 });

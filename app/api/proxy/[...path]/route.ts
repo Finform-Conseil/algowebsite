@@ -23,6 +23,7 @@ import { getCircuitBreaker } from '@/shared/utils/circuit-breaker';
 import { normalizeDjangoPath } from '../path-normalizer';
 import { isGatewayInterception, isMalformedJsonResponse } from '../response-guard';
 import { requestCoalescer, proxyMetrics } from '../runtime';
+import { buildProxyCircuitBreakerScope } from '../circuit-scope';
 
 const logger = {
   // eslint-disable-next-line no-console
@@ -229,8 +230,14 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
     const shouldRetry = method === 'GET' || method === 'HEAD';
 
     // [TENOR 2026 SRE] CIRCUIT BREAKER ENFORCEMENT
-    // Empêche l'épuisement du pool de connexions (Cascading Failure) si le backend est mort.
-    const circuitBreaker = getCircuitBreaker(`api-${apiIdentifier}`, {
+    // Isolation par famille/opération : un lookup actions défaillant ne doit jamais
+    // couper le catalogue, les détails d'action ni les historiques /cours.
+    const circuitBreakerScope = buildProxyCircuitBreakerScope(
+      apiIdentifier,
+      actualPath,
+      request.nextUrl.searchParams,
+    );
+    const circuitBreaker = getCircuitBreaker(circuitBreakerScope, {
       failureThreshold: 5,
       resetTimeout: 30000,
       halfOpenMaxAttempts: 1

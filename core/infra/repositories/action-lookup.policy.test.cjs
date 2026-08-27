@@ -25,20 +25,39 @@ const {
   actionMatchesLookup,
   buildActionLookupQuery,
   buildActionLookupRequestKey,
+  buildActionMarketCatalogQuery,
   normalizeActionLookupCriteria,
 } = require(policyPath);
 
-test("market-aware action lookup uses the screener bourse_tickers contract", () => {
+test("market-aware action lookup uses the lightweight index before detail hydration", () => {
   const criteria = normalizeActionLookupCriteria({ ticker: " boa ", marketTicker: " cse " });
   assert.deepEqual(criteria, { ticker: "BOA", marketTicker: "CSE" });
-  assert.deepEqual(buildActionLookupQuery(criteria, "ticker"), {
+  const query = buildActionLookupQuery(criteria, "ticker");
+  assert.deepEqual(query, {
     page: 1,
     page_size: 1,
     ticker: "BOA",
-    view_type: "screener",
     bourse_tickers: "CSE",
+    view_type: "screener",
   });
+  assert.equal(query.view_type, "screener");
   assert.equal(buildActionLookupRequestKey(criteria), "actions:lookup:market:CSE:ticker:BOA:isin:");
+});
+
+test("market catalog fallback stays bounded and omits fragile ticker filters", () => {
+  const criteria = normalizeActionLookupCriteria({ ticker: "BOA", marketTicker: "CSE" });
+  assert.deepEqual(buildActionMarketCatalogQuery(criteria), {
+    page: 1,
+    page_size: 100,
+    bourse_tickers: "CSE",
+    view_type: "screener",
+  });
+  assert.deepEqual(buildActionMarketCatalogQuery(criteria, 3), {
+    page: 3,
+    page_size: 100,
+    bourse_tickers: "CSE",
+    view_type: "screener",
+  });
 });
 
 test("unscoped lookup remains explicit and does not invent a market", () => {

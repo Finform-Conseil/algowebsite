@@ -79,7 +79,7 @@ export const PriceAxisOverlay = ({
 }: PriceAxisOverlayProps) => {
   const compactPriceLabel = lastPriceDisplayLabel === "Rate unavailable"
     ? "FX N/A"
-    : lastPriceDisplayLabel.replace(/\.00$/, "");
+    : lastPriceDisplayLabel;
   const compactTimeLabel = lastPriceTimeLabel;
 
   return (

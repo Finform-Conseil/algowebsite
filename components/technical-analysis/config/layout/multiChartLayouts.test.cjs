@@ -20,7 +20,7 @@ runtimeModule.filename = sourcePath;
 runtimeModule.paths = module.paths;
 runtimeModule._compile(transpiled, sourcePath);
 
-const { createLayoutCells } = runtimeModule.exports;
+const { createLayoutCells, reconcileMultiChartLayout } = runtimeModule.exports;
 
 test("empty multi-chart slots are market-agnostic until a symbol is selected", () => {
   const cells = createLayoutCells("four_grid", "ORANGE_CI", [], [], undefined, undefined, "BRVM");
@@ -53,4 +53,52 @@ test("a real secondary binding keeps its own exchange", () => {
   const cells = createLayoutCells("two_horizontal", "ORANGE_CI", [], previous, undefined, undefined, "BRVM");
   assert.equal(cells[1].symbol, "BCP");
   assert.equal(cells[1].exchange, "CSE");
+});
+
+test("changing layout preserves every existing market binding and the active cell", () => {
+  const current = {
+    layoutId: "two_horizontal",
+    name: "2 graphiques horizontaux",
+    isEnabled: true,
+    sync: { symbol: false, interval: false, crosshair: false, time: false, dateRange: false },
+    charts: [
+      { chartId: "chart_1", symbol: "ORANGE_CI", exchange: "BRVM", interval: "1D", indicators: ["volume"], isActive: false },
+      { chartId: "chart_2", symbol: "BOA", exchange: "CSE", interval: "1D", indicators: ["volume"], isActive: true },
+    ],
+    activeChartId: "chart_2",
+  };
+
+  const next = reconcileMultiChartLayout(current, "four_grid", "BOA", [], "CSE");
+
+  assert.deepEqual(
+    next.charts.map(({ symbol, exchange }) => ({ symbol, exchange })),
+    [
+      { symbol: "ORANGE_CI", exchange: "BRVM" },
+      { symbol: "BOA", exchange: "CSE" },
+      { symbol: "", exchange: "" },
+      { symbol: "", exchange: "" },
+    ],
+  );
+  assert.equal(next.activeChartId, "chart_2");
+  assert.equal(next.charts[1].isActive, true);
+});
+
+test("same-count geometry changes preserve the primary market binding too", () => {
+  const current = {
+    layoutId: "two_horizontal",
+    name: "2 graphiques horizontaux",
+    isEnabled: true,
+    sync: { symbol: false, interval: false, crosshair: false, time: false, dateRange: false },
+    charts: [
+      { chartId: "chart_1", symbol: "ORANGE_CI", exchange: "BRVM", interval: "1D", indicators: [], isActive: true },
+      { chartId: "chart_2", symbol: "BOA", exchange: "CSE", interval: "1D", indicators: [], isActive: false },
+    ],
+    activeChartId: "chart_1",
+  };
+
+  const next = reconcileMultiChartLayout(current, "two_vertical", "BOA", [], "CSE");
+  assert.equal(next.charts[0].symbol, "ORANGE_CI");
+  assert.equal(next.charts[0].exchange, "BRVM");
+  assert.equal(next.charts[1].symbol, "BOA");
+  assert.equal(next.charts[1].exchange, "CSE");
 });

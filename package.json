@@ -19,7 +19,7 @@
     "generate:technical-bootstrap": "node scripts/generate-technical-analysis-bootstrap.mjs",
     "verify:technical-bootstrap": "node scripts/verify-technical-analysis-bootstrap.mjs",
     "test:technical-bootstrap": "node --test scripts/tests/scope-bootstrap-css.test.mjs",
-    "test:proxy": "node --test app/api/proxy/security.test.cjs app/api/proxy/path-normalizer.test.mjs app/api/proxy/response-guard.test.mjs app/api/proxy/single-flight.test.mjs app/api/proxy/metrics.test.mjs",
+    "test:proxy": "node --test app/api/proxy/security.test.cjs app/api/proxy/circuit-scope.test.cjs app/api/proxy/path-normalizer.test.mjs app/api/proxy/response-guard.test.mjs app/api/proxy/single-flight.test.mjs app/api/proxy/metrics.test.mjs",
     "test": "node scripts/run-project-tests.mjs",
     "test:candlestick-patterns": "node scripts/test-candlestick-patterns.cjs",
     "test:technical-analysis-config": "node --test components/technical-analysis/config/__tests__/config-baseline.test.cjs components/technical-analysis/config/__tests__/indicator-activation-contract.test.cjs components/technical-analysis/config/__tests__/candlestick-presentation-contract.test.cjs components/technical-analysis/config/__tests__/indicator-backtest-alert-policy.test.cjs",

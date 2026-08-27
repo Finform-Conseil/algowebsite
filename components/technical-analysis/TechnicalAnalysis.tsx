@@ -81,6 +81,7 @@ import { ToolbarButton } from "@/components/technical-analysis/components/toolba
 import { InlineTextEditor } from "@/components/technical-analysis/components/toolbar/floating/InlineTextEditor";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
 import { MultiChartLayoutGrid } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
+import { convertLayoutSeriesCurrency } from "@/components/technical-analysis/components/layout/layoutChartData";
 import { resolveLayoutTickerMarket } from "@/components/technical-analysis/components/layout/layoutTickerSelection";
 
 // Hooks & Libs
@@ -96,7 +97,9 @@ import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFlo
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
 import { ChartRenderEngine } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
+import { resolvePrimaryChartAsyncPresentation } from "@/components/technical-analysis/components/chart/chartAsyncPresentation";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import { usePriceAxisMenu, formatPriceAxisLabel } from "@/components/technical-analysis/hooks/usePriceAxisMenu";
 import {
   TechnicalAnalysisProviderTree,
@@ -107,7 +110,7 @@ import {
   useMarketDataContext,
 } from "./context/TechnicalAnalysisProviders";
 import { getBrvmPriceAxisCountdown } from "./utils/brvmMarketSession";
-import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "@/core/data/brvm-logo-registry";
+import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import {
   createMarketDataCacheKey,
   normalizeMarketDataScope,
@@ -209,13 +212,52 @@ const MemoizedChartEmptyState = React.memo(() => (
 ));
 MemoizedChartEmptyState.displayName = "MemoizedChartEmptyState";
 
+const MemoizedChartErrorState = React.memo(() => (
+  <div
+    className="gp-chart-empty-state gp-chart-error-state"
+    role="alert"
+    style={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: 5,
+      maxWidth: "min(90%, 390px)",
+      padding: "12px 18px",
+      border: "1px solid rgba(239, 68, 68, 0.55)",
+      borderRadius: "8px",
+      backgroundColor: "rgba(44, 18, 27, 0.94)",
+      color: "#fecaca",
+      textAlign: "center",
+      fontSize: "13px",
+      lineHeight: 1.45,
+    }}
+  >
+    {"Impossible de charger les données historiques pour ce titre. Réessayez la sélection."}
+  </div>
+));
+MemoizedChartErrorState.displayName = "MemoizedChartErrorState";
+
 interface ChartEmptyIdentityProps {
   symbol: string;
   exchange: string;
+  logoUrl?: string | null;
 }
 
-const MemoizedChartEmptyIdentity = React.memo(({ symbol, exchange }: ChartEmptyIdentityProps) => (
-  <div className="gp-chart-empty-identity" aria-label={`Titre sélectionné ${symbol} ${exchange}`}>
+const MemoizedChartEmptyIdentity = React.memo(({ symbol, exchange, logoUrl }: ChartEmptyIdentityProps) => (
+  <div
+    className={clsx("gp-chart-empty-identity", logoUrl && "has-logo")}
+    aria-label={`Titre sélectionné ${symbol} ${exchange}`}
+  >
+    {logoUrl && (
+      <img
+        className="gp-chart-empty-identity__logo"
+        src={logoUrl}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+      />
+    )}
     <span className="gp-chart-empty-identity__symbol">{symbol}</span>
     <span className="gp-chart-empty-identity__exchange">· {exchange}</span>
   </div>
@@ -702,6 +744,7 @@ const ChartUI: React.FC = () => {
     setSelectedTicker,
   } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
+  const { displayCurrency, rates } = useCurrency();
   const pineChartOverlay = useSelector(selectPineChartOverlay);
   const dispatchPineOverlay = useCallback((overlay: PineChartOverlayPayload | null) => {
     dispatch(setPineChartOverlay(overlay));
@@ -1096,7 +1139,10 @@ const ChartUI: React.FC = () => {
     primaryTicker?.ticker,
   ]);
 
-  const comparisonLoadState = useComparisonManager(comparisonRequests, dataMode);
+  const {
+    loadState: comparisonLoadState,
+    currencyByKey: comparisonCurrencyByKey,
+  } = useComparisonManager(comparisonRequests, dataMode);
 
   // Keep the canonical primary series in the shared map while it is active.
   // When focus moves to a peer, the exact market+symbol entry remains available
@@ -1124,6 +1170,23 @@ const ChartUI: React.FC = () => {
     multiChartLayout.charts,
     primaryLayoutCacheKey,
   ]);
+  // Peer charts receive raw native-market OHLCV from the shared cache. Convert
+  // each peer independently from its API-provided quote currency to the global
+  // display currency, exactly like the canonical active chart. Missing currency
+  // metadata or exchange rates fail closed to native data; no market currency is
+  // inferred from the exchange ticker.
+  const displayMarketData = useMemo(() => {
+    const converted: typeof mergedMarketData = {};
+    for (const [cacheKey, series] of Object.entries(mergedMarketData)) {
+      converted[cacheKey] = convertLayoutSeriesCurrency(
+        series,
+        comparisonCurrencyByKey[cacheKey],
+        displayCurrency,
+        rates,
+      );
+    }
+    return converted;
+  }, [comparisonCurrencyByKey, displayCurrency, mergedMarketData, rates]);
   const mergedLoadState = comparisonLoadState;
 
   const {
@@ -1294,8 +1357,8 @@ const ChartUI: React.FC = () => {
     : "Choisir un titre";
   const activeChartLogoUrl = hasExplicitActiveLayoutSymbol
     ? (isPrimaryActive ? chartState.security.logoUrl : undefined)
-      ?? getBrvmLogoUrl(activeChartSymbol)
-      ?? getBrvmLogoUrlByIssuerName(isPrimaryActive ? chartState.security.name : "")
+      ?? getMarketLogoUrl(activeChartMarketScope, activeChartSymbol, isPrimaryActive ? chartState.security.name : undefined)
+
     : undefined;
   const chartCursorInteractionScopeKey = [
     chartInteractionScopeKey,
@@ -1422,23 +1485,20 @@ const ChartUI: React.FC = () => {
   const activeSecondaryLoadStatus = isMultiChartMode && !isPrimaryActive && activeLayoutSymbol
     ? (mergedLoadState[activeChartCacheKey] ?? "idle")
     : null;
+  const activeLoadStatus = isMultiChartMode && !isPrimaryActive
+    ? (activeSecondaryLoadStatus ?? "idle")
+    : marketData.loadStatus;
   const hasActiveDisplayData = activeDisplayChartData.length > 0;
-  const shouldShowPrimaryChartLoader = (!hasActiveDisplayData && chartState.globalIsLoading) || (
-    hasExplicitActiveLayoutSymbol
-    && !isPrimaryActive
-    && isMultiChartMode
-    && (activeSecondaryLoadStatus === "idle" || activeSecondaryLoadStatus === "loading")
-    && !hasActiveDisplayData
-  );
-  const shouldShowPrimaryChartEmptyState = hasExplicitActiveLayoutSymbol
-    && !shouldShowPrimaryChartLoader
-    && activeDisplayChartData.length === 0
-    && (
-      isPrimaryActive
-      || !isMultiChartMode
-      || activeSecondaryLoadStatus === "empty"
-      || activeSecondaryLoadStatus === "loaded"
-    );
+  const {
+    showLoader: shouldShowPrimaryChartLoader,
+    showError: shouldShowPrimaryChartErrorState,
+    showEmpty: shouldShowPrimaryChartEmptyState,
+  } = resolvePrimaryChartAsyncPresentation({
+    hasExplicitSymbol: hasExplicitActiveLayoutSymbol,
+    hasDisplayData: hasActiveDisplayData,
+    isInitialBootstrapLoading: isInitialSidebarLoading,
+    loadStatus: activeLoadStatus,
+  });
 
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-BADGE-STALE-DATA:
   // When a secondary chart is active (e.g. SGBC), chartState.displayChartData still has BOAB's data.
@@ -1717,7 +1777,7 @@ const ChartUI: React.FC = () => {
 
                   <MultiChartLayoutGrid
                     layout={multiChartLayout}
-                    marketData={mergedMarketData}
+                    marketData={displayMarketData}
                     dataLoadState={mergedLoadState}
                     dataMode={dataMode}
                     activeChartInstanceRef={refs.chartInstanceRef}
@@ -1739,9 +1799,10 @@ const ChartUI: React.FC = () => {
                         <MemoizedChartEmptyIdentity
                           symbol={activeChartSymbol || chartState.security.ticker || "Titre sélectionné"}
                           exchange={activeChartMarketScope || chartState.security.exchange || "Marché"}
+                          logoUrl={activeChartLogoUrl}
                         />
                       )}
-                      {!isMultiChartMode && activeChartLogoUrl && (
+                      {!shouldShowPrimaryChartEmptyState && !isMultiChartMode && activeChartLogoUrl && (
                         <img
                           className="gp-chart-symbol-logo"
                           src={activeChartLogoUrl}
@@ -1846,7 +1907,7 @@ const ChartUI: React.FC = () => {
                         onContextMenu={(e) => e.preventDefault()}
                       />
 
-                    {hasExplicitActiveLayoutSymbol && !shouldShowPrimaryChartEmptyState && <ConnectedTradeHUD />}
+                    {hasExplicitActiveLayoutSymbol && hasActiveDisplayData && <ConnectedTradeHUD />}
 
                     {brokerState?.isBrokerModalOpen && (
                       <MemoizedBrokerModal
@@ -1869,6 +1930,7 @@ const ChartUI: React.FC = () => {
 
                     <MemoizedPremiumLoader isVisible={shouldShowPrimaryChartLoader} />
                     {shouldShowPrimaryChartEmptyState && <MemoizedChartEmptyState />}
+                    {shouldShowPrimaryChartErrorState && <MemoizedChartErrorState />}
 
                     <div
                       className="gp-drawing-overlay-shield"

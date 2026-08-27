@@ -23,6 +23,43 @@ const LAYOUT_NO_DATE = "No date";
 const LAYOUT_STALE_DAYS = 10;
 const MS_PER_DAY = 86_400_000;
 
+const normalizeCurrencyCode = (value: string | undefined): string => value?.trim().toUpperCase() ?? "";
+
+export const resolveLayoutDisplayRate = (
+  baseCurrency: string | undefined,
+  targetCurrency: string | undefined,
+  rates: Readonly<Record<string, number | undefined>>,
+): number | null => {
+  const base = normalizeCurrencyCode(baseCurrency);
+  const target = normalizeCurrencyCode(targetCurrency);
+  if (!base || !target) return null;
+  if (base === target) return 1;
+
+  const baseRate = rates[base];
+  const targetRate = rates[target];
+  if (!Number.isFinite(baseRate) || (baseRate ?? 0) <= 0) return null;
+  if (!Number.isFinite(targetRate) || (targetRate ?? 0) <= 0) return null;
+  return (targetRate as number) / (baseRate as number);
+};
+
+export const convertLayoutSeriesCurrency = (
+  data: ChartDataPoint[],
+  baseCurrency: string | undefined,
+  targetCurrency: string | undefined,
+  rates: Readonly<Record<string, number | undefined>>,
+): ChartDataPoint[] => {
+  const rate = resolveLayoutDisplayRate(baseCurrency, targetCurrency, rates);
+  if (rate === null || rate === 1) return data;
+
+  return data.map((point) => ({
+    ...point,
+    open: point.open * rate,
+    high: point.high * rate,
+    low: point.low * rate,
+    close: point.close * rate,
+  }));
+};
+
 export const createEmptyLayoutOhlcState = (): LayoutOhlcState => ({
   open: LAYOUT_EMPTY_VALUE,
   high: LAYOUT_EMPTY_VALUE,

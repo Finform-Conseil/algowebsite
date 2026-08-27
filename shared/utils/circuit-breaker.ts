@@ -199,11 +199,12 @@ export class CircuitBreaker {
 }
 
 // ================================================================================
-// SINGLETON PAR API TARGET
+// SINGLETON PAR SCOPE API BORNÉ
 // ================================================================================
-// Note de sécurité : Les clés utilisées ici (apiIdentifier) sont strictement
-// bornées (ex: '1', '2', '9') par le proxy. Il n'y a pas de risque de fuite
-// de mémoire (Memory Leak) par accumulation de clés dynamiques infinies.
+// Note de sécurité : les appelants doivent fournir des scopes issus d'un vocabulaire
+// fini (ex: api-10:actions:lookup, api-10:cours:instrument), jamais des UUID/tickers.
+// Le proxy construit ces scopes via buildProxyCircuitBreakerScope afin d'isoler les
+// pannes sans créer de cardinalité dynamique non bornée.
 const circuitBreakers = new Map<string, CircuitBreaker>();
 
 /**

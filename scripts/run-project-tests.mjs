@@ -16,6 +16,13 @@ const suites = [
   ],
   [
     "--test",
+    "components/technical-analysis/config/layout/multiChartLayouts.test.cjs",
+    "components/technical-analysis/components/layout/layoutChartData.test.cjs",
+    "components/technical-analysis/lib/DrawingRenderer.hitTest.test.cjs",
+    "components/technical-analysis/components/chart/chartAsyncPresentation.test.cjs",
+  ],
+  [
+    "--test",
     "core/infra/repositories/action-lookup.policy.test.cjs",
   ],
   [
@@ -29,6 +36,7 @@ const suites = [
   [
     "--test",
     "app/api/proxy/security.test.cjs",
+    "app/api/proxy/circuit-scope.test.cjs",
     "app/api/proxy/path-normalizer.test.mjs",
     "app/api/proxy/response-guard.test.mjs",
     "app/api/proxy/single-flight.test.mjs",

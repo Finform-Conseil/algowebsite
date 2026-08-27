@@ -1353,6 +1353,27 @@
   pointer-events: none;
   user-select: none;
 
+  &.has-logo {
+    top: 3px;
+    left: 7px;
+    align-items: flex-start;
+
+    .gp-chart-empty-identity__symbol,
+    .gp-chart-empty-identity__exchange {
+      margin-top: 5px;
+    }
+  }
+
+  &__logo {
+    width: 18px;
+    height: 18px;
+    margin-right: 2px;
+    border: 1px solid rgba(255, 255, 255, .82);
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 18px;
+  }
+
   &__symbol {
     color: var(--gp-text-primary);
     font-weight: 700;
