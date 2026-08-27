@@ -14,6 +14,7 @@ export interface ActionQueryParams extends QueryParams {
     currency?: string;
     bourse?: string;
     bourses?: string;
+    bourse_tickers?: string;
     sectors?: string;
     market_cap_min?: number;
     market_cap_max?: number;

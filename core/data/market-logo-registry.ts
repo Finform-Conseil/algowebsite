@@ -7,7 +7,7 @@ import jseDeduplicationManifest from "@/public/logos-jse/deduplication-manifest.
 import ngxManifest from "@/public/logos-ngx/normalization-manifest.json";
 import nseManifest from "@/public/logos-nse/normalization-manifest.json";
 import logoAliases from "@/public/logo-aliases.json";
-import { getBrvmLogoUrl } from "./brvm-logo-registry";
+import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "./brvm-logo-registry";
 
 type NormalizedLogoManifest = {
   records?: Array<{ file?: string }>;
@@ -254,7 +254,10 @@ export const getMarketLogoUrl = (
   securityName?: string,
 ): string | undefined => {
   const market = normalizeMarketTicker(marketTicker ?? "");
-  if (market === "BRVM") return getBrvmLogoUrl(securityTicker);
+  if (market === "BRVM") {
+    return getBrvmLogoUrl(securityTicker)
+      ?? (securityName ? getBrvmLogoUrlByIssuerName(securityName) : undefined);
+  }
   if (market === "CSE") return getCseLogoUrl(securityTicker);
   if (market === "JSE") return getJseLogoUrl(securityTicker, securityName);
   if (market === "NGX") return getNgxLogoUrl(securityTicker);

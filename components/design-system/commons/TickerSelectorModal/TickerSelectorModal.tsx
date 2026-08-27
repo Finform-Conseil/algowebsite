@@ -22,6 +22,7 @@ import {
   type PersistedTickerCatalogSecurity,
   type PersistedTickerCatalogSnapshot,
 } from "./context/tickerCatalogPersistence";
+import { buildTickerCatalogQuery } from "./context/tickerCatalogPolicy";
 
 // ============================================================================
 // [TENOR 2026 SRE] ZERO-LAG TICKER SELECTOR MODAL
@@ -488,7 +489,7 @@ export const TickerSelectorModal: React.FC = () => {
 
           try {
             const response = await getAllActions(
-              { bourse: catalogMarketTicker, page, page_size: 100 },
+              buildTickerCatalogQuery(catalogMarketTicker, page),
               forceRefetch ? { forceRefetch: true } : undefined,
             );
             if (!isCurrentLoad()) return { ok: false, response: null };
@@ -751,7 +752,7 @@ export const TickerSelectorModal: React.FC = () => {
               }
             }
 
-            const fallbackResponse = await getAllActions({ page: 1, page_size: 100 });
+            const fallbackResponse = await getAllActions(buildTickerCatalogQuery(activeMarket.ticker, 1));
             const fallbackAction = fallbackResponse?.data?.find(
               (candidate) => isActionInMarket(candidate, activeMarket.ticker),
             ) ?? null;

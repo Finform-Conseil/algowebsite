@@ -12,6 +12,14 @@ const suites = [
   ],
   [
     "--test",
+    "components/design-system/commons/TickerSelectorModal/context/tickerCatalogContract.test.cjs",
+  ],
+  [
+    "--test",
+    "core/data/__tests__/brvm-logo-registry.test.cjs",
+  ],
+  [
+    "--test",
     "app/api/proxy/security.test.cjs",
     "app/api/proxy/path-normalizer.test.mjs",
     "app/api/proxy/response-guard.test.mjs",

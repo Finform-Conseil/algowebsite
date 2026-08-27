@@ -67,6 +67,7 @@ const {
   hasBrvmLogo,
 } = require("../brvm-logo-registry.ts");
 const { BRVM_SECURITIES } = require("../brvm-securities.ts");
+const { getMarketLogoUrl } = require("../market-logo-registry.ts");
 
 const isMarketIndex = (security) => security.sector === "Market Indices";
 const isDelisted = (security) => security.status === "delisted";
@@ -101,6 +102,17 @@ test("API issuer names resolve to canonical local WebP assets", () => {
     "/logos-brvm/stbc.webp",
   );
   assert.equal(getBrvmLogoUrlByIssuerName("Unknown issuer"), undefined);
+});
+
+test("BRVM API tickers can fall back to issuer names for real local logos", () => {
+  assert.equal(
+    getMarketLogoUrl("BRVM", "ORANGE_CI", "ORANGE COTE D'IVOIRE"),
+    "/logos-brvm/orac.webp",
+  );
+  assert.equal(
+    getMarketLogoUrl("BRVM", "ECOBANK_TG", "ECOBANK TRANSNATIONAL INCORPORATED"),
+    "/logos-brvm/ecoc.webp",
+  );
 });
 
 test("listed BRVM securities use only canonical logos-brvm URLs", () => {

@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  TICKER_CATALOG_SNAPSHOT_VERSION,
+  isCurrentTickerCatalogSnapshotVersion,
+} from "./tickerCatalogPolicy";
+
 export interface PersistedTickerCatalogSecurity {
   name: string;
   ticker: string;
@@ -19,6 +24,7 @@ export interface PersistedTickerCatalogSecurity {
 }
 
 export interface PersistedTickerCatalogSnapshot {
+  contractVersion: number;
   marketTicker: string;
   securities: PersistedTickerCatalogSecurity[];
   totalCount: number;
@@ -27,7 +33,9 @@ export interface PersistedTickerCatalogSnapshot {
 }
 
 const DATABASE_NAME = "AlgowayTickerCatalog";
-const DATABASE_VERSION = 1;
+// Bump whenever the catalogue request/snapshot contract changes. Version 2
+// invalidates legacy snapshots built from the unscoped `bourse=` request.
+const DATABASE_VERSION = 2;
 const STORE_NAME = "ticker_catalog_snapshots";
 const OPERATION_TIMEOUT_MS = 5000;
 /**
@@ -39,9 +47,9 @@ const MAX_SECURITIES = 5000;
 const catalogWritesInFlight = new Map<string, Promise<boolean>>();
 const inMemoryCatalogSnapshots = new Map<string, PersistedTickerCatalogSnapshot>();
 
-// The API currently ignores the market filter and reports the mixed 635-row
-// catalogue. Load its bounded seven-page envelope in parallel so the frontend
-// can produce the exact market-scoped count without serial multi-minute waits.
+// Market-scoped screener responses can still span several pages on larger
+// exchanges. Prefetch a bounded envelope in parallel so the selector reaches
+// an exact catalog without serial waits.
 export const CATALOG_SPECULATIVE_PAGE_LIMIT = 8;
 export const BACKGROUND_PREFETCH_CONCURRENCY = 6;
 
@@ -87,6 +95,7 @@ const isUsableSnapshot = (
   marketTicker: string,
 ): value is PersistedTickerCatalogSnapshot => {
   if (!isRecord(value) || value.marketTicker !== marketTicker) return false;
+  if (!isCurrentTickerCatalogSnapshotVersion(value.contractVersion)) return false;
   if (!Array.isArray(value.securities) || value.securities.length > MAX_SECURITIES) return false;
   const totalCount = value.totalCount;
   if (typeof totalCount !== "number" || !Number.isSafeInteger(totalCount) || totalCount < value.securities.length) return false;
@@ -105,7 +114,14 @@ const openDatabase = (): Promise<IDBDatabase | null> => {
     const request = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
-      if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME);
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        database.createObjectStore(STORE_NAME);
+        return;
+      }
+      // A DB version bump is a deliberate cross-market cache migration.
+      // Purge BRVM/CSE/GSE/JSE/NGX/NSE snapshots produced by the previous
+      // contract so a stale partial catalogue can never remain authoritative.
+      request.transaction?.objectStore(STORE_NAME).clear();
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed"));
@@ -233,6 +249,7 @@ export const writePersistedTickerCatalog = async (
   if (writeAfterWait) await writeAfterWait;
 
   const snapshot: PersistedTickerCatalogSnapshot = {
+    contractVersion: TICKER_CATALOG_SNAPSHOT_VERSION,
     marketTicker: normalizedMarketTicker,
     securities: securities.map((security) => ({ ...security })),
     totalCount,

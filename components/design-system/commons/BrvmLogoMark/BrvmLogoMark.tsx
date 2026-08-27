@@ -1,11 +1,16 @@
 "use client";
 
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "@/core/data/brvm-logo-registry";
 import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import s from "./BrvmLogoMark.module.css";
+import {
+  MAX_LOGO_LOAD_RETRIES,
+  getLogoRetryDelayMs,
+  getLogoRetryUrl,
+} from "./logoRetryPolicy";
 
 type BrvmLogoShape = "circle" | "rounded";
 
@@ -116,6 +121,8 @@ export const BrvmLogoMark = memo(({
 }: BrvmLogoMarkProps) => {
   const [hasImageError, setHasImageError] = useState(false);
   const [hasImageLoaded, setHasImageLoaded] = useState(false);
+  const [logoRetryAttempt, setLogoRetryAttempt] = useState(0);
+  const retryTimerRef = useRef<number | null>(null);
   const normalizedTicker = normalizeTicker(ticker);
   const fallbackLabel = getFallbackLabel(normalizedTicker);
   const isIndex = sector === "Market Indices" || Boolean(INDEX_FALLBACK_LABELS[normalizedTicker]);
@@ -126,14 +133,51 @@ export const BrvmLogoMark = memo(({
     ?? ((!exchange || exchange.trim().toUpperCase() === "BRVM")
       ? getBrvmLogoUrlByIssuerName(name ?? "")
       : undefined);
-  const hasUsableLogo = Boolean(resolvedLogoUrl) && !hasImageError;
+  const effectiveLogoUrl = resolvedLogoUrl
+    ? getLogoRetryUrl(resolvedLogoUrl, logoRetryAttempt)
+    : undefined;
+  const hasUsableLogo = Boolean(effectiveLogoUrl) && !hasImageError;
   const bypassImageOptimization = unoptimized
-    ?? (typeof resolvedLogoUrl === "string" && resolvedLogoUrl.startsWith("/"));
+    ?? (typeof effectiveLogoUrl === "string" && effectiveLogoUrl.startsWith("/"));
 
   useEffect(() => {
+    if (retryTimerRef.current !== null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     setHasImageError(false);
     setHasImageLoaded(false);
+    setLogoRetryAttempt(0);
+    return () => {
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
   }, [resolvedLogoUrl]);
+
+  const handleImageLoad = () => {
+    if (retryTimerRef.current !== null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    setHasImageError(false);
+    setHasImageLoaded(true);
+  };
+
+  const handleImageError = () => {
+    setHasImageLoaded(false);
+    if (logoRetryAttempt >= MAX_LOGO_LOAD_RETRIES) {
+      setHasImageError(true);
+      return;
+    }
+    if (retryTimerRef.current !== null) return;
+
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      setLogoRetryAttempt((currentAttempt) => Math.min(currentAttempt + 1, MAX_LOGO_LOAD_RETRIES));
+    }, getLogoRetryDelayMs(logoRetryAttempt));
+  };
 
   const shouldShowFallbackVisual = !hasUsableLogo || !hasImageLoaded;
 
@@ -165,7 +209,7 @@ export const BrvmLogoMark = memo(({
           {showBackdrop && (
             <Image
               fill
-              src={resolvedLogoUrl as string}
+              src={effectiveLogoUrl as string}
               alt=""
               aria-hidden="true"
               sizes={imageSizes ?? `${size}px`}
@@ -173,12 +217,12 @@ export const BrvmLogoMark = memo(({
               quality={quality}
               unoptimized={bypassImageOptimization}
               loading={loading}
-              onError={() => setHasImageError(true)}
+              onError={handleImageError}
             />
           )}
           <Image
             fill
-            src={resolvedLogoUrl as string}
+            src={effectiveLogoUrl as string}
             alt=""
             aria-hidden="true"
             sizes={imageSizes ?? `${size}px`}
@@ -186,8 +230,8 @@ export const BrvmLogoMark = memo(({
             quality={quality}
             unoptimized={bypassImageOptimization}
             loading={loading}
-            onLoad={() => setHasImageLoaded(true)}
-            onError={() => setHasImageError(true)}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
           />
           {!hasImageLoaded && (
             <span className={s.label} aria-hidden="true">{fallbackLabel}</span>
