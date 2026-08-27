@@ -1,7 +1,7 @@
 import React from "react";
 import clsx from "clsx";
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
-import { getBrvmLogoUrl, getBrvmLogoUrlByIssuerName } from "@/core/data/brvm-logo-registry";
+import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import type { DisplaySecurity } from "../../../config/market/marketSnapshotTypes";
 import type { BRVMIndexData } from "../data/sidebarFetchers";
 
@@ -218,8 +218,7 @@ export const WatchlistPanel = React.memo(({
   const hasLiveChangePercent = typeof liveChangePercent === "number" && Number.isFinite(liveChangePercent);
   const changeColor = hasLiveChangePercent ? (liveChangePercent >= 0 ? "#22ab94" : "#f23645") : "#94a3b8";
   const sidebarLogoUrl = security.logoUrl
-    ?? getBrvmLogoUrl(security.ticker)
-    ?? getBrvmLogoUrlByIssuerName(security.name);
+    ?? getMarketLogoUrl(security.exchange, security.ticker, security.name);
 
   return (
   <div className="gp-sidebar-section">
@@ -261,7 +260,7 @@ export const WatchlistPanel = React.memo(({
           <div className="gp-brand-header-v3">
             {settings.showLogo && (
               <div className="gp-logo-v3" style={getSidebarBrandLogoStyle(security.ticker)}>
-                <BrvmLogoMark ticker={security.ticker} name={security.name} logoUrl={sidebarLogoUrl} sector={security.sector} status={security.status} size={SIDEBAR_BRAND_LOGO_MARK_SIZE} scale={1} shape="circle" imageSizes="96px" quality={100} unoptimized />
+                <BrvmLogoMark ticker={security.ticker} name={security.name} logoUrl={sidebarLogoUrl} exchange={security.exchange} sector={security.sector} status={security.status} size={SIDEBAR_BRAND_LOGO_MARK_SIZE} scale={1} shape="circle" imageSizes="96px" quality={100} unoptimized />
               </div>
             )}
             <div className="gp-ticker-meta-v3">
