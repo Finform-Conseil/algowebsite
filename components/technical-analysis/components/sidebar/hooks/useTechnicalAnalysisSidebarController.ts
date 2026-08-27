@@ -38,7 +38,12 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
   const isChartRuntimeReady = useSidebarChartRuntimeReady(isSecondaryWorkReady);
   const { convert, displayCurrency } = useCurrency();
   const marketClock = useSidebarMarketClock(lastUpdate, security.exchange);
-  const feeds = useSidebarDataFeeds({ dataMode, isSecondaryWorkReady, securityTicker: security.ticker });
+  const feeds = useSidebarDataFeeds({
+    dataMode,
+    isSecondaryWorkReady,
+    securityTicker: security.ticker,
+    marketTicker: security.exchange ?? "",
+  });
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
   const [activeSidebarEntry, setActiveSidebarEntry] = useState<SidebarRailEntryId>("watchlist");

@@ -54,9 +54,10 @@ export interface BRVMIndexData {
 export async function fetchSidebarFundamentals(
   port: SidebarDataPort,
   ticker: string,
+  marketTicker: string,
   signal: AbortSignal,
 ): Promise<BRVMFundamentals> {
-  return port.fetchFundamentals(ticker, signal);
+  return port.fetchFundamentals(ticker, marketTicker, signal);
 }
 
 /**

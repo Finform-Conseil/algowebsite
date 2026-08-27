@@ -12,15 +12,19 @@ interface UseSidebarDataFeedsInput {
   dataMode: "mock" | "real";
   isSecondaryWorkReady: boolean;
   securityTicker: string;
+  marketTicker: string;
 }
 
 export function useSidebarDataFeeds({
   dataMode,
   isSecondaryWorkReady,
   securityTicker,
+  marketTicker,
 }: UseSidebarDataFeedsInput) {
   const port = useSidebarDataPort();
   const normalizedSecurityTicker = useMemo(() => normalizeTicker(securityTicker), [securityTicker]);
+  const normalizedMarketTicker = useMemo(() => normalizeTicker(marketTicker), [marketTicker]);
+  const fundamentalsCacheKey = `${normalizedMarketTicker || "UNKNOWN"}:${normalizedSecurityTicker}`;
   const [news, setNews] = useState<BRVMNewsItem[]>([]);
   const [newsStatus, setNewsStatus] = useState<NewsStatus>("idle");
   const [currentNewsIdx, setCurrentNewsIdx] = useState(0);
@@ -158,7 +162,7 @@ export function useSidebarDataFeeds({
       fundamentalsRequestIdRef.current += 1;
       return;
     }
-    const cachedFundamentals = fundamentalsCacheRef.current.get(normalizedSecurityTicker);
+    const cachedFundamentals = fundamentalsCacheRef.current.get(fundamentalsCacheKey);
     if (cachedFundamentals) {
       setFundamentals(cachedFundamentals);
       setFundamentalsStatus("ready");
@@ -168,28 +172,29 @@ export function useSidebarDataFeeds({
     const requestId = fundamentalsRequestIdRef.current + 1;
     fundamentalsRequestIdRef.current = requestId;
     const controller = new AbortController();
+    const persistenceMarket = normalizedMarketTicker || "UNKNOWN";
 
     setFundamentalsStatus("loading");
 
-    void readSidebarSnapshot("fundamentals", SIDEBAR_MARKET, normalizedSecurityTicker).then((cached) => {
+    void readSidebarSnapshot("fundamentals", persistenceMarket, normalizedSecurityTicker).then((cached) => {
       if (fundamentalsRequestIdRef.current === requestId && isFundamentalsForTicker(cached, normalizedSecurityTicker)) {
-        fundamentalsCacheRef.current.set(normalizedSecurityTicker, cached);
+        fundamentalsCacheRef.current.set(fundamentalsCacheKey, cached);
         setFundamentals(cached);
         setFundamentalsStatus("ready");
       }
     });
 
-    void fetchSidebarFundamentals(port, normalizedSecurityTicker, controller.signal)
+    void fetchSidebarFundamentals(port, normalizedSecurityTicker, normalizedMarketTicker, controller.signal)
       .then((normalized) => {
         if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
-        fundamentalsCacheRef.current.set(normalizedSecurityTicker, normalized);
+        fundamentalsCacheRef.current.set(fundamentalsCacheKey, normalized);
         setFundamentals(normalized);
         setFundamentalsStatus("ready");
-        void writeSidebarSnapshot("fundamentals", SIDEBAR_MARKET, normalizedSecurityTicker, normalized);
+        void writeSidebarSnapshot("fundamentals", persistenceMarket, normalizedSecurityTicker, normalized);
       })
       .catch(() => {
         if (controller.signal.aborted || fundamentalsRequestIdRef.current !== requestId) return;
-        if (fundamentalsCacheRef.current.has(normalizedSecurityTicker)) {
+        if (fundamentalsCacheRef.current.has(fundamentalsCacheKey)) {
           setFundamentalsStatus("ready");
           return;
         }
@@ -200,7 +205,7 @@ export function useSidebarDataFeeds({
     return () => {
       controller.abort();
     };
-  }, [dataMode, isSecondaryWorkReady, normalizedSecurityTicker, port]);
+  }, [dataMode, fundamentalsCacheKey, isSecondaryWorkReady, normalizedMarketTicker, normalizedSecurityTicker, port]);
 
   useEffect(() => {
     if (!isSecondaryWorkReady || dataMode !== "real") return;

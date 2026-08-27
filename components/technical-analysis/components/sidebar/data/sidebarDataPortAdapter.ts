@@ -182,8 +182,9 @@ export function useSidebarDataPort(): SidebarDataPort {
   const { getActionByTicker, getAllActions } = actionRepo;
 
   const fetchFundamentals = useCallback(
-    async (ticker: string, signal: AbortSignal): Promise<BRVMFundamentals> => {
+    async (ticker: string, marketTicker: string, signal: AbortSignal): Promise<BRVMFundamentals> => {
       const normalized = normalizeTicker(ticker);
+      const normalizedMarket = normalizeTicker(marketTicker);
       if (!normalized) return createEmptyFundamentals(ticker);
 
       try {
@@ -192,7 +193,7 @@ export function useSidebarDataPort(): SidebarDataPort {
         // The fundamentals endpoint is protected in anonymous mode.
         // Keep this public analysis page quiet and expose unavailable fundamentals as empty API data.
         const [actionResult, dividendsResult] = await Promise.allSettled([
-          getActionByTicker(normalized),
+          getActionByTicker({ ticker: normalized, marketTicker: normalizedMarket }),
           fetchScopedDividends(getAllDividends, normalized, signal),
         ]);
 

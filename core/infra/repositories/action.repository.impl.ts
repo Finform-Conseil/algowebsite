@@ -9,7 +9,7 @@ import {
   useUploadActionsMutation, 
 } from "../store/api";
 import { skipToken } from '@reduxjs/toolkit/query/react';
-import { ActionRequestOptions, IActionRepository } from '@/core/domain/repositories/action.repository';
+import { ActionLookupCriteria, ActionRequestOptions, IActionRepository } from '@/core/domain/repositories/action.repository';
 import { ActionType, CreateActionType, UpdateActionType, ActionQueryParams } from '@/core/domain/types/action.type';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
 import { PaginatedResponse } from '@/core/domain/types/pagination.type';
@@ -17,6 +17,12 @@ import {
   writePersistedActionIdentities,
   writePersistedActionIdentity,
 } from './action-identity.persistence';
+import {
+  actionMatchesLookup,
+  buildActionLookupQuery,
+  buildActionLookupRequestKey,
+  normalizeActionLookupCriteria,
+} from './action-lookup.policy';
 
 const actionRequestsInFlight = new Map<string, Promise<unknown>>();
 
@@ -160,28 +166,47 @@ export const useActionRepository = (): IActionRepository => {
     return currentActionQueryResult || null;
   }, [currentActionQueryResult]);
 
-  const getActionByTicker = useCallback(async (ticker: string, isin?: string): Promise<ActionEntity> => {
-    const normalizedTicker = ticker.trim().toUpperCase();
-    const normalizedIsin = isin?.trim().toUpperCase();
-    if (!normalizedTicker) throw new Error("Cannot resolve an action without a ticker.");
+  const getActionByTicker = useCallback(async (criteria: ActionLookupCriteria): Promise<ActionEntity> => {
+    const normalizedCriteria = normalizeActionLookupCriteria(criteria);
+    if (!normalizedCriteria.ticker) throw new Error("Cannot resolve an action without a ticker.");
 
     const requestId = actionByTickerRequestIdRef.current + 1;
     actionByTickerRequestIdRef.current = requestId;
     setIsLoadingActionByTickerQuery(true);
     setIsFetchingActionByTickerQuery(true);
     setActionByTickerQueryError(undefined);
-    const key = `actions:ticker:${normalizedTicker}:isin:${normalizedIsin ?? ""}`;
+    const key = buildActionLookupRequestKey(normalizedCriteria);
 
     try {
       const action = await getSharedActionRequest(key, async () => {
-        if (normalizedIsin) {
-          const isinResult = await triggerGetAllActions({ isin: normalizedIsin, page_size: 1 }, true).unwrap();
-          const isinAction = isinResult.data?.[0];
+        if (normalizedCriteria.isin) {
+          const isinResult = await triggerGetAllActions(
+            buildActionLookupQuery(normalizedCriteria, "isin"),
+            true,
+          ).unwrap();
+          const isinAction = (isinResult.data ?? []).find((candidate) => (
+            actionMatchesLookup(candidate, normalizedCriteria)
+          ));
           if (isinAction) return isinAction;
         }
-        const result = await triggerGetAllActions({ ticker: normalizedTicker, page_size: 1 }, true).unwrap();
-        const resolvedAction = result.data?.[0];
-        if (!resolvedAction) throw new Error(`API action not found for ticker ${normalizedTicker}.`);
+
+        const result = await triggerGetAllActions(
+          buildActionLookupQuery(normalizedCriteria, "ticker"),
+          true,
+        ).unwrap();
+        if (!normalizedCriteria.marketTicker && result.count > 1) {
+          throw new Error(
+            `Ambiguous API action ticker ${normalizedCriteria.ticker}: ${result.count} matches; marketTicker is required.`,
+          );
+        }
+        const resolvedAction = (result.data ?? []).find((candidate) => (
+          actionMatchesLookup(candidate, normalizedCriteria)
+        ));
+        if (!resolvedAction) {
+          throw new Error(
+            `API action not found for ${normalizedCriteria.ticker}${normalizedCriteria.marketTicker ? ` on ${normalizedCriteria.marketTicker}` : ""}.`,
+          );
+        }
         return resolvedAction;
       });
       writePersistedActionIdentity(action);

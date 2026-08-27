@@ -87,7 +87,7 @@ export const useIndicatorBacktestDashboard = ({
   useEffect(() => { getAllCoursRef.current = getAllCours; }, [getAllCours]);
   const fetchSupplementalSeries = useCallback(async (requestedSymbol: string): Promise<IndicatorBacktestBatchInput> => {
     const ticker = resolveBRVMDatasetTicker(requestedSymbol);
-    const action = await getActionByTickerRef.current(ticker);
+    const action = await getActionByTickerRef.current({ ticker, marketTicker: "BRVM" });
     if (!action?.instrument) throw new Error(`Action ${ticker} has no instrument identifier.`);
     const paginated = await getAllCoursRef.current({
       instrument: action.instrument,

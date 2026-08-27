@@ -16,6 +16,10 @@ const suites = [
   ],
   [
     "--test",
+    "core/infra/repositories/action-lookup.policy.test.cjs",
+  ],
+  [
+    "--test",
     "core/data/__tests__/brvm-logo-registry.test.cjs",
   ],
   [

@@ -9,7 +9,7 @@
 //   - SUPPRIMÉ : mode "mock" (conformité AGENTS REAL API - NO SIMULATION.md)
 //
 // TOUTE la donnée provient de la couche core/ (Clean/Hexagonal) :
-//   getActionByTicker(ticker) -> ActionEntity { instrument, latest_price_metric }
+//   getActionByTicker({ ticker, marketTicker, isin? }) -> ActionEntity { instrument, latest_price_metric }
 //   getAllCours({ instrument }) -> série OHLCV (CoursEntity[])
 //
 // STRATÉGIE DIAGNOSTIC : les champs `null` renvoyés par l'API restent `null`.
@@ -386,7 +386,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       const actionResolutionPromise: Promise<ActionEntity> = cachedAction
         ? Promise.resolve(cachedAction)
         : withRequestTimeout(
-            getActionByTickerRef.current(upperTicker, forcedIsin),
+            getActionByTickerRef.current({ ticker: upperTicker, isin: forcedIsin, marketTicker: marketScope }),
             "Action resolution",
           );
       const validatedActionPromise = actionResolutionPromise.then((action) => {
@@ -541,7 +541,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       const actionResolutionPromise: Promise<ActionEntity> = cachedAction
         ? Promise.resolve(cachedAction)
         : withRequestTimeout(
-            getActionByTickerRef.current(upperTicker, forcedIsin),
+            getActionByTickerRef.current({ ticker: upperTicker, isin: forcedIsin, marketTicker: marketScope }),
             "Action resolution",
           );
       const validatedActionPromise = actionResolutionPromise.then((action) => {
@@ -1056,7 +1056,7 @@ export const useComparisonManager = (
       setRequestStatus(requestKey, "loading");
       const startedAt = Date.now();
 
-      getAllActionsRef.current({ ticker: symbol, bourse: market, page_size: 100 })
+      getAllActionsRef.current({ ticker: symbol, view_type: "screener", bourse_tickers: market, page_size: 100 })
         .then((response) => {
           const action = (response.data ?? []).find((candidate) => (
             isActionForMarket(candidate, symbol, market)

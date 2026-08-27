@@ -24,7 +24,7 @@ export interface SidebarDataPort {
    * API : /results/ (net-income, revenue) + /dividends/.
    * Les champs description/website/employees restent vides (pas d'API).
    */
-  fetchFundamentals(ticker: string, signal: AbortSignal): Promise<BRVMFundamentals>;
+  fetchFundamentals(ticker: string, marketTicker: string, signal: AbortSignal): Promise<BRVMFundamentals>;
 
   /**
    * Indices BRVM + dernier cours (close, variation, timestamp).

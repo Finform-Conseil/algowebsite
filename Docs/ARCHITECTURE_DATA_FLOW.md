@@ -297,6 +297,14 @@ Règles d'implémentation :
   ticker → ISIN ; un seul appel concurrent doit donc exécuter cette chaîne.
 - Ne pas promettre la suppression des appels séquentiels, des paramètres
   différents, des redirections de slash ou des appels d'autres domaines.
+- **Résolution d'action multi-bourse :** un ticker seul n'est pas une identité
+  métier suffisante. Dès que le marché est connu, `getActionByTicker` reçoit
+  `{ ticker, marketTicker, isin? }` et l'adaptateur construit la requête
+  `view_type=screener&bourse_tickers=<MARCHÉ>&ticker=<TICKER>`. La clé de
+  déduplication inclut aussi le marché. Un lookup non scoppé qui retourne
+  plusieurs correspondances doit échouer explicitement plutôt que choisir la
+  première ligne. Les caches d'identité ou de présentation liés à un titre
+  doivent être indexés au minimum par `marketTicker:ticker`.
 
 Preuve de validation technique : un rechargement propre de la page
 `/en/equity/technical-analysis` avec BOAB a produit un seul appel effectif

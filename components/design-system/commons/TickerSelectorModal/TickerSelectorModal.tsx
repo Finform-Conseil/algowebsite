@@ -738,7 +738,10 @@ export const TickerSelectorModal: React.FC = () => {
             let preferredLookupError: unknown = null;
             if (preferredTicker) {
               try {
-                const preferredAction = await getActionByTicker(preferredTicker);
+                const preferredAction = await getActionByTicker({
+                  ticker: preferredTicker,
+                  marketTicker: activeMarket.ticker,
+                });
                 // A ticker chosen in a secondary multi-layout panel can belong to
                 // CSE/NGX/etc. while the workspace market remains BRVM. Such a
                 // persisted preference must never poison the next page bootstrap.
