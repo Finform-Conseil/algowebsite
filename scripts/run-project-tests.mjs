@@ -20,6 +20,10 @@ const suites = [
   ],
   [
     "--test",
+    "core/data/__tests__/market-logo-registry.test.cjs",
+  ],
+  [
+    "--test",
     "app/api/proxy/security.test.cjs",
     "app/api/proxy/path-normalizer.test.mjs",
     "app/api/proxy/response-guard.test.mjs",

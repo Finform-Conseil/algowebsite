@@ -128,8 +128,8 @@ export const BrvmLogoMark = memo(({
   const isIndex = sector === "Market Indices" || Boolean(INDEX_FALLBACK_LABELS[normalizedTicker]);
   const resolvedLogoUrl = logoUrl
     ?? (exchange?.trim()
-      ? getMarketLogoUrl(exchange, normalizedTicker)
-      : getBrvmLogoUrl(normalizedTicker))
+      ? getMarketLogoUrl(exchange, ticker, name)
+      : getBrvmLogoUrl(ticker))
     ?? ((!exchange || exchange.trim().toUpperCase() === "BRVM")
       ? getBrvmLogoUrlByIssuerName(name ?? "")
       : undefined);

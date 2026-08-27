@@ -36,6 +36,26 @@ const BRVM_LOGO_PATHS: Readonly<Record<string, string>> = Object.freeze({
   ETIT: `${BRVM_LOGO_BASE_PATH}/ecoc.webp`,
 });
 
+const BRVM_API_TICKER_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  BICI_CI: "BICC",
+  BIIC_BJ: "BICB",
+  SAFCA_CI: "SAFC",
+  SGB_CI: "SGBC",
+  SMB_CI: "SMBC",
+  TOTAL_CI: "TTLC",
+  TOTAL_SN: "TTLS",
+  AGL_CI: "SDSC",
+  CROWN_CI: "SEMC",
+  FILTISAC_CI: "FTSC",
+  SOLIBRA_CI: "SLBC",
+  SETAO_CI: "STAC",
+  SICABLE_CI: "CABC",
+  CFAO_CI: "CFAC",
+  CIE_CI: "CIEC",
+  SODE_CI: "SDCC",
+  UNIWAX_CI: "UNXC",
+});
+
 const BRVM_LOGO_ISSUER_NAMES = Object.freeze(
   Object.keys(BRVM_LOGO_MAPPING).map((ticker) => ({
     key: ticker.trim().toUpperCase(),
@@ -50,18 +70,23 @@ const BRVM_LOGO_ISSUER_ALIASES: Readonly<Record<string, string>> = Object.freeze
 
 export const normalizeBrvmLogoTicker = (ticker: string): string => ticker.trim().toUpperCase();
 
-export const hasBrvmLogo = (ticker: string): boolean => {
+const resolveBrvmLogoTicker = (ticker: string): string => {
   const normalizedTicker = normalizeBrvmLogoTicker(ticker);
-  return hasOwn.call(BRVM_LOGO_PATHS, normalizedTicker);
+  return BRVM_API_TICKER_ALIASES[normalizedTicker] ?? normalizedTicker;
+};
+
+export const hasBrvmLogo = (ticker: string): boolean => {
+  const resolvedTicker = resolveBrvmLogoTicker(ticker);
+  return hasOwn.call(BRVM_LOGO_PATHS, resolvedTicker);
 };
 
 export const getBrvmLogoUrl = (ticker: string): string | undefined => {
-  const normalizedTicker = normalizeBrvmLogoTicker(ticker);
-  return BRVM_LOGO_PATHS[normalizedTicker];
+  const resolvedTicker = resolveBrvmLogoTicker(ticker);
+  return BRVM_LOGO_PATHS[resolvedTicker];
 };
 
 export const getBrvmLogoIssuerName = (ticker: string): string | undefined => {
-  const mappingKey = normalizeLogoKey(ticker);
+  const mappingKey = normalizeLogoKey(resolveBrvmLogoTicker(ticker));
   return BRVM_LOGO_MAPPING[mappingKey];
 };
 

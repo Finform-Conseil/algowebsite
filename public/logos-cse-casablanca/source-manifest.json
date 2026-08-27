@@ -1,12 +1,36 @@
 {
   "contract": "logo-source-manifest-v1",
   "exchange": "CSE",
-  "source": "official issuer sites and public exchange/brand references; normalized locally",
+  "source": "official issuer sites, Bourse de Casablanca exchange logos, and verified public brand references; normalized locally",
   "records": [
+    {
+      "ticker": "AFMA",
+      "officialSymbol": "AFM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/AFM.png",
+      "file": "public/logos-cse-casablanca/AFMA.webp"
+    },
     {
       "ticker": "AFRIC_INDUSTRIES_SA",
       "sourceUrl": "https://www.google.com/s2/favicons",
       "file": "public/logos-cse-casablanca/AFRIC_INDUSTRIES_SA.webp"
+    },
+    {
+      "ticker": "AFRIQUIA_GAZ",
+      "officialSymbol": "GAZ",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/GAZ.png",
+      "file": "public/logos-cse-casablanca/AFRIQUIA_GAZ.webp"
+    },
+    {
+      "ticker": "AGMA",
+      "officialSymbol": "AGM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/AGM.png",
+      "file": "public/logos-cse-casablanca/AGMA.webp"
     },
     {
       "ticker": "AKDITAL",
@@ -14,14 +38,70 @@
       "file": "public/logos-cse-casablanca/AKDITAL.webp"
     },
     {
+      "ticker": "ALLIANCES",
+      "officialSymbol": "ADI",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/ADI.png",
+      "file": "public/logos-cse-casablanca/ALLIANCES.webp"
+    },
+    {
+      "ticker": "ALUMINIUM_DU_MAROC",
+      "officialSymbol": "ALM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/ALM.png",
+      "file": "public/logos-cse-casablanca/ALUMINIUM_DU_MAROC.webp"
+    },
+    {
+      "ticker": "ARADEI_CAPITAL",
+      "officialSymbol": "ARD",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/ARD.png",
+      "file": "public/logos-cse-casablanca/ARADEI_CAPITAL.webp"
+    },
+    {
+      "ticker": "ATLANTASANAD",
+      "officialSymbol": "ATL",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/ATL.png",
+      "file": "public/logos-cse-casablanca/ATLANTASANAD.webp"
+    },
+    {
+      "ticker": "ATW",
+      "officialSymbol": "ATW",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/ATW.png",
+      "file": "public/logos-cse-casablanca/ATW.webp"
+    },
+    {
       "ticker": "AUTO_NEJMA",
       "sourceUrl": "https://media.majarracdn.cloud/manhom/mgmt/images/591651/1730191424/%D8%B4%D8%B1%D9%83%D8%A9-%D8%A3%D9%88%D8%B7%D9%88-%D9%86%D8%AC%D9%85%D8%A9.jpg",
       "file": "public/logos-cse-casablanca/AUTO_NEJMA.webp"
     },
     {
+      "ticker": "BALIMA",
+      "officialSymbol": "BAL",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/BAL.png",
+      "file": "public/logos-cse-casablanca/BALIMA.webp"
+    },
+    {
       "ticker": "BCP",
       "sourceUrl": "https://s3-symbol-logo.tradingview.com/bcp--600.png",
       "file": "public/logos-cse-casablanca/BCP.webp"
+    },
+    {
+      "ticker": "BMCI",
+      "officialSymbol": "BCI",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/BCI.png",
+      "file": "public/logos-cse-casablanca/BMCI.webp"
     },
     {
       "ticker": "BOA",
@@ -39,9 +119,281 @@
       "file": "public/logos-cse-casablanca/CASH.webp"
     },
     {
+      "ticker": "CDM",
+      "officialSymbol": "CDM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CDM.png",
+      "file": "public/logos-cse-casablanca/CDM.webp"
+    },
+    {
+      "ticker": "CFG_BANK",
+      "officialSymbol": "CFG",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CFG.png",
+      "file": "public/logos-cse-casablanca/CFG_BANK.webp"
+    },
+    {
+      "ticker": "CIH",
+      "officialSymbol": "CIH",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CIH.png",
+      "file": "public/logos-cse-casablanca/CIH.webp"
+    },
+    {
+      "ticker": "CIMENTS_DU_MAROC",
+      "officialSymbol": "CMA",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CMA.png",
+      "file": "public/logos-cse-casablanca/CIMENTS_DU_MAROC.webp"
+    },
+    {
+      "ticker": "CMGP_GROUP",
+      "officialSymbol": "CMG",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CMG.png",
+      "file": "public/logos-cse-casablanca/CMGP_GROUP.webp"
+    },
+    {
+      "ticker": "COLORADO",
+      "officialSymbol": "COL",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/COL.png",
+      "file": "public/logos-cse-casablanca/COLORADO.webp"
+    },
+    {
+      "ticker": "COSUMAR",
+      "officialSymbol": "CSR",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CSR.png",
+      "file": "public/logos-cse-casablanca/COSUMAR.webp"
+    },
+    {
+      "ticker": "CTM",
+      "officialSymbol": "CTM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CTM.png",
+      "file": "public/logos-cse-casablanca/CTM.webp"
+    },
+    {
       "ticker": "DARI_COUSPATE",
       "sourceUrl": "https://www.google.com/s2/favicons",
       "file": "public/logos-cse-casablanca/DARI_COUSPATE.webp"
+    },
+    {
+      "ticker": "DELATTRE_LEVIVIER",
+      "officialSymbol": "DLM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/DLM.png",
+      "file": "public/logos-cse-casablanca/DELATTRE_LEVIVIER.webp"
+    },
+    {
+      "ticker": "DELTA_HOLDING",
+      "officialSymbol": "DHO",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/DHO.png",
+      "file": "public/logos-cse-casablanca/DELTA_HOLDING.webp"
+    },
+    {
+      "ticker": "DIAC_SALAF",
+      "officialSymbol": "DIS",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/DIS.png",
+      "file": "public/logos-cse-casablanca/DIAC_SALAF.webp"
+    },
+    {
+      "ticker": "DISTY_TECHNOLOGIES",
+      "officialSymbol": "DYT",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/DYT.png",
+      "file": "public/logos-cse-casablanca/DISTY_TECHNOLOGIES.webp"
+    },
+    {
+      "ticker": "DISWAY",
+      "officialSymbol": "DWY",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/DWY.png",
+      "file": "public/logos-cse-casablanca/DISWAY.webp"
+    },
+    {
+      "ticker": "DOUJA_PROMOTION",
+      "officialSymbol": "ADH",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/ADH.png",
+      "file": "public/logos-cse-casablanca/DOUJA_PROMOTION.webp"
+    },
+    {
+      "ticker": "EQDOM",
+      "officialSymbol": "EQD",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/EQD.png",
+      "file": "public/logos-cse-casablanca/EQDOM.webp"
+    },
+    {
+      "ticker": "FENIE_BROSSETTE",
+      "officialSymbol": "FBR",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/FBR.png",
+      "file": "public/logos-cse-casablanca/FENIE_BROSSETTE.webp"
+    },
+    {
+      "ticker": "HPS",
+      "officialSymbol": "HPS",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/HPS.png",
+      "file": "public/logos-cse-casablanca/HPS.webp"
+    },
+    {
+      "ticker": "IB MAROC",
+      "officialSymbol": "IBC",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/IBC.png",
+      "file": "public/logos-cse-casablanca/IB_MAROC.webp"
+    },
+    {
+      "ticker": "IMMORENTE_INVEST",
+      "officialSymbol": "IMO",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/IMO.png",
+      "file": "public/logos-cse-casablanca/IMMORENTE_INVEST.webp"
+    },
+    {
+      "ticker": "INVOLYS",
+      "officialSymbol": "INV",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/INV.png",
+      "file": "public/logos-cse-casablanca/INVOLYS.webp"
+    },
+    {
+      "ticker": "ITISSALAT_AL-MAGHRIB",
+      "officialSymbol": "IAM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/IAM.png",
+      "file": "public/logos-cse-casablanca/ITISSALAT_AL_MAGHRIB.webp"
+    },
+    {
+      "ticker": "JET_CONTRACTORS",
+      "officialSymbol": "JET",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/JET.png",
+      "file": "public/logos-cse-casablanca/JET_CONTRACTORS.webp"
+    },
+    {
+      "ticker": "LABEL_VIE",
+      "officialSymbol": "LBV",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/LBV.png",
+      "file": "public/logos-cse-casablanca/LABEL_VIE.webp"
+    },
+    {
+      "ticker": "LESIEUR_CRISTAL",
+      "officialSymbol": "LES",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/LES.png",
+      "file": "public/logos-cse-casablanca/LESIEUR_CRISTAL.webp"
+    },
+    {
+      "ticker": "LHM",
+      "officialSymbol": "LHM",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/LHM.png",
+      "file": "public/logos-cse-casablanca/LHM.webp"
+    },
+    {
+      "ticker": "M2M",
+      "officialSymbol": "M2M",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/M2M.png",
+      "file": "public/logos-cse-casablanca/M2M.webp"
+    },
+    {
+      "ticker": "MAGHREB_OXYGENE",
+      "officialSymbol": "MOX",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MOX.png",
+      "file": "public/logos-cse-casablanca/MAGHREB_OXYGENE.webp"
+    },
+    {
+      "ticker": "MAGHREBAIL",
+      "officialSymbol": "MAB",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MAB.png",
+      "file": "public/logos-cse-casablanca/MAGHREBAIL.webp"
+    },
+    {
+      "ticker": "MANAGEM",
+      "officialSymbol": "MNG",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MNG.png",
+      "file": "public/logos-cse-casablanca/MANAGEM.webp"
+    },
+    {
+      "ticker": "MAROC_LEASING",
+      "officialSymbol": "MLE",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MLE.png",
+      "file": "public/logos-cse-casablanca/MAROC_LEASING.webp"
+    },
+    {
+      "ticker": "MED_PAPER",
+      "officialSymbol": "MDP",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MDP.png",
+      "file": "public/logos-cse-casablanca/MED_PAPER.webp"
+    },
+    {
+      "ticker": "MICRODATA",
+      "officialSymbol": "MIC",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MIC.png",
+      "file": "public/logos-cse-casablanca/MICRODATA.webp"
+    },
+    {
+      "ticker": "MINIERE_DE_TOUISSIT",
+      "officialSymbol": "CMT",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/CMT.png",
+      "file": "public/logos-cse-casablanca/MINIERE_DE_TOUISSIT.webp"
+    },
+    {
+      "ticker": "MUTANDIS_SCA",
+      "officialSymbol": "MUT",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/MUT.png",
+      "file": "public/logos-cse-casablanca/MUTANDIS_SCA.webp"
     },
     {
       "ticker": "OULMES",
@@ -57,6 +409,14 @@
       "ticker": "REALISATIONS_MECANIQUES",
       "sourceUrl": "https://www.google.com/s2/favicons",
       "file": "public/logos-cse-casablanca/REALISATIONS_MECANIQUES.webp"
+    },
+    {
+      "ticker": "REBAB_COMPANY",
+      "officialSymbol": "REB",
+      "sourceType": "exchange",
+      "verified": true,
+      "sourceUrl": "https://www.casablancabourse.com/images/logos/REB.png",
+      "file": "public/logos-cse-casablanca/REBAB_COMPANY.webp"
     },
     {
       "ticker": "RESIDENCES_DAR_SAADA",

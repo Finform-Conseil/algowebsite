@@ -1,0 +1,598 @@
+{
+  "contract": "logo-normalization-manifest-v1",
+  "exchange": "CSE",
+  "records": [
+    {
+      "ticker": "AFMA",
+      "file": "public/logos-cse-casablanca/AFMA.webp",
+      "sha256": "0ea23b4439f7781fa110a14b9e5d465657d1a63312d7939c4226ef335e11cc50",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "AFRIC_INDUSTRIES_SA",
+      "file": "public/logos-cse-casablanca/AFRIC_INDUSTRIES_SA.webp",
+      "sha256": "f3fd849b159768121ed0c664ae3b214bac3fba0b86b0d2de7b26c3e8e9ceeefb",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "AFRIQUIA_GAZ",
+      "file": "public/logos-cse-casablanca/AFRIQUIA_GAZ.webp",
+      "sha256": "379a563da80e3762c30444c20402a39f02a3235782ebbc58d2b163a578ed5f0e",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "AGMA",
+      "file": "public/logos-cse-casablanca/AGMA.webp",
+      "sha256": "085bef586ec77e7e453dc5662e6f6e02c63012e99132e92a1d8cf70bbba76fe7",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "AKDITAL",
+      "file": "public/logos-cse-casablanca/AKDITAL.webp",
+      "sha256": "1b205960b0960dd39af4bc3286813e3e46db8fdb4a1c61486b16dff9ef432bdc",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ALLIANCES",
+      "file": "public/logos-cse-casablanca/ALLIANCES.webp",
+      "sha256": "d93975dc2f1d1d91efedd9ea0a9375b921dd4b576ad42dc397b1ce32fd087a6d",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ALUMINIUM_DU_MAROC",
+      "file": "public/logos-cse-casablanca/ALUMINIUM_DU_MAROC.webp",
+      "sha256": "4b2608de051438e4641caffaa93847f1b2c8f950f8884e0038e67195663c0daf",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ARADEI_CAPITAL",
+      "file": "public/logos-cse-casablanca/ARADEI_CAPITAL.webp",
+      "sha256": "a02342976aade16ad09afa141e226f332d803f3c248cc6ab5a69d2ff200f6210",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ATLANTASANAD",
+      "file": "public/logos-cse-casablanca/ATLANTASANAD.webp",
+      "sha256": "54b27931749c8b15a93a5dc9629822af134c03fc904124d36c8c2672bc82b24f",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ATW",
+      "file": "public/logos-cse-casablanca/ATW.webp",
+      "sha256": "d8a7d8659fb542498ad29de9e6142e6fcfdc5fa96c76180f5b7e676f54c2a633",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "AUTO_NEJMA",
+      "file": "public/logos-cse-casablanca/AUTO_NEJMA.webp",
+      "sha256": "d3ec6ad73ca56a4310303a9b3d3c7978fa5849d4d9d6b6f066987cfc40a3854f",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "BALIMA",
+      "file": "public/logos-cse-casablanca/BALIMA.webp",
+      "sha256": "d158dce6e27baef8b032bbcef7b3941b6743226d59c2a0d7ffe966cc6555136f",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "BCP",
+      "file": "public/logos-cse-casablanca/BCP.webp",
+      "sha256": "972ff3e6d678d1a3122ad76895e0853b50c64ede4cb4fc6233efedd64cb5d8cb",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "BMCI",
+      "file": "public/logos-cse-casablanca/BMCI.webp",
+      "sha256": "4f7d033f8421e405a8e81ac0198ecf43aee935f5446b120d6da024bb1ae7e97a",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "BOA",
+      "file": "public/logos-cse-casablanca/BOA.webp",
+      "sha256": "8090c879e53a300c078fe81eef469e637aac6a3368b6347d47bfbcca707613b5",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CARTIER_SAADA",
+      "file": "public/logos-cse-casablanca/CARTIER_SAADA.webp",
+      "sha256": "bc0b628bbb47d74b6ea630f727c01372b13ef01ada67f258479c1073312d0ead",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CASH",
+      "file": "public/logos-cse-casablanca/CASH.webp",
+      "sha256": "8bd040579054a158d2d80ecb8276348cb12fb0057e9f30aff1fa21092701dd92",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CDM",
+      "file": "public/logos-cse-casablanca/CDM.webp",
+      "sha256": "2fed7269985e19cdae707f7dbe1e2aaba9fb87148ad99342db0699949280225b",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CFG_BANK",
+      "file": "public/logos-cse-casablanca/CFG_BANK.webp",
+      "sha256": "72d2a044a5fced7e94dfb5a907a38f2f78ae4e63c957b7b861edcf03544547ee",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CIH",
+      "file": "public/logos-cse-casablanca/CIH.webp",
+      "sha256": "d54a1fb9ca17992bea0a51b7692102b80168df1a0554dc850d18174b42122555",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CIMENTS_DU_MAROC",
+      "file": "public/logos-cse-casablanca/CIMENTS_DU_MAROC.webp",
+      "sha256": "d521e9750e7045f791e65e5da500e087bf6291e836e672e07c47e8a58cda77d6",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CMGP_GROUP",
+      "file": "public/logos-cse-casablanca/CMGP_GROUP.webp",
+      "sha256": "2b090b5837346984aaf566642d9079ebf5af24479f659ee1b8c25065a37656cc",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "COLORADO",
+      "file": "public/logos-cse-casablanca/COLORADO.webp",
+      "sha256": "b10f73126415b42700fa18a45aa420534fbbe13581c2a73dbf6163528c2a6f0c",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "COSUMAR",
+      "file": "public/logos-cse-casablanca/COSUMAR.webp",
+      "sha256": "ae582c3aed9594925498d25d8c89ed87516bbf25c501efff8e611f130d429400",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "CTM",
+      "file": "public/logos-cse-casablanca/CTM.webp",
+      "sha256": "779bbd7c5b4cfc0fd7f3c75d4910efc20f6d915ad9596fbe1c2075b7f4cc0761",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DARI_COUSPATE",
+      "file": "public/logos-cse-casablanca/DARI_COUSPATE.webp",
+      "sha256": "29c3f262b21ca3157b7b60cb6d05912b0cea03fcf16a5b2608ad05a2f0d211ec",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DELATTRE_LEVIVIER",
+      "file": "public/logos-cse-casablanca/DELATTRE_LEVIVIER.webp",
+      "sha256": "b82a298752c5375ed5ac18f0b269db894eeb43ad2d6f820357374a2d263b1057",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DELTA_HOLDING",
+      "file": "public/logos-cse-casablanca/DELTA_HOLDING.webp",
+      "sha256": "e0556aee32030cfa7922331abd04c0c0dfb27298a4fc25f1430483515c417557",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DIAC_SALAF",
+      "file": "public/logos-cse-casablanca/DIAC_SALAF.webp",
+      "sha256": "7cb69e1329f541644e91e6ea54b0b0f843cbe681667a3450dfe09beca3fa3e2b",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DISTY_TECHNOLOGIES",
+      "file": "public/logos-cse-casablanca/DISTY_TECHNOLOGIES.webp",
+      "sha256": "c40650da9677488d83f494ead6b7983cccd290eae650d4721e11a335cd875543",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DISWAY",
+      "file": "public/logos-cse-casablanca/DISWAY.webp",
+      "sha256": "8a6a9c432f1a6343b3c9b12b384ec99b0d90c184eeeb1b89521dfd896665f1be",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "DOUJA_PROMOTION",
+      "file": "public/logos-cse-casablanca/DOUJA_PROMOTION.webp",
+      "sha256": "d4b829c42cd8da250bb28882ab77a717bd52cf01ddd34b2fd4e0a459e0cc3200",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "EQDOM",
+      "file": "public/logos-cse-casablanca/EQDOM.webp",
+      "sha256": "defc6738e6b871f6c644bd59d25e40f6915eaa7c1aeb91b8c8491392e4290435",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "FENIE_BROSSETTE",
+      "file": "public/logos-cse-casablanca/FENIE_BROSSETTE.webp",
+      "sha256": "4ec95895cb5eb0341a350abc570212d241892854b61f9b17c8ba6bdc3d8bd570",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "HPS",
+      "file": "public/logos-cse-casablanca/HPS.webp",
+      "sha256": "5975c6df299d8710c2db203657a3fa3a9a64e40f4f4fa6eafa8943d0c1a57b14",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "IB MAROC",
+      "file": "public/logos-cse-casablanca/IB_MAROC.webp",
+      "sha256": "7f365c793a6730513e7e5117737439d9713bc0d24361dc8d497389a216e98a40",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "IMMORENTE_INVEST",
+      "file": "public/logos-cse-casablanca/IMMORENTE_INVEST.webp",
+      "sha256": "e92431c5b60e75318f2b319a6db084fdbdbccefe1c86ff917207b49f2fcb170e",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "INVOLYS",
+      "file": "public/logos-cse-casablanca/INVOLYS.webp",
+      "sha256": "e094197b4a63ad6b1b3dbf05238abbd9308d58b43ed8a54c7b29147bce5e199a",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ITISSALAT_AL-MAGHRIB",
+      "file": "public/logos-cse-casablanca/ITISSALAT_AL_MAGHRIB.webp",
+      "sha256": "c45158e29917d8b6a93aa61d912e8e9cf45b4e72e88a5ed82dcf51531de1041b",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "JET_CONTRACTORS",
+      "file": "public/logos-cse-casablanca/JET_CONTRACTORS.webp",
+      "sha256": "b281291d3eb6b74ca90695b998fdc66d3e43d30459357261c166f876f3945454",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "LABEL_VIE",
+      "file": "public/logos-cse-casablanca/LABEL_VIE.webp",
+      "sha256": "767af8feede5534625a1278ffb851be9baa2ae4fae0efb5c3bf3b7783c6a26a7",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "LESIEUR_CRISTAL",
+      "file": "public/logos-cse-casablanca/LESIEUR_CRISTAL.webp",
+      "sha256": "ca2c0cfc2d0f3e47c6952a4d273dd2c89c1e0c24571b7ade368639200eb6b4f2",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "LHM",
+      "file": "public/logos-cse-casablanca/LHM.webp",
+      "sha256": "fe7a439b80f9576022cafdcfa99517efe46795bc33b11e068c3092fa90e153f4",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "M2M",
+      "file": "public/logos-cse-casablanca/M2M.webp",
+      "sha256": "c4a6a41b8f7a162e5bdd69ceb4a6448c54b8da771dac00558ea2433280475aba",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MAGHREB_OXYGENE",
+      "file": "public/logos-cse-casablanca/MAGHREB_OXYGENE.webp",
+      "sha256": "5375a2ca947b447ce19962ac3c157dcf34df84947f5a558ce893b4b03916800b",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MAGHREBAIL",
+      "file": "public/logos-cse-casablanca/MAGHREBAIL.webp",
+      "sha256": "061b47640087cddf6734b5cfb8b47ac3fa87a4d3f881b719ccb696d7e82702c5",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MANAGEM",
+      "file": "public/logos-cse-casablanca/MANAGEM.webp",
+      "sha256": "d28dfc2632b3a15fa075335bc5497f68f4c87d970efb31813768a1c9bc28456d",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MAROC_LEASING",
+      "file": "public/logos-cse-casablanca/MAROC_LEASING.webp",
+      "sha256": "92a128718bd5bfc7110bfa2a086863fdfae04520a482c28ba2d147540b9a4b42",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MED_PAPER",
+      "file": "public/logos-cse-casablanca/MED_PAPER.webp",
+      "sha256": "f3625f4746f635184f1bfffa72f253d001d47ce8fa438a26aab8e2a5d756f437",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MICRODATA",
+      "file": "public/logos-cse-casablanca/MICRODATA.webp",
+      "sha256": "456a20097b2c6c7861c6b4457473fe3aa68f4daf03ca9fb7645b29a9e74db5de",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MINIERE_DE_TOUISSIT",
+      "file": "public/logos-cse-casablanca/MINIERE_DE_TOUISSIT.webp",
+      "sha256": "c271c50348dfc16e7cbde88b7edf39ca50ee545079e889f4b0a8b4ae109349ba",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "MUTANDIS_SCA",
+      "file": "public/logos-cse-casablanca/MUTANDIS_SCA.webp",
+      "sha256": "2a1552723eeacd7acba5dac763f50f1281c30c73fbfc6979a9bb237fb0ba859a",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "OULMES",
+      "file": "public/logos-cse-casablanca/OULMES.webp",
+      "sha256": "3d383f8086a695716ddabb79b5f2e17c407954b9c4a418aa98d1fdc6dc8e1413",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "PROMOPHARM_SA",
+      "file": "public/logos-cse-casablanca/PROMOPHARM_SA.webp",
+      "sha256": "679c98377bdee578338308c84cc7b813e2ff9b462607a0943bc4ec6e78703972",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "REALISATIONS_MECANIQUES",
+      "file": "public/logos-cse-casablanca/REALISATIONS_MECANIQUES.webp",
+      "sha256": "1d041498eafba98559f4bb06ebc96f9f7eec65b194b01bf351c9c88c50e98565",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "REBAB_COMPANY",
+      "file": "public/logos-cse-casablanca/REBAB_COMPANY.webp",
+      "sha256": "5d4a4c7d562c358ed7ec0063d34fe1203eb1ecd57c448bba7bc34ac82bba011d",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "RESIDENCES_DAR_SAADA",
+      "file": "public/logos-cse-casablanca/RESIDENCES_DAR_SAADA.webp",
+      "sha256": "9488d3ae0b52d46201948c68650f3290b96a2320e04885719693d5fca797c04a",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "S_M_MONETIQUE",
+      "file": "public/logos-cse-casablanca/S_M_MONETIQUE.webp",
+      "sha256": "7d449d2eb8dd8f8d21b22c7b2eb7e035fe790396177deff90d76f7c4249087d9",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SAMIR",
+      "file": "public/logos-cse-casablanca/SAMIR.webp",
+      "sha256": "816b9509ff8e62b8d6e257096cf96c1eb0f0df14cd3230d8b1ca2c2b0292f987",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SANLAM_MAROC",
+      "file": "public/logos-cse-casablanca/SANLAM_MAROC.webp",
+      "sha256": "68f9166319a95afc9f1e7d6c626e48a4c759c6d97b2135f46e4e1e212ad759f8",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SGTM",
+      "file": "public/logos-cse-casablanca/SGTM.webp",
+      "sha256": "66590ace1e03f15d42bcdadeca89d0c36bca283b3f0acf9319e5bf22fe9a9b4b",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SMI",
+      "file": "public/logos-cse-casablanca/SMI.webp",
+      "sha256": "89b90760ac701210c0aba0725c34a5c6d7fe00170b33b3805bf30940698f197f",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SNEP",
+      "file": "public/logos-cse-casablanca/SNEP.webp",
+      "sha256": "a758f4ffbf8cda8e5a13f9b0a906be4c8d07686c89eec3b95619daac5cef203c",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SOCIETE_DES_BOISSONS_DU_MAROC",
+      "file": "public/logos-cse-casablanca/SOCIETE_DES_BOISSONS_DU_MAROC.webp",
+      "sha256": "71f08588496fe12f96dc6ddb855dd20c3060fbec2cfffd12114ada7e4ee66848",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SODEP_MARSA",
+      "file": "public/logos-cse-casablanca/SODEP_MARSA.webp",
+      "sha256": "056dba4e01b7250b434008b32f9f89c96b5fc284713adfff03e4ef664eaa8758",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SONASID",
+      "file": "public/logos-cse-casablanca/SONASID.webp",
+      "sha256": "17c65b5f803893d920042b71c1607e59ee0aed9d6e7e0c17d6d9dff7e005c4d4",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "SOTHEMA",
+      "file": "public/logos-cse-casablanca/SOTHEMA.webp",
+      "sha256": "80eb3940b9ff0a2f921aadf26434a5cebba81c64ef045fe6bc703c04e40d76ab",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "STOKVIS",
+      "file": "public/logos-cse-casablanca/STOKVIS.webp",
+      "sha256": "97ef849e821b1b473965a999740978cf69cc3811314bbf749ed63580cd345173",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "STROC_INDUSTRIE",
+      "file": "public/logos-cse-casablanca/STROC_INDUSTRIE.webp",
+      "sha256": "7df889f17dfd852350596b85d6969b5d9bd0ca1ec926a746d3d5d2f907f97d68",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "TAQA_MOROCCO",
+      "file": "public/logos-cse-casablanca/TAQA_MOROCCO.webp",
+      "sha256": "32d056a299efadd099e44e1d493b4407f667f47201ef3129c6e035f061b4be97",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "TGCC",
+      "file": "public/logos-cse-casablanca/TGCC.webp",
+      "sha256": "92c101d125f0f9def373d5cc35f150e1cde45a378f58580f3d0c5359c3a1156e",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "VICENNE",
+      "file": "public/logos-cse-casablanca/VICENNE.webp",
+      "sha256": "c54af5005557062cba9e44e00450b9020d0fdc433916437443bfec09cd88a0fb",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "WAFA_ASSURANCE",
+      "file": "public/logos-cse-casablanca/WAFA_ASSURANCE.webp",
+      "sha256": "9dcc2d5ea99e8126a7a587e1d6605b931e52861fa58db07e1fbe993318cd0610",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    },
+    {
+      "ticker": "ZELLIDJA",
+      "file": "public/logos-cse-casablanca/ZELLIDJA.webp",
+      "sha256": "0d38b8faa26a836ede0f24a5cad2cf10c04830e7e483f5579f95e9e802ede8c3",
+      "width": 256,
+      "height": 256,
+      "format": "webp"
+    }
+  ]
+}

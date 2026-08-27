@@ -25,6 +25,8 @@
     "test:technical-analysis-config": "node --test components/technical-analysis/config/__tests__/config-baseline.test.cjs components/technical-analysis/config/__tests__/indicator-activation-contract.test.cjs components/technical-analysis/config/__tests__/candlestick-presentation-contract.test.cjs components/technical-analysis/config/__tests__/indicator-backtest-alert-policy.test.cjs",
     "test:technical-analysis-browser:mcp": "node scripts/smoke-technical-analysis-indicators-mcp.cjs",
     "test:brvm-logos": "node --test core/data/__tests__/brvm-logo-registry.test.cjs",
+    "test:market-logos": "node --test core/data/__tests__/market-logo-registry.test.cjs",
+    "sync:cse-casablanca-logos": "node scripts/sync-cse-casablanca-logos.mjs",
     "test:alerts-rail": "node --test components/technical-analysis/components/sidebar/panels/alertsRail/__tests__/alertsRailRuntime.test.cjs",
     "test:pine-editor": "node --test components/technical-analysis/components/sidebar/panels/pineEditor/__tests__/pineEditor.test.cjs"
   },

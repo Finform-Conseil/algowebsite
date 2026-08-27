@@ -115,6 +115,33 @@ test("BRVM API tickers can fall back to issuer names for real local logos", () =
   );
 });
 
+test("BRVM screener API ticker aliases resolve every renamed/local ticker to a real asset", () => {
+  const aliases = {
+    BICI_CI: "bicc",
+    BIIC_BJ: "bicb",
+    SAFCA_CI: "safc",
+    SGB_CI: "sgbc",
+    SMB_CI: "smbc",
+    TOTAL_CI: "ttlc",
+    TOTAL_SN: "ttls",
+    AGL_CI: "sdsc",
+    CROWN_CI: "semc",
+    FILTISAC_CI: "ftsc",
+    SOLIBRA_CI: "slbc",
+    SETAO_CI: "stac",
+    SICABLE_CI: "cabc",
+    CFAO_CI: "cfac",
+    CIE_CI: "ciec",
+    SODE_CI: "sdcc",
+    UNIWAX_CI: "unxc",
+  };
+
+  Object.entries(aliases).forEach(([apiTicker, canonicalTicker]) => {
+    assert.equal(hasBrvmLogo(apiTicker), true, `${apiTicker} should have a canonical BRVM logo`);
+    assert.equal(getBrvmLogoUrl(apiTicker), `/logos-brvm/${canonicalTicker}.webp`);
+  });
+});
+
 test("listed BRVM securities use only canonical logos-brvm URLs", () => {
   const listedSecurities = BRVM_SECURITIES.filter(isListedEquity);
   const listedTickers = listedSecurities.filter((security) => security.ticker.toLowerCase() !== "etit").map((security) => security.ticker.toLowerCase()).sort();

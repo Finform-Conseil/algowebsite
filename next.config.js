@@ -29,6 +29,27 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    const logoCacheHeaders = [
+      {
+        key: "Cache-Control",
+        value: "public, max-age=604800, stale-while-revalidate=2592000",
+      },
+    ];
+    const logoFolders = [
+      "logos-brvm",
+      "logos-cse-casablanca",
+      "logos-gse",
+      "logos-jse",
+      "logos-ngx",
+      "logos-nse",
+    ];
+
+    return logoFolders.map((folder) => ({
+      source: `/${folder}/:path*`,
+      headers: logoCacheHeaders,
+    }));
+  },
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react", "framer-motion", "lucide-react"],
   },
