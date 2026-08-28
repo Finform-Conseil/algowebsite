@@ -68,6 +68,12 @@ export {
 
 export type ChartMutationScheduler = (key: string, mutation: (chart: ECharts) => void) => void;
 export type HistoryBoundaryDirection = "left" | "right";
+export interface ChartViewportChange {
+  startTime: string;
+  endTime: string;
+  yScale: number;
+  isYManual: boolean;
+}
 type ViewportApplyMode = "queued" | "immediate";
 type HistoryPrependCommit = {
   dataLength: number;
@@ -113,6 +119,7 @@ export interface UseChartViewportProps {
   lastPriceAxisValue?: number;
   priceLevelMarkers?: PriceLevelViewportMarker[];
   onHistoryBoundaryRequest?: (direction: HistoryBoundaryDirection) => void;
+  onViewportChange?: (viewport: ChartViewportChange) => void;
   scheduleChartMutation?: ChartMutationScheduler;
 }
 
@@ -128,6 +135,7 @@ export const useChartViewport = ({
   lastPriceAxisValue,
   priceLevelMarkers = [],
   onHistoryBoundaryRequest,
+  onViewportChange,
   scheduleChartMutation,
 }: UseChartViewportProps) => {
   const viewportStateRef = useRef({
@@ -156,6 +164,8 @@ export const useChartViewport = ({
   const prevDataMaxRef = useRef<number>(0);
   const lastDataFirstTimeRef = useRef<string | null>(null);
   const previousPriceLevelGraphicIdsRef = useRef<Set<string>>(new Set());
+  const onViewportChangeRef = useRef(onViewportChange);
+  const lastViewportEmissionRef = useRef<ChartViewportChange | null>(null);
   const viewportApplyRafRef = useRef<number | null>(null);
   const viewportApplyModeRef = useRef<ViewportApplyMode>("queued");
   // Commit barrier between the React dataset and the imperative ECharts model.
@@ -173,6 +183,14 @@ export const useChartViewport = ({
     // during the commit that installs a newly prepended history batch.
     chartDataRef.current = chartData;
   }, [chartData]);
+  useLayoutEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
+  useLayoutEffect(() => {
+    // A chart-cell switch owns a distinct viewport even when both cells happen to
+    // expose the same date window. Force the new cell to receive one canonical seed.
+    lastViewportEmissionRef.current = null;
+  }, [interactionScopeKey]);
 
   const enqueueChartMutation = useCallback((key: string, mutation: (chart: ECharts) => void, mode: ViewportApplyMode = "queued") => {
     if (mode === "queued" && scheduleChartMutation) {
@@ -293,6 +311,23 @@ export const useChartViewport = ({
     );
     if (timeViewportSnapshot) {
       publishTimeViewportSync(chart, timeViewportSnapshot);
+
+      const viewportEmission: ChartViewportChange = {
+        startTime: timeViewportSnapshot.startTime,
+        endTime: timeViewportSnapshot.endTime,
+        yScale: state.yScale,
+        isYManual: state.isYManual,
+      };
+      const previousEmission = lastViewportEmissionRef.current;
+      const didViewportChange = !previousEmission
+        || previousEmission.startTime !== viewportEmission.startTime
+        || previousEmission.endTime !== viewportEmission.endTime
+        || previousEmission.yScale !== viewportEmission.yScale
+        || previousEmission.isYManual !== viewportEmission.isYManual;
+      if (didViewportChange) {
+        lastViewportEmissionRef.current = viewportEmission;
+        onViewportChangeRef.current?.(viewportEmission);
+      }
     }
 
     enqueueChartMutation("viewport", (targetChart) => {
