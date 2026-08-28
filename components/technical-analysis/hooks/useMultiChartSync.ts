@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { MutableRefObject } from "react";
 import type { MultiChartLayoutState } from "../config/layout/multiChartLayoutTypes";
-import type { MultiChartViewportState } from "../config/layout/multiChartCellState";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../lib/types/echarts";
 import {
@@ -29,7 +28,6 @@ interface UseMultiChartSyncProps {
   activeChartInstanceRef: MutableRefObject<EChartsInstance | null>;
   activeChartData: ChartDataPoint[];
   secondaryCharts: MultiChartSyncPeer[];
-  onActiveViewportChange?: (viewport: Pick<MultiChartViewportState, "startTime" | "endTime">) => void;
 }
 
 const cancelFrame = (frameRef: MutableRefObject<number | null>) => {
@@ -47,7 +45,6 @@ export const useMultiChartSync = ({
   activeChartInstanceRef,
   activeChartData,
   secondaryCharts,
-  onActiveViewportChange,
 }: UseMultiChartSyncProps) => {
   // ── Derive active chart interval from layout state ──────────────────────
   const activeInterval = useMemo(() => {
@@ -73,12 +70,10 @@ export const useMultiChartSync = ({
   const crosshairFrameRef = useRef<number | null>(null);
   const pendingZoomRef = useRef<DataZoomSyncPayload | null>(null);
   const pendingCrosshairTimeRef = useRef<string | null>(null);
-  const onActiveViewportChangeRef = useRef(onActiveViewportChange);
 
   useEffect(() => { activeLookupRef.current = activeLookup; }, [activeLookup]);
   useEffect(() => { targetsRef.current = targets; }, [targets]);
   useEffect(() => { activeIntervalRef.current = activeInterval; }, [activeInterval]);
-  useEffect(() => { onActiveViewportChangeRef.current = onActiveViewportChange; }, [onActiveViewportChange]);
 
   // Cleanup on unmount
   useEffect(
@@ -93,7 +88,7 @@ export const useMultiChartSync = ({
   // The logical viewport engine is the source of truth. ECharts is only the renderer:
   // listening to its `datazoom` side effect misses custom controls that project with setOption().
   useEffect(() => {
-    if (!layout.isEnabled) return;
+    if (!layout.isEnabled || !shouldSynchronizeTimeViewport(layout.sync)) return;
 
     let cancelled = false;
     let attachFrameId: number | null = null;
@@ -129,9 +124,8 @@ export const useMultiChartSync = ({
         const startTime = typeof pending.startValue === "string" ? pending.startValue : null;
         const endTime = typeof pending.endValue === "string" ? pending.endValue : null;
         const interval = activeIntervalRef.current;
-        onActiveViewportChangeRef.current?.({ startTime, endTime });
 
-        if (!shouldSynchronizeTimeViewport(layout.sync) || targetsRef.current.length === 0) return;
+        if (targetsRef.current.length === 0) return;
         targetsRef.current.forEach((target) =>
           dispatchTimeRange(target, pending, startTime, endTime, interval)
         );

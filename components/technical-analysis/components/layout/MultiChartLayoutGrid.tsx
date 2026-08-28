@@ -297,31 +297,11 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
     dispatch(updateLayoutChart({ chartId, viewport }));
   }, [dispatch]);
 
-  const persistActiveViewport = useCallback((viewport: Pick<MultiChartViewportState, "startTime" | "endTime">) => {
-    const activeCell = layout.charts.find((cell) => cell.chartId === layout.activeChartId) as Partial<CompleteMultiChartLayoutCell> | undefined;
-    if (!activeCell?.chartId) return;
-    const current = activeCell.viewport ?? {
-      startTime: null,
-      endTime: null,
-      yScale: 1,
-      isYManual: false,
-    };
-    dispatch(updateLayoutChart({
-      chartId: activeCell.chartId,
-      viewport: {
-        ...current,
-        startTime: viewport.startTime,
-        endTime: viewport.endTime,
-      },
-    }));
-  }, [dispatch, layout.activeChartId, layout.charts]);
-
   useMultiChartSync({
     layout,
     activeChartInstanceRef,
     activeChartData,
     secondaryCharts,
-    onActiveViewportChange: persistActiveViewport,
   });
 
   if (!layout.isEnabled || layout.charts.length <= 1) {
