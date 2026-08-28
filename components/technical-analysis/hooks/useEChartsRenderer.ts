@@ -34,6 +34,7 @@ import {
   resolveInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
   type ChartMutationScheduler,
+  type ChartViewportChange,
   type PriceLevelViewportMarker,
   type ZoomRangeSnapshot
 } from "./useChartViewport";
@@ -240,6 +241,7 @@ export interface UseEChartsRendererProps {
   hiddenObjectIds?: Record<string, boolean>;
   pineOverlay?: PineChartOverlayPayload | null;
   onHistoryBoundaryRequest?: (direction: "left" | "right") => void;
+  onViewportChange?: (viewport: ChartViewportChange) => void;
 }
 
 // ============================================================================
@@ -5613,6 +5615,7 @@ export const useEChartsRenderer = ({
   layersStackRef,
   pineOverlay = null,
   onHistoryBoundaryRequest,
+  onViewportChange,
 }: UseEChartsRendererProps) => {
   const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
@@ -6052,6 +6055,7 @@ export const useEChartsRenderer = ({
     lastPriceAxisValue,
     priceLevelMarkers: priceLevelViewportMarkers,
     onHistoryBoundaryRequest,
+    onViewportChange,
     scheduleChartMutation,
   });
 
