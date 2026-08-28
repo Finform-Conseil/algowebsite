@@ -9,6 +9,7 @@ import type { TechnicalAnalysisState } from "../../config/state/technicalAnalysi
 import { initialState } from "../initialState";
 import { applyIndicatorPeriodsPatch } from "../policies/indicatorPeriodPolicy";
 import { applyIndicatorTemplate, type IndicatorTemplateId } from "../policies/templatePolicy";
+import { syncActiveCellIndicatorSnapshot } from "../policies/multiChartIndicatorStatePolicy";
 
 const mutuallyExclusiveIndicatorPairs = [
   ["cci20", "cci"],
@@ -59,6 +60,7 @@ export const indicatorReducers = {
     const key = action.payload;
     state.advancedIndicators[key] = !state.advancedIndicators[key];
     enforceActivatedIndicatorExclusion(state.advancedIndicators, key);
+    syncActiveCellIndicatorSnapshot(state);
   },
   setAdvancedIndicators: (
     state: TechnicalAnalysisState,
@@ -66,12 +68,14 @@ export const indicatorReducers = {
   ) => {
     applyDefinedAdvancedIndicatorPatch(state.advancedIndicators, action.payload);
     enforceMutuallyExclusiveIndicators(state.advancedIndicators, action.payload);
+    syncActiveCellIndicatorSnapshot(state);
   },
   setIndicatorPeriods: (
     state: TechnicalAnalysisState,
     action: PayloadAction<Partial<IndicatorPeriods>>,
   ) => {
     applyIndicatorPeriodsPatch(state.indicatorPeriods, action.payload);
+    syncActiveCellIndicatorSnapshot(state);
   },
   setBollingerSettings: (
     state: TechnicalAnalysisState,
@@ -91,11 +95,13 @@ export const indicatorReducers = {
     if (p.lowerColor !== undefined) state.bollingerSettings.lowerColor = p.lowerColor;
     if (p.fillColor !== undefined) state.bollingerSettings.fillColor = p.fillColor;
     if (p.fillOpacity !== undefined) state.bollingerSettings.fillOpacity = p.fillOpacity;
+    syncActiveCellIndicatorSnapshot(state);
   },
   applyTemplate: (
     state: TechnicalAnalysisState,
     action: PayloadAction<IndicatorTemplateId>,
   ) => {
     applyIndicatorTemplate(state, action.payload);
+    syncActiveCellIndicatorSnapshot(state);
   },
 };

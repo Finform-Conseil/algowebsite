@@ -7,6 +7,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsInstance } from "../../lib/types/echarts";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
+import type { CompleteMultiChartLayoutCell } from "../../config/layout/multiChartCellState";
 import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
 import { buildDirectionalOhlcvSeries, buildDirectionalVolumeBarData } from "../../lib/chart/directionalOhlcv";
@@ -75,6 +76,7 @@ const buildMiniOhlcvOption = (
   data: ChartDataPoint[],
   color: string,
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">,
+  chartType: "candles" | "line",
   activeBounds?: { start: string; end: string }
 ): EChartsCoreOption => {
   const series = getRenderableOhlcvSeries(data);
@@ -152,13 +154,23 @@ const buildMiniOhlcvOption = (
       },
     ],
     series: [
-      {
-        id: "mini-ohlcv-series",
-        name: "OHLC",
-        type: "candlestick",
-        data: values,
-        itemStyle: { color: upColor, color0: downColor, borderColor: upColor, borderColor0: downColor },
-      },
+      chartType === "line"
+        ? {
+            id: "mini-ohlcv-series",
+            name: "Close",
+            type: "line",
+            data: series.map((point) => point.close),
+            showSymbol: false,
+            smooth: false,
+            lineStyle: { color, width: 1.6 },
+          }
+        : {
+            id: "mini-ohlcv-series",
+            name: "OHLC",
+            type: "candlestick",
+            data: values,
+            itemStyle: { color: upColor, color0: downColor, borderColor: upColor, borderColor0: downColor },
+          },
       {
         id: "mini-volume-bar",
         name: "Volume",
@@ -178,10 +190,11 @@ const buildMiniChartOption = (
   color: string,
   renderMode: MiniChartRenderMode,
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">,
+  chartType: "candles" | "line",
   activeBounds?: { start: string; end: string }
 ): EChartsCoreOption =>
   renderMode === "ohlcv"
-    ? buildMiniOhlcvOption(data, color, chartAppearance, activeBounds)
+    ? buildMiniOhlcvOption(data, color, chartAppearance, chartType, activeBounds)
     : buildMiniSparklineOption(data, color, activeBounds);
 
 export interface MiniChartCanvasProps {
@@ -190,6 +203,7 @@ export interface MiniChartCanvasProps {
   color: string;
   renderMode: MiniChartRenderMode;
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">;
+  chartType?: "candles" | "line";
   activeBounds?: { start: string; end: string };
   onChartReady: (id: string, chart: EChartsInstance) => void;
   onChartDispose: (id: string) => void;
@@ -201,6 +215,7 @@ export const MiniChartCanvas: React.FC<MiniChartCanvasProps> = ({
   color,
   renderMode,
   chartAppearance,
+  chartType = "candles",
   activeBounds,
   onChartReady,
   onChartDispose,
@@ -237,7 +252,7 @@ export const MiniChartCanvas: React.FC<MiniChartCanvasProps> = ({
     }
 
     chartInstanceRef.current = chart;
-    chart.setOption(buildMiniChartOption(data, color, renderMode, chartAppearance, activeBounds), true, true);
+    chart.setOption(buildMiniChartOption(data, color, renderMode, chartAppearance, chartType, activeBounds), true, true);
 
     const chartInstance = chart;
     const frameId = window.requestAnimationFrame(() => chartInstance.resize());
@@ -248,7 +263,7 @@ export const MiniChartCanvas: React.FC<MiniChartCanvasProps> = ({
       window.cancelAnimationFrame(frameId);
       resizeObserver?.disconnect();
     };
-  }, [activeBounds, chartAppearance, chartId, color, data, onChartDispose, onChartReady, renderMode]);
+  }, [activeBounds, chartAppearance, chartId, chartType, color, data, onChartDispose, onChartReady, renderMode]);
 
   return <div ref={chartRef} className={clsx("gp-multi-chart-cell__echart", renderMode === "ohlcv" && "is-interactive")} />;
 };
@@ -322,6 +337,7 @@ export interface SecondaryChartCellProps {
   renderMode: MiniChartRenderMode;
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">;
   activeBounds?: { start: string; end: string };
+  headerActions?: React.ReactNode;
   onActivate: () => void;
   onHeaderClick: () => void;
   onChartReady: (chartId: string, chart: EChartsInstance) => void;
@@ -336,6 +352,7 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
   renderMode,
   chartAppearance,
   activeBounds,
+  headerActions,
   onActivate,
   onHeaderClick,
   onChartReady,
@@ -346,6 +363,8 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
   const stats = useMemo(() => getLayoutSeriesStats(data), [data]);
   const isPositive = (stats?.changePercent ?? 0) >= 0;
   const chartColor = isPositive ? "#22c55e" : "#ef4444";
+  const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
+  const peerChartType = completeCell.sourceKind === "index" ? "line" : (completeCell.chartType === "line" ? "line" : "candles");
   const isWaitingForData = hasSelectedSymbol
     && !stats
     && dataMode === "real"
@@ -382,19 +401,22 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
         ? "Activer " + displaySymbol
         : `Choisir un titre · ${cell.exchange || "N/D"}`}
     >
-      <span
-        className="gp-multi-chart-cell__header gp-multi-chart-cell--interactive-header"
-        onClick={handleHeaderClick}
-        onKeyDown={handleHeaderKeyDown}
-        role="button"
-        tabIndex={0}
-        aria-label={"Rechercher un titre pour remplacer " + displaySymbol}
-      >
-        <strong>{displaySymbol}</strong>
-        <span>{cell.exchange || "N/D"}</span>
-        <span>{cell.interval}</span>
-        <i className="bi bi-search" style={{ marginLeft: "auto", fontSize: "10px", opacity: 0.7 }} aria-hidden="true" />
-      </span>
+      <div className="gp-multi-chart-cell__header">
+        <span
+          className="gp-multi-chart-cell--interactive-header"
+          onClick={handleHeaderClick}
+          onKeyDown={handleHeaderKeyDown}
+          role="button"
+          tabIndex={0}
+          aria-label={"Rechercher un titre pour remplacer " + displaySymbol}
+        >
+          <strong>{displaySymbol}</strong>
+          <span>{cell.exchange || "N/D"}</span>
+          <span>{cell.interval}</span>
+          <i className="bi bi-search" style={{ fontSize: "10px", opacity: 0.7 }} aria-hidden="true" />
+        </span>
+        {headerActions}
+      </div>
 
       {stats ? (
         <>
@@ -404,6 +426,7 @@ export const SecondaryChartCell: React.FC<SecondaryChartCellProps> = ({
             color={chartColor}
             renderMode={renderMode}
             chartAppearance={chartAppearance}
+            chartType={peerChartType}
             activeBounds={activeBounds}
             onChartReady={onChartReady}
             onChartDispose={onChartDispose}

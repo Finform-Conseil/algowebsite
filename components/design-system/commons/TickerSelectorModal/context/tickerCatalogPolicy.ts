@@ -5,6 +5,19 @@ export const TICKER_CATALOG_PAGE_SIZE = 100;
 
 const normalizeMarketTicker = (marketTicker: string): string => marketTicker.trim().toUpperCase();
 
+export const resolveTickerCatalogApiTotalCount = (
+  reportedCount: unknown,
+  rawPageLength: number,
+  marketPageLength: number,
+): number | null => {
+  if (typeof reportedCount !== "number" || !Number.isSafeInteger(reportedCount) || reportedCount < 0) return null;
+  if (!Number.isSafeInteger(rawPageLength) || rawPageLength < 0) return null;
+  if (!Number.isSafeInteger(marketPageLength) || marketPageLength < 0) return null;
+  if (rawPageLength !== marketPageLength) return null;
+  if (reportedCount < marketPageLength) return null;
+  return reportedCount;
+};
+
 export const isCurrentTickerCatalogSnapshotVersion = (value: unknown): boolean =>
   value === TICKER_CATALOG_SNAPSHOT_VERSION;
 

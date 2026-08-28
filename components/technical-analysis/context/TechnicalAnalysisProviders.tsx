@@ -250,8 +250,16 @@ const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
   const isMultiChartMode = uiState.multiChartLayout.isEnabled
     && uiState.multiChartLayout.charts.length > 1;
-  const layoutSymbol = isMultiChartMode ? activeLayoutCell?.symbol.trim().toUpperCase() : "";
-  const layoutMarket = isMultiChartMode ? activeLayoutCell?.exchange.trim().toUpperCase() : "";
+  const activeSourceKind = activeLayoutCell && "sourceKind" in activeLayoutCell
+    ? String(activeLayoutCell.sourceKind)
+    : "equity";
+  const canDriveEquityProvider = !isMultiChartMode || activeSourceKind !== "index";
+  const layoutSymbol = isMultiChartMode && canDriveEquityProvider
+    ? activeLayoutCell?.symbol.trim().toUpperCase() ?? ""
+    : "";
+  const layoutMarket = isMultiChartMode && canDriveEquityProvider
+    ? activeLayoutCell?.exchange.trim().toUpperCase() ?? ""
+    : "";
   const activeTicker = layoutSymbol || selectedTicker?.ticker || preferredTicker || undefined;
   const activeMarketScope = layoutMarket || activeMarket.ticker;
   const marketData = useMarketData(dataMode, activeTicker, undefined, activeMarketScope);

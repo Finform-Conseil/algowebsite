@@ -28,6 +28,10 @@ import {
   getSafeGridRect,
   type PriceLevelViewportMarker,
 } from "./viewport/viewportGraphics";
+import {
+  createTimeViewportSyncSnapshot,
+  publishTimeViewportSync,
+} from "./sync/timeViewportSyncBus";
 
 export type { ViewportWindow, ZoomRangeSnapshot } from "./viewport/viewportMath";
 export {
@@ -281,6 +285,15 @@ export const useChartViewport = ({
       }],
       ...(offscreenPriceLevelGraphics.length > 0 ? { graphic: offscreenPriceLevelGraphics } : {}),
     };
+
+    const timeViewportSnapshot = createTimeViewportSyncSnapshot(
+      chartData,
+      state.startIdx,
+      state.endIdx,
+    );
+    if (timeViewportSnapshot) {
+      publishTimeViewportSync(chart, timeViewportSnapshot);
+    }
 
     enqueueChartMutation("viewport", (targetChart) => {
       targetChart.setOption(viewportOption, false, true);

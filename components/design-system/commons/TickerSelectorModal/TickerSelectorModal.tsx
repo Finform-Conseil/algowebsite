@@ -22,7 +22,7 @@ import {
   type PersistedTickerCatalogSecurity,
   type PersistedTickerCatalogSnapshot,
 } from "./context/tickerCatalogPersistence";
-import { buildTickerCatalogQuery } from "./context/tickerCatalogPolicy";
+import { buildTickerCatalogQuery, resolveTickerCatalogApiTotalCount } from "./context/tickerCatalogPolicy";
 
 // ============================================================================
 // [TENOR 2026 SRE] ZERO-LAG TICKER SELECTOR MODAL
@@ -341,6 +341,7 @@ export const TickerSelectorModal: React.FC = () => {
   const apiSecuritiesRef = useRef<SelectorSecurity[]>([]);
   const apiPagesRef = useRef(new Map<number, SelectorSecurity[]>());
   const totalPagesRef = useRef(1);
+  const apiTotalCountRef = useRef<number | null>(null);
   const catalogExactRef = useRef(false);
   const catalogGenerationRef = useRef(0);
   const lastCatalogRevalidatedAtRef = useRef(0);
@@ -417,6 +418,7 @@ export const TickerSelectorModal: React.FC = () => {
       apiSecuritiesRef.current = [];
       preservedCatalogRef.current = null;
       catalogExactRef.current = false;
+      apiTotalCountRef.current = null;
       setApiTotalCount(null);
       catalogMarketRef.current = catalogMarketTicker;
     }
@@ -451,6 +453,20 @@ export const TickerSelectorModal: React.FC = () => {
       if (!isCurrentLoad()) return;
       if (Number.isFinite(response.total_pages)) totalPagesRef.current = Math.max(1, response.total_pages);
       const pageData = selectSecuritiesForMarket(response.data, catalogMarketTicker);
+      if (page === 1) {
+        const reportedTotalCount = resolveTickerCatalogApiTotalCount(
+          response.count,
+          Array.isArray(response.data) ? response.data.length : 0,
+          pageData.length,
+        );
+        if (reportedTotalCount !== null) {
+          apiTotalCountRef.current = reportedTotalCount;
+          setApiTotalCount(reportedTotalCount);
+        } else if (!catalogExactRef.current) {
+          apiTotalCountRef.current = null;
+          setApiTotalCount(null);
+        }
+      }
       apiPagesRef.current.set(page, pageData);
       const nextCatalog = rebuildCatalog();
       const visibleCatalog = preservedCatalogRef.current ?? nextCatalog;
@@ -560,7 +576,9 @@ export const TickerSelectorModal: React.FC = () => {
         cacheAge = Math.max(0, Date.now() - snapshot.updatedAt);
         shouldRevalidate = cacheAge >= CATALOG_REVALIDATION_WINDOW_MS;
         setApiSecurities(restoredCatalog);
-        setApiTotalCount(snapshotIsExact ? snapshot.totalCount : null);
+        const persistedTotalCount = snapshotIsExact ? snapshot.totalCount : null;
+        apiTotalCountRef.current = persistedTotalCount;
+        setApiTotalCount(persistedTotalCount);
         setSourceState("api");
         setIsLoadingSecurities(false);
       };
@@ -579,14 +597,16 @@ export const TickerSelectorModal: React.FC = () => {
         const exactCatalog = rebuildCatalog();
         apiSecuritiesRef.current = exactCatalog;
         setApiSecurities(exactCatalog);
-        setApiTotalCount(exactCatalog.length);
+        const exactTotalCount = apiTotalCountRef.current ?? exactCatalog.length;
+        apiTotalCountRef.current = exactTotalCount;
+        setApiTotalCount(exactTotalCount);
         catalogExactRef.current = true;
         preservedCatalogRef.current = null;
         lastCatalogRevalidatedAtRef.current = Date.now();
         void writePersistedTickerCatalog(
           catalogMarketTicker,
           toPersistedCatalog(exactCatalog),
-          exactCatalog.length,
+          exactTotalCount,
           true,
         );
         return true;

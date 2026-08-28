@@ -28,6 +28,7 @@ const {
   TICKER_CATALOG_SNAPSHOT_VERSION,
   buildTickerCatalogQuery,
   isCurrentTickerCatalogSnapshotVersion,
+  resolveTickerCatalogApiTotalCount,
 } = require(policyPath);
 const {
   MAX_LOGO_LOAD_RETRIES,
@@ -46,6 +47,15 @@ test("ticker selector uses the market-scoped screener API contract for every sup
     });
     assert.equal(Object.prototype.hasOwnProperty.call(query, "bourse"), false);
   });
+});
+
+test("ticker selector accepts the market-filtered API count on the first page and rejects inconsistent counts", () => {
+  assert.equal(resolveTickerCatalogApiTotalCount(74, 74, 74), 74);
+  assert.equal(resolveTickerCatalogApiTotalCount(146, 100, 100), 146);
+  assert.equal(resolveTickerCatalogApiTotalCount(273, 100, 100), 273);
+  assert.equal(resolveTickerCatalogApiTotalCount(635, 100, 63), null);
+  assert.equal(resolveTickerCatalogApiTotalCount(10, 11, 11), null);
+  assert.equal(resolveTickerCatalogApiTotalCount("74", 74, 74), null);
 });
 
 test("legacy ticker catalog snapshots are invalidated by the contract version", () => {

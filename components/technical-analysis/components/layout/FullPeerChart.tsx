@@ -4,18 +4,21 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as echarts from "echarts/core";
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsInstance } from "../../lib/types/echarts";
-import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
+import { calculateSMA, type ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
+import type {
+  CompleteMultiChartLayoutCell,
+  MultiChartViewportState,
+} from "../../config/layout/multiChartCellState";
 import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
 import {
-  buildCandleDirections,
   buildDirectionalOhlcvSeries,
   buildDirectionalVolumeBarData,
-  getCandleDirectionColor,
   type CandleDirection,
 } from "../../lib/chart/directionalOhlcv";
 import { MULTI_CHART_MINI_DATA_ZOOM_ID } from "../../hooks/useMultiChartSync";
+import { filterChartDataByDateRange } from "../../config/market/dateRangeSeries";
 import {
   MAIN_GRID_LEFT,
   TV_AUTO_SCALE_PADDING,
@@ -56,10 +59,12 @@ export interface FullPeerChartProps {
   dataMode: "mock" | "real";
   chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">;
   activeBounds?: { start: string; end: string };
+  headerActions?: React.ReactNode;
   onActivate: () => void;
   onHeaderClick: () => void;
   onChartReady: (chartId: string, chart: EChartsInstance) => void;
   onChartDispose: (chartId: string) => void;
+  onViewportChange?: (chartId: string, viewport: MultiChartViewportState) => void;
 }
 
 type CustomRenderApi = {
@@ -126,6 +131,65 @@ const createInitialViewport = (): PeerViewportState => ({
   yScale: 1,
   isYManual: false,
 });
+
+const resolveNearestTimeIndex = (data: ChartDataPoint[], time: string | null): number | null => {
+  if (!time || data.length === 0) return null;
+  const exact = data.findIndex((point) => point.time === time);
+  if (exact >= 0) return exact;
+  const target = Date.parse(time);
+  if (!Number.isFinite(target)) return null;
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < data.length; index += 1) {
+    const timestamp = Date.parse(data[index]?.time ?? "");
+    if (!Number.isFinite(timestamp)) continue;
+    const distance = Math.abs(timestamp - target);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  }
+  return Number.isFinite(nearestDistance) ? nearestIndex : null;
+};
+
+const restorePeerViewport = (
+  data: ChartDataPoint[],
+  persisted: Partial<MultiChartViewportState> | undefined,
+): PeerViewportState => {
+  if (data.length === 0) return createInitialViewport();
+  const lastIndex = Math.max(0, data.length - 1);
+  const startIdx = resolveNearestTimeIndex(data, persisted?.startTime ?? null) ?? 0;
+  const endIdx = resolveNearestTimeIndex(data, persisted?.endTime ?? null) ?? lastIndex;
+  const window = clampViewportWindow(Math.min(startIdx, endIdx), Math.max(startIdx, endIdx), data.length);
+  return {
+    ...window,
+    yScale: typeof persisted?.yScale === "number" && Number.isFinite(persisted.yScale) && persisted.yScale > 0
+      ? persisted.yScale
+      : 1,
+    isYManual: persisted?.isYManual === true,
+  };
+};
+
+const serializePeerViewport = (
+  data: ChartDataPoint[],
+  state: PeerViewportState,
+): MultiChartViewportState => {
+  const window = data.length > 0
+    ? clampViewportWindow(state.startIdx, state.endIdx, data.length)
+    : { startIdx: 0, endIdx: 0 };
+  return {
+    startTime: data[window.startIdx]?.time ?? null,
+    endTime: data[window.endIdx]?.time ?? null,
+    yScale: state.yScale,
+    isYManual: state.isYManual,
+  };
+};
+
+const areViewportsEqual = (left: MultiChartViewportState | null, right: MultiChartViewportState): boolean =>
+  left?.startTime === right.startTime
+  && left?.endTime === right.endTime
+  && left?.yScale === right.yScale
+  && left?.isYManual === right.isYManual;
 
 const resolveDataIndex = (data: ChartDataPoint[], value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -203,10 +267,12 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   dataMode,
   chartAppearance,
   activeBounds,
+  headerActions,
   onActivate,
   onHeaderClick,
   onChartReady,
   onChartDispose,
+  onViewportChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -219,20 +285,24 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   const [lastPriceY, setLastPriceY] = useState<number | null>(null);
   const [lastPriceColor, setLastPriceColor] = useState<string>("#94a3b8");
   const [lastPriceText, setLastPriceText] = useState<string>("");
+  const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
+  const peerChartType = completeCell.sourceKind === "index" ? "line" : (completeCell.chartType === "line" ? "line" : "candles");
+  const indicatorIds = useMemo(() => new Set(cell.indicators ?? []), [cell.indicators]);
+  const showVolume = completeCell.sourceKind !== "index" && indicatorIds.has("volume");
+  const showSma = indicatorIds.has("sma");
 
   const filteredData = React.useMemo(() => {
-    const valid = getRenderableOhlcvSeries(data);
+    const valid = filterChartDataByDateRange(
+      getRenderableOhlcvSeries(data),
+      completeCell.dateRange ?? "Tout",
+    );
     if (valid.length > PEER_MAX_CANDLES) {
       return valid.slice(valid.length - PEER_MAX_CANDLES);
     }
     return valid;
-  }, [data]);
+  }, [completeCell.dateRange, data]);
 
   const latestPoint = filteredData[filteredData.length - 1];
-  const latestDirection = useMemo(() => {
-    const directions = buildCandleDirections(filteredData);
-    return directions[directions.length - 1] ?? 1;
-  }, [filteredData]);
   const latestPointRef = useRef<ChartDataPoint | undefined>(latestPoint);
   useEffect(() => { latestPointRef.current = latestPoint; }, [latestPoint]);
 
@@ -254,9 +324,47 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     return result;
   }, [filteredData, activeBounds]);
 
+  const sma20Data = useMemo<Array<number | null>>(() => {
+    if (!showSma || displayData.length === 0) return [];
+    return calculateSMA(displayData, 20).map((value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    });
+  }, [displayData, showSma]);
+
   // Stable ref so the updateAxisPointer closure always reads current displayData
   const displayDataRef = useRef<ChartDataPoint[]>(displayData);
   useEffect(() => { displayDataRef.current = displayData; }, [displayData]);
+  const lastEmittedViewportRef = useRef<MultiChartViewportState | null>(null);
+  const restoredViewportKeyRef = useRef("");
+  const viewportSourceKey = useMemo(() => [
+    cell.chartId,
+    cell.symbol,
+    cell.exchange,
+    cell.interval,
+    completeCell.sourceKind ?? "equity",
+    completeCell.sourceId ?? "",
+    completeCell.dateRange ?? "Tout",
+    displayData.length,
+    displayData[0]?.time ?? "",
+    displayData[displayData.length - 1]?.time ?? "",
+  ].join("::"), [
+    cell.chartId,
+    cell.exchange,
+    cell.interval,
+    cell.symbol,
+    completeCell.dateRange,
+    completeCell.sourceId,
+    completeCell.sourceKind,
+    displayData,
+  ]);
+  const emitViewportChange = useCallback((state: PeerViewportState = viewportRef.current) => {
+    if (!onViewportChange) return;
+    const persisted = serializePeerViewport(displayDataRef.current, state);
+    if (areViewportsEqual(lastEmittedViewportRef.current, persisted)) return;
+    lastEmittedViewportRef.current = persisted;
+    onViewportChange(cell.chartId, persisted);
+  }, [cell.chartId, onViewportChange]);
 
   const updateOhlcFromPoint = useCallback((
     point: ChartDataPoint | undefined,
@@ -418,8 +526,9 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     peerViewportApplyRafRef.current = window.requestAnimationFrame(() => {
       peerViewportApplyRafRef.current = null;
       applyPeerViewport();
+      emitViewportChange();
     });
-  }, [applyPeerViewport]);
+  }, [applyPeerViewport, emitViewportChange]);
 
   useEffect(() => () => {
     if (peerViewportApplyRafRef.current !== null) {
@@ -427,6 +536,23 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
       peerViewportApplyRafRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart || chart.isDisposed()) return;
+    const persistExternalZoom = () => {
+      const dataWindow = displayDataRef.current;
+      if (dataWindow.length === 0) return;
+      const current = viewportRef.current;
+      const next = readCurrentViewport(chart, dataWindow, current);
+      viewportRef.current = { ...current, ...next };
+      emitViewportChange(viewportRef.current);
+    };
+    chart.on("datazoom", persistExternalZoom);
+    return () => {
+      if (!chart.isDisposed()) chart.off("datazoom", persistExternalZoom);
+    };
+  }, [chartReadyVersion, emitViewportChange, viewportSourceKey]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
@@ -450,8 +576,8 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     const option: EChartsCoreOption = {
       animation: false,
       grid: [
-        { left: 12, right: 58, top: 8, bottom: "24%" },
-        { left: 12, right: 58, height: "16%", bottom: "4%" },
+        { left: 12, right: 58, top: 8, bottom: showVolume ? "24%" : "8%" },
+        { left: 12, right: 58, height: showVolume ? "16%" : 0, bottom: showVolume ? "4%" : 0 },
       ],
       axisPointer: {
         link: [{ xAxisIndex: "all" }],
@@ -531,36 +657,49 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
         },
       ],
       series: [
-        {
-          id: "peer-ohlcv-series",
-          name: "OHLC",
-          type: "candlestick",
-          data: values,
-          itemStyle: {
-            color: upColor,
-            color0: downColor,
-            borderColor: upColor,
-            borderColor0: downColor,
-          },
-          markLine: {
-            symbol: ["none", "none"],
-            animation: false,
-            silent: true,
-            data: [
-              {
-                yAxis: latestPoint?.close,
-                label: { show: false },
-                lineStyle: {
-                  color: lastPriceColor,
-                  type: "dashed",
-                  width: 1,
-                  opacity: 0.6,
-                },
+        peerChartType === "line"
+          ? {
+              id: "peer-ohlcv-series",
+              name: "Close",
+              type: "line",
+              data: displayData.map((point) => point.close),
+              showSymbol: false,
+              smooth: false,
+              lineStyle: { width: 1.6 },
+              markLine: {
+                symbol: ["none", "none"],
+                animation: false,
+                silent: true,
+                data: [{
+                  yAxis: latestPoint?.close,
+                  label: { show: false },
+                  lineStyle: { color: lastPriceColor, type: "dashed", width: 1, opacity: 0.6 },
+                }],
               },
-            ],
-          },
-        },
-        {
+            }
+          : {
+              id: "peer-ohlcv-series",
+              name: "OHLC",
+              type: "candlestick",
+              data: values,
+              itemStyle: {
+                color: upColor,
+                color0: downColor,
+                borderColor: upColor,
+                borderColor0: downColor,
+              },
+              markLine: {
+                symbol: ["none", "none"],
+                animation: false,
+                silent: true,
+                data: [{
+                  yAxis: latestPoint?.close,
+                  label: { show: false },
+                  lineStyle: { color: lastPriceColor, type: "dashed", width: 1, opacity: 0.6 },
+                }],
+              },
+            },
+        ...(peerChartType === "line" ? [] : [{
           id: "peer-doji-overlay",
           name: "Flat candles",
           type: "custom",
@@ -573,8 +712,20 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           renderItem: (_params: unknown, api: CustomRenderApi) =>
             renderPeerDojiMarker(api, upColor, downColor),
           z: 6,
-        },
-        {
+        }]),
+        ...(showSma ? [{
+          id: "peer-sma-20",
+          name: "SMA 20",
+          type: "line",
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          data: sma20Data,
+          showSymbol: false,
+          smooth: false,
+          lineStyle: { width: 1.2, opacity: 0.9 },
+          z: 5,
+        }] : []),
+        ...(showVolume ? [{
           id: "peer-volume-bar",
           name: "Volume",
           type: "bar",
@@ -583,7 +734,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           data: buildDirectionalVolumeBarData(volumes, { upColor, downColor }, 0.7, dates.length),
           barWidth: "60%",
           barMinHeight: 1,
-        },
+        }] : []),
       ],
     };
 
@@ -595,12 +746,18 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
 
     chart.on("finished", markCandlesPainted);
     chart.setOption(option, true);
-    viewportRef.current = {
-      startIdx: 0,
-      endIdx: Math.max(0, displayData.length - 1),
-      yScale: 1,
-      isYManual: false,
-    };
+    if (restoredViewportKeyRef.current !== viewportSourceKey) {
+      viewportRef.current = restorePeerViewport(displayData, completeCell.viewport);
+      restoredViewportKeyRef.current = viewportSourceKey;
+      lastEmittedViewportRef.current = completeCell.viewport
+        ? { ...completeCell.viewport }
+        : null;
+    } else {
+      const current = viewportRef.current;
+      const window = clampViewportWindow(current.startIdx, current.endIdx, displayData.length);
+      viewportRef.current = { ...current, ...window };
+    }
+    applyPeerViewport();
     updateLastPriceBadgePosition();
 
     return () => {
@@ -614,8 +771,14 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     displayData,
     filteredData,
     lastPriceColor,
+    peerChartType,
     latestPoint,
+    showSma,
+    showVolume,
+    sma20Data,
+    applyPeerViewport,
     updateLastPriceBadgePosition,
+    viewportSourceKey,
   ]);
 
   useEffect(() => {
@@ -789,6 +952,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
             <span style={{ color: lastPriceColor }}>{ohlc.changePercent}</span>
           </div>
         )}
+        {headerActions}
       </div>
 
       <div className="gp-peer-chart__canvas">

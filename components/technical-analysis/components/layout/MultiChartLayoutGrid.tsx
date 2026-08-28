@@ -3,10 +3,16 @@
 import React, { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import clsx from "clsx";
+import { useDispatch } from "react-redux";
 import type { MultiChartLayoutState } from "../../config/layout/multiChartLayoutTypes";
+import type {
+  CompleteMultiChartLayoutCell,
+  CompleteMultiChartLayoutState,
+  MultiChartViewportState,
+} from "../../config/layout/multiChartCellState";
 import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import { getLayoutDefinition } from "../../config/layout/multiChartLayouts";
-import { createMarketDataCacheKey } from "../../config/market/marketDataCacheKey";
+import { createTimeframeMarketDataCacheKey, type TimeframeDataSourceKind } from "../../config/market/timeframeCatalog";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import {
   isAxisPointerPayload,
@@ -22,7 +28,14 @@ import {
   useMultiChartSync,
   type MultiChartSyncPeer,
 } from "../../hooks/useMultiChartSync";
+import {
+  clearLayoutChart,
+  duplicateLayoutChart,
+  toggleMaximizeLayoutChart,
+  updateLayoutChart,
+} from "../../store/technicalAnalysisSlice";
 import type { FullPeerChartProps } from "./FullPeerChart";
+import { MultiChartCellControls } from "./MultiChartCellControls";
 import type { SecondaryChartCellProps, MiniChartRenderMode } from "./MiniChartCanvas";
 import {
   createEmptyLayoutOhlcState,
@@ -56,6 +69,7 @@ interface MultiChartLayoutGridProps {
   layout: MultiChartLayoutState;
   marketData: Record<string, ChartDataPoint[]>;
   dataLoadState: ComparisonLoadState;
+  dataSourceByKey?: Record<string, TimeframeDataSourceKind | "unknown">;
   dataMode: "mock" | "real";
   activeChartInstanceRef: React.MutableRefObject<EChartsInstance | null>;
   activeChartData: ChartDataPoint[];
@@ -73,6 +87,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   layout,
   marketData,
   dataLoadState,
+  dataSourceByKey = {},
   dataMode,
   activeChartInstanceRef,
   activeChartData,
@@ -83,7 +98,14 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   onRequestMarketSelection,
   onRequestTickerSelection,
 }) => {
+  const dispatch = useDispatch();
   const definition = getLayoutDefinition(layout.layoutId);
+  const completeLayout = layout as Partial<CompleteMultiChartLayoutState>;
+  const maximizedChartId = completeLayout.maximizedChartId ?? null;
+  const visibleCharts = maximizedChartId
+    ? layout.charts.filter((cell) => cell.chartId === maximizedChartId)
+    : layout.charts;
+  const hasEmptySlot = layout.charts.some((cell) => !cell.symbol.trim());
   const effectiveActiveChartId = useMemo(() => {
     const requestedActive = layout.charts.find((cell) => cell.chartId === layout.activeChartId);
     if (requestedActive?.symbol.trim()) return requestedActive.chartId;
@@ -242,6 +264,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
       end: activeChartData[activeChartData.length - 1].time,
     };
   }, [activeChartData]);
+  const synchronizedDateRangeBounds = layout.sync.dateRange ? activeBounds : undefined;
 
   const secondaryCharts = useMemo<MultiChartSyncPeer[]>(
     () => {
@@ -250,10 +273,18 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
         if (cell.chartId === layout.activeChartId) continue;
         const chart = secondaryChartsById[cell.chartId];
         if (!chart) continue;
+        const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
+        const syncCacheKey = createTimeframeMarketDataCacheKey(
+          cell.exchange,
+          cell.symbol,
+          cell.interval,
+          completeCell.sourceKind ?? "equity",
+          completeCell.sourceId,
+        );
         result.push({
           chartId: cell.chartId,
           chart,
-          data: getRenderableOhlcvSeries(marketData[createMarketDataCacheKey(cell.exchange, cell.symbol)] ?? []),
+          data: getRenderableOhlcvSeries(marketData[syncCacheKey] ?? []),
           interval: cell.interval,
         });
       }
@@ -262,11 +293,35 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
     [layout.activeChartId, layout.charts, marketData, secondaryChartsById]
   );
 
+  const persistCellViewport = useCallback((chartId: string, viewport: MultiChartViewportState) => {
+    dispatch(updateLayoutChart({ chartId, viewport }));
+  }, [dispatch]);
+
+  const persistActiveViewport = useCallback((viewport: Pick<MultiChartViewportState, "startTime" | "endTime">) => {
+    const activeCell = layout.charts.find((cell) => cell.chartId === layout.activeChartId) as Partial<CompleteMultiChartLayoutCell> | undefined;
+    if (!activeCell?.chartId) return;
+    const current = activeCell.viewport ?? {
+      startTime: null,
+      endTime: null,
+      yScale: 1,
+      isYManual: false,
+    };
+    dispatch(updateLayoutChart({
+      chartId: activeCell.chartId,
+      viewport: {
+        ...current,
+        startTime: viewport.startTime,
+        endTime: viewport.endTime,
+      },
+    }));
+  }, [dispatch, layout.activeChartId, layout.charts]);
+
   useMultiChartSync({
     layout,
     activeChartInstanceRef,
     activeChartData,
     secondaryCharts,
+    onActiveViewportChange: persistActiveViewport,
   });
 
   if (!layout.isEnabled || layout.charts.length <= 1) {
@@ -301,8 +356,8 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
   };
 
   return (
-    <div className={clsx("gp-multi-chart-grid", definition.cssClass)}>
-      {layout.charts.map((cell) => {
+    <div className={clsx("gp-multi-chart-grid", definition.cssClass, maximizedChartId && "is-maximized")}>
+      {visibleCharts.map((cell) => {
         const isActive = cell.chartId === effectiveActiveChartId;
         const hasSelectedSymbol = cell.symbol.trim().length > 0;
 
@@ -350,7 +405,34 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
           );
         }
 
-        const cellCacheKey = createMarketDataCacheKey(cell.exchange, cell.symbol);
+        const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
+        const cellCacheKey = createTimeframeMarketDataCacheKey(
+          cell.exchange,
+          cell.symbol,
+          cell.interval,
+          completeCell.sourceKind ?? "equity",
+          completeCell.sourceId,
+        );
+        const headerActions = (
+          <MultiChartCellControls
+            cell={cell}
+            canDuplicate={hasEmptySlot}
+            isMaximized={maximizedChartId === cell.chartId}
+            dataSource={dataSourceByKey[cellCacheKey] ?? completeCell.dataSource ?? "unknown"}
+            onTimeframeChange={(timeframe) => dispatch(updateLayoutChart({ chartId: cell.chartId, timeframe }))}
+            onChartTypeChange={(chartType) => dispatch(updateLayoutChart({ chartId: cell.chartId, chartType }))}
+            onToggleIndicator={(indicator) => {
+              const current = cell.indicators ?? [];
+              const indicators = current.includes(indicator)
+                ? current.filter((entry) => entry !== indicator)
+                : [...current, indicator];
+              dispatch(updateLayoutChart({ chartId: cell.chartId, indicators }));
+            }}
+            onDuplicate={() => dispatch(duplicateLayoutChart({ chartId: cell.chartId }))}
+            onClear={() => dispatch(clearLayoutChart(cell.chartId))}
+            onToggleMaximize={() => dispatch(toggleMaximizeLayoutChart(cell.chartId))}
+          />
+        );
         if (isActive) {
           const displaySymbol = cell.symbol;
           const displayInterval = activeInterval || cell.interval;
@@ -383,6 +465,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
                 )}
 
                 <i className="bi bi-search" style={{ marginLeft: "auto", fontSize: "10px", opacity: 0.7 }} aria-hidden="true" />
+                {headerActions}
               </div>
               {children}
             </div>
@@ -398,11 +481,13 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
               loadStatus={dataLoadState[cellCacheKey] ?? "idle"}
               dataMode={dataMode}
               chartAppearance={chartAppearance}
-              activeBounds={activeBounds}
+              activeBounds={synchronizedDateRangeBounds}
+              headerActions={headerActions}
               onActivate={() => onActivateChart(cell.chartId)}
               onHeaderClick={() => handleSecondaryHeaderClick(cell.chartId, cell.symbol, cell.exchange)}
               onChartReady={handleChartReady}
               onChartDispose={handleChartDispose}
+              onViewportChange={persistCellViewport}
             />
           );
         }
@@ -417,6 +502,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
             renderMode={secondaryRenderMode}
             chartAppearance={chartAppearance}
             activeBounds={activeBounds}
+            headerActions={headerActions}
             onActivate={() => onActivateChart(cell.chartId)}
             onHeaderClick={() => handleSecondaryHeaderClick(cell.chartId, cell.symbol, cell.exchange)}
             onChartReady={handleChartReady}

@@ -412,6 +412,8 @@ Verdict contractuel : volatilités ponctuelles = `API_FIELD_PRESENT` ; courbe na
 
 Fichiers : sidebarVolatilityChartOptions.ts ; shared/utils/volatility-engine.ts ; useSidebarCharts.ts.
 
+
+
 ### 5.12 Profile
 
 Pour SICOR, la réponse actions contient l’ISIN et la description ; website est vide, employee_count null et FIGI absent.
@@ -431,6 +433,8 @@ Fichiers : TechnicalAnalysisSidebarContent.tsx ; TechnicalAnalysisProviders.tsx.
 | ISIN | API → `actions` → identifiant ISIN de l’action | N/A |
 | FIGI | API → Champ FIGI API s’il est fourni | N/A |
 | Description | API → `actions` → `society.description` | Description indisponible via l’API |
+
+
 
 ## 6. Non-conformités transversales
 
@@ -461,6 +465,8 @@ Historical volatility curve:
 ~~~
 
 En mode réel, chaque bloc correspondant est indisponible lorsque l’API ne fournit pas le champ natif attendu. Aucune de ces dérivations locales n’est affichée dans le flux réel.
+
+
 
 ### 6.2 Fallback catalogue — synchronisation principale et rail d’alertes corrigés
 
@@ -500,6 +506,8 @@ GET /api/proxy/10/api/v1/actions?isin=CI0000000113&page_size=1 200
 Titre affiché : SICOR COTE D'IVOIRE
 Console après reload : aucune erreur
 ~~~
+
+
 
 ### 6.3 Provenance mal étiquetée
 

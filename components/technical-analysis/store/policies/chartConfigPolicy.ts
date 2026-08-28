@@ -16,6 +16,9 @@ export const applyPrimaryLayoutSymbol = (
   layout.charts.forEach((chart, index) => {
     if (index === 0 || layout.sync.symbol) {
       chart.symbol = normalized;
+      const runtimeChart = chart as typeof chart & { sourceKind?: "equity" | "index"; sourceId?: string };
+      runtimeChart.sourceKind = "equity";
+      runtimeChart.sourceId = "";
     }
     chart.isActive = chart.chartId === primaryChartId;
   });
@@ -28,6 +31,7 @@ export const applyLayoutInterval = (
   layout.charts.forEach((chart) => {
     if (layout.sync.interval || chart.chartId === layout.activeChartId) {
       chart.interval = timeframe;
+      (chart as typeof chart & { timeframe?: string }).timeframe = timeframe;
     }
   });
 };

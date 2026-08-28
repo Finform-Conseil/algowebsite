@@ -10,6 +10,9 @@ const {
   closeAllModals,
   hydrateMultiChartLayout,
   setChartConfig,
+  setChartType,
+  setChartAppearance,
+  setTimeRange,
   setModalOpen,
   setMultiChartLayout,
   setActiveLayoutChart,
@@ -146,19 +149,15 @@ test("symbol sync propagates the active market binding with the ticker", () => {
 });
 
 test("a multi-chart cell keeps the exchange selected with its ticker", () => {
-  const state = createReducerState();
+  let state = createReducerState();
   state.chartConfig.symbol = "ORANGE_CI";
   state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("two_horizontal", "ORANGE_CI");
-  state.ui.multiChartLayout.activeChartId = "chart_2";
-  state.ui.multiChartLayout.charts = state.ui.multiChartLayout.charts.map((chart) => ({
-    ...chart,
-    isActive: chart.chartId === "chart_2",
-  }));
 
-  const next = technicalAnalysisSlice.reducer(
+  state = technicalAnalysisSlice.reducer(
     state,
     updateLayoutChart({ chartId: "chart_2", symbol: " mtnng ", exchange: " ngx " }),
   );
+  const next = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
 
   assert.equal(next.ui.multiChartLayout.charts[0].symbol, "ORANGE_CI");
   assert.equal(next.ui.multiChartLayout.charts[0].exchange, "BRVM");
@@ -184,11 +183,12 @@ test("hydration preserves persisted sync preferences while enforcing dense-layou
   assert.equal(denseHydrated.ui.multiChartLayout.sync.time, true);
 });
 
-test("unsupported multi-timeframe preset is rejected while API data is 1D-only", () => {
+test("multi-timeframe preset is renderable through native-first 1D plus weekly/monthly fallback", () => {
   const state = createReducerState();
   state.chartConfig.symbol = "ORANGE_CI";
   const next = technicalAnalysisSlice.reducer(state, applyMultiChartPreset("multi_timeframe"));
-  assert.equal(next.ui.multiChartLayout.layoutId, "single");
+  assert.equal(next.ui.multiChartLayout.layoutId, "three_focus_right");
+  assert.deepEqual(next.ui.multiChartLayout.charts.map((chart) => chart.interval), ["1D", "1W", "1M"]);
 });
 
 test("hydration prioritizes the live primary title and clears the legacy BRVMC cell", () => {
@@ -258,6 +258,148 @@ test("changing a bound layout symbol without an exchange clears the stale exchan
 
   assert.equal(next.ui.multiChartLayout.charts[1].symbol, "BCP");
   assert.equal(next.ui.multiChartLayout.charts[1].exchange, "");
+});
+
+test("activating a panel restores its timeframe, type, date range and supported indicators", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({
+      chartId: "chart_2",
+      symbol: "MTNNG",
+      exchange: "NGX",
+      timeframe: "1W",
+      chartType: "line",
+      dateRange: "3M",
+      indicators: ["sma"],
+    }),
+  );
+
+  const next = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
+
+  assert.equal(next.chartConfig.symbol, "MTNNG");
+  assert.equal(next.chartConfig.timeframe, "1W");
+  assert.equal(next.chartConfig.chartType, "line");
+  assert.equal(next.ui.selectedTimeRange, "3M");
+  assert.equal(next.chartConfig.indicators.sma, true);
+  assert.equal(next.chartConfig.indicators.volume, false);
+  assert.equal(next.chartAppearance.showVolume, false);
+});
+
+test("canonical chart controls persist type and VOL/SMA state into the active panel", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(state, setChartType("line"));
+  state = technicalAnalysisSlice.reducer(state, setChartConfig({ indicators: { sma: true, volume: false } }));
+  state = technicalAnalysisSlice.reducer(state, setChartAppearance({ showVolume: true }));
+
+  const active = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === state.ui.multiChartLayout.activeChartId);
+  assert.equal(active.chartType, "line");
+  assert.equal(active.indicators.includes("sma"), true);
+  assert.equal(active.indicators.includes("volume"), true);
+  assert.equal(state.chartConfig.indicators.volume, true);
+});
+
+test("date range remains panel-local until date-range synchronization is enabled", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_2", symbol: "MTNNG", exchange: "NGX" }),
+  );
+  state = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
+  state = technicalAnalysisSlice.reducer(state, setTimeRange("3M"));
+
+  assert.deepEqual(state.ui.multiChartLayout.charts.map((chart) => chart.dateRange), ["Tout", "3M"]);
+
+  state = technicalAnalysisSlice.reducer(state, setMultiChartSync({ key: "dateRange", value: true }));
+  state = technicalAnalysisSlice.reducer(state, setTimeRange("1Y"));
+  assert.deepEqual(state.ui.multiChartLayout.charts.map((chart) => chart.dateRange), ["1Y", "1Y"]);
+});
+
+test("viewport updates are copied into the targeted panel without sharing the action payload object", () => {
+  const state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  const viewport = {
+    startTime: "2026-01-02T00:00:00Z",
+    endTime: "2026-04-30T00:00:00Z",
+    yScale: 1.25,
+    isYManual: true,
+  };
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_1", viewport }),
+  );
+  viewport.yScale = 9;
+
+  assert.deepEqual(next.ui.multiChartLayout.charts[0].viewport, {
+    startTime: "2026-01-02T00:00:00Z",
+    endTime: "2026-04-30T00:00:00Z",
+    yScale: 1.25,
+    isYManual: true,
+  });
+});
+
+test("canonical timeframe writes both legacy interval and v2 timeframe", () => {
+  const next = technicalAnalysisSlice.reducer(createActiveThirdChartState(false), setTimeframe("1H"));
+  const active = next.ui.multiChartLayout.charts.find((chart) => chart.chartId === "chart_3");
+  assert.equal(active.interval, "1H");
+  assert.equal(active.timeframe, "1H");
+});
+
+test("selecting a new equity symbol clears stale index identity", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({
+      chartId: "chart_1",
+      symbol: "MASI",
+      exchange: "CSE",
+      sourceKind: "index",
+      sourceId: "index-masi",
+      chartType: "line",
+    }),
+  );
+  const next = technicalAnalysisSlice.reducer(state, setSymbol("BCP"));
+  const primary = next.ui.multiChartLayout.charts[0];
+
+  assert.equal(primary.symbol, "BCP");
+  assert.equal(primary.sourceKind, "equity");
+  assert.equal(primary.sourceId, "");
+});
+
+test("an active index cannot be switched to candlesticks by the canonical chart-type control", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({
+      chartId: "chart_1",
+      symbol: "MASI",
+      exchange: "CSE",
+      sourceKind: "index",
+      sourceId: "index-masi",
+      chartType: "line",
+    }),
+  );
+  const next = technicalAnalysisSlice.reducer(state, setChartType("candles"));
+
+  assert.equal(next.chartConfig.chartType, "line");
+  assert.equal(next.ui.multiChartLayout.charts[0].chartType, "line");
 });
 
 test("opening a modal closes every other modal flag", () => {

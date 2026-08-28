@@ -115,6 +115,8 @@ import {
   createMarketDataCacheKey,
   normalizeMarketDataScope,
 } from "@/components/technical-analysis/config/market/marketDataCacheKey";
+import { createTimeframeMarketDataCacheKey, normalizeChartTimeframe } from "@/components/technical-analysis/config/market/timeframeCatalog";
+import { filterChartDataByDateRange } from "@/components/technical-analysis/config/market/dateRangeSeries";
 
 // ============================================================================
 // [TENOR 2026 SRE] STRICT MEMOIZATION SHIELD
@@ -1112,19 +1114,37 @@ const ChartUI: React.FC = () => {
     );
     const uniqueRequests = new Map<string, ComparisonMarketRequest>();
     const candidates: ComparisonMarketRequest[] = [
-      ...(comparisonSymbols ?? []).map((symbol) => ({ symbol, market: activeMarketScope })),
-      ...multiChartLayout.charts.map((chart) => ({
-        symbol: chart.symbol,
-        market: normalizeMarketDataScope(chart.exchange) || activeMarketScope,
-      })),
+      ...(comparisonSymbols ?? []).map((symbol) => ({ symbol, market: activeMarketScope, timeframe: "1D" })),
+      ...multiChartLayout.charts.map((chart) => {
+        const sourceKind = "sourceKind" in chart && chart.sourceKind === "index" ? "index" as const : "equity" as const;
+        const sourceId = "sourceId" in chart ? String(chart.sourceId ?? "").trim() : "";
+        return {
+          symbol: chart.symbol,
+          market: normalizeMarketDataScope(chart.exchange) || activeMarketScope,
+          timeframe: chart.interval,
+          sourceKind,
+          sourceId,
+        };
+      }),
     ];
+    const activeTimeframe = normalizeChartTimeframe(chartConfig.timeframe) ?? "1D";
 
     for (const candidate of candidates) {
       const symbol = String(candidate.symbol ?? "").trim().toUpperCase();
       const market = normalizeMarketDataScope(candidate.market);
-      if (!symbol || !market) continue;
-      if (symbol === primarySymbol && market === primaryMarketScope) continue;
-      uniqueRequests.set(createMarketDataCacheKey(market, symbol), { symbol, market });
+      const timeframe = normalizeChartTimeframe(candidate.timeframe ?? "1D");
+      const sourceKind = candidate.sourceKind === "index" ? "index" as const : "equity" as const;
+      const sourceId = String(candidate.sourceId ?? "").trim();
+      if (!symbol || !market || !timeframe) continue;
+      if (sourceKind === "index" && !sourceId) continue;
+      if (
+        sourceKind === "equity"
+        && symbol === primarySymbol
+        && market === primaryMarketScope
+        && timeframe === activeTimeframe
+      ) continue;
+      const requestKey = createTimeframeMarketDataCacheKey(market, symbol, timeframe, sourceKind, sourceId);
+      uniqueRequests.set(requestKey, { symbol, market, timeframe, sourceKind, sourceId });
     }
 
     return Array.from(uniqueRequests.values());
@@ -1132,6 +1152,7 @@ const ChartUI: React.FC = () => {
     activeMarket.ticker,
     chartState.security.exchange,
     chartState.security.ticker,
+    chartConfig.timeframe,
     comparisonSymbols,
     multiChartLayout.charts,
     preferredTicker,
@@ -1142,33 +1163,43 @@ const ChartUI: React.FC = () => {
   const {
     loadState: comparisonLoadState,
     currencyByKey: comparisonCurrencyByKey,
+    seriesByKey: comparisonSeriesByKey,
+    dataSourceByKey: comparisonDataSourceByKey,
   } = useComparisonManager(comparisonRequests, dataMode);
 
-  // Keep the canonical primary series in the shared map while it is active.
-  // When focus moves to a peer, the exact market+symbol entry remains available
-  // to render the former primary immediately without another network request.
-  const primaryLayoutCell = multiChartLayout.charts[0];
-  const primaryLayoutSymbol = String(
-    primaryLayoutCell?.symbol || primaryTicker?.ticker || chartState.security.ticker || preferredTicker || "",
-  ).trim().toUpperCase();
-  const primaryLayoutMarket = normalizeMarketDataScope(
-    primaryLayoutCell?.exchange || primaryTicker?.exchange || chartState.security.exchange || activeMarket.ticker,
+  // The shared render map is keyed by market+symbol+timeframe. Redux remains the
+  // canonical 1D cache; non-daily series live in the comparison manager. The
+  // active canonical chart is injected under its exact cell key so focus changes
+  // never collapse 1D/1W/1M into the same dataset.
+  const activeSeriesCell = multiChartLayout.charts.find(
+    (cell) => cell.chartId === multiChartLayout.activeChartId,
   );
-  const primaryLayoutCacheKey = createMarketDataCacheKey(primaryLayoutMarket, primaryLayoutSymbol);
+  const activeLayoutTimeframe = normalizeChartTimeframe(activeSeriesCell?.interval ?? chartConfig.timeframe) ?? "1D";
+  const activeSeriesSourceKind = activeSeriesCell && "sourceKind" in activeSeriesCell && activeSeriesCell.sourceKind === "index"
+    ? "index" as const
+    : "equity" as const;
+  const activeSeriesSourceId = activeSeriesCell && "sourceId" in activeSeriesCell
+    ? String(activeSeriesCell.sourceId ?? "").trim()
+    : "";
+  const activeLayoutCacheKey = createTimeframeMarketDataCacheKey(
+    activeSeriesCell?.exchange || chartState.security.exchange || activeMarket.ticker,
+    activeSeriesCell?.symbol || chartState.security.ticker,
+    activeLayoutTimeframe,
+    activeSeriesSourceKind,
+    activeSeriesSourceId,
+  );
   const mergedMarketData = useMemo(() => {
-    if (comparisonMarketData[primaryLayoutCacheKey]?.length > 0) return comparisonMarketData;
-    const activeLayoutCell = multiChartLayout.charts.find(
-      (cell) => cell.chartId === multiChartLayout.activeChartId,
-    );
-    const activeKey = createMarketDataCacheKey(activeLayoutCell?.exchange, activeLayoutCell?.symbol);
-    if (activeKey !== primaryLayoutCacheKey || marketData.chartData.length === 0) return comparisonMarketData;
-    return { ...comparisonMarketData, [primaryLayoutCacheKey]: marketData.chartData };
+    const merged = { ...comparisonMarketData, ...comparisonSeriesByKey };
+    if (activeSeriesSourceKind === "equity" && activeLayoutCacheKey && marketData.chartData.length > 0) {
+      merged[activeLayoutCacheKey] = marketData.chartData;
+    }
+    return merged;
   }, [
+    activeLayoutCacheKey,
+    activeSeriesSourceKind,
     comparisonMarketData,
+    comparisonSeriesByKey,
     marketData.chartData,
-    multiChartLayout.activeChartId,
-    multiChartLayout.charts,
-    primaryLayoutCacheKey,
   ]);
   // Peer charts receive raw native-market OHLCV from the shared cache. Convert
   // each peer independently from its API-provided quote currency to the global
@@ -1336,9 +1367,19 @@ const ChartUI: React.FC = () => {
     cell.chartId === multiChartLayout.activeChartId
   ));
   const isMultiChartMode = multiChartLayout.isEnabled && multiChartLayout.charts.length > 1;
+  useEffect(() => {
+    if (!isMultiChartMode || !brokerState?.isBrokerModalOpen) return;
+    brokerState.setIsBrokerModalOpen(false);
+  }, [brokerState?.isBrokerModalOpen, brokerState?.setIsBrokerModalOpen, isMultiChartMode]);
   const activeLayoutSymbol = String(activeLayoutCell?.symbol ?? "").trim().toUpperCase();
   const activeSymbol = String(activeLayoutSymbol || chartConfig.symbol || chartState.security.ticker || "").trim().toUpperCase();
   const hasExplicitActiveLayoutSymbol = Boolean(activeSymbol);
+  const activeCellSourceKind = activeLayoutCell && "sourceKind" in activeLayoutCell && activeLayoutCell.sourceKind === "index"
+    ? "index" as const
+    : "equity" as const;
+  const activeCellSourceId = activeLayoutCell && "sourceId" in activeLayoutCell
+    ? String(activeLayoutCell.sourceId ?? "").trim()
+    : "";
   const activeChartMarketScope = normalizeMarketDataScope(
     activeLayoutCell?.exchange || activeMarket.ticker,
   );
@@ -1346,12 +1387,18 @@ const ChartUI: React.FC = () => {
     chartState.security.exchange || activeMarket.ticker,
   );
   const primaryChartSymbol = String(primaryTicker?.ticker ?? chartState.security.ticker ?? "").trim().toUpperCase();
-  const isPrimaryActive = hasExplicitActiveLayoutSymbol && (
+  const isPrimaryActive = activeCellSourceKind === "equity" && hasExplicitActiveLayoutSymbol && (
     String(activeSymbol ?? "").trim().toUpperCase()
       === primaryChartSymbol
     && activeChartMarketScope === primaryMarketScope
   );
-  const activeChartCacheKey = createMarketDataCacheKey(activeChartMarketScope, activeSymbol);
+  const activeChartCacheKey = createTimeframeMarketDataCacheKey(
+    activeChartMarketScope,
+    activeSymbol,
+    activeLayoutCell?.interval ?? chartConfig.timeframe,
+    activeCellSourceKind,
+    activeCellSourceId,
+  );
   const activeChartSymbol = hasExplicitActiveLayoutSymbol
     ? activeSymbol || chartState.displaySymbolName
     : "Choisir un titre";
@@ -1423,54 +1470,26 @@ const ChartUI: React.FC = () => {
   const activeRawChartData = useMemo(() => {
     if (!hasExplicitActiveLayoutSymbol) return [];
     if (isPrimaryActive) return marketData.chartData;
-    const cachedActiveSeries = comparisonMarketData[activeChartCacheKey];
-    return cachedActiveSeries?.length ? cachedActiveSeries : marketData.chartData;
-  }, [activeChartCacheKey, comparisonMarketData, hasExplicitActiveLayoutSymbol, isPrimaryActive, marketData.chartData]);
+    const cachedActiveSeries = mergedMarketData[activeChartCacheKey];
+    if (cachedActiveSeries?.length) return cachedActiveSeries;
+    return activeCellSourceKind === "index" ? [] : marketData.chartData;
+  }, [
+    activeCellSourceKind,
+    activeChartCacheKey,
+    hasExplicitActiveLayoutSymbol,
+    isPrimaryActive,
+    marketData.chartData,
+    mergedMarketData,
+  ]);
 
-  const activeFilteredChartData = useMemo(() => {
-    const rawData = activeRawChartData;
-    if (rawData.length === 0) return rawData;
-    const range = selectedTimeRange;
-    if (range === "Tout" || !range) return rawData;
-
-    const now = new Date();
-    let cutoffDate: Date | null = null;
-
-    if (range === "1J") {
-      cutoffDate = new Date(now);
-      cutoffDate.setDate(cutoffDate.getDate() - 1);
-    } else if (range === "5J") {
-      cutoffDate = new Date(now);
-      cutoffDate.setDate(cutoffDate.getDate() - 5);
-    } else if (range === "1M") {
-      cutoffDate = new Date(now);
-      cutoffDate.setMonth(cutoffDate.getMonth() - 1);
-    } else if (range === "3M") {
-      cutoffDate = new Date(now);
-      cutoffDate.setMonth(cutoffDate.getMonth() - 3);
-    } else if (range === "6M") {
-      cutoffDate = new Date(now);
-      cutoffDate.setMonth(cutoffDate.getMonth() - 6);
-    } else if (range === "YTD") {
-      cutoffDate = new Date(now.getFullYear(), 0, 1);
-    } else if (range === "1Y") {
-      cutoffDate = new Date(now);
-      cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
-    } else if (range === "5Y") {
-      cutoffDate = new Date(now);
-      cutoffDate.setFullYear(cutoffDate.getFullYear() - 5);
-    }
-
-    if (!cutoffDate) return rawData;
-
-    const cutoff = cutoffDate.getTime();
-    const filtered = rawData.filter((point) => new Date(point.time).getTime() >= cutoff);
-    return filtered.length > 0 ? filtered : rawData.slice(-1);
-  }, [activeRawChartData, selectedTimeRange]);
+  const activeFilteredChartData = useMemo(
+    () => filterChartDataByDateRange(activeRawChartData, selectedTimeRange),
+    [activeRawChartData, selectedTimeRange],
+  );
 
   const activeDisplayChartData = useMemo(() => {
     const sourceData = activeFilteredChartData;
-    const rate = chartState.effectiveRate;
+    const rate = activeCellSourceKind === "index" ? 1 : chartState.effectiveRate;
     if (rate === 1) return sourceData;
 
     return sourceData.map((p) => ({
@@ -1480,7 +1499,7 @@ const ChartUI: React.FC = () => {
       low: p.low * rate,
       close: p.close * rate,
     }));
-  }, [activeFilteredChartData, chartState.effectiveRate]);
+  }, [activeCellSourceKind, activeFilteredChartData, chartState.effectiveRate]);
 
   const activeSecondaryLoadStatus = isMultiChartMode && !isPrimaryActive && activeLayoutSymbol
     ? (mergedLoadState[activeChartCacheKey] ?? "idle")
@@ -1779,6 +1798,7 @@ const ChartUI: React.FC = () => {
                     layout={multiChartLayout}
                     marketData={displayMarketData}
                     dataLoadState={mergedLoadState}
+                    dataSourceByKey={comparisonDataSourceByKey}
                     dataMode={dataMode}
                     activeChartInstanceRef={refs.chartInstanceRef}
                     activeChartData={activeDisplayChartData}
@@ -1907,9 +1927,9 @@ const ChartUI: React.FC = () => {
                         onContextMenu={(e) => e.preventDefault()}
                       />
 
-                    {hasExplicitActiveLayoutSymbol && hasActiveDisplayData && <ConnectedTradeHUD />}
+                    {!isMultiChartMode && hasExplicitActiveLayoutSymbol && hasActiveDisplayData && <ConnectedTradeHUD />}
 
-                    {brokerState?.isBrokerModalOpen && (
+                    {!isMultiChartMode && brokerState?.isBrokerModalOpen && (
                       <MemoizedBrokerModal
                         isBrokerModalOpen={brokerState.isBrokerModalOpen}
                         setIsBrokerModalOpen={brokerState.setIsBrokerModalOpen}

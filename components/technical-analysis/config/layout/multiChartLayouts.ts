@@ -4,6 +4,8 @@ import type {
   MultiChartLayoutState,
   MultiChartLayoutSync,
 } from "./multiChartLayoutTypes";
+import { completeMultiChartCell } from "./multiChartCellState";
+import { normalizeChartTimeframe } from "../market/timeframeCatalog";
 
 export interface MultiChartLayoutDefinition {
   id: MultiChartLayoutId;
@@ -157,12 +159,15 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
   },
 ];
 
-// API-first contract: /cours currently exposes native OHLCV only for 1D.
-// Keep unsupported presets visible for forward compatibility, but never activate
-// them until their intervals can be rendered from real API data.
-export const MULTI_CHART_NATIVE_INTERVALS = new Set(["1D"]);
+// API-first contract: every configured interval is queried natively first.
+// Weekly/monthly have a deterministic 1D aggregation fallback; intraday remains
+// unavailable when the backend has no rows and is never fabricated client-side.
+export const MULTI_CHART_RENDERABLE_INTERVALS = new Set(["1D", "1W", "1M"]);
 export const isMultiChartPresetAvailable = (preset: MultiChartPreset): boolean =>
-  preset.intervals.every((interval) => MULTI_CHART_NATIVE_INTERVALS.has(interval));
+  preset.intervals.every((interval) => {
+    const normalized = normalizeChartTimeframe(interval);
+    return normalized !== null && MULTI_CHART_RENDERABLE_INTERVALS.has(normalized);
+  });
 
 export const getLayoutDefinition = (layoutId: MultiChartLayoutId): MultiChartLayoutDefinition =>
   MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId) ?? MULTI_CHART_LAYOUTS[0];
@@ -177,8 +182,11 @@ export const isDenseMultiChartLayout = (layoutId: MultiChartLayoutId): boolean =
 
 export const hasCollapsedLayoutSymbols = (layout: MultiChartLayoutState): boolean => {
   if (!isDenseMultiChartLayout(layout.layoutId)) return false;
-  const symbols = new Set(layout.charts.map((chart) => normalizeLayoutSymbol(chart.symbol)).filter(Boolean));
-  return layout.charts.length > 1 && symbols.size <= 1;
+  const boundSymbols = layout.charts
+    .map((chart) => normalizeLayoutSymbol(chart.symbol))
+    .filter(Boolean);
+  if (boundSymbols.length < 2) return false;
+  return new Set(boundSymbols).size === 1;
 };
 
 const getUniqueLayoutSymbols = (cells: MultiChartLayoutCell[]): string[] =>
@@ -231,14 +239,15 @@ export const createLayoutCells = (
         ? normalizeLayoutSymbol(existing?.exchange ?? "") || normalizedMarket
         : normalizedMarket)
       : "";
-    return {
+    return completeMultiChartCell({
+      ...existing,
       chartId: existing?.chartId ?? `chart_${index + 1}`,
       symbol,
       exchange,
       interval: intervals?.[index] ?? existing?.interval ?? "1D",
       indicators: existing?.indicators ?? (index === 0 ? ["volume", "sma"] : ["volume"]),
       isActive: index === 0,
-    };
+    }, index);
   });
 };
 

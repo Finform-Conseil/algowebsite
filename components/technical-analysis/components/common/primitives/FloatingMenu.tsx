@@ -26,26 +26,28 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({
     const menuRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        // eslint-disable-next-line
         setMounted(true);
-        if (isOpen) {
-            const handleEscape = (e: KeyboardEvent) => {
-                if (e.key === "Escape") onClose();
-            };
-            const handleClickOutside = (e: MouseEvent) => {
-                const menu = menuRef.current;
-                if (menu && !menu.contains(e.target as Node)) {
-                    onClose();
-                }
-            };
+    }, []);
 
-            window.addEventListener("keydown", handleEscape);
-            window.addEventListener("mousedown", handleClickOutside);
-            return () => {
-                window.removeEventListener("keydown", handleEscape);
-                window.removeEventListener("mousedown", handleClickOutside);
-            };
-        }
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        const handleClickOutside = (e: MouseEvent) => {
+            const menu = menuRef.current;
+            if (menu && !menu.contains(e.target as Node)) {
+                onClose();
+            }
+        };
+
+        window.addEventListener("keydown", handleEscape);
+        window.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            window.removeEventListener("keydown", handleEscape);
+            window.removeEventListener("mousedown", handleClickOutside);
+        };
     }, [isOpen, onClose]);
 
     const portalTarget = useTechnicalAnalysisPortalTarget();

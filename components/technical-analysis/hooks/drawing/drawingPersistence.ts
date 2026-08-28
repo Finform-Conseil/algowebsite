@@ -3,6 +3,31 @@ export const TA_STORE_NAME = "ta_store";
 export const TA_ASSET_STORE_NAME = "ta_asset_store";
 export const TA_DB_VERSION = 2;
 
+export const LEGACY_DRAWINGS_STORAGE_KEY = "algoway_drawings";
+export const DRAWINGS_SCOPE_STORAGE_PREFIX = "algoway_drawings:v2:";
+export const PRIMARY_DRAWING_SCOPE = "chart_1";
+
+const normalizeDrawingScope = (scope: string | null | undefined): string => {
+  const normalized = String(scope ?? "").trim();
+  return normalized || PRIMARY_DRAWING_SCOPE;
+};
+
+/**
+ * Builds one durable IndexedDB key per multi-chart cell.
+ * `encodeURIComponent` prevents separators in externally restored scopes from
+ * colliding with the storage namespace while keeping the mapping deterministic.
+ */
+export const createDrawingsStorageKey = (scope: string | null | undefined): string =>
+  `${DRAWINGS_SCOPE_STORAGE_PREFIX}${encodeURIComponent(normalizeDrawingScope(scope))}`;
+
+/**
+ * The historical application had exactly one global drawing bucket. Only the
+ * canonical primary cell may inherit that bucket once; secondary cells must
+ * start isolated or they would all clone the same legacy drawings.
+ */
+export const canMigrateLegacyDrawingsToScope = (scope: string | null | undefined): boolean =>
+  normalizeDrawingScope(scope) === PRIMARY_DRAWING_SCOPE;
+
 export type DrawingCloudPersistenceOperation = "save" | "restore";
 
 export interface DisabledDrawingCloudPersistenceResult {

@@ -37,10 +37,7 @@ import {
   buildImageNoteProps,
   type ValidatedImage,
 } from "../lib/imageNote/imageNoteValidation";
-import {
-  saveDrawingAsset,
-  deleteDrawingAsset,
-} from "./drawing/drawingPersistence";
+
 import {
   seedImageNoteImage,
   clearImageNoteImage,
@@ -61,9 +58,14 @@ import {
 import { SpatialHashGrid } from "./drawing/drawingSpatialIndex";
 import {
   DRAWING_CLOUD_PERSISTENCE_STATUS,
+  LEGACY_DRAWINGS_STORAGE_KEY,
+  canMigrateLegacyDrawingsToScope,
   createDisabledDrawingCloudPersistence,
+  createDrawingsStorageKey,
+  deleteDrawingAsset,
   idbGet,
   idbSet,
+  saveDrawingAsset,
 } from "./drawing/drawingPersistence";
 
 const saveDrawingToCloudDisabled = createDisabledDrawingCloudPersistence("save");
@@ -89,7 +91,14 @@ export const useDrawingManager = ({
   chartData,
 }: UseDrawingManagerProps) => {
   const uiState = useSelector(selectUiState) as UiState;
-  const drawingInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}`;
+  const activeLayoutCell = uiState.multiChartLayout.charts.find(
+    (cell) => cell.chartId === uiState.multiChartLayout.activeChartId,
+  ) as (typeof uiState.multiChartLayout.charts[number] & { drawingScope?: string }) | undefined;
+  const activeDrawingScope = String(
+    activeLayoutCell?.drawingScope ?? uiState.multiChartLayout.activeChartId ?? "chart_1",
+  ).trim() || "chart_1";
+  const drawingsStorageKey = createDrawingsStorageKey(activeDrawingScope);
+  const drawingInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}:${activeDrawingScope}`;
 
   // --- State ---
   const [activeTool, setActiveTool] = useState<AllToolType>(null);
@@ -122,37 +131,69 @@ export const useDrawingManager = ({
   // reload dropped all drawings. We now persist it durably and re-normalize
   // signposts (barIndex + clamped verticalPositionPct) on load.
   // ============================================================================
-  const drawingsLoadedRef = useRef(false);
+  const drawingsLoadedScopeRef = useRef<string | null>(null);
+
+  // A scope switch must synchronously detach the previous cell's drawings
+  // before the browser paints. This prevents a one-frame cross-cell leak while
+  // the next IndexedDB bucket is being restored asynchronously.
+  useLayoutEffect(() => {
+    drawingsLoadedScopeRef.current = null;
+    setDrawings([]);
+    setCurrentDrawing(null);
+    setSelectedDrawingId(null);
+    setEditingDrawingId(null);
+    setEditingDrawingPosition(null);
+    setEditingTableCell(null);
+  }, [drawingsStorageKey, setSelectedDrawingId]);
+
   useEffect(() => {
     let cancelled = false;
+    const storageKey = drawingsStorageKey;
+
     (async () => {
       try {
-        const saved = await idbGet<Drawing[]>("algoway_drawings");
-        if (!cancelled && Array.isArray(saved) && saved.length > 0) {
-          const restored = saved.map((d) =>
-            normalizeSignpost(d, { resolveBarIndex: (t) => Number(t) }),
-          ).map((d) => normalizeFlagMark(d)).map((d) => normalizeImageNote(d));
-          setDrawings(restored);
+        let saved = await idbGet<Drawing[]>(storageKey);
+
+        // One-way compatibility bridge: only chart_1 may adopt drawings from
+        // the historical global bucket. Secondary cells must never clone it.
+        if (saved === null && canMigrateLegacyDrawingsToScope(activeDrawingScope)) {
+          const legacy = await idbGet<Drawing[]>(LEGACY_DRAWINGS_STORAGE_KEY);
+          if (Array.isArray(legacy)) {
+            saved = legacy;
+            await idbSet(storageKey, legacy);
+          }
         }
+
+        if (cancelled) return;
+        const restored = Array.isArray(saved)
+          ? saved
+            .map((drawing) => normalizeSignpost(drawing, { resolveBarIndex: (time) => Number(time) }))
+            .map((drawing) => normalizeFlagMark(drawing))
+            .map((drawing) => normalizeImageNote(drawing))
+          : [];
+        setDrawings(restored);
       } catch {
-        /* ignore corrupt/empty storage */
+        if (!cancelled) setDrawings([]);
       } finally {
-        if (!cancelled) drawingsLoadedRef.current = true;
+        if (!cancelled) drawingsLoadedScopeRef.current = storageKey;
       }
     })();
+
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeDrawingScope, drawingsStorageKey]);
 
   useEffect(() => {
-    if (!drawingsLoadedRef.current) return;
+    if (drawingsLoadedScopeRef.current !== drawingsStorageKey) return;
+    const storageKey = drawingsStorageKey;
+    const snapshot = drawings;
     const handle = setTimeout(() => {
-      void idbSet("algoway_drawings", drawings).catch(() => {});
+      if (drawingsLoadedScopeRef.current !== storageKey) return;
+      void idbSet(storageKey, snapshot);
     }, 400);
     return () => clearTimeout(handle);
-  }, [drawings]);
+  }, [drawings, drawingsStorageKey]);
 
   // ============================================================================
   // [TENOR 2026 SRE] DIRTY FLAG ENGINE (CPU SHIELD)

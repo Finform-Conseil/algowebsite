@@ -6,7 +6,6 @@ import {
   useDispatch,
   useSelector } from "react-redux";
 import type { MultiChartLayoutId,
-  MultiChartLayoutState,
   MultiChartSyncKey } from "../../config/layout/multiChartLayoutTypes";
 import {
   hasCollapsedLayoutSymbols,
@@ -15,6 +14,11 @@ import {
   MULTI_CHART_PRESETS,
   MULTI_CHART_STORAGE_KEY,
   } from "../../config/layout/multiChartLayouts";
+import {
+  migratePersistedMultiChartLayout,
+  MULTI_CHART_STORAGE_KEY_V2,
+  serializeMultiChartLayout,
+} from "../../config/layout/multiChartPersistence";
 import {
   applyMultiChartPreset,
   hydrateMultiChartLayout,
@@ -27,6 +31,7 @@ import {
 } from "../../store/selectors";
 import { idbGet, idbSet } from "../../hooks/drawing/drawingPersistence";
 import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+import { useMultiChartPresetResolver } from "../../hooks/useMultiChartPresetResolver";
 
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
   { key: "symbol", label: "Symbole", title: "Synchronise le symbole et sa bourse entre tous les graphiques" },
@@ -35,6 +40,22 @@ const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string
   { key: "time", label: "Temps", title: "Synchronise le zoom et le déplacement temporel" },
   { key: "dateRange", label: "Plage de dates", title: "Synchronise les plages 1M, YTD, 1Y et Tout" },
 ];
+
+const LAYOUT_POPOVER_MAX_WIDTH = 444;
+const LAYOUT_POPOVER_VIEWPORT_GUTTER = 12;
+
+const getViewportSafePopoverRight = (anchorRight: number, viewportWidth: number): number => {
+  const popoverWidth = Math.min(
+    LAYOUT_POPOVER_MAX_WIDTH,
+    Math.max(0, viewportWidth - (LAYOUT_POPOVER_VIEWPORT_GUTTER * 2)),
+  );
+  const anchoredRight = Math.max(LAYOUT_POPOVER_VIEWPORT_GUTTER, viewportWidth - anchorRight);
+  const maximumRight = Math.max(
+    LAYOUT_POPOVER_VIEWPORT_GUTTER,
+    viewportWidth - popoverWidth - LAYOUT_POPOVER_VIEWPORT_GUTTER,
+  );
+  return Math.min(anchoredRight, maximumRight);
+};
 
 const LayoutGlyph: React.FC<{ layoutId?: MultiChartLayoutId; disabled?: boolean }> = ({ layoutId = "single", disabled = false }) => {
   const count = MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId)?.chartCount ?? 1;
@@ -54,10 +75,13 @@ export const LayoutSetupControl: React.FC = () => {
   const chartConfig = useSelector(selectChartConfig);
   const layoutState = uiState.multiChartLayout;
   const { selectedTicker, preferredTicker } = useTickerSelector();
+  const { resolvePreset } = useMultiChartPresetResolver();
   const [isOpen, setIsOpen] = useState(false);
+  const [resolvingPresetId, setResolvingPresetId] = useState<string | null>(null);
+  const [presetError, setPresetError] = useState<string | null>(null);
   const [popoverPos, setPopoverPos] = useState({ top: 0, right: 0 });
+  const [isPersistenceHydrated, setIsPersistenceHydrated] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const didHydrateRef = useRef(false);
 
   const activeLayout = useMemo(
     () => MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutState.layoutId) ?? MULTI_CHART_LAYOUTS[0],
@@ -73,26 +97,54 @@ export const LayoutSetupControl: React.FC = () => {
     setIsOpen(false);
   }, [currentLayoutBinding, dispatch]);
 
-  const applyPreset = useCallback((presetId: string) => {
+  const applyPreset = useCallback(async (presetId: string) => {
+    if (resolvingPresetId) return;
     const preset = MULTI_CHART_PRESETS.find((entry) => entry.id === presetId);
     if (!preset || !isMultiChartPresetAvailable(preset)) return;
-    dispatch(applyMultiChartPreset({ presetId, ...currentLayoutBinding }));
-    setIsOpen(false);
-  }, [currentLayoutBinding, dispatch]);
+    setPresetError(null);
+    setResolvingPresetId(presetId);
+    try {
+      const resolution = await resolvePreset(
+        presetId,
+        currentLayoutBinding.primarySymbol,
+        currentLayoutBinding.market,
+      );
+      if (!resolution.ok) {
+        setPresetError(resolution.reason);
+        return;
+      }
+      dispatch(applyMultiChartPreset({
+        presetId,
+        ...currentLayoutBinding,
+        bindings: resolution.bindings,
+      }));
+      setIsOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "La résolution du preset a échoué.";
+      setPresetError(message);
+    } finally {
+      setResolvingPresetId(null);
+    }
+  }, [currentLayoutBinding, dispatch, resolvePreset, resolvingPresetId]);
 
   useEffect(() => {
-    if (didHydrateRef.current || typeof window === "undefined") return;
-    didHydrateRef.current = true;
+    if (typeof window === "undefined") return;
     let isActive = true;
 
     const hydratePersistedLayout = async () => {
-      const storedLayout = await idbGet<MultiChartLayoutState>(MULTI_CHART_STORAGE_KEY);
-      if (!isActive || !storedLayout) return;
-
       try {
-        dispatch(hydrateMultiChartLayout(storedLayout));
+        const storedV2 = await idbGet<unknown>(MULTI_CHART_STORAGE_KEY_V2);
+        const storedLegacy = storedV2 == null
+          ? await idbGet<unknown>(MULTI_CHART_STORAGE_KEY)
+          : null;
+        if (!isActive) return;
+
+        const migrated = migratePersistedMultiChartLayout(storedV2 ?? storedLegacy);
+        if (migrated) dispatch(hydrateMultiChartLayout(migrated));
       } catch (error) {
         console.warn("[LayoutSetup] Invalid persisted layout ignored", error);
+      } finally {
+        if (isActive) setIsPersistenceHydrated(true);
       }
     };
 
@@ -103,9 +155,9 @@ export const LayoutSetupControl: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    void idbSet(MULTI_CHART_STORAGE_KEY, layoutState);
-  }, [layoutState]);
+    if (typeof window === "undefined" || !isPersistenceHydrated) return;
+    void idbSet(MULTI_CHART_STORAGE_KEY_V2, serializeMultiChartLayout(layoutState));
+  }, [isPersistenceHydrated, layoutState]);
 
   useEffect(() => {
     if (!hasCollapsedLayoutSymbols(layoutState)) return;
@@ -150,7 +202,10 @@ export const LayoutSetupControl: React.FC = () => {
     const updatePosition = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setPopoverPos({ top: rect.bottom + 8, right: Math.max(12, window.innerWidth - rect.right) });
+      setPopoverPos({
+        top: rect.bottom + 8,
+        right: getViewportSafePopoverRight(rect.right, window.innerWidth),
+      });
     };
     window.addEventListener("pointerdown", handleClickOutside);
     window.addEventListener("keydown", handleEscape);
@@ -167,7 +222,10 @@ export const LayoutSetupControl: React.FC = () => {
   const togglePopover = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      setPopoverPos({ top: rect.bottom + 8, right: Math.max(12, window.innerWidth - rect.right) });
+      setPopoverPos({
+        top: rect.bottom + 8,
+        right: getViewportSafePopoverRight(rect.right, window.innerWidth),
+      });
     }
     setIsOpen((current) => !current);
   };
@@ -221,19 +279,27 @@ export const LayoutSetupControl: React.FC = () => {
           <div className="gp-layout-presets">
             {MULTI_CHART_PRESETS.map((preset) => {
               const isAvailable = isMultiChartPresetAvailable(preset);
+              const isResolving = resolvingPresetId === preset.id;
               return (
                 <button
                   key={preset.id}
-                  disabled={!isAvailable}
-                  title={isAvailable ? preset.name : "Indisponible tant que l’API OHLCV ne fournit que des bougies 1D"}
-                  onClick={() => applyPreset(preset.id)}
+                  disabled={!isAvailable || Boolean(resolvingPresetId)}
+                  title={isAvailable ? preset.name : "Intervalle non pris en charge par le moteur multi-chart"}
+                  onClick={() => { void applyPreset(preset.id); }}
                 >
                   <span>{preset.name}</span>
-                  {!isAvailable && <small>API 1D uniquement</small>}
+                  {isResolving && <small>Résolution des données…</small>}
+                  {!isAvailable && <small>Intervalle indisponible</small>}
                 </button>
               );
             })}
           </div>
+          {presetError && (
+            <div className="gp-layout-presets__error" role="alert">
+              <i className="bi bi-exclamation-triangle" aria-hidden="true" />
+              <span>{presetError}</span>
+            </div>
+          )}
 
           {activeLayout.chartCount > 1 && (
             <>

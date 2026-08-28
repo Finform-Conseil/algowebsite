@@ -18,6 +18,11 @@ import { normalizeMovingAverageTrendSignals } from "../../config/indicators/movi
 import { normalizePriceVsEmaMetrics } from "../../config/indicators/priceVsEmaMetrics";
 import { normalizePriceVsSmaMetrics } from "../../config/indicators/priceVsSmaMetrics";
 import { closeAllModalFlags, setModalOpenFlag } from "../policies/modalPolicy";
+import {
+  completeMultiChartLayout,
+  type CompleteMultiChartLayoutCell,
+} from "../../config/layout/multiChartCellState";
+import { syncActiveCellIndicatorSnapshot } from "../policies/multiChartIndicatorStatePolicy";
 
 export const uiReducers = {
   setZenMode: (state: TechnicalAnalysisState, action: PayloadAction<boolean>) => {
@@ -36,7 +41,19 @@ export const uiReducers = {
     state.ui.cursorMode = action.payload;
   },
   setTimeRange: (state: TechnicalAnalysisState, action: PayloadAction<string>) => {
-    state.ui.selectedTimeRange = action.payload;
+    const range = action.payload.trim() || "Tout";
+    state.ui.selectedTimeRange = range;
+    const layout = completeMultiChartLayout(state.ui.multiChartLayout);
+    const charts = layout.charts as CompleteMultiChartLayoutCell[];
+    if (layout.sync.dateRange) {
+      charts.forEach((chart) => {
+        chart.dateRange = range;
+      });
+    } else {
+      const active = charts.find((chart) => chart.chartId === layout.activeChartId);
+      if (active) active.dateRange = range;
+    }
+    state.ui.multiChartLayout = layout;
   },
   setPublishing: (state: TechnicalAnalysisState, action: PayloadAction<boolean>) => {
     state.ui.isPublishing = action.payload;
@@ -132,6 +149,7 @@ export const uiReducers = {
     const signals = normalizeMovingAverageTrendSignals(state.ui.movingAverageTrendSignals);
     signals.active[action.payload.id] = action.payload.active;
     state.ui.movingAverageTrendSignals = signals;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setMovingAverageTrendSignals: (
     state: TechnicalAnalysisState,
@@ -142,6 +160,7 @@ export const uiReducers = {
       signals.active[id as MovingAverageTrendSignalId] = active === true;
     });
     state.ui.movingAverageTrendSignals = signals;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setMovingAverageTrendSignalSourceAverages: (
     state: TechnicalAnalysisState,
@@ -150,6 +169,7 @@ export const uiReducers = {
     const signals = normalizeMovingAverageTrendSignals(state.ui.movingAverageTrendSignals);
     signals.showSourceAverages = action.payload;
     state.ui.movingAverageTrendSignals = signals;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setPriceVsSmaMetric: (
     state: TechnicalAnalysisState,
@@ -158,6 +178,7 @@ export const uiReducers = {
     const metrics = normalizePriceVsSmaMetrics(state.ui.priceVsSmaMetrics);
     metrics.active[action.payload.id] = action.payload.active;
     state.ui.priceVsSmaMetrics = metrics;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setPriceVsSmaMetrics: (
     state: TechnicalAnalysisState,
@@ -168,6 +189,7 @@ export const uiReducers = {
       metrics.active[id as PriceVsSmaMetricId] = active === true;
     });
     state.ui.priceVsSmaMetrics = metrics;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setPriceVsEmaMetric: (
     state: TechnicalAnalysisState,
@@ -176,6 +198,7 @@ export const uiReducers = {
     const metrics = normalizePriceVsEmaMetrics(state.ui.priceVsEmaMetrics);
     metrics.active[action.payload.id] = action.payload.active;
     state.ui.priceVsEmaMetrics = metrics;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setPriceVsEmaMetrics: (
     state: TechnicalAnalysisState,
@@ -186,6 +209,7 @@ export const uiReducers = {
       metrics.active[id as PriceVsEmaMetricId] = active === true;
     });
     state.ui.priceVsEmaMetrics = metrics;
+    syncActiveCellIndicatorSnapshot(state);
   },
   setModalOpen: (
     state: TechnicalAnalysisState,

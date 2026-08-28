@@ -201,48 +201,52 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           </span>
         </div>
 
-        <div
-          className={clsx("gp-toolbar-symbol-selector", "hover-lift")}
-          style={{ marginLeft: "12px" }}
-          onClick={openTickerSelector}
-          title="Rechercher un symbole"
-          role="button"
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              openTickerSelector();
-            }
-          }}
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
-            <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          <span className={"gp-toolbar-symbol-selector-label"}>{safeDisplaySymbol}</span>
-        </div>
+        {!isMultiChartMode && (
+          <>
+            <div
+              className={clsx("gp-toolbar-symbol-selector", "hover-lift")}
+              style={{ marginLeft: "12px" }}
+              onClick={openTickerSelector}
+              title="Rechercher un symbole"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openTickerSelector();
+                }
+              }}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
+                <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span className={"gp-toolbar-symbol-selector-label"}>{safeDisplaySymbol}</span>
+            </div>
 
-        <div className={"gp-toolbar-v-divider"}></div>
+            <div className={"gp-toolbar-v-divider"}></div>
 
-        <button
-          className={clsx("gp-toolbar-btn", "hover-lift")}
-          title="Comparer ou ajouter un symbole"
-          onPointerEnter={prefetchCompareSymbols}
-          onFocus={prefetchCompareSymbols}
-          onClick={() => {
-            dispatch(setSearchMode("compare"));
-            dispatch(setModalOpen({ modal: "search", isOpen: true }));
-          }}
-        >
-          <i className="bi bi-plus-lg"></i>
-        </button>
+            <button
+              className={clsx("gp-toolbar-btn", "hover-lift")}
+              title="Comparer ou ajouter un symbole"
+              onPointerEnter={prefetchCompareSymbols}
+              onFocus={prefetchCompareSymbols}
+              onClick={() => {
+                dispatch(setSearchMode("compare"));
+                dispatch(setModalOpen({ modal: "search", isOpen: true }));
+              }}
+            >
+              <i className="bi bi-plus-lg"></i>
+            </button>
+          </>
+        )}
       </div>
 
       {/* ===================================================================== */}
@@ -276,7 +280,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
 
           <div className={"gp-toolbar-v-divider"}></div>
 
-          {["1D"].map((tf) => (
+          {!isMultiChartMode && ["1D"].map((tf) => (
             <button
               key={tf}
               className={clsx(toolbarButtonClassNames, tf === chartConfig.timeframe && "active")}

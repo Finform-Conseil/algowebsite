@@ -5,22 +5,35 @@ const Module = require("node:module");
 const path = require("node:path");
 const ts = require("typescript");
 
-const sourcePath = path.join(__dirname, "multiChartLayouts.ts");
-const source = fs.readFileSync(sourcePath, "utf8");
-const transpiled = ts.transpileModule(source, {
-  compilerOptions: {
-    module: ts.ModuleKind.CommonJS,
-    target: ts.ScriptTarget.ES2020,
-  },
-  fileName: sourcePath,
-}).outputText;
+const moduleCache = new Map();
+const loadTs = (filename) => {
+  const sourcePath = path.resolve(filename);
+  if (moduleCache.has(sourcePath)) return moduleCache.get(sourcePath).exports;
+  const source = fs.readFileSync(sourcePath, "utf8");
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+    },
+    fileName: sourcePath,
+  }).outputText;
+  const runtimeModule = new Module(sourcePath, module);
+  runtimeModule.filename = sourcePath;
+  runtimeModule.paths = Module._nodeModulePaths(path.dirname(sourcePath));
+  moduleCache.set(sourcePath, runtimeModule);
+  const originalRequire = runtimeModule.require.bind(runtimeModule);
+  runtimeModule.require = (request) => {
+    if (request.startsWith("./") || request.startsWith("../")) {
+      const target = path.resolve(path.dirname(sourcePath), request.endsWith(".ts") ? request : `${request}.ts`);
+      if (fs.existsSync(target)) return loadTs(target);
+    }
+    return originalRequire(request);
+  };
+  runtimeModule._compile(transpiled, sourcePath);
+  return runtimeModule.exports;
+};
 
-const runtimeModule = new Module(sourcePath, module);
-runtimeModule.filename = sourcePath;
-runtimeModule.paths = module.paths;
-runtimeModule._compile(transpiled, sourcePath);
-
-const { createLayoutCells, reconcileMultiChartLayout } = runtimeModule.exports;
+const { createLayoutCells, hasCollapsedLayoutSymbols, reconcileMultiChartLayout } = loadTs(path.join(__dirname, "multiChartLayouts.ts"));
 
 test("empty multi-chart slots are market-agnostic until a symbol is selected", () => {
   const cells = createLayoutCells("four_grid", "ORANGE_CI", [], [], undefined, undefined, "BRVM");
@@ -101,4 +114,37 @@ test("same-count geometry changes preserve the primary market binding too", () =
   assert.equal(next.charts[0].exchange, "BRVM");
   assert.equal(next.charts[1].symbol, "BOA");
   assert.equal(next.charts[1].exchange, "CSE");
+});
+
+test("a dense layout with one bound primary and empty peers is sparse, not collapsed", () => {
+  const charts = createLayoutCells("eight_grid", "ATW", [], [], undefined, undefined, "CSE");
+  const layout = {
+    layoutId: "eight_grid",
+    name: "8 graphiques 4x2",
+    isEnabled: true,
+    sync: { symbol: false, interval: false, crosshair: false, time: false, dateRange: false },
+    charts,
+    activeChartId: "chart_1",
+  };
+
+  assert.equal(hasCollapsedLayoutSymbols(layout), false);
+});
+
+test("a dense layout with duplicated bound symbols is collapsed and repairs in one reconciliation", () => {
+  const charts = createLayoutCells("eight_grid", "ATW", [], [], undefined, undefined, "CSE");
+  charts[1] = { ...charts[1], symbol: "ATW", exchange: "CSE" };
+  const layout = {
+    layoutId: "eight_grid",
+    name: "8 graphiques 4x2",
+    isEnabled: true,
+    sync: { symbol: false, interval: false, crosshair: false, time: false, dateRange: false },
+    charts,
+    activeChartId: "chart_1",
+  };
+
+  assert.equal(hasCollapsedLayoutSymbols(layout), true);
+  const repaired = reconcileMultiChartLayout(layout, "eight_grid", "ATW", [], "CSE");
+  assert.equal(hasCollapsedLayoutSymbols(repaired), false);
+  assert.equal(repaired.charts[0].symbol, "ATW");
+  assert.equal(repaired.charts[1].symbol, "");
 });
