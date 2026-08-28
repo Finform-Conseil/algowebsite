@@ -95,6 +95,7 @@ import { useTechnicalAnalysisActions } from "@/components/technical-analysis/hoo
 import { useToolbarHandlers } from "@/components/technical-analysis/hooks/useToolbarHandlers";
 import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFloatingToolbar";
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
+import type { ChartViewportChange } from "@/components/technical-analysis/hooks/useChartViewport";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
 import { ChartRenderEngine } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
 import { resolvePrimaryChartAsyncPresentation } from "@/components/technical-analysis/components/chart/chartAsyncPresentation";
@@ -1367,6 +1368,33 @@ const ChartUI: React.FC = () => {
     cell.chartId === multiChartLayout.activeChartId
   ));
   const isMultiChartMode = multiChartLayout.isEnabled && multiChartLayout.charts.length > 1;
+  const handleActiveChartViewportChange = useCallback((viewport: ChartViewportChange) => {
+    if (!multiChartLayout.isEnabled) return;
+    const activeCell = multiChartLayout.charts.find(
+      (cell) => cell.chartId === multiChartLayout.activeChartId,
+    );
+    if (!activeCell) return;
+
+    const currentViewport = "viewport" in activeCell
+      ? activeCell.viewport as ChartViewportChange | undefined
+      : undefined;
+    if (
+      currentViewport?.startTime === viewport.startTime
+      && currentViewport.endTime === viewport.endTime
+      && currentViewport.yScale === viewport.yScale
+      && currentViewport.isYManual === viewport.isYManual
+    ) return;
+
+    dispatch(updateLayoutChart({
+      chartId: activeCell.chartId,
+      viewport: { ...viewport },
+    }));
+  }, [
+    dispatch,
+    multiChartLayout.activeChartId,
+    multiChartLayout.charts,
+    multiChartLayout.isEnabled,
+  ]);
   useEffect(() => {
     if (!isMultiChartMode || !brokerState?.isBrokerModalOpen) return;
     brokerState.setIsBrokerModalOpen(false);
@@ -1872,6 +1900,7 @@ const ChartUI: React.FC = () => {
                           hiddenObjectIds,
                           pineOverlay: pineChartOverlay,
                           onHistoryBoundaryRequest: marketData.requestMoreHistory,
+                           onViewportChange: handleActiveChartViewportChange,
                         }}
                         overlay={{
                           selectedDrawingId,
