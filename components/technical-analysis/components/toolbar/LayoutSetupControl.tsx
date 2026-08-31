@@ -42,7 +42,17 @@ const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string
 ];
 
 const LAYOUT_POPOVER_MAX_WIDTH = 444;
+const LAYOUT_POPOVER_MAX_HEIGHT = 760;
 const LAYOUT_POPOVER_VIEWPORT_GUTTER = 12;
+const LAYOUT_POPOVER_ANCHOR_GAP = 8;
+const LAYOUT_POPOVER_PREFERRED_VISIBLE_HEIGHT = 520;
+
+type LayoutPopoverPosition = {
+  top?: number;
+  bottom?: number;
+  right: number;
+  maxHeight: number;
+};
 
 const getViewportSafePopoverRight = (anchorRight: number, viewportWidth: number): number => {
   const popoverWidth = Math.min(
@@ -55,6 +65,46 @@ const getViewportSafePopoverRight = (anchorRight: number, viewportWidth: number)
     viewportWidth - popoverWidth - LAYOUT_POPOVER_VIEWPORT_GUTTER,
   );
   return Math.min(anchoredRight, maximumRight);
+};
+
+const getViewportSafePopoverPosition = (
+  anchor: Pick<DOMRect, "top" | "right" | "bottom">,
+  viewportWidth: number,
+  viewportHeight: number,
+): LayoutPopoverPosition => {
+  const right = getViewportSafePopoverRight(anchor.right, viewportWidth);
+  const safeViewportHeight = Math.max(0, viewportHeight - (LAYOUT_POPOVER_VIEWPORT_GUTTER * 2));
+  const availableBelow = Math.max(
+    0,
+    viewportHeight - anchor.bottom - LAYOUT_POPOVER_ANCHOR_GAP - LAYOUT_POPOVER_VIEWPORT_GUTTER,
+  );
+  const availableAbove = Math.max(
+    0,
+    anchor.top - LAYOUT_POPOVER_ANCHOR_GAP - LAYOUT_POPOVER_VIEWPORT_GUTTER,
+  );
+  const preferredVisibleHeight = Math.min(
+    LAYOUT_POPOVER_PREFERRED_VISIBLE_HEIGHT,
+    LAYOUT_POPOVER_MAX_HEIGHT,
+    safeViewportHeight,
+  );
+  const openBelow = availableBelow >= preferredVisibleHeight || availableBelow >= availableAbove;
+
+  if (openBelow) {
+    return {
+      top: Math.max(LAYOUT_POPOVER_VIEWPORT_GUTTER, anchor.bottom + LAYOUT_POPOVER_ANCHOR_GAP),
+      right,
+      maxHeight: Math.min(LAYOUT_POPOVER_MAX_HEIGHT, Math.max(availableBelow, 1)),
+    };
+  }
+
+  return {
+    bottom: Math.max(
+      LAYOUT_POPOVER_VIEWPORT_GUTTER,
+      viewportHeight - anchor.top + LAYOUT_POPOVER_ANCHOR_GAP,
+    ),
+    right,
+    maxHeight: Math.min(LAYOUT_POPOVER_MAX_HEIGHT, Math.max(availableAbove, 1)),
+  };
 };
 
 const LayoutGlyph: React.FC<{ layoutId?: MultiChartLayoutId; disabled?: boolean }> = ({ layoutId = "single", disabled = false }) => {
@@ -79,7 +129,11 @@ export const LayoutSetupControl: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [resolvingPresetId, setResolvingPresetId] = useState<string | null>(null);
   const [presetError, setPresetError] = useState<string | null>(null);
-  const [popoverPos, setPopoverPos] = useState({ top: 0, right: 0 });
+  const [popoverPos, setPopoverPos] = useState<LayoutPopoverPosition>({
+    top: LAYOUT_POPOVER_VIEWPORT_GUTTER,
+    right: LAYOUT_POPOVER_VIEWPORT_GUTTER,
+    maxHeight: LAYOUT_POPOVER_MAX_HEIGHT,
+  });
   const [isPersistenceHydrated, setIsPersistenceHydrated] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -202,10 +256,7 @@ export const LayoutSetupControl: React.FC = () => {
     const updatePosition = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setPopoverPos({
-        top: rect.bottom + 8,
-        right: getViewportSafePopoverRight(rect.right, window.innerWidth),
-      });
+      setPopoverPos(getViewportSafePopoverPosition(rect, window.innerWidth, window.innerHeight));
     };
     window.addEventListener("pointerdown", handleClickOutside);
     window.addEventListener("keydown", handleEscape);
@@ -222,10 +273,7 @@ export const LayoutSetupControl: React.FC = () => {
   const togglePopover = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      setPopoverPos({
-        top: rect.bottom + 8,
-        right: getViewportSafePopoverRight(rect.right, window.innerWidth),
-      });
+      setPopoverPos(getViewportSafePopoverPosition(rect, window.innerWidth, window.innerHeight));
     }
     setIsOpen((current) => !current);
   };
@@ -248,7 +296,7 @@ export const LayoutSetupControl: React.FC = () => {
           className="gp-layout-popover"
           role="dialog"
           aria-label="Layout setup"
-          style={{ top: popoverPos.top, right: popoverPos.right }}
+          style={popoverPos}
         >
           <div className="gp-layout-popover__header">
             <div>

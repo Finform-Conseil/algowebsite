@@ -55,6 +55,7 @@ import { useCoursRepository } from "@/core/infra/repositories/cours.repository.i
 import { useIndiceRepository } from "@/core/infra/repositories/indice.repository.impl";
 import {
   coursSeriesToChartData,
+  getCanonicalChartTimeKey,
   priceMetricToLiveSnapshot,
 } from "@/lib/utils/marketDataTransform";
 import {
@@ -166,16 +167,19 @@ const mergeChartHistory = (current: ChartDataPoint[], incoming: ChartDataPoint[]
     return [...current, ...incoming];
   }
 
-  // Deduplication & merge with numeric timestamp sorting
+  // Deduplicate by logical instant, never by the raw ISO spelling. This prevents
+  // equivalent timestamps (`Z`, `+0000`, normalized offsets) from surviving a
+  // cache/page merge as two OHLC bars at the same logical position.
   const timeMap = new Map<string, { point: ChartDataPoint; ts: number }>();
-  for (const point of current) {
-    const ts = Date.parse(String(point.time));
-    timeMap.set(String(point.time), { point, ts: Number.isFinite(ts) ? ts : 0 });
-  }
-  for (const point of incoming) {
-    const ts = Date.parse(String(point.time));
-    timeMap.set(String(point.time), { point, ts: Number.isFinite(ts) ? ts : 0 });
-  }
+  const indexPoint = (point: ChartDataPoint) => {
+    const rawTime = String(point.time ?? "").trim();
+    const key = getCanonicalChartTimeKey(rawTime);
+    if (!key) return;
+    const ts = Date.parse(rawTime);
+    timeMap.set(key, { point, ts: Number.isFinite(ts) ? ts : 0 });
+  };
+  current.forEach(indexPoint);
+  incoming.forEach(indexPoint);
 
   return Array.from(timeMap.values())
     .sort((left, right) => left.ts - right.ts)

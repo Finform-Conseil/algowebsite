@@ -11,16 +11,27 @@ export const applyPrimaryLayoutSymbol = (
   const primaryChartId = layout.charts[0]?.chartId;
   if (!normalized || !primaryChartId) return;
 
-  layout.activeChartId = primaryChartId;
+  const isMultiChartMode = layout.isEnabled && layout.charts.length > 1;
+  const targetChartId = isMultiChartMode
+    ? (layout.charts.some((chart) => chart.chartId === layout.activeChartId)
+        ? layout.activeChartId
+        : primaryChartId)
+    : primaryChartId;
 
-  layout.charts.forEach((chart, index) => {
-    if (index === 0 || layout.sync.symbol) {
+  // Symbol mutation and focus mutation are distinct operations. In multi-chart
+  // mode, selecting/replacing a symbol updates the active cell (or all cells only
+  // when explicit symbol sync is enabled) but must never force focus back to the
+  // first slot. This prevents an active secondary ticker from overwriting chart_1.
+  if (!isMultiChartMode) layout.activeChartId = primaryChartId;
+
+  layout.charts.forEach((chart) => {
+    if (chart.chartId === targetChartId || layout.sync.symbol) {
       chart.symbol = normalized;
       const runtimeChart = chart as typeof chart & { sourceKind?: "equity" | "index"; sourceId?: string };
       runtimeChart.sourceKind = "equity";
       runtimeChart.sourceId = "";
     }
-    chart.isActive = chart.chartId === primaryChartId;
+    if (!isMultiChartMode) chart.isActive = chart.chartId === primaryChartId;
   });
 };
 

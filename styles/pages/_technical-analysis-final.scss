@@ -107,6 +107,10 @@
   --gp-bg-primary: #102a43;
   --gp-bg-card: #1c3a57;
   --gp-bg-toolbar: #0d2136;
+  // Canonical chart surface: single-chart and the ACTIVE multi-chart peer.
+  --gp-chart-surface-bg: rgb(16, 42, 67);
+  // Inactive multi-chart peers intentionally remain darker so activity is obvious.
+  --gp-chart-inactive-surface-bg: #08182a;
   --gp-text-primary: #f8f9fa;
   --gp-text-secondary: #a0aec0;
   --gp-border-color: #244869;
@@ -1335,7 +1339,7 @@
   max-height: 100%;
   box-sizing: border-box;
   overflow: hidden !important;
-  background-color: rgb(16, 42, 67);
+  background-color: var(--gp-chart-surface-bg);
 }
 
 .gp-chart-empty-identity {
@@ -1476,7 +1480,7 @@
   position: fixed;
   box-sizing: border-box;
   width: min(444px, calc(100vw - 24px));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  height: auto;
   max-height: min(760px, calc(100vh - 24px));
   max-height: min(760px, calc(100dvh - 24px));
   min-height: 0;
@@ -1662,6 +1666,60 @@
   }
 }
 
+@media (max-width: 380px) {
+  .gp-layout-popover {
+    width: calc(100vw - 16px);
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .gp-layout-popover__header {
+    gap: 10px;
+  }
+
+  .gp-layout-popover__layouts {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 10px 0;
+  }
+
+  .gp-layout-option {
+    grid-template-columns: 28px 32px minmax(0, 1fr);
+    gap: 7px;
+    min-height: 46px;
+    padding: 7px 8px;
+  }
+
+  .gp-layout-presets {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+@media (max-height: 700px) {
+  .gp-layout-popover {
+    padding: 10px;
+  }
+
+  .gp-layout-popover__header {
+    padding-bottom: 9px;
+  }
+
+  .gp-layout-popover__layouts {
+    gap: 6px;
+    padding: 8px 0;
+  }
+
+  .gp-layout-option {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+
+  .gp-layout-popover__section-title {
+    padding-top: 6px;
+  }
+}
+
 .gp-layout-presets__error {
   display: flex;
   align-items: flex-start;
@@ -1801,6 +1859,7 @@
 
 
 .gp-multi-chart-grid {
+  position: relative;
   flex: 1 1 0%;
   flex-basis: 0;
   min-width: 0;
@@ -1816,13 +1875,34 @@
   &.layout-two-horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   &.layout-two-vertical { grid-template-rows: repeat(2, minmax(0, 1fr)); }
   &.layout-three-focus-right { grid-template-columns: 1.55fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); }
-  &.layout-three-focus-right .gp-multi-chart-cell--active { grid-row: 1 / span 2; }
+  &.layout-three-focus-right .gp-multi-chart-slot.is-active { grid-row: 1 / span 2; }
   &.layout-four-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
   &.layout-six-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
   &.layout-eight-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
   &.layout-nine-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
   &.layout-twelve-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
   &.layout-sixteen-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
+}
+
+// TradingView-like panel lifecycle: every slot owns its renderer permanently.
+// Focus changes only state/outline; no canvas is moved, hidden underneath another
+// chart, or reparented across cells.
+.gp-multi-chart-slot {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 6px;
+
+  > .gp-peer-chart,
+  > .gp-multi-chart-cell {
+    width: 100%;
+    height: 100%;
+  }
+
+  &.is-active {
+    box-shadow: inset 0 0 0 1px rgba(250, 204, 21, .78);
+  }
 }
 
 .gp-multi-chart-cell {
@@ -1873,11 +1953,12 @@
 
 .gp-multi-chart-cell__active-header,
 .gp-multi-chart-cell__header {
-  height: 27px;
+  min-height: 34px;
+  height: auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 9px;
+  padding: 3px 9px;
   border-bottom: 1px solid rgba(148, 163, 184, .14);
   color: #dbeafe;
   font-size: 12px;
@@ -1934,7 +2015,7 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   min-width: 0;
   white-space: nowrap;
 }
@@ -1960,14 +2041,14 @@
 
 .gp-multi-chart-cell-select,
 .gp-multi-chart-cell-action {
-  height: 20px;
+  height: 26px;
   border: 1px solid rgba(148, 163, 184, .22);
   border-radius: 4px;
   background: rgba(15, 35, 56, .88);
   color: #cbd5e1;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 18px;
+  line-height: 24px;
   transition: border-color .14s ease, background .14s ease, color .14s ease;
 
   &:focus-visible {
@@ -1976,9 +2057,24 @@
   }
 }
 
+.technical-analysis-root .gp-multi-chart-cell-select {
+  height: 26px;
+  min-height: 26px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 24px;
+}
+
 .gp-multi-chart-cell-select {
-  max-width: 68px;
-  padding: 0 3px;
+  flex: 0 0 auto;
+  width: 62px;
+  max-width: 62px;
+  padding: 0 6px;
+
+  &:nth-of-type(2) {
+    width: 128px;
+    max-width: 128px;
+  }
   cursor: pointer;
 
   &:disabled {
@@ -1988,8 +2084,8 @@
 }
 
 .gp-multi-chart-cell-action {
-  width: 22px;
-  min-width: 22px;
+  width: 28px;
+  min-width: 28px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -2171,22 +2267,50 @@
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #08182a;
+  // Multi-chart activity is intentionally asymmetric: inactive peers stay dark,
+  // while only the active peer adopts the canonical single-chart surface.
+  background-color: var(--gp-chart-inactive-surface-bg);
   outline: none;
-  cursor: crosshair;
+  cursor: default;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
 
   &:focus-visible {
     outline: 2px solid rgba(250, 204, 21, 0.78);
     outline-offset: -2px;
   }
 
+  &.is-active {
+    background-color: var(--gp-chart-surface-bg);
+    box-shadow: inset 0 0 0 1px rgba(250, 204, 21, .78);
+    cursor: crosshair;
+  }
+
+  // The canonical cursor layer belongs exclusively to the active peer. This
+  // barrier also prevents a one-frame ghost during active-cell swaps.
+  &:not(.is-active) {
+    .gp-cursor-crosshair-line,
+    .gp-cursor-date-label,
+    .gp-cursor-data-window {
+      display: none !important;
+    }
+  }
+
+  &__active-badge {
+    color: #facc15;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+
   &__header {
     flex: 0 0 auto;
-    height: 27px;
+    min-height: 34px;
+    height: auto;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 9px;
+    padding: 3px 9px;
     border-bottom: 1px solid rgba(148, 163, 184, 0.14);
     background-color: rgba(13, 20, 33, 0.6);
     font-size: 11px;
@@ -2265,7 +2389,21 @@
     width: 100%;
   }
 
+  &__world-map {
+    z-index: 0;
+    opacity: .28;
+    filter: brightness(.58) saturate(.68);
+    transition: opacity 140ms ease, filter 140ms ease;
+  }
+
+  &.is-active &__world-map {
+    opacity: 1;
+    filter: none;
+  }
+
   &__echart {
+    position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
   }
@@ -10659,4 +10797,26 @@ textarea.gp-pine-code {
   border: 1px solid rgba(245,158,11,.45);
   border-radius: .5rem;
   color: #fbbf24;
+}
+
+// Multi-chart active state: one crisp selection ring owned by the slot only.
+// Avoid the former double inset shadow (slot + peer), which produced thick,
+// uneven joins around the header/canvas and looked visually noisy.
+.gp-multi-chart-slot.is-active {
+  box-shadow: none;
+}
+
+.gp-multi-chart-slot.is-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  border: 1px solid rgba(250, 204, 21, .56);
+  border-radius: inherit;
+  box-sizing: border-box;
+}
+
+.gp-peer-chart.is-active {
+  box-shadow: none;
 }

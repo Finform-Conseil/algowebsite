@@ -81,8 +81,12 @@ import { ToolbarButton } from "@/components/technical-analysis/components/toolba
 import { InlineTextEditor } from "@/components/technical-analysis/components/toolbar/floating/InlineTextEditor";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
 import { MultiChartLayoutGrid } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
-import { convertLayoutSeriesCurrency } from "@/components/technical-analysis/components/layout/layoutChartData";
+import {
+  convertLayoutSeriesByRate,
+  convertLayoutSeriesCurrency,
+} from "@/components/technical-analysis/components/layout/layoutChartData";
 import { resolveLayoutTickerMarket } from "@/components/technical-analysis/components/layout/layoutTickerSelection";
+import { isMultiChartTickerContextIsolated } from "@/components/technical-analysis/components/layout/layoutTickerContextPolicy";
 
 // Hooks & Libs
 import { useDrawingManager } from "@/components/technical-analysis/hooks/useDrawingManager";
@@ -97,7 +101,8 @@ import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFlo
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
 import type { ChartViewportChange } from "@/components/technical-analysis/hooks/useChartViewport";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
-import { ChartRenderEngine } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
+import { ChartRenderEngine, type ChartRenderEngineProps } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
+import { ChartInteractionEngine } from "@/components/technical-analysis/components/chart/ChartInteractionEngine";
 import { resolvePrimaryChartAsyncPresentation } from "@/components/technical-analysis/components/chart/chartAsyncPresentation";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -762,11 +767,10 @@ const ChartUI: React.FC = () => {
   const reduxSymbol = useSelector((state: RootState) => state.technicalAnalysis.chartConfig.symbol);
   const activeChartId = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout.activeChartId);
   const activeLayoutState = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout, shallowEqual);
-  const primaryLayoutChartId = activeLayoutState.charts[0]?.chartId;
-  const isSecondaryLayoutActive = activeLayoutState.isEnabled
-    && activeLayoutState.charts.length > 1
-    && Boolean(activeChartId)
-    && activeChartId !== primaryLayoutChartId;
+  const isTickerContextIsolated = isMultiChartTickerContextIsolated(
+    activeLayoutState.isEnabled,
+    activeLayoutState.charts.length,
+  );
 
   const handleRequestLayoutMarketSelection = useCallback((chartId: string) => {
     openLayoutMarketDirectory(chartId);
@@ -779,12 +783,22 @@ const ChartUI: React.FC = () => {
   useEffect(() => {
     const contextSymbol = primaryTicker?.ticker || "";
 
-    // On mount, make the API-selected primary title authoritative. A previously
-    // persisted layout must never revive an old primary cell over it.
+    // In multi-chart mode every cell owns its symbol binding. The workspace
+    // TickerSelector context may hydrate asynchronously or carry an unrelated
+    // single-chart preference; it must never overwrite, clear, or bootstrap a
+    // cell merely because focus changed. Track both values so returning to
+    // single-chart mode starts from a balanced observation point.
+    if (isTickerContextIsolated) {
+      prevReduxSymbol.current = reduxSymbol;
+      prevContextSymbol.current = contextSymbol;
+      return;
+    }
+
+    // Single-chart mode preserves the historical bidirectional sync contract.
     if (!prevReduxSymbol.current && !prevContextSymbol.current) {
       prevReduxSymbol.current = reduxSymbol;
       prevContextSymbol.current = contextSymbol;
-      if (contextSymbol && contextSymbol !== reduxSymbol && !isSecondaryLayoutActive) {
+      if (contextSymbol && contextSymbol !== reduxSymbol) {
         dispatch(setSymbol(contextSymbol));
       }
       return;
@@ -794,18 +808,15 @@ const ChartUI: React.FC = () => {
     const contextChanged = contextSymbol !== prevContextSymbol.current;
 
     if (reduxChanged && reduxSymbol) {
-      // Redux is the initiator (e.g. user clicked a secondary chart cell or preset).
-      // Keep the workspace preference observed; a secondary layout cell owns its own binding.
       prevReduxSymbol.current = reduxSymbol;
       if (reduxSymbol !== contextSymbol) {
         prevContextSymbol.current = contextSymbol;
-        if (!isSecondaryLayoutActive) setSelectedTicker(null);
+        setSelectedTicker(null);
       }
     } else if (contextChanged && contextSymbol) {
-      // Context is the initiator (e.g. user searched a ticker in the search modal).
       prevContextSymbol.current = contextSymbol;
-      if (contextSymbol !== reduxSymbol && !isSecondaryLayoutActive) {
-        prevReduxSymbol.current = contextSymbol; // speculative sync to prevent feedback loop
+      if (contextSymbol !== reduxSymbol) {
+        prevReduxSymbol.current = contextSymbol;
         if (activeChartId) {
           dispatch(updateLayoutChart({
             chartId: activeChartId,
@@ -818,12 +829,11 @@ const ChartUI: React.FC = () => {
       }
     }
 
-    // Always balance refs when they are fully synced
     if (reduxSymbol === contextSymbol) {
       prevReduxSymbol.current = reduxSymbol;
       prevContextSymbol.current = contextSymbol;
     }
-  }, [reduxSymbol, primaryTicker, activeChartId, dispatch, isSecondaryLayoutActive, setSelectedTicker]);
+  }, [reduxSymbol, primaryTicker, activeChartId, dispatch, isTickerContextIsolated, setSelectedTicker]);
 
   useEffect(() => {
     const requestedTicker = (reduxSymbol || preferredTicker || "").trim().toUpperCase();
@@ -1107,11 +1117,22 @@ const ChartUI: React.FC = () => {
 
   const comparisonRequests = useMemo<ComparisonMarketRequest[]>(() => {
     const activeMarketScope = normalizeMarketDataScope(activeMarket.ticker);
-    const primarySymbol = String(primaryTicker?.ticker || chartState.security.ticker || preferredTicker || "")
-      .trim()
-      .toUpperCase();
+    const requestActiveCell = multiChartLayout.charts.find(
+      (cell) => cell.chartId === multiChartLayout.activeChartId,
+    );
+    const requestIsMultiChartMode = multiChartLayout.isEnabled && multiChartLayout.charts.length > 1;
+    const primarySymbol = String(
+      (requestIsMultiChartMode ? requestActiveCell?.symbol : "")
+        || primaryTicker?.ticker
+        || chartState.security.ticker
+        || preferredTicker
+        || "",
+    ).trim().toUpperCase();
     const primaryMarketScope = normalizeMarketDataScope(
-      primaryTicker?.exchange || chartState.security.exchange || activeMarket.ticker,
+      (requestIsMultiChartMode ? requestActiveCell?.exchange : "")
+        || primaryTicker?.exchange
+        || chartState.security.exchange
+        || activeMarket.ticker,
     );
     const uniqueRequests = new Map<string, ComparisonMarketRequest>();
     const candidates: ComparisonMarketRequest[] = [
@@ -1128,7 +1149,9 @@ const ChartUI: React.FC = () => {
         };
       }),
     ];
-    const activeTimeframe = normalizeChartTimeframe(chartConfig.timeframe) ?? "1D";
+    const activeTimeframe = normalizeChartTimeframe(
+      requestIsMultiChartMode ? requestActiveCell?.interval : chartConfig.timeframe,
+    ) ?? "1D";
 
     for (const candidate of candidates) {
       const symbol = String(candidate.symbol ?? "").trim().toUpperCase();
@@ -1155,7 +1178,9 @@ const ChartUI: React.FC = () => {
     chartState.security.ticker,
     chartConfig.timeframe,
     comparisonSymbols,
+    multiChartLayout.activeChartId,
     multiChartLayout.charts,
+    multiChartLayout.isEnabled,
     preferredTicker,
     primaryTicker?.exchange,
     primaryTicker?.ticker,
@@ -1210,6 +1235,16 @@ const ChartUI: React.FC = () => {
   const displayMarketData = useMemo(() => {
     const converted: typeof mergedMarketData = {};
     for (const [cacheKey, series] of Object.entries(mergedMarketData)) {
+      if (activeSeriesSourceKind === "equity" && cacheKey === activeLayoutCacheKey) {
+        // The active symbol is intentionally excluded from ComparisonManager to
+        // avoid duplicate network work. Reuse the canonical chart's effective
+        // rate for every peer sharing that same cache key, otherwise inactive
+        // duplicates fall back to raw native-market prices while the active
+        // chart is already displayed in the global currency.
+        converted[cacheKey] = convertLayoutSeriesByRate(series, chartState.effectiveRate);
+        continue;
+      }
+
       converted[cacheKey] = convertLayoutSeriesCurrency(
         series,
         comparisonCurrencyByKey[cacheKey],
@@ -1218,8 +1253,33 @@ const ChartUI: React.FC = () => {
       );
     }
     return converted;
-  }, [comparisonCurrencyByKey, displayCurrency, mergedMarketData, rates]);
-  const mergedLoadState = comparisonLoadState;
+  }, [
+    activeLayoutCacheKey,
+    activeSeriesSourceKind,
+    chartState.effectiveRate,
+    comparisonCurrencyByKey,
+    displayCurrency,
+    mergedMarketData,
+    rates,
+  ]);
+  const mergedLoadState = useMemo(() => {
+    // The active equity cell is intentionally excluded from ComparisonManager to
+    // avoid a duplicate OHLCV request. Its terminal status must therefore come
+    // from the canonical MarketDataProvider; otherwise an empty/failed active
+    // timeframe falls back to `idle` and FullPeerChart keeps its loader forever.
+    if (activeSeriesSourceKind !== "equity" || !activeLayoutCacheKey) {
+      return comparisonLoadState;
+    }
+    return {
+      ...comparisonLoadState,
+      [activeLayoutCacheKey]: marketData.loadStatus,
+    };
+  }, [
+    activeLayoutCacheKey,
+    activeSeriesSourceKind,
+    comparisonLoadState,
+    marketData.loadStatus,
+  ]);
 
   const {
     activeToolbarPopup,
@@ -1516,17 +1576,8 @@ const ChartUI: React.FC = () => {
   );
 
   const activeDisplayChartData = useMemo(() => {
-    const sourceData = activeFilteredChartData;
     const rate = activeCellSourceKind === "index" ? 1 : chartState.effectiveRate;
-    if (rate === 1) return sourceData;
-
-    return sourceData.map((p) => ({
-      ...p,
-      open: p.open * rate,
-      high: p.high * rate,
-      low: p.low * rate,
-      close: p.close * rate,
-    }));
+    return convertLayoutSeriesByRate(activeFilteredChartData, rate);
   }, [activeCellSourceKind, activeFilteredChartData, chartState.effectiveRate]);
 
   const activeSecondaryLoadStatus = isMultiChartMode && !isPrimaryActive && activeLayoutSymbol
@@ -1723,6 +1774,36 @@ const ChartUI: React.FC = () => {
   const shouldEnableDrawingCanvasPointerEvents = Boolean(activeTool || cursorMode === "eraser" || (drawings.length > 0 && cursorMode !== "magic"));
   const drawingCanvasCursor = activeTool ? "crosshair" : isCustomCursorMode ? "none" : cursorMode.startsWith("cross") ? "crosshair" : "default";
 
+  const activeOverlayRendererProps: ChartRenderEngineProps["overlay"] = {
+    selectedDrawingId,
+    drawings,
+    chartInstanceRef: refs.chartInstanceRef,
+    drawingCanvasRef: refs.drawingCanvasRef,
+    drawingToolbarRef: refs.drawingToolbarRef,
+    gridRect,
+    toolbarOffsetRef,
+    chartData: activeDisplayChartData,
+    interactionScopeKey: chartInteractionScopeKey,
+    isChartLoading: shouldShowPrimaryChartLoader,
+  };
+  const activeCursorRendererProps: ChartRenderEngineProps["cursor"] = {
+    canvasRef: refs.cursorCanvasRef,
+    containerRef: refs.layersStackRef,
+    eventSourceRef: refs.drawingCanvasRef,
+    mode: cursorMode,
+    suspendForDrawing: Boolean(activeTool),
+    chartRef: refs.chartInstanceRef as React.RefObject<EChartsInstance>,
+    chartData: activeDisplayChartData,
+    interactionScopeKey: chartCursorInteractionScopeKey,
+    isChartLoading: shouldShowPrimaryChartLoader,
+    cursorPriceBadgeRef: refs.cursorPriceBadgeRef,
+    cursorPriceTextRef: refs.cursorPriceTextRef,
+    cursorPriceActionRef: refs.cursorPriceActionRef,
+    lastPriceBadgeRef: refs.lastPriceBadgeRef,
+    lastPriceLineRef: refs.lastPriceLineRef,
+    lastPriceAxisValue: shouldRenderLastPriceAxis ? lightweightLastPrice : undefined,
+  };
+
   return (
     <TechnicalAnalysisPortalProvider>
     <div
@@ -1829,21 +1910,30 @@ const ChartUI: React.FC = () => {
                     dataSourceByKey={comparisonDataSourceByKey}
                     dataMode={dataMode}
                     activeChartInstanceRef={refs.chartInstanceRef}
-                    activeChartData={activeDisplayChartData}
-                    activeInterval={chartConfig.timeframe}
                     chartAppearance={chartAppearance}
+                    uiState={uiStateProxy}
+                    hiddenObjectIds={hiddenObjectIds}
                     onActivateChart={handleActivateLayoutChart}
                     onRequestMarketSelection={handleRequestLayoutMarketSelection}
                     onRequestTickerSelection={handleRequestLayoutTickerSelection}
                   >
                     <div
-                      key={chartInteractionScopeKey}
+                      data-interaction-scope={chartInteractionScopeKey}
                       className={clsx("gp-chart-layers-stack", shouldShowPrimaryChartLoader && "is-chart-loading")}
                       ref={refs.layersStackRef}
-                      style={{ position: "relative", flexGrow: 1, minHeight: 0, overflow: "hidden" }}
+                      style={{
+                        position: isMultiChartMode ? "absolute" : "relative",
+                        inset: isMultiChartMode ? 0 : undefined,
+                        flexGrow: isMultiChartMode ? undefined : 1,
+                        minHeight: 0,
+                        overflow: "hidden",
+                        zIndex: isMultiChartMode ? 2 : undefined,
+                        background: isMultiChartMode ? "transparent" : undefined,
+                        pointerEvents: isMultiChartMode ? "none" : undefined,
+                      }}
                     >
-                      <div className="gp-chart-world-map" aria-hidden="true" />
-                      {shouldShowPrimaryChartEmptyState && (
+                      {!isMultiChartMode && <div className="gp-chart-world-map" aria-hidden="true" />}
+                      {!isMultiChartMode && shouldShowPrimaryChartEmptyState && (
                         <MemoizedChartEmptyIdentity
                           symbol={activeChartSymbol || chartState.security.ticker || "Titre sélectionné"}
                           exchange={activeChartMarketScope || chartState.security.exchange || "Marché"}
@@ -1858,13 +1948,21 @@ const ChartUI: React.FC = () => {
                           draggable={false}
                         />
                       )}
-                      <div
-                        id="gp-stock-chart"
-                        className={clsx("technical-analysis-chart", `cursor-mode-${cursorMode.split("-")[0]}`)}
-                        ref={refs.stockChartRef}
-                        style={{ width: "100%", height: "100%", touchAction: "none", position: "relative", zIndex: 1 }}
-                      ></div>
+                      {!isMultiChartMode && (
+                        <div
+                          id="gp-stock-chart"
+                          className={clsx("technical-analysis-chart", `cursor-mode-${cursorMode.split("-")[0]}`)}
+                          ref={refs.stockChartRef}
+                          style={{ width: "100%", height: "100%", touchAction: "none", position: "relative", zIndex: 1 }}
+                        />
+                      )}
 
+                      {isMultiChartMode ? (
+                        <ChartInteractionEngine
+                          overlay={activeOverlayRendererProps}
+                          cursor={activeCursorRendererProps}
+                        />
+                      ) : (
                       <ChartRenderEngine
                         chart={{
                           stockChartRef: refs.stockChartRef,
@@ -1882,11 +1980,6 @@ const ChartUI: React.FC = () => {
                           marketLabel: activeChartMarketScope || chartState.security.exchange || "BRVM",
                           hideChartTitle: isMultiChartMode,
                           lastZoomRangeRef: refs.lastZoomRangeRef,
-                          cursorPriceBadgeRef: refs.cursorPriceBadgeRef,
-                          cursorPriceTextRef: refs.cursorPriceTextRef,
-                          cursorPriceActionRef: refs.cursorPriceActionRef,
-                          lastPriceBadgeRef: refs.lastPriceBadgeRef,
-                          lastPriceLineRef: refs.lastPriceLineRef,
                           lastPriceAxisValue: shouldRenderLastPriceAxis ? lightweightLastPrice : undefined,
                           isMainChartVisible: chartState.isMainChartVisible,
                           isChartLoading: shouldShowPrimaryChartLoader,
@@ -1902,30 +1995,10 @@ const ChartUI: React.FC = () => {
                           onHistoryBoundaryRequest: marketData.requestMoreHistory,
                            onViewportChange: handleActiveChartViewportChange,
                         }}
-                        overlay={{
-                          selectedDrawingId,
-                          drawings,
-                          chartInstanceRef: refs.chartInstanceRef,
-                          drawingCanvasRef: refs.drawingCanvasRef,
-                          drawingToolbarRef: refs.drawingToolbarRef,
-                          gridRect,
-                          toolbarOffsetRef,
-                          chartData: activeDisplayChartData,
-                          interactionScopeKey: chartInteractionScopeKey,
-                          isChartLoading: shouldShowPrimaryChartLoader,
-                        }}
-                        cursor={{
-                          canvasRef: refs.cursorCanvasRef,
-                          containerRef: refs.layersStackRef,
-                          eventSourceRef: refs.drawingCanvasRef,
-                          mode: cursorMode,
-                          suspendForDrawing: Boolean(activeTool),
-                          chartRef: refs.chartInstanceRef as React.RefObject<EChartsInstance>,
-                          chartData: activeDisplayChartData,
-                          interactionScopeKey: chartCursorInteractionScopeKey,
-                          isChartLoading: shouldShowPrimaryChartLoader,
-                        }}
+                        overlay={activeOverlayRendererProps}
+                        cursor={activeCursorRendererProps}
                       />
+                      )}
 
                       <canvas
                         ref={refs.cursorCanvasRef}
@@ -1975,11 +2048,11 @@ const ChartUI: React.FC = () => {
 
                     <ConnectedPriceAxisOverlay />
 
-                    <TimeAxisControls chartInstanceRef={refs.chartInstanceRef} />
+                    {!isMultiChartMode && <TimeAxisControls chartInstanceRef={refs.chartInstanceRef} />}
 
-                    <MemoizedPremiumLoader isVisible={shouldShowPrimaryChartLoader} />
-                    {shouldShowPrimaryChartEmptyState && <MemoizedChartEmptyState />}
-                    {shouldShowPrimaryChartErrorState && <MemoizedChartErrorState />}
+                    {!isMultiChartMode && <MemoizedPremiumLoader isVisible={shouldShowPrimaryChartLoader} />}
+                    {!isMultiChartMode && shouldShowPrimaryChartEmptyState && <MemoizedChartEmptyState />}
+                    {!isMultiChartMode && shouldShowPrimaryChartErrorState && <MemoizedChartErrorState />}
 
                     <div
                       className="gp-drawing-overlay-shield"

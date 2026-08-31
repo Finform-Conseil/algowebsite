@@ -15,6 +15,14 @@ import {
   updateCrosshairElements,
   type CrosshairDomElements,
 } from './overlays/cursorDom';
+import {
+  hideCursorPriceAxisBadge,
+  hideLastPriceAxisBadge,
+  updateCursorPriceAxisBadge,
+  updateLastPriceAxisBadge,
+  type CursorPriceAxisBadgeElements,
+  type LastPriceAxisBadgeElements,
+} from './overlays/cursorPriceAxisBadge';
 
 const TOOLTIP_BASE_WIDTH = 240;
 const TOOLTIP_BASE_HEIGHT = 160;
@@ -48,6 +56,12 @@ interface UseCursorRendererProps {
   chartData: CandleData[];
   interactionScopeKey?: string;
   isChartLoading?: boolean;
+  cursorPriceBadgeRef?: React.RefObject<HTMLDivElement | null>;
+  cursorPriceTextRef?: React.RefObject<HTMLSpanElement | null>;
+  cursorPriceActionRef?: React.RefObject<HTMLButtonElement | null>;
+  lastPriceBadgeRef?: React.RefObject<HTMLDivElement | null>;
+  lastPriceLineRef?: React.RefObject<HTMLDivElement | null>;
+  lastPriceAxisValue?: number;
 }
 
 // ============================================================================
@@ -201,6 +215,12 @@ export const useCursorRenderer = ({
   chartData,
   interactionScopeKey,
   isChartLoading = false,
+  cursorPriceBadgeRef,
+  cursorPriceTextRef,
+  cursorPriceActionRef,
+  lastPriceBadgeRef,
+  lastPriceLineRef,
+  lastPriceAxisValue,
 }: UseCursorRendererProps) => {
   const mouseRef = useRef<{ x: number, y: number, clientX: number, clientY: number } | null>(null);
   const isReadyRef = useRef(false);
@@ -232,9 +252,51 @@ export const useCursorRenderer = ({
   const hasCanvasContentRef = useRef(false);
   const cursorVisualsVisibleRef = useRef(false);
   const isChartLoadingRef = useRef(Boolean(isChartLoading));
+  const lastPriceAxisValueRef = useRef<number | undefined>(lastPriceAxisValue);
   const hoveredHeaderChartRef = useRef<EChartsInstance | null>(null);
   const hoveredHeaderBaseTextRef = useRef<string | null>(null);
   const hoveredHeaderLastTextRef = useRef<string | null>(null);
+
+  const getCursorPriceAxisElements = useCallback((): CursorPriceAxisBadgeElements => ({
+    badge: cursorPriceBadgeRef?.current ?? null,
+    text: cursorPriceTextRef?.current ?? null,
+    action: cursorPriceActionRef?.current ?? null,
+  }), [cursorPriceActionRef, cursorPriceBadgeRef, cursorPriceTextRef]);
+
+  const hideCursorPriceAxis = useCallback(() => {
+    hideCursorPriceAxisBadge(getCursorPriceAxisElements());
+  }, [getCursorPriceAxisElements]);
+
+  const syncCursorPriceAxis = useCallback((clientX: number, clientY: number) => {
+    updateCursorPriceAxisBadge({
+      chart: chartRef.current,
+      overlayContainer: containerRef.current,
+      elements: getCursorPriceAxisElements(),
+      clientX,
+      clientY,
+      cursorMode: modeRef.current,
+      isChartLoading: isChartLoadingRef.current,
+    });
+  }, [chartRef, containerRef, getCursorPriceAxisElements]);
+
+  const getLastPriceAxisElements = useCallback((): LastPriceAxisBadgeElements => ({
+    badge: lastPriceBadgeRef?.current ?? null,
+    line: lastPriceLineRef?.current ?? null,
+  }), [lastPriceBadgeRef, lastPriceLineRef]);
+
+  const hideLastPriceAxis = useCallback(() => {
+    hideLastPriceAxisBadge(getLastPriceAxisElements());
+  }, [getLastPriceAxisElements]);
+
+  const syncLastPriceAxis = useCallback(() => {
+    updateLastPriceAxisBadge({
+      chart: chartRef.current,
+      overlayContainer: containerRef.current,
+      elements: getLastPriceAxisElements(),
+      priceValue: lastPriceAxisValueRef.current,
+      isChartLoading: isChartLoadingRef.current,
+    });
+  }, [chartRef, containerRef, getLastPriceAxisElements]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -362,6 +424,7 @@ export const useCursorRenderer = ({
       cursorVisualsVisibleRef.current = false;
       hideTooltipElement(tooltipRef.current);
       hideCrosshairElements(crosshairElementsRef.current);
+      hideCursorPriceAxis();
       isDirtyRef.current = true;
     };
 
@@ -375,6 +438,7 @@ export const useCursorRenderer = ({
       const previous = mouseRef.current;
       mouseRef.current = point;
       cursorVisualsVisibleRef.current = true;
+      syncCursorPriceAxis(point.clientX, point.clientY);
       if (modeRef.current !== 'magic' && (!previous || Math.round(previous.x) !== Math.round(point.x) || Math.round(previous.y) !== Math.round(point.y))) {
         isDirtyRef.current = true;
       }
@@ -464,7 +528,7 @@ export const useCursorRenderer = ({
       window.removeEventListener('pointercancel', cancelPointerGesture, { capture: true });
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [canvasRef, containerRef, eventSourceRef, interactionScopeKey]);
+  }, [canvasRef, containerRef, eventSourceRef, hideCursorPriceAxis, interactionScopeKey, syncCursorPriceAxis]);
 
   useEffect(() => {
     isChartLoadingRef.current = Boolean(isChartLoading);
@@ -474,6 +538,8 @@ export const useCursorRenderer = ({
       cursorVisualsVisibleRef.current = false;
       hideTooltipElement(tooltipRef.current);
       hideCrosshairElements(crosshairElementsRef.current);
+      hideCursorPriceAxis();
+      hideLastPriceAxis();
       if (hasCanvasContentRef.current && canvasRef.current) {
         const context = canvasRef.current.getContext("2d");
         context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -481,12 +547,20 @@ export const useCursorRenderer = ({
       }
     }
     isDirtyRef.current = true;
-  }, [canvasRef, isChartLoading]);
+  }, [canvasRef, hideCursorPriceAxis, hideLastPriceAxis, isChartLoading]);
+
+  useEffect(() => {
+    lastPriceAxisValueRef.current = lastPriceAxisValue;
+    isDirtyRef.current = true;
+  }, [lastPriceAxisValue]);
 
   useEffect(() => {
     modeRef.current = mode;
+    const pointer = mouseRef.current;
+    if (mode === 'arrow' || !pointer) hideCursorPriceAxis();
+    else syncCursorPriceAxis(pointer.clientX, pointer.clientY);
     isDirtyRef.current = true;
-  }, [mode]);
+  }, [hideCursorPriceAxis, mode, syncCursorPriceAxis]);
 
   useEffect(() => {
     suspendForDrawingRef.current = Boolean(suspendForDrawing);
@@ -496,9 +570,10 @@ export const useCursorRenderer = ({
       cursorVisualsVisibleRef.current = false;
       hideTooltipElement(tooltipRef.current);
       hideCrosshairElements(crosshairElementsRef.current);
+      hideCursorPriceAxis();
     }
     isDirtyRef.current = true;
-  }, [suspendForDrawing]);
+  }, [hideCursorPriceAxis, suspendForDrawing]);
 
   useEffect(() => {
     chartDataRef.current = chartData;
@@ -587,13 +662,10 @@ export const useCursorRenderer = ({
   // ============================================================================
   useLayoutEffect(() => {
     // [TENOR 2026 SRE FIX] SCAR-CURSOR-CANVAS-STALE-BACKINGSTORE:
-    // When key={chartInteractionScopeKey} remounts the canvas (layout 1→4→6),
-    // canvasRef and containerRef are the same ref OBJECTS — only .current changes.
-    // Without interactionScopeKey in deps, this effect never re-ran on layout switch.
-    // The new canvas kept its HTML default 300×150 backing store while CSS stretched
-    // it to fill 100%×100%, causing dpr = 300/realWidth ≈ 0.5 → everything distorted.
-    // Fix: include interactionScopeKey in deps + eagerly reset isReadyRef so the
-    // render loop is blocked until syncCanvasSize succeeds on the new canvas/container.
+    // The canonical chart host now persists across layout/focus changes, but its
+    // geometry can change when it moves over another slot. interactionScopeKey is
+    // therefore a logical rebind signal, not a React remount key. Reset readiness
+    // and resynchronize the backing store before drawing into the relocated canvas.
     isReadyRef.current = false;
 
     let isDisposed = false;
@@ -691,6 +763,10 @@ export const useCursorRenderer = ({
       return;
     }
 
+    // Price-axis overlays are interaction surfaces, not candle-renderer side effects.
+    // Refresh the live quote card whenever chart geometry/data marks this engine dirty.
+    syncLastPriceAxis();
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -710,12 +786,16 @@ export const useCursorRenderer = ({
       }
       hideTooltipElement(tooltipRef.current);
       hideCrosshairElements(crosshairElementsRef.current);
+      hideCursorPriceAxis();
       cursorVisualsVisibleRef.current = false;
       isDirtyRef.current = false;
       return;
     }
 
     isDirtyRef.current = false;
+    const pointer = mouseRef.current;
+    if (pointer) syncCursorPriceAxis(pointer.clientX, pointer.clientY);
+    else hideCursorPriceAxis();
     const currentChartData = chartDataRef.current;
 
     if (currentMode === 'magic') {
@@ -1187,7 +1267,7 @@ export const useCursorRenderer = ({
       hideTooltipElement(tooltipRef.current);
       hideCrosshairElements(crosshairElementsRef.current);
     }
-  }, [canvasRef, chartRef]);
+  }, [canvasRef, chartRef, hideCursorPriceAxis, syncCursorPriceAxis, syncLastPriceAxis]);
 
   // ============================================================================
   // 3. MASTER RENDER LOOP SUBSCRIPTION

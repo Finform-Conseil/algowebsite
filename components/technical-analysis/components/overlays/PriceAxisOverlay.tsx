@@ -2,6 +2,7 @@
 
 import React from "react";
 import { HorizontalLineIcon } from "../common/icons/drawing/trend";
+import { LAST_PRICE_AXIS_BADGE_WIDTH_PX, LAST_PRICE_AXIS_DOWN_COLOR, LAST_PRICE_AXIS_UP_COLOR } from "../../lib/chart/lastPriceAxisVisuals";
 
 export type PriceAxisActionId =
   | "alert"
@@ -85,7 +86,7 @@ export const PriceAxisOverlay = ({
   return (
   <div className="gp-price-axis-overlay" style={{ position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none" }}>
     <div ref={lastPriceLineRef} className="gp-price-axis-last-line" style={{ display: "none" }} />
-    <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" aria-label={lastPriceAccessibleLabel} style={{ position: "absolute", right: "0px", top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", gap: "1px", width: "80px", maxWidth: "80px", minHeight: "42px", padding: "4px 5px", borderRadius: "3px", background: isLastPricePositive ? "#047857" : "#c91d2e", color: "#ffffff", boxShadow: "0 5px 12px rgba(0, 0, 0, 0.24)", border: "1px solid rgba(255,255,255,0.14)", lineHeight: 1.05, opacity: 0, visibility: "hidden", overflow: "hidden" }}>
+    <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" aria-label={lastPriceAccessibleLabel} style={{ position: "absolute", right: "0px", top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", gap: "1px", width: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX}px`, maxWidth: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX}px`, minHeight: "42px", padding: "4px 5px", borderRadius: "3px", background: isLastPricePositive ? LAST_PRICE_AXIS_UP_COLOR : LAST_PRICE_AXIS_DOWN_COLOR, color: "#ffffff", boxShadow: "0 5px 12px rgba(0, 0, 0, 0.24)", border: "1px solid rgba(255,255,255,0.14)", lineHeight: 1.05, opacity: 0, visibility: "hidden", overflow: "hidden" }}>
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "9.5px", fontWeight: 800, letterSpacing: 0 }}>{displaySymbolName}</span>
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "15px", fontWeight: 850 }}>{compactPriceLabel}</span>
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "9px", fontWeight: 700, opacity: 0.98 }}>{compactTimeLabel}</span>

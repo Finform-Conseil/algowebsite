@@ -8,7 +8,7 @@ export type ZoomRangeSnapshot = {
   futureBarsFromRightEnd?: number;
 };
 
-export const TV_Y_AXIS_WIDTH = 84;
+export const TV_Y_AXIS_WIDTH = 78;
 export const TV_X_AXIS_HEIGHT = 28;
 export const TV_ZOOM_VELOCITY = 0.001;
 export const TV_AUTO_SCALE_PADDING = 0.08;
@@ -226,6 +226,100 @@ export const computeDirectionalZoomViewport = ({
     blendedStart + targetSpan,
     totalBars,
   );
+};
+
+export type PriceAxisViewport = { yScale: number; yPan: number };
+
+/**
+ * Canonical TradingView-like price-axis wheel scaling shared by single and
+ * multi-chart renderers. The price under the cursor remains anchored while the
+ * scale changes, which prevents the axis from visually drifting during zoom.
+ */
+export const computePriceAxisWheelViewport = ({
+  center,
+  baseRange,
+  yScale,
+  yPan,
+  cursorRatio,
+  gridHeight,
+  wheelDeltaY,
+}: {
+  center: number;
+  baseRange: number;
+  yScale: number;
+  yPan: number;
+  cursorRatio: number;
+  gridHeight: number;
+  wheelDeltaY: number;
+}): PriceAxisViewport => {
+  const safeBaseRange = Math.max(Number.EPSILON, Math.abs(baseRange));
+  const safeScale = clamp(Number.isFinite(yScale) ? yScale : 1, 0.1, 5);
+  const safePan = Number.isFinite(yPan) ? yPan : 0;
+  const ratio = clamp(cursorRatio, 0, 1);
+  const currentRange = safeBaseRange * safeScale;
+  const oldPriceAtCursor = center + safePan + currentRange * (0.5 - ratio);
+  const wheelStep = Math.sign(wheelDeltaY) * Math.min(1, Math.abs(wheelDeltaY) / TV_WHEEL_DELTA_CAP_PX);
+  const nextScale = clamp(safeScale * Math.exp(wheelStep * TV_ZOOM_VELOCITY * TV_WHEEL_DELTA_CAP_PX), 0.1, 5);
+  const nextRange = safeBaseRange * nextScale;
+  const shiftedCursorRatio = clamp(ratio + ((15 * wheelStep) / Math.max(1, gridHeight)), 0, 1);
+
+  return {
+    yScale: nextScale,
+    yPan: oldPriceAtCursor - center - nextRange * (0.5 - shiftedCursorRatio),
+  };
+};
+
+/** Scale the price axis while dragging it, anchored between the drag start and current cursor. */
+export const computePriceAxisDragViewport = ({
+  center,
+  baseRange,
+  initialYScale,
+  initialYPan,
+  startRatio,
+  currentRatio,
+  deltaY,
+}: {
+  center: number;
+  baseRange: number;
+  initialYScale: number;
+  initialYPan: number;
+  startRatio: number;
+  currentRatio: number;
+  deltaY: number;
+}): PriceAxisViewport => {
+  const safeBaseRange = Math.max(Number.EPSILON, Math.abs(baseRange));
+  const safeInitialScale = clamp(Number.isFinite(initialYScale) ? initialYScale : 1, 0.1, 5);
+  const safeInitialPan = Number.isFinite(initialYPan) ? initialYPan : 0;
+  const initialRange = safeBaseRange * safeInitialScale;
+  const anchorPrice = center + safeInitialPan + initialRange * (0.5 - clamp(startRatio, 0, 1));
+  const nextScale = clamp(safeInitialScale * Math.exp(deltaY * 0.01), 0.1, 5);
+  const nextRange = safeBaseRange * nextScale;
+  return {
+    yScale: nextScale,
+    yPan: anchorPrice - center - nextRange * (0.5 - clamp(currentRatio, 0, 1)),
+  };
+};
+
+/** Canonical vertical price-pan used when dragging inside the chart body. */
+export const computePriceAxisPan = ({
+  initialYPan,
+  deltaY,
+  gridHeight,
+  priceRange,
+  yScale,
+}: {
+  initialYPan: number;
+  deltaY: number;
+  gridHeight: number;
+  priceRange: number;
+  yScale: number;
+}): number => {
+  const safeGridHeight = Math.max(1, gridHeight);
+  const scaledPriceRange = Math.max(Number.EPSILON, Math.abs(priceRange) * Math.max(0.1, yScale));
+  const shiftY = (deltaY / safeGridHeight) * scaledPriceRange;
+  const maxPan = scaledPriceRange * 0.8;
+  const safeInitialPan = Number.isFinite(initialYPan) ? initialYPan : 0;
+  return clamp(safeInitialPan + shiftY, -maxPan, maxPan);
 };
 
 export const computeTradingViewWheelZoomViewport = ({

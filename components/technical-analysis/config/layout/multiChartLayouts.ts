@@ -4,8 +4,16 @@ import type {
   MultiChartLayoutState,
   MultiChartLayoutSync,
 } from "./multiChartLayoutTypes";
-import { completeMultiChartCell } from "./multiChartCellState";
+import {
+  completeMultiChartCell,
+  type CompleteMultiChartLayoutCell,
+} from "./multiChartCellState";
 import { normalizeChartTimeframe } from "../market/timeframeCatalog";
+import {
+  createDefaultMultiChartIndicators,
+  prepareIndicatorSnapshotForMultiChartEntry,
+  prepareIndicatorsForMultiChartEntry,
+} from "./multiChartIndicatorPolicy";
 
 export interface MultiChartLayoutDefinition {
   id: MultiChartLayoutId;
@@ -245,7 +253,7 @@ export const createLayoutCells = (
       symbol,
       exchange,
       interval: intervals?.[index] ?? existing?.interval ?? "1D",
-      indicators: existing?.indicators ?? (index === 0 ? ["volume", "sma"] : ["volume"]),
+      indicators: existing?.indicators ?? createDefaultMultiChartIndicators(),
       isActive: index === 0,
     }, index);
   });
@@ -283,11 +291,21 @@ export const reconcileMultiChartLayout = (
   // currently focused symbol. Same-layout reconciliation intentionally keeps
   // the historical primary-rebind behavior used by state repair paths.
   const preservePrimaryBinding = current.layoutId !== layoutId;
+  const enteringMultiChart = getLayoutDefinition(current.layoutId).chartCount <= 1 && definition.chartCount > 1;
+  const previousCells = enteringMultiChart
+    ? current.charts.map((cell) => ({
+        ...cell,
+        indicators: prepareIndicatorsForMultiChartEntry(cell.indicators),
+        indicatorState: prepareIndicatorSnapshotForMultiChartEntry(
+          (cell as Partial<CompleteMultiChartLayoutCell>).indicatorState,
+        ),
+      }))
+    : current.charts;
   const charts = createLayoutCells(
     layoutId,
     primarySymbol,
     comparisonSymbols,
-    current.charts,
+    previousCells,
     undefined,
     undefined,
     market,

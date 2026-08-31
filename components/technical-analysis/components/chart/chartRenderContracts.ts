@@ -42,6 +42,12 @@ export interface ChartCursorRendererProps {
   chartData: ChartDataPoint[];
   interactionScopeKey: string;
   isChartLoading?: boolean;
+  cursorPriceBadgeRef?: RefObject<HTMLDivElement | null>;
+  cursorPriceTextRef?: RefObject<HTMLSpanElement | null>;
+  cursorPriceActionRef?: RefObject<HTMLButtonElement | null>;
+  lastPriceBadgeRef?: RefObject<HTMLDivElement | null>;
+  lastPriceLineRef?: RefObject<HTMLDivElement | null>;
+  lastPriceAxisValue?: number;
 }
 
 export interface ChartRenderEngineProps {

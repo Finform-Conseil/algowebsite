@@ -39,6 +39,11 @@ import { SidebarStatsPanel } from "./panels/SidebarStatsPanel";
 import { TechnicalsPanel } from "./panels/TechnicalsPanel";
 import { VolatilityPanels } from "./panels/VolatilityPanels";
 import { WatchlistPanel } from "./panels/WatchlistPanel";
+import {
+  SIDEBAR_DESTINATION_TARGETS,
+  TECHNICAL_ANALYSIS_SIDEBAR_NAVIGATE,
+  type TechnicalAnalysisSidebarDestination,
+} from "./sidebarNavigation";
 
 const DividendHistoryModal = dynamic(
   () => import("./modals/DividendHistoryModal").then((module) => module.DividendHistoryModal),
@@ -208,6 +213,22 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     if (props.isObjectTreeOpen) props.onToggleObjectTree?.();
   };
 
+  React.useEffect(() => {
+    const handleSidebarNavigation = (event: Event) => {
+      const destination = (event as CustomEvent<{ destination?: TechnicalAnalysisSidebarDestination }>).detail?.destination;
+      if (!destination || !(destination in SIDEBAR_DESTINATION_TARGETS)) return;
+
+      handleRailSelect(destination === "calendar" ? "calendar" : "watchlist");
+      const targetId = SIDEBAR_DESTINATION_TARGETS[destination];
+      if (!targetId) return;
+      window.requestAnimationFrame(() => {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    };
+    window.addEventListener(TECHNICAL_ANALYSIS_SIDEBAR_NAVIGATE, handleSidebarNavigation);
+    return () => window.removeEventListener(TECHNICAL_ANALYSIS_SIDEBAR_NAVIGATE, handleSidebarNavigation);
+  });
+
   const handleProductsClick = React.useCallback(() => {
     setIsProductsMenuOpen((prev) => {
       if (!prev && toolbarRef.current) {
@@ -267,9 +288,9 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     />
   );
   const isNewsPanelLoading = Boolean(isLoading) || feeds.isNewsLoading;
-  const newsPanel = <SidebarNewsPanel activeNews={feeds.activeNews} isLoading={isNewsPanelLoading} newsKey={feeds.currentNewsIdx} onHoverChange={actions.setIsNewsHovered} />;
+  const newsPanel = <div id="gp-sidebar-news"><SidebarNewsPanel activeNews={feeds.activeNews} isLoading={isNewsPanelLoading} newsKey={feeds.currentNewsIdx} onHoverChange={actions.setIsNewsHovered} /></div>;
   const statsPanel = <SidebarStatsPanel auditTrail={auditTrail([...combinedAudit, { label: "Formule", value: "YTD, P/E, Vol, Avg20, Cap, PNB/FY" }, { label: "Devise", value: metrics.auditCurrency }])} avgVolume={props.avgVolume} currentVolume={props.currentVolume} isLoading={isFundamentalsPanelLoading} marketCap={displayMarketCap} currency={currency} peRatio={displayPeRatio} returnYTD={displayReturnYTD} revenueT12M={metrics.displayRevenueT12M} />;
-  const fundamentalsPanel = <FundamentalsPanel chartRef={props.benefitsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedEarnings} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Benefice net lu BRVM, trie par exercice" }, { label: "Devise", value: "M " + currency }])} onMoreInfo={() => openBrvmEquityPage(security.ticker)} />;
+  const fundamentalsPanel = <div id="gp-sidebar-fundamentals"><FundamentalsPanel chartRef={props.benefitsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedEarnings} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Benefice net lu BRVM, trie par exercice" }, { label: "Devise", value: "M " + currency }])} onMoreInfo={() => openBrvmEquityPage(security.ticker)} /></div>;
   const dividendsPanel = <DividendsPanel chartRef={props.dividendsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedDividends} auditTrail={auditTrail([...fundamentalsAudit, { label: "Source", value: "Ratios natifs API; absence => N/D" }, { label: "Devise", value: metrics.auditCurrency }])} onMoreInfo={() => actions.setIsDividendModalOpen(true)} />;
   const incomePanel = <IncomeStatementPanel chartRef={refs.incomeChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={chartConfig.canRenderIncomeStatement} viewMode={incomeViewMode} onModeChange={actions.setIncomeViewMode} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Marge nette = Resultat net / Revenu" }, { label: "Devise", value: "M " + currency }])} onMoreFinancials={() => openBrvmEquityPage(security.ticker)} />;
   const performancePanel = <PerformancePanel rows={metrics.performanceRows} auditTrail={auditTrail([{ label: "Source", value: metrics.marketDataSource, tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Devise", value: "%" }])} />;
@@ -283,7 +304,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
   const bondsPanel = <BondsPanel auditTrail={auditTrail([{ label: "Source", value: "API /fixed-income/bond-securities/", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Devise", value: "% annualise" }])} bonds={feeds.topBonds} isLoading={feeds.bondsLoading} onMoreBonds={openBrvmBondsPage} unavailableState={<div style={{ fontSize: "11px", color: "#64748b", textAlign: "center", padding: "12px 0" }}>Donnees obligataires indisponibles</div>} />;
   const isVolatilityTermReady = hasApiVolatilityTermStructure(apiTechnicalIndicator);
   const volatilityPanels = <VolatilityPanels curveAuditTrail={auditTrail([{ label: "Source", value: "Courbe native API", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Formule", value: "Aucun calcul local; absence API => indisponible" }, { label: "Devise", value: "% annualisé" }])} curveNotice={undefined} curveUnavailableState={unavailable("Courbe native indisponible via l’API.")} isCurveReady={false} isLoading={Boolean(isLoading)} isTermReady={isVolatilityTermReady} termAuditTrail={auditTrail([{ label: "Source", value: "Indicateurs de volatilité API", tone: asAuditTone(metrics.auditTone) }, { label: "Date", value: metrics.marketAuditDate }, { label: "Champs", value: "hv_10, hv_20, hv_30, hv_60, hv_90, hv_252" }, { label: "Devise", value: "% annualisé" }])} termUnavailableState={unavailable("Structure de volatilite indisponible via l’API.")} volatilityChartRef={refs.volatilityChartRef} volatilityCurveChartRef={refs.volatilityCurveChartRef} />;
-  const profilePanel = <ProfilePanel auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: dataMode === "real" ? "Identifiants lus depuis l’API; absence => N/D" : "Profil BRVM normalise; identifiants catalogue mock" }, { label: "Devise", value: "N/A" }])} clipboardStatus={clipboardStatus} description={profileDescription} employees={feeds.validFundamentals?.employees} figi={security.figi} getClipboardLabel={getClipboardLabel} isDescriptionExpanded={isDescriptionExpanded} isLoading={isFundamentalsPanelLoading} isin={security.isin} onCopyIdentifier={(key, value) => void actions.copyIdentifier(key, value)} onToggleDescription={actions.toggleDescription} website={feeds.validFundamentals?.website} />;
+  const profilePanel = <div id="gp-sidebar-profile"><ProfilePanel auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: dataMode === "real" ? "Identifiants lus depuis l’API; absence => N/D" : "Profil BRVM normalise; identifiants catalogue mock" }, { label: "Devise", value: "N/A" }])} clipboardStatus={clipboardStatus} description={profileDescription} employees={feeds.validFundamentals?.employees} figi={security.figi} getClipboardLabel={getClipboardLabel} isDescriptionExpanded={isDescriptionExpanded} isLoading={isFundamentalsPanelLoading} isin={security.isin} onCopyIdentifier={(key, value) => void actions.copyIdentifier(key, value)} onToggleDescription={actions.toggleDescription} website={feeds.validFundamentals?.website} /></div>;
   const screenersPanel = <ScreenersPanel activeCurrency={currency} activeTicker={security.ticker} auditDate={metrics.marketAuditDate} bondsLoading={feeds.bondsLoading} livePrice={livePrice} liveVolume={liveVolume} marketSnapshots={marketSnapshots} onOpenBondsPage={openBrvmBondsPage} onOpenEquityPage={() => openBrvmEquityPage(security.ticker)} onOpenTickerSelector={() => props.openTickerSelector?.()} topBonds={feeds.topBonds} />;
   const calendarPanel = (
     <CalendarRailPanel

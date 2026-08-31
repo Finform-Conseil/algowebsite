@@ -1,5 +1,6 @@
 import React from "react";
 import { BaseModal } from "../../common/primitives/BaseModal";
+import { openTechnicalAnalysisSidebarDestination } from "../../sidebar/sidebarNavigation";
 
 interface MoreOptionsModalProps {
     isOpen: boolean;
@@ -7,10 +8,10 @@ interface MoreOptionsModalProps {
 }
 
 const OPTIONS = [
-    { icon: "bi-file-earmark-bar-graph", label: "Fondamentaux", action: "Données Fondamentales" },
-    { icon: "bi-building", label: "Profil Société", action: "Profil de l'entreprise" },
-    { icon: "bi-newspaper", label: "Actualités", action: "Actualités du symbole" },
-    { icon: "bi-calendar-event", label: "Calendrier", action: "Calendrier économique" },
+    { icon: "bi-file-earmark-bar-graph", label: "Fondamentaux", destination: "fundamentals" as const },
+    { icon: "bi-building", label: "Profil Société", destination: "profile" as const },
+    { icon: "bi-newspaper", label: "Actualités", destination: "news" as const },
+    { icon: "bi-calendar-event", label: "Calendrier", destination: "calendar" as const },
 ];
 
 export const MoreOptionsModal: React.FC<MoreOptionsModalProps> = ({
@@ -23,8 +24,7 @@ export const MoreOptionsModal: React.FC<MoreOptionsModalProps> = ({
             onClose={onClose}
             title="Plus d'Options"
             icon={<i className="bi bi-grid-3x2-gap-fill" />}
-            primaryLabel="Appliquer"
-            secondaryLabel="Fermer"
+            hideFooter
         >
             <div
                 style={{
@@ -34,12 +34,12 @@ export const MoreOptionsModal: React.FC<MoreOptionsModalProps> = ({
                     padding: "0.5rem 0",
                 }}
             >
-                {OPTIONS.map(({ icon, label, action }) => (
+                {OPTIONS.map(({ icon, label, destination }) => (
                     <button
                         key={label}
                         className={"gp-option-tile"}
                         onClick={() => {
-                            alert(action);
+                            openTechnicalAnalysisSidebarDestination(destination);
                             onClose();
                         }}
                     >

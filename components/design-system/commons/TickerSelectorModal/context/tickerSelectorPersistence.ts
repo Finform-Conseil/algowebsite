@@ -7,7 +7,6 @@ const DATABASE_VERSION = 1;
 const STORE_NAME = "preferences";
 const SELECTED_TICKER_KEY = "primary_ticker";
 const LEGACY_STORAGE_KEY = "algoway_selected_ticker";
-const OPERATION_TIMEOUT_MS = 2_000;
 let writeQueue: Promise<void> = Promise.resolve();
 
 const normalizeTicker = (value: unknown): string | null => {
@@ -19,23 +18,6 @@ const normalizeTicker = (value: unknown): string | null => {
 const canUseIndexedDb = () =>
   typeof window !== "undefined" && typeof window.indexedDB !== "undefined";
 
-const withTimeout = async <T,>(operation: Promise<T>): Promise<T> => {
-  let timer: number | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<never>((_, reject) => {
-        timer = window.setTimeout(
-          () => reject(new Error("Ticker preference persistence timed out")),
-          OPERATION_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) window.clearTimeout(timer);
-  }
-};
-
 const openDatabase = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   const request = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
   request.onupgradeneeded = () => {
@@ -43,7 +25,10 @@ const openDatabase = (): Promise<IDBDatabase> => new Promise((resolve, reject) =
       request.result.createObjectStore(STORE_NAME);
     }
   };
-  request.onsuccess = () => resolve(request.result);
+  request.onsuccess = () => {
+    request.result.onversionchange = () => request.result.close();
+    resolve(request.result);
+  };
   request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed"));
   request.onblocked = () => reject(new Error("IndexedDB open blocked"));
 });
@@ -84,13 +69,13 @@ export const readPersistedTickerSymbol = async (): Promise<string | null> => {
   let database: IDBDatabase | null = null;
 
   try {
-    database = await withTimeout(openDatabase());
-    const persistedTicker = normalizeTicker(await withTimeout(readTicker(database)));
+    database = await openDatabase();
+    const persistedTicker = normalizeTicker(await readTicker(database));
     if (persistedTicker) return persistedTicker;
 
     const legacyTicker = readLegacyTicker();
     if (!legacyTicker) return null;
-    await withTimeout(writeTicker(database, legacyTicker));
+    await writeTicker(database, legacyTicker);
     clearLegacyTicker();
     return legacyTicker;
   } catch (error) {
@@ -107,9 +92,9 @@ export const writePersistedTickerSymbol = async (ticker: string): Promise<void> 
 
   try {
     const operation = writeQueue.catch(() => undefined).then(async () => {
-      const database = await withTimeout(openDatabase());
+      const database = await openDatabase();
       try {
-        await withTimeout(writeTicker(database, normalizedTicker));
+        await writeTicker(database, normalizedTicker);
         clearLegacyTicker();
       } finally {
         database.close();

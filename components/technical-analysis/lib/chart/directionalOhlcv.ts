@@ -131,6 +131,34 @@ const buildVolumeBarValue = (
   return date ? [date, volume] : volume;
 };
 
+export const resolveStableVolumeAxisMax = (
+  volumes: DirectionalVolumeDataPoint[],
+  spikeCapMultiplier = 5,
+  headroomMultiplier = 1.11,
+): number => {
+  const positiveVolumes = volumes
+    .map((entry) => Number(entry?.[1]))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (positiveVolumes.length === 0) return 100;
+
+  const rawMax = Math.max(...positiveVolumes);
+  const sorted = positiveVolumes.slice().sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? rawMax;
+  const safeSpikeCapMultiplier = Number.isFinite(spikeCapMultiplier) && spikeCapMultiplier > 0
+    ? spikeCapMultiplier
+    : 5;
+  const safeHeadroomMultiplier = Number.isFinite(headroomMultiplier) && headroomMultiplier > 0
+    ? headroomMultiplier
+    : 1.11;
+  const spikeCap = median > 0 ? median * safeSpikeCapMultiplier : rawMax;
+  const stableMax = Math.min(rawMax, spikeCap);
+
+  return Number.isFinite(stableMax) && stableMax > 0
+    ? stableMax * safeHeadroomMultiplier
+    : 100;
+};
+
 export const buildDirectionalVolumeBarData = (
   volumes: DirectionalVolumeDataPoint[],
   palette: DirectionalOhlcvPalette,

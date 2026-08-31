@@ -29,7 +29,6 @@ import {
   MAIN_GRID_LEFT,
   clamp,
   clampViewportWindowWithFuture,
-  getSafeGridRect,
   resolveAutoViewportPriceRange,
   resolveInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
@@ -49,8 +48,10 @@ import {
 import {
   buildDirectionalOhlcvSeries,
   buildDirectionalVolumeBarData,
+  resolveStableVolumeAxisMax,
   type DirectionalVolumeDataPoint,
 } from "../lib/chart/directionalOhlcv";
+import { resolvePriceAxisSplitNumber } from "../lib/chart/lastPriceAxisVisuals";
 import {
   buildEmaSeriesDefinitions,
   buildSmaSeriesDefinitions,
@@ -92,6 +93,12 @@ import {
   resolveChartStructureSignature,
   type ChartCommitMode,
 } from "./chart-rendering/chartCommitPolicy";
+import {
+  anchorLastPaneToFixedTimeAxis,
+  DEFAULT_CHART_TOP_MARGIN_PERCENT,
+  DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT,
+  DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT,
+} from "./chart-rendering/chartPaneLayout";
 
 let areEChartsModulesRegistered = false;
 
@@ -222,11 +229,6 @@ export interface UseEChartsRendererProps {
   /** Hide the embedded ECharts identity/OHLC title when a multi-chart cell header already owns that information. */
   hideChartTitle?: boolean;
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
-  cursorPriceBadgeRef?: RefObject<HTMLDivElement | null>;
-  cursorPriceTextRef?: RefObject<HTMLSpanElement | null>;
-  cursorPriceActionRef?: RefObject<HTMLButtonElement | null>;
-  lastPriceBadgeRef?: RefObject<HTMLDivElement | null>;
-  lastPriceLineRef?: RefObject<HTMLDivElement | null>;
   lastPriceAxisValue?: number;
   isMainChartVisible?: boolean;
   isChartLoading?: boolean;
@@ -244,12 +246,6 @@ export interface UseEChartsRendererProps {
   onViewportChange?: (viewport: ChartViewportChange) => void;
 }
 
-// ============================================================================
-// CONSTANTES SPÉCIFIQUES AUX BADGES
-// ============================================================================
-const TV_AXIS_BADGE_RIGHT_INSET = 8;
-const TV_AXIS_ACTION_GAP = 3;
-const TV_CURSOR_BADGE_MIN_WIDTH = 72;
 const ACTIONABLE_TWO_CANDLE_PATTERN_SERIES_IDS = new Set([
   "engulfing-bullish-bracket",
   "engulfing-bearish-bracket",
@@ -324,7 +320,11 @@ const alignSeriesWithHistoryAxis = (series: ChartOptionPart, historyGapBars: num
   );
   const seriesId = typeof series.id === "string" ? series.id : "";
 
-  if (seriesId.startsWith("pine-") && Array.isArray(firstValue) && firstValue.length === 2 && isFiniteHistoryAxisNumber(firstValue[0])) {
+  // Any series expressed with an explicit numeric category index must be shifted by
+  // the synthetic history prefix. This applies to oscillator histograms as well as
+  // Pine series; limiting it to Pine made MACD/PPO render at the far left of the
+  // chart while price and volume were correctly aligned to real dates.
+  if (Array.isArray(firstValue) && firstValue.length === 2 && isFiniteHistoryAxisNumber(firstValue[0])) {
     return {
       ...series,
       data: data.map((item) => {
@@ -332,7 +332,7 @@ const alignSeriesWithHistoryAxis = (series: ChartOptionPart, historyGapBars: num
         if (Array.isArray(item) && isFiniteHistoryAxisNumber(item[0])) {
           return [item[0] + axisIndexOffset, ...item.slice(1)];
         }
-        if (typeof item === "object" && "value" in item) {
+        if (typeof item === "object" && item !== null && "value" in item) {
           const value = (item as { value?: unknown }).value;
           if (Array.isArray(value) && isFiniteHistoryAxisNumber(value[0])) {
             return { ...item, value: [value[0] + axisIndexOffset, ...value.slice(1)] };
@@ -343,27 +343,56 @@ const alignSeriesWithHistoryAxis = (series: ChartOptionPart, historyGapBars: num
     };
   }
 
-  if (seriesId !== "main-series" || !Array.isArray(firstValue) || firstValue.length < 4 || !firstValue.slice(0, 4).every(isFiniteHistoryAxisNumber)) {
+  if (seriesId === "main-series" && Array.isArray(firstValue) && firstValue.length >= 4 && firstValue.slice(0, 4).every(isFiniteHistoryAxisNumber)) {
+    const emptyOhlcSlots = Array.from({ length: axisIndexOffset }, () => ({
+      value: ["-", "-", "-", "-"],
+      itemStyle: { opacity: 0 },
+    }));
+    return { ...series, data: [...emptyOhlcSlots, ...data] };
+  }
+
+  // Positional scalar series (MACD/RSI/signals and similar) rely on ECharts'
+  // category index. Prefix them with nulls so index 0 still corresponds to the
+  // first real market bar after the synthetic history categories. Date-keyed
+  // tuple series are intentionally left untouched.
+  if (!Array.isArray(firstValue)) {
+    const emptySlots = Array.from({ length: axisIndexOffset }, () => null);
+    return { ...series, data: [...emptySlots, ...data] };
+  }
+
+  return series;
+};
+
+const isPaneBackgroundSeries = (series: ChartOptionPart): boolean =>
+  typeof series.id === "string" && series.id.includes("panel-background");
+
+/**
+ * Lower-pane backgrounds intentionally sit above the chart base layer so they can
+ * mask bleed from adjacent panes. Every real series bound to a lower y-axis must
+ * therefore sit above that background. Without this invariant, ECharts' default
+ * z-order (typically 2) lets the background (z >= 75) cover MACD/RSI/etc. while
+ * their axes and legend remain visible, creating a false "empty padding" pane.
+ */
+const enforceLowerPaneContentZ = (series: ChartOptionPart): ChartOptionPart => {
+  const yAxisIndex = typeof series.yAxisIndex === "number" ? series.yAxisIndex : 0;
+  const seriesId = typeof series.id === "string" ? series.id : "";
+  if (
+    yAxisIndex <= 0
+    || isPaneBackgroundSeries(series)
+    || seriesId.startsWith("viewport-boundary-")
+  ) {
     return series;
   }
 
-  const emptyOhlcSlots = Array.from({ length: axisIndexOffset }, () => ({
-    value: ["-", "-", "-", "-"],
-    itemStyle: { opacity: 0 },
-  }));
-  return { ...series, data: [...emptyOhlcSlots, ...data] };
+  const minimumContentZ = PANE_CONTENT_MIN_Z + 4;
+  const currentZ = typeof series.z === "number" && Number.isFinite(series.z) ? series.z : 0;
+  return currentZ >= minimumContentZ ? series : { ...series, z: minimumContentZ };
 };
-
-const PANE_SHIELD_GUTTER_PX = 34;
-
-const isPaneShieldSeries = (series: ChartOptionPart): boolean =>
-  typeof series.id === "string" && series.id.startsWith("pane-shield-");
 
 const shouldClipSeriesToGrid = (series: ChartOptionPart): boolean => {
   const type = typeof series.type === "string" ? series.type : "";
   if (!CARTESIAN_CLIPPED_SERIES_TYPES.has(type)) return false;
   if (series.coordinateSystem && series.coordinateSystem !== "cartesian2d") return false;
-  if (isPaneShieldSeries(series)) return false;
   return true;
 };
 
@@ -541,6 +570,7 @@ interface ChartBuilderContext {
   hasLiveStitchedCandle: boolean;
   pineOverlay: PineChartOverlayPayload | null;
   viewportWindowRef: MutableRefObject<{ startIdx: number; endIdx: number; historyGapBars: number }>;
+  chartContainerHeightPx: number;
 }
 
 const formatAxisPriceValue = (value: number): string => {
@@ -725,57 +755,6 @@ const formatAdxTrendStrength = (adx: number | null): string | null => {
   return "Very strong";
 };
 
-const pushPaneShieldSeries = (
-  seriesOptions: ChartOptionPart[],
-  gridIndex: number,
-  xAxisIndex: number,
-  yAxisIndex: number,
-  fill: string,
-): void => {
-  seriesOptions.push({
-    id: "pane-shield-" + gridIndex,
-    name: "Pane Shield " + gridIndex,
-    type: "custom",
-    xAxisIndex,
-    yAxisIndex,
-    coordinateSystem: "cartesian2d",
-    clip: false,
-    silent: true,
-    animation: false,
-    z: PANE_SHIELD_Z,
-    data: [0],
-    renderItem: (params: { coordSys?: { x: number; y: number; width: number; height: number } }) => {
-      const rect = params.coordSys;
-      if (!rect) return undefined;
-      // Use a transparent-to-opaque gradient so the shield masks series overflow
-      // at the panel boundary without showing a visible "ribbon" band.
-      return {
-        type: "rect",
-        shape: {
-          x: rect.x,
-          y: Math.max(0, rect.y - PANE_SHIELD_GUTTER_PX),
-          width: rect.width,
-          height: PANE_SHIELD_GUTTER_PX,
-        },
-        style: {
-          fill: {
-            type: "linear",
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: "transparent" },
-              { offset: 0.55, color: "transparent" },
-              { offset: 1, color: fill },
-            ],
-          },
-        },
-      };
-    },
-  });
-};
-
 const pushPaneBackgroundSeries = (
   seriesOptions: ChartOptionPart[],
   id: string,
@@ -845,6 +824,7 @@ const buildEChartsOption = ({
   displayLogoUrl,
   hideChartTitle,
   viewportWindowRef,
+  chartContainerHeightPx,
 }: ChartBuilderContext): TechnicalEChartsOption => {
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
@@ -1309,15 +1289,24 @@ const buildEChartsOption = ({
 
   const gridLeft = hasVisibleComparisonSeries ? 60 : MAIN_GRID_LEFT;
   const gridRight = TV_Y_AXIS_WIDTH;
-  const topMarginPercent = 8;
-  const bottomMarginPercent = 5;
+  const topMarginPercent = DEFAULT_CHART_TOP_MARGIN_PERCENT;
+  // This percentage is only a pane-sizing budget. It decides where the last
+  // lower pane begins; it must never become rendered whitespace. The actual
+  // time-axis reservation is anchored later to TV_X_AXIS_HEIGHT in pixels.
+  const paneSizingBottomBudgetPercent = DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT;
 
   const panelCount = (shouldRenderVolumePanel ? 1 : 0) + oscillatorPanels.length;
   const panelSpacingPercent = 0;
-  const panelHeightPercent = panelCount <= 1 ? 20 : Math.min(20, Math.max(7, (100 - topMarginPercent - bottomMarginPercent - 35 - panelSpacingPercent * panelCount) / panelCount));
+  const panelHeightPercent = panelCount <= 1
+    ? DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT
+    : Math.min(DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT, Math.max(7, (100 - topMarginPercent - paneSizingBottomBudgetPercent - 35 - panelSpacingPercent * panelCount) / panelCount));
   const mainGridHeightPercent = Math.max(
     panelCount <= 1 ? 30 : 35,
-    100 - topMarginPercent - bottomMarginPercent - panelCount * (panelHeightPercent + panelSpacingPercent)
+    100 - topMarginPercent - paneSizingBottomBudgetPercent - panelCount * (panelHeightPercent + panelSpacingPercent)
+  );
+  const priceAxisSplitNumber = resolvePriceAxisSplitNumber(
+    chartContainerHeightPx,
+    mainGridHeightPercent,
   );
 
   let nextPanelTopPercent = topMarginPercent + mainGridHeightPercent + panelSpacingPercent;
@@ -1356,31 +1345,7 @@ const buildEChartsOption = ({
   //   at 5× median prevents any single off-screen outlier from dominating the
   //   axis. The max is constant across panning → no freeze/snap artefact.
   //   Any true spike visible on screen will be clipped (clip:true on series).
-  const getVolumeAxisMax = (_value: { max: number }): number => {
-    const volumes = volumeSourceSeries.volumes;
-    if (!volumes || volumes.length === 0) return 100;
-
-    // Collect all positive volume values from the full dataset.
-    const allVols: number[] = [];
-    for (let i = 0; i < volumes.length; i++) {
-      const v = Number(volumes[i]?.[1]);
-      if (Number.isFinite(v) && v > 0) allVols.push(v);
-    }
-    if (allVols.length === 0) return 100;
-
-    const rawMax = Math.max(...allVols);
-
-    // Median-based spike suppression: sort ascending, pick midpoint.
-    // Cap the Y-axis at 5× median so outlier spikes don't crush normal bars.
-    const sorted = allVols.slice().sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const spikeCapMax = median > 0 ? median * 5 : rawMax;
-    const stableMax = Math.min(rawMax, spikeCapMax);
-
-    if (!Number.isFinite(stableMax) || stableMax <= 0) return 100;
-    // +11% headroom: tallest un-capped bar in viewport uses exactly 90% of panel height (1 / 1.11 ≈ 0.90).
-    return stableMax * 1.11;
-  };
+  const getVolumeAxisMax = (): number => resolveStableVolumeAxisMax(volumeSourceSeries.volumes);
 
   const getPriceAxisBoundaryPadding = (value: { min: number; max: number }): number => {
     const min = Number(value.min);
@@ -1451,6 +1416,7 @@ const buildEChartsOption = ({
     axisLine: { show: false },
     axisTick: { show: false },
     splitLine: subtleHorizontalGrid,
+    splitNumber: priceAxisSplitNumber,
     axisLabel: { color: textColor, fontSize: 11, formatter: formatAxisPriceValue },
     axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: false } },
     ...priceAxisBoundaryLevelPadding,
@@ -4432,7 +4398,6 @@ const buildEChartsOption = ({
       "rgba(203, 213, 225, 0.42)",
     );
 
-    pushPaneShieldSeries(seriesOptions, gridIndex, xAxisIndex, yAxisIndex, paneShieldFill);
 
     if (panelName === "PPO") addPanelNote("PPO = MACD normalized %");
     if (panelName === "APO") addPanelNote("APO = MACD Line absolute");
@@ -5270,7 +5235,9 @@ const buildEChartsOption = ({
     animation: false,
     tooltip: { show: false },
   }));
-  const alignedSeriesOptions = [...seriesOptions, ...viewportBoundarySeries].map((series) => alignSeriesWithHistoryAxis(series, historyGapBars));
+  const alignedSeriesOptions = [...seriesOptions, ...viewportBoundarySeries]
+    .map((series) => alignSeriesWithHistoryAxis(series, historyGapBars))
+    .map(enforceLowerPaneContentZ);
   const clippedSeriesOptions = alignedSeriesOptions.map(clipSeriesToOwnGrid);
 
   const seriesOptionsWithTooltipPolicy = clippedSeriesOptions.map((series) => {
@@ -5323,6 +5290,12 @@ const buildEChartsOption = ({
 
   const chartTitle = buildChartTitlePresentation(displaySymbol, marketLabel, chartConfig, chartData);
 
+  // ECharts accepts a pixel `bottom` and an automatic height. Anchoring only
+  // the final pane makes the visible time-axis lane a fixed 28px contract,
+  // while every preceding pane keeps the existing contiguous percentage stack.
+  // Unlike a percentage bottom margin, this remains stable after chart.resize().
+  const anchoredGridOptions = anchorLastPaneToFixedTimeAxis(gridOptions, TV_X_AXIS_HEIGHT);
+
   return {
     backgroundColor: "transparent",
     animation: false,
@@ -5369,7 +5342,7 @@ const buildEChartsOption = ({
       formatter: (params: unknown) => formatCandleTooltip(params, chartData),
     },
     axisPointer: { show: false },
-    grid: gridOptions,
+    grid: anchoredGridOptions,
     xAxis: xAxisOptions,
     yAxis: yAxisOptions,
     graphic: graphicOptions,
@@ -5381,201 +5354,6 @@ const buildEChartsOption = ({
 // ============================================================================
 // [TENOR 2026] SCAR-SRP-01: MONOLITH FISSION
 // ============================================================================
-
-// ----------------------------------------------------------------------------
-// HOOK 1: CHART BADGES (Direct DOM Manipulation via Getter Pattern)
-// ----------------------------------------------------------------------------
-interface UseChartBadgesProps {
-  chartInstanceRef: MutableRefObject<EChartsInstance | null>;
-  getChartContainer: () => HTMLDivElement | null;
-  /** [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
-   * Stable container getter (gp-chart-layers-stack). Used for coordinate
-   * calculations so badge positioning is correct in all layout modes.
-   */
-  getLayersStack: () => HTMLDivElement | null;
-  getCursorBadge: () => HTMLDivElement | null;
-  getCursorText: () => HTMLSpanElement | null;
-  getCursorAction: () => HTMLButtonElement | null;
-  getLastBadge: () => HTMLDivElement | null;
-  getLastLine: () => HTMLDivElement | null;
-  lastPriceAxisValue?: number;
-  uiState: UiState;
-  isChartLoading: boolean;
-}
-
-const useChartBadges = ({
-  chartInstanceRef,
-  getChartContainer,
-  getLayersStack,
-  getCursorBadge,
-  getCursorText,
-  getCursorAction,
-  getLastBadge,
-  getLastLine,
-  lastPriceAxisValue,
-  uiState,
-  isChartLoading,
-}: UseChartBadgesProps) => {
-  const hideCursorPriceAxisBadge = useCallback(() => {
-    const cursorBadge = getCursorBadge();
-    const cursorAction = getCursorAction();
-    if (cursorBadge) {
-      cursorBadge.style.opacity = "0";
-      cursorBadge.style.visibility = "hidden";
-    }
-    if (cursorAction) {
-      cursorAction.style.opacity = "0";
-      cursorAction.style.visibility = "hidden";
-    }
-  }, [getCursorBadge, getCursorAction]);
-
-  const hideLastPriceAxisBadge = useCallback(() => {
-    const lastBadge = getLastBadge();
-    const lastLine = getLastLine();
-    if (lastBadge) {
-      lastBadge.style.opacity = "0";
-      lastBadge.style.visibility = "hidden";
-    }
-    if (lastLine) {
-      lastLine.style.opacity = "0";
-      lastLine.style.visibility = "hidden";
-    }
-  }, [getLastBadge, getLastLine]);
-
-  const getMainGridVerticalBounds = useCallback((containerHeight: number) => {
-    const chart = chartInstanceRef.current;
-    const container = getChartContainer();
-    if (chart && !chart.isDisposed() && container) {
-      const rect = getSafeGridRect(chart, container);
-      if (rect && Number.isFinite(rect.y) && Number.isFinite(rect.height)) {
-        return {
-          top: rect.y,
-          bottom: rect.y + rect.height,
-        };
-      }
-    }
-    return {
-      top: 0,
-      bottom: Math.max(0, containerHeight - TV_X_AXIS_HEIGHT),
-    };
-  }, [chartInstanceRef, getChartContainer]);
-
-  const updateLastPriceAxisBadge = useCallback(() => {
-    if (isChartLoading) {
-      hideLastPriceAxisBadge();
-      return;
-    }
-    const chart = chartInstanceRef.current;
-    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
-    // Use getLayersStack() (stable gp-chart-layers-stack) instead of
-    // getChartContainer()?.parentElement which returns the transient grid
-    // cell in multi-chart mode, causing wrong Y-coordinate calculations.
-    const containerEl = getLayersStack();
-    const lastBadge = getLastBadge();
-    const lastLine = getLastLine();
-
-    if (!chart || chart.isDisposed() || !containerEl || !lastBadge || !lastLine || !Number.isFinite(lastPriceAxisValue)) {
-      hideLastPriceAxisBadge();
-      return;
-    }
-
-    const containerHeight = containerEl.getBoundingClientRect().height;
-    const { top, bottom } = getMainGridVerticalBounds(containerHeight);
-
-    try {
-      const pixelValue = chart.convertToPixel({ yAxisIndex: 0 }, lastPriceAxisValue as number);
-      const yPixel = Array.isArray(pixelValue) ? Number(pixelValue[1]) : Number(pixelValue);
-
-      if (!Number.isFinite(yPixel)) {
-        hideLastPriceAxisBadge();
-        return;
-      }
-
-      const clampedY = clamp(yPixel, top + 11, bottom - 11);
-
-      lastBadge.style.top = `${Math.round(clampedY)}px`;
-      lastBadge.style.opacity = "1";
-      lastBadge.style.visibility = "visible";
-
-      lastLine.style.opacity = "0";
-      lastLine.style.visibility = "hidden";
-    } catch {
-      hideLastPriceAxisBadge();
-    }
-  }, [chartInstanceRef, getLayersStack, getMainGridVerticalBounds, hideLastPriceAxisBadge, isChartLoading, lastPriceAxisValue, getLastBadge, getLastLine]);
-
-  const updateCursorPriceAxisBadge = useCallback((clientX: number, clientY: number) => {
-    const chart = chartInstanceRef.current;
-    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE:
-    // Use getLayersStack() (stable gp-chart-layers-stack) for coordinate space.
-    // In multi-chart mode getChartContainer()?.parentElement was the grid cell
-    // which has a header row, causing localX/localY to be offset by ~32px and
-    // making isInsideMainChart always false → crosshair never rendered.
-    const containerEl = getLayersStack();
-    const cursorBadge = getCursorBadge();
-    const cursorText = getCursorText();
-    const cursorAction = getCursorAction();
-
-    if (
-      isChartLoading ||
-      uiState.cursorMode === "arrow" ||
-      !chart ||
-      chart.isDisposed() ||
-      !containerEl ||
-      !cursorBadge ||
-      !cursorText ||
-      !cursorAction
-    ) {
-      hideCursorPriceAxisBadge();
-      return;
-    }
-
-    const rect = containerEl.getBoundingClientRect();
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
-
-    const { top, bottom } = getMainGridVerticalBounds(rect.height);
-    const gridRightPx = rect.width - TV_Y_AXIS_WIDTH;
-
-    const isInsideMainChart = localX >= 0 && localX <= gridRightPx && localY >= top && localY <= bottom;
-
-    if (!isInsideMainChart) {
-      hideCursorPriceAxisBadge();
-      return;
-    }
-
-    try {
-      const pointInData = chart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [localX, localY]);
-
-      if (!Array.isArray(pointInData) || !Number.isFinite(Number(pointInData[1]))) {
-        hideCursorPriceAxisBadge();
-        return;
-      }
-
-      const priceValue = Number(pointInData[1]);
-      const formattedPrice = formatAxisPriceValue(priceValue);
-      const clampedY = clamp(localY, top + 11, bottom - 11);
-
-      cursorText.textContent = formattedPrice;
-      cursorBadge.style.top = `${Math.round(clampedY)}px`;
-      cursorBadge.style.opacity = "1";
-      cursorBadge.style.visibility = "visible";
-
-      const badgeWidth = Math.max(TV_CURSOR_BADGE_MIN_WIDTH, Math.ceil(cursorBadge.getBoundingClientRect().width));
-
-      cursorAction.style.top = `${Math.round(clampedY)}px`;
-      cursorAction.style.right = `${TV_AXIS_BADGE_RIGHT_INSET + badgeWidth + TV_AXIS_ACTION_GAP}px`;
-      cursorAction.style.opacity = "1";
-      cursorAction.style.visibility = "visible";
-      cursorAction.dataset.price = priceValue.toString();
-      cursorAction.dataset.priceLabel = formattedPrice;
-    } catch {
-      hideCursorPriceAxisBadge();
-    }
-  }, [chartInstanceRef, getCursorAction, getCursorBadge, getCursorText, getMainGridVerticalBounds, hideCursorPriceAxisBadge, getLayersStack, isChartLoading, uiState.cursorMode]);
-
-  return { updateCursorPriceAxisBadge, updateLastPriceAxisBadge };
-};
 
 // ============================================================================
 // MAIN HOOK: useEChartsRenderer (Orchestrator)
@@ -5595,11 +5373,6 @@ export const useEChartsRenderer = ({
   marketLabel = "",
   hideChartTitle = false,
   lastZoomRangeRef,
-  cursorPriceBadgeRef,
-  cursorPriceTextRef,
-  cursorPriceActionRef,
-  lastPriceBadgeRef,
-  lastPriceLineRef,
   lastPriceAxisValue,
   isMainChartVisible = true,
   isChartLoading = false,
@@ -5708,8 +5481,6 @@ export const useEChartsRenderer = ({
     };
   }, [clearChartMutationQueue]);
 
-  // [TENOR 2026 FIX] Getter Pattern to hide Ref mutation from ESLint
-  const getChartContainer = useCallback(() => stockChartRef.current, [stockChartRef]);
   // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: Prefer layersStackRef as the
   // stable event target. In multi-chart mode stockChartRef.parentElement changes to
   // a grid cell div, so we must use this stable container ref instead.
@@ -5717,11 +5488,6 @@ export const useEChartsRenderer = ({
     () => layersStackRef?.current ?? stockChartRef.current?.parentElement as HTMLDivElement | null ?? null,
     [layersStackRef, stockChartRef]
   );
-  const getCursorBadge = useCallback(() => cursorPriceBadgeRef?.current || null, [cursorPriceBadgeRef]);
-  const getCursorText = useCallback(() => cursorPriceTextRef?.current || null, [cursorPriceTextRef]);
-  const getCursorAction = useCallback(() => cursorPriceActionRef?.current || null, [cursorPriceActionRef]);
-  const getLastBadge = useCallback(() => lastPriceBadgeRef?.current || null, [lastPriceBadgeRef]);
-  const getLastLine = useCallback(() => lastPriceLineRef?.current || null, [lastPriceLineRef]);
   const hasVisibleComparisonEndLabels = useMemo(
     () => renderComparisonSeries.some((entry) => (
       !hiddenObjectIds[getCompareSeriesId(entry.symbol)] &&
@@ -5926,23 +5692,6 @@ export const useEChartsRenderer = ({
     renderChartData,
   ]);
 
-  // 2. Badges Engine
-  // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: pass getLayersStack so badge
-  // coordinate math uses the stable container, not the transient grid cell parent.
-  const { updateCursorPriceAxisBadge, updateLastPriceAxisBadge } = useChartBadges({
-    chartInstanceRef,
-    getChartContainer,
-    getLayersStack,
-    getCursorBadge,
-    getCursorText,
-    getCursorAction,
-    getLastBadge,
-    getLastLine,
-    lastPriceAxisValue,
-    uiState,
-    isChartLoading,
-  });
-
   const chartInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}`;
 
   const priceLevelViewportMarkers = useMemo<PriceLevelViewportMarker[]>(() => {
@@ -6048,8 +5797,6 @@ export const useEChartsRenderer = ({
     getChartContainer: getLayersStack,
     chartData: renderChartData,
     lastZoomRangeRef,
-    updateCursorPriceAxisBadge,
-    updateLastPriceAxisBadge,
     interactionScopeKey: chartInteractionScopeKey,
     hasComparisonEndLabels: hasVisibleComparisonEndLabels,
     lastPriceAxisValue,
@@ -6223,6 +5970,7 @@ export const useEChartsRenderer = ({
       comparisonBaselineIndex: comparisonBaselineIndexRef.current,
       hasLiveStitchedCandle,
       pineOverlay,
+      chartContainerHeightPx: stockChartRef.current?.clientHeight ?? 720,
     };
 
     const rawOption = buildEChartsOption(builderContext);
@@ -6458,23 +6206,17 @@ export const useEChartsRenderer = ({
     chartInstanceRef,
     stockChartRef,
     lastZoomRangeRef,
-    cursorPriceBadgeRef,
-    cursorPriceTextRef,
-    cursorPriceActionRef,
-    lastPriceBadgeRef,
     lastPriceAxisValue,
     uiState.dataMode,
-    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: chartInteractionScopeKey ensures
-    // the effect re-runs when the layout switches (1→4→6 charts), which forces ECharts
-    // to detect the DOM mismatch (getDom() !== container) and re-initialize on the
-    // correct stockChartRef.current node.
+    // [TENOR 2026 SRE FIX] SCAR-MULTICHART-EVENT-SCOPE: the host DOM is persistent.
+    // chartInteractionScopeKey remains a logical scope boundary so event bindings,
+    // viewport state and geometry are refreshed after the host moves to another slot
+    // without disposing the existing ECharts instance.
     chartInteractionScopeKey,
     legendSelection,
     applyViewport,
     resetManualYViewport,
     historyGapBars,
-    updateCursorPriceAxisBadge,
-    updateLastPriceAxisBadge,
     isMainChartVisible,
     isChartLoading,
     renderComparisonSeries,

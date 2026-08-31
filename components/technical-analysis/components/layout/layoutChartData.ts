@@ -42,14 +42,11 @@ export const resolveLayoutDisplayRate = (
   return (targetRate as number) / (baseRate as number);
 };
 
-export const convertLayoutSeriesCurrency = (
+export const convertLayoutSeriesByRate = (
   data: ChartDataPoint[],
-  baseCurrency: string | undefined,
-  targetCurrency: string | undefined,
-  rates: Readonly<Record<string, number | undefined>>,
+  rate: number | null | undefined,
 ): ChartDataPoint[] => {
-  const rate = resolveLayoutDisplayRate(baseCurrency, targetCurrency, rates);
-  if (rate === null || rate === 1) return data;
+  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0 || rate === 1) return data;
 
   return data.map((point) => ({
     ...point,
@@ -58,6 +55,16 @@ export const convertLayoutSeriesCurrency = (
     low: point.low * rate,
     close: point.close * rate,
   }));
+};
+
+export const convertLayoutSeriesCurrency = (
+  data: ChartDataPoint[],
+  baseCurrency: string | undefined,
+  targetCurrency: string | undefined,
+  rates: Readonly<Record<string, number | undefined>>,
+): ChartDataPoint[] => {
+  const rate = resolveLayoutDisplayRate(baseCurrency, targetCurrency, rates);
+  return convertLayoutSeriesByRate(data, rate);
 };
 
 export const createEmptyLayoutOhlcState = (): LayoutOhlcState => ({
@@ -102,6 +109,18 @@ export const formatLayoutCompactPrice = (value: number | null | undefined): stri
   if (typeof value !== "number" || !Number.isFinite(value)) return LAYOUT_EMPTY_VALUE;
   return value.toLocaleString("fr-FR", {
     maximumFractionDigits: value >= 100 ? 0 : 2,
+  });
+};
+
+// Price-scale labels must preserve market precision even for large nominal prices.
+// Using two stable decimals mirrors the professional scale behavior observed in the
+// TradingView runtime (e.g. 815,600.00 instead of collapsing to 815,600).
+export const formatLayoutAxisPrice = (value: number | null | undefined): string => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return LAYOUT_EMPTY_VALUE;
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: true,
   });
 };
 

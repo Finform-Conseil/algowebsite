@@ -4,6 +4,8 @@ import React from "react";
 import clsx from "clsx";
 import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
 import type { CompleteMultiChartLayoutCell } from "../../config/layout/multiChartCellState";
+import type { ChartType } from "../../lib/chart-types/domain/types";
+import { CHART_TYPE_MENU_GROUPS, CHART_TYPE_REGISTRY } from "../../lib/chart-types/registry/chartTypeRegistry";
 import {
   CHART_TIMEFRAMES,
   normalizeChartTimeframe,
@@ -16,7 +18,7 @@ interface MultiChartCellControlsProps {
   isMaximized: boolean;
   dataSource?: TimeframeDataSourceKind | "unknown";
   onTimeframeChange: (timeframe: string) => void;
-  onChartTypeChange: (chartType: "candles" | "line") => void;
+  onChartTypeChange: (chartType: ChartType) => void;
   onToggleIndicator: (indicator: "volume" | "sma") => void;
   onDuplicate: () => void;
   onClear: () => void;
@@ -49,11 +51,10 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
   const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
   const sourceKind = completeCell.sourceKind ?? "equity";
   const timeframe = normalizeChartTimeframe(completeCell.timeframe ?? cell.interval) ?? "1D";
-  const chartType = sourceKind === "index" ? "line" : (completeCell.chartType === "line" ? "line" : "candles");
+  const chartType: ChartType = sourceKind === "index" ? "line" : (completeCell.chartType ?? "candles");
   const sourceLabel = SOURCE_LABELS[dataSource];
   const indicators = new Set(cell.indicators ?? []);
   const hasVolume = sourceKind === "equity" && indicators.has("volume");
-  const hasSma = indicators.has("sma");
   const controlIdPrefix = `multi-chart-${cell.chartId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   return (
@@ -84,10 +85,15 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         disabled={sourceKind === "index"}
         title={sourceKind === "index" ? "Les indices sont rendus en ligne" : "Type de graphique du panneau"}
         aria-label="Type de graphique du panneau"
-        onChange={(event) => onChartTypeChange(event.target.value === "line" ? "line" : "candles")}
+        onChange={(event) => onChartTypeChange(event.target.value as ChartType)}
       >
-        <option value="candles">Bougies</option>
-        <option value="line">Ligne</option>
+        {CHART_TYPE_MENU_GROUPS.map((group) => (
+          <optgroup key={group} label={group}>
+            {Object.values(CHART_TYPE_REGISTRY)
+              .filter((entry) => entry.group === group)
+              .map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
+          </optgroup>
+        ))}
       </select>
       <button
         type="button"
@@ -99,16 +105,6 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         onClick={() => onToggleIndicator("volume")}
       >
         VOL
-      </button>
-      <button
-        type="button"
-        className={clsx("gp-multi-chart-cell-action", "gp-multi-chart-indicator-toggle", hasSma && "is-active")}
-        title="Afficher ou masquer la SMA 20 de ce panneau"
-        aria-label="Basculer la SMA 20 du panneau"
-        aria-pressed={hasSma}
-        onClick={() => onToggleIndicator("sma")}
-      >
-        SMA
       </button>
       <button
         type="button"

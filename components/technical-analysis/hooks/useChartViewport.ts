@@ -12,10 +12,12 @@ import {
   TV_X_AXIS_HEIGHT,
   TV_Y_AXIS_WIDTH,
   TV_ZOOM_VELOCITY,
-  clamp,
   clampViewportWindowWithFuture,
   computeDirectionalZoomViewport,
   computeHorizontalPanViewport,
+  computePriceAxisDragViewport,
+  computePriceAxisPan,
+  computePriceAxisWheelViewport,
   computeTradingViewWheelZoomViewport,
   normalizeWheelDeltaPx,
   reconcileViewportAfterHistoryPrepend,
@@ -25,7 +27,6 @@ import {
 import { resolveAutoViewportPriceRange } from "./viewport/viewportPriceRange";
 import {
   buildOffscreenPriceLevelGraphics,
-  getSafeGridRect,
   type PriceLevelViewportMarker,
 } from "./viewport/viewportGraphics";
 import {
@@ -112,8 +113,6 @@ export interface UseChartViewportProps {
   getChartContainer: () => HTMLDivElement | null;
   chartData: ChartDataPoint[];
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
-  updateCursorPriceAxisBadge: (x: number, y: number) => void;
-  updateLastPriceAxisBadge: () => void;
   interactionScopeKey?: string;
   hasComparisonEndLabels?: boolean;
   lastPriceAxisValue?: number;
@@ -128,8 +127,6 @@ export const useChartViewport = ({
   getChartContainer,
   chartData,
   lastZoomRangeRef,
-  updateCursorPriceAxisBadge,
-  updateLastPriceAxisBadge,
   interactionScopeKey,
   hasComparisonEndLabels = false,
   lastPriceAxisValue,
@@ -160,7 +157,6 @@ export const useChartViewport = ({
     cachedRect: null as DOMRect | null // [TENOR 2026 SRE] Cache rect on pointerdown
   });
 
-  const lastCursorClientPointRef = useRef<{ x: number; y: number } | null>(null);
   const prevDataMaxRef = useRef<number>(0);
   const lastDataFirstTimeRef = useRef<string | null>(null);
   const previousPriceLevelGraphicIdsRef = useRef<Set<string>>(new Set());
@@ -332,12 +328,6 @@ export const useChartViewport = ({
 
     enqueueChartMutation("viewport", (targetChart) => {
       targetChart.setOption(viewportOption, false, true);
-      requestAnimationFrame(() => {
-        updateLastPriceAxisBadge();
-        if (lastCursorClientPointRef.current) {
-          updateCursorPriceAxisBadge(lastCursorClientPointRef.current.x, lastCursorClientPointRef.current.y);
-        }
-      });
     }, mode);
 
     if (lastZoomRangeRef) {
@@ -358,8 +348,6 @@ export const useChartViewport = ({
     lastPriceAxisValue,
     lastZoomRangeRef,
     priceLevelMarkers,
-    updateCursorPriceAxisBadge,
-    updateLastPriceAxisBadge,
   ]);
 
   const scheduleViewportApply = useCallback((mode: ViewportApplyMode = "queued") => {
@@ -706,22 +694,21 @@ export const useChartViewport = ({
         const totalBars = chartDataRef.current.length;
         const autoRange = resolveAutoViewportPriceRange({ chartData: chartDataRef.current, startIdx: state.startIdx, endIdx: Math.min(totalBars - 1, state.endIdx), hasComparisonEndLabels, lastPriceAxisValue });
         const baseRange = Math.max(1, autoRange.visibleMax - autoRange.visibleMin + autoRange.padding * 2);
-        const currentRange = baseRange * state.yScale;
         const gridHeight = Math.max(1, rect.height - TV_X_AXIS_HEIGHT);
-        const cursorRatio = Math.max(0, Math.min(1, mouseY / gridHeight));
-        const oldPriceAtCursor = autoRange.center + state.yPan + currentRange * (0.5 - cursorRatio);
-        const wheelStep = Math.sign(wheelDeltaY) * Math.min(1, Math.abs(wheelDeltaY) / 80);
-        const nextScale = Math.max(0.1, Math.min(5, state.yScale * Math.exp(wheelStep * TV_ZOOM_VELOCITY * 80)));
-        const nextRange = baseRange * nextScale;
-        const shiftedCursorRatio = Math.max(0, Math.min(1, (mouseY + 15 * wheelStep) / gridHeight));
-        state.yScale = nextScale;
-        state.yPan = oldPriceAtCursor - autoRange.center - nextRange * (0.5 - shiftedCursorRatio);
+        const nextPriceViewport = computePriceAxisWheelViewport({
+          center: autoRange.center,
+          baseRange,
+          yScale: state.yScale,
+          yPan: state.yPan,
+          cursorRatio: mouseY / gridHeight,
+          gridHeight,
+          wheelDeltaY,
+        });
+        state.yScale = nextPriceViewport.yScale;
+        state.yPan = nextPriceViewport.yPan;
         state.isYManual = true;
         scheduleViewportApply("immediate");
       } else if (isOnChart || isOnXAxis) {
-        const totalBars = chartDataRef.current.length;
-        const visibleCount = state.endIdx - state.startIdx;
-
         if (Math.abs(wheelDeltaY) > Math.abs(wheelDeltaX)) {
           pendingWheelDeltaY += wheelDeltaY;
         } else {
@@ -819,8 +806,6 @@ export const useChartViewport = ({
       if (!chart || chartData.length === 0) return;
 
       const state = viewportStateRef.current;
-      lastCursorClientPointRef.current = { x: event.clientX, y: event.clientY };
-      updateCursorPriceAxisBadge(event.clientX, event.clientY);
 
       if (state.activePointers.has(event.pointerId)) {
         state.activePointers.set(event.pointerId, event);
@@ -882,14 +867,17 @@ export const useChartViewport = ({
         const autoRange = resolveAutoViewportPriceRange({ chartData: chartDataRef.current, startIdx: state.startIdx, endIdx: Math.min(totalBars - 1, state.endIdx), hasComparisonEndLabels, lastPriceAxisValue });
         const baseRange = Math.max(1, autoRange.visibleMax - autoRange.visibleMin + autoRange.padding * 2);
         const gridHeight = Math.max(1, rect.height - TV_X_AXIS_HEIGHT);
-        const startRatio = Math.max(0, Math.min(1, (state.startY - rect.top) / gridHeight));
-        const currentRatio = Math.max(0, Math.min(1, (event.clientY - rect.top) / gridHeight));
-        const initialRange = baseRange * state.initialYScale;
-        const anchorPrice = autoRange.center + state.initialYPan + initialRange * (0.5 - startRatio);
-        const nextScale = Math.max(0.1, Math.min(5, state.initialYScale * Math.exp(deltaY * 0.01)));
-        const nextRange = baseRange * nextScale;
-        state.yScale = nextScale;
-        state.yPan = anchorPrice - autoRange.center - nextRange * (0.5 - currentRatio);
+        const nextPriceViewport = computePriceAxisDragViewport({
+          center: autoRange.center,
+          baseRange,
+          initialYScale: state.initialYScale,
+          initialYPan: state.initialYPan,
+          startRatio: (state.startY - rect.top) / gridHeight,
+          currentRatio: (event.clientY - rect.top) / gridHeight,
+          deltaY,
+        });
+        state.yScale = nextPriceViewport.yScale;
+        state.yPan = nextPriceViewport.yPan;
         state.isYManual = true;
         scheduleViewportApply("immediate");
       } else if (state.isDraggingChart || state.isDraggingXPan) {
@@ -923,10 +911,13 @@ export const useChartViewport = ({
                 visibleMax = Math.max(visibleMax, chartDataRef.current[i].high);
               }
             }
-            const priceRange = Math.max(1, (visibleMax - visibleMin) * state.yScale);
-            const shiftY = (deltaY / gridHeight) * priceRange;
-            const maxPan = priceRange * 0.8;
-            state.yPan = clamp(state.yPan + shiftY, -maxPan, maxPan);
+            state.yPan = computePriceAxisPan({
+              initialYPan: state.yPan,
+              deltaY,
+              gridHeight,
+              priceRange: Math.max(1, visibleMax - visibleMin),
+              yScale: state.yScale,
+            });
           }
         }
         scheduleViewportApply("immediate");
@@ -1018,7 +1009,6 @@ export const useChartViewport = ({
     interactionScopeKey,
     applyViewport,
     scheduleViewportApply,
-    updateCursorPriceAxisBadge,
   ]);
 
   const resetManualYViewport = useCallback(() => {
@@ -1036,7 +1026,6 @@ export const useChartViewport = ({
   return {
     applyViewport,
     historyGapBars,
-    lastCursorClientPointRef,
     resetManualYViewport,
     viewportWindowRef,
     historyPrependCommitRef,

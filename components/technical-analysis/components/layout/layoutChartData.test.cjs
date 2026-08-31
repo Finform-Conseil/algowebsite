@@ -5,6 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  convertLayoutSeriesByRate,
   convertLayoutSeriesCurrency,
   createLayoutOhlcState,
   getLayoutPriceChangeColor,
@@ -68,4 +69,14 @@ test("peer currency conversion never invents missing API metadata or rates", () 
   assert.equal(convertLayoutSeriesCurrency(series, "", "USD", { USD: 1, MAD: 10 }), series);
   assert.equal(convertLayoutSeriesCurrency(series, "MAD", "USD", { USD: 1 }), series);
   assert.equal(convertLayoutSeriesCurrency(series, "MAD", "MAD", { MAD: 10 }), series);
+});
+
+test("active-cell peers can reuse the canonical effective rate without duplicate metadata fetches", () => {
+  const series = [point("2026-04-09T00:00:00.000Z", 7500, 7600, 7400, 7540, 3193)];
+  const converted = convertLayoutSeriesByRate(series, 13.34 / 7540);
+
+  assert.ok(Math.abs(converted[0].close - 13.34) < 1e-10);
+  assert.equal(converted[0].volume, 3193);
+  assert.equal(convertLayoutSeriesByRate(series, 1), series);
+  assert.equal(convertLayoutSeriesByRate(series, Number.NaN), series);
 });

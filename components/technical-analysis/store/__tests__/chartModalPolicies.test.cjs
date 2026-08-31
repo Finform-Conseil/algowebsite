@@ -83,22 +83,51 @@ test("setTimeframe and setChartConfig propagate synced intervals equivalently", 
   assert.deepEqual(layoutIntervals(viaChartConfigPatch), layoutIntervals(viaTimeframeAction));
 });
 
-test("setSymbol and setChartConfig normalize symbol without inventing secondary peers", () => {
-  const viaSymbolAction = technicalAnalysisSlice.reducer(
-    createSectorPresetState(),
-    setSymbol(" snts "),
-  );
-  const viaChartConfigPatch = technicalAnalysisSlice.reducer(
-    createSectorPresetState(),
-    setChartConfig({ symbol: " snts " }),
-  );
+test("setSymbol and setChartConfig update only the active multi-chart cell when symbol sync is disabled", () => {
+  const makeState = () => {
+    let state = technicalAnalysisSlice.reducer(
+      createReducerState(),
+      setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "BOA_NG", market: "BRVM" }),
+    );
+    state = technicalAnalysisSlice.reducer(
+      state,
+      updateLayoutChart({ chartId: "chart_2", symbol: "BOA_BJ", exchange: "BRVM" }),
+    );
+    return technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
+  };
+
+  const viaSymbolAction = technicalAnalysisSlice.reducer(makeState(), setSymbol(" snts "));
+  const viaChartConfigPatch = technicalAnalysisSlice.reducer(makeState(), setChartConfig({ symbol: " snts " }));
 
   assert.equal(viaSymbolAction.chartConfig.symbol, "SNTS");
   assert.equal(viaChartConfigPatch.chartConfig.symbol, "SNTS");
   assert.deepEqual(layoutSymbols(viaChartConfigPatch), layoutSymbols(viaSymbolAction));
-  assert.equal(viaSymbolAction.ui.multiChartLayout.activeChartId, "chart_1");
-  assert.equal(viaSymbolAction.ui.multiChartLayout.charts[0].isActive, true);
-  assert.deepEqual(layoutSymbols(viaSymbolAction), ["SNTS", "", "", ""]);
+  assert.equal(viaSymbolAction.ui.multiChartLayout.activeChartId, "chart_2");
+  assert.equal(viaSymbolAction.ui.multiChartLayout.charts[1].isActive, true);
+  assert.deepEqual(layoutSymbols(viaSymbolAction), ["BOA_NG", "SNTS"]);
+});
+
+test("entering multi-chart never inherits the single-chart SMA default", () => {
+  const state = createReducerState();
+  state.chartConfig.symbol = "BOA_BJ";
+  state.chartConfig.indicators.sma = true;
+  state.chartConfig.indicators.volume = true;
+  state.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("single", "BOA_BJ", [], "BRVM");
+
+  const next = technicalAnalysisSlice.reducer(
+    state,
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "BOA_BJ", market: "BRVM" }),
+  );
+  const active = next.ui.multiChartLayout.charts.find(
+    (chart) => chart.chartId === next.ui.multiChartLayout.activeChartId,
+  );
+
+  assert.ok(active);
+  assert.equal(active.indicators.includes("sma"), false);
+  assert.equal(active.indicators.includes("volume"), true);
+  assert.equal(active.indicatorState?.chart?.sma, false);
+  assert.equal(next.chartConfig.indicators.sma, false);
+  assert.equal(next.chartConfig.indicators.volume, true);
 });
 
 test("layout setup uses the visible ticker binding when Redux has not caught up yet", () => {
@@ -356,15 +385,19 @@ test("canonical timeframe writes both legacy interval and v2 timeframe", () => {
   assert.equal(active.timeframe, "1H");
 });
 
-test("selecting a new equity symbol clears stale index identity", () => {
+test("selecting a new equity symbol clears stale index identity on the targeted active cell only", () => {
   let state = technicalAnalysisSlice.reducer(
     createReducerState(),
     setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
   );
   state = technicalAnalysisSlice.reducer(
     state,
+    updateLayoutChart({ chartId: "chart_2", symbol: "BOA_BJ", exchange: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
     updateLayoutChart({
-      chartId: "chart_1",
+      chartId: "chart_2",
       symbol: "MASI",
       exchange: "CSE",
       sourceKind: "index",
@@ -372,12 +405,16 @@ test("selecting a new equity symbol clears stale index identity", () => {
       chartType: "line",
     }),
   );
+  state = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
   const next = technicalAnalysisSlice.reducer(state, setSymbol("BCP"));
   const primary = next.ui.multiChartLayout.charts[0];
+  const active = next.ui.multiChartLayout.charts[1];
 
-  assert.equal(primary.symbol, "BCP");
-  assert.equal(primary.sourceKind, "equity");
-  assert.equal(primary.sourceId, "");
+  assert.equal(primary.symbol, "ORANGE_CI");
+  assert.equal(active.symbol, "BCP");
+  assert.equal(active.sourceKind, "equity");
+  assert.equal(active.sourceId, "");
+  assert.equal(next.ui.multiChartLayout.activeChartId, "chart_2");
 });
 
 test("an active index cannot be switched to candlesticks by the canonical chart-type control", () => {

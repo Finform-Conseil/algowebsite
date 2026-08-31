@@ -788,53 +788,36 @@ export const calculateMACD = (
   slowPeriod = 26,
   signalPeriod = 9
 ) => {
-  const emaFast = calculateEMA(data, fastPeriod);
-  const emaSlow = calculateEMA(data, slowPeriod);
-
-  const macdLine: (number | string)[] = new Array(data.length).fill("-");
-  const signalLine: (number | string)[] = new Array(data.length).fill("-");
-  const histogram: (number | string)[] = new Array(data.length).fill("-");
-
-  // Calculate MACD Line
-  for (let i = 0; i < data.length; i++) {
-    const f = emaFast[i];
-    const s = emaSlow[i];
-    if (typeof f === "number" && typeof s === "number") {
-      macdLine[i] = f - s;
-    }
+  if (data.length === 0) {
+    return { macdLine: [], signalLine: [], histogram: [] };
   }
 
-  // Calculate Signal Line (EMA of MACD Line)
-  const k = 2 / (signalPeriod + 1);
-  let firstValidIdx = -1;
-  let signalEma = 0;
-
-  for (let i = 0; i < macdLine.length; i++) {
-    const val = macdLine[i];
-    if (typeof val === "number") {
-      if (firstValidIdx === -1) {
-        // Wait for enough points to start Signal EMA
-        let validCount = 0;
-        let sum = 0;
-        for (let j = 0; j <= i; j++) {
-          if (typeof macdLine[j] === "number") {
-            sum += macdLine[j] as number;
-            validCount++;
-          }
-        }
-        if (validCount >= signalPeriod) {
-          firstValidIdx = i;
-          signalEma = sum / validCount;
-          signalLine[i] = parseFloat(signalEma.toFixed(4));
-          histogram[i] = parseFloat((val - signalEma).toFixed(4));
-        }
-      } else {
-        signalEma = (val - signalEma) * k + signalEma;
-        signalLine[i] = parseFloat(signalEma.toFixed(4));
-        histogram[i] = parseFloat((val - signalEma).toFixed(4));
-      }
+  // TradingView-style streaming EMA semantics: seed from the first finite source
+  // value, then recurse immediately. This keeps the oscillator defined from the
+  // first market bar instead of exposing an artificial SMA warm-up hole inside
+  // the visible chart.
+  const streamingEma = (values: number[], period: number): number[] => {
+    const safePeriod = Math.max(1, Math.round(period));
+    const alpha = 2 / (safePeriod + 1);
+    const result = new Array<number>(values.length);
+    let previous = values[0] ?? 0;
+    result[0] = previous;
+    for (let i = 1; i < values.length; i++) {
+      previous = (values[i] - previous) * alpha + previous;
+      result[i] = previous;
     }
-  }
+    return result;
+  };
+
+  const closes = data.map((point) => point.close);
+  const emaFast = streamingEma(closes, fastPeriod);
+  const emaSlow = streamingEma(closes, slowPeriod);
+  const macdNumeric = closes.map((_close, index) => emaFast[index] - emaSlow[index]);
+  const signalNumeric = streamingEma(macdNumeric, signalPeriod);
+
+  const macdLine = macdNumeric.map((value) => parseFloat(value.toFixed(4)));
+  const signalLine = signalNumeric.map((value) => parseFloat(value.toFixed(4)));
+  const histogram = macdNumeric.map((value, index) => parseFloat((value - signalNumeric[index]).toFixed(4)));
 
   return { macdLine, signalLine, histogram };
 };

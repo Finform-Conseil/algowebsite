@@ -81,10 +81,30 @@ export const coursEntityToChartDataPoint = (cours: CoursEntity): ChartDataPoint 
  * (les moteurs de chart attendent un ordre chronologique ascendant).
  * IMMUTABLE : ne mute pas le tableau d'entrée.
  */
-export const coursSeriesToChartData = (series: readonly CoursEntity[]): ChartDataPoint[] =>
-  [...series]
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    .map(coursEntityToChartDataPoint);
+export const getCanonicalChartTimeKey = (value: unknown): string => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const timestamp = Date.parse(raw);
+  return Number.isFinite(timestamp) ? `epoch:${timestamp}` : `raw:${raw}`;
+};
+
+export const coursSeriesToChartData = (series: readonly CoursEntity[]): ChartDataPoint[] => {
+  const sorted = [...series]
+    .sort((a, b) => Date.parse(String(a.timestamp)) - Date.parse(String(b.timestamp)));
+
+  // A chart time scale requires exactly one OHLC point per logical instant.
+  // ISO spellings such as `Z` and `+0000` may represent the same instant; keying
+  // by the raw string would paint two bars at one logical position after cache/page
+  // merges. The latest row in stable API order wins deterministically.
+  const byTimestamp = new Map<string, CoursEntity>();
+  for (const cours of sorted) {
+    const key = getCanonicalChartTimeKey(cours.timestamp);
+    if (!key) continue;
+    byTimestamp.set(key, cours);
+  }
+
+  return Array.from(byTimestamp.values()).map(coursEntityToChartDataPoint);
+};
 
 // ----------------------------------------------------------------------------
 // 2) SNAPSHOT LIVE : PriceIndicatorEntity (API) -> LiveSnapshot (UI)

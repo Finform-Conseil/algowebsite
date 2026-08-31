@@ -1,65 +1,53 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as echarts from "echarts/core";
-import type { EChartsCoreOption } from "echarts/core";
-import type { EChartsInstance } from "../../lib/types/echarts";
-import { calculateSMA, type ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
+
 import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
-import type {
-  CompleteMultiChartLayoutCell,
-  MultiChartViewportState,
+import {
+  completeMultiChartCell,
+  type CompleteMultiChartLayoutCell,
+  type MultiChartViewportState,
 } from "../../config/layout/multiChartCellState";
-import type { ChartAppearance } from "../../config/state/chartStateTypes";
-import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
-import {
-  buildDirectionalOhlcvSeries,
-  buildDirectionalVolumeBarData,
-  type CandleDirection,
-} from "../../lib/chart/directionalOhlcv";
-import { MULTI_CHART_MINI_DATA_ZOOM_ID } from "../../hooks/useMultiChartSync";
+import type { ChartAppearance, ChartState } from "../../config/state/chartStateTypes";
+import type { UiState } from "../../config/state/uiStateTypes";
 import { filterChartDataByDateRange } from "../../config/market/dateRangeSeries";
+import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
+import { useEChartsRenderer } from "../../hooks/useEChartsRenderer";
 import {
-  MAIN_GRID_LEFT,
-  TV_AUTO_SCALE_PADDING,
-  TV_ZOOM_VELOCITY,
-  computeDirectionalZoomViewport,
-  computeHorizontalPanViewport,
-  clampViewportWindow,
-  normalizeWheelDeltaPx,
-} from "../../hooks/useChartViewport";
-import { ensureLayoutEChartsModulesRegistered } from "./layoutEChartsRegistry";
+  isAxisPointerPayload,
+  readPrimaryXAxisCategories,
+  resolveAxisPointerIndex,
+  resolvePixelPointerIndex,
+  type ZrMouseMovePayload,
+} from "../../lib/chart/pointerCandleIndex";
+import { resolveLastPriceAxisColor } from "../../lib/chart/lastPriceAxisVisuals";
+import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
+import type { EChartsInstance } from "../../lib/types/echarts";
+import { createDefaultMultiChartIndicatorSnapshot } from "../../store/policies/multiChartIndicatorStatePolicy";
+import { TimeAxisControls } from "../toolbar/time-axis/TimeAxisControls";
 import {
   createEmptyLayoutOhlcState,
   createLayoutOhlcState,
-  formatLayoutCompactPrice,
-  getLayoutPriceChangeColor,
   formatLayoutPrice,
-  formatLayoutShortDate,
+  getLayoutPriceChangeColor,
   getRenderableOhlcvSeries,
   type LayoutOhlcState,
 } from "./layoutChartData";
 
 const PEER_MAX_CANDLES = 500;
-const PEER_Y_AXIS_WIDTH = 58;
-const PEER_DOJI_PRICE_EPSILON = 0.000001;
-const PEER_DOJI_TICK_HALF_WIDTH = 4;
-
-interface PeerViewportState {
-  startIdx: number;
-  endIdx: number;
-  yScale: number;
-  isYManual: boolean;
-}
 
 export interface FullPeerChartProps {
   cell: MultiChartLayoutCell;
   data: ChartDataPoint[];
   loadStatus: ComparisonLoadStatus;
   dataMode: "mock" | "real";
-  chartAppearance: Pick<ChartAppearance, "upColor" | "downColor" | "volumeColorMode">;
+  chartAppearance: ChartAppearance;
+  uiState: UiState;
+  hiddenObjectIds?: Record<string, boolean>;
   activeBounds?: { start: string; end: string };
   headerActions?: React.ReactNode;
+  isActive?: boolean;
+  interactionOverlay?: React.ReactNode;
   onActivate: () => void;
   onHeaderClick: () => void;
   onChartReady: (chartId: string, chart: EChartsInstance) => void;
@@ -67,197 +55,35 @@ export interface FullPeerChartProps {
   onViewportChange?: (chartId: string, viewport: MultiChartViewportState) => void;
 }
 
-type CustomRenderApi = {
-  value: (dimension: number) => unknown;
-  coord: (data: unknown[]) => number[];
-};
-
-type PeerDojiDatum = [number, number, CandleDirection];
-
-const toFiniteNumber = (value: unknown): number | null => {
-  const numericValue = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numericValue) ? numericValue : null;
-};
-
-const isCollapsedCandleBody = (point: ChartDataPoint): boolean =>
-  Math.abs(point.open - point.close) <= PEER_DOJI_PRICE_EPSILON;
-
-const buildPeerDojiOverlayData = (
-  points: ChartDataPoint[],
-  directions: CandleDirection[]
-): PeerDojiDatum[] => {
-  const overlayData: PeerDojiDatum[] = [];
-
-  for (let index = 0; index < points.length; index++) {
-    const point = points[index];
-    if (!point || !isCollapsedCandleBody(point)) continue;
-    overlayData.push([index, point.close, directions[index] ?? 1]);
-  }
-
-  return overlayData;
-};
-
-const renderPeerDojiMarker = (api: CustomRenderApi, upColor: string, downColor: string) => {
-  const xValue = toFiniteNumber(api.value(0));
-  const price = toFiniteNumber(api.value(1));
-  const direction = toFiniteNumber(api.value(2));
-  if (xValue === null || price === null || direction === null) return null;
-
-  const coord = api.coord([xValue, price]);
-  const x = coord[0];
-  const y = coord[1];
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-
+const buildPeerUiState = (
+  uiState: UiState,
+  cell: CompleteMultiChartLayoutCell,
+): UiState => {
+  const snapshot = cell.indicatorState ?? createDefaultMultiChartIndicatorSnapshot(cell);
   return {
-    type: "line",
-    shape: {
-      x1: x - PEER_DOJI_TICK_HALF_WIDTH,
-      y1: y,
-      x2: x + PEER_DOJI_TICK_HALF_WIDTH,
-      y2: y,
-    },
-    style: {
-      stroke: direction >= 0 ? upColor : downColor,
-      lineWidth: 2,
-      lineCap: "round",
-      opacity: 0.95,
+    ...uiState,
+    comparisonSymbols: [],
+    comparisonSettings: {},
+    movingAverageTrendSignals: snapshot.ui.movingAverageTrendSignals,
+    priceVsSmaMetrics: snapshot.ui.priceVsSmaMetrics,
+    priceVsEmaMetrics: snapshot.ui.priceVsEmaMetrics,
+    multiChartLayout: {
+      ...uiState.multiChartLayout,
+      activeChartId: cell.chartId,
     },
   };
 };
 
-const createInitialViewport = (): PeerViewportState => ({
-  startIdx: 0,
-  endIdx: 0,
-  yScale: 1,
-  isYManual: false,
-});
-
-const resolveNearestTimeIndex = (data: ChartDataPoint[], time: string | null): number | null => {
-  if (!time || data.length === 0) return null;
-  const exact = data.findIndex((point) => point.time === time);
-  if (exact >= 0) return exact;
-  const target = Date.parse(time);
-  if (!Number.isFinite(target)) return null;
-  let nearestIndex = 0;
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (let index = 0; index < data.length; index += 1) {
-    const timestamp = Date.parse(data[index]?.time ?? "");
-    if (!Number.isFinite(timestamp)) continue;
-    const distance = Math.abs(timestamp - target);
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestIndex = index;
-    }
-  }
-  return Number.isFinite(nearestDistance) ? nearestIndex : null;
-};
-
-const restorePeerViewport = (
-  data: ChartDataPoint[],
-  persisted: Partial<MultiChartViewportState> | undefined,
-): PeerViewportState => {
-  if (data.length === 0) return createInitialViewport();
-  const lastIndex = Math.max(0, data.length - 1);
-  const startIdx = resolveNearestTimeIndex(data, persisted?.startTime ?? null) ?? 0;
-  const endIdx = resolveNearestTimeIndex(data, persisted?.endTime ?? null) ?? lastIndex;
-  const window = clampViewportWindow(Math.min(startIdx, endIdx), Math.max(startIdx, endIdx), data.length);
+const buildPeerChartState = (
+  cell: CompleteMultiChartLayoutCell,
+): ChartState => {
+  const snapshot = cell.indicatorState ?? createDefaultMultiChartIndicatorSnapshot(cell);
   return {
-    ...window,
-    yScale: typeof persisted?.yScale === "number" && Number.isFinite(persisted.yScale) && persisted.yScale > 0
-      ? persisted.yScale
-      : 1,
-    isYManual: persisted?.isYManual === true,
+    symbol: cell.symbol,
+    timeframe: cell.timeframe,
+    chartType: cell.sourceKind === "index" ? "line" : cell.chartType,
+    indicators: snapshot.chart,
   };
-};
-
-const serializePeerViewport = (
-  data: ChartDataPoint[],
-  state: PeerViewportState,
-): MultiChartViewportState => {
-  const window = data.length > 0
-    ? clampViewportWindow(state.startIdx, state.endIdx, data.length)
-    : { startIdx: 0, endIdx: 0 };
-  return {
-    startTime: data[window.startIdx]?.time ?? null,
-    endTime: data[window.endIdx]?.time ?? null,
-    yScale: state.yScale,
-    isYManual: state.isYManual,
-  };
-};
-
-const areViewportsEqual = (left: MultiChartViewportState | null, right: MultiChartViewportState): boolean =>
-  left?.startTime === right.startTime
-  && left?.endTime === right.endTime
-  && left?.yScale === right.yScale
-  && left?.isYManual === right.isYManual;
-
-const resolveDataIndex = (data: ChartDataPoint[], value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.round(value);
-  }
-  if (typeof value === "string" && value.length > 0) {
-    const index = data.findIndex((point) => point.time === value);
-    return index >= 0 ? index : null;
-  }
-  return null;
-};
-
-const readCurrentViewport = (
-  chart: EChartsInstance,
-  data: ChartDataPoint[],
-  fallback: PeerViewportState
-) => {
-  if (data.length <= 1) return { startIdx: 0, endIdx: 0 };
-
-  try {
-    const option = chart.getOption() as { dataZoom?: Array<Record<string, unknown>> };
-    const dataZoom = option.dataZoom?.find((item) => item.id === MULTI_CHART_MINI_DATA_ZOOM_ID)
-      ?? option.dataZoom?.[0];
-
-    const startValue = resolveDataIndex(data, dataZoom?.startValue);
-    const endValue = resolveDataIndex(data, dataZoom?.endValue);
-
-    if (startValue !== null && endValue !== null) {
-      return clampViewportWindow(
-        Math.min(startValue, endValue),
-        Math.max(startValue, endValue),
-        data.length
-      );
-    }
-
-    const start = typeof dataZoom?.start === "number" ? dataZoom.start : null;
-    const end = typeof dataZoom?.end === "number" ? dataZoom.end : null;
-    if (start !== null && end !== null) {
-      const maxIndex = data.length - 1;
-      return clampViewportWindow(
-        Math.round((start / 100) * maxIndex),
-        Math.round((end / 100) * maxIndex),
-        data.length
-      );
-    }
-  } catch {
-    // Keep the local fallback if ECharts is mid-transition.
-  }
-
-  return clampViewportWindow(fallback.startIdx, fallback.endIdx, data.length);
-};
-
-const getVisiblePriceRange = (data: ChartDataPoint[], startIdx: number, endIdx: number) => {
-  let visibleMin = Infinity;
-  let visibleMax = -Infinity;
-
-  for (let i = startIdx; i <= endIdx; i++) {
-    const point = data[i];
-    if (!point) continue;
-    visibleMin = Math.min(visibleMin, point.low);
-    visibleMax = Math.max(visibleMax, point.high);
-  }
-
-  if (visibleMin === Infinity) {
-    return { min: 0, max: 100 };
-  }
-
-  return { min: visibleMin, max: visibleMax };
 };
 
 export const FullPeerChart: React.FC<FullPeerChartProps> = ({
@@ -266,8 +92,12 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   loadStatus,
   dataMode,
   chartAppearance,
+  uiState,
+  hiddenObjectIds = {},
   activeBounds,
   headerActions,
+  isActive = false,
+  interactionOverlay,
   onActivate,
   onHeaderClick,
   onChartReady,
@@ -275,121 +105,77 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   onViewportChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const layersStackRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<EChartsInstance | null>(null);
-  const viewportRef = useRef<PeerViewportState>(createInitialViewport());
-  const peerViewportApplyRafRef = useRef<number | null>(null);
+  const reportedChartRef = useRef<EChartsInstance | null>(null);
+  const lastZoomRangeRef = useRef({ start: 0, end: 100 });
   const [chartReadyVersion, setChartReadyVersion] = useState(0);
   const [hasPaintedCandles, setHasPaintedCandles] = useState(false);
   const [ohlc, setOhlc] = useState<LayoutOhlcState>(createEmptyLayoutOhlcState());
+  const [ohlcColor, setOhlcColor] = useState<string>("#94a3b8");
   const [lastPriceY, setLastPriceY] = useState<number | null>(null);
   const [lastPriceColor, setLastPriceColor] = useState<string>("#94a3b8");
   const [lastPriceText, setLastPriceText] = useState<string>("");
-  const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
-  const peerChartType = completeCell.sourceKind === "index" ? "line" : (completeCell.chartType === "line" ? "line" : "candles");
-  const indicatorIds = useMemo(() => new Set(cell.indicators ?? []), [cell.indicators]);
-  const showVolume = completeCell.sourceKind !== "index" && indicatorIds.has("volume");
-  const showSma = indicatorIds.has("sma");
 
-  const filteredData = React.useMemo(() => {
+  const completeCell = useMemo(() => completeMultiChartCell(cell), [cell]);
+  const indicatorSnapshot = useMemo(
+    () => completeCell.indicatorState ?? createDefaultMultiChartIndicatorSnapshot(completeCell),
+    [completeCell],
+  );
+
+  const filteredData = useMemo(() => {
     const valid = filterChartDataByDateRange(
       getRenderableOhlcvSeries(data),
-      completeCell.dateRange ?? "Tout",
+      completeCell.dateRange || "Tout",
     );
-    if (valid.length > PEER_MAX_CANDLES) {
-      return valid.slice(valid.length - PEER_MAX_CANDLES);
-    }
-    return valid;
+    return valid.length > PEER_MAX_CANDLES
+      ? valid.slice(valid.length - PEER_MAX_CANDLES)
+      : valid;
   }, [completeCell.dateRange, data]);
 
-  const latestPoint = filteredData[filteredData.length - 1];
+  const displayData = filteredData;
+  void activeBounds;
+
+  const latestPoint = displayData[displayData.length - 1];
   const latestPointRef = useRef<ChartDataPoint | undefined>(latestPoint);
-  useEffect(() => { latestPointRef.current = latestPoint; }, [latestPoint]);
-
-  // Pre-slice data to activeBounds window so ECharts Y-axis always auto-scales correctly
-  // to the visible data range only, rather than the full historical dataset.
-  // This avoids Y-axis expansion on wide historical datasets while dataZoom windows the pre-sliced arrays.
-  const displayData = useMemo<ChartDataPoint[]>(() => {
-    const start = activeBounds?.start;
-    const end = activeBounds?.end;
-    if (!start && !end) {
-      return filteredData.length > 120 ? filteredData.slice(filteredData.length - 120) : filteredData;
-    }
-    let result = filteredData;
-    if (start) result = result.filter((p) => p.time >= start);
-    if (end) result = result.filter((p) => p.time <= end);
-    if (result.length === 0) {
-      return filteredData.length > 120 ? filteredData.slice(filteredData.length - 120) : filteredData;
-    }
-    return result;
-  }, [filteredData, activeBounds]);
-
-  const sma20Data = useMemo<Array<number | null>>(() => {
-    if (!showSma || displayData.length === 0) return [];
-    return calculateSMA(displayData, 20).map((value) => {
-      const numeric = Number(value);
-      return Number.isFinite(numeric) ? numeric : null;
-    });
-  }, [displayData, showSma]);
-
-  // Stable ref so the updateAxisPointer closure always reads current displayData
   const displayDataRef = useRef<ChartDataPoint[]>(displayData);
+  useEffect(() => { latestPointRef.current = latestPoint; }, [latestPoint]);
   useEffect(() => { displayDataRef.current = displayData; }, [displayData]);
-  const lastEmittedViewportRef = useRef<MultiChartViewportState | null>(null);
-  const restoredViewportKeyRef = useRef("");
-  const viewportSourceKey = useMemo(() => [
-    cell.chartId,
-    cell.symbol,
-    cell.exchange,
-    cell.interval,
-    completeCell.sourceKind ?? "equity",
-    completeCell.sourceId ?? "",
-    completeCell.dateRange ?? "Tout",
-    displayData.length,
-    displayData[0]?.time ?? "",
-    displayData[displayData.length - 1]?.time ?? "",
-  ].join("::"), [
-    cell.chartId,
-    cell.exchange,
-    cell.interval,
-    cell.symbol,
-    completeCell.dateRange,
-    completeCell.sourceId,
-    completeCell.sourceKind,
-    displayData,
-  ]);
-  const emitViewportChange = useCallback((state: PeerViewportState = viewportRef.current) => {
-    if (!onViewportChange) return;
-    const persisted = serializePeerViewport(displayDataRef.current, state);
-    if (areViewportsEqual(lastEmittedViewportRef.current, persisted)) return;
-    lastEmittedViewportRef.current = persisted;
-    onViewportChange(cell.chartId, persisted);
-  }, [cell.chartId, onViewportChange]);
 
-  const updateOhlcFromPoint = useCallback((
-    point: ChartDataPoint | undefined,
-    previousPoint?: ChartDataPoint,
-  ) => {
+  const peerChartConfig = useMemo(() => buildPeerChartState(completeCell), [completeCell]);
+  const peerUiState = useMemo(() => buildPeerUiState(uiState, completeCell), [completeCell, uiState]);
+  const peerChartAppearance = useMemo<ChartAppearance>(() => ({
+    ...chartAppearance,
+    showVolume: completeCell.sourceKind !== "index" && indicatorSnapshot.chart.volume,
+  }), [chartAppearance, completeCell.sourceKind, indicatorSnapshot.chart.volume]);
+
+  const updateOhlcFromPoint = useCallback((point: ChartDataPoint | undefined, previousPoint?: ChartDataPoint) => {
     if (!point) {
       setOhlc(createEmptyLayoutOhlcState());
+      setOhlcColor("#94a3b8");
       return;
     }
     setOhlc(createLayoutOhlcState(point, previousPoint));
-  }, []);
+    setOhlcColor(getLayoutPriceChangeColor(
+      point,
+      previousPoint,
+      chartAppearance.upColor,
+      chartAppearance.downColor,
+    ));
+  }, [chartAppearance.downColor, chartAppearance.upColor]);
 
   useEffect(() => {
-    const previousPoint = filteredData[filteredData.length - 2];
+    const previousPoint = displayData[displayData.length - 2];
     updateOhlcFromPoint(latestPoint, previousPoint);
-    if (latestPoint) {
-      setLastPriceColor(getLayoutPriceChangeColor(
-        latestPoint,
-        previousPoint,
-        chartAppearance.upColor,
-        chartAppearance.downColor,
-      ));
-      setLastPriceText(formatLayoutPrice(latestPoint.close));
+    if (!latestPoint) {
+      setLastPriceY(null);
+      setLastPriceText("");
+      return;
     }
-  }, [chartAppearance.downColor, chartAppearance.upColor, filteredData, latestPoint, updateOhlcFromPoint]);
+    setLastPriceColor(resolveLastPriceAxisColor(latestPoint.close, latestPoint.open));
+    setLastPriceText(formatLayoutPrice(latestPoint.close));
+  }, [displayData, latestPoint, updateOhlcFromPoint]);
 
   const updateLastPriceBadgePosition = useCallback(() => {
     const chart = chartInstanceRef.current;
@@ -401,498 +187,137 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     try {
       const pixel = chart.convertToPixel({ yAxisIndex: 0 }, point.close);
       const y = Array.isArray(pixel) ? pixel[1] : pixel;
-      if (Number.isFinite(y)) {
-        setLastPriceY(y);
-      }
+      setLastPriceY(Number.isFinite(y) ? Number(y) : null);
     } catch {
       setLastPriceY(null);
     }
   }, []);
 
-  const initChart = useCallback(() => {
-    const canvasEl = canvasRef.current;
-    if (!canvasEl) return;
+  const handleViewportChange = useCallback((viewport: {
+    startTime: string;
+    endTime: string;
+    yScale: number;
+    isYManual: boolean;
+  }) => {
+    onViewportChange?.(cell.chartId, viewport);
+  }, [cell.chartId, onViewportChange]);
 
-    let chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) {
-      ensureLayoutEChartsModulesRegistered();
-      chart = echarts.init(canvasEl, undefined, { renderer: "canvas" });
-      chartInstanceRef.current = chart;
+  const handleChartVisualReady = useCallback(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart || chart.isDisposed()) return;
+    setHasPaintedCandles(true);
+    if (reportedChartRef.current !== chart) {
+      reportedChartRef.current = chart;
       onChartReady(cell.chartId, chart);
       setChartReadyVersion((version) => version + 1);
-
-      chart.on("updateAxisPointer", (params: any) => {
-        if (!params || !params.axesInfo) return;
-        const xInfo = params.axesInfo.find((info: any) => info.axisDim === "x" || info.axisIndex === 0);
-        if (xInfo && xInfo.value !== undefined) {
-          const current = displayDataRef.current;
-          let point: ChartDataPoint | undefined;
-          let pointIndex = -1;
-          if (typeof xInfo.value === "string") {
-            pointIndex = current.findIndex((p) => p.time === xInfo.value);
-            point = pointIndex >= 0 ? current[pointIndex] : undefined;
-          } else if (typeof xInfo.value === "number") {
-            pointIndex = xInfo.value;
-            point = current[pointIndex];
-          }
-          if (point) updateOhlcFromPoint(point, current[pointIndex - 1]);
-        }
-      });
     }
-  }, [cell.chartId, onChartReady, updateOhlcFromPoint]);
+    window.requestAnimationFrame(updateLastPriceBadgePosition);
+  }, [cell.chartId, onChartReady, updateLastPriceBadgePosition]);
 
-  const disposeChart = useCallback(() => {
-    const chart = chartInstanceRef.current;
-    if (chart && !chart.isDisposed()) {
-      chart.dispose();
-    }
-    chartInstanceRef.current = null;
-    setHasPaintedCandles(false);
+  useEChartsRenderer({
+    stockChartRef: canvasRef,
+    layersStackRef,
+    chartInstanceRef,
+    chartData: displayData,
+    chartConfig: peerChartConfig,
+    advancedIndicators: indicatorSnapshot.advanced,
+    indicatorPeriods: indicatorSnapshot.periods,
+    bollingerSettings: indicatorSnapshot.bollinger,
+    chartAppearance: peerChartAppearance,
+    uiState: peerUiState,
+    displaySymbol: cell.symbol,
+    marketLabel: cell.exchange,
+    hideChartTitle: true,
+    lastZoomRangeRef,
+    lastPriceAxisValue: latestPoint?.close,
+    isMainChartVisible: true,
+    isChartLoading: loadStatus === "loading",
+    comparisonSeries: [],
+    hiddenObjectIds,
+    onChartVisualReady: handleChartVisualReady,
+    onViewportChange: handleViewportChange,
+  });
+
+  useEffect(() => () => {
+    reportedChartRef.current = null;
     onChartDispose(cell.chartId);
   }, [cell.chartId, onChartDispose]);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-
-    let isVisible = false;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry && entry.isIntersecting && !isVisible) {
-          isVisible = true;
-          initChart();
-        }
-      },
-      { threshold: 0.05 }
-    );
-
-    observer.observe(el);
-
-    return () => {
-      observer.disconnect();
-      disposeChart();
-    };
-  }, [disposeChart, initChart]);
-
-  const applyPeerViewport = useCallback(() => {
     const chart = chartInstanceRef.current;
-    const dataWindow = displayDataRef.current;
-    if (!chart || chart.isDisposed() || dataWindow.length === 0) return;
+    if (!chart || chart.isDisposed() || chartReadyVersion === 0) return;
 
-    const totalBars = dataWindow.length;
-    const state = viewportRef.current;
-    const next = clampViewportWindow(state.startIdx, state.endIdx, totalBars);
-    state.startIdx = next.startIdx;
-    state.endIdx = next.endIdx;
+    const zr = chart.getZr();
+    let axisCategories = readPrimaryXAxisCategories(chart);
+    let lastHoverIndex: number | null = null;
 
-    const range = getVisiblePriceRange(dataWindow, state.startIdx, state.endIdx);
-    const priceRange = range.max - range.min;
-    const center = (range.max + range.min) / 2;
-    const padding = priceRange === 0
-      ? Math.max(Math.abs(range.min), 1) * TV_AUTO_SCALE_PADDING
-      : priceRange * TV_AUTO_SCALE_PADDING;
-
-    const scaledRange = state.isYManual
-      ? Math.max(Number.EPSILON, (priceRange + padding * 2) * state.yScale)
-      : priceRange + padding * 2;
-
-    let finalMin = center - (scaledRange / 2);
-    let finalMax = center + (scaledRange / 2);
-
-    if (!Number.isFinite(finalMin) || !Number.isFinite(finalMax) || finalMin >= finalMax) {
-      state.isYManual = false;
-      state.yScale = 1;
-      finalMin = range.min - padding;
-      finalMax = range.max + padding;
-    }
-
-    chart.setOption({
-      yAxis: [{ id: "peer-price-y-ohlcv", min: finalMin, max: finalMax }],
-      dataZoom: [{
-        id: MULTI_CHART_MINI_DATA_ZOOM_ID,
-        xAxisIndex: [0, 1],
-        filterMode: "none",
-        startValue: state.startIdx,
-        endValue: state.endIdx,
-      }],
-    });
-
-    window.requestAnimationFrame(updateLastPriceBadgePosition);
-  }, [updateLastPriceBadgePosition]);
-
-  const schedulePeerViewportApply = useCallback(() => {
-    if (peerViewportApplyRafRef.current !== null) return;
-    peerViewportApplyRafRef.current = window.requestAnimationFrame(() => {
-      peerViewportApplyRafRef.current = null;
-      applyPeerViewport();
-      emitViewportChange();
-    });
-  }, [applyPeerViewport, emitViewportChange]);
-
-  useEffect(() => () => {
-    if (peerViewportApplyRafRef.current !== null) {
-      window.cancelAnimationFrame(peerViewportApplyRafRef.current);
-      peerViewportApplyRafRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return;
-    const persistExternalZoom = () => {
-      const dataWindow = displayDataRef.current;
-      if (dataWindow.length === 0) return;
-      const current = viewportRef.current;
-      const next = readCurrentViewport(chart, dataWindow, current);
-      viewportRef.current = { ...current, ...next };
-      emitViewportChange(viewportRef.current);
-    };
-    chart.on("datazoom", persistExternalZoom);
-    return () => {
-      if (!chart.isDisposed()) chart.off("datazoom", persistExternalZoom);
-    };
-  }, [chartReadyVersion, emitViewportChange, viewportSourceKey]);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    setHasPaintedCandles(false);
-    if (!chart || chart.isDisposed() || displayData.length === 0) return;
-
-    const upColor = chartAppearance.upColor;
-    const downColor = chartAppearance.downColor;
-    const {
-      dates,
-      candles: values,
-      volumes,
-      directions,
-    } = buildDirectionalOhlcvSeries(displayData, {
-      upColor,
-      downColor,
-      volumeColorMode: chartAppearance.volumeColorMode,
-    });
-    const dojiOverlayData = buildPeerDojiOverlayData(displayData, directions);
-
-    const option: EChartsCoreOption = {
-      animation: false,
-      grid: [
-        { left: 12, right: 58, top: 8, bottom: showVolume ? "24%" : "8%" },
-        { left: 12, right: 58, height: showVolume ? "16%" : 0, bottom: showVolume ? "4%" : 0 },
-      ],
-      axisPointer: {
-        link: [{ xAxisIndex: "all" }],
-        snap: true,
-        label: { backgroundColor: "#0d1421" },
-      },
-      xAxis: [
-        {
-          id: "peer-time-x-ohlcv",
-          type: "category",
-          data: dates,
-          boundaryGap: true,
-          gridIndex: 0,
-          show: true,
-          axisLine: { lineStyle: { color: "#2a3143" } },
-          axisTick: { show: false },
-          axisLabel: {
-            formatter: formatLayoutShortDate,
-            color: "#94a3b8",
-            fontSize: 9,
-          },
-        },
-        {
-          id: "peer-time-x-vol",
-          type: "category",
-          data: dates,
-          boundaryGap: true,
-          gridIndex: 1,
-          show: false,
-        },
-      ],
-      yAxis: [
-        {
-          id: "peer-price-y-ohlcv",
-          type: "value",
-          scale: true,
-          gridIndex: 0,
-          position: "right",
-          splitLine: {
-            show: true,
-            lineStyle: { color: "rgba(42, 49, 67, 0.4)", type: "dashed" },
-          },
-          axisLine: { show: false },
-          axisTick: { show: false },
-          axisLabel: {
-            show: true,
-            color: "#94a3b8",
-            fontSize: 9,
-            formatter: (v: number) => formatLayoutCompactPrice(v),
-          },
-        },
-        {
-          id: "peer-price-y-vol",
-          type: "value",
-          scale: false,
-          gridIndex: 1,
-          position: "right",
-          splitLine: { show: false },
-          axisLine: { show: false },
-          axisTick: { show: false },
-          axisLabel: { show: false },
-        },
-      ],
-      dataZoom: [
-        {
-          id: MULTI_CHART_MINI_DATA_ZOOM_ID,
-          type: "inside",
-          xAxisIndex: [0, 1],
-          filterMode: "none",
-          zoomOnMouseWheel: false,
-          moveOnMouseWheel: false,
-          moveOnMouseMove: false,
-          // displayData is already pre-sliced to the activeBounds window
-          // so we render 100% of what's passed in; no startValue/endValue needed
-          start: 0,
-          end: 100,
-        },
-      ],
-      series: [
-        peerChartType === "line"
-          ? {
-              id: "peer-ohlcv-series",
-              name: "Close",
-              type: "line",
-              data: displayData.map((point) => point.close),
-              showSymbol: false,
-              smooth: false,
-              lineStyle: { width: 1.6 },
-              markLine: {
-                symbol: ["none", "none"],
-                animation: false,
-                silent: true,
-                data: [{
-                  yAxis: latestPoint?.close,
-                  label: { show: false },
-                  lineStyle: { color: lastPriceColor, type: "dashed", width: 1, opacity: 0.6 },
-                }],
-              },
-            }
-          : {
-              id: "peer-ohlcv-series",
-              name: "OHLC",
-              type: "candlestick",
-              data: values,
-              itemStyle: {
-                color: upColor,
-                color0: downColor,
-                borderColor: upColor,
-                borderColor0: downColor,
-              },
-              markLine: {
-                symbol: ["none", "none"],
-                animation: false,
-                silent: true,
-                data: [{
-                  yAxis: latestPoint?.close,
-                  label: { show: false },
-                  lineStyle: { color: lastPriceColor, type: "dashed", width: 1, opacity: 0.6 },
-                }],
-              },
-            },
-        ...(peerChartType === "line" ? [] : [{
-          id: "peer-doji-overlay",
-          name: "Flat candles",
-          type: "custom",
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          encode: { x: 0 },
-          clip: true,
-          data: dojiOverlayData,
-          silent: true,
-          renderItem: (_params: unknown, api: CustomRenderApi) =>
-            renderPeerDojiMarker(api, upColor, downColor),
-          z: 6,
-        }]),
-        ...(showSma ? [{
-          id: "peer-sma-20",
-          name: "SMA 20",
-          type: "line",
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          data: sma20Data,
-          showSymbol: false,
-          smooth: false,
-          lineStyle: { width: 1.2, opacity: 0.9 },
-          z: 5,
-        }] : []),
-        ...(showVolume ? [{
-          id: "peer-volume-bar",
-          name: "Volume",
-          type: "bar",
-          xAxisIndex: 1,
-          yAxisIndex: 1,
-          data: buildDirectionalVolumeBarData(volumes, { upColor, downColor }, 0.7, dates.length),
-          barWidth: "60%",
-          barMinHeight: 1,
-        }] : []),
-      ],
-    };
-
-    const markCandlesPainted = () => {
-      if (displayDataRef.current.length === 0) return;
-      setHasPaintedCandles(true);
+    const refreshAxisCategories = () => {
+      axisCategories = readPrimaryXAxisCategories(chart);
       updateLastPriceBadgePosition();
     };
+    const updateAtIndex = (index: number | null) => {
+      const current = displayDataRef.current;
+      if (index === null || index < 0 || index >= current.length || index === lastHoverIndex) return;
+      lastHoverIndex = index;
+      updateOhlcFromPoint(current[index], current[index - 1]);
+    };
+    const resetToLatest = () => {
+      lastHoverIndex = null;
+      const current = displayDataRef.current;
+      const latestIndex = current.length - 1;
+      updateOhlcFromPoint(current[latestIndex], current[latestIndex - 1]);
+    };
+    const handleAxisPointer = (...args: unknown[]) => {
+      const payload = args[0];
+      if (!isAxisPointerPayload(payload)) return;
+      updateAtIndex(resolveAxisPointerIndex(payload, displayDataRef.current, axisCategories));
+    };
+    const handleCanvasMouseMove = (payload: ZrMouseMovePayload) => {
+      updateAtIndex(resolvePixelPointerIndex(chart, payload, displayDataRef.current, axisCategories));
+    };
 
-    chart.on("finished", markCandlesPainted);
-    chart.setOption(option, true);
-    if (restoredViewportKeyRef.current !== viewportSourceKey) {
-      viewportRef.current = restorePeerViewport(displayData, completeCell.viewport);
-      restoredViewportKeyRef.current = viewportSourceKey;
-      lastEmittedViewportRef.current = completeCell.viewport
-        ? { ...completeCell.viewport }
-        : null;
-    } else {
-      const current = viewportRef.current;
-      const window = clampViewportWindow(current.startIdx, current.endIdx, displayData.length);
-      viewportRef.current = { ...current, ...window };
-    }
-    applyPeerViewport();
-    updateLastPriceBadgePosition();
+    chart.on("updateAxisPointer", handleAxisPointer);
+    chart.on("globalout", resetToLatest);
+    chart.on("finished", refreshAxisCategories);
+    zr.on("mousemove", handleCanvasMouseMove);
+    refreshAxisCategories();
 
     return () => {
-      if (!chart.isDisposed()) chart.off("finished", markCandlesPainted);
+      if (chart.isDisposed()) return;
+      chart.off("updateAxisPointer", handleAxisPointer);
+      chart.off("globalout", resetToLatest);
+      chart.off("finished", refreshAxisCategories);
+      zr.off("mousemove", handleCanvasMouseMove);
     };
-  }, [
-    chartAppearance.downColor,
-    chartAppearance.upColor,
-    chartAppearance.volumeColorMode,
-    chartReadyVersion,
-    displayData,
-    filteredData,
-    lastPriceColor,
-    peerChartType,
-    latestPoint,
-    showSma,
-    showVolume,
-    sma20Data,
-    applyPeerViewport,
-    updateLastPriceBadgePosition,
-    viewportSourceKey,
-  ]);
+  }, [chartReadyVersion, updateLastPriceBadgePosition, updateOhlcFromPoint]);
 
   useEffect(() => {
     const canvasEl = canvasRef.current;
     if (!canvasEl) return;
-
-    canvasEl.style.touchAction = "none";
-    const wheelOptions: AddEventListenerOptions = { passive: false, capture: true };
-
-    const onWheel = (event: WheelEvent) => {
-      const chart = chartInstanceRef.current;
-      const dataWindow = displayDataRef.current;
-      if (!chart || chart.isDisposed() || dataWindow.length <= 1) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      const totalBars = dataWindow.length;
-      const state = viewportRef.current;
-      const current = readCurrentViewport(chart, dataWindow, state);
-      state.startIdx = current.startIdx;
-      state.endIdx = current.endIdx;
-
-      const rect = canvasEl.getBoundingClientRect();
-      const mouseX = event.clientX - rect.left;
-      const gridRightPx = rect.width - PEER_Y_AXIS_WIDTH;
-      const isOnYAxis = mouseX >= gridRightPx;
-      const isOnChartOrAxis = mouseX < gridRightPx;
-      const wheelDeltaY = normalizeWheelDeltaPx(event.deltaY, event.deltaMode);
-      const wheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
-
-      if (isOnYAxis) {
-        state.yScale *= Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
-        state.isYManual = true;
-        schedulePeerViewportApply();
-        return;
-      }
-
-      if (!isOnChartOrAxis) return;
-
-      const visibleCount = Math.max(1, state.endIdx - state.startIdx);
-      const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - PEER_Y_AXIS_WIDTH);
-
-      if (Math.abs(wheelDeltaY) > Math.abs(wheelDeltaX)) {
-        const zoomFactor = Math.exp(wheelDeltaY * TV_ZOOM_VELOCITY);
-        const cursorRatio = Math.max(0, Math.min(1, (mouseX - MAIN_GRID_LEFT) / gridWidth));
-        const zoomed = computeDirectionalZoomViewport({
-          startIdx: state.startIdx,
-          endIdx: state.endIdx,
-          totalBars,
-          cursorRatio,
-          zoomFactor,
-          deltaY: wheelDeltaY,
-        });
-        state.startIdx = zoomed.startIdx;
-        state.endIdx = zoomed.endIdx;
-      } else {
-        const shifted = computeHorizontalPanViewport({
-          startIdx: state.startIdx,
-          endIdx: state.endIdx,
-          totalBars,
-          shift: (wheelDeltaX / gridWidth) * visibleCount,
-        });
-        state.startIdx = shifted.startIdx;
-        state.endIdx = shifted.endIdx;
-      }
-
-      schedulePeerViewportApply();
-    };
-
-    canvasEl.addEventListener("wheel", onWheel, wheelOptions);
-    return () => {
-      canvasEl.removeEventListener("wheel", onWheel, wheelOptions);
-    };
-  }, [schedulePeerViewportApply]);
-
-  useEffect(() => {
-    const canvasEl = canvasRef.current;
-    if (!canvasEl) return;
-
     let resizeFrameId: number | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (resizeFrameId !== null) return;
       resizeFrameId = window.requestAnimationFrame(() => {
         resizeFrameId = null;
-        const chart = chartInstanceRef.current;
-        if (chart && !chart.isDisposed()) {
-          chart.resize();
-          updateLastPriceBadgePosition();
-        }
+        updateLastPriceBadgePosition();
       });
     });
-
     resizeObserver.observe(canvasEl);
-
     return () => {
       resizeObserver.disconnect();
-      if (resizeFrameId !== null) {
-        window.cancelAnimationFrame(resizeFrameId);
-      }
+      if (resizeFrameId !== null) window.cancelAnimationFrame(resizeFrameId);
     };
   }, [updateLastPriceBadgePosition]);
 
-  const handleHeaderClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleHeaderClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
     onHeaderClick();
   };
-
-  const handleHeaderKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.stopPropagation();
-      e.preventDefault();
-      onHeaderClick();
-    }
+  const handleHeaderKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.stopPropagation();
+    event.preventDefault();
+    onHeaderClick();
   };
 
   const hasSelectedSymbol = cell.symbol.trim().length > 0;
@@ -907,25 +332,41 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     && !hasRenderableCandles;
   const shouldShowEmptyState = hasTerminalNoData;
   const shouldShowSelectionState = !hasSelectedSymbol;
-  const peerLoaderLabel = "Chargement des données";
-  const peerEmptyLabel = loadStatus === "failed" ? "Données indisponibles" : "Aucune donnée disponible";
+  const intradayIntervalLabel: Partial<Record<string, string>> = {
+    "1m": "1 min",
+    "5m": "5 min",
+    "15m": "15 min",
+    "30m": "30 min",
+    "1H": "1 h",
+    "4H": "4 h",
+  };
+  const formattedIntradayInterval = intradayIntervalLabel[cell.interval];
+  const isIntradayEmpty = loadStatus === "empty" && Boolean(formattedIntradayInterval);
+  const peerEmptyLabel = loadStatus === "failed"
+    ? "Impossible de charger les cotations"
+    : isIntradayEmpty
+      ? "Historique intraday indisponible"
+      : "Historique de cotation indisponible";
+  const peerEmptyDetail = isIntradayEmpty
+    ? `Aucune bougie ${formattedIntradayInterval} n’est disponible pour ${displaySymbol}.`
+    : `${displaySymbol} · ${cell.interval}`;
 
   return (
     <div
       ref={containerRef}
-      className="gp-peer-chart"
+      className={`gp-peer-chart${isActive ? " is-active" : ""}`}
+      data-chart-activity={isActive ? "active" : "inactive"}
       onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          if (hasSelectedSymbol) onActivate();
-          else onHeaderClick();
-        }
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        if (hasSelectedSymbol) onActivate();
+        else onHeaderClick();
       }}
       aria-label={hasSelectedSymbol
-        ? "Activer le graphique secondaire de " + displaySymbol
+        ? `Activer le graphique secondaire de ${displaySymbol}`
         : `Choisir un titre · ${cell.exchange || "N/D"}`}
     >
       <div className="gp-peer-chart__header">
@@ -935,11 +376,12 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           onKeyDown={handleHeaderKeyDown}
           role="button"
           tabIndex={0}
-          aria-label={"Modifier le symbole " + displaySymbol}
+          aria-label={`Modifier le symbole ${displaySymbol}`}
         >
           <strong className="gp-peer-chart__symbol">{displaySymbol}</strong>
           <span className="gp-peer-chart__interval">{cell.exchange || "N/D"}</span>
           <span className="gp-peer-chart__interval">{cell.interval}</span>
+          {isActive && <em className="gp-peer-chart__active-badge">Active</em>}
           <i className="bi bi-search gp-peer-chart__search-icon" aria-hidden="true" />
         </span>
 
@@ -948,19 +390,31 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
             <span>O<span className="gp-peer-chart__ohlc-val">{ohlc.open}</span></span>
             <span>H<span className="gp-peer-chart__ohlc-val">{ohlc.high}</span></span>
             <span>L<span className="gp-peer-chart__ohlc-val">{ohlc.low}</span></span>
-            <span>C<span className="gp-peer-chart__ohlc-val" style={{ color: lastPriceColor }}>{ohlc.close}</span></span>
-            <span style={{ color: lastPriceColor }}>{ohlc.changePercent}</span>
+            <span>C<span className="gp-peer-chart__ohlc-val" style={{ color: ohlcColor }}>{ohlc.close}</span></span>
+            <span style={{ color: ohlcColor }}>{ohlc.changePercent}</span>
           </div>
         )}
         {headerActions}
       </div>
 
-      <div className="gp-peer-chart__canvas">
-        <div ref={canvasRef} className="gp-peer-chart__echart" aria-hidden={shouldShowPeerLoader || shouldShowEmptyState || shouldShowSelectionState} />
+      <div ref={layersStackRef} className="gp-peer-chart__canvas" data-interaction-scope={`peer:${cell.chartId}`}>
+        <div className="gp-chart-world-map gp-peer-chart__world-map" aria-hidden="true" />
+        <div
+          ref={canvasRef}
+          className="gp-peer-chart__echart"
+          aria-hidden={shouldShowPeerLoader || shouldShowEmptyState || shouldShowSelectionState}
+        />
+        {interactionOverlay}
+        {hasRenderableCandles && (
+          <TimeAxisControls
+            chartInstanceRef={chartInstanceRef}
+            className="gp-peer-chart__time-axis-controls"
+          />
+        )}
         {shouldShowPeerLoader && (
           <div className="gp-peer-chart__loading" aria-live="polite">
             <span className="gp-mini-data-spinner" aria-hidden="true" />
-            <strong>{peerLoaderLabel}</strong>
+            <strong>Chargement des cotations</strong>
             <em>{displaySymbol}</em>
           </div>
         )}
@@ -975,16 +429,13 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           <div className="gp-peer-chart__empty-state" aria-live="polite">
             <i className="bi bi-exclamation-triangle" aria-hidden="true" />
             <strong>{peerEmptyLabel}</strong>
-            <em>{displaySymbol}</em>
+            <em>{peerEmptyDetail}</em>
           </div>
         )}
-        {lastPriceY !== null && hasPaintedCandles && !shouldShowPeerLoader && !shouldShowEmptyState && (
+        {!isActive && lastPriceY !== null && hasPaintedCandles && !shouldShowPeerLoader && !shouldShowEmptyState && (
           <div
             className="gp-peer-chart__last-badge"
-            style={{
-              top: `${lastPriceY}px`,
-              backgroundColor: lastPriceColor,
-            }}
+            style={{ top: `${lastPriceY}px`, backgroundColor: lastPriceColor }}
           >
             {lastPriceText}
           </div>

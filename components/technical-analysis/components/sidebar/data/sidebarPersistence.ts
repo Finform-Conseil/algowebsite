@@ -4,7 +4,6 @@ import type { BRVMFundamentals } from "./sidebarFundamentals";
 const DATABASE_NAME = "AlgowaySidebar_DB";
 const STORE_NAME = "sidebar_snapshots";
 const DATABASE_VERSION = 1;
-const STORAGE_TIMEOUT_MS = 3_000;
 
 export type SidebarSnapshotKind = "fundamentals" | "news" | "indices" | "bonds";
 
@@ -41,14 +40,6 @@ const buildKey = (kind: SidebarSnapshotKind, marketTicker: string, ticker: strin
   `${kind}:${normalizePart(marketTicker)}:${normalizePart(ticker)}`
 );
 
-const withTimeout = <T,>(promise: Promise<T>): Promise<T> => new Promise((resolve, reject) => {
-  const timer = window.setTimeout(() => reject(new Error("Sidebar IndexedDB operation timed out")), STORAGE_TIMEOUT_MS);
-  promise.then(
-    (value) => { window.clearTimeout(timer); resolve(value); },
-    (error: unknown) => { window.clearTimeout(timer); reject(error); },
-  );
-});
-
 const openDatabase = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   if (!canUseIndexedDB()) {
     reject(new Error("IndexedDB is not supported"));
@@ -61,9 +52,33 @@ const openDatabase = (): Promise<IDBDatabase> => new Promise((resolve, reject) =
       request.result.createObjectStore(STORE_NAME, { keyPath: "key" });
     }
   };
-  request.onsuccess = () => resolve(request.result);
+  request.onsuccess = () => {
+    request.result.onversionchange = () => request.result.close();
+    resolve(request.result);
+  };
   request.onerror = () => reject(request.error ?? new Error("Unable to open sidebar IndexedDB"));
+  request.onblocked = () => reject(new Error("Sidebar IndexedDB open blocked"));
 });
+
+const readRecord = (database: IDBDatabase, key: string): Promise<unknown> => new Promise((resolve, reject) => {
+  let value: unknown;
+  const transaction = database.transaction(STORE_NAME, "readonly");
+  const request = transaction.objectStore(STORE_NAME).get(key);
+  request.onsuccess = () => { value = request.result; };
+  transaction.oncomplete = () => resolve(value);
+  transaction.onerror = () => reject(transaction.error ?? new Error("Unable to read sidebar IndexedDB"));
+  transaction.onabort = () => reject(transaction.error ?? new Error("Sidebar IndexedDB read aborted"));
+});
+
+const writeRecord = (database: IDBDatabase, record: StoredSidebarSnapshot): Promise<void> => (
+  new Promise((resolve, reject) => {
+    const transaction = database.transaction(STORE_NAME, "readwrite");
+    transaction.objectStore(STORE_NAME).put(record);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error("Unable to write sidebar IndexedDB"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("Sidebar IndexedDB write aborted"));
+  })
+);
 
 const isStoredSnapshot = (value: unknown): value is StoredSidebarSnapshot => {
   if (!value || typeof value !== "object") return false;
@@ -84,13 +99,9 @@ export const readSidebarSnapshot = async <K extends SidebarSnapshotKind>(
 
   let database: IDBDatabase | null = null;
   try {
-    database = await withTimeout(openDatabase());
+    database = await openDatabase();
     const key = buildKey(kind, marketTicker, ticker);
-    const value = await withTimeout(new Promise<unknown>((resolve, reject) => {
-      const request = database!.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Unable to read sidebar IndexedDB"));
-    }));
+    const value = await readRecord(database, key);
 
     if (!isStoredSnapshot(value) || value.kind !== kind) return null;
     if (Date.now() - value.updatedAt > TTL_BY_KIND[kind]) return null;
@@ -103,7 +114,7 @@ export const readSidebarSnapshot = async <K extends SidebarSnapshotKind>(
   }
 };
 
-export const writeSidebarSnapshot = async <K extends SidebarSnapshotKind>(
+const persistSidebarSnapshot = async <K extends SidebarSnapshotKind>(
   kind: K,
   marketTicker: string,
   ticker: string,
@@ -113,7 +124,7 @@ export const writeSidebarSnapshot = async <K extends SidebarSnapshotKind>(
 
   let database: IDBDatabase | null = null;
   try {
-    database = await withTimeout(openDatabase());
+    database = await openDatabase();
     const record: StoredSidebarSnapshot<K> = {
       key: buildKey(kind, marketTicker, ticker),
       kind,
@@ -122,16 +133,23 @@ export const writeSidebarSnapshot = async <K extends SidebarSnapshotKind>(
       payload,
       updatedAt: Date.now(),
     };
-    await withTimeout(new Promise<void>((resolve, reject) => {
-      const transaction = database!.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put(record);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error("Unable to write sidebar IndexedDB"));
-      transaction.onabort = () => reject(transaction.error ?? new Error("Sidebar IndexedDB write aborted"));
-    }));
+    await writeRecord(database, record);
   } catch (error) {
     console.warn(`Sidebar IndexedDB ${kind} write failed`, error);
   } finally {
     database?.close();
   }
+};
+
+let sidebarWriteQueue: Promise<void> = Promise.resolve();
+
+export const writeSidebarSnapshot = <K extends SidebarSnapshotKind>(
+  kind: K,
+  marketTicker: string,
+  ticker: string,
+  payload: SidebarSnapshot[K],
+): Promise<void> => {
+  const operation = sidebarWriteQueue.then(() => persistSidebarSnapshot(kind, marketTicker, ticker, payload));
+  sidebarWriteQueue = operation.catch(() => undefined);
+  return operation;
 };
