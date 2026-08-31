@@ -13,6 +13,7 @@ const technicalSource = read("components/technical-analysis/TechnicalAnalysis.ts
 const cursorSource = read("components/technical-analysis/hooks/useCursorRenderer.ts");
 const priceAxisBadgeSource = read("components/technical-analysis/hooks/overlays/cursorPriceAxisBadge.ts");
 const viewportSource = read("components/technical-analysis/hooks/viewport/viewportMath.ts");
+const rendererSource = read("components/technical-analysis/hooks/useEChartsRenderer.ts");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
 
 test("multi-chart keeps one price renderer per cell and mounts interaction-only logic on the active peer", () => {
@@ -66,4 +67,10 @@ test("peer viewport exposes the same desktop price/time interaction classes as t
   assert.match(peerSource, /canvasEl\.addEventListener\("dblclick", onDoubleClick\)/);
   assert.match(peerSource, /viewportRef\.current\.yPan = 0/);
   assert.match(viewportSource, /export const computePriceAxisWheelViewport/);
+});
+
+test("chart mutation scheduler defers resize and option work while ECharts is in its main process", () => {
+  assert.match(rendererSource, /__flagInMainProcess/);
+  assert.match(rendererSource, /if \(isEChartsMainProcessActive\(chart\)\) \{\s*chartMutationRafRef\.current = requestAnimationFrame\(flushChartMutationQueue\);\s*return;/);
+  assert.match(rendererSource, /scheduleChartMutation\("resize", \(targetChart\) => \{\s*targetChart\.resize\(\);/);
 });

@@ -104,6 +104,13 @@ let areEChartsModulesRegistered = false;
 
 const CHART_OPTION_REPLACE_MERGE = ["series", "xAxis", "yAxis", "grid", "dataZoom", "graphic"];
 
+type EChartsMainProcessAware = EChartsInstance & {
+  __flagInMainProcess?: boolean;
+};
+
+const isEChartsMainProcessActive = (chart: EChartsInstance): boolean =>
+  Boolean((chart as EChartsMainProcessAware).__flagInMainProcess);
+
 const applyChartOption = (
   chart: EChartsInstance,
   option: TechnicalEChartsOption,
@@ -5425,6 +5432,16 @@ export const useEChartsRenderer = ({
     const chart = chartInstanceRef.current;
     if (!chart || chart.isDisposed()) {
       clearChartMutationQueue();
+      return;
+    }
+
+    // ECharts 5.x guards setOption/resize/dispatchAction with an internal main-process
+    // flag. A ResizeObserver or another React-driven mutation may land in the same
+    // browser frame while that flag is still set; ECharts then logs an error and drops
+    // the mutation. Preserve the keyed queue exactly as-is and retry on the next frame
+    // instead of executing any chart mutation re-entrantly.
+    if (isEChartsMainProcessActive(chart)) {
+      chartMutationRafRef.current = requestAnimationFrame(flushChartMutationQueue);
       return;
     }
 
