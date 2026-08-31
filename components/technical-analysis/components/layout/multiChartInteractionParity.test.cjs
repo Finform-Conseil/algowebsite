@@ -13,6 +13,7 @@ const technicalSource = read("components/technical-analysis/TechnicalAnalysis.ts
 const cursorSource = read("components/technical-analysis/hooks/useCursorRenderer.ts");
 const priceAxisBadgeSource = read("components/technical-analysis/hooks/overlays/cursorPriceAxisBadge.ts");
 const viewportSource = read("components/technical-analysis/hooks/viewport/viewportMath.ts");
+const viewportEngineSource = read("components/technical-analysis/hooks/useChartViewport.ts");
 const rendererSource = read("components/technical-analysis/hooks/useEChartsRenderer.ts");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
 
@@ -58,15 +59,17 @@ test("multi-chart activity is visually asymmetric while the active peer matches 
   assert.match(peerSource, /data-chart-activity=\{isActive \? "active" : "inactive"\}/);
 });
 
-test("peer viewport exposes the same desktop price/time interaction classes as the canonical chart", () => {
-  assert.match(peerSource, /computeTradingViewWheelZoomViewport/);
-  assert.match(peerSource, /computePriceAxisWheelViewport/);
-  assert.match(peerSource, /computePriceAxisDragViewport/);
-  assert.match(peerSource, /computePriceAxisPan/);
-  assert.match(peerSource, /mode:\s*"chart" \| "x-axis" \| "y-axis"/);
-  assert.match(peerSource, /canvasEl\.addEventListener\("dblclick", onDoubleClick\)/);
-  assert.match(peerSource, /viewportRef\.current\.yPan = 0/);
-  assert.match(viewportSource, /export const computePriceAxisWheelViewport/);
+test("peer viewport delegates desktop price/time interactions to the canonical chart renderer", () => {
+  assert.match(peerSource, /useEChartsRenderer\(\{/);
+  assert.match(rendererSource, /useChartViewport\(\{/);
+  assert.match(viewportSource, /computeTradingViewWheelZoomViewport/);
+  assert.match(viewportSource, /computePriceAxisWheelViewport/);
+  assert.match(viewportSource, /computePriceAxisDragViewport/);
+  assert.match(viewportSource, /computePriceAxisPan/);
+  assert.match(viewportEngineSource, /computeTradingViewWheelZoomViewport/);
+  assert.match(viewportEngineSource, /computePriceAxisWheelViewport/);
+  assert.match(viewportEngineSource, /addEventListener\("dblclick", onDoubleClick\)/);
+  assert.match(viewportEngineSource, /yPan\s*=\s*0/);
 });
 
 test("chart mutation scheduler defers resize and option work while ECharts is in its main process", () => {

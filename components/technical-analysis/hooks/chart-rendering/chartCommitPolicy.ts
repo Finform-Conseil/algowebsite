@@ -25,6 +25,8 @@ const componentIdentity = (entry: unknown, index: number): string => {
     normalizeIdentityValue(item.type),
     normalizeIdentityValue(item.xAxisIndex),
     normalizeIdentityValue(item.yAxisIndex),
+    normalizeIdentityValue(item.xAxisId),
+    normalizeIdentityValue(item.yAxisId),
     normalizeIdentityValue(item.gridIndex),
   ].join(":");
 };

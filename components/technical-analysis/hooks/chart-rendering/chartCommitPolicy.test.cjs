@@ -83,3 +83,16 @@ test("first render is structural even when flagged as history prepend", () => {
     currentSignature: signature,
   }), "structural");
 });
+
+test("axis-id binding changes participate in the structural signature", () => {
+  const previousSignature = resolveChartStructureSignature({
+    ...baseOption,
+    series: [{ id: "macd-line", type: "line", xAxisId: "macd-xaxis", yAxisId: "macd-yaxis" }],
+  });
+  const currentSignature = resolveChartStructureSignature({
+    ...baseOption,
+    series: [{ id: "macd-line", type: "line", xAxisId: "volume-xaxis", yAxisId: "volume-yaxis" }],
+  });
+
+  assert.notEqual(previousSignature, currentSignature);
+});

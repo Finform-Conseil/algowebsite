@@ -93,6 +93,7 @@ import {
   resolveChartStructureSignature,
   type ChartCommitMode,
 } from "./chart-rendering/chartCommitPolicy";
+import { bindSeriesToStableCartesianAxisIds } from "./chart-rendering/chartAxisBinding";
 import {
   anchorLastPaneToFixedTimeAxis,
   DEFAULT_CHART_TOP_MARGIN_PERCENT,
@@ -5252,6 +5253,9 @@ const buildEChartsOption = ({
     if (ACTIONABLE_CANDLESTICK_PATTERN_TOOLTIP_SERIES_IDS.has(seriesId)) return series;
     return { ...series, tooltip: { show: false } };
   });
+  const stableAxisSeriesOptions = seriesOptionsWithTooltipPolicy.map((series) =>
+    bindSeriesToStableCartesianAxisIds(series, xAxisOptions, yAxisOptions),
+  );
 
   const hiddenLegendSeriesIds = new Set([
     "bollinger-fill",
@@ -5266,7 +5270,7 @@ const buildEChartsOption = ({
   ]);
 
   const legendData = Array.from(new Set(
-    clippedSeriesOptions
+    stableAxisSeriesOptions
       .filter((series) => {
         const seriesId = typeof series.id === "string" ? series.id : "";
         return seriesId !== "main-series" && !seriesId.startsWith("pane-shield-") && !hiddenLegendSeriesIds.has(seriesId);
@@ -5354,7 +5358,7 @@ const buildEChartsOption = ({
     yAxis: yAxisOptions,
     graphic: graphicOptions,
     dataZoom: [{ id: "time-zoom", type: "inside", xAxisIndex: xAxisOptions.map((_, index) => index), zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false, preventDefaultMouseMove: true, filterMode: "none" }],
-    series: seriesOptionsWithTooltipPolicy,
+    series: stableAxisSeriesOptions,
   };
 };
 
