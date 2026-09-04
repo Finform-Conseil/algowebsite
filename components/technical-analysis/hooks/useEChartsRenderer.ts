@@ -7,6 +7,7 @@ import {
   GraphicComponent,
   GridComponent,
   LegendComponent,
+  LegendScrollComponent,
   MarkLineComponent,
   MarkPointComponent,
   TimelineComponent,
@@ -61,6 +62,7 @@ import {
 import { resolvePriceVsSmaSourceAveragePeriods } from "../config/indicators/priceVsSmaMetrics";
 import { resolvePriceVsEmaSourceAveragePeriods } from "../config/indicators/priceVsEmaMetrics";
 import { resolveIndicatorConfigurationTargetFromSeries, type IndicatorConfigurationTarget } from "../config/indicators/indicatorConfigurationTarget";
+import { resolveVolumeStudyLifecycle } from "../store/policies/volumeStudyLifecycle";
 import {
   buildAdvancedMovingAverageSeriesDefinitions,
   type AdvancedMovingAverageFamily,
@@ -95,6 +97,11 @@ import {
 } from "./chart-rendering/chartCommitPolicy";
 import { bindSeriesToStableCartesianAxisIds } from "./chart-rendering/chartAxisBinding";
 import {
+  alignCustomRenderItemWithHistoryAxis,
+  resolveRenderedTimeAxisWindow,
+} from "./chart-rendering/chartHistoryAxisAlignment";
+import { isCustomSeriesPointOutsideViewport } from "./chart-rendering/customSeriesViewportCulling";
+import {
   anchorLastPaneToFixedTimeAxis,
   DEFAULT_CHART_TOP_MARGIN_PERCENT,
   DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT,
@@ -104,13 +111,22 @@ import {
 let areEChartsModulesRegistered = false;
 
 const CHART_OPTION_REPLACE_MERGE = ["series", "xAxis", "yAxis", "grid", "dataZoom", "graphic"];
+const DEFAULT_SETTINGS_BACKGROUND = "#102a43";
+const DEFAULT_SETTINGS_GRID_LINE = "#334155";
+const DEFAULT_SETTINGS_CROSSHAIR = "#94a3b8";
+const DEFAULT_SETTINGS_WATERMARK = "#475569";
+const DEFAULT_SETTINGS_SCALE_TEXT = "#a0aec0";
+const DEFAULT_SETTINGS_SCALE_LINE = "#334155";
+const MAX_PRICE_AXIS_SPLIT_LINES_WITH_LOWER_PANES = 4;
+const MAX_PRICE_AXIS_SPLIT_LINES_SINGLE_PANE = 6;
+const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = 42;
 
-type EChartsMainProcessAware = EChartsInstance & {
+type EChartsMainProcessAware = {
   __flagInMainProcess?: boolean;
 };
 
 const isEChartsMainProcessActive = (chart: EChartsInstance): boolean =>
-  Boolean((chart as EChartsMainProcessAware).__flagInMainProcess);
+  Boolean((chart as unknown as EChartsMainProcessAware).__flagInMainProcess);
 
 const applyChartOption = (
   chart: EChartsInstance,
@@ -144,6 +160,25 @@ const applyChartOption = (
 // NEVER commit with DEV_PERF = true in production.
 // ============================================================================
 const DEV_PERF = false as boolean;
+
+const resolveChartSettingNumber = (
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number => clamp(Number.isFinite(value) ? value as number : fallback, min, max);
+
+const applyCssColorOpacity = (color: string, opacity: number): string => {
+  const alpha = clamp(Number.isFinite(opacity) ? opacity : 1, 0, 1);
+  const normalized = color.trim();
+  const hex = /^#([0-9a-f]{6})$/i.exec(normalized);
+  if (!hex) return normalized;
+  const value = Number.parseInt(hex[1], 16);
+  const red = (value >> 16) & 0xff;
+  const green = (value >> 8) & 0xff;
+  const blue = value & 0xff;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
 
 type RenderItemFn = (params: unknown, api: unknown) => unknown;
 
@@ -196,6 +231,7 @@ const registerEChartsModules = (): void => {
     GraphicComponent,
     TitleComponent,
     LegendComponent,
+    LegendScrollComponent,
     MarkLineComponent,
     MarkPointComponent,
     TimelineComponent,
@@ -214,6 +250,8 @@ export type MarubozuAlertRequest = {
 };
 export type ShootingStarAlertRequest = MarubozuAlertRequest;
 export type CandlestickPatternAlertRequest = MarubozuAlertRequest;
+
+export type ChartLegendLayoutMode = "default" | "peer-stacked" | "peer-compact";
 
 export interface UseEChartsRendererProps {
   stockChartRef: RefObject<HTMLDivElement | null>;
@@ -236,11 +274,15 @@ export interface UseEChartsRendererProps {
   marketLabel?: string;
   /** Hide the embedded ECharts identity/OHLC title when a multi-chart cell header already owns that information. */
   hideChartTitle?: boolean;
+  /** Controls the indicator legend lane independently from the React-owned OHLC overlay. */
+  legendLayoutMode?: ChartLegendLayoutMode;
+  /** Active peers reserve the full TradingView-style quote card lane; inactive peers keep only a compact price scale. */
+  reserveLastPriceAxisBadge?: boolean;
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
   lastPriceAxisValue?: number;
   isMainChartVisible?: boolean;
   isChartLoading?: boolean;
-  comparisonSeries?: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
+  comparisonSeries?: Array<{ comparisonKey: string; symbol: string; market: string; label: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
   onCompareSeriesSettingsRequest?: (symbol: string) => void;
   onIndicatorConfigurationRequest?: (target: IndicatorConfigurationTarget) => void;
   onMarubozuAlertRequest?: (request: MarubozuAlertRequest) => void;
@@ -253,6 +295,14 @@ export interface UseEChartsRendererProps {
   onHistoryBoundaryRequest?: (direction: "left" | "right") => void;
   onViewportChange?: (viewport: ChartViewportChange) => void;
 }
+
+// Stable empty inputs are part of the renderer contract. Allocating `[]` / `{}`
+// in parameter defaults creates a new identity on every React render, which makes
+// the main ECharts effect believe its inputs changed. In multi-chart, OHLC hover
+// updates can happen every pointer frame, so unstable defaults would trigger a full
+// setOption + viewport commit on hover and visibly shake the chart.
+const EMPTY_COMPARISON_SERIES: NonNullable<UseEChartsRendererProps["comparisonSeries"]> = [];
+const EMPTY_HIDDEN_OBJECT_IDS: NonNullable<UseEChartsRendererProps["hiddenObjectIds"]> = {};
 
 const ACTIONABLE_TWO_CANDLE_PATTERN_SERIES_IDS = new Set([
   "engulfing-bullish-bracket",
@@ -327,6 +377,15 @@ const alignSeriesWithHistoryAxis = (series: ChartOptionPart, historyGapBars: num
       : first
   );
   const seriesId = typeof series.id === "string" ? series.id : "";
+
+  // ECharts filters custom-series data through dataZoom before renderItem() runs.
+  // Align every custom series (main price renderer and custom overlays/panes) with
+  // the synthetic history prefix while preserving source-space values inside the
+  // renderer API. This is required for Bars, Footprint, TPO, SVP overlays, Kagi,
+  // Point & Figure and other custom renderers to survive viewport filtering.
+  if (series.type === "custom") {
+    return alignCustomRenderItemWithHistoryAxis(series, axisIndexOffset);
+  }
 
   // Any series expressed with an explicit numeric category index must be shifted by
   // the synthetic history prefix. This applies to oscillator histograms as well as
@@ -440,6 +499,7 @@ const withStableInitialViewport = ({
   lastPriceAxisValue,
   zoomRange,
   historyGapBars,
+  rightOffsetBars,
   liveViewport,
 }: {
   option: TechnicalEChartsOption;
@@ -448,6 +508,7 @@ const withStableInitialViewport = ({
   lastPriceAxisValue?: number;
   zoomRange?: ZoomRangeSnapshot;
   historyGapBars: number;
+  rightOffsetBars?: number;
   liveViewport?: {
     startIdx: number;
     endIdx: number;
@@ -472,14 +533,48 @@ const withStableInitialViewport = ({
         axisIndexOffset,
       )
     : resolveInitialViewportWindow(chartData.length, zoomRange);
+  const safeRightOffsetBars = clamp(
+    Number.isFinite(rightOffsetBars) ? Math.round(rightOffsetBars as number) : 0,
+    0,
+    TV_MAX_FUTURE_BARS,
+  );
+  const viewportWithConfiguredRightOffset = safeRightOffsetBars > 0 && viewport.endIdx >= chartData.length - 1
+    ? {
+        ...viewport,
+        endIdx: Math.min(
+          chartData.length - 1 + TV_MAX_FUTURE_BARS,
+          Math.max(viewport.endIdx, chartData.length - 1 + safeRightOffsetBars),
+        ),
+      }
+    : viewport;
   const priceRange = resolveAutoViewportPriceRange({
     chartData,
-    startIdx: viewport.startIdx,
-    endIdx: viewport.endIdx,
+    startIdx: viewportWithConfiguredRightOffset.startIdx,
+    endIdx: viewportWithConfiguredRightOffset.endIdx,
     hasComparisonEndLabels,
     lastPriceAxisValue,
   });
   const timeAxisIndexes = resolveTimeDataZoomAxisIndexes(seedableOption);
+  const primaryXAxis = Array.isArray(seedableOption.xAxis)
+    ? seedableOption.xAxis[0]
+    : seedableOption.xAxis;
+  const axisCategories = primaryXAxis && typeof primaryXAxis === "object"
+    && Array.isArray((primaryXAxis as { data?: unknown }).data)
+    ? (primaryXAxis as { data: unknown[] }).data
+    : [];
+  const renderedTimeWindow = resolveRenderedTimeAxisWindow({
+    axisCategories,
+    sourceTimes: chartData.map((point) => point.time),
+    sourceStartIdx: viewportWithConfiguredRightOffset.startIdx,
+    sourceEndIdx: viewportWithConfiguredRightOffset.endIdx,
+    historyGapBars: axisIndexOffset,
+  });
+  const timeStartValue = axisCategories.length > 0
+    ? renderedTimeWindow.startValue
+    : axisIndexOffset + viewportWithConfiguredRightOffset.startIdx;
+  const timeEndValue = axisCategories.length > 0
+    ? renderedTimeWindow.endValue
+    : axisIndexOffset + viewportWithConfiguredRightOffset.endIdx;
   const currentDataZoom = Array.isArray(seedableOption.dataZoom) ? seedableOption.dataZoom : [];
   let hasTimeZoom = false;
   const dataZoom = currentDataZoom.map((zoom) => {
@@ -496,8 +591,8 @@ const withStableInitialViewport = ({
       zoomOnMouseWheel: false,
       moveOnMouseMove: false,
       moveOnMouseWheel: false,
-      startValue: axisIndexOffset + viewport.startIdx,
-      endValue: axisIndexOffset + viewport.endIdx,
+      startValue: timeStartValue,
+      endValue: timeEndValue,
     };
   });
 
@@ -509,8 +604,8 @@ const withStableInitialViewport = ({
       zoomOnMouseWheel: false,
       moveOnMouseMove: false,
       filterMode: "none",
-      startValue: axisIndexOffset + viewport.startIdx,
-      endValue: axisIndexOffset + viewport.endIdx,
+      startValue: timeStartValue,
+      endValue: timeEndValue,
     });
   }
 
@@ -565,9 +660,11 @@ interface ChartBuilderContext {
   displayLogoUrl?: string | null;
   marketLabel: string;
   hideChartTitle: boolean;
+  legendLayoutMode: ChartLegendLayoutMode;
+  reserveLastPriceAxisBadge: boolean;
   indicatorsData: Record<string, (number | string)[]>;
   structuredResults: IndicatorStructuredResults;
-  comparisonSeries: Array<{ symbol: string; data: ChartDataPoint[]; settings: CompareSeriesSettings }>;
+  comparisonSeries: NonNullable<UseEChartsRendererProps["comparisonSeries"]>;
   hiddenObjectIds: Record<string, boolean>;
   latestPrice: number;
   liveColor: string;
@@ -831,19 +928,65 @@ const buildEChartsOption = ({
   marketLabel,
   displayLogoUrl,
   hideChartTitle,
+  legendLayoutMode,
+  reserveLastPriceAxisBadge,
   viewportWindowRef,
   chartContainerHeightPx,
 }: ChartBuilderContext): TechnicalEChartsOption => {
   const upColor = chartAppearance.upColor;
   const downColor = chartAppearance.downColor;
-  const textColor = "#a0aec0";
+  const textColor = chartAppearance.scaleTextColor || DEFAULT_SETTINGS_SCALE_TEXT;
+  const scaleTextSize = resolveChartSettingNumber(chartAppearance.scaleTextSize, 12, 10, 14);
+  const scaleLineColor = chartAppearance.scaleLineColor || DEFAULT_SETTINGS_SCALE_LINE;
+  const priceScaleMode = chartAppearance.priceScaleMode ?? "regular";
+  const priceScalePosition = chartAppearance.priceScalePosition === "left" ? "left" : "right";
+  const priceScaleInverted = chartAppearance.priceScaleInverted === true;
+  const priceScaleLabelsVisible = chartAppearance.showPriceScaleLabels !== false;
+  const priceScaleLinesVisible = chartAppearance.showPriceScaleLines !== false;
+  const legacyGridLineColor = chartAppearance.gridLineColor || DEFAULT_SETTINGS_GRID_LINE;
+  const verticalGridLineColor = chartAppearance.verticalGridLineColor || legacyGridLineColor;
+  const horizontalGridLineColor = chartAppearance.horizontalGridLineColor || legacyGridLineColor;
+  const verticalGridLineOpacity = resolveChartSettingNumber(chartAppearance.verticalGridLineOpacity, 1, 0, 1);
+  const horizontalGridLineOpacity = resolveChartSettingNumber(chartAppearance.horizontalGridLineOpacity, 1, 0, 1);
+  const horizontalGridLineStyle = chartAppearance.horizontalGridLineStyle || "dashed";
+  const verticalGridLineStyle = chartAppearance.verticalGridLineStyle || "solid";
+  const horizontalGridVisible = chartAppearance.horizontalGridLines ?? chartAppearance.showGrid;
+  const verticalGridVisible = chartAppearance.verticalGridLines ?? chartAppearance.showGrid;
+  const crosshairColor = chartAppearance.crosshairColor || DEFAULT_SETTINGS_CROSSHAIR;
+  const watermarkColor = chartAppearance.watermarkColor || DEFAULT_SETTINGS_WATERMARK;
+  const backgroundMode = chartAppearance.backgroundMode || "solid";
+  const solidBackgroundColor = chartAppearance.backgroundColor || "transparent";
+  const gradientTopColor = chartAppearance.backgroundGradientTopColor || DEFAULT_SETTINGS_BACKGROUND;
+  const gradientBottomColor = chartAppearance.backgroundGradientBottomColor || DEFAULT_SETTINGS_BACKGROUND;
+  const chartBackgroundColor = backgroundMode === "gradient"
+    ? {
+        type: "linear" as const,
+        x: 0,
+        y: 0,
+        x2: 0,
+        y2: 1,
+        colorStops: [
+          { offset: 0, color: gradientTopColor },
+          { offset: 1, color: gradientBottomColor },
+        ],
+        global: false,
+      }
+    : solidBackgroundColor;
   const subtleHorizontalGrid = {
-    show: chartAppearance.showGrid,
-    lineStyle: { color: "rgba(148, 163, 184, 0.12)", width: 1, type: "dashed" },
+    show: horizontalGridVisible,
+    lineStyle: {
+      color: applyCssColorOpacity(horizontalGridLineColor, horizontalGridLineOpacity),
+      width: 1,
+      type: horizontalGridLineStyle,
+    },
   };
-  const paneShieldFill = chartAppearance.backgroundColor && chartAppearance.backgroundColor !== "transparent"
-    ? chartAppearance.backgroundColor
-    : "#0d2136";
+  // In gradient mode the global canvas background is already painted by ECharts;
+  // keep pane shields transparent so lower panes inherit the same gradient.
+  const paneShieldFill = backgroundMode === "gradient"
+    ? "transparent"
+    : solidBackgroundColor !== "transparent"
+      ? solidBackgroundColor
+      : DEFAULT_SETTINGS_BACKGROUND;
 
   const isObjectVisible = (id: string) => hiddenObjectIds[id] !== true;
   const isCci20Active = advancedIndicators.cci20 || advancedIndicators.cci;
@@ -1176,7 +1319,7 @@ const buildEChartsOption = ({
   const visibleComparisonSeries = comparisonSeries
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => {
-      const id = getCompareSeriesId(entry.symbol);
+      const id = getCompareSeriesId(entry.comparisonKey);
       return isObjectVisible(id) && isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe);
     });
   const hasVisibleComparisonSeries = visibleComparisonSeries.length > 0;
@@ -1231,15 +1374,28 @@ const buildEChartsOption = ({
   };
 
   const subtleVerticalGrid = {
-    show: chartAppearance.showGrid,
+    show: verticalGridVisible,
     interval: resolveSharedVerticalGridInterval,
-    lineStyle: { color: "rgba(148, 163, 184, 0.10)", width: 1, type: "solid" },
+    lineStyle: {
+      color: applyCssColorOpacity(verticalGridLineColor, verticalGridLineOpacity),
+      width: 1,
+      type: verticalGridLineStyle,
+    },
   };
   const mainSeriesData = chartTypePlan.series.find((series) => series.id === "main-series")?.data;
   const renderedMainSeriesPointCount = Array.isArray(mainSeriesData) ? mainSeriesData.length : chartData.length;
   const priceOverlayPointCount = Math.min(renderDates.length, chartTypePlan.volumeSourceData.length || chartData.length, renderedMainSeriesPointCount);
 
-  const shouldRenderVolumePanel = (chartConfig.indicators.volume || chartAppearance.showVolume) && isObjectVisible("volume") && !chartTypePlan.synthetic;
+  // Volume is a market-data pane, not a property of the price transform. Synthetic
+  // price charts (Heikin Ashi, Renko, Line Break, Kagi, P&F, Range) therefore keep
+  // the user's VOL pane. buildChartTypeSeries projects real source volume onto the
+  // transformed time axis without inventing or double-counting synthetic volume.
+  const volumeLifecycle = resolveVolumeStudyLifecycle({
+    indicators: chartConfig.indicators,
+    appearance: chartAppearance,
+  });
+  const shouldAttachVolumePanel = volumeLifecycle.paneAttached;
+  const shouldRenderVolumeBars = volumeLifecycle.barsVisible;
 
   const oscillatorPanels = [
     advancedIndicators.rsi && isObjectVisible("rsi") ? "RSI" : null,
@@ -1295,15 +1451,31 @@ const buildEChartsOption = ({
     advancedIndicators.bbPercentB && isObjectVisible("bbPercentB") ? "BB %B" : null,
   ].filter((panel): panel is string => panel !== null);
 
-  const gridLeft = hasVisibleComparisonSeries ? 60 : MAIN_GRID_LEFT;
-  const gridRight = TV_Y_AXIS_WIDTH;
-  const topMarginPercent = DEFAULT_CHART_TOP_MARGIN_PERCENT;
+  const mainPriceAxisGutterPx = reserveLastPriceAxisBadge ? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;
+  const naturalGridLeft = hasVisibleComparisonSeries ? 60 : MAIN_GRID_LEFT;
+  const gridLeft = priceScalePosition === "left"
+    ? Math.max(naturalGridLeft, mainPriceAxisGutterPx)
+    : naturalGridLeft;
+  const gridRight = priceScalePosition === "right"
+    ? mainPriceAxisGutterPx
+    : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;
+  const topMarginPercent = resolveChartSettingNumber(
+    chartAppearance.marginTopPercent,
+    DEFAULT_CHART_TOP_MARGIN_PERCENT,
+    0,
+    50,
+  );
   // This percentage is only a pane-sizing budget. It decides where the last
   // lower pane begins; it must never become rendered whitespace. The actual
   // time-axis reservation is anchored later to TV_X_AXIS_HEIGHT in pixels.
-  const paneSizingBottomBudgetPercent = DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT;
+  const paneSizingBottomBudgetPercent = resolveChartSettingNumber(
+    chartAppearance.marginBottomPercent,
+    DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT,
+    0,
+    50,
+  );
 
-  const panelCount = (shouldRenderVolumePanel ? 1 : 0) + oscillatorPanels.length;
+  const panelCount = (shouldAttachVolumePanel ? 1 : 0) + oscillatorPanels.length;
   const panelSpacingPercent = 0;
   const panelHeightPercent = panelCount <= 1
     ? DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT
@@ -1312,9 +1484,12 @@ const buildEChartsOption = ({
     panelCount <= 1 ? 30 : 35,
     100 - topMarginPercent - paneSizingBottomBudgetPercent - panelCount * (panelHeightPercent + panelSpacingPercent)
   );
-  const priceAxisSplitNumber = resolvePriceAxisSplitNumber(
-    chartContainerHeightPx,
-    mainGridHeightPercent,
+  const maxPriceAxisSplitLines = panelCount > 0
+    ? MAX_PRICE_AXIS_SPLIT_LINES_WITH_LOWER_PANES
+    : MAX_PRICE_AXIS_SPLIT_LINES_SINGLE_PANE;
+  const priceAxisSplitNumber = Math.min(
+    resolvePriceAxisSplitNumber(chartContainerHeightPx, mainGridHeightPercent),
+    maxPriceAxisSplitLines,
   );
 
   let nextPanelTopPercent = topMarginPercent + mainGridHeightPercent + panelSpacingPercent;
@@ -1382,6 +1557,22 @@ const buildEChartsOption = ({
     ? { min: getPriceAxisMin, max: getPriceAxisMax }
     : {};
 
+  const visibleReferenceIndex = chartData.length > 0
+    ? clamp(Math.floor(Number(viewportWindowRef.current.startIdx) || 0), 0, chartData.length - 1)
+    : 0;
+  const firstFiniteClose = chartData.find((point) => Number.isFinite(Number(point.close)) && Number(point.close) !== 0)?.close;
+  const priceScaleReference = Number(chartData[visibleReferenceIndex]?.close ?? firstFiniteClose ?? 0);
+  const formatPriceScaleAxisValue = (value: number): string => {
+    if (!Number.isFinite(value)) return "";
+    if (priceScaleMode === "percent" && Number.isFinite(priceScaleReference) && priceScaleReference !== 0) {
+      return `${(((value / priceScaleReference) - 1) * 100).toFixed(2)}%`;
+    }
+    if (priceScaleMode === "indexed-to-100" && Number.isFinite(priceScaleReference) && priceScaleReference !== 0) {
+      return ((value / priceScaleReference) * 100).toFixed(2);
+    }
+    return formatAxisPriceValue(value);
+  };
+
   gridOptions.push({
     left: gridLeft,
     right: gridRight,
@@ -1400,11 +1591,12 @@ const buildEChartsOption = ({
     // (also boundaryGap:true). With boundaryGap:false the date label for the
     // first category overflows to the left of the grid edge.
     boundaryGap: true,
-    axisLine: { onZero: false, lineStyle: { color: textColor } },
+    axisLine: { onZero: false, lineStyle: { color: scaleLineColor } },
     axisTick: { show: false },
     axisLabel: lowerPanelCount === 0
       ? {
           color: textColor,
+          fontSize: scaleTextSize,
           hideOverlap: true,
           align: "center",
           alignMinLabel: "center",
@@ -1419,14 +1611,21 @@ const buildEChartsOption = ({
 
   yAxisOptions.push({
     id: "price-yaxis",
-    position: "right",
+    type: priceScaleMode === "logarithmic" ? "log" : "value",
+    logBase: 10,
+    position: priceScalePosition,
+    inverse: priceScaleInverted,
     scale: true,
-    axisLine: { show: false },
+    axisLine: { show: true, lineStyle: { color: scaleLineColor } },
     axisTick: { show: false },
-    splitLine: subtleHorizontalGrid,
+    splitLine: { ...subtleHorizontalGrid, show: subtleHorizontalGrid.show && priceScaleLinesVisible },
     splitNumber: priceAxisSplitNumber,
-    axisLabel: { color: textColor, fontSize: 11, formatter: formatAxisPriceValue },
-    axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: false } },
+    axisLabel: { show: priceScaleLabelsVisible, color: textColor, fontSize: scaleTextSize, formatter: formatPriceScaleAxisValue },
+    axisPointer: {
+      show: !isChartLoading && uiState.cursorMode !== "arrow",
+      lineStyle: { color: crosshairColor, width: 1, type: "dashed" },
+      label: { show: false },
+    },
     ...priceAxisBoundaryLevelPadding,
   });
 
@@ -1492,7 +1691,7 @@ const buildEChartsOption = ({
     });
   }
 
-  if (shouldRenderVolumePanel) {
+  if (shouldAttachVolumePanel) {
     lowerPanelOrdinal += 1;
     const volumePanelOrdinal = lowerPanelOrdinal;
     const volumeGridIndex = gridOptions.length;
@@ -1521,6 +1720,7 @@ const buildEChartsOption = ({
       axisLabel: shouldShowLowerTimeAxis(volumePanelOrdinal)
         ? {
             color: textColor,
+            fontSize: scaleTextSize,
             hideOverlap: true,
             margin: 8,
             align: "center",
@@ -1542,10 +1742,14 @@ const buildEChartsOption = ({
       min: 0,
       scale: true,
       axisLabel: { show: false },
-      axisLine: { show: false },
+      axisLine: { show: true, lineStyle: { color: scaleLineColor } },
       axisTick: { show: false },
       splitLine: subtleHorizontalGrid,
-      axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: false } },
+      axisPointer: {
+        show: !isChartLoading && uiState.cursorMode !== "arrow",
+        lineStyle: { color: crosshairColor, width: 1, type: "dashed" },
+        label: { show: false },
+      },
       max: getVolumeAxisMax,
       boundaryGap: [0, 0],
     });
@@ -1571,26 +1775,28 @@ const buildEChartsOption = ({
     // Per-item styles are incompatible with large:true (by design in ECharts),
     // so we drop large mode — the perf impact is negligible for typical data sizes
     // (daily/weekly data rarely exceeds the 2000-bar threshold anyway).
-    const volumeBarData = buildDirectionalVolumeBarData(
-      volumeSourceSeries.volumes,
-      { upColor, downColor },
-      1,
-      Math.min(volumeSourceSeries.volumes.length, renderDates.length),
-      renderDates,
-    );
+    if (shouldRenderVolumeBars) {
+      const volumeBarData = buildDirectionalVolumeBarData(
+        volumeSourceSeries.volumes,
+        { upColor, downColor },
+        1,
+        Math.min(volumeSourceSeries.volumes.length, renderDates.length),
+        renderDates,
+      );
 
-    seriesOptions.push({
-      id: "volume-bar",
-      name: "Volume",
-      type: "bar",
-      xAxisIndex: volumeXAxisIndex,
-      yAxisIndex: volumeYAxisIndex,
-      encode: { x: 0, y: 1 },
-      data: volumeBarData,
-      barWidth: "65%",
-      clip: true,
-      z: PANE_CONTENT_MIN_Z + 4,
-    });
+      seriesOptions.push({
+        id: "volume-bar",
+        name: "Volume",
+        type: "bar",
+        xAxisIndex: volumeXAxisIndex,
+        yAxisIndex: volumeYAxisIndex,
+        encode: { x: 0, y: 1 },
+        data: volumeBarData,
+        barWidth: "65%",
+        clip: true,
+        z: PANE_CONTENT_MIN_Z + 4,
+      });
+    }
 
 
 
@@ -1990,7 +2196,7 @@ const buildEChartsOption = ({
             width: bandWidth,
             height,
           },
-          style: api.style({ fill: "rgba(0,0,0,0)", stroke: color, lineWidth, opacity }),
+          style: { fill: "rgba(0,0,0,0)", stroke: color, lineWidth, opacity },
         };
       },
     });
@@ -3092,7 +3298,7 @@ const buildEChartsOption = ({
         return {
           type: "rect",
           shape: { x: left, y: top, width: Math.max(8, right - left), height },
-          style: api.style({ fill, stroke: color, lineWidth: 1.6, opacity: 0.94 }),
+          style: { fill, stroke: color, lineWidth: 1.6, opacity: 0.94 },
         };
       },
     });
@@ -4370,6 +4576,7 @@ const buildEChartsOption = ({
       axisLabel: shouldShowLowerTimeAxis(oscillatorPanelOrdinal)
         ? {
             color: textColor,
+            fontSize: scaleTextSize,
             hideOverlap: true,
             margin: 8,
             align: "center",
@@ -4386,14 +4593,18 @@ const buildEChartsOption = ({
       id: `osc-yaxis-${index}`,
       position: "right",
       gridIndex,
-      axisLine: { show: false },
+      axisLine: { show: true, lineStyle: { color: scaleLineColor } },
       axisTick: { show: false },
       splitLine: subtleHorizontalGrid,
-      axisLabel: { color: textColor, fontSize: 10 },
+      axisLabel: { color: textColor, fontSize: Math.max(10, scaleTextSize - 2) },
       scale: !(bounded0to100 || boundedWillR || boundedCmo || boundedAroonOsc || boundedCmf || zeroBasedPositive),
       min: bounded0to100 || zeroBasedPositive ? 0 : boundedWillR || boundedCmo || boundedAroonOsc ? -100 : boundedCmf ? -1 : undefined,
       max: bounded0to100 ? 100 : boundedWillR ? 0 : boundedCmo || boundedAroonOsc ? 100 : boundedCmf ? 1 : undefined,
-      axisPointer: { show: !isChartLoading && uiState.cursorMode !== "arrow", label: { show: true } },
+      axisPointer: {
+        show: !isChartLoading && uiState.cursorMode !== "arrow",
+        lineStyle: { color: crosshairColor, width: 1, type: "dashed" },
+        label: { show: true },
+      },
     });
 
     pushPaneBackgroundSeries(
@@ -5164,7 +5375,7 @@ const buildEChartsOption = ({
   }
 
   visibleComparisonSeries.forEach(({ entry, index }) => {
-    const id = getCompareSeriesId(entry.symbol);
+    const id = getCompareSeriesId(entry.comparisonKey);
 
     const color = entry.settings.color || getCompareSeriesColor(index);
     const normalized = normalizeComparisonValues(
@@ -5173,13 +5384,13 @@ const buildEChartsOption = ({
       comparisonBaselineIndex,
       entry.settings.priceSource,
     );
-    const symbolMarkPoint = buildCompareSymbolMarkPoint(entry.symbol, color, dates, normalized);
+    const symbolMarkPoint = buildCompareSymbolMarkPoint(entry.label, color, dates, normalized);
     const lastPoint = getLastFiniteComparisonPoint(dates, normalized);
     const lineData = buildComparisonLineData(dates, normalized);
 
     seriesOptions.push({
       id,
-      name: entry.symbol,
+      name: entry.label,
       type: "line",
       xAxisIndex: 0,
       yAxisIndex: comparisonYAxisIndex,
@@ -5258,6 +5469,8 @@ const buildEChartsOption = ({
   );
 
   const hiddenLegendSeriesIds = new Set([
+    // Native Volume owns a React study legend with Hide/Settings/Remove/More.
+    "volume-bar",
     "bollinger-fill",
     "donchian-fill",
     "keltner-fill",
@@ -5300,6 +5513,51 @@ const buildEChartsOption = ({
   }
 
   const chartTitle = buildChartTitlePresentation(displaySymbol, marketLabel, chartConfig, chartData);
+  if (chartAppearance.watermarkMode !== "none") {
+    graphicOptions.push({
+      type: "text",
+      left: "center",
+      top: "middle",
+      silent: true,
+      z: 1,
+      style: {
+        text: chartAppearance.watermarkMode === "symbol" ? displaySymbol : "Mode replay",
+        fill: watermarkColor,
+        font: "700 44px Inter, system-ui, sans-serif",
+        opacity: 0.2,
+        textAlign: "center",
+      },
+    });
+  }
+  const hasPeerLegendLane = legendLayoutMode !== "default";
+  const isCompactPeerLegendLayout = legendLayoutMode === "peer-compact";
+  const legendLayout = hasPeerLegendLane
+    ? {
+        type: "scroll" as const,
+        top: isCompactPeerLegendLayout ? 5 : 34,
+        left: 8,
+        right: gridRight + 4,
+        orient: "horizontal" as const,
+        itemWidth: isCompactPeerLegendLayout ? 9 : 11,
+        itemHeight: isCompactPeerLegendLayout ? 7 : 8,
+        itemGap: isCompactPeerLegendLayout ? 6 : 9,
+        textStyle: { color: textColor, fontSize: 9 },
+        pageButtonPosition: "end" as const,
+        pageButtonItemGap: 4,
+        pageButtonGap: 5,
+        pageIconSize: 9,
+        pageIconColor: "#94a3b8",
+        pageIconInactiveColor: "#475569",
+        pageTextStyle: { color: "#64748b", fontSize: 8 },
+        animationDurationUpdate: 0,
+      }
+    : {
+        top: 0,
+        left: "center" as const,
+        textStyle: { color: textColor },
+        itemWidth: 15,
+        itemHeight: 10,
+      };
 
   // ECharts accepts a pixel `bottom` and an automatic height. Anchoring only
   // the final pane makes the visible time-axis lane a fixed 28px contract,
@@ -5308,7 +5566,7 @@ const buildEChartsOption = ({
   const anchoredGridOptions = anchorLastPaneToFixedTimeAxis(gridOptions, TV_X_AXIS_HEIGHT);
 
   return {
-    backgroundColor: "transparent",
+    backgroundColor: chartBackgroundColor,
     animation: false,
     title: {
       show: !hideChartTitle,
@@ -5327,15 +5585,11 @@ const buildEChartsOption = ({
       },
     },
     legend: {
-      top: 0,
-      left: "center",
+      ...legendLayout,
       selectedMode: "multiple",
       selected: legendSelection,
       data: legendData,
-      textStyle: { color: textColor },
       icon: "roundRect",
-      itemWidth: 15,
-      itemHeight: 10
     },
     tooltip: {
       show: false,
@@ -5349,7 +5603,7 @@ const buildEChartsOption = ({
       padding: 8,
       extraCssText: "box-shadow:0 10px 28px rgba(2,6,23,.34);border-radius:6px;",
       textStyle: { color: "#e2e8f0" },
-      axisPointer: { type: "line", lineStyle: { color: "rgba(148, 163, 184, 0.58)", width: 1, type: "dashed" } },
+      axisPointer: { type: "line", lineStyle: { color: crosshairColor, width: 1, type: "dashed" } },
       formatter: (params: unknown) => formatCandleTooltip(params, chartData),
     },
     axisPointer: { show: false },
@@ -5383,11 +5637,13 @@ export const useEChartsRenderer = ({
   displayLogoUrl,
   marketLabel = "",
   hideChartTitle = false,
+  legendLayoutMode = "default",
+  reserveLastPriceAxisBadge = true,
   lastZoomRangeRef,
   lastPriceAxisValue,
   isMainChartVisible = true,
   isChartLoading = false,
-  comparisonSeries = [],
+  comparisonSeries = EMPTY_COMPARISON_SERIES,
   onCompareSeriesSettingsRequest,
   onIndicatorConfigurationRequest,
   onMarubozuAlertRequest,
@@ -5395,7 +5651,7 @@ export const useEChartsRenderer = ({
   onCandlestickPatternAlertRequest,
   onChartVisualReady,
   hasLiveStitchedCandle = false,
-  hiddenObjectIds = {},
+  hiddenObjectIds = EMPTY_HIDDEN_OBJECT_IDS,
   layersStackRef,
   pineOverlay = null,
   onHistoryBoundaryRequest,
@@ -5415,6 +5671,10 @@ export const useEChartsRenderer = ({
   const chartMutationRafRef = useRef<number | null>(null);
   const isChartMutationFlushingRef = useRef(false);
   const lastCommittedChartStructureSignatureRef = useRef<string | null>(null);
+  // Monotonic render epoch: React may invalidate one chart-type render while its
+  // ECharts mutation is already queued. Only the newest epoch is allowed to commit.
+  // This turns rapid type switching into last-write-wins without stale visual frames.
+  const chartRenderGenerationRef = useRef(0);
 
   const clearChartMutationQueue = useCallback(() => {
     if (chartMutationRafRef.current !== null) {
@@ -5511,15 +5771,21 @@ export const useEChartsRenderer = ({
   );
   const hasVisibleComparisonEndLabels = useMemo(
     () => renderComparisonSeries.some((entry) => (
-      !hiddenObjectIds[getCompareSeriesId(entry.symbol)] &&
+      !hiddenObjectIds[getCompareSeriesId(entry.comparisonKey)] &&
       isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe)
     )),
     [chartConfig.timeframe, renderComparisonSeries, hiddenObjectIds],
   );
-  const visibleCompareSymbolLookup = useMemo(
-    () => new Map(renderComparisonSeries.map((entry) => [normalizeCompareSymbol(entry.symbol), entry.symbol])),
-    [renderComparisonSeries],
-  );
+  const visibleCompareSymbolLookup = useMemo(() => {
+    const entries = renderComparisonSeries.flatMap((entry) => {
+      const seriesIdSuffix = getCompareSeriesId(entry.comparisonKey).slice("compare-".length);
+      return [
+        [normalizeCompareSymbol(entry.label), entry.comparisonKey] as const,
+        [seriesIdSuffix, entry.comparisonKey] as const,
+      ];
+    });
+    return new Map(entries);
+  }, [renderComparisonSeries]);
   const trendSignalSourceAveragePeriods = useMemo(
     () => resolveTrendSignalSourceAveragePeriods(uiState.movingAverageTrendSignals),
     [uiState.movingAverageTrendSignals],
@@ -5848,13 +6114,13 @@ export const useEChartsRenderer = ({
 
       const newSeries = renderComparisonSeries
         .filter((entry) => (
-          !hiddenObjectIds[getCompareSeriesId(entry.symbol)] &&
+          !hiddenObjectIds[getCompareSeriesId(entry.comparisonKey)] &&
           isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe)
         ))
         .map((entry) => {
           const normalized = normalizeComparisonValues(entry.data, renderChartData, startIdx, entry.settings.priceSource);
           return {
-            id: getCompareSeriesId(entry.symbol),
+            id: getCompareSeriesId(entry.comparisonKey),
             data: buildComparisonLineData(dates, normalized),
           };
         });
@@ -5878,6 +6144,7 @@ export const useEChartsRenderer = ({
 
   // --- ECHARTS RENDER LOGIC (React Cycle) ---
   useEffect(() => {
+    const renderGeneration = ++chartRenderGenerationRef.current;
     const container = stockChartRef.current;
     const existingChart = chartInstanceRef.current;
     if (renderChartData.length === 0) {
@@ -5895,26 +6162,45 @@ export const useEChartsRenderer = ({
       chartInstanceRef.current = null;
     }
 
-    // [TENOR 2026 SRE FIX] Resize Resilience
-    let resizeRafId: number;
+    // ResizeObserver fires once immediately after observe(). That delivery cannot be
+    // classified by comparing it with a local DOM baseline: maximize/restore can
+    // resize the host before this effect is recreated, leaving ECharts at the old
+    // canvas size while both DOM samples already report the new size. The renderer
+    // itself is the authoritative second endpoint. Resize only when host geometry
+    // and ECharts' actual backing surface disagree, which also keeps chart-type
+    // switches stable when the physical panel size did not change.
+    let resizeRafId: number | null = null;
+    const hasRendererGeometryDrift = (targetChart: EChartsInstance, width: number, height: number): boolean =>
+      Math.abs(width - targetChart.getWidth()) > 0.5 || Math.abs(height - targetChart.getHeight()) > 0.5;
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
+      if (!entry) return;
       const { width, height } = entry.contentRect;
       if (width > 0 && height > 0) {
         if (!hasSize) setHasSize(true);
       } else {
         if (hasSize) setHasSize(false);
+        return;
       }
 
+      const currentChart = chartInstanceRef.current;
+      if (!currentChart || currentChart.isDisposed() || !hasRendererGeometryDrift(currentChart, width, height) || resizeRafId !== null) return;
+
       resizeRafId = requestAnimationFrame(() => {
-        if (isMountedRef.current && chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
-          scheduleChartMutation("resize", (targetChart) => {
-            targetChart.resize();
-          });
-          scheduleChartMutation("post-resize-viewport-reset", () => {
-            resetManualYViewport();
-          });
-        }
+        resizeRafId = null;
+        if (!isMountedRef.current || !chartInstanceRef.current || chartInstanceRef.current.isDisposed()) return;
+
+        let didResize = false;
+        scheduleChartMutation("resize", (targetChart) => {
+          const hostWidth = container.clientWidth;
+          const hostHeight = container.clientHeight;
+          if (hostWidth <= 0 || hostHeight <= 0 || !hasRendererGeometryDrift(targetChart, hostWidth, hostHeight)) return;
+          targetChart.resize({ width: hostWidth, height: hostHeight });
+          didResize = true;
+        });
+        scheduleChartMutation("post-resize-viewport-reset", () => {
+          if (didResize) resetManualYViewport();
+        });
       });
     });
 
@@ -5925,7 +6211,7 @@ export const useEChartsRenderer = ({
         setHasSize(true);
       }
       return () => {
-        cancelAnimationFrame(resizeRafId);
+        if (resizeRafId !== null) cancelAnimationFrame(resizeRafId);
         resizeObserver.disconnect();
       };
     }
@@ -5940,6 +6226,7 @@ export const useEChartsRenderer = ({
     const visualReadyRafIds: number[] = [];
 
     const reportVisualReady = () => {
+      if (renderGeneration !== chartRenderGenerationRef.current) return;
       if (hasReportedVisualReady || !isMountedRef.current || chart.isDisposed()) return;
       if (!hasRenderableSeriesData(chart)) return;
       hasReportedVisualReady = true;
@@ -5978,6 +6265,8 @@ export const useEChartsRenderer = ({
       displayLogoUrl,
       marketLabel,
       hideChartTitle,
+      legendLayoutMode,
+      reserveLastPriceAxisBadge,
       indicatorsData,
       structuredResults: structuredIndicatorResults,
       comparisonSeries: renderComparisonSeries,
@@ -5996,11 +6285,11 @@ export const useEChartsRenderer = ({
 
     const rawOption = buildEChartsOption(builderContext);
 
-    // [TENOR 2026 PERF — ÉTAPE 1] Viewport-slicing via renderItem wrapper.
-    // Automatically intercepts ZRender rendering calls for custom series.
-    // If a point's dataIndex lies outside the visible viewport (with a safety margin),
-    // we return undefined. This prevents ZRender from allocating and drawing objects
-    // for offscreen data, bringing rendering cost down to the visible set size.
+    // [TENOR 2026 PERF — ÉTAPE 1] Geometry-based viewport culling for custom series.
+    // `params.dataIndex` is only the array position inside a rendered transform; it
+    // diverges from source-bar indexes for sampled/synthetic charts (TPO, Footprint,
+    // Kagi, Point & Figure, ...). Cull from the encoded X projected through ECharts'
+    // live coordinate system instead, so correctness is independent of transform size.
     if (rawOption.series && Array.isArray(rawOption.series)) {
       rawOption.series.forEach((series: any) => {
         const isLayoutUtilitySeries = series.id?.startsWith("pane-shield-") || series.id?.startsWith("pane-background");
@@ -6009,14 +6298,7 @@ export const useEChartsRenderer = ({
           const label = series.name || series.id || "custom-series";
 
           const wrappedRenderItem = (params: any, api: any) => {
-            const viewport = viewportWindowRef.current;
-            if (viewport) {
-              const idx = params.dataIndex;
-              // Margin of 12 bars to account for partially visible shapes at screen edges
-              if (idx !== undefined && (idx < viewport.startIdx - 12 || idx > viewport.endIdx + 12)) {
-                return undefined;
-              }
-            }
+            if (isCustomSeriesPointOutsideViewport(params, api, 12)) return undefined;
             return originalRenderItem(params, api);
           };
 
@@ -6032,15 +6314,18 @@ export const useEChartsRenderer = ({
       lastPriceAxisValue,
       zoomRange: lastZoomRangeRef?.current,
       historyGapBars,
+      rightOffsetBars: chartAppearance.rightOffsetBars,
       liveViewport: viewportWindowRef.current,
     });
     const chartStructureSignature = resolveChartStructureSignature(option);
 
-    // [TENOR 2026 SRE] RAF Cleanup Enforcement
-    let rafId: number;
-    rafId = requestAnimationFrame(() => {
-      if (isMountedRef.current && chart && !chart.isDisposed()) {
-        scheduleChartMutation("full-option", (targetChart) => {
+    // The keyed mutation scheduler already owns the animation-frame boundary.
+    // Scheduling another RAF here created a two-stage pipeline where an obsolete
+    // chart type could be painted before its successor reached the queue. Enqueue
+    // immediately and guard the commit by render generation: newest React render wins.
+    if (isMountedRef.current && chart && !chart.isDisposed()) {
+      scheduleChartMutation("full-option", (targetChart) => {
+          if (renderGeneration !== chartRenderGenerationRef.current) return;
           if (process.env.NEXT_PUBLIC_DEBUG_CHART_ALIGN === "1") {
             const mainSeries = (option.series as any)?.find((s: any) => s.id === "main-series");
             const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
@@ -6073,12 +6358,30 @@ export const useEChartsRenderer = ({
             TV_MAX_HISTORY_GAP_BARS,
             Math.round(liveViewport.historyGapBars),
           );
+          const livePrimaryXAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+          const liveAxisCategories = livePrimaryXAxis && typeof livePrimaryXAxis === "object"
+            && Array.isArray((livePrimaryXAxis as { data?: unknown }).data)
+            ? (livePrimaryXAxis as { data: unknown[] }).data
+            : [];
+          const liveRenderedTimeWindow = resolveRenderedTimeAxisWindow({
+            axisCategories: liveAxisCategories,
+            sourceTimes: renderChartData.map((point) => point.time),
+            sourceStartIdx: liveViewport.startIdx,
+            sourceEndIdx: liveViewport.endIdx,
+            historyGapBars: liveHistoryGapBars,
+          });
+          const liveStartValue = liveAxisCategories.length > 0
+            ? liveRenderedTimeWindow.startValue
+            : liveHistoryGapBars + liveViewport.startIdx;
+          const liveEndValue = liveAxisCategories.length > 0
+            ? liveRenderedTimeWindow.endValue
+            : liveHistoryGapBars + liveViewport.endIdx;
           const liveDataZoom = Array.isArray(option.dataZoom)
             ? option.dataZoom.map((zoom: any) => zoom?.id === "time-zoom"
               ? {
                   ...zoom,
-                  startValue: liveHistoryGapBars + liveViewport.startIdx,
-                  endValue: liveHistoryGapBars + liveViewport.endIdx,
+                  startValue: liveStartValue,
+                  endValue: liveEndValue,
                 }
               : zoom)
             : option.dataZoom;
@@ -6098,13 +6401,12 @@ export const useEChartsRenderer = ({
           lastCommittedChartStructureSignatureRef.current = chartStructureSignature;
           completeHistoryPrependCommit(renderChartData.length);
           applyViewport("immediate");
-        });
-        if (renderComparisonSeries.length > 0) {
-          scheduleComparisonBaselines();
-        }
-        scheduleVisualReadyFallback();
+      });
+      if (renderComparisonSeries.length > 0) {
+        scheduleComparisonBaselines();
       }
-    });
+      scheduleVisualReadyFallback();
+    }
 
     const handleLegendChange = (params: any) => {
       if (!isMountedRef.current) return;
@@ -6187,8 +6489,7 @@ export const useEChartsRenderer = ({
     chart.on('restore', scheduleComparisonBaselines);
 
     return () => {
-      cancelAnimationFrame(rafId);
-      cancelAnimationFrame(resizeRafId);
+      if (resizeRafId !== null) cancelAnimationFrame(resizeRafId);
       visualReadyRafIds.forEach((visualReadyRafId) => cancelAnimationFrame(visualReadyRafId));
       if (comparisonBaselineRafRef.current !== null) {
         cancelAnimationFrame(comparisonBaselineRafRef.current);
@@ -6204,7 +6505,7 @@ export const useEChartsRenderer = ({
       }
       resizeObserver.disconnect();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- viewportWindowRef is a stable React ref (identity-stable by design); adding it to deps would trigger an eslint warning in the opposite direction and cause no functional benefit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- viewportWindowRef is identity-stable and uiState is intentionally decomposed below. Multi-chart layout viewport persistence must not be treated as a price-renderer input; cursor/data-mode/replay/scope and indicator-derived values are tracked explicitly.
   }, [
     isInitialChartRenderDeferred,
     renderChartData,
@@ -6212,11 +6513,11 @@ export const useEChartsRenderer = ({
     renderChartConfig,
     effectiveChartIndicators,
     renderAdvancedIndicators,
-    uiState,
     uiState.replay.isActive,
     displaySymbol,
     displayLogoUrl,
     hideChartTitle,
+    legendLayoutMode,
     chartAppearance,
     indicatorPeriods,
     bollingerSettings,

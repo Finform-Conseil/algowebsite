@@ -14,27 +14,20 @@ import { CreateCoursType, CoursType, UpdateCoursType, CoursQueryParams } from '@
 import { CoursEntity } from '@/core/domain/entities/cours.entity';
 import { PaginatedResponse, QueryParams } from '../../domain/types/pagination.type';
 import { CoursUploadResponse } from '../store/api/cours.api';
+import { SharedRequestCache } from '../cache/sharedRequestCache';
 
-const coursRequestsInFlight = new Map<string, Promise<unknown>>();
+const coursRequestCache = new SharedRequestCache({ maxSettledEntries: 256 });
+const COURS_LIVE_PAGE_TTL_MS = 15_000;
+const COURS_HISTORY_PAGE_TTL_MS = 10 * 60_000;
 
 const serializeCoursParams = (params: QueryParams): string =>
   JSON.stringify(Object.entries(params).sort(([left], [right]) => left.localeCompare(right)));
 
 const getSharedCoursRequest = <T>(
   key: string,
-  factory: () => Promise<T>
-): Promise<T> => {
-  const existing = coursRequestsInFlight.get(key);
-  if (existing) return existing as Promise<T>;
-
-  const request = factory();
-  coursRequestsInFlight.set(key, request);
-  const clearRequest = () => {
-    if (coursRequestsInFlight.get(key) === request) coursRequestsInFlight.delete(key);
-  };
-  void request.then(clearRequest, clearRequest);
-  return request;
-};
+  factory: () => Promise<T>,
+  ttlMs = COURS_LIVE_PAGE_TTL_MS,
+): Promise<T> => coursRequestCache.getOrCreate(key, factory, ttlMs);
 
 export const useCoursRepository = (): ICoursRepository => {
   const [
@@ -132,7 +125,9 @@ export const useCoursRepository = (): ICoursRepository => {
       params: QueryParams = {}
     ): Promise<PaginatedResponse<CoursEntity>> => {
       const key = `cours:list:${serializeCoursParams(params)}`;
-      return getSharedCoursRequest(key, () => triggerGetAllCours(params).unwrap());
+      const page = Number(params.page ?? 1);
+      const ttlMs = Number.isInteger(page) && page > 1 ? COURS_HISTORY_PAGE_TTL_MS : COURS_LIVE_PAGE_TTL_MS;
+      return getSharedCoursRequest(key, () => triggerGetAllCours(params).unwrap(), ttlMs);
     },
     [triggerGetAllCours]
   );
@@ -146,7 +141,8 @@ export const useCoursRepository = (): ICoursRepository => {
       const fetchHistoryPage = (page: number) =>
         getSharedCoursRequest(
           `cours:history:${serializeCoursParams({ ...params, page, page_size: requestedPageSize })}`,
-          () => triggerGetAllCours({ ...params, page, page_size: requestedPageSize }).unwrap()
+          () => triggerGetAllCours({ ...params, page, page_size: requestedPageSize }).unwrap(),
+          page > 1 ? COURS_HISTORY_PAGE_TTL_MS : COURS_LIVE_PAGE_TTL_MS,
         );
 
       const firstResponse = await fetchHistoryPage(1);

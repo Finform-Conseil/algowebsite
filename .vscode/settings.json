@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "**/_Rollback/**/*.ts": "plaintext",
+    "**/_Rollback/**/*.tsx": "plaintext"
+  }
+}

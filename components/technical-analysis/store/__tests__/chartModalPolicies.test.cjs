@@ -8,10 +8,12 @@ const {
   technicalAnalysisSlice,
   applyMultiChartPreset,
   closeAllModals,
+  commitLayoutChartAppearance,
   hydrateMultiChartLayout,
   setChartConfig,
   setChartType,
   setChartAppearance,
+  setChartAppearancePreview,
   setTimeRange,
   setModalOpen,
   setMultiChartLayout,
@@ -20,6 +22,7 @@ const {
   setMultiChartSync,
   setSymbol,
   setTimeframe,
+  swapLayoutCharts,
   updateLayoutChart,
 } = require("../technicalAnalysisSlice.ts");
 const { createDefaultBrvmMultiChartLayout } = require("../../config/layout/brvmLayoutSymbols.ts");
@@ -195,6 +198,53 @@ test("a multi-chart cell keeps the exchange selected with its ticker", () => {
   assert.equal(next.chartConfig.symbol, "MTNNG");
 });
 
+test("hydration preserves a panel intentionally moved away from the first physical slot", () => {
+  const initial = createReducerState();
+  initial.chartConfig.symbol = "ORANGE_CI";
+  initial.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("four_grid", "ORANGE_CI");
+
+  const movedState = technicalAnalysisSlice.reducer(
+    initial,
+    swapLayoutCharts({ sourceChartId: "chart_1", targetChartId: "chart_4" }),
+  );
+  const persistedMovedLayout = structuredClone(movedState.ui.multiChartLayout);
+  assert.equal(persistedMovedLayout.charts[0].symbol, "");
+  assert.equal(persistedMovedLayout.charts[3].symbol, "ORANGE_CI");
+  assert.equal(persistedMovedLayout.activeChartId, "chart_4");
+
+  const fresh = createReducerState();
+  fresh.chartConfig.symbol = "ORANGE_CI";
+  const hydrated = technicalAnalysisSlice.reducer(fresh, hydrateMultiChartLayout(persistedMovedLayout));
+
+  assert.equal(hydrated.ui.multiChartLayout.charts[0].symbol, "");
+  assert.equal(hydrated.ui.multiChartLayout.charts[3].symbol, "ORANGE_CI");
+  assert.equal(hydrated.ui.multiChartLayout.activeChartId, "chart_4");
+  assert.equal(hydrated.ui.multiChartLayout.charts[3].isActive, true);
+  assert.equal(hydrated.chartConfig.symbol, "ORANGE_CI");
+});
+
+test("dense hydration preserves a relocated active panel while keeping symbol sync disabled", () => {
+  const initial = createReducerState();
+  initial.chartConfig.symbol = "ORANGE_CI";
+  initial.ui.multiChartLayout = createDefaultBrvmMultiChartLayout("eight_grid", "ORANGE_CI");
+  const movedState = technicalAnalysisSlice.reducer(
+    initial,
+    swapLayoutCharts({ sourceChartId: "chart_1", targetChartId: "chart_8" }),
+  );
+  const persistedMovedLayout = structuredClone(movedState.ui.multiChartLayout);
+  persistedMovedLayout.sync.symbol = true;
+
+  const fresh = createReducerState();
+  fresh.chartConfig.symbol = "ORANGE_CI";
+  const hydrated = technicalAnalysisSlice.reducer(fresh, hydrateMultiChartLayout(persistedMovedLayout));
+
+  assert.equal(hydrated.ui.multiChartLayout.charts[0].symbol, "");
+  assert.equal(hydrated.ui.multiChartLayout.charts[7].symbol, "ORANGE_CI");
+  assert.equal(hydrated.ui.multiChartLayout.activeChartId, "chart_8");
+  assert.equal(hydrated.ui.multiChartLayout.charts[7].isActive, true);
+  assert.equal(hydrated.ui.multiChartLayout.sync.symbol, false);
+});
+
 test("hydration preserves persisted sync preferences while enforcing dense-layout symbol safety", () => {
   const initial = createReducerState();
   initial.chartConfig.symbol = "ORANGE_CI";
@@ -315,10 +365,10 @@ test("activating a panel restores its timeframe, type, date range and supported 
   assert.equal(next.ui.selectedTimeRange, "3M");
   assert.equal(next.chartConfig.indicators.sma, true);
   assert.equal(next.chartConfig.indicators.volume, false);
-  assert.equal(next.chartAppearance.showVolume, false);
+  assert.equal(next.chartAppearance.showVolume, true);
 });
 
-test("canonical chart controls persist type and VOL/SMA state into the active panel", () => {
+test("Volume output appearance cannot reattach a removed study", () => {
   let state = technicalAnalysisSlice.reducer(
     createReducerState(),
     setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
@@ -330,8 +380,194 @@ test("canonical chart controls persist type and VOL/SMA state into the active pa
   const active = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === state.ui.multiChartLayout.activeChartId);
   assert.equal(active.chartType, "line");
   assert.equal(active.indicators.includes("sma"), true);
-  assert.equal(active.indicators.includes("volume"), true);
+  assert.equal(active.indicators.includes("volume"), false);
+  assert.equal(state.chartConfig.indicators.volume, false);
+  assert.equal(state.chartAppearance.showVolume, true);
+});
+
+test("Volume Hide is panel-local and preserves attachment plus Style output", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_2", symbol: "MTNNG", exchange: "NGX" }),
+  );
+
+  const firstId = state.ui.multiChartLayout.activeChartId;
+  state = technicalAnalysisSlice.reducer(state, setChartConfig({
+    indicators: { ...state.chartConfig.indicators, volume: true, volumeVisible: false },
+  }));
+
+  const firstHidden = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === firstId);
+  assert.equal(firstHidden.indicatorState.chart.volume, true);
+  assert.equal(firstHidden.indicatorState.chart.volumeVisible, false);
+  assert.equal(state.chartAppearance.showVolume, true);
+
+  state = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
+  assert.equal(state.chartConfig.indicators.volumeVisible, true);
   assert.equal(state.chartConfig.indicators.volume, true);
+
+  state = technicalAnalysisSlice.reducer(state, setActiveLayoutChart(firstId));
+  assert.equal(state.chartConfig.indicators.volumeVisible, false);
+  assert.equal(state.chartConfig.indicators.volume, true);
+  assert.equal(state.chartAppearance.showVolume, true);
+});
+
+test("chart appearance preview is ephemeral and never mutates durable appearance", () => {
+  const before = createReducerState();
+  const durableVerticalGrid = before.chartAppearance.verticalGridLines;
+  const previewAppearance = {
+    ...structuredClone(before.chartAppearance),
+    verticalGridLines: !durableVerticalGrid,
+    backgroundMode: "gradient",
+    backgroundGradientTopColor: "#112233",
+    backgroundGradientBottomColor: "#445566",
+  };
+
+  const next = technicalAnalysisSlice.reducer(
+    before,
+    setChartAppearancePreview({ chartId: null, appearance: previewAppearance }),
+  );
+
+  assert.equal(next.ui.chartAppearancePreview.chartId, null);
+  assert.equal(next.ui.chartAppearancePreview.appearance.verticalGridLines, !durableVerticalGrid);
+  assert.equal(next.chartAppearance.verticalGridLines, durableVerticalGrid);
+  assert.equal(next.chartAppearance.backgroundMode, "solid");
+});
+
+test("multi-chart appearance commit is panel-local and follows the active panel", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "two_horizontal", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  state = technicalAnalysisSlice.reducer(
+    state,
+    updateLayoutChart({ chartId: "chart_2", symbol: "MTNNG", exchange: "NGX" }),
+  );
+
+  const baseline = structuredClone(state.chartAppearance);
+  const customized = {
+    ...baseline,
+    verticalGridLines: false,
+    horizontalGridLines: true,
+    verticalGridLineStyle: "dotted",
+    verticalGridLineColor: "#123456",
+    verticalGridLineOpacity: 0.35,
+    backgroundMode: "gradient",
+    backgroundGradientTopColor: "#112233",
+    backgroundGradientBottomColor: "#445566",
+    showVolume: false,
+  };
+
+  state = technicalAnalysisSlice.reducer(
+    state,
+    commitLayoutChartAppearance({ chartId: "chart_1", appearance: customized }),
+  );
+
+  const chart1 = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === "chart_1");
+  const chart2 = state.ui.multiChartLayout.charts.find((chart) => chart.chartId === "chart_2");
+  assert.equal(chart1.appearance.verticalGridLines, false);
+  assert.equal(chart1.appearance.backgroundMode, "gradient");
+  assert.equal(chart1.appearance.verticalGridLineOpacity, 0.35);
+  assert.equal(chart1.appearance.showVolume, false);
+  assert.equal(chart1.indicators.includes("volume"), true);
+  assert.equal(chart2.appearance.verticalGridLines, baseline.verticalGridLines);
+  assert.equal(chart2.appearance.backgroundMode, baseline.backgroundMode);
+  assert.equal(chart2.appearance.showVolume, baseline.showVolume);
+  assert.equal(state.chartAppearance.verticalGridLines, false);
+  assert.equal(state.chartAppearance.showVolume, false);
+  assert.equal(state.chartConfig.indicators.volume, true);
+
+  state = technicalAnalysisSlice.reducer(state, setActiveLayoutChart("chart_2"));
+  assert.equal(state.chartAppearance.verticalGridLines, baseline.verticalGridLines);
+  assert.equal(state.chartAppearance.backgroundMode, baseline.backgroundMode);
+});
+
+test("single-chart appearance commit survives persisted layout hydration", () => {
+  let state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setMultiChartLayout({ layoutId: "single", primarySymbol: "ORANGE_CI", market: "BRVM" }),
+  );
+  const customized = {
+    ...structuredClone(state.chartAppearance),
+    verticalGridLines: false,
+    horizontalGridLines: true,
+    backgroundMode: "gradient",
+    backgroundGradientTopColor: "#112233",
+    backgroundGradientBottomColor: "#445566",
+  };
+
+  state = technicalAnalysisSlice.reducer(
+    state,
+    commitLayoutChartAppearance({ chartId: "chart_1", appearance: customized }),
+  );
+  const persistedLayout = structuredClone(state.ui.multiChartLayout);
+
+  assert.equal(persistedLayout.charts[0].appearance.verticalGridLines, false);
+  assert.equal(persistedLayout.charts[0].appearance.backgroundMode, "gradient");
+
+  const fresh = createReducerState();
+  fresh.chartConfig.symbol = "ORANGE_CI";
+  fresh.ui.activeMarket.ticker = "BRVM";
+  const hydrated = technicalAnalysisSlice.reducer(fresh, hydrateMultiChartLayout(persistedLayout));
+
+  assert.equal(hydrated.chartAppearance.verticalGridLines, false);
+  assert.equal(hydrated.chartAppearance.horizontalGridLines, true);
+  assert.equal(hydrated.chartAppearance.backgroundMode, "gradient");
+  assert.equal(hydrated.ui.multiChartLayout.charts[0].appearance.verticalGridLines, false);
+});
+
+test("chart appearance settings modal fields persist through setChartAppearance", () => {
+  const state = technicalAnalysisSlice.reducer(
+    createReducerState(),
+    setChartAppearance({
+      verticalGridLines: false,
+      horizontalGridLines: true,
+      verticalGridLineStyle: "dotted",
+      horizontalGridLineStyle: "solid",
+      gridLineColor: "#445566",
+      verticalGridLineColor: "#123456",
+      horizontalGridLineColor: "#654321",
+      verticalGridLineOpacity: 0.25,
+      horizontalGridLineOpacity: 0.75,
+      backgroundMode: "gradient",
+      backgroundGradientTopColor: "#111827",
+      backgroundGradientBottomColor: "#0f172a",
+      crosshairColor: "#778899",
+      watermarkMode: "symbol",
+      watermarkColor: "#112233",
+      scaleTextColor: "#abcdef",
+      scaleTextSize: 14,
+      scaleLineColor: "#fedcba",
+      marginTopPercent: 18,
+      marginBottomPercent: 11,
+      rightOffsetBars: 24,
+    }),
+  );
+
+  assert.equal(state.chartAppearance.verticalGridLines, false);
+  assert.equal(state.chartAppearance.horizontalGridLines, true);
+  assert.equal(state.chartAppearance.verticalGridLineStyle, "dotted");
+  assert.equal(state.chartAppearance.horizontalGridLineStyle, "solid");
+  assert.equal(state.chartAppearance.gridLineColor, "#445566");
+  assert.equal(state.chartAppearance.verticalGridLineColor, "#123456");
+  assert.equal(state.chartAppearance.horizontalGridLineColor, "#654321");
+  assert.equal(state.chartAppearance.verticalGridLineOpacity, 0.25);
+  assert.equal(state.chartAppearance.horizontalGridLineOpacity, 0.75);
+  assert.equal(state.chartAppearance.backgroundMode, "gradient");
+  assert.equal(state.chartAppearance.backgroundGradientTopColor, "#111827");
+  assert.equal(state.chartAppearance.backgroundGradientBottomColor, "#0f172a");
+  assert.equal(state.chartAppearance.crosshairColor, "#778899");
+  assert.equal(state.chartAppearance.watermarkMode, "symbol");
+  assert.equal(state.chartAppearance.watermarkColor, "#112233");
+  assert.equal(state.chartAppearance.scaleTextColor, "#abcdef");
+  assert.equal(state.chartAppearance.scaleTextSize, 14);
+  assert.equal(state.chartAppearance.scaleLineColor, "#fedcba");
+  assert.equal(state.chartAppearance.marginTopPercent, 18);
+  assert.equal(state.chartAppearance.marginBottomPercent, 11);
+  assert.equal(state.chartAppearance.rightOffsetBars, 24);
 });
 
 test("date range remains panel-local until date-range synchronization is enabled", () => {

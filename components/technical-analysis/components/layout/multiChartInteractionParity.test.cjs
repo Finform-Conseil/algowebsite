@@ -14,6 +14,8 @@ const cursorSource = read("components/technical-analysis/hooks/useCursorRenderer
 const priceAxisBadgeSource = read("components/technical-analysis/hooks/overlays/cursorPriceAxisBadge.ts");
 const viewportSource = read("components/technical-analysis/hooks/viewport/viewportMath.ts");
 const viewportEngineSource = read("components/technical-analysis/hooks/useChartViewport.ts");
+const viewportCommitSource = read("components/technical-analysis/hooks/viewport/viewportChangeCommit.ts");
+const layoutSetupSource = read("components/technical-analysis/components/toolbar/LayoutSetupControl.tsx");
 const rendererSource = read("components/technical-analysis/hooks/useEChartsRenderer.ts");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
 
@@ -38,6 +40,7 @@ test("peer charts preserve the world-map background and robust OHLC hover fallba
 
 test("active peer delegates both price-axis badges to the canonical interaction layer", () => {
   assert.match(peerSource, /\{!isActive && lastPriceY !== null/);
+  assert.match(peerSource, /reserveLastPriceAxisBadge: isActive/);
   assert.match(technicalSource, /<ConnectedPriceAxisOverlay \/>/);
   assert.match(technicalSource, /lastPriceBadgeRef:\s*refs\.lastPriceBadgeRef/);
   assert.match(technicalSource, /lastPriceLineRef:\s*refs\.lastPriceLineRef/);
@@ -47,6 +50,15 @@ test("active peer delegates both price-axis badges to the canonical interaction 
   assert.match(cursorSource, /syncLastPriceAxis\(\)/);
   assert.match(priceAxisBadgeSource, /export const updateCursorPriceAxisBadge/);
   assert.match(priceAxisBadgeSource, /export const updateLastPriceAxisBadge/);
+});
+
+test("inactive peers do not reserve the active quote-card gutter", () => {
+  assert.match(rendererSource, /const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = 42;/);
+  assert.match(rendererSource, /reserveLastPriceAxisBadge = true/);
+  assert.match(rendererSource, /const gridRight = reserveLastPriceAxisBadge \? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
+  assert.match(rendererSource, /rightOffsetBars: chartAppearance\.rightOffsetBars/);
+  assert.match(rendererSource, /viewportWithConfiguredRightOffset/);
+  assert.match(styleSource, /&__last-badge \{[\s\S]*?width:\s*42px;[\s\S]*?min-width:\s*42px;[\s\S]*?max-width:\s*42px;/);
 });
 
 test("multi-chart activity is visually asymmetric while the active peer matches single-chart", () => {
@@ -75,5 +87,24 @@ test("peer viewport delegates desktop price/time interactions to the canonical c
 test("chart mutation scheduler defers resize and option work while ECharts is in its main process", () => {
   assert.match(rendererSource, /__flagInMainProcess/);
   assert.match(rendererSource, /if \(isEChartsMainProcessActive\(chart\)\) \{\s*chartMutationRafRef\.current = requestAnimationFrame\(flushChartMutationQueue\);\s*return;/);
-  assert.match(rendererSource, /scheduleChartMutation\("resize", \(targetChart\) => \{\s*targetChart\.resize\(\);/);
+  assert.match(rendererSource, /scheduleChartMutation\("resize", \(targetChart\) => \{[\s\S]*?targetChart\.resize\(\{ width: hostWidth, height: hostHeight \}\);/);
+});
+
+test("multi-chart hover cannot retrigger the full renderer through unstable empty inputs or hidden-title mutations", () => {
+  assert.match(rendererSource, /const EMPTY_COMPARISON_SERIES/);
+  assert.match(rendererSource, /comparisonSeries = EMPTY_COMPARISON_SERIES/);
+  assert.match(rendererSource, /const EMPTY_HIDDEN_OBJECT_IDS/);
+  assert.match(rendererSource, /hiddenObjectIds = EMPTY_HIDDEN_OBJECT_IDS/);
+  assert.doesNotMatch(peerSource, /comparisonSeries:\s*\[\]/);
+  assert.match(cursorSource, /if \(title\?\.show === false\) \{\s*hideHtmlTooltip\(\);\s*return;/);
+});
+
+test("multi-chart viewport persistence stays outside the 60fps ECharts interaction loop", () => {
+  assert.match(viewportEngineSource, /ViewportChangeCommitBuffer/);
+  assert.match(viewportEngineSource, /viewportChangeCommitRef\.current\?\.schedule\(viewportEmission\)/);
+  assert.doesNotMatch(viewportEngineSource, /onViewportChangeRef\.current\?\.\(viewportEmission\)/);
+  assert.match(viewportCommitSource, /VIEWPORT_CHANGE_COMMIT_IDLE_MS\s*=\s*140/);
+  assert.match(viewportCommitSource, /this\.pending\s*=\s*snapshot/);
+  assert.match(layoutSetupSource, /MULTI_CHART_PERSISTENCE_IDLE_MS\s*=\s*280/);
+  assert.match(layoutSetupSource, /window\.setTimeout\(\(\) => \{\s*void idbSet/);
 });

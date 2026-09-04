@@ -55,6 +55,7 @@ interface UseCursorRendererProps {
   chartRef: React.RefObject<EChartsInstance>;
   chartData: CandleData[];
   interactionScopeKey?: string;
+  crosshairColor?: string;
   isChartLoading?: boolean;
   cursorPriceBadgeRef?: React.RefObject<HTMLDivElement | null>;
   cursorPriceTextRef?: React.RefObject<HTMLSpanElement | null>;
@@ -214,6 +215,7 @@ export const useCursorRenderer = ({
   chartRef,
   chartData,
   interactionScopeKey,
+  crosshairColor = '#94a3b8',
   isChartLoading = false,
   cursorPriceBadgeRef,
   cursorPriceTextRef,
@@ -226,6 +228,7 @@ export const useCursorRenderer = ({
   const isReadyRef = useRef(false);
   const isDirtyRef = useRef(true);
   const modeRef = useRef<CursorMode>(mode);
+  const crosshairColorRef = useRef(crosshairColor);
   const suspendForDrawingRef = useRef(Boolean(suspendForDrawing));
   const pointerGestureActiveRef = useRef(false);
   const chartDataRef = useRef<CandleData[]>(chartData);
@@ -262,6 +265,14 @@ export const useCursorRenderer = ({
     text: cursorPriceTextRef?.current ?? null,
     action: cursorPriceActionRef?.current ?? null,
   }), [cursorPriceActionRef, cursorPriceBadgeRef, cursorPriceTextRef]);
+
+  useEffect(() => {
+    crosshairColorRef.current = crosshairColor;
+    const elements = crosshairElementsRef.current;
+    if (!elements) return;
+    applyStyle(elements.vertical, { 'border-left': `1px dashed ${crosshairColor}` });
+    applyStyle(elements.horizontal, { 'border-top': `1px dashed ${crosshairColor}` });
+  }, [crosshairColor]);
 
   const hideCursorPriceAxis = useCallback(() => {
     hideCursorPriceAxisBadge(getCursorPriceAxisElements());
@@ -336,7 +347,7 @@ export const useCursorRenderer = ({
       bottom: '0',
       left: '0',
       width: '0',
-      'border-left': '1px dashed rgba(148, 163, 184, 0.82)',
+      'border-left': `1px dashed ${crosshairColorRef.current}`,
       'backface-visibility': 'hidden',
     });
 
@@ -346,7 +357,7 @@ export const useCursorRenderer = ({
       right: '0',
       top: '0',
       height: '0',
-      'border-top': '1px dashed rgba(148, 163, 184, 0.82)',
+      'border-top': `1px dashed ${crosshairColorRef.current}`,
       'backface-visibility': 'hidden',
     });
 
@@ -851,8 +862,19 @@ export const useCursorRenderer = ({
 
       // 2. Calculations
       if (headerOnly) {
-        const option = chart.getOption() as { title?: Array<{ text?: unknown }> | { text?: unknown } };
+        const option = chart.getOption() as {
+          title?: Array<{ text?: unknown; show?: unknown }> | { text?: unknown; show?: unknown };
+        };
         const title = Array.isArray(option.title) ? option.title[0] : option.title;
+        // Multi-chart owns OHLC text in its React cell header and deliberately hides
+        // the embedded ECharts title. Mutating a hidden title on every pointer move
+        // still runs ECharts' full main process, causing custom/synthetic series and
+        // viewport state to repaint under the cursor. A hidden title is therefore a
+        // hard no-op for cursor header mirroring.
+        if (title?.show === false) {
+          hideHtmlTooltip();
+          return;
+        }
         const currentTitle = typeof title?.text === "string" ? title.text : "";
         if (!hoveredHeaderBaseTextRef.current) hoveredHeaderBaseTextRef.current = currentTitle;
         hoveredHeaderChartRef.current = chart;

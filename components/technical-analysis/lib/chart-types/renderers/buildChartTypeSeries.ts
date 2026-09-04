@@ -1,7 +1,8 @@
 import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
-import { normalizeChartType, type AnyChartType, type ChartTransformResult, type ChartWarning, type RawBar, type SourceMapEntry } from "../domain/types";
+import { normalizeChartType, type AnyChartType, type ChartTransformResult, type ChartWarning, type NormalizedRawBar, type RawBar, type SourceMapEntry } from "../domain/types";
 import { normalizeRawBars } from "../domain/validateBars";
 import { CHART_TYPE_REGISTRY } from "../registry/chartTypeRegistry";
+import { projectSyntheticVolumeToRenderedAxis } from "./syntheticVolumeProjection";
 import type { ChartOptionPart, ChartTypePalette, ChartTypeRenderPlan } from "./types";
 
 const CHART_TITLE_WARNING_CODES = new Set([
@@ -32,8 +33,15 @@ export const buildChartTypeSeries = ({
   const registryEntry = CHART_TYPE_REGISTRY[normalizedChartType];
   const transformResult = registryEntry.transform({ bars: normalizedBars.bars });
   const warnings = [...normalizedBars.warnings, ...transformResult.warnings];
-  const dates = resolveRenderDates(transformResult, baseDates);
-  const volumeSourceData = resolveVolumeSourceData(transformResult, dates, normalizedBars.bars, baseDates);
+  const renderSourceMaps = resolveRenderSourceMaps(transformResult);
+  const dates = resolveRenderDates(transformResult, baseDates, renderSourceMaps);
+  const volumeSourceData = resolveVolumeSourceData(
+    transformResult,
+    dates,
+    normalizedBars.bars,
+    baseDates,
+    renderSourceMaps,
+  );
   const series = registryEntry.renderer({
     id: "main-series",
     name: displaySymbol,
@@ -60,15 +68,29 @@ const ensureMainSeriesVisibility = (series: ChartOptionPart[], visible: boolean)
     lineStyle: { ...(item.lineStyle as Record<string, unknown> | undefined), opacity: 0 },
   }));
 
-const resolveRenderDates = (result: ChartTransformResult, baseDates: string[]): string[] => {
-  if (result.kind === "ohlc") return mapSourceDates(result.bars.map((bar) => bar.sourceMap), baseDates);
-  if (result.kind === "volume_candles") return mapSourceDates(result.bars.map((bar) => bar.sourceMap), baseDates);
-  if (result.kind === "line") return mapSourceDates(result.points.map((point) => point.sourceMap), baseDates);
-  if (result.kind === "columns") return mapSourceDates(result.points.map((point) => point.sourceMap), baseDates);
-  if (result.kind === "high_low") return mapSourceDates(result.items.map((item) => item.sourceMap), baseDates);
-  if (result.kind === "footprint") return mapSourceDates(result.candles.map((item) => item.sourceMap), baseDates);
-  if (result.kind === "profile") return mapSourceDates(result.bars.map((bar) => bar.sourceMap), baseDates);
-  if (result.kind === "tpo") return mapSourceDates(result.profiles.map((item) => item.sourceMap), baseDates);
+const resolveRenderSourceMaps = (result: ChartTransformResult): SourceMapEntry[] | null => {
+  if (result.kind === "ohlc" || result.kind === "volume_candles" || result.kind === "profile") {
+    return result.bars.map((bar) => bar.sourceMap);
+  }
+  if (result.kind === "line" || result.kind === "columns") return result.points.map((point) => point.sourceMap);
+  if (result.kind === "high_low") return result.items.map((item) => item.sourceMap);
+  if (result.kind === "footprint") return result.candles.map((item) => item.sourceMap);
+  if (result.kind === "tpo") return result.profiles.map((item) => item.sourceMap);
+  if (result.kind === "custom") {
+    const sourceMaps = result.items.map((item) => (item as { sourceMap?: SourceMapEntry }).sourceMap);
+    return sourceMaps.every((sourceMap): sourceMap is SourceMapEntry => sourceMap !== undefined)
+      ? sourceMaps
+      : null;
+  }
+  return null;
+};
+
+const resolveRenderDates = (
+  result: ChartTransformResult,
+  baseDates: string[],
+  sourceMaps: SourceMapEntry[] | null,
+): string[] => {
+  if (sourceMaps) return mapSourceDates(sourceMaps, baseDates);
   if (result.kind === "custom") return result.items.map((_, index) => `#${index + 1}`);
   return baseDates;
 };
@@ -114,9 +136,18 @@ const toVolumeChartDataPoint = (bar: VolumeRenderBar, index: number, dates: stri
 const resolveVolumeSourceData = (
   result: ChartTransformResult,
   dates: string[],
-  fallbackBars: VolumeRenderBar[],
+  fallbackBars: NormalizedRawBar[],
   baseDates: string[],
+  sourceMaps: SourceMapEntry[] | null,
 ): ChartDataPoint[] => {
+  if (result.synthetic && sourceMaps && sourceMaps.length === dates.length) {
+    const projected = projectSyntheticVolumeToRenderedAxis({
+      sourceMaps,
+      renderDates: dates,
+      sourceBars: fallbackBars,
+    });
+    if (projected.length > 0) return projected;
+  }
   if (result.kind === "ohlc" || result.kind === "volume_candles" || result.kind === "profile") {
     return result.bars.map((bar, index) => toVolumeChartDataPoint(bar, index, dates, baseDates));
   }

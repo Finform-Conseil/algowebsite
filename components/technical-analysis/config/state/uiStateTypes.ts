@@ -1,6 +1,7 @@
 import type { CompareSeriesSettingsMap } from "../compare-series/compareSeries";
 import type { MovingAverageTrendSignalsState, PriceVsEmaMetricsState, PriceVsSmaMetricsState } from "../indicators/advancedIndicatorsTypes";
 import type { MultiChartLayoutState } from "../layout/multiChartLayoutTypes";
+import type { ChartAppearance } from "./chartStateTypes";
 
 export type CursorModeType =
   | "cross"
@@ -34,6 +35,8 @@ export interface UiState {
   priceVsSmaMetrics: PriceVsSmaMetricsState;
   priceVsEmaMetrics: PriceVsEmaMetricsState;
   multiChartLayout: MultiChartLayoutState;
+  /** Ephemeral live preview. It is intentionally outside the persisted layout. */
+  chartAppearancePreview: { chartId: string | null; appearance: ChartAppearance } | null;
   searchMode: "replace" | "compare";
   modals: {
     search: boolean;

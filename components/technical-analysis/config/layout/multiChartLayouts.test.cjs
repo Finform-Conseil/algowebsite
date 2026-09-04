@@ -33,7 +33,7 @@ const loadTs = (filename) => {
   return runtimeModule.exports;
 };
 
-const { createLayoutCells, hasCollapsedLayoutSymbols, reconcileMultiChartLayout } = loadTs(path.join(__dirname, "multiChartLayouts.ts"));
+const { createLayoutCells, hasBoundLayoutSymbol, hasCollapsedLayoutSymbols, reconcileMultiChartLayout } = loadTs(path.join(__dirname, "multiChartLayouts.ts"));
 
 test("empty multi-chart slots are market-agnostic until a symbol is selected", () => {
   const cells = createLayoutCells("four_grid", "ORANGE_CI", [], [], undefined, undefined, "BRVM");
@@ -94,6 +94,7 @@ test("changing layout preserves every existing market binding and the active cel
   );
   assert.equal(next.activeChartId, "chart_2");
   assert.equal(next.charts[1].isActive, true);
+  assert.deepEqual(next.sync, { symbol: false, interval: false, crosshair: false, time: false, dateRange: false });
 });
 
 test("same-count geometry changes preserve the primary market binding too", () => {
@@ -114,6 +115,25 @@ test("same-count geometry changes preserve the primary market binding too", () =
   assert.equal(next.charts[0].exchange, "BRVM");
   assert.equal(next.charts[1].symbol, "BOA");
   assert.equal(next.charts[1].exchange, "CSE");
+  assert.deepEqual(next.sync, { symbol: false, interval: false, crosshair: false, time: false, dateRange: false });
+});
+
+test("a relocated sole binding remains a valid sparse layout", () => {
+  const charts = createLayoutCells("four_grid", "ORANGE_CI", [], [], undefined, undefined, "BRVM");
+  charts[3] = { ...charts[0], chartId: "chart_4", isActive: true };
+  charts[0] = { ...charts[0], symbol: "", exchange: "", isActive: false };
+  const layout = {
+    layoutId: "four_grid",
+    name: "4 graphiques 2x2",
+    isEnabled: true,
+    sync: { symbol: false, interval: false, crosshair: false, time: false, dateRange: false },
+    charts,
+    activeChartId: "chart_4",
+  };
+
+  assert.equal(hasBoundLayoutSymbol(layout), true);
+  assert.equal(hasBoundLayoutSymbol(layout, "ORANGE_CI"), true);
+  assert.equal(hasBoundLayoutSymbol(layout, "BOAB"), false);
 });
 
 test("a dense layout with one bound primary and empty peers is sparse, not collapsed", () => {

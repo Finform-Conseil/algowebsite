@@ -86,9 +86,18 @@ export const chartConfigReducers = {
       }
       if (indicators.ema !== undefined) state.chartConfig.indicators.ema = indicators.ema;
       if (indicators.volume !== undefined) {
+        // Attachment is independent from study visibility and Style > Volume.
+        // A fresh add is visible by default unless the caller explicitly requests
+        // another visibility in the same atomic patch.
+        const wasAttached = state.chartConfig.indicators.volume;
         state.chartConfig.indicators.volume = indicators.volume;
-        state.chartAppearance.showVolume = indicators.volume;
+        if (indicators.volume && !wasAttached && indicators.volumeVisible === undefined) {
+          state.chartConfig.indicators.volumeVisible = true;
+        }
         setActiveCellIndicator(state, "volume", indicators.volume);
+      }
+      if (indicators.volumeVisible !== undefined) {
+        state.chartConfig.indicators.volumeVisible = indicators.volumeVisible;
       }
       if (indicators.activeSma !== undefined) state.chartConfig.indicators.activeSma = indicators.activeSma;
       if (indicators.activeEma !== undefined) state.chartConfig.indicators.activeEma = indicators.activeEma;
@@ -110,14 +119,44 @@ export const chartConfigReducers = {
   ) => {
     const p = action.payload;
     if (p.showGrid !== undefined) state.chartAppearance.showGrid = p.showGrid;
+    if (p.verticalGridLines !== undefined) state.chartAppearance.verticalGridLines = p.verticalGridLines;
+    if (p.horizontalGridLines !== undefined) state.chartAppearance.horizontalGridLines = p.horizontalGridLines;
+    if (p.verticalGridLineStyle !== undefined) state.chartAppearance.verticalGridLineStyle = p.verticalGridLineStyle;
+    if (p.horizontalGridLineStyle !== undefined) state.chartAppearance.horizontalGridLineStyle = p.horizontalGridLineStyle;
+    if (p.gridLineColor !== undefined) {
+      state.chartAppearance.gridLineColor = p.gridLineColor;
+      if (p.verticalGridLineColor === undefined) state.chartAppearance.verticalGridLineColor = p.gridLineColor;
+      if (p.horizontalGridLineColor === undefined) state.chartAppearance.horizontalGridLineColor = p.gridLineColor;
+    }
+    if (p.verticalGridLineColor !== undefined) state.chartAppearance.verticalGridLineColor = p.verticalGridLineColor;
+    if (p.horizontalGridLineColor !== undefined) state.chartAppearance.horizontalGridLineColor = p.horizontalGridLineColor;
+    if (p.verticalGridLineOpacity !== undefined) state.chartAppearance.verticalGridLineOpacity = p.verticalGridLineOpacity;
+    if (p.horizontalGridLineOpacity !== undefined) state.chartAppearance.horizontalGridLineOpacity = p.horizontalGridLineOpacity;
+    if (p.crosshairColor !== undefined) state.chartAppearance.crosshairColor = p.crosshairColor;
+    if (p.watermarkMode !== undefined) state.chartAppearance.watermarkMode = p.watermarkMode;
+    if (p.watermarkColor !== undefined) state.chartAppearance.watermarkColor = p.watermarkColor;
+    if (p.scaleTextColor !== undefined) state.chartAppearance.scaleTextColor = p.scaleTextColor;
+    if (p.scaleTextSize !== undefined) state.chartAppearance.scaleTextSize = p.scaleTextSize;
+    if (p.scaleLineColor !== undefined) state.chartAppearance.scaleLineColor = p.scaleLineColor;
+    if (p.priceScaleMode !== undefined) state.chartAppearance.priceScaleMode = p.priceScaleMode;
+    if (p.priceScalePosition !== undefined) state.chartAppearance.priceScalePosition = p.priceScalePosition;
+    if (p.priceScaleInverted !== undefined) state.chartAppearance.priceScaleInverted = p.priceScaleInverted;
+    if (p.showPriceScaleLabels !== undefined) state.chartAppearance.showPriceScaleLabels = p.showPriceScaleLabels;
+    if (p.showPriceScaleLines !== undefined) state.chartAppearance.showPriceScaleLines = p.showPriceScaleLines;
+    if (p.showPriceScalePlusButton !== undefined) state.chartAppearance.showPriceScalePlusButton = p.showPriceScalePlusButton;
+    if (p.marginTopPercent !== undefined) state.chartAppearance.marginTopPercent = p.marginTopPercent;
+    if (p.marginBottomPercent !== undefined) state.chartAppearance.marginBottomPercent = p.marginBottomPercent;
+    if (p.rightOffsetBars !== undefined) state.chartAppearance.rightOffsetBars = p.rightOffsetBars;
     if (p.upColor !== undefined) state.chartAppearance.upColor = p.upColor;
     if (p.downColor !== undefined) state.chartAppearance.downColor = p.downColor;
+    if (p.backgroundMode !== undefined) state.chartAppearance.backgroundMode = p.backgroundMode;
     if (p.backgroundColor !== undefined) state.chartAppearance.backgroundColor = p.backgroundColor;
+    if (p.backgroundGradientTopColor !== undefined) state.chartAppearance.backgroundGradientTopColor = p.backgroundGradientTopColor;
+    if (p.backgroundGradientBottomColor !== undefined) state.chartAppearance.backgroundGradientBottomColor = p.backgroundGradientBottomColor;
     if (p.showVolume !== undefined) {
+      // Style > Volume controls only the histogram output. The study remains
+      // attached (or removed) according to chartConfig.indicators.volume.
       state.chartAppearance.showVolume = p.showVolume;
-      state.chartConfig.indicators.volume = p.showVolume;
-      setActiveCellIndicator(state, "volume", p.showVolume);
-      syncActiveCellIndicatorSnapshot(state);
     }
     if (p.volumeColorMode !== undefined) state.chartAppearance.volumeColorMode = p.volumeColorMode;
     if (p.statusLine !== undefined) {

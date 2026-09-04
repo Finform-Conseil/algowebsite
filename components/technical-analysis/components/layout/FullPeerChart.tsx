@@ -9,6 +9,7 @@ import {
   type MultiChartViewportState,
 } from "../../config/layout/multiChartCellState";
 import type { ChartAppearance, ChartState } from "../../config/state/chartStateTypes";
+import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import type { UiState } from "../../config/state/uiStateTypes";
 import { filterChartDataByDateRange } from "../../config/market/dateRangeSeries";
 import type { ComparisonLoadStatus } from "../../hooks/MarketData/useMarketData";
@@ -34,14 +35,13 @@ import {
   type LayoutOhlcState,
 } from "./layoutChartData";
 
-const PEER_MAX_CANDLES = 500;
-
 export interface FullPeerChartProps {
   cell: MultiChartLayoutCell;
   data: ChartDataPoint[];
   loadStatus: ComparisonLoadStatus;
   dataMode: "mock" | "real";
   chartAppearance: ChartAppearance;
+  chartAppearancePreview?: UiState["chartAppearancePreview"];
   uiState: UiState;
   hiddenObjectIds?: Record<string, boolean>;
   activeBounds?: { start: string; end: string };
@@ -53,6 +53,9 @@ export interface FullPeerChartProps {
   onChartReady: (chartId: string, chart: EChartsInstance) => void;
   onChartDispose: (chartId: string) => void;
   onViewportChange?: (chartId: string, viewport: MultiChartViewportState) => void;
+  onHistoryBoundaryRequest?: (direction: "left" | "right") => void;
+  /** Dense layouts keep only the indicator legend lane; comfortable layouts stack OHLC above it. */
+  metaDensity?: "comfortable" | "dense";
 }
 
 const buildPeerUiState = (
@@ -92,6 +95,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   loadStatus,
   dataMode,
   chartAppearance,
+  chartAppearancePreview,
   uiState,
   hiddenObjectIds = {},
   activeBounds,
@@ -103,6 +107,8 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   onChartReady,
   onChartDispose,
   onViewportChange,
+  onHistoryBoundaryRequest,
+  metaDensity = "comfortable",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const layersStackRef = useRef<HTMLDivElement>(null);
@@ -117,22 +123,23 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   const [lastPriceY, setLastPriceY] = useState<number | null>(null);
   const [lastPriceColor, setLastPriceColor] = useState<string>("#94a3b8");
   const [lastPriceText, setLastPriceText] = useState<string>("");
+  const [isGeometryCompactMeta, setIsGeometryCompactMeta] = useState(false);
+  const isCompactMeta = metaDensity === "dense" || isGeometryCompactMeta;
 
   const completeCell = useMemo(() => completeMultiChartCell(cell), [cell]);
+  const peerLogoUrl = useMemo(
+    () => getMarketLogoUrl(completeCell.exchange, completeCell.symbol),
+    [completeCell.exchange, completeCell.symbol],
+  );
   const indicatorSnapshot = useMemo(
     () => completeCell.indicatorState ?? createDefaultMultiChartIndicatorSnapshot(completeCell),
     [completeCell],
   );
 
-  const filteredData = useMemo(() => {
-    const valid = filterChartDataByDateRange(
-      getRenderableOhlcvSeries(data),
-      completeCell.dateRange || "Tout",
-    );
-    return valid.length > PEER_MAX_CANDLES
-      ? valid.slice(valid.length - PEER_MAX_CANDLES)
-      : valid;
-  }, [completeCell.dateRange, data]);
+  const filteredData = useMemo(() => filterChartDataByDateRange(
+    getRenderableOhlcvSeries(data),
+    completeCell.dateRange || "Tout",
+  ), [completeCell.dateRange, data]);
 
   const displayData = filteredData;
   void activeBounds;
@@ -145,10 +152,13 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
 
   const peerChartConfig = useMemo(() => buildPeerChartState(completeCell), [completeCell]);
   const peerUiState = useMemo(() => buildPeerUiState(uiState, completeCell), [completeCell, uiState]);
-  const peerChartAppearance = useMemo<ChartAppearance>(() => ({
-    ...chartAppearance,
-    showVolume: completeCell.sourceKind !== "index" && indicatorSnapshot.chart.volume,
-  }), [chartAppearance, completeCell.sourceKind, indicatorSnapshot.chart.volume]);
+  const committedPeerAppearance = completeCell.appearance ?? chartAppearance;
+  const previewPeerAppearance = chartAppearancePreview?.chartId === completeCell.chartId
+    ? chartAppearancePreview.appearance
+    : null;
+  const peerChartAppearance = useMemo<ChartAppearance>(() => (
+    previewPeerAppearance ?? committedPeerAppearance
+  ), [committedPeerAppearance, previewPeerAppearance]);
 
   const updateOhlcFromPoint = useCallback((point: ChartDataPoint | undefined, previousPoint?: ChartDataPoint) => {
     if (!point) {
@@ -160,10 +170,10 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     setOhlcColor(getLayoutPriceChangeColor(
       point,
       previousPoint,
-      chartAppearance.upColor,
-      chartAppearance.downColor,
+      peerChartAppearance.upColor,
+      peerChartAppearance.downColor,
     ));
-  }, [chartAppearance.downColor, chartAppearance.upColor]);
+  }, [peerChartAppearance.downColor, peerChartAppearance.upColor]);
 
   useEffect(() => {
     const previousPoint = displayData[displayData.length - 2];
@@ -228,14 +238,16 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     displaySymbol: cell.symbol,
     marketLabel: cell.exchange,
     hideChartTitle: true,
+    legendLayoutMode: isCompactMeta ? "peer-compact" : "peer-stacked",
+    reserveLastPriceAxisBadge: isActive,
     lastZoomRangeRef,
     lastPriceAxisValue: latestPoint?.close,
     isMainChartVisible: true,
     isChartLoading: loadStatus === "loading",
-    comparisonSeries: [],
     hiddenObjectIds,
     onChartVisualReady: handleChartVisualReady,
     onViewportChange: handleViewportChange,
+    onHistoryBoundaryRequest,
   });
 
   useEffect(() => () => {
@@ -295,7 +307,14 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
     const canvasEl = canvasRef.current;
     if (!canvasEl) return;
     let resizeFrameId: number | null = null;
-    const resizeObserver = new ResizeObserver(() => {
+    const updateGeometryDensity = (width: number, height: number) => {
+      const nextCompact = width <= 460 || height <= 360;
+      setIsGeometryCompactMeta((current) => current === nextCompact ? current : nextCompact);
+    };
+    updateGeometryDensity(canvasEl.clientWidth, canvasEl.clientHeight);
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) updateGeometryDensity(entry.contentRect.width, entry.contentRect.height);
       if (resizeFrameId !== null) return;
       resizeFrameId = window.requestAnimationFrame(() => {
         resizeFrameId = null;
@@ -354,8 +373,9 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`gp-peer-chart${isActive ? " is-active" : ""}`}
+      className={`gp-peer-chart${isActive ? " is-active" : ""}${isCompactMeta ? " is-meta-compact" : ""}`}
       data-chart-activity={isActive ? "active" : "inactive"}
+      data-chart-meta-density={isCompactMeta ? "compact" : "stacked"}
       onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
       role="button"
       tabIndex={0}
@@ -369,7 +389,7 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
         ? `Activer le graphique secondaire de ${displaySymbol}`
         : `Choisir un titre · ${cell.exchange || "N/D"}`}
     >
-      <div className="gp-peer-chart__header">
+      <div className="gp-peer-chart__header" data-panel-drag-surface="true">
         <span
           className="gp-peer-chart__symbol-area gp-multi-chart-cell--interactive-header"
           onClick={handleHeaderClick}
@@ -385,15 +405,6 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           <i className="bi bi-search gp-peer-chart__search-icon" aria-hidden="true" />
         </span>
 
-        {latestPoint && (
-          <div className="gp-peer-chart__ohlc">
-            <span>O<span className="gp-peer-chart__ohlc-val">{ohlc.open}</span></span>
-            <span>H<span className="gp-peer-chart__ohlc-val">{ohlc.high}</span></span>
-            <span>L<span className="gp-peer-chart__ohlc-val">{ohlc.low}</span></span>
-            <span>C<span className="gp-peer-chart__ohlc-val" style={{ color: ohlcColor }}>{ohlc.close}</span></span>
-            <span style={{ color: ohlcColor }}>{ohlc.changePercent}</span>
-          </div>
-        )}
         {headerActions}
       </div>
 
@@ -404,6 +415,25 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
           className="gp-peer-chart__echart"
           aria-hidden={shouldShowPeerLoader || shouldShowEmptyState || shouldShowSelectionState}
         />
+        {latestPoint && (
+          <div className="gp-peer-chart__ohlc-overlay" data-panel-ohlc-overlay="true" aria-hidden="true">
+            {peerLogoUrl ? (
+              <img
+                src={peerLogoUrl}
+                alt=""
+                draggable={false}
+                width={18}
+                height={18}
+                style={{ width: 18, height: 18, objectFit: "contain", borderRadius: 4, flexShrink: 0, marginRight: 2 }}
+              />
+            ) : null}
+            <span>O<span className="gp-peer-chart__ohlc-val">{ohlc.open}</span></span>
+            <span>H<span className="gp-peer-chart__ohlc-val">{ohlc.high}</span></span>
+            <span>L<span className="gp-peer-chart__ohlc-val">{ohlc.low}</span></span>
+            <span>C<span className="gp-peer-chart__ohlc-val" style={{ color: ohlcColor }}>{ohlc.close}</span></span>
+            <span className="gp-peer-chart__ohlc-change" style={{ color: ohlcColor }}>{ohlc.changePercent}</span>
+          </div>
+        )}
         {interactionOverlay}
         {hasRenderableCandles && (
           <TimeAxisControls

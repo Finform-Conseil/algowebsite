@@ -55,7 +55,8 @@ export const applyMultiChartIndicatorSnapshot = (
   state.ui.movingAverageTrendSignals = next.ui.movingAverageTrendSignals;
   state.ui.priceVsSmaMetrics = next.ui.priceVsSmaMetrics;
   state.ui.priceVsEmaMetrics = next.ui.priceVsEmaMetrics;
-  state.chartAppearance.showVolume = next.chart.volume;
+  // Deliberately do not mutate chartAppearance.showVolume here. Attachment and
+  // output visibility are orthogonal; panel appearance is restored separately.
 };
 
 export const collectMultiChartIndicatorIds = (
@@ -93,7 +94,9 @@ export const setCellIndicatorIds = (
 
   snapshot.chart.sma = ids.has("sma");
   snapshot.chart.ema = ids.has("ema");
+  const wasVolumeAttached = snapshot.chart.volume;
   snapshot.chart.volume = ids.has("volume");
+  if (snapshot.chart.volume && !wasVolumeAttached) snapshot.chart.volumeVisible = true;
   (Object.keys(snapshot.advanced) as Array<keyof typeof snapshot.advanced>).forEach((key) => {
     snapshot.advanced[key] = ids.has(key);
   });

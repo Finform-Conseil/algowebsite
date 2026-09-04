@@ -1,5 +1,6 @@
 import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
 import { normalizeMarketDataScope } from "../../config/market/marketDataCacheKey";
+import { normalizeChartTimeframe } from "../../config/market/timeframeCatalog";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import { normalizeChartSymbol } from "./chartConfigPolicy";
 
@@ -64,15 +65,33 @@ const applyOptionalCountFields = (target: LiveSnapshot, source: LiveSnapshot): b
 
 export const normalizeMarketSymbol = (symbol: string): string => normalizeChartSymbol(symbol);
 
+export interface MarketDataPayload {
+  symbol: string;
+  data: ChartDataPoint[];
+  market?: string;
+  timeframe?: string;
+  sourceKind?: "equity" | "index";
+  sourceId?: string;
+}
+
 export const normalizeMarketDataPayload = (
-  payload: { symbol: string; data: ChartDataPoint[]; market?: string },
-): { symbol: string; data: ChartDataPoint[]; market?: string } | null => {
+  payload: MarketDataPayload,
+): MarketDataPayload | null => {
   const symbol = normalizeMarketSymbol(payload.symbol);
   if (!symbol || !Array.isArray(payload.data)) return null;
   const market = normalizeMarketDataScope(payload.market);
-  return market
-    ? { symbol, data: payload.data, market }
-    : { symbol, data: payload.data };
+  const timeframe = normalizeChartTimeframe(payload.timeframe ?? "1D") ?? "1D";
+  const sourceKind = payload.sourceKind === "index" ? "index" : "equity";
+  const sourceId = String(payload.sourceId ?? "").trim();
+  if (sourceKind === "index" && !sourceId) return null;
+  return {
+    symbol,
+    data: payload.data,
+    ...(market ? { market } : {}),
+    timeframe,
+    sourceKind,
+    ...(sourceId ? { sourceId } : {}),
+  };
 };
 
 export const normalizeMarketSnapshotPayload = (

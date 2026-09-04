@@ -108,6 +108,7 @@ import {
   createCatalogConfigurationTarget,
   createCompositeConfigurationTarget,
   createMovingAverageConfigurationTarget,
+  createVolumeConfigurationTarget,
   type IndicatorConfigurationTarget,
 } from "../../../config/indicators/indicatorConfigurationTarget";
 import {
@@ -552,6 +553,69 @@ const MACard = React.memo(({
   );
 });
 MACard.displayName = "MACard";
+
+const NativeVolumeCard = React.memo(({
+  isAttached,
+  isVisible,
+  onToggle,
+  onConfigure,
+}: {
+  isAttached: boolean;
+  isVisible: boolean;
+  onToggle: () => void;
+  onConfigure: () => void;
+}) => {
+  const { handleClick: handleSingleOrDoubleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    onToggle,
+    onConfigure,
+  );
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onToggle();
+  };
+
+  return (
+    <div className="col p-1">
+      <div
+        className={`gp-indicator-catalog-card gp-native-volume-card ${isAttached ? "active" : ""}`}
+        role="button"
+        tabIndex={0}
+        aria-pressed={isAttached}
+        onClick={handleSingleOrDoubleClick}
+        onDoubleClick={handleNativeDoubleClick}
+        onKeyDown={handleKeyDown}
+        title="Clic pour ajouter/retirer · double-clic pour configurer"
+      >
+        <span className={`gp-native-volume-card__check ${isAttached ? "is-active" : ""}`} aria-hidden="true">
+          {isAttached ? <Check size={12} strokeWidth={3.2} /> : null}
+        </span>
+        <span className="gp-native-volume-card__copy">
+          <strong>Volume</strong>
+          <small>Study natif · panneau Volume</small>
+        </span>
+        <span className={`gp-native-volume-card__status ${isAttached ? "is-active" : ""}`}>
+          {isAttached ? (isVisible ? "Actif" : "Masqué") : "Disponible"}
+        </span>
+        <button
+          type="button"
+          className="gp-native-volume-card__settings"
+          aria-label="Configurer Volume"
+          title="Configurer Volume"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onConfigure();
+          }}
+        >
+          <i className="bi bi-gear" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+});
+NativeVolumeCard.displayName = "NativeVolumeCard";
 
 const IndicatorCard = React.memo(({
   ind,
@@ -1657,6 +1721,11 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   const indicatorSearchTerm = deferredSearch.trim();
   const hasIndicatorSearch = indicatorSearchTerm.length > 0;
   const showMovingAverageFamily = indicatorFocus === "all" || indicatorFocus === "trend";
+  const showNativeVolume = (indicatorFocus === "all" || indicatorFocus === "volume")
+    && matchesIndicatorSearch360(
+      indicatorSearchTerm,
+      ["Volume", "VOL", "volume natif", "histogramme volume", "panneau volume"],
+    );
 
   const filteredSmaIndicators = useMemo(
     () => showMovingAverageFamily
@@ -1733,7 +1802,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     [filteredBackendIndicatorGroups]
   );
 
-  const visibleIndicatorCount = visibleMovingAverageCount + visibleBackendIndicatorCount;
+  const visibleIndicatorCount = visibleMovingAverageCount + visibleBackendIndicatorCount + (showNativeVolume ? 1 : 0);
   const activeBottomIndicatorLabels = useMemo(() => getActiveBottomPanelLabels(advancedIndicators), [advancedIndicators]);
   const activeBottomIndicatorCount = countActiveBottomIndicators(advancedIndicators);
   const isBottomIndicatorLimitReached = activeBottomIndicatorCount >= MAX_BOTTOM_INDICATORS;
@@ -1759,6 +1828,19 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   }, [revealObjectIds]);
 
   // --- HANDLERS ---
+  const handleToggleNativeVolume = useCallback(() => {
+    const nextAttached = !chartIndicators.volume;
+    dispatch(setChartConfig({
+      indicators: {
+        ...chartIndicators,
+        volume: nextAttached,
+        // Re-adding a removed study intentionally makes it visible again while
+        // preserving its Style/output preferences in chartAppearance.
+        volumeVisible: nextAttached ? true : chartIndicators.volumeVisible,
+      },
+    }));
+  }, [chartIndicators, dispatch]);
+
   const handleToggleMA = useCallback((type: "sma" | "ema", period: number) => {
     const activeArray = type === "sma" ? chartIndicators.activeSma : chartIndicators.activeEma;
     const safeArray = activeArray || [];
@@ -2364,6 +2446,25 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
           </div>
         </section>
         </div>
+
+        {showNativeVolume && (
+          <div className="mb-4" data-native-volume-catalog-entry="true">
+            <div className="d-flex align-items-center mb-3 px-1">
+              <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #7c6cf2, #2962ff)", borderRadius: "2px", marginRight: "8px" }} />
+              <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
+                Study natif
+              </small>
+            </div>
+            <div className="row row-cols-1 mx-0">
+              <NativeVolumeCard
+                isAttached={chartIndicators.volume}
+                isVisible={chartIndicators.volumeVisible !== false}
+                onToggle={handleToggleNativeVolume}
+                onConfigure={() => onConfigureIndicator?.(createVolumeConfigurationTarget())}
+              />
+            </div>
+          </div>
+        )}
 
         {/* --- SECTION 1: MOYENNES MOBILES --- */}
         {hasVisibleMovingAverages && (

@@ -1,10 +1,14 @@
-import type { BollingerSettings } from "../indicators/advancedIndicatorsTypes";
+import type { BollingerSettings, IndicatorPeriods } from "../indicators/advancedIndicatorsTypes";
+import type { CompareSeriesSettingsMap } from "../compare-series/compareSeries";
 import type { MultiChartLayoutState } from "../layout/multiChartLayoutTypes";
+import type { ChartAppearance } from "../state/chartStateTypes";
+import type { ActiveMarketState } from "../state/uiStateTypes";
 
 export interface SavedAnalysisIndicators {
   sma: boolean;
   ema: boolean;
   volume: boolean;
+  volumeVisible?: boolean;
   activeSma?: number[];
   activeEma?: number[];
   activeWma?: number[];
@@ -156,13 +160,20 @@ export interface SavedAnalysis {
   id: string;
   name: string;
   config: {
+    /** Schema version for backward-compatible IndexedDB migrations. */
+    version?: 2;
     symbol: string;
     timeframe: string;
     chartType: string;
     indicators: SavedAnalysisIndicators;
     advancedIndicators: SavedAnalysisAdvancedIndicators;
-    bollingerSettings?: BollingerSettings; // [TENOR 2026 HDR] Optional for backward compatibility
+    indicatorPeriods?: IndicatorPeriods;
+    bollingerSettings?: BollingerSettings;
+    chartAppearance?: ChartAppearance;
     multiChartLayout?: MultiChartLayoutState;
+    comparisonSymbols?: string[];
+    comparisonSettings?: CompareSeriesSettingsMap;
+    activeMarket?: ActiveMarketState;
     timeRange?: string;
     savedAt: string;
   };

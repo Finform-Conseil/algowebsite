@@ -7,7 +7,7 @@ import type { SavedAnalysis } from "../config/persistence/savedAnalysisTypes";
 import { useTechnicalAnalysisActions } from "./useTechnicalAnalysisActions";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
-import { idbGet, idbSet } from "./drawing/drawingPersistence";
+import { idbGetStrict, idbSetStrict } from "./drawing/drawingPersistence";
 
 /**
  * [TENOR 2026 CLEAN] useModalOrchestrator
@@ -40,7 +40,7 @@ export const useModalOrchestrator = (
         const updated = savedAnalysesList.filter((item) => item.id !== id);
         
         // [TENOR 2026 SRE] Pessimistic UI Update: Await DB confirmation before UI change
-        await idbSet("savedAnalyses", updated);
+        await idbSetStrict("savedAnalyses", updated);
         
         setSavedAnalysesList(updated);
         
@@ -65,7 +65,7 @@ export const useModalOrchestrator = (
 
   const openLoadModal = useCallback(async () => {
     try {
-      const saved: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
+      const saved: SavedAnalysis[] = await idbGetStrict<SavedAnalysis[]>("savedAnalyses") || [];
 
       // Sort by date descending
       saved.sort(

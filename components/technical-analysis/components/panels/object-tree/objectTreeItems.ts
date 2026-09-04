@@ -1,6 +1,6 @@
 import type { AdvancedIndicatorsState, IndicatorPeriods } from "../../../config/indicators/advancedIndicatorsTypes";
 import type { ChartAppearance, ChartState } from "../../../config/state/chartStateTypes";
-import { getCompareSeriesId, resolveCompareSeriesSettings, type CompareSeriesSettingsMap } from "../../../config/compare-series/compareSeries";
+import { getCompareInstrumentLabel, getCompareSeriesId, resolveCompareSeriesSettings, type CompareSeriesSettingsMap } from "../../../config/compare-series/compareSeries";
 import {
   buildEmaSeriesDefinitions,
   buildSmaSeriesDefinitions,
@@ -12,6 +12,7 @@ import { buildAdvancedChildObjectTreeItems } from "./objectTreeAdvancedChildItem
 import { getToolLabel } from "./objectTreeDrawingLabels";
 import type { ObjectTreeItem } from "./objectTreeItemTypes";
 import type { PineChartOverlayPayload } from "../../../components/sidebar/panels/pineEditor/pineTypes";
+import { resolveVolumeStudyLifecycle } from "../../../store/policies/volumeStudyLifecycle";
 
 type MovingAverageSignalSources = {
   sma: number[];
@@ -51,16 +52,17 @@ const buildBaseSeriesItems = ({
     color: "#26a69a",
     removable: false,
   },
-  ...comparisonSymbols.map((symbol, index) => {
-    const id = getCompareSeriesId(symbol);
+  ...comparisonSymbols.map((comparisonKey, index) => {
+    const id = getCompareSeriesId(comparisonKey);
 
     return {
       id,
-      label: symbol,
+      label: getCompareInstrumentLabel(comparisonKey),
       kind: "series",
       visible: !hiddenObjectIds[id],
-      color: resolveCompareSeriesSettings(symbol, index, comparisonSettings).color,
+      color: resolveCompareSeriesSettings(comparisonKey, index, comparisonSettings).color,
       removable: true,
+      comparisonKey,
     } satisfies ObjectTreeItem;
   }),
 ];
@@ -82,17 +84,20 @@ const buildActiveToolItem = (activeTool: string | null, hiddenObjectIds: Record<
 const buildVolumeItem = ({
   chartConfig,
   chartAppearance,
-  hiddenObjectIds,
-}: Pick<BuildObjectTreeItemsInput, "chartConfig" | "chartAppearance" | "hiddenObjectIds">): ObjectTreeItem[] => {
-  if (!chartConfig.indicators.volume && !chartAppearance.showVolume) return [];
+}: Pick<BuildObjectTreeItemsInput, "chartConfig" | "chartAppearance">): ObjectTreeItem[] => {
+  const lifecycle = resolveVolumeStudyLifecycle({
+    indicators: chartConfig.indicators,
+    appearance: chartAppearance,
+  });
+  if (!lifecycle.attached) return [];
 
   return [{
     id: "volume",
     label: "Volume",
     kind: "volume",
-    visible: chartAppearance.showVolume && !hiddenObjectIds.volume,
+    visible: lifecycle.studyVisible,
     color: VOLUME_COLOR,
-    removable: false,
+    removable: true,
   }];
 };
 

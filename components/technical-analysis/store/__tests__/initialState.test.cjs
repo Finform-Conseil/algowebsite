@@ -176,11 +176,34 @@ test("settings and appearance defaults remain stable", () => {
   });
   assert.deepEqual(initialState.chartAppearance, {
     showGrid: true,
+    verticalGridLines: true,
+    horizontalGridLines: true,
+    verticalGridLineStyle: "solid",
+    horizontalGridLineStyle: "dashed",
+    gridLineColor: "#334155",
+    crosshairColor: "#94a3b8",
+    watermarkMode: "none",
+    watermarkColor: "#475569",
+    scaleTextColor: "#cbd5e1",
+    scaleTextSize: 12,
+    scaleLineColor: "#334155",
+    marginTopPercent: 10,
+    marginBottomPercent: 8,
+    rightOffsetBars: 10,
     upColor: "#00da3c",
     downColor: "#ec0000",
     backgroundColor: "transparent",
     showVolume: true,
     volumeColorMode: "candle-body",
+    statusLine: {
+      showChange: true,
+      showChangePercent: true,
+      showLast: true,
+      showLogo: true,
+      showName: true,
+      showSymbol: false,
+      showVolume: true,
+    },
   });
 });
 

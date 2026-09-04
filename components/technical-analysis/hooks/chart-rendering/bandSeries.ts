@@ -1,7 +1,6 @@
 export type CustomRenderApi = {
   value: (dimension: number) => unknown;
   coord: (data: unknown[]) => number[];
-  style: (style: Record<string, unknown>) => Record<string, unknown>;
 };
 
 const toFiniteNumber = (value: unknown): number | null => {
@@ -51,6 +50,6 @@ export const renderBandPolygon = (api: CustomRenderApi, fill: string) => {
         api.coord([xIndex - 1, lowerPrevious]),
       ],
     },
-    style: api.style({ fill }),
+    style: { fill },
   };
 };

@@ -8,14 +8,23 @@ const { resolveObjectItemRemoveAction } = require("../objectTreeActions.ts");
 
 const emptyIndicators = {};
 
-test("object tree removal resolver handles comparison and advanced child rows", () => {
+test("object tree removal resolver handles Volume, comparison and advanced child rows", () => {
   assert.deepEqual(
     resolveObjectItemRemoveAction({
-      item: { id: "compare-SNTS" },
+      item: { id: "volume" },
+      indicators: { volume: true },
+      advancedIndicators: {},
+    }),
+    { type: "patch-indicators", patch: { volume: false } },
+  );
+
+  assert.deepEqual(
+    resolveObjectItemRemoveAction({
+      item: { id: "compare-BRVM-SNTS", comparisonKey: "BRVM::SNTS" },
       indicators: emptyIndicators,
       advancedIndicators: {},
     }),
-    { type: "remove-comparison", symbol: "SNTS" },
+    { type: "remove-comparison", symbol: "BRVM::SNTS" },
   );
 
   assert.deepEqual(

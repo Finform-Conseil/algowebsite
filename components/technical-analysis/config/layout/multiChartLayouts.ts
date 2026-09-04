@@ -137,7 +137,7 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
     id: "multi_timeframe",
     name: "Analyse multi-timeframe",
     layoutId: "three_focus_right",
-    sync: { symbol: true, interval: false, crosshair: true, time: true, dateRange: true },
+    sync: { symbol: true, interval: false, crosshair: false, time: false, dateRange: false },
     symbols: [],
     intervals: ["1D", "1W", "1M"],
   },
@@ -181,6 +181,21 @@ export const getLayoutDefinition = (layoutId: MultiChartLayoutId): MultiChartLay
   MULTI_CHART_LAYOUTS.find((layout) => layout.id === layoutId) ?? MULTI_CHART_LAYOUTS[0];
 
 export const normalizeLayoutSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+
+/**
+ * Physical slot order is presentation only. A bound symbol remains a valid
+ * layout binding after the user moves its panel away from chart_1.
+ */
+export const hasBoundLayoutSymbol = (
+  layout: MultiChartLayoutState,
+  symbol?: string,
+): boolean => {
+  const requestedSymbol = normalizeLayoutSymbol(symbol ?? "");
+  return layout.charts.some((chart) => {
+    const boundSymbol = normalizeLayoutSymbol(chart.symbol);
+    return requestedSymbol ? boundSymbol === requestedSymbol : Boolean(boundSymbol);
+  });
+};
 
 const isLegacyLayoutPlaceholderSymbol = (symbol: string | undefined): boolean =>
   LEGACY_LAYOUT_PLACEHOLDER_SYMBOLS.has(normalizeLayoutSymbol(symbol ?? ""));
@@ -291,6 +306,7 @@ export const reconcileMultiChartLayout = (
   // currently focused symbol. Same-layout reconciliation intentionally keeps
   // the historical primary-rebind behavior used by state repair paths.
   const preservePrimaryBinding = current.layoutId !== layoutId;
+  const isLayoutTransition = current.layoutId !== layoutId;
   const enteringMultiChart = getLayoutDefinition(current.layoutId).chartCount <= 1 && definition.chartCount > 1;
   const previousCells = enteringMultiChart
     ? current.charts.map((cell) => ({
@@ -325,9 +341,13 @@ export const reconcileMultiChartLayout = (
     layoutId,
     name: definition.name,
     isEnabled: definition.chartCount > 1,
-    sync: isDenseMultiChartLayout(layoutId)
-      ? { ...current.sync, symbol: false, crosshair: false }
-      : { ...current.sync },
+    // A manual geometry change starts from independent panels. Sync is opt-in
+    // state and must never leak from a previous preset/layout into a new grid.
+    sync: isLayoutTransition
+      ? { ...DEFAULT_MULTI_CHART_SYNC }
+      : isDenseMultiChartLayout(layoutId)
+        ? { ...current.sync, symbol: false, crosshair: false }
+        : { ...current.sync },
     charts: charts.map((chart) => ({ ...chart, isActive: chart.chartId === activeChartId })),
     activeChartId,
   };

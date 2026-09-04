@@ -37,6 +37,12 @@ const BRVM_LOGO_PATHS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const BRVM_API_TICKER_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  BOA_BJ: "BOAB",
+  BOA_BF: "BOABF",
+  BOA_CI: "BOAC",
+  BOA_ML: "BOAM",
+  BOA_NE: "BOAN",
+  BOA_SN: "BOAS",
   BICI_CI: "BICC",
   BIIC_BJ: "BICB",
   SAFCA_CI: "SAFC",

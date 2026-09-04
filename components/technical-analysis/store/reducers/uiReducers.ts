@@ -6,6 +6,7 @@ import type {
   PriceVsSmaMetricId,
 } from "../../config/indicators/advancedIndicatorsTypes";
 import type { TechnicalAnalysisState } from "../../config/state/technicalAnalysisStateTypes";
+import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { CursorModeType, UiState } from "../../config/state/uiStateTypes";
 import {
   createDefaultCompareSeriesSettings,
@@ -39,6 +40,21 @@ export const uiReducers = {
   },
   setCursorMode: (state: TechnicalAnalysisState, action: PayloadAction<CursorModeType>) => {
     state.ui.cursorMode = action.payload;
+  },
+  setChartAppearancePreview: (
+    state: TechnicalAnalysisState,
+    action: PayloadAction<{ chartId: string | null; appearance: ChartAppearance } | null>,
+  ) => {
+    const preview = action.payload;
+    state.ui.chartAppearancePreview = preview
+      ? {
+          chartId: preview.chartId,
+          appearance: {
+            ...preview.appearance,
+            statusLine: { ...preview.appearance.statusLine },
+          },
+        }
+      : null;
   },
   setTimeRange: (state: TechnicalAnalysisState, action: PayloadAction<string>) => {
     const range = action.payload.trim() || "Tout";

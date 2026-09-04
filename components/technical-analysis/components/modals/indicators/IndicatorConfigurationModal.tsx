@@ -8,12 +8,20 @@ import {
   SettingsSelectInput,
 } from "../../common/inputs/SettingsField";
 import {
+  commitLayoutChartAppearance,
   setAdvancedIndicators,
   setBollingerSettings,
+  setChartAppearance,
   setChartConfig,
   setIndicatorPeriods,
 } from "../../../store/technicalAnalysisSlice";
-import { selectBollingerSettings, selectChartConfig, selectIndicatorPeriods } from "../../../store/selectors";
+import {
+  selectBollingerSettings,
+  selectChartAppearance,
+  selectChartConfig,
+  selectIndicatorPeriods,
+  selectUiState,
+} from "../../../store/selectors";
 import type { BollingerSettings } from "../../../config/indicators/advancedIndicatorsTypes";
 import { normalizeMovingAveragePeriods } from "../../../config/indicators/movingAverageSeries";
 import type { IndicatorConfigurationTarget } from "../../../config/indicators/indicatorConfigurationTarget";
@@ -66,10 +74,15 @@ export const IndicatorConfigurationModal: React.FC<IndicatorConfigurationModalPr
 }) => {
   const dispatch = useDispatch();
   const chartConfig = useSelector(selectChartConfig);
+  const chartAppearance = useSelector(selectChartAppearance);
+  const uiState = useSelector(selectUiState);
   const indicatorPeriods = useSelector(selectIndicatorPeriods);
   const currentBollingerSettings = useSelector(selectBollingerSettings);
   const [periodDraft, setPeriodDraft] = useState(14);
   const [bollingerDraft, setBollingerDraft] = useState<BollingerSettings>(currentBollingerSettings);
+  const [volumeOutputDraft, setVolumeOutputDraft] = useState(chartAppearance.showVolume);
+  const [volumeColorModeDraft, setVolumeColorModeDraft] = useState(chartAppearance.volumeColorMode);
+  const [volumeStatusLineDraft, setVolumeStatusLineDraft] = useState(chartAppearance.statusLine.showVolume);
 
   useEffect(() => {
     if (!target) return;
@@ -78,12 +91,23 @@ export const IndicatorConfigurationModal: React.FC<IndicatorConfigurationModalPr
       : target.period ?? (target.kind === "bollinger" ? currentBollingerSettings.length : 20);
     setPeriodDraft(initialPeriod);
     setBollingerDraft(currentBollingerSettings);
-  }, [currentBollingerSettings, indicatorPeriods.rsiPeriod, target]);
+    setVolumeOutputDraft(chartAppearance.showVolume);
+    setVolumeColorModeDraft(chartAppearance.volumeColorMode);
+    setVolumeStatusLineDraft(chartAppearance.statusLine.showVolume);
+  }, [
+    chartAppearance.showVolume,
+    chartAppearance.statusLine.showVolume,
+    chartAppearance.volumeColorMode,
+    currentBollingerSettings,
+    indicatorPeriods.rsiPeriod,
+    target,
+  ]);
 
   const supportsNativeSettings = target?.kind === "sma"
     || target?.kind === "ema"
     || target?.kind === "rsi"
-    || target?.kind === "bollinger";
+    || target?.kind === "bollinger"
+    || target?.kind === "volume";
   const modalTitle = target ? `Configurer ${target.label}` : "Configuration de l’indicateur";
   const primaryLabel = supportsNativeSettings ? "Enregistrer" : "Fermer";
 
@@ -131,6 +155,27 @@ export const IndicatorConfigurationModal: React.FC<IndicatorConfigurationModalPr
         fillOpacity: clampNumber(bollingerDraft.fillOpacity, 0, 1, currentBollingerSettings.fillOpacity),
       }));
       dispatch(setAdvancedIndicators({ bollinger: true }));
+    } else if (target.kind === "volume") {
+      // Settings affect outputs only. They must never reattach/remove or Hide/Show
+      // the study itself; those are separate lifecycle commands.
+      const nextAppearance = {
+        ...chartAppearance,
+        showVolume: volumeOutputDraft,
+        volumeColorMode: volumeColorModeDraft,
+        statusLine: {
+          ...chartAppearance.statusLine,
+          showVolume: volumeStatusLineDraft,
+        },
+      };
+      const isMultiChartMode = uiState.multiChartLayout.isEnabled && uiState.multiChartLayout.charts.length > 1;
+      const activeCell = uiState.multiChartLayout.charts.find(
+        (cell) => cell.chartId === uiState.multiChartLayout.activeChartId && Boolean(cell.symbol?.trim()),
+      );
+      if (isMultiChartMode && activeCell) {
+        dispatch(commitLayoutChartAppearance({ chartId: activeCell.chartId, appearance: nextAppearance }));
+      } else {
+        dispatch(setChartAppearance(nextAppearance));
+      }
     }
 
     onClose();
@@ -223,6 +268,35 @@ export const IndicatorConfigurationModal: React.FC<IndicatorConfigurationModalPr
           <SettingsColorOpacityInput color={bollingerDraft.middleColor} opacity={1} onColorChange={(value) => setBollingerDraft((current) => ({ ...current, middleColor: value }))} onOpacityChange={() => undefined} />
           <SettingsColorOpacityInput color={bollingerDraft.lowerColor} opacity={1} onColorChange={(value) => setBollingerDraft((current) => ({ ...current, lowerColor: value }))} onOpacityChange={() => undefined} />
           <SettingsColorOpacityInput color={bollingerDraft.fillColor} opacity={bollingerDraft.fillOpacity} onColorChange={(value) => setBollingerDraft((current) => ({ ...current, fillColor: value }))} onOpacityChange={(value) => setBollingerDraft((current) => ({ ...current, fillOpacity: value }))} />
+        </div>
+      ) : null}
+
+      {target?.kind === "volume" ? (
+        <div className="gp-indicator-config-fields" data-volume-settings="true">
+          <div className="gp-indicator-config-section-label">Style</div>
+          <SettingsCheckbox
+            label="Volume"
+            checked={volumeOutputDraft}
+            onChange={setVolumeOutputDraft}
+          />
+          <SettingsSelectInput
+            label="Couleur des barres"
+            value={volumeColorModeDraft}
+            options={[
+              { value: "candle-body", label: "Sens de la bougie" },
+              { value: "session-change", label: "Variation de séance" },
+            ]}
+            onChange={(value) => setVolumeColorModeDraft(value === "session-change" ? "session-change" : "candle-body")}
+          />
+          <div className="gp-indicator-config-section-label">Ligne d’état</div>
+          <SettingsCheckbox
+            label="Valeur Volume"
+            checked={volumeStatusLineDraft}
+            onChange={setVolumeStatusLineDraft}
+          />
+          <small className="gp-indicator-config-help">
+            Masquer le study, masquer sa sortie graphique et le supprimer sont trois opérations indépendantes.
+          </small>
         </div>
       ) : null}
 

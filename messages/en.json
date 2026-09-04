@@ -288,6 +288,25 @@
       "readTime": "5 min"
     }
   },
+  "technicalAnalysis": {
+    "chartTypes": {
+      "typeTitle": "Chart type: {label}",
+      "typeAria": "Chart type: {label}",
+      "panelTypeTitle": "Panel chart type: {label}",
+      "panelTypeAria": "Panel chart type: {label}",
+      "indexLineOnly": "Indexes are rendered as a line",
+      "syntheticBadge": "Synthetic",
+      "syntheticTooltip": "Constructed prices; they are not directly executable market prices.",
+      "approximateBadge": "Approx.",
+      "approximateTooltip": "Approximation based on available OHLCV data without complete tick/intrabar data.",
+      "groups": {
+        "price": "Price bars",
+        "line": "Lines and ranges",
+        "volume": "Volume and market profile",
+        "synthetic": "Synthetic price construction"
+      }
+    }
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",

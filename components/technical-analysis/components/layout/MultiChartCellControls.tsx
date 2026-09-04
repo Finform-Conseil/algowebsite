@@ -1,22 +1,24 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import clsx from "clsx";
 import type { MultiChartLayoutCell } from "../../config/layout/multiChartLayoutTypes";
 import type { CompleteMultiChartLayoutCell } from "../../config/layout/multiChartCellState";
 import type { ChartType } from "../../lib/chart-types/domain/types";
-import { CHART_TYPE_MENU_GROUPS, CHART_TYPE_REGISTRY } from "../../lib/chart-types/registry/chartTypeRegistry";
+import { CHART_TYPE_REGISTRY } from "../../lib/chart-types/registry/chartTypeRegistry";
+import { FloatingMenu } from "../common/primitives/FloatingMenu";
+import { ChartTypeMenuContent } from "../toolbar/chart/ChartTypeMenuContent";
+import { renderChartTypeIcon } from "../toolbar/chart/chartTypeIcons";
 import {
   CHART_TIMEFRAMES,
   normalizeChartTimeframe,
-  type TimeframeDataSourceKind,
 } from "../../config/market/timeframeCatalog";
 
 interface MultiChartCellControlsProps {
   cell: MultiChartLayoutCell;
   canDuplicate: boolean;
   isMaximized: boolean;
-  dataSource?: TimeframeDataSourceKind | "unknown";
   onTimeframeChange: (timeframe: string) => void;
   onChartTypeChange: (chartType: ChartType) => void;
   onToggleIndicator: (indicator: "volume" | "sma") => void;
@@ -24,13 +26,6 @@ interface MultiChartCellControlsProps {
   onClear: () => void;
   onToggleMaximize: () => void;
 }
-
-const SOURCE_LABELS: Record<TimeframeDataSourceKind | "unknown", string> = {
-  native: "API",
-  aggregate: "Agrégé 1D",
-  unavailable: "Indisponible",
-  unknown: "",
-};
 
 const stopPointerPropagation = (event: React.SyntheticEvent) => {
   event.stopPropagation();
@@ -40,7 +35,6 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
   cell,
   canDuplicate,
   isMaximized,
-  dataSource = "unknown",
   onTimeframeChange,
   onChartTypeChange,
   onToggleIndicator,
@@ -48,22 +42,32 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
   onClear,
   onToggleMaximize,
 }) => {
+  const chartTypeT = useTranslations("technicalAnalysis.chartTypes");
   const completeCell = cell as Partial<CompleteMultiChartLayoutCell>;
   const sourceKind = completeCell.sourceKind ?? "equity";
   const timeframe = normalizeChartTimeframe(completeCell.timeframe ?? cell.interval) ?? "1D";
   const chartType: ChartType = sourceKind === "index" ? "line" : (completeCell.chartType ?? "candles");
-  const sourceLabel = SOURCE_LABELS[dataSource];
+  const activeChartTypeEntry = CHART_TYPE_REGISTRY[chartType];
+  const chartTypeButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [isChartTypeMenuOpen, setIsChartTypeMenuOpen] = React.useState(false);
+  const [chartTypeAnchorRect, setChartTypeAnchorRect] = React.useState<DOMRect | null>(null);
   const indicators = new Set(cell.indicators ?? []);
   const hasVolume = sourceKind === "equity" && indicators.has("volume");
   const controlIdPrefix = `multi-chart-${cell.chartId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
+  const handleChartTypeMenuToggle = () => {
+    if (sourceKind === "index") return;
+    setChartTypeAnchorRect(chartTypeButtonRef.current?.getBoundingClientRect() ?? null);
+    setIsChartTypeMenuOpen((open) => !open);
+  };
+
+  const handleChartTypeSelect = (nextChartType: ChartType) => {
+    setIsChartTypeMenuOpen(false);
+    onChartTypeChange(nextChartType);
+  };
+
   return (
     <span className="gp-multi-chart-cell-controls" onClick={stopPointerPropagation} onPointerDown={stopPointerPropagation}>
-      {sourceLabel && (
-        <span className={clsx("gp-multi-chart-source-badge", dataSource === "unavailable" && "is-unavailable")}>
-          {sourceLabel}
-        </span>
-      )}
       <select
         id={`${controlIdPrefix}-timeframe`}
         name={`${controlIdPrefix}-timeframe`}
@@ -77,24 +81,34 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
           <option key={entry} value={entry}>{entry}</option>
         ))}
       </select>
-      <select
+      <button
+        ref={chartTypeButtonRef}
         id={`${controlIdPrefix}-chart-type`}
-        name={`${controlIdPrefix}-chart-type`}
-        className="gp-multi-chart-cell-select"
-        value={chartType}
+        type="button"
+        className="gp-multi-chart-cell-select gp-multi-chart-chart-type-trigger"
         disabled={sourceKind === "index"}
-        title={sourceKind === "index" ? "Les indices sont rendus en ligne" : "Type de graphique du panneau"}
-        aria-label="Type de graphique du panneau"
-        onChange={(event) => onChartTypeChange(event.target.value as ChartType)}
+        title={sourceKind === "index"
+          ? chartTypeT("indexLineOnly")
+          : chartTypeT("panelTypeTitle", { label: activeChartTypeEntry.label })}
+        aria-label={chartTypeT("panelTypeAria", { label: activeChartTypeEntry.label })}
+        aria-haspopup="menu"
+        aria-expanded={isChartTypeMenuOpen}
+        onClick={handleChartTypeMenuToggle}
       >
-        {CHART_TYPE_MENU_GROUPS.map((group) => (
-          <optgroup key={group} label={group}>
-            {Object.values(CHART_TYPE_REGISTRY)
-              .filter((entry) => entry.group === group)
-              .map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
-          </optgroup>
-        ))}
-      </select>
+        <span className="gp-multi-chart-chart-type-icon" aria-hidden="true">{renderChartTypeIcon(chartType)}</span>
+        <span className="gp-multi-chart-chart-type-label">{activeChartTypeEntry.label}</span>
+        <i className="bi bi-chevron-down gp-multi-chart-chart-type-chevron" aria-hidden="true" />
+      </button>
+      <FloatingMenu
+        isOpen={isChartTypeMenuOpen}
+        onClose={() => setIsChartTypeMenuOpen(false)}
+        anchorRect={chartTypeAnchorRect}
+        width={292}
+        className="gp-chart-type-menu gp-multi-chart-type-menu"
+        zIndex={6500}
+      >
+        <ChartTypeMenuContent activeChartType={chartType} onSelect={handleChartTypeSelect} />
+      </FloatingMenu>
       <button
         type="button"
         className={clsx("gp-multi-chart-cell-action", "gp-multi-chart-indicator-toggle", hasVolume && "is-active")}

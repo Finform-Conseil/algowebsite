@@ -63,16 +63,50 @@ export const getTADatabase = (): Promise<IDBDatabase> => {
   });
 };
 
-export const idbGet = async <T>(key: string): Promise<T | null> => {
+export const idbGetStrict = async <T>(key: string): Promise<T | null> => {
+  const db = await getTADatabase();
   try {
-    const db = await getTADatabase();
-    return new Promise((resolve, reject) => {
+    return await new Promise<T | null>((resolve, reject) => {
       const tx = db.transaction(TA_STORE_NAME, "readonly");
       const store = tx.objectStore(TA_STORE_NAME);
       const req = store.get(key);
-      req.onsuccess = () => resolve(req.result as T | null);
-      req.onerror = () => reject(req.error);
+      let value: T | null = null;
+
+      req.onsuccess = () => {
+        value = (req.result as T | undefined) ?? null;
+      };
+      req.onerror = () => reject(req.error ?? new Error(`IndexedDB read failed for ${key}`));
+      tx.oncomplete = () => resolve(value);
+      tx.onerror = () => reject(tx.error ?? new Error(`IndexedDB read transaction failed for ${key}`));
+      tx.onabort = () => reject(tx.error ?? new Error(`IndexedDB read transaction aborted for ${key}`));
     });
+  } finally {
+    db.close();
+  }
+};
+
+export const idbSetStrict = async <T>(key: string, value: T): Promise<void> => {
+  const db = await getTADatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(TA_STORE_NAME, "readwrite");
+      const store = tx.objectStore(TA_STORE_NAME);
+      const req = store.put(value, key);
+
+      req.onerror = () => reject(req.error ?? new Error(`IndexedDB write failed for ${key}`));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error(`IndexedDB write transaction failed for ${key}`));
+      tx.onabort = () => reject(tx.error ?? new Error(`IndexedDB write transaction aborted for ${key}`));
+    });
+  } finally {
+    db.close();
+  }
+};
+
+/** Lenient compatibility read for non-critical caches. */
+export const idbGet = async <T>(key: string): Promise<T | null> => {
+  try {
+    return await idbGetStrict<T>(key);
   } catch (error) {
     console.warn("[SRE] IndexedDB Get Failed, falling back to null", error);
     return null;
@@ -81,14 +115,7 @@ export const idbGet = async <T>(key: string): Promise<T | null> => {
 
 export const idbSet = async <T>(key: string, value: T): Promise<void> => {
   try {
-    const db = await getTADatabase();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(TA_STORE_NAME, "readwrite");
-      const store = tx.objectStore(TA_STORE_NAME);
-      const req = store.put(value, key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await idbSetStrict(key, value);
   } catch (error) {
     console.warn("[SRE] IndexedDB Set Failed", error);
   }

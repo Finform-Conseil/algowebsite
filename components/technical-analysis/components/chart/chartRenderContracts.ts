@@ -14,7 +14,10 @@ export type ChartRenderHookStage = (typeof CHART_RENDER_HOOK_ORDER)[number];
 export type GridRect = { x: number; y: number; width: number; height: number } | null;
 
 export interface ChartComparisonSeriesInput {
+  comparisonKey: string;
   symbol: string;
+  market: string;
+  label: string;
   data: ChartDataPoint[];
   settings: CompareSeriesSettings;
 }
@@ -41,6 +44,7 @@ export interface ChartCursorRendererProps {
   chartRef: RefObject<EChartsInstance>;
   chartData: ChartDataPoint[];
   interactionScopeKey: string;
+  crosshairColor?: string;
   isChartLoading?: boolean;
   cursorPriceBadgeRef?: RefObject<HTMLDivElement | null>;
   cursorPriceTextRef?: RefObject<HTMLSpanElement | null>;

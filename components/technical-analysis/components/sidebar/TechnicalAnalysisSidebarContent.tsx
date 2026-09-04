@@ -218,11 +218,25 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       const destination = (event as CustomEvent<{ destination?: TechnicalAnalysisSidebarDestination }>).detail?.destination;
       if (!destination || !(destination in SIDEBAR_DESTINATION_TARGETS)) return;
 
+      // A destination action must be visible even when the user previously
+      // collapsed the sidebar. Re-open the shell first, then route/focus.
+      const sidebar = props.sidebarRef.current;
+      const root = sidebar?.closest(".technical-analysis-root") as HTMLElement | null;
+      root?.classList.remove("sidebar-closed");
+      sidebar?.classList.remove("sidebar-closed");
+      if (sidebar) {
+        sidebar.style.visibility = "visible";
+        sidebar.style.opacity = "1";
+        sidebar.style.transform = "translateX(0)";
+      }
+
       handleRailSelect(destination === "calendar" ? "calendar" : "watchlist");
       const targetId = SIDEBAR_DESTINATION_TARGETS[destination];
       if (!targetId) return;
       window.requestAnimationFrame(() => {
-        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const target = document.getElementById(targetId);
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+        target?.focus({ preventScroll: true });
       });
     };
     window.addEventListener(TECHNICAL_ANALYSIS_SIDEBAR_NAVIGATE, handleSidebarNavigation);

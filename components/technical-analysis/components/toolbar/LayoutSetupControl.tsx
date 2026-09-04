@@ -8,6 +8,7 @@ import {
 import type { MultiChartLayoutId,
   MultiChartSyncKey } from "../../config/layout/multiChartLayoutTypes";
 import {
+  hasBoundLayoutSymbol,
   hasCollapsedLayoutSymbols,
   isMultiChartPresetAvailable,
   MULTI_CHART_LAYOUTS,
@@ -17,6 +18,7 @@ import {
 import {
   migratePersistedMultiChartLayout,
   MULTI_CHART_STORAGE_KEY_V2,
+  MULTI_CHART_STORAGE_KEY_V3,
   serializeMultiChartLayout,
 } from "../../config/layout/multiChartPersistence";
 import {
@@ -32,6 +34,8 @@ import {
 import { idbGet, idbSet } from "../../hooks/drawing/drawingPersistence";
 import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
 import { useMultiChartPresetResolver } from "../../hooks/useMultiChartPresetResolver";
+
+const MULTI_CHART_PERSISTENCE_IDLE_MS = 280;
 
 const SYNC_OPTIONS: Array<{ key: MultiChartSyncKey; label: string; title: string }> = [
   { key: "symbol", label: "Symbole", title: "Synchronise le symbole et sa bourse entre tous les graphiques" },
@@ -187,13 +191,19 @@ export const LayoutSetupControl: React.FC = () => {
 
     const hydratePersistedLayout = async () => {
       try {
-        const storedV2 = await idbGet<unknown>(MULTI_CHART_STORAGE_KEY_V2);
-        const storedLegacy = storedV2 == null
+        const storedV3 = await idbGet<unknown>(MULTI_CHART_STORAGE_KEY_V3);
+        const storedV2 = storedV3 == null
+          ? await idbGet<unknown>(MULTI_CHART_STORAGE_KEY_V2)
+          : null;
+        const storedLegacy = storedV3 == null && storedV2 == null
           ? await idbGet<unknown>(MULTI_CHART_STORAGE_KEY)
           : null;
         if (!isActive) return;
 
-        const migrated = migratePersistedMultiChartLayout(storedV2 ?? storedLegacy);
+        const migrated = migratePersistedMultiChartLayout(
+          storedV3 ?? storedV2 ?? storedLegacy,
+          { resetSyncToDefault: storedV3 == null },
+        );
         if (migrated) dispatch(hydrateMultiChartLayout(migrated));
       } catch (error) {
         console.warn("[LayoutSetup] Invalid persisted layout ignored", error);
@@ -210,7 +220,13 @@ export const LayoutSetupControl: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined" || !isPersistenceHydrated) return;
-    void idbSet(MULTI_CHART_STORAGE_KEY_V2, serializeMultiChartLayout(layoutState));
+    // Durable layout persistence must never compete with ECharts wheel/pointer
+    // rendering. Coalesce short state bursts into one IndexedDB write.
+    const snapshot = serializeMultiChartLayout(layoutState);
+    const timerId = window.setTimeout(() => {
+      void idbSet(MULTI_CHART_STORAGE_KEY_V3, snapshot);
+    }, MULTI_CHART_PERSISTENCE_IDLE_MS);
+    return () => window.clearTimeout(timerId);
   }, [isPersistenceHydrated, layoutState]);
 
   useEffect(() => {
@@ -220,24 +236,25 @@ export const LayoutSetupControl: React.FC = () => {
 
   useEffect(() => {
     if (activeLayout.chartCount <= 1) return;
-    const firstLayoutSymbol = layoutState.charts[0]?.symbol.trim().toUpperCase();
-    if (firstLayoutSymbol || !currentLayoutBinding.primarySymbol) return;
+    // Bootstrap only a genuinely empty multi-chart. A user is allowed to move
+    // the sole bound panel away from chart_1; that sparse layout is intentional.
+    if (hasBoundLayoutSymbol(layoutState) || !currentLayoutBinding.primarySymbol) return;
     applyLayout(layoutState.layoutId);
   }, [
     activeLayout.chartCount,
     applyLayout,
     currentLayoutBinding.primarySymbol,
-    layoutState.charts,
-    layoutState.layoutId,
+    layoutState,
   ]);
 
   useEffect(() => {
     if (activeLayout.chartCount < 8) return;
     const primarySymbol = chartConfig.symbol.trim().toUpperCase();
-    const firstLayoutSymbol = layoutState.charts[0]?.symbol.trim().toUpperCase();
-    if (!primarySymbol || firstLayoutSymbol === primarySymbol) return;
+    // Dense-layout safety requires the live primary title to exist somewhere,
+    // not specifically in the first physical slot. Reordering must stay valid.
+    if (!primarySymbol || hasBoundLayoutSymbol(layoutState, primarySymbol)) return;
     applyLayout(layoutState.layoutId);
-  }, [activeLayout.chartCount, applyLayout, chartConfig.symbol, layoutState.charts, layoutState.layoutId]);
+  }, [activeLayout.chartCount, applyLayout, chartConfig.symbol, layoutState]);
 
   useEffect(() => {
     if (!isOpen) return;

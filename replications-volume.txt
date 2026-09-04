@@ -1,0 +1,397 @@
+Oui mon gars. Là, j’ai fait la mission comme tu la voulais : **interaction réelle sur TradingView + Runtime/Code Intelligence + lecture clean-room des bundles chargés**, puis j’ai testé directement le Volume. Je n’ai encore rien porté dans localhost.
+
+La conclusion fondamentale est importante : **TradingView ne considère pas Volume comme un simple réglage d’apparence**. `Volume` est un véritable **indicator/study**. Il utilise donc pratiquement le même cycle de vie que RSI, MACD, ADX et les autres indicateurs : **Ajouter → Afficher/Masquer → Configurer → Déplacer/organiser → Supprimer**.
+
+| Endroit dans TradingView | Ajouter Volume / indicateur | Masquer / réafficher | Supprimer | Régler | Ce que j’ai confirmé |
+|---|---|---|---|---|---|
+| **Indicators, metrics, and strategies** | ✅ Principal | — | — | — | Recherche `Volume` → clic → insertion immédiate |
+| **Favorite indicators** | ✅ 1 clic si favori | — | — | — | `Volume` était dans les favoris et s’ajoute immédiatement |
+| **Indicator templates** | ✅ Par lot | ✅ via état du template | ✅/remplacement par lot | ✅ état complet | `Save indicator template…` / `Open template…` |
+| **Légende de l’indicateur dans le chart** | — | ✅ `Hide` ↔ `Show` | ✅ `Remove` | ✅ `Settings` | Testé directement sur `Vol · BTC` |
+| **Settings → Style du Volume** | — | ✅ partie graphique | — | ✅ complet | Volume, Growing, Falling, Volume MA, labels, status line |
+| **Settings → Visibility** | — | ✅ selon timeframe | — | ✅ | Ticks, Seconds, Minutes, Hours, Days, Weeks, Months, Ranges |
+| **Hide options** barre gauche | — | ✅ tous les indicateurs | — | — | Menu exact : `Hide indicators` |
+| **Remove options** barre gauche | — | — | ✅ tous les indicateurs | — | `Remove 9 indicators` observé |
+| **Object Tree** | — | ✅ individuellement | gestion de l’objet | organisation | `Vol · BTC` apparaît comme objet avec contrôle de visibilité |
+| **More / menu contextuel study** | selon capacité | ✅ | ✅ | ✅ | Confirmé par le moteur Runtime chargé |
+| **Undo / Redo** | ↩️ | ↩️ | ↩️ | ↩️ | TradingView expose chaque mutation comme une commande annulable |
+| **Pine Editor** | ✅ scripts custom | selon study | ✅ | ✅ | Chemin avancé, distinct du Volume natif |
+
+### Le chemin n°1 : bouton **Indicators**
+
+C’est vraiment **la voie principale pour ajouter Volume**.
+
+L’utilisateur fait :
+
+`Indicators` → recherche `Volume` → clique `Volume`.
+
+J’ai exécuté exactement ce scénario. Le Volume est ajouté immédiatement au graphique et TradingView crée aussitôt une commande :
+
+**`Undo insert Volume`**
+
+Donc pas de modal supplémentaire « Voulez-vous vraiment ajouter ? », pas de reload et pas de changement de symbole.
+
+Et ça vaut pour les autres indicateurs : **Indicators est le catalogue central d’activation**.
+
+---
+
+### Le raccourci puissant : **Favorite indicators**
+
+C’est une deuxième voie réellement importante.
+
+À côté de `Indicators`, TradingView possède le bouton **Favorite indicators**. Dans le chart que j’ai inspecté, le menu contenait notamment `Volume`.
+
+J’ai cliqué dessus : **Volume s’est ajouté directement**, sans repasser par la recherche.
+
+Donc pour notre réplique, un indicateur favori doit devenir un vrai **one-click add**.
+
+---
+
+### Une fois Volume actif : sa légende devient son centre de contrôle rapide
+
+C’est probablement le comportement qu’il faut absolument reprendre chez nous.
+
+Après insertion, TradingView affichait :
+
+**`Vol · BTC`**
+
+avec quatre actions directement attachées :
+
+**Hide — Settings — Remove — More**
+
+J’ai testé réellement le cycle :
+
+`Volume visible`
+→ clic **Hide**
+→ les barres disparaissent
+→ la ligne Volume reste présente
+→ le bouton devient **Show**
+→ TradingView affiche `Undo hide Vol · BTC`
+
+Puis :
+
+clic **Show**
+→ Volume réapparaît
+→ le bouton redevient **Hide**
+→ `Undo show Vol · BTC`
+
+Donc **Hide ≠ Remove**.
+
+C’est très important pour notre architecture.
+
+**Hide** doit simplement faire :
+
+```text
+volume.visible = false
+```
+
+Le Volume existe encore, garde ses réglages, son emplacement et son état.
+
+Alors que **Remove** doit réellement détacher le study :
+
+```text
+removeIndicator("volume")
+```
+
+J’ai ensuite fait `Remove` sur le Volume de test. `Vol · BTC` a complètement disparu et TradingView a affiché :
+
+**`Undo remove Vol · BTC`**
+
+Puis j’ai restauré le chart de test à son état initial : **8 indicateurs**, Volume de test supprimé et légende repliée.
+
+---
+
+## Il existe encore une troisième notion : masquer seulement la sortie du Volume
+
+J’ai ouvert **Settings de `Vol`**.
+
+Il y a :
+
+**Inputs — Style — Visibility**
+
+Dans **Style**, TradingView possède notamment une checkbox :
+
+**☑ Volume**
+
+Puis :
+
+`Growing`
+`Falling`
+`Volume MA`
+`Labels on price scale`
+`Values in status line`
+`Inputs in status line`
+
+C’est subtil : désactiver **Volume** dans `Style` n’est toujours **pas la même chose que Remove**.
+
+Nous avons donc au moins trois niveaux différents :
+
+```text
+1. Remove indicator
+   → Volume n'existe plus.
+
+2. Hide indicator
+   → Volume existe mais tout le study est invisible.
+
+3. Settings > Style > Volume OFF
+   → Study toujours actif,
+     mais sa sortie "Volume" est masquée.
+```
+
+C’est exactement le genre de nuance professionnelle qu’il faut éviter de mélanger chez nous.
+
+---
+
+## TradingView permet également une visibilité par timeframe
+
+Dans **Settings → Visibility**, j’ai trouvé :
+
+`Ticks`
+`Seconds`
+`Minutes`
+`Hours`
+`Days`
+`Weeks`
+`Months`
+`Ranges`
+
+avec les plages numériques correspondantes.
+
+Autrement dit, un utilisateur peut conserver Volume dans son chart mais dire conceptuellement :
+
+> « Je veux cet indicateur sur les minutes et heures, mais pas ailleurs. »
+
+Le moteur de contexte chargé par TradingView confirme également des presets de visibilité tels que :
+
+```text
+Current interval and above
+Current interval and below
+Only current interval
+All intervals
+```
+
+Cela devrait devenir une propriété générique de nos indicateurs, pas quelque chose codé spécialement pour Volume.
+
+---
+
+## Il y a un contrôle global **Hide indicators**
+
+Sur la barre gauche TradingView, le bouton de masquage possède **Hide options**.
+
+Je l’ai ouvert réellement. Les choix étaient :
+
+```text
+Hide drawings
+Hide indicators
+Hide positions and orders
+Hide all
+```
+
+Donc l’utilisateur peut masquer **tous les indicateurs d’un seul coup**, Volume inclus, sans les supprimer.
+
+C’est encore différent du petit `Hide` individuel de `Vol`.
+
+---
+
+## Et il existe son équivalent destructif : **Remove indicators**
+
+J’ai également ouvert **Remove options**.
+
+Avec le Volume de test ajouté, TradingView proposait exactement :
+
+```text
+Remove 0 drawings
+Remove 9 indicators
+Remove 0 drawings & 9 indicators
+Always remove locked drawings
+```
+
+Donc oui : TradingView propose aussi une commande **supprimer tous les indicateurs**.
+
+Chez nous il faudra absolument séparer :
+
+```text
+Hide all indicators
+```
+
+de :
+
+```text
+Remove all indicators
+```
+
+Un utilisateur qui veut seulement nettoyer temporairement son graphique ne doit jamais perdre ses indicateurs/configurations.
+
+---
+
+## Object Tree est aussi une porte de gestion
+
+J’ai ouvert **Object tree and data window → Object tree**.
+
+`Vol · BTC` y apparaissait comme un objet du graphique, au même niveau logique que les autres studies.
+
+Les indicateurs possèdent des contrôles de visibilité dans cette arborescence. J’ai pu confirmer que les studies cachés y présentent l’état **Show**.
+
+Donc il faut considérer Object Tree comme **une autre vue sur le même état**, et non comme une seconde implémentation.
+
+C’est très important pour nous :
+
+```text
+Legend Hide
+        ↓
+same canonical state
+        ↑
+Object Tree Hide
+        ↑
+Context menu Hide
+```
+
+TradingView ne devrait pas avoir trois booléens indépendants. Et le bundle chargé confirme justement que ces surfaces basculent une propriété canonique de visibilité du study.
+
+---
+
+# Le clic droit / `More` va beaucoup plus loin
+
+Ici, l’API d’automatisation ne me permettait pas d’émettre un vrai clic droit matériel fiable. Je n’ai donc pas inventé le résultat.
+
+J’ai inspecté le **`chart-actions-provider` réellement chargé par TradingView** via Runtime/Code Intelligence.
+
+Le moteur construit dynamiquement le menu selon les capacités du study.
+
+Pour un indicateur compatible, il prévoit notamment :
+
+**Show/Hide**, **Settings**, **Remove**, **Copy**, accès **Object Tree**, ajout/retrait aux **Favorites**, parfois **Create Alert**, **Apply to entire layout**, ainsi que des actions d’organisation.
+
+J’ai aussi retrouvé la logique d’ordre visuel :
+
+```text
+Bring to front
+Send to back
+Bring forward
+Send backward
+```
+
+Et surtout, pour les studies qui peuvent être déplacés :
+
+```text
+Move to pane
+Merge up
+Unmerge up
+Merge down
+Unmerge down
+```
+
+plus la gestion de la **price scale**.
+
+C’est très important par rapport à ta phrase « zone du bas du Volume ».
+
+TradingView sépare bien :
+
+```text
+l'indicateur
+        ↓
+sa visibilité
+        ↓
+son pane / emplacement
+        ↓
+sa price scale
+```
+
+Donc un indicateur peut être déplacé/rattaché sans qu’on ait besoin de le supprimer et recréer.
+
+---
+
+# Et les Indicator Templates
+
+Le bouton **Indicator templates** expose notamment :
+
+`Save indicator template…`
+`Open template…`
+
+Ce n’est pas un bouton Volume spécifique.
+
+C’est une fonctionnalité de **gestion d’un ensemble d’indicateurs**.
+
+Par exemple, l’utilisateur pourrait sauvegarder :
+
+```text
+Volume
+MACD
+RSI
+ADX
+```
+
+puis réappliquer cet ensemble plus tard.
+
+Donc dans notre architecture il faut considérer le template comme :
+
+> un ensemble de commandes d’indicateurs persistées,
+
+et non comme un autre moteur de rendu.
+
+---
+
+# Ce que le moteur de réplication m’a surtout appris
+
+La logique propre à répliquer n’est pas « mettre plein de boutons ».
+
+Elle ressemble conceptuellement à ceci :
+
+```text
+Indicator / Study
+│
+├── identity
+│
+├── enabled / attached
+├── visible
+├── outputs
+├── settings
+├── intervalVisibility
+├── pane
+├── priceScale
+├── visualOrder
+└── favorite
+```
+
+Puis toutes les surfaces appellent **le même domaine** :
+
+```text
+Indicators modal ──────── addIndicator()
+Favorites ─────────────── addIndicator()
+
+Legend Hide ───────────── setIndicatorVisibility()
+Object Tree eye ───────── setIndicatorVisibility()
+Context menu Hide ─────── setIndicatorVisibility()
+
+Legend Remove ─────────── removeIndicator()
+Context menu Remove ───── removeIndicator()
+Bulk Remove ───────────── removeAllIndicators()
+
+Settings ──────────────── updateIndicatorSettings()
+
+Move to pane ──────────── moveIndicator()
+Visual Order ──────────── reorderIndicator()
+
+Hide indicators ───────── setAllIndicatorsVisible(false)
+```
+
+**Voilà la partie essentielle à reproduire.**
+
+On ne doit surtout pas avoir :
+
+```text
+chartAppearance.showVolume
+chart.indicators.volume
+objectTree.volumeVisible
+legend.volumeVisible
+```
+
+comme quatre vérités différentes.
+
+Ce serait exactement le genre de dette qui crée les régressions qu’on a déjà rencontrées.
+
+Pour notre localhost, je voudrais donc que **Volume devienne pleinement un indicateur de première classe**, au même titre que MACD/RSI/ADX, avec une seule source de vérité. La légende, le modal Indicators, Object Tree, les raccourcis et éventuellement le clic droit ne seront que **différentes interfaces vers les mêmes commandes**.
+
+Et en multi-chart, le contrat que je recommande est cohérent avec tout ce qu’on a construit : **l’action concerne le panneau actif par défaut**. Ajouter Volume sur `chart_3` ne doit pas faire apparaître Volume sur les 15 autres charts d’un layout 16 sauf action explicite du type **« appliquer à tout le layout »**.
+
+Donc maintenant, oui : **j’ai le contrat UX TradingView complet suffisamment précisément pour qu’on puisse faire le gap avec notre localhost et ensuite répliquer cette architecture proprement**.

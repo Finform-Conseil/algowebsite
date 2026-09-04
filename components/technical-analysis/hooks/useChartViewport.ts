@@ -25,6 +25,7 @@ import {
   resolveTimeDataZoomAxisIndexes,
 } from "./viewport/viewportMath";
 import { resolveAutoViewportPriceRange } from "./viewport/viewportPriceRange";
+import { resolveRenderedTimeAxisWindow } from "./chart-rendering/chartHistoryAxisAlignment";
 import {
   buildOffscreenPriceLevelGraphics,
   type PriceLevelViewportMarker,
@@ -33,6 +34,7 @@ import {
   createTimeViewportSyncSnapshot,
   publishTimeViewportSync,
 } from "./sync/timeViewportSyncBus";
+import { ViewportChangeCommitBuffer } from "./viewport/viewportChangeCommit";
 
 export type { ViewportWindow, ZoomRangeSnapshot } from "./viewport/viewportMath";
 export {
@@ -161,7 +163,12 @@ export const useChartViewport = ({
   const lastDataFirstTimeRef = useRef<string | null>(null);
   const previousPriceLevelGraphicIdsRef = useRef<Set<string>>(new Set());
   const onViewportChangeRef = useRef(onViewportChange);
-  const lastViewportEmissionRef = useRef<ChartViewportChange | null>(null);
+  const viewportChangeCommitRef = useRef<ViewportChangeCommitBuffer | null>(null);
+  if (viewportChangeCommitRef.current === null) {
+    viewportChangeCommitRef.current = new ViewportChangeCommitBuffer((viewport) => {
+      onViewportChangeRef.current?.(viewport);
+    });
+  }
   const viewportApplyRafRef = useRef<number | null>(null);
   const viewportApplyModeRef = useRef<ViewportApplyMode>("queued");
   // Commit barrier between the React dataset and the imperative ECharts model.
@@ -184,9 +191,11 @@ export const useChartViewport = ({
   }, [onViewportChange]);
   useLayoutEffect(() => {
     // A chart-cell switch owns a distinct viewport even when both cells happen to
-    // expose the same date window. Force the new cell to receive one canonical seed.
-    lastViewportEmissionRef.current = null;
+    // expose the same date window. Drop any stale in-flight persistence snapshot;
+    // the new scope will publish its own canonical seed after rendering.
+    viewportChangeCommitRef.current?.reset();
   }, [interactionScopeKey]);
+  useEffect(() => () => viewportChangeCommitRef.current?.cancel(), []);
 
   const enqueueChartMutation = useCallback((key: string, mutation: (chart: ECharts) => void, mode: ViewportApplyMode = "queued") => {
     if (mode === "queued" && scheduleChartMutation) {
@@ -285,6 +294,15 @@ export const useChartViewport = ({
     });
 
     const axisIndexOffset = state.historyGapBars;
+    const primaryXAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+    const axisCategories = Array.isArray(primaryXAxis?.data) ? primaryXAxis.data : [];
+    const renderedTimeWindow = resolveRenderedTimeAxisWindow({
+      axisCategories,
+      sourceTimes: chartData.map((point) => point.time),
+      sourceStartIdx: state.startIdx,
+      sourceEndIdx: state.endIdx,
+      historyGapBars: axisIndexOffset,
+    });
     const viewportOption = {
       xAxis: Array.isArray(option.xAxis)
         ? option.xAxis.map((axis: any, index: number) => ({ id: axis?.id ?? index }))
@@ -294,8 +312,8 @@ export const useChartViewport = ({
         id: 'time-zoom',
         xAxisIndex: resolveTimeDataZoomAxisIndexes(option),
         filterMode: 'none',
-        startValue: axisIndexOffset + state.startIdx,
-        endValue: axisIndexOffset + state.endIdx,
+        startValue: axisCategories.length > 0 ? renderedTimeWindow.startValue : axisIndexOffset + state.startIdx,
+        endValue: axisCategories.length > 0 ? renderedTimeWindow.endValue : axisIndexOffset + state.endIdx,
       }],
       ...(offscreenPriceLevelGraphics.length > 0 ? { graphic: offscreenPriceLevelGraphics } : {}),
     };
@@ -314,16 +332,10 @@ export const useChartViewport = ({
         yScale: state.yScale,
         isYManual: state.isYManual,
       };
-      const previousEmission = lastViewportEmissionRef.current;
-      const didViewportChange = !previousEmission
-        || previousEmission.startTime !== viewportEmission.startTime
-        || previousEmission.endTime !== viewportEmission.endTime
-        || previousEmission.yScale !== viewportEmission.yScale
-        || previousEmission.isYManual !== viewportEmission.isYManual;
-      if (didViewportChange) {
-        lastViewportEmissionRef.current = viewportEmission;
-        onViewportChangeRef.current?.(viewportEmission);
-      }
+      // The ECharts viewport remains imperative and frame-paced. Redux persistence
+      // is deliberately kept out of this hot path and receives only the latest
+      // snapshot after an interaction burst becomes idle.
+      viewportChangeCommitRef.current?.schedule(viewportEmission);
     }
 
     enqueueChartMutation("viewport", (targetChart) => {
@@ -937,6 +949,10 @@ export const useChartViewport = ({
         state.isDraggingYScale = false;
         state.isDraggingChart = false;
         state.cachedRect = null;
+        // Pointer gestures have an explicit boundary. Flush the durable snapshot
+        // now when it is already available; a final RAF still in flight falls back
+        // to the short idle commit without blocking the renderer.
+        viewportChangeCommitRef.current?.flush();
       } else if (state.activePointers.size === 1) {
         const remainingPointer = Array.from(state.activePointers.values())[0];
         state.startX = remainingPointer.clientX;

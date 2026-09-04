@@ -1,7 +1,7 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 
 import type { LiveSnapshot } from "../../config/market/marketSnapshotTypes";
-import { createMarketDataCacheKey } from "../../config/market/marketDataCacheKey";
+import { createTimeframeMarketDataCacheKey, type ChartTimeframe } from "../../config/market/timeframeCatalog";
 import type { TechnicalAnalysisState } from "../../config/state/technicalAnalysisStateTypes";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import {
@@ -12,11 +12,26 @@ import {
 export const marketDataReducers = {
   updateMarketData: (
     state: TechnicalAnalysisState,
-    action: PayloadAction<{ symbol: string; data: ChartDataPoint[]; market?: string }>,
+    action: PayloadAction<{
+      symbol: string;
+      data: ChartDataPoint[];
+      market?: string;
+      timeframe?: ChartTimeframe;
+      sourceKind?: "equity" | "index";
+      sourceId?: string;
+    }>,
   ) => {
     const payload = normalizeMarketDataPayload(action.payload);
     if (!payload) return;
-    state.marketData[createMarketDataCacheKey(payload.market, payload.symbol)] = payload.data;
+    const cacheKey = createTimeframeMarketDataCacheKey(
+      payload.market,
+      payload.symbol,
+      payload.timeframe,
+      payload.sourceKind,
+      payload.sourceId,
+    );
+    if (!cacheKey) return;
+    state.marketData[cacheKey] = payload.data;
   },
   updateMarketSnapshot: (
     state: TechnicalAnalysisState,

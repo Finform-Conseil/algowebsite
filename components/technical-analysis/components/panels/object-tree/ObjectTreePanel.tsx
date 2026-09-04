@@ -28,7 +28,7 @@ import type { AdvancedIndicatorsState } from "../../../config/indicators/advance
 import type { ObjectTreePanelTab, DataWindowCandleValues } from "../../../config/object-tree/objectTreeTypes";
 import type { ChartAppearance, ChartState } from "../../../config/state/chartStateTypes";
 import type { PineChartOverlayPayload } from "../../../components/sidebar/panels/pineEditor/pineTypes";
-import { setAdvancedIndicators, setChartAppearance, setChartConfig, removeComparisonSymbol, clearPineChartOverlay } from "../../../store/technicalAnalysisSlice";
+import { setAdvancedIndicators, setChartConfig, removeComparisonSymbol, clearPineChartOverlay } from "../../../store/technicalAnalysisSlice";
 import { resolveTrendSignalSourceAveragePeriods } from "../../../config/indicators/movingAverageSeries";
 import { resolvePriceVsSmaSourceAveragePeriods } from "../../../config/indicators/priceVsSmaMetrics";
 import { resolvePriceVsEmaSourceAveragePeriods } from "../../../config/indicators/priceVsEmaMetrics";
@@ -159,12 +159,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     const action = resolveObjectItemVisibilityAction(item);
 
     if (action.type === "toggle-volume") {
-      dispatch(setChartAppearance({ showVolume: !chartAppearance.showVolume }));
+      // Eye = canonical study visibility. Attachment and Style > Volume stay untouched.
+      patchChartIndicators({ volumeVisible: chartConfig.indicators.volumeVisible === false });
       return;
     }
 
     setHiddenObjectIds((prev) => ({ ...prev, [action.id]: !prev[action.id] }));
-  }, [chartAppearance.showVolume, dispatch, setHiddenObjectIds]);
+  }, [chartConfig.indicators.volumeVisible, patchChartIndicators, setHiddenObjectIds]);
 
   const handleObjectItemRemove = useCallback((item: ObjectTreeItem) => {
     const action = resolveObjectItemRemoveAction({

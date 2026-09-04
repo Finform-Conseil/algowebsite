@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import clsx from "clsx";
 import { useSelector } from "react-redux";
 import { useAppDispatch } from "@/core/infra/store/hooks";
@@ -23,15 +23,16 @@ import {
 import { LayoutSetupControl } from "./LayoutSetupControl";
 import { FloatingMenu } from "../common/primitives/FloatingMenu";
 import {
-  CHART_TYPE_MENU_GROUPS,
   CHART_TYPE_REGISTRY,
   normalizeChartType,
   type ChartType,
 } from "../../lib/chart-types";
 import { preloadIndicatorsModal } from "../modals/orchestration/indicatorsModalLoader";
-import { actionApi, SEARCH_SYMBOL_ACTION_QUERY } from "@/core/infra/store/api/action.api";
+import { actionApi } from "@/core/infra/store/api/action.api";
 import { ANONYMOUS_PSEUDOS } from "../../config/ui/anonymousPseudos";
 import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
+import { buildTickerCatalogQuery } from "@/components/design-system/commons/TickerSelectorModal/context/tickerCatalogPolicy";
+import { ChartTypeMenuContent } from "./chart/ChartTypeMenuContent";
 import { renderChartTypeIcon } from "./chart/chartTypeIcons";
 import {
   horizontalToolbarClassNames,
@@ -44,20 +45,28 @@ interface ChartToolbarProps {
   userInitials: string;
   displaySymbol: string;
   openTickerSelector: () => void;
-  stopReplay: () => void;
+  isReplaySelectingStart: boolean;
+  onReplayRequest: () => void;
   onTimeframeChange: (timeframe: string) => void;
   onSaveAnalysis: () => void | Promise<void>;
   onOpenLoadModal: () => void | Promise<void>;
+  onSnapshotDownload: () => void | Promise<void>;
+  onSnapshotCopy: () => void | Promise<void>;
+  onSnapshotOpen: () => void | Promise<void>;
 }
 
 export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   userInitials,
   displaySymbol,
   openTickerSelector,
-  stopReplay,
+  isReplaySelectingStart,
+  onReplayRequest,
   onTimeframeChange,
   onSaveAnalysis,
   onOpenLoadModal,
+  onSnapshotDownload,
+  onSnapshotCopy,
+  onSnapshotOpen,
 }) => {
   const dispatch = useAppDispatch();
   const { openLayoutMarketDirectory } = useTickerSelector();
@@ -66,6 +75,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const uiState = useSelector(selectUiState);
   const activeMarket = useSelector(selectActiveMarket);
   const locale = useLocale();
+  const chartTypeT = useTranslations("technicalAnalysis.chartTypes");
   const marketLabel = locale === "fr" ? "Bourse" : "Exchange";
   const isMultiChartMode = uiState.multiChartLayout.isEnabled
     && uiState.multiChartLayout.charts.length > 1;
@@ -84,8 +94,10 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
       : `Active market: ${activeMarket.name} (${activeMarket.currency}). Click to change.`);
 
   const prefetchCompareSymbols = useCallback(() => {
-    dispatch(actionApi.util.prefetch("getAllActions", SEARCH_SYMBOL_ACTION_QUERY, { ifOlderThan: 30 }));
-  }, [dispatch]);
+    const marketTicker = displayedMarketTicker.trim().toUpperCase();
+    if (!marketTicker) return;
+    dispatch(actionApi.util.prefetch("getAllActions", buildTickerCatalogQuery(marketTicker, 1), { ifOlderThan: 30 }));
+  }, [dispatch, displayedMarketTicker]);
 
   const [isPseudoDropdownOpen, setIsPseudoDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
@@ -93,6 +105,9 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const [isChartTypeMenuOpen, setIsChartTypeMenuOpen] = useState(false);
   const [chartTypeAnchorRect, setChartTypeAnchorRect] = useState<DOMRect | null>(null);
   const chartTypeButtonRef = useRef<HTMLButtonElement>(null);
+  const [isSnapshotMenuOpen, setIsSnapshotMenuOpen] = useState(false);
+  const [snapshotAnchorRect, setSnapshotAnchorRect] = useState<DOMRect | null>(null);
+  const snapshotButtonRef = useRef<HTMLButtonElement>(null);
   const activeChartType = normalizeChartType(chartConfig.chartType);
   const activeChartTypeEntry = CHART_TYPE_REGISTRY[activeChartType];
 
@@ -106,6 +121,17 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const handleChartTypeSelect = (type: ChartType) => {
     dispatch(setChartType(type));
     setIsChartTypeMenuOpen(false);
+  };
+
+  const toggleSnapshotMenu = () => {
+    const rect = snapshotButtonRef.current?.getBoundingClientRect() ?? null;
+    setSnapshotAnchorRect(rect);
+    setIsSnapshotMenuOpen((current) => !current);
+  };
+
+  const runSnapshotAction = (action: () => void | Promise<void>) => {
+    setIsSnapshotMenuOpen(false);
+    void action();
   };
 
   const openPseudoDropdownFromElement = (element: HTMLElement) => {
@@ -296,7 +322,8 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           <button
             ref={chartTypeButtonRef}
             className={clsx(toolbarButtonClassNames, activeChartType !== "candles" && "active")}
-            title={`Type de graphique: ${activeChartTypeEntry.label}`}
+            title={chartTypeT("typeTitle", { label: activeChartTypeEntry.label })}
+            aria-label={chartTypeT("typeAria", { label: activeChartTypeEntry.label })}
             aria-haspopup="menu"
             aria-expanded={isChartTypeMenuOpen}
             onClick={handleChartTypeMenuToggle}
@@ -312,36 +339,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             className="gp-chart-type-menu"
             zIndex={6000}
           >
-            {CHART_TYPE_MENU_GROUPS.map((group) => (
-              <div key={group} className="gp-chart-type-menu-group" role="group" aria-label={group}>
-                <div className="gp-chart-type-menu-title">{group}</div>
-                {Object.values(CHART_TYPE_REGISTRY)
-                  .filter((entry) => entry.group === group)
-                  .map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={activeChartType === entry.id}
-                      className={clsx("gp-chart-type-menu-item", activeChartType === entry.id && "active")}
-                      onClick={() => handleChartTypeSelect(entry.id)}
-                    >
-                      <span className="gp-chart-type-menu-icon">{renderChartTypeIcon(entry.id)}</span>
-                      <span className="gp-chart-type-menu-label">{entry.label}</span>
-                      {entry.synthetic && (
-                        <span className="gp-chart-type-menu-badge" title="Prix construits, non executables au marche">
-                          Synthétique
-                        </span>
-                      )}
-                      {entry.approximateWithoutTicks && (
-                        <span className="gp-chart-type-menu-badge" title="Approximation sans donnees tick/intrabar completes">
-                          Approx.
-                        </span>
-                      )}
-                    </button>
-                  ))}
-              </div>
-            ))}
+            <ChartTypeMenuContent activeChartType={activeChartType} onSelect={handleChartTypeSelect} />
           </FloatingMenu>
 
           <button
@@ -374,13 +372,28 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             <i className="bi bi-bell-fill"></i>
           </button>
 
-          <button
-            className={clsx(toolbarButtonClassNames, uiState.replay.isActive && "active")}
-            title={uiState.replay.isActive ? "Mode Replay actif - Cliquez pour arrêter" : "Mode Replay"}
-            onClick={uiState.replay.isActive ? stopReplay : () => dispatch(setModalOpen({ modal: "replay", isOpen: true }))}
-          >
-            <i className={clsx("bi", uiState.replay.isActive ? "bi-stop-circle-fill" : "bi-play-circle-fill")}></i>
-          </button>
+          {!isMultiChartMode && (
+            <button
+              className={clsx(
+                toolbarButtonClassNames,
+                (uiState.replay.isActive || isReplaySelectingStart) && "active",
+              )}
+              title={
+                uiState.replay.isActive
+                  ? "Quitter le Bar Replay"
+                  : isReplaySelectingStart
+                    ? "Sélectionnez une bougie sur le graphique · Échap pour annuler"
+                    : "Bar Replay"
+              }
+              aria-pressed={uiState.replay.isActive || isReplaySelectingStart}
+              onClick={onReplayRequest}
+            >
+              <i className={clsx(
+                "bi",
+                uiState.replay.isActive ? "bi-stop-circle-fill" : "bi-play-circle-fill",
+              )}></i>
+            </button>
+          )}
         </div>
       </div>
 
@@ -471,13 +484,42 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               <i className={clsx("bi", uiState.isZenMode ? "bi-fullscreen-exit" : "bi-fullscreen")}></i>
             </button>
             <button
-              className={clsx(toolbarSecondaryButtonClassNames, "opacity-50", "gp-hide-on-small")}
-              title="Capture indisponible pour cette version"
-              aria-label="Capture indisponible pour cette version"
-              disabled
+              ref={snapshotButtonRef}
+              type="button"
+              className={clsx(toolbarSecondaryButtonClassNames, "gp-hide-on-small", isSnapshotMenuOpen && "active")}
+              title="Prendre une capture du graphique"
+              aria-label="Prendre une capture du graphique"
+              aria-haspopup="menu"
+              aria-expanded={isSnapshotMenuOpen}
+              disabled={uiState.isCapturing}
+              onClick={toggleSnapshotMenu}
             >
               <i className={clsx("bi", uiState.isCapturing ? "bi-hourglass-split" : "bi-camera")}></i>
             </button>
+            <FloatingMenu
+              isOpen={isSnapshotMenuOpen}
+              onClose={() => setIsSnapshotMenuOpen(false)}
+              anchorRect={snapshotAnchorRect}
+              width={250}
+              className="gp-snapshot-menu"
+              zIndex={6500}
+            >
+              <div className="gp-snapshot-menu__header">CAPTURE DU GRAPHIQUE</div>
+              <button type="button" className="gp-snapshot-menu__item" onClick={() => runSnapshotAction(onSnapshotDownload)}>
+                <i className="bi bi-download" aria-hidden="true" />
+                <span>Télécharger l'image</span>
+                <kbd>Ctrl+Alt+S</kbd>
+              </button>
+              <button type="button" className="gp-snapshot-menu__item" onClick={() => runSnapshotAction(onSnapshotCopy)}>
+                <i className="bi bi-clipboard" aria-hidden="true" />
+                <span>Copier l'image</span>
+                <kbd>Ctrl+Shift+S</kbd>
+              </button>
+              <button type="button" className="gp-snapshot-menu__item" onClick={() => runSnapshotAction(onSnapshotOpen)}>
+                <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
+                <span>Ouvrir dans un nouvel onglet</span>
+              </button>
+            </FloatingMenu>
           </div>
         </div>
 

@@ -5,9 +5,11 @@ import type {
   MultiChartLayoutState,
   MultiChartSyncKey,
 } from "../../config/layout/multiChartLayoutTypes";
+import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { TechnicalAnalysisState } from "../../config/state/technicalAnalysisStateTypes";
 import {
   getLayoutDefinition,
+  hasBoundLayoutSymbol,
   isDenseMultiChartLayout,
   isMultiChartPresetAvailable,
   MULTI_CHART_PRESETS,
@@ -18,6 +20,7 @@ import {
   reconcileMarketMultiChartLayout as reconcileMultiChartLayout,
 } from "../../config/layout/brvmLayoutSymbols";
 import {
+  cloneMultiChartAppearance,
   completeMultiChartCell,
   completeMultiChartLayout,
   type CompleteMultiChartLayoutCell,
@@ -79,6 +82,9 @@ const syncChartConfigFromCell = (
   state.chartConfig.timeframe = cell.timeframe;
   state.chartConfig.chartType = cell.sourceKind === "index" ? "line" : cell.chartType;
   state.ui.selectedTimeRange = cell.dateRange || "Tout";
+  if (cell.appearance) {
+    state.chartAppearance = cloneMultiChartAppearance(cell.appearance) ?? state.chartAppearance;
+  }
   restoreCellIndicatorSnapshot(state, cell);
 };
 
@@ -177,6 +183,42 @@ export const multiChartReducers = {
     const layout = normalizeCompleteLayout(state);
     activateCell(state, layout, action.payload);
   },
+  commitLayoutChartAppearance: (
+    state: TechnicalAnalysisState,
+    action: PayloadAction<{ chartId: string; appearance: ChartAppearance }>,
+  ) => {
+    const chartId = action.payload.chartId.trim();
+    const nextAppearance = cloneMultiChartAppearance(action.payload.appearance);
+    if (!chartId || !nextAppearance) return;
+
+    const layout = normalizeCompleteLayout(state);
+    const charts = layout.charts as CompleteMultiChartLayoutCell[];
+    const target = charts.find((chart) => chart.chartId === chartId);
+    if (!target?.symbol.trim()) return;
+
+    // Materialize the current shared appearance before the first per-panel
+    // customization. This prevents a later active-panel commit from leaking
+    // into peers that previously inherited the global fallback.
+    const baseline = cloneMultiChartAppearance(state.chartAppearance);
+    if (baseline) {
+      charts.forEach((chart) => {
+        if (chart.appearance) return;
+        const inheritedAppearance = cloneMultiChartAppearance(baseline);
+        if (!inheritedAppearance) return;
+        // Preserve style/output preferences independently from study attachment.
+        // A peer without Volume may still remember its output settings for a later add.
+        chart.appearance = inheritedAppearance;
+      });
+    }
+
+    nextAppearance.showVolume = target.sourceKind === "equity" && nextAppearance.showVolume;
+    // Appearance commits must never mutate the indicator attachment snapshot.
+    target.appearance = nextAppearance;
+
+    if (layout.activeChartId === target.chartId) {
+      syncChartConfigFromCell(state, target);
+    }
+  },
   updateLayoutChart: (
     state: TechnicalAnalysisState,
     action: PayloadAction<{
@@ -229,6 +271,65 @@ export const multiChartReducers = {
     });
 
     if (target.chartId === layout.activeChartId) syncChartConfigFromCell(state, target);
+  },
+  swapLayoutCharts: (
+    state: TechnicalAnalysisState,
+    action: PayloadAction<{ sourceChartId: string; targetChartId: string }>,
+  ) => {
+    const sourceChartId = action.payload.sourceChartId.trim();
+    const targetChartId = action.payload.targetChartId.trim();
+    if (!sourceChartId || !targetChartId || sourceChartId === targetChartId) return;
+
+    // Fail closed before touching any live snapshot: an invalid drag request must
+    // be a semantic no-op, including for indicator state and persistence observers.
+    const rawCharts = state.ui.multiChartLayout.charts;
+    if (!rawCharts.some((chart) => chart.chartId === sourceChartId)
+      || !rawCharts.some((chart) => chart.chartId === targetChartId)) return;
+
+    // Persist the live indicator configuration before moving the active panel so
+    // the drag operation transfers one coherent panel snapshot, not stale state.
+    syncActiveCellIndicatorSnapshot(state);
+    const layout = normalizeCompleteLayout(state);
+    const charts = layout.charts as CompleteMultiChartLayoutCell[];
+    const sourceIndex = charts.findIndex((chart) => chart.chartId === sourceChartId);
+    const targetIndex = charts.findIndex((chart) => chart.chartId === targetChartId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const source = charts[sourceIndex];
+    const target = charts[targetIndex];
+    const sourceWasActive = layout.activeChartId === source.chartId;
+    const targetWasActive = layout.activeChartId === target.chartId;
+    const sourceWasMaximized = layout.maximizedChartId === source.chartId;
+    const targetWasMaximized = layout.maximizedChartId === target.chartId;
+
+    // chartId is the physical slot identity and remains fixed. Every other field
+    // is panel-owned and moves together, including drawingScope and viewport.
+    const contentForSourceSlot = completeMultiChartCell({
+      ...target,
+      chartId: source.chartId,
+      isActive: false,
+    }, sourceIndex);
+    const contentForTargetSlot = completeMultiChartCell({
+      ...source,
+      chartId: target.chartId,
+      isActive: false,
+    }, targetIndex);
+
+    charts[sourceIndex] = contentForSourceSlot;
+    charts[targetIndex] = contentForTargetSlot;
+
+    if (sourceWasActive) layout.activeChartId = target.chartId;
+    else if (targetWasActive) layout.activeChartId = source.chartId;
+
+    if (sourceWasMaximized) layout.maximizedChartId = target.chartId;
+    else if (targetWasMaximized) layout.maximizedChartId = source.chartId;
+
+    const repaired = completeMultiChartLayout(layout);
+    state.ui.multiChartLayout = repaired;
+    const active = (repaired.charts as CompleteMultiChartLayoutCell[]).find(
+      (chart) => chart.chartId === repaired.activeChartId,
+    );
+    if (active?.symbol) syncChartConfigFromCell(state, active);
   },
   duplicateLayoutChart: (
     state: TechnicalAnalysisState,
@@ -355,7 +456,10 @@ export const multiChartReducers = {
     const hydrationMarket = livePrimarySymbol && persistedPrimarySymbol === livePrimarySymbol && persistedPrimaryMarket
       ? persistedPrimaryMarket
       : normalizeLayoutBinding(state.ui.activeMarket.ticker) || persistedPrimaryMarket || "BRVM";
-    const reconciled = livePrimarySymbol
+    const persistedContainsLivePrimary = Boolean(livePrimarySymbol)
+      && hasBoundLayoutSymbol(action.payload, livePrimarySymbol);
+    const shouldReconcilePrimaryBinding = Boolean(livePrimarySymbol) && !persistedContainsLivePrimary;
+    const reconciled = shouldReconcilePrimaryBinding
       ? reconcileMultiChartLayout(
           action.payload,
           action.payload.layoutId,
@@ -365,7 +469,7 @@ export const multiChartReducers = {
         )
       : action.payload;
     const hydrated = completeMultiChartLayout(reconciled);
-    if (livePrimarySymbol && persistedPrimarySymbol !== livePrimarySymbol) {
+    if (shouldReconcilePrimaryBinding) {
       const primary = hydrated.charts[0] as CompleteMultiChartLayoutCell | undefined;
       if (primary) {
         primary.sourceKind = "equity";
@@ -379,13 +483,6 @@ export const multiChartReducers = {
       time: Boolean(hydrated.sync.time),
       dateRange: Boolean(hydrated.sync.dateRange),
     };
-    if (isDenseLayout) {
-      const primaryChartId = hydrated.charts[0]?.chartId ?? hydrated.activeChartId;
-      hydrated.activeChartId = primaryChartId;
-      (hydrated.charts as CompleteMultiChartLayoutCell[]).forEach((chart, index) => {
-        chart.isActive = index === 0;
-      });
-    }
     state.ui.multiChartLayout = hydrated;
     const active = (hydrated.charts as CompleteMultiChartLayoutCell[]).find(
       (chart) => chart.chartId === hydrated.activeChartId,

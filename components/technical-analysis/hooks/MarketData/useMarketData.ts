@@ -35,6 +35,8 @@ import { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import {
   setReplayActive,
   setReplayPaused,
+  setReplayTotalCandles,
+  setReplayCurrentIndex,
   setModalOpen,
   updateMarketData,
   updateMarketSnapshot,
@@ -76,9 +78,16 @@ import {
 } from "../../config/market/timeframeCatalog";
 import { loadTimeframeSeries } from "../../config/market/timeframeSeriesPolicy";
 import {
+  createComparisonRequestSetKey,
+  parseComparisonRequestSetKey,
+  type ComparisonMarketRequest,
+} from "../../config/market/comparisonRequestIdentity";
+import {
   indiceCoursToLineChartData,
   resolveIndexTimeframeSeries,
 } from "../../config/market/indexSeriesAdapter";
+
+export type { ComparisonMarketRequest } from "../../config/market/comparisonRequestIdentity";
 
 // [MIGRATION] `mode` conservé dans la signature pour compat appelants, mais
 // la source est TOUJOURS l'API. Il n'existe plus de génération locale.
@@ -93,6 +102,7 @@ export interface ComparisonManagerState {
   currencyByKey: ComparisonCurrencyState;
   seriesByKey: ComparisonSeriesState;
   dataSourceByKey: ComparisonDataSourceState;
+  requestMoreHistory: (request: ComparisonMarketRequest, direction?: "left" | "right") => void;
 }
 type ComparisonFetchResult = {
   series: ChartDataPoint[];
@@ -100,22 +110,11 @@ type ComparisonFetchResult = {
   source: TimeframeDataSourceKind;
   timeframe: ChartTimeframe;
 };
-export interface ComparisonMarketRequest {
-  symbol: string;
-  market: string;
-  timeframe?: string;
-  sourceKind?: "equity" | "index";
-  sourceId?: string;
-}
-
 const COMPARISON_NO_DATA_GRACE_MS = 1500;
 const MAX_INDEX_HISTORY_PAGES = 64;
 
 // Nombre de bougies historiques par page API (contrat backend: 100 items par page).
 const OHLCV_PAGE_SIZE = 100;
-const MAX_HISTORY_PREFETCH_REQUESTS = 256;
-// Tri chronologique ascendant côté backend (le transformer re-trie par sécurité).
-const OHLCV_ORDERING = "timestamp";
 
 type MarketDataLoadOptions = { silent?: boolean; historyPage?: number; deferApply?: boolean };
 
@@ -184,24 +183,6 @@ const mergeChartHistory = (current: ChartDataPoint[], incoming: ChartDataPoint[]
   return Array.from(timeMap.values())
     .sort((left, right) => left.ts - right.ts)
     .map((item) => item.point);
-};
-
-const normalizeComparisonRequests = (
-  requests: readonly ComparisonMarketRequest[],
-): ComparisonMarketRequest[] => {
-  const unique = new Map<string, ComparisonMarketRequest>();
-  for (const request of requests) {
-    const symbol = String(request?.symbol ?? "").trim().toUpperCase();
-    const market = normalizeMarketDataScope(request?.market);
-    const timeframe = normalizeChartTimeframe(request?.timeframe ?? "1D");
-    const sourceKind = request?.sourceKind === "index" ? "index" : "equity";
-    const sourceId = String(request?.sourceId ?? "").trim();
-    if (!symbol || !market || !timeframe) continue;
-    if (sourceKind === "index" && !sourceId) continue;
-    const requestKey = createTimeframeMarketDataCacheKey(market, symbol, timeframe, sourceKind, sourceId);
-    unique.set(requestKey, { symbol, market, timeframe, sourceKind, sourceId });
-  }
-  return Array.from(unique.values());
 };
 
 const normalizeTicker = (ticker: string | null | undefined): string => (ticker || "").trim().toUpperCase();
@@ -317,15 +298,22 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     if (!isMounted.current || series.length === 0) return;
     const upperTicker = normalizeTicker(tickerForCommit);
     applyWindowFirstData(upperTicker, series);
+    dispatchRef.current(updateMarketData({
+      market: marketScope,
+      symbol: upperTicker,
+      data: series,
+      timeframe: requestedTimeframe,
+      sourceKind: "equity",
+    }));
     if (requestedTimeframe === "1D") {
-      dispatchRef.current(updateMarketData({ market: marketScope, symbol: upperTicker, data: series }));
       void writePersistedMarketData(marketScope, upperTicker, series);
     }
   }, [applyWindowFirstData, marketScope, requestedTimeframe]);
 
   useEffect(() => {
-    if (mode !== "real" || !symbol || !isMounted.current || !isDailyTimeframe) return;
-    const cachedSeries = marketDataCache[createMarketDataCacheKey(marketScope, symbol)];
+    if (mode !== "real" || !symbol || !isMounted.current) return;
+    const cacheKey = createTimeframeMarketDataCacheKey(marketScope, symbol, requestedTimeframe, "equity");
+    const cachedSeries = marketDataCache[cacheKey];
     if (!Array.isArray(cachedSeries) || cachedSeries.length === 0) return;
     if (chartDataSymbolRef.current !== symbol || chartDataRef.current !== cachedSeries) {
       applyWindowFirstData(symbol, cachedSeries);
@@ -333,7 +321,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     resolvedDataSymbolRef.current = symbol;
     setLoadStatus("loaded");
     setIsLoading(false);
-  }, [applyWindowFirstData, isDailyTimeframe, marketDataCache, marketScope, mode, symbol]);
+  }, [applyWindowFirstData, marketDataCache, marketScope, mode, requestedTimeframe, symbol]);
 
   const effectiveActionByTickerData = isActionForMarket(currentActionByTickerData, symbol, marketScope)
     ? currentActionByTickerData
@@ -564,7 +552,9 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       const incomingSeries = resolvedSeries ?? coursSeriesToChartData(paginatedData);
       const knownTotalPages = reportedTotalPages ?? historyTotalPagesRef.current;
       if (requestedTimeframe !== "1D") {
-        historyExhaustedRef.current = true;
+        const previousCount = baseSeries.length;
+        historyExhaustedRef.current = boundedHistoryPoints >= 10_000
+          || (boundedHistoryPoints > OHLCV_PAGE_SIZE && incomingSeries.length <= previousCount);
       } else if (historyPage !== null && (incomingSeries.length === 0 || (knownTotalPages !== null && historyPage >= knownTotalPages))) {
         historyExhaustedRef.current = true;
       }
@@ -579,7 +569,9 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         if (historyPage !== null && incomingSeries.length > 0) {
           historyLimitRef.current = Math.max(historyLimitRef.current, boundedHistoryPoints);
         } else if (historyPage === null) {
-          historyLimitRef.current = boundedHistoryPoints;
+          historyLimitRef.current = requestedTimeframe === "1D"
+            ? boundedHistoryPoints
+            : Math.max(boundedHistoryPoints, incomingSeries.length);
         }
         if (deferApply) {
           pendingHistorySeriesRef.current = series;
@@ -613,7 +605,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     }
   }, [applyWindowFirstData, commitChartSeries, forcedIsin, getCoursHistory, marketScope, requestedTimeframe, requestedTimeframeSeconds]);
 
-  const loadMarketDataBatch = useCallback(async (ticker: string, startPage: number, batchSize = 3) => {
+  const loadMarketDataPage = useCallback(async (ticker: string, page: number) => {
     symbolRef.current = ticker;
     const upperTicker = ticker.toUpperCase();
 
@@ -623,7 +615,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     }
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
 
-    const isActiveBatch = () =>
+    const isActivePageRequest = () =>
       isMounted.current &&
       normalizeTicker(symbolRef.current) === upperTicker &&
       marketScopeRef.current === marketScope;
@@ -645,7 +637,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         if (!isActionForMarket(action, upperTicker, marketScope)) {
           throw new Error(`API action ticker mismatch for ${upperTicker}.`);
         }
-        if (isActiveBatch()) {
+        if (isActivePageRequest()) {
           resolvedActionRef.current = action;
           setResolvedActionByTicker(action);
         }
@@ -657,59 +649,42 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         : persistedIdentity?.instrumentId ?? "";
       if (!instrumentId) {
         const action = await validatedActionPromise;
-        if (!isActiveBatch()) return;
+        if (!isActivePageRequest()) return;
         instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
       } else if (!cachedAction) {
         void validatedActionPromise.catch((error: unknown) => {
-          console.warn(`[MarketData] Batch metadata revalidation failed for ${upperTicker}:`, error);
+          console.warn(`[MarketData] History metadata revalidation failed for ${upperTicker}:`, error);
         });
       }
       if (!instrumentId) {
         throw new Error(`Action ${upperTicker} has no instrument identifier.`);
       }
 
-      const totalPages = historyTotalPagesRef.current;
-      const endPage = totalPages !== null
-        ? Math.min(startPage + batchSize - 1, totalPages)
-        : startPage + batchSize - 1;
-
-      if (startPage > endPage) {
+      const knownTotalPagesBeforeRequest = historyTotalPagesRef.current;
+      if (knownTotalPagesBeforeRequest !== null && page > knownTotalPagesBeforeRequest) {
         historyExhaustedRef.current = true;
         return;
       }
 
-      const pagePromises = [];
-      for (let p = startPage; p <= endPage; p++) {
-        pagePromises.push(
-          withRequestTimeout(
-            getAllCoursRef.current({ instrument: instrumentId, page: p, page_size: OHLCV_PAGE_SIZE }),
-            `History page ${p}`
-          )
-        );
+      const response = await withRequestTimeout(
+        getAllCoursRef.current({
+          instrument: instrumentId,
+          timeframe: requestedTimeframeSeconds,
+          page,
+          page_size: OHLCV_PAGE_SIZE,
+        }),
+        `History page ${page}`,
+      );
+      if (!isActivePageRequest()) return;
+
+      const reportedTotalPages = Number(response?.total_pages);
+      if (Number.isFinite(reportedTotalPages) && reportedTotalPages > 0) {
+        historyTotalPagesRef.current = Math.floor(reportedTotalPages);
       }
 
-      const responses = await Promise.all(pagePromises);
-      if (!isActiveBatch()) return;
-
-      const allBatchEntities: CoursEntity[] = [];
-      let lastReportedTotalPages: number | null = null;
-
-      for (const res of responses) {
-        if (res?.data && Array.isArray(res.data)) {
-          allBatchEntities.push(...res.data);
-        }
-        if (res?.total_pages) {
-          const tp = Number(res.total_pages);
-          if (Number.isFinite(tp) && tp > 0) lastReportedTotalPages = Math.floor(tp);
-        }
-      }
-
-      if (lastReportedTotalPages !== null) historyTotalPagesRef.current = lastReportedTotalPages;
-
-      const incomingSeries = coursSeriesToChartData(allBatchEntities);
-      const knownTotalPages = lastReportedTotalPages ?? historyTotalPagesRef.current;
-
-      if (incomingSeries.length === 0 || (knownTotalPages !== null && endPage >= knownTotalPages)) {
+      const incomingSeries = coursSeriesToChartData(response?.data ?? []);
+      const knownTotalPages = historyTotalPagesRef.current;
+      if (incomingSeries.length === 0 || (knownTotalPages !== null && page >= knownTotalPages)) {
         historyExhaustedRef.current = true;
       }
 
@@ -719,14 +694,14 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         : incomingSeries;
 
       if (series.length > 0) {
-        historyCurrentPageRef.current = endPage;
-        historyLimitRef.current = endPage * OHLCV_PAGE_SIZE;
+        historyCurrentPageRef.current = page;
+        historyLimitRef.current = page * OHLCV_PAGE_SIZE;
         commitChartSeries(upperTicker, series);
       }
     } catch (error: unknown) {
-      console.warn(`[MarketData] Batch history fetch failed for ${upperTicker}:`, error);
+      console.warn(`[MarketData] History page fetch failed for ${upperTicker}:`, error);
     }
-  }, [commitChartSeries, forcedIsin, marketScope, requestedTimeframe]);
+  }, [commitChartSeries, forcedIsin, marketScope, requestedTimeframe, requestedTimeframeSeconds]);
 
   const requestMoreHistory = useCallback((direction: "left" | "right" = "left") => {
     if (direction !== "left" || historyLoadInFlightRef.current || historyExhaustedRef.current || !isMounted.current) return;
@@ -739,23 +714,40 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       symbolRef.current === historyTicker &&
       marketScopeRef.current === historyMarketScope;
 
-    const startPage = historyCurrentPageRef.current + 1;
-    const totalPages = historyTotalPagesRef.current;
+    historyLoadInFlightRef.current = true;
 
-    if (totalPages !== null && startPage > totalPages) {
-      historyExhaustedRef.current = true;
+    if (timeframeRef.current !== "1D") {
+      const nextLimit = Math.min(
+        10_000,
+        Math.max(historyLimitRef.current + 500, chartDataRef.current.length + 500),
+      );
+      void loadMarketData(historyTicker, nextLimit, { silent: true })
+        .finally(() => {
+          if (isActiveHistoryRequest()) historyLoadInFlightRef.current = false;
+        });
       return;
     }
 
-    historyLoadInFlightRef.current = true;
+    const nextPage = historyCurrentPageRef.current + 1;
+    const totalPages = historyTotalPagesRef.current;
 
-    loadMarketDataBatch(historyTicker, startPage, 3)
+    if (totalPages !== null && nextPage > totalPages) {
+      historyExhaustedRef.current = true;
+      historyLoadInFlightRef.current = false;
+      return;
+    }
+
+    // One logical history-boundary crossing owns exactly one page request.
+    // `historyLoadInFlightRef` keeps the series single-flight until that page has
+    // been merged and committed, preventing bursty multi-page prepends and the
+    // resulting ECharts coordinate churn under rapid pan/zoom gestures.
+    void loadMarketDataPage(historyTicker, nextPage)
       .finally(() => {
         if (isActiveHistoryRequest()) {
           historyLoadInFlightRef.current = false;
         }
       });
-  }, [loadMarketDataBatch]);
+  }, [loadMarketData, loadMarketDataPage]);
 
   requestMoreHistoryRef.current = requestMoreHistory;
 
@@ -921,52 +913,110 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDailyTimeframe, marketScope, mode, requestedTimeframe, symbol, uiState.replay.isActive]);
 
-  // ── REPLAY (inchangé) ───────────────────────────────────────────────────
-  const startReplay = useCallback(() => {
-    replayOriginalData.current = [...chartData];
-    const initialSlice = chartData.length > 100 ? chartData.length - 100 : Math.floor(chartData.length / 2);
-    setChartData(chartData.slice(0, initialSlice));
-    replayIndex.current = initialSlice;
+  // ── BAR REPLAY ──────────────────────────────────────────────────────────
+  // TradingView's contract is intentionally mirrored here: selecting a start
+  // point hides every future bar, replay starts PAUSED, Forward reveals exactly
+  // one bar, Play advances at the configured speed, and Exit restores the
+  // untouched source series. The original dataset never gets mutated.
+  const applyReplayIndex = useCallback((nextIndex: number) => {
+    const source = replayOriginalData.current;
+    if (source.length === 0) return;
+    const boundedIndex = Math.min(Math.max(0, nextIndex), source.length - 1);
+    replayIndex.current = boundedIndex;
+    const visible = source.slice(0, boundedIndex + 1);
+    chartDataRef.current = visible;
+    setChartData(visible);
+    dispatch(setReplayCurrentIndex(boundedIndex));
+  }, [dispatch]);
+
+  const startReplay = useCallback((requestedStartTime?: string | null) => {
+    const source = chartDataRef.current.length > 0 ? [...chartDataRef.current] : [...chartData];
+    if (source.length < 2) {
+      addNotificationRef.current({
+        title: "Replay indisponible",
+        message: "Au moins deux bougies sont nécessaires pour démarrer le Bar Replay.",
+        type: "info",
+        iconType: "faInfoCircle",
+      });
+      return;
+    }
+
+    replayOriginalData.current = source;
+    let startIndex = Math.max(0, source.length - Math.min(100, Math.max(2, Math.floor(source.length / 2))));
+    const requestedTimestamp = requestedStartTime ? Date.parse(requestedStartTime) : Number.NaN;
+    if (Number.isFinite(requestedTimestamp)) {
+      const matchingIndex = source.findIndex((point) => {
+        const timestamp = Date.parse(String(point.time ?? ""));
+        return Number.isFinite(timestamp) && timestamp >= requestedTimestamp;
+      });
+      if (matchingIndex >= 0) startIndex = matchingIndex;
+    }
+    startIndex = Math.min(Math.max(0, startIndex), source.length - 2);
+
+    dispatch(setReplayTotalCandles(source.length));
     dispatch(setReplayActive(true));
-    dispatch(setReplayPaused(false));
+    dispatch(setReplayPaused(true));
     dispatch(setModalOpen({ modal: "replay", isOpen: false }));
+    applyReplayIndex(startIndex);
     setShowReplayFullText(true);
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     collapseTimer.current = setTimeout(() => setShowReplayFullText(false), 3000);
-  }, [chartData, dispatch]);
+  }, [applyReplayIndex, chartData, dispatch]);
 
   const stopReplay = useCallback(() => {
     if (replayTimer.current) clearInterval(replayTimer.current);
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    const source = replayOriginalData.current;
+    if (source.length > 0) {
+      chartDataRef.current = source;
+      setChartData(source);
+    }
+    replayOriginalData.current = [];
+    replayIndex.current = 0;
     dispatch(setReplayActive(false));
     dispatch(setReplayPaused(false));
     setShowReplayFullText(false);
-    if (replayOriginalData.current.length > 0) {
-      setChartData(replayOriginalData.current);
-    }
   }, [dispatch]);
+
+  const toggleReplayPause = useCallback(() => {
+    if (!uiState.replay.isActive) return;
+    const atEnd = replayOriginalData.current.length > 0
+      && replayIndex.current >= replayOriginalData.current.length - 1;
+    if (atEnd) return;
+    dispatch(setReplayPaused(!uiState.replay.isPaused));
+  }, [dispatch, uiState.replay.isActive, uiState.replay.isPaused]);
+
+  const stepReplay = useCallback((direction: 1 | -1 = 1) => {
+    if (!uiState.replay.isActive || replayOriginalData.current.length === 0) return;
+    dispatch(setReplayPaused(true));
+    applyReplayIndex(replayIndex.current + direction);
+  }, [applyReplayIndex, dispatch, uiState.replay.isActive]);
+
+  const jumpReplayToRealtime = useCallback(() => {
+    if (!uiState.replay.isActive || replayOriginalData.current.length === 0) return;
+    dispatch(setReplayPaused(true));
+    applyReplayIndex(replayOriginalData.current.length - 1);
+  }, [applyReplayIndex, dispatch, uiState.replay.isActive]);
 
   useEffect(() => {
     if (!uiState.replay.isActive || uiState.replay.isPaused) {
       if (replayTimer.current) clearInterval(replayTimer.current);
+      replayTimer.current = null;
       return;
     }
     replayTimer.current = setInterval(() => {
-      if (replayIndex.current >= replayOriginalData.current.length) {
+      const lastIndex = replayOriginalData.current.length - 1;
+      if (replayIndex.current >= lastIndex) {
         dispatch(setReplayPaused(true));
         return;
       }
-      const nextCandle = replayOriginalData.current[replayIndex.current];
-      setChartData((prev) => {
-        const newData = [...prev, nextCandle];
-        return newData.length > 10000 ? newData.slice(-10000) : newData;
-      });
-      replayIndex.current++;
+      applyReplayIndex(replayIndex.current + 1);
     }, uiState.replay.speed);
     return () => {
       if (replayTimer.current) clearInterval(replayTimer.current);
+      replayTimer.current = null;
     };
-  }, [uiState.replay.isActive, uiState.replay.isPaused, uiState.replay.speed, dispatch]);
+  }, [applyReplayIndex, dispatch, uiState.replay.isActive, uiState.replay.isPaused, uiState.replay.speed]);
 
   const lastCandle = chartData.length > 0 ? chartData[chartData.length - 1] : null;
   const apiPriceMetric = effectiveActionByTickerData?.latest_price_metric;
@@ -997,6 +1047,9 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     loadStatus,
     startReplay,
     stopReplay,
+    toggleReplayPause,
+    stepReplay,
+    jumpReplayToRealtime,
     showReplayFullText,
     setShowReplayFullText,
     liveSnapshot,
@@ -1079,6 +1132,9 @@ export const useComparisonManager = (
   const { getCoursHistory } = useCoursRepository();
   const { getIndicesCoursByIndice } = useIndiceRepository();
   const inflightFetches = useRef<Map<string, Promise<ComparisonFetchResult>>>(new Map());
+  const historyFetches = useRef<Map<string, Promise<void>>>(new Map());
+  const historyBudgetByKeyRef = useRef<Map<string, number>>(new Map());
+  const historyExhaustedKeysRef = useRef<Set<string>>(new Set());
   const comparisonGraceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const marketDataCacheRef = useRef(marketDataCache);
   const getActionByTickerRef = useRef(getActionByTicker);
@@ -1086,25 +1142,37 @@ export const useComparisonManager = (
   const getIndicesCoursByIndiceRef = useRef(getIndicesCoursByIndice);
   const [loadState, setLoadState] = useState<ComparisonLoadState>({});
   const [currencyByKey, setCurrencyByKey] = useState<ComparisonCurrencyState>({});
-  const [seriesByKey, setSeriesByKey] = useState<ComparisonSeriesState>({});
   const [dataSourceByKey, setDataSourceByKey] = useState<ComparisonDataSourceState>({});
   const currencyByKeyRef = useRef(currencyByKey);
-  const seriesByKeyRef = useRef(seriesByKey);
-  const normalizedRequests = useMemo(
-    () => normalizeComparisonRequests(comparisonRequests),
+  const requestSetKey = useMemo(
+    () => createComparisonRequestSetKey(comparisonRequests),
     [comparisonRequests],
   );
   const safeRequests = useMemo(
-    () => normalizedRequests,
-    [normalizedRequests],
+    () => parseComparisonRequestSetKey(requestSetKey),
+    [requestSetKey],
   );
+  const seriesByKey = useMemo<ComparisonSeriesState>(() => {
+    const next: ComparisonSeriesState = {};
+    for (const request of safeRequests) {
+      const key = createTimeframeMarketDataCacheKey(
+        request.market,
+        request.symbol,
+        request.timeframe,
+        request.sourceKind,
+        request.sourceId,
+      );
+      const series = marketDataCache[key];
+      if (series) next[key] = series;
+    }
+    return next;
+  }, [marketDataCache, safeRequests]);
 
   useEffect(() => { marketDataCacheRef.current = marketDataCache; }, [marketDataCache]);
   useEffect(() => { getActionByTickerRef.current = getActionByTicker; }, [getActionByTicker]);
   useEffect(() => { getCoursHistoryRef.current = getCoursHistory; }, [getCoursHistory]);
   useEffect(() => { getIndicesCoursByIndiceRef.current = getIndicesCoursByIndice; }, [getIndicesCoursByIndice]);
   useEffect(() => { currencyByKeyRef.current = currencyByKey; }, [currencyByKey]);
-  useEffect(() => { seriesByKeyRef.current = seriesByKey; }, [seriesByKey]);
 
   useEffect(() => {
     setLoadState((current) => {
@@ -1118,10 +1186,7 @@ export const useComparisonManager = (
           sourceKind,
           sourceId,
         );
-        const legacyKey = createMarketDataCacheKey(market, symbol);
-        const hasSeries = sourceKind === "equity" && normalizedTimeframe === "1D"
-          ? (marketDataCache[legacyKey]?.length ?? 0) > 0
-          : (seriesByKeyRef.current[requestKey]?.length ?? 0) > 0;
+        const hasSeries = (marketDataCache[requestKey]?.length ?? 0) > 0;
         next[requestKey] = hasSeries ? "loaded" : current[requestKey] ?? "idle";
       });
       return areComparisonLoadStatesEqual(current, next) ? current : next;
@@ -1181,11 +1246,7 @@ export const useComparisonManager = (
         sourceKind,
         sourceId,
       );
-      const legacyKey = createMarketDataCacheKey(market, symbol);
-      const isEquityDaily = sourceKind === "equity" && normalizedTimeframe === "1D";
-      const cachedSeries = isEquityDaily
-        ? marketDataCacheRef.current[legacyKey] ?? []
-        : seriesByKeyRef.current[requestKey] ?? [];
+      const cachedSeries = marketDataCacheRef.current[requestKey] ?? [];
       const hasCachedSeries = cachedSeries.length > 0;
       const hasKnownCurrency = Boolean(currencyByKeyRef.current[requestKey]);
 
@@ -1243,9 +1304,7 @@ export const useComparisonManager = (
           const currency = typeof action.bourse?.currency?.symbol === "string"
             ? action.bourse.currency.symbol.trim().toUpperCase()
             : "";
-          const latestCachedSeries = normalizedTimeframe === "1D"
-            ? marketDataCacheRef.current[legacyKey] ?? []
-            : seriesByKeyRef.current[requestKey] ?? [];
+          const latestCachedSeries = marketDataCacheRef.current[requestKey] ?? [];
           if (latestCachedSeries.length > 0) {
             return { series: latestCachedSeries, currency, source: "native", timeframe: normalizedTimeframe };
           }
@@ -1263,8 +1322,15 @@ export const useComparisonManager = (
             );
             return coursSeriesToChartData(entities);
           });
-          if (resolution.series.length > 0 && normalizedTimeframe === "1D") {
-            dispatch(updateMarketData({ market, symbol, data: resolution.series }));
+          if (resolution.series.length > 0) {
+            dispatch(updateMarketData({
+              market,
+              symbol,
+              data: resolution.series,
+              timeframe: normalizedTimeframe,
+              sourceKind,
+              sourceId,
+            }));
           }
           return {
             series: resolution.series,
@@ -1295,9 +1361,16 @@ export const useComparisonManager = (
               current[requestKey] === currency ? current : { ...current, [requestKey]: currency }
             ));
           }
-          setSeriesByKey((current) => (
-            current[requestKey] === series ? current : { ...current, [requestKey]: series }
-          ));
+          if (series.length > 0) {
+            dispatch(updateMarketData({
+              market,
+              symbol,
+              data: series,
+              timeframe: normalizedTimeframe,
+              sourceKind,
+              sourceId,
+            }));
+          }
           setDataSourceByKey((current) => (
             current[requestKey] === source ? current : { ...current, [requestKey]: source }
           ));
@@ -1337,6 +1410,64 @@ export const useComparisonManager = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeRequests, dataMode, dispatch]);
 
-  return { loadState, currencyByKey, seriesByKey, dataSourceByKey } satisfies ComparisonManagerState;
+  const requestMoreHistory = useCallback((request: ComparisonMarketRequest, direction: "left" | "right" = "left") => {
+    if (direction !== "left" || request.sourceKind === "index") return;
+    const symbol = String(request.symbol ?? "").trim().toUpperCase();
+    const market = normalizeMarketDataScope(request.market);
+    const timeframe = normalizeChartTimeframe(request.timeframe ?? "1D") ?? "1D";
+    if (!symbol || !market) return;
+    const requestKey = createTimeframeMarketDataCacheKey(market, symbol, timeframe, "equity", "");
+    if (historyFetches.current.has(requestKey) || historyExhaustedKeysRef.current.has(requestKey)) return;
+
+    const currentSeries = marketDataCacheRef.current[requestKey] ?? [];
+    const currentBudget = historyBudgetByKeyRef.current.get(requestKey) ?? Math.max(500, currentSeries.length);
+    const nextBudget = Math.min(10_000, Math.max(currentBudget + 500, currentSeries.length + 500));
+    if (nextBudget <= currentBudget) {
+      historyExhaustedKeysRef.current.add(requestKey);
+      return;
+    }
+
+    const historyRequest = getActionByTickerRef.current({ ticker: symbol, marketTicker: market })
+      .then(async (action) => {
+        const instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
+        if (!instrumentId) throw new Error(`Action ${symbol} on ${market} has no instrument identifier.`);
+        const resolution = await loadTimeframeSeries(timeframe, async (apiSeconds) => {
+          const sourceBudget = apiSeconds === 86400 && timeframe !== "1D"
+            ? Math.min(10_000, Math.max(1_000, nextBudget * 10))
+            : nextBudget;
+          const entities = await getCoursHistoryRef.current(
+            { instrument: instrumentId, timeframe: apiSeconds },
+            sourceBudget,
+          );
+          return coursSeriesToChartData(entities);
+        });
+        const latestSeries = marketDataCacheRef.current[requestKey] ?? [];
+        historyBudgetByKeyRef.current.set(requestKey, nextBudget);
+        if (resolution.series.length <= latestSeries.length) {
+          historyExhaustedKeysRef.current.add(requestKey);
+          return;
+        }
+        dispatch(updateMarketData({
+          market,
+          symbol,
+          data: resolution.series,
+          timeframe,
+          sourceKind: "equity",
+        }));
+        setDataSourceByKey((current) => (
+          current[requestKey] === resolution.source ? current : { ...current, [requestKey]: resolution.source }
+        ));
+      })
+      .catch((error: unknown) => {
+        console.warn("[ComparisonManager] Unable to extend comparison history", { market, symbol, timeframe, error });
+      })
+      .finally(() => {
+        historyFetches.current.delete(requestKey);
+      });
+
+    historyFetches.current.set(requestKey, historyRequest);
+  }, [dispatch]);
+
+  return { loadState, currencyByKey, seriesByKey, dataSourceByKey, requestMoreHistory } satisfies ComparisonManagerState;
 };
 // --- EOF ---

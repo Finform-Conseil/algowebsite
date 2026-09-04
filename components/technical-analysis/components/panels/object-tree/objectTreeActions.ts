@@ -54,14 +54,13 @@ export const resolveObjectItemRemoveAction = ({
   advancedIndicators: AdvancedIndicatorsState;
 }): ObjectItemRemoveAction => {
   if (item.id === "volume") {
-    return {
-      type: "blocked",
-      message: "Le volume se masque avec l'icone oeil; il ne se supprime pas depuis l'arbre.",
-    };
+    return { type: "patch-indicators", patch: { volume: false } };
   }
 
   if (item.id.startsWith("compare-")) {
-    return { type: "remove-comparison", symbol: item.id.replace("compare-", "") };
+    return item.comparisonKey
+      ? { type: "remove-comparison", symbol: item.comparisonKey }
+      : { type: "unsupported", message: "La clé canonique de cette comparaison est indisponible." };
   }
 
   if (item.id === "pine-overlay") {

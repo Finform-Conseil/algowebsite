@@ -1,5 +1,5 @@
 import type { ChartType } from "../../lib/chart-types";
-import type { ChartState } from "../state/chartStateTypes";
+import type { ChartAppearance, ChartState } from "../state/chartStateTypes";
 import type {
   AdvancedIndicatorsState,
   BollingerSettings,
@@ -45,6 +45,7 @@ export interface MultiChartCellRuntimeState {
   viewport: MultiChartViewportState;
   drawingScope: string;
   indicatorState: MultiChartIndicatorSnapshot | null;
+  appearance: ChartAppearance | null;
   dataSource: TimeframeDataSourceKind | "unknown";
 }
 
@@ -108,6 +109,18 @@ const normalizeDataSource = (value: unknown): MultiChartCellRuntimeState["dataSo
   return "unknown";
 };
 
+export const cloneMultiChartAppearance = (value: unknown): ChartAppearance | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Partial<ChartAppearance>;
+  if (!candidate.statusLine || typeof candidate.statusLine !== "object") return null;
+  if (typeof candidate.upColor !== "string" || typeof candidate.downColor !== "string") return null;
+  if (typeof candidate.backgroundColor !== "string") return null;
+  return {
+    ...(candidate as ChartAppearance),
+    statusLine: { ...(candidate.statusLine as ChartAppearance["statusLine"]) },
+  };
+};
+
 const normalizeViewport = (value: unknown): MultiChartViewportState => {
   if (!value || typeof value !== "object") return { ...DEFAULT_MULTI_CHART_VIEWPORT };
   const candidate = value as Partial<MultiChartViewportState>;
@@ -134,6 +147,8 @@ export const cloneMultiChartIndicatorSnapshot = (value: unknown): MultiChartIndi
       sma: Boolean(candidate.chart.sma),
       ema: Boolean(candidate.chart.ema),
       volume: Boolean(candidate.chart.volume),
+      // Persisted snapshots predate study-level visibility. Missing means visible.
+      volumeVisible: candidate.chart.volumeVisible !== false,
       activeSma: cloneNumberArray(candidate.chart.activeSma),
       activeEma: cloneNumberArray(candidate.chart.activeEma),
       activeWma: cloneNumberArray(candidate.chart.activeWma),
@@ -187,6 +202,7 @@ export const completeMultiChartCell = (
     viewport: normalizeViewport((cell as Partial<CompleteMultiChartLayoutCell>).viewport),
     drawingScope: asString((cell as Partial<CompleteMultiChartLayoutCell>).drawingScope, chartId),
     indicatorState: cloneMultiChartIndicatorSnapshot((cell as Partial<CompleteMultiChartLayoutCell>).indicatorState),
+    appearance: cloneMultiChartAppearance((cell as Partial<CompleteMultiChartLayoutCell>).appearance),
     dataSource: normalizeDataSource((cell as Partial<CompleteMultiChartLayoutCell>).dataSource),
   };
 };

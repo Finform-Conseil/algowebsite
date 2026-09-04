@@ -10,6 +10,7 @@ import { initialState } from "../initialState";
 import { applyIndicatorPeriodsPatch } from "../policies/indicatorPeriodPolicy";
 import { applyIndicatorTemplate, type IndicatorTemplateId } from "../policies/templatePolicy";
 import { syncActiveCellIndicatorSnapshot } from "../policies/multiChartIndicatorStatePolicy";
+import { clearAllIndicatorVisibility } from "../policies/indicatorVisibilityPolicy";
 
 const mutuallyExclusiveIndicatorPairs = [
   ["cci20", "cci"],
@@ -96,6 +97,9 @@ export const indicatorReducers = {
     if (p.fillColor !== undefined) state.bollingerSettings.fillColor = p.fillColor;
     if (p.fillOpacity !== undefined) state.bollingerSettings.fillOpacity = p.fillOpacity;
     syncActiveCellIndicatorSnapshot(state);
+  },
+  clearAllIndicators: (state: TechnicalAnalysisState) => {
+    clearAllIndicatorVisibility(state);
   },
   applyTemplate: (
     state: TechnicalAnalysisState,

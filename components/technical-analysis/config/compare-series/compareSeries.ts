@@ -2,7 +2,48 @@ export const COMPARE_SERIES_PALETTE = ["#00C853", "#2962FF", "#E91E63", "#FF9800
 
 export const normalizeCompareSymbol = (symbol: string): string => symbol.trim().toUpperCase();
 
-export const getCompareSeriesId = (symbol: string): string => `compare-${normalizeCompareSymbol(symbol)}`;
+const COMPARE_INSTRUMENT_SEPARATOR = "::";
+
+export interface CompareInstrumentRef {
+  market: string;
+  symbol: string;
+}
+
+export const normalizeCompareMarket = (market: string): string => market.trim().toUpperCase();
+
+export const createCompareInstrumentKey = (market: string, symbol: string): string => {
+  const normalizedMarket = normalizeCompareMarket(market);
+  const normalizedSymbol = normalizeCompareSymbol(symbol);
+  if (!normalizedMarket || !normalizedSymbol) return "";
+  return `${normalizedMarket}${COMPARE_INSTRUMENT_SEPARATOR}${normalizedSymbol}`;
+};
+
+export const parseCompareInstrumentKey = (
+  value: string,
+  fallbackMarket = "",
+): CompareInstrumentRef | null => {
+  const normalized = normalizeCompareSymbol(value);
+  if (!normalized) return null;
+  const separatorIndex = normalized.indexOf(COMPARE_INSTRUMENT_SEPARATOR);
+  if (separatorIndex < 0) {
+    const market = normalizeCompareMarket(fallbackMarket);
+    return market ? { market, symbol: normalized } : null;
+  }
+  const market = normalizeCompareMarket(normalized.slice(0, separatorIndex));
+  const symbol = normalizeCompareSymbol(normalized.slice(separatorIndex + COMPARE_INSTRUMENT_SEPARATOR.length));
+  return market && symbol ? { market, symbol } : null;
+};
+
+export const getCompareInstrumentLabel = (value: string, fallbackMarket = ""): string => {
+  const instrument = parseCompareInstrumentKey(value, fallbackMarket);
+  if (!instrument) return normalizeCompareSymbol(value);
+  return `${instrument.symbol} · ${instrument.market}`;
+};
+
+export const getCompareSeriesId = (comparisonKey: string): string => {
+  const normalized = normalizeCompareSymbol(comparisonKey);
+  return `compare-${normalized.replace(/[^A-Z0-9_-]+/g, "-")}`;
+};
 
 export const getCompareSeriesColor = (index: number): string => {
   const paletteIndex = ((index % COMPARE_SERIES_PALETTE.length) + COMPARE_SERIES_PALETTE.length) % COMPARE_SERIES_PALETTE.length;

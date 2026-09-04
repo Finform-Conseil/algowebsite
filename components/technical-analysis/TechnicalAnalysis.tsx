@@ -26,11 +26,18 @@ import { TechnicalAnalysisPortalProvider } from "@/components/technical-analysis
 import {
   removeComparisonSymbol,
   clearComparisonSymbols,
+  clearAllIndicators,
+  setChartConfig,
+  setChartAppearance,
   setActiveLayoutChart,
+  commitLayoutChartAppearance,
   setTimeRange,
   setModalOpen,
   setPrefilledAlert,
   setSymbol,
+  setZenMode,
+  setReplaySpeed,
+  setCapturing,
   updateLayoutChart,
   setPineChartOverlay,
   clearPineChartOverlay,
@@ -53,8 +60,10 @@ import type { EChartsInstance } from "@/components/technical-analysis/lib/types/
 import toolbarConfig from "@/components/technical-analysis/toolbar-config-antigravity.json";
 import { resolveDrawingToolbarType } from "@/components/technical-analysis/lib/drawingToolbarResolution";
 import {
+  getCompareInstrumentLabel,
   getCompareSeriesColor,
   normalizeCompareSymbol,
+  parseCompareInstrumentKey,
   resolveCompareSeriesSettings,
 } from "@/components/technical-analysis/config/compare-series/compareSeries";
 import { normalizeMovingAverageTrendSignals } from "@/components/technical-analysis/config/indicators/movingAverageSeries";
@@ -71,7 +80,10 @@ import { ChartToolbar } from "@/components/technical-analysis/components/toolbar
 import { TechnicalAnalysisFooter } from "@/components/technical-analysis/components/footer/TechnicalAnalysisFooter";
 import type { BrokerModalProps } from "@/components/technical-analysis/components/modals/broker/BrokerModal";
 import type { ModalOrchestratorProps } from "@/components/technical-analysis/components/modals/orchestration/ModalOrchestrator";
-import type { IndicatorConfigurationTarget } from "@/components/technical-analysis/config/indicators/indicatorConfigurationTarget";
+import {
+  createVolumeConfigurationTarget,
+  type IndicatorConfigurationTarget,
+} from "@/components/technical-analysis/config/indicators/indicatorConfigurationTarget";
 import { IndicatorConfigurationModal } from "@/components/technical-analysis/components/modals/indicators/IndicatorConfigurationModal";
 import type { ObjectTreePanelProps } from "@/components/technical-analysis/components/panels/object-tree/ObjectTreePanel";
 import type { CompareSeriesSettingsModalProps } from "@/components/technical-analysis/components/modals/compare/CompareSeriesSettingsModal";
@@ -80,7 +92,7 @@ import TechnicalAnalysisSidebar, { type TechnicalAnalysisSidebarProps } from "@/
 import { ToolbarButton } from "@/components/technical-analysis/components/toolbar/floating/ToolbarButton";
 import { InlineTextEditor } from "@/components/technical-analysis/components/toolbar/floating/InlineTextEditor";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
-import { MultiChartLayoutGrid } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
+import { MultiChartLayoutGrid, type MultiChartContextMenuRequest } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
 import {
   convertLayoutSeriesByRate,
   convertLayoutSeriesCurrency,
@@ -99,8 +111,25 @@ import { useTechnicalAnalysisActions } from "@/components/technical-analysis/hoo
 import { useToolbarHandlers } from "@/components/technical-analysis/hooks/useToolbarHandlers";
 import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFloatingToolbar";
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
-import type { ChartViewportChange } from "@/components/technical-analysis/hooks/useChartViewport";
+import { TimeAxisRegistry, type ChartViewportChange } from "@/components/technical-analysis/hooks/useChartViewport";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
+import {
+  ChartContextMenu,
+  resolveChartContextPriceAtClientPoint,
+  type ChartContextMenuActionId,
+  type ChartContextMenuModel,
+} from "@/components/technical-analysis/components/chart/ChartContextMenu";
+import {
+  PriceScaleContextMenu,
+  isPriceScaleContextPoint,
+  resetPriceScaleAutoBounds,
+  type PriceScaleContextMenuActionId,
+  type PriceScaleContextMenuModel,
+} from "@/components/technical-analysis/components/chart/PriceScaleContextMenu";
+import { countActiveIndicatorStudies } from "@/components/technical-analysis/store/policies/indicatorVisibilityPolicy";
+import { resolveVolumeStudyLifecycle } from "@/components/technical-analysis/store/policies/volumeStudyLifecycle";
+import { VolumeStudyLegend } from "@/components/technical-analysis/components/chart/VolumeStudyLegend";
+import { ReplayControls } from "@/components/technical-analysis/components/chart/ReplayControls";
 import { ChartRenderEngine, type ChartRenderEngineProps } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
 import { ChartInteractionEngine } from "@/components/technical-analysis/components/chart/ChartInteractionEngine";
 import { resolvePrimaryChartAsyncPresentation } from "@/components/technical-analysis/components/chart/chartAsyncPresentation";
@@ -123,6 +152,14 @@ import {
 } from "@/components/technical-analysis/config/market/marketDataCacheKey";
 import { createTimeframeMarketDataCacheKey, normalizeChartTimeframe } from "@/components/technical-analysis/config/market/timeframeCatalog";
 import { filterChartDataByDateRange } from "@/components/technical-analysis/config/market/dateRangeSeries";
+import { readPrimaryXAxisCategories, resolvePixelPointerIndex } from "@/components/technical-analysis/lib/chart/pointerCandleIndex";
+import {
+  buildSnapshotFilename,
+  captureChartSnapshot,
+  copySnapshotBlob,
+  downloadSnapshotBlob,
+  openSnapshotBlob,
+} from "@/components/technical-analysis/lib/chart/chartSnapshot";
 
 // ============================================================================
 // [TENOR 2026 SRE] STRICT MEMOIZATION SHIELD
@@ -524,6 +561,7 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
   // The active layout binding is the single source of truth for the price axis.
   // The primary context is consulted only when that binding explicitly points to it.
   const chartConfig = useSelector(selectChartConfig, shallowEqual);
+  const chartAppearance = useSelector(selectChartAppearance, shallowEqual);
   const allMarketData = useSelector(selectMarketData, shallowEqual);
   const { selectedTicker } = useTickerSelector();
   const activeBinding = useSelector(selectActiveLayoutChartBinding, shallowEqual);
@@ -719,6 +757,8 @@ const ConnectedPriceAxisOverlay = React.memo(() => {
       cursorPriceActionRef={refs.cursorPriceActionRef}
       lastPriceBadgeRef={refs.lastPriceBadgeRef}
       lastPriceLineRef={refs.lastPriceLineRef}
+      priceScalePosition={chartAppearance.priceScalePosition === "left" ? "left" : "right"}
+      showPlusButton={chartAppearance.showPriceScalePlusButton !== false}
       priceAxisActionMenu={priceAxisActionMenu}
       handleAxisPriceActionButtonClick={handleAxisPriceActionButtonClick}
       handlePriceAxisAction={handlePriceAxisAction}
@@ -915,10 +955,25 @@ const ChartUI: React.FC = () => {
     () => normalizePriceVsEmaMetrics(priceVsEmaMetrics),
     [priceVsEmaMetrics],
   );
+  const activeIndicatorCount = useMemo(() => countActiveIndicatorStudies({
+    chartIndicators: chartConfig.indicators,
+    advancedIndicators,
+    movingAverageTrendSignals,
+    priceVsSmaMetrics,
+    priceVsEmaMetrics,
+  }), [advancedIndicators, chartConfig.indicators, movingAverageTrendSignals, priceVsEmaMetrics, priceVsSmaMetrics]);
+  const volumeStudyLifecycle = useMemo(() => resolveVolumeStudyLifecycle({
+    indicators: chartConfig.indicators,
+    appearance: chartAppearance,
+  }), [chartAppearance, chartConfig.indicators]);
   const multiChartLayout = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout, shallowEqual);
   const comparisonMarketData = useSelector(selectMarketData, shallowEqual);
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
   const replayState = useSelector((state: RootState) => state.technicalAnalysis.ui.replay, shallowEqual);
+  const chartAppearancePreview = useSelector((state: RootState) => state.technicalAnalysis.ui.chartAppearancePreview, shallowEqual);
+  const effectivePrimaryChartAppearance = chartAppearancePreview?.chartId === null
+    ? chartAppearancePreview.appearance
+    : chartAppearance;
   const dataMode = useSelector(selectDataMode);
   const activeMarket = useSelector(selectActiveMarket);
   const modals = useSelector(selectModals, shallowEqual);
@@ -928,10 +983,57 @@ const ChartUI: React.FC = () => {
   const shouldMountModalOrchestrator = Object.values(modals).some(Boolean);
 
   const [showReplayFullText, setShowReplayFullText] = useState(false);
+  const [isReplaySelectingStart, setIsReplaySelectingStart] = useState(false);
   const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
   const [indicatorConfigurationTarget, setIndicatorConfigurationTarget] = useState<IndicatorConfigurationTarget | null>(null);
+  const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuModel | null>(null);
+  const [priceScaleContextMenu, setPriceScaleContextMenu] = useState<PriceScaleContextMenuModel | null>(null);
+  const chartContextTargetRef = React.useRef<EChartsInstance | null>(null);
+  const priceScaleContextTargetRef = React.useRef<EChartsInstance | null>(null);
 
   const { handleTimeframeChange, handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions(marketData.setChartData);
+
+  useEffect(() => {
+    if (!isZenMode) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isZenMode]);
+
+  useEffect(() => {
+    const handleFocusShortcut = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      const isEditing = activeElement instanceof HTMLElement && (
+        activeElement.tagName === "INPUT"
+        || activeElement.tagName === "TEXTAREA"
+        || activeElement.tagName === "SELECT"
+        || activeElement.isContentEditable
+      );
+      if (isEditing) return;
+
+      if (event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        dispatch(setZenMode(!isZenMode));
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (isReplaySelectingStart) {
+          event.preventDefault();
+          setIsReplaySelectingStart(false);
+        }
+        if (isZenMode) {
+          event.preventDefault();
+          dispatch(setZenMode(false));
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleFocusShortcut);
+    return () => window.removeEventListener("keydown", handleFocusShortcut);
+  }, [dispatch, isReplaySelectingStart, isZenMode]);
 
   // ============================================================================
   // [TENOR 2026] KEYBOARD SHORTCUTS ENGINE
@@ -1105,6 +1207,315 @@ const ChartUI: React.FC = () => {
     hasLiveSnapshot: chartUiLiveSnapshot !== null,
   });
 
+  const closeChartContextMenu = useCallback(() => {
+    setChartContextMenu(null);
+    chartContextTargetRef.current = null;
+  }, []);
+
+  const closePriceScaleContextMenu = useCallback(() => {
+    setPriceScaleContextMenu(null);
+    priceScaleContextTargetRef.current = null;
+  }, []);
+
+  const handleTechnicalAnalysisContextMenuCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    // TradingView parity: the browser context menu must never leak through the
+    // charting workspace. Only an explicit chart/price-scale surface may own it.
+    event.preventDefault();
+
+    const target = event.target;
+    const isChartSurface = target instanceof Element
+      && target.closest('[data-chart-context-menu-surface="true"]') !== null;
+
+    if (isChartSurface) return;
+
+    event.stopPropagation();
+    closeChartContextMenu();
+    closePriceScaleContextMenu();
+  }, [closeChartContextMenu, closePriceScaleContextMenu]);
+
+  const openPriceScaleContextMenu = useCallback((
+    event: React.MouseEvent<HTMLDivElement>,
+    chart: EChartsInstance | null,
+    chartId: string | null,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeChartContextMenu();
+    priceScaleContextTargetRef.current = chart;
+    setPriceScaleContextMenu({
+      anchorX: event.clientX,
+      anchorY: event.clientY,
+      chartId,
+    });
+  }, [closeChartContextMenu]);
+
+  const openChartContextMenu = useCallback((
+    event: React.MouseEvent<HTMLDivElement>,
+    chart: EChartsInstance | null,
+    symbol: string,
+    chartId: string | null,
+    indicatorCount: number,
+    referencePriceValue: number | null,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closePriceScaleContextMenu();
+    const priceValue = resolveChartContextPriceAtClientPoint(chart, event.clientX, event.clientY);
+    chartContextTargetRef.current = chart;
+    setChartContextMenu({
+      anchorX: event.clientX,
+      anchorY: event.clientY,
+      chartId,
+      symbol: symbol.trim() || chartState.displaySymbolName,
+      priceValue,
+      priceLabel: priceValue === null ? null : formatPriceAxisLabel(priceValue),
+      referencePriceValue: typeof referencePriceValue === "number" && Number.isFinite(referencePriceValue)
+        ? referencePriceValue
+        : null,
+      indicatorCount,
+    });
+  }, [chartState.displaySymbolName, closePriceScaleContextMenu]);
+
+  const handlePrimaryChartContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const chart = refs.chartInstanceRef.current;
+    const priceScalePosition = chartAppearance.priceScalePosition === "left" ? "left" : "right";
+    if (isPriceScaleContextPoint(chart, event.clientX, event.clientY, priceScalePosition)) {
+      openPriceScaleContextMenu(event, chart, null);
+      return;
+    }
+    openChartContextMenu(
+      event,
+      chart,
+      chartState.displaySymbolName,
+      null,
+      activeIndicatorCount,
+      convertedLastCandleClose,
+    );
+  }, [activeIndicatorCount, chartAppearance.priceScalePosition, chartState.displaySymbolName, convertedLastCandleClose, openChartContextMenu, openPriceScaleContextMenu, refs.chartInstanceRef]);
+
+  const handleMultiChartContextMenu = useCallback((request: MultiChartContextMenuRequest) => {
+    const priceScalePosition = chartAppearance.priceScalePosition === "left" ? "left" : "right";
+    if (isPriceScaleContextPoint(request.chart, request.event.clientX, request.event.clientY, priceScalePosition)) {
+      dispatch(setActiveLayoutChart(request.cell.chartId));
+      openPriceScaleContextMenu(request.event, request.chart, request.cell.chartId);
+      return;
+    }
+    const targetIndicatorCount = request.indicatorState
+      ? countActiveIndicatorStudies({
+          chartIndicators: request.indicatorState.chart,
+          advancedIndicators: request.indicatorState.advanced,
+          movingAverageTrendSignals: request.indicatorState.ui.movingAverageTrendSignals,
+          priceVsSmaMetrics: request.indicatorState.ui.priceVsSmaMetrics,
+          priceVsEmaMetrics: request.indicatorState.ui.priceVsEmaMetrics,
+        })
+      : new Set(request.cell.indicators ?? []).size;
+    openChartContextMenu(
+      request.event,
+      request.chart,
+      request.cell.symbol,
+      request.cell.chartId,
+      targetIndicatorCount,
+      request.referencePriceValue,
+    );
+  }, [chartAppearance.priceScalePosition, dispatch, openChartContextMenu, openPriceScaleContextMenu]);
+
+  const openObjectTreeTab = useCallback((tab: "object_tree" | "data_window") => {
+    setObjectTreeTab(tab);
+    if (!isObjectTreeOpen) toggleObjectTree();
+  }, [isObjectTreeOpen, setObjectTreeTab, toggleObjectTree]);
+
+  const handleToggleVolumeStudyVisibility = useCallback(() => {
+    dispatch(setChartConfig({
+      indicators: {
+        ...chartConfig.indicators,
+        volumeVisible: chartConfig.indicators.volumeVisible === false,
+      },
+    }));
+  }, [chartConfig.indicators, dispatch]);
+
+  const handleConfigureVolumeStudy = useCallback(() => {
+    setIndicatorConfigurationTarget(createVolumeConfigurationTarget());
+  }, []);
+
+  const handleRemoveVolumeStudy = useCallback(() => {
+    dispatch(setChartConfig({
+      indicators: {
+        ...chartConfig.indicators,
+        volume: false,
+      },
+    }));
+  }, [chartConfig.indicators, dispatch]);
+
+  const handleOpenVolumeObjectTree = useCallback(() => {
+    openObjectTreeTab("object_tree");
+  }, [openObjectTreeTab]);
+
+  const handleChartContextMenuAction = useCallback((actionId: ChartContextMenuActionId) => {
+    const menu = chartContextMenu;
+    if (!menu) return;
+    const chart = chartContextTargetRef.current;
+    const priceValue = menu.priceValue;
+    const priceLabel = menu.priceLabel;
+
+    if (actionId === "reset-view") {
+      if (chart) TimeAxisRegistry.get(chart)?.reset();
+      closeChartContextMenu();
+      return;
+    }
+
+    if (actionId === "copy-price") {
+      closeChartContextMenu();
+      if (priceLabel === null) return;
+      void navigator.clipboard.writeText(priceLabel).then(() => {
+        addNotification({ title: "Prix copié", message: priceLabel, type: "success", iconType: "faCheck" });
+      }).catch(() => {
+        addNotification({ title: "Copie impossible", message: "Le presse-papiers du navigateur est indisponible.", type: "warning", iconType: "faBell" });
+      });
+      return;
+    }
+
+    if (actionId === "table-view") {
+      // Deliberately fail closed: TradingView's Table view is a complete OHLC +
+      // study-output table, not our Data Window. The menu item is disabled, and a
+      // programmatic invocation must never masquerade one feature as the other.
+      closeChartContextMenu();
+      addNotification({
+        title: "Vue tableau indisponible",
+        message: "La vue tableau complète n’est pas encore disponible dans cette version.",
+        type: "info",
+        iconType: "faBell",
+      });
+      return;
+    }
+    if (actionId === "object-tree") {
+      openObjectTreeTab("object_tree");
+      closeChartContextMenu();
+      return;
+    }
+    if (actionId === "chart-template") {
+      dispatch(setModalOpen({ modal: "templates", isOpen: true }));
+      closeChartContextMenu();
+      return;
+    }
+    if (actionId === "settings") {
+      dispatch(setModalOpen({ modal: "settings", isOpen: true }));
+      closeChartContextMenu();
+      return;
+    }
+    if (actionId === "remove-indicators") {
+      dispatch(clearAllIndicators());
+      closeChartContextMenu();
+      addNotification({
+        title: "Indicateurs retirés",
+        message: `${menu.indicatorCount} indicateur${menu.indicatorCount > 1 ? "s" : ""} retiré${menu.indicatorCount > 1 ? "s" : ""} du graphique.`,
+        type: "success",
+        iconType: "faCheck",
+      });
+      return;
+    }
+
+    if (actionId === "paste" || actionId === "lock-time-cursor" || priceValue === null || priceLabel === null) {
+      return;
+    }
+
+    if (actionId === "alert") {
+      const latestClose = menu.referencePriceValue ?? convertedLastCandleClose;
+      const defaultCondition = Number.isFinite(latestClose) && priceValue >= latestClose ? "GREATER_THAN" : "LESS_THAN";
+      dispatch(setPrefilledAlert({ price: priceValue, condition: defaultCondition }));
+      dispatch(setModalOpen({ modal: "alerts", isOpen: true }));
+      closeChartContextMenu();
+      return;
+    }
+
+    if (!brokerState) return;
+    const contextualOrder = actionId === "sell-limit"
+      ? { side: "sell" as const, orderType: "limit" as const }
+      : actionId === "buy-stop"
+        ? { side: "buy" as const, orderType: "stop" as const }
+        : actionId === "buy-limit"
+          ? { side: "buy" as const, orderType: "limit" as const }
+          : actionId === "sell-stop"
+            ? { side: "sell" as const, orderType: "stop" as const }
+            : actionId === "order"
+              ? { side: "buy" as const, orderType: "limit" as const }
+              : null;
+    if (!contextualOrder) return;
+    brokerState.openPrefilledBrokerFlow({
+      symbol: menu.symbol,
+      side: contextualOrder.side,
+      orderType: contextualOrder.orderType,
+      triggerPrice: priceValue,
+      triggerLabel: priceLabel,
+    });
+    closeChartContextMenu();
+  }, [
+    addNotification,
+    brokerState,
+    chartContextMenu,
+    closeChartContextMenu,
+    convertedLastCandleClose,
+    dispatch,
+    openObjectTreeTab,
+  ]);
+
+  const handlePriceScaleContextMenuAction = useCallback((actionId: PriceScaleContextMenuActionId) => {
+    const chart = priceScaleContextTargetRef.current;
+    const targetChartId = priceScaleContextMenu?.chartId ?? null;
+    const applyAppearancePatch = (patch: Partial<typeof chartAppearance>) => {
+      if (targetChartId) {
+        dispatch(commitLayoutChartAppearance({
+          chartId: targetChartId,
+          appearance: { ...chartAppearance, ...patch },
+        }));
+        return;
+      }
+      dispatch(setChartAppearance(patch));
+    };
+
+    if (actionId === "reset-price-scale" || actionId === "auto-scale") {
+      resetPriceScaleAutoBounds(chart);
+      closePriceScaleContextMenu();
+      return;
+    }
+
+    if (actionId === "lock-price-bar-ratio" || actionId === "scale-price-chart-only") {
+      return;
+    }
+
+    if (actionId === "more-settings") {
+      dispatch(setModalOpen({ modal: "settings", isOpen: true }));
+      closePriceScaleContextMenu();
+      return;
+    }
+
+    if (actionId === "invert-scale") {
+      applyAppearancePatch({ priceScaleInverted: chartAppearance.priceScaleInverted !== true });
+    } else if (actionId === "mode-regular") {
+      applyAppearancePatch({ priceScaleMode: "regular" });
+    } else if (actionId === "mode-percent") {
+      applyAppearancePatch({ priceScaleMode: "percent" });
+    } else if (actionId === "mode-indexed-to-100") {
+      applyAppearancePatch({ priceScaleMode: "indexed-to-100" });
+    } else if (actionId === "mode-logarithmic") {
+      applyAppearancePatch({ priceScaleMode: "logarithmic" });
+    } else if (actionId === "move-scale") {
+      applyAppearancePatch({ priceScalePosition: chartAppearance.priceScalePosition === "left" ? "right" : "left" });
+    } else if (actionId === "labels") {
+      applyAppearancePatch({ showPriceScaleLabels: chartAppearance.showPriceScaleLabels === false });
+    } else if (actionId === "lines") {
+      applyAppearancePatch({ showPriceScaleLines: chartAppearance.showPriceScaleLines === false });
+    } else if (actionId === "plus-button") {
+      applyAppearancePatch({ showPriceScalePlusButton: chartAppearance.showPriceScalePlusButton === false });
+    }
+
+    closePriceScaleContextMenu();
+  }, [
+    chartAppearance,
+    closePriceScaleContextMenu,
+    dispatch,
+    priceScaleContextMenu?.chartId,
+  ]);
+
   const selectedDrawing = drawings.find((d: Drawing) => d.id === selectedDrawingId) ?? null;
   const hasToolbarConfig = (type: string | undefined): type is string =>
     !!type && ((toolbarConfig as ToolbarConfig).drawings as Record<string, unknown>)[type] !== undefined;
@@ -1136,7 +1547,10 @@ const ChartUI: React.FC = () => {
     );
     const uniqueRequests = new Map<string, ComparisonMarketRequest>();
     const candidates: ComparisonMarketRequest[] = [
-      ...(comparisonSymbols ?? []).map((symbol) => ({ symbol, market: activeMarketScope, timeframe: "1D" })),
+      ...(comparisonSymbols ?? []).flatMap((comparisonKey) => {
+        const instrument = parseCompareInstrumentKey(comparisonKey, activeMarketScope);
+        return instrument ? [{ symbol: instrument.symbol, market: instrument.market, timeframe: "1D" }] : [];
+      }),
       ...multiChartLayout.charts.map((chart) => {
         const sourceKind = "sourceKind" in chart && chart.sourceKind === "index" ? "index" as const : "equity" as const;
         const sourceId = "sourceId" in chart ? String(chart.sourceId ?? "").trim() : "";
@@ -1190,7 +1604,7 @@ const ChartUI: React.FC = () => {
     loadState: comparisonLoadState,
     currencyByKey: comparisonCurrencyByKey,
     seriesByKey: comparisonSeriesByKey,
-    dataSourceByKey: comparisonDataSourceByKey,
+    requestMoreHistory: requestMoreComparisonHistory,
   } = useComparisonManager(comparisonRequests, dataMode);
 
   // The shared render map is keyed by market+symbol+timeframe. Redux remains the
@@ -1335,6 +1749,7 @@ const ChartUI: React.FC = () => {
       priceVsSmaMetrics: normalizedPriceVsSmaMetrics,
       priceVsEmaMetrics: normalizedPriceVsEmaMetrics,
       multiChartLayout,
+      chartAppearancePreview,
       searchMode: "replace" as const,
       modals: {} as any,
       replay: replayState,
@@ -1353,6 +1768,7 @@ const ChartUI: React.FC = () => {
       normalizedPriceVsSmaMetrics,
       normalizedPriceVsEmaMetrics,
       multiChartLayout,
+      chartAppearancePreview,
       replayState,
     ]
   );
@@ -1360,12 +1776,19 @@ const ChartUI: React.FC = () => {
   const comparisonSeries = useMemo(
     () =>
       (comparisonSymbols || [])
-        .map((symbol, index) => ({
-          symbol,
-          data: comparisonMarketData[createMarketDataCacheKey(activeMarket.ticker, symbol)] ?? [],
-          settings: resolveCompareSeriesSettings(symbol, index, comparisonSettings),
-        }))
-        .filter((entry) => entry.symbol.length > 0 && entry.data.length > 0),
+        .map((comparisonKey, index) => {
+          const instrument = parseCompareInstrumentKey(comparisonKey, activeMarket.ticker);
+          if (!instrument) return null;
+          return {
+            comparisonKey,
+            symbol: instrument.symbol,
+            market: instrument.market,
+            label: getCompareInstrumentLabel(comparisonKey, activeMarket.ticker),
+            data: comparisonMarketData[createMarketDataCacheKey(instrument.market, instrument.symbol)] ?? [],
+            settings: resolveCompareSeriesSettings(comparisonKey, index, comparisonSettings),
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry?.symbol.length && entry.data.length)),
     [activeMarket.ticker, comparisonMarketData, comparisonSettings, comparisonSymbols]
   );
 
@@ -1579,6 +2002,180 @@ const ChartUI: React.FC = () => {
     const rate = activeCellSourceKind === "index" ? 1 : chartState.effectiveRate;
     return convertLayoutSeriesByRate(activeFilteredChartData, rate);
   }, [activeCellSourceKind, activeFilteredChartData, chartState.effectiveRate]);
+
+  useEffect(() => {
+    if (isMultiChartMode || replayState.isActive) {
+      setIsReplaySelectingStart(false);
+    }
+  }, [isMultiChartMode, replayState.isActive]);
+
+  const handleReplayToolbarRequest = useCallback(() => {
+    if (isMultiChartMode) return;
+    if (replayState.isActive) {
+      setIsReplaySelectingStart(false);
+      marketData.stopReplay();
+      return;
+    }
+    if (activeDisplayChartData.length < 2) {
+      addNotification({
+        title: "Replay indisponible",
+        message: "Chargez au moins deux bougies avant de démarrer le Bar Replay.",
+        type: "info",
+        iconType: "faInfoCircle",
+      });
+      return;
+    }
+    dispatch(setModalOpen({ modal: "replay", isOpen: false }));
+    setIsReplaySelectingStart((current) => !current);
+  }, [
+    activeDisplayChartData.length,
+    addNotification,
+    dispatch,
+    isMultiChartMode,
+    marketData,
+    replayState.isActive,
+  ]);
+
+  const handleReplayStartSelectionClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isReplaySelectingStart || replayState.isActive || isMultiChartMode) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button, a, input, select, textarea, [role='button'], [role='menu'], [role='dialog']")) return;
+
+    const chart = refs.chartInstanceRef.current;
+    const chartElement = refs.stockChartRef.current;
+    if (!chart || !chartElement) return;
+    const rect = chartElement.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    const axisCategories = readPrimaryXAxisCategories(chart);
+    const index = resolvePixelPointerIndex(chart, { offsetX, offsetY }, activeDisplayChartData, axisCategories);
+
+    if (index === null || !activeDisplayChartData[index]) {
+      addNotification({
+        title: "Sélection Bar Replay",
+        message: "Cliquez sur une bougie à l'intérieur de la zone de prix.",
+        type: "info",
+        iconType: "faInfoCircle",
+      });
+      return;
+    }
+
+    marketData.startReplay(String(activeDisplayChartData[index].time));
+    setIsReplaySelectingStart(false);
+  }, [
+    activeDisplayChartData,
+    addNotification,
+    isMultiChartMode,
+    isReplaySelectingStart,
+    marketData,
+    refs.chartInstanceRef,
+    refs.stockChartRef,
+    replayState.isActive,
+  ]);
+
+  const captureCurrentChart = useCallback(async () => {
+    const container = refs.fullscreenChartContainerRef.current;
+    if (!container) throw new Error("Chart capture surface is unavailable");
+    return captureChartSnapshot(container);
+  }, [refs.fullscreenChartContainerRef]);
+
+  const handleSnapshotDownload = useCallback(async () => {
+    dispatch(setCapturing(true));
+    try {
+      const blob = await captureCurrentChart();
+      downloadSnapshotBlob(blob, buildSnapshotFilename(activeChartSymbol || chartState.displaySymbolName));
+      addNotification({
+        title: "Capture téléchargée",
+        message: "L'image PNG du graphique a été générée localement.",
+        type: "success",
+        iconType: "faCheck",
+      });
+    } catch (error) {
+      console.error("[TA Snapshot] Download failed", error);
+      addNotification({
+        title: "Capture impossible",
+        message: "Le graphique n'a pas pu être exporté en image.",
+        type: "error",
+        iconType: "faTimesCircle",
+      });
+    } finally {
+      dispatch(setCapturing(false));
+    }
+  }, [activeChartSymbol, addNotification, captureCurrentChart, chartState.displaySymbolName, dispatch]);
+
+  const handleSnapshotCopy = useCallback(async () => {
+    dispatch(setCapturing(true));
+    try {
+      const blob = await captureCurrentChart();
+      await copySnapshotBlob(blob);
+      addNotification({
+        title: "Image copiée",
+        message: "La capture du graphique est dans le presse-papiers.",
+        type: "success",
+        iconType: "faCheck",
+      });
+    } catch (error) {
+      console.error("[TA Snapshot] Clipboard copy failed", error);
+      addNotification({
+        title: "Copie impossible",
+        message: "Ce navigateur n'autorise pas la copie d'image dans le presse-papiers.",
+        type: "error",
+        iconType: "faTimesCircle",
+      });
+    } finally {
+      dispatch(setCapturing(false));
+    }
+  }, [addNotification, captureCurrentChart, dispatch]);
+
+  const handleSnapshotOpen = useCallback(() => {
+    const targetWindow = window.open("about:blank", "_blank");
+    if (targetWindow) targetWindow.opener = null;
+    dispatch(setCapturing(true));
+    void captureCurrentChart()
+      .then((blob) => {
+        openSnapshotBlob(blob, targetWindow);
+        addNotification({
+          title: "Capture ouverte",
+          message: "L'image du graphique a été ouverte dans un nouvel onglet.",
+          type: "success",
+          iconType: "faCheck",
+        });
+      })
+      .catch((error) => {
+        targetWindow?.close();
+        console.error("[TA Snapshot] Open failed", error);
+        addNotification({
+          title: "Ouverture impossible",
+          message: "Le navigateur a bloqué l'onglet ou la capture a échoué.",
+          type: "error",
+          iconType: "faTimesCircle",
+        });
+      })
+      .finally(() => dispatch(setCapturing(false)));
+  }, [addNotification, captureCurrentChart, dispatch]);
+
+  useEffect(() => {
+    const handleSnapshotShortcut = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement && (
+        activeElement.tagName === "INPUT"
+        || activeElement.tagName === "TEXTAREA"
+        || activeElement.tagName === "SELECT"
+        || activeElement.isContentEditable
+      )) return;
+
+      const isS = event.key.toLowerCase() === "s";
+      if (isS && event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey) {
+        event.preventDefault();
+        void handleSnapshotDownload();
+      } else if (isS && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        void handleSnapshotCopy();
+      }
+    };
+    window.addEventListener("keydown", handleSnapshotShortcut);
+    return () => window.removeEventListener("keydown", handleSnapshotShortcut);
+  }, [handleSnapshotCopy, handleSnapshotDownload]);
 
   const activeSecondaryLoadStatus = isMultiChartMode && !isPrimaryActive && activeLayoutSymbol
     ? (mergedLoadState[activeChartCacheKey] ?? "idle")
@@ -1795,6 +2392,7 @@ const ChartUI: React.FC = () => {
     chartRef: refs.chartInstanceRef as React.RefObject<EChartsInstance>,
     chartData: activeDisplayChartData,
     interactionScopeKey: chartCursorInteractionScopeKey,
+    crosshairColor: chartAppearance.crosshairColor,
     isChartLoading: shouldShowPrimaryChartLoader,
     cursorPriceBadgeRef: refs.cursorPriceBadgeRef,
     cursorPriceTextRef: refs.cursorPriceTextRef,
@@ -1809,47 +2407,59 @@ const ChartUI: React.FC = () => {
     <div
       ref={refs.mainContainerRef}
       className={clsx("technical-analysis-root", "technical-analysis-bootstrap-scope", isZenMode && "is-zen-mode")}
+      onContextMenuCapture={handleTechnicalAnalysisContextMenuCapture}
     >
+      {isZenMode && (
+        <div className="gp-zen-mode-hint" role="status">
+          <i className="bi bi-arrows-fullscreen" aria-hidden="true" />
+          <span>Mode Zen · Échap ou Shift+F pour afficher les panneaux</span>
+        </div>
+      )}
       <div className={"gp-global-wrapper"}>
         <div className={clsx("page-content-wrapper", "mt-1")}>
           <MemoizedChartToolbar
             userInitials={chartState.userInitials}
             displaySymbol={chartState.displaySymbolName}
             openTickerSelector={openTickerSelector}
-            stopReplay={marketData.stopReplay}
+            isReplaySelectingStart={isReplaySelectingStart}
+            onReplayRequest={handleReplayToolbarRequest}
             onTimeframeChange={handleTimeframeChange}
             onSaveAnalysis={handleSaveAnalysis}
             onOpenLoadModal={handleOpenLoadModal}
+            onSnapshotDownload={handleSnapshotDownload}
+            onSnapshotCopy={handleSnapshotCopy}
+            onSnapshotOpen={handleSnapshotOpen}
           />
 
           {comparisonSymbols.length > 0 && (
             <div className="gp-compare-strip">
               <span className="gp-compare-strip__label">Compare %</span>
-              {comparisonSymbols.map((symbol, index) => {
-                const compareSettings = resolveCompareSeriesSettings(symbol, index, comparisonSettings);
+              {comparisonSymbols.map((comparisonKey, index) => {
+                const compareSettings = resolveCompareSeriesSettings(comparisonKey, index, comparisonSettings);
                 const compareColor = compareSettings.color;
+                const compareLabel = getCompareInstrumentLabel(comparisonKey, activeMarket.ticker);
                 return (
                   <div
-                    key={symbol}
+                    key={comparisonKey}
                     className="gp-compare-strip__chip"
                     style={{ "--compare-color": compareColor } as React.CSSProperties}
                   >
                     <button
                       type="button"
                       className="gp-compare-strip__open"
-                      onClick={() => openCompareSettings(symbol)}
-                      title={`Modifier ${symbol}`}
+                      onClick={() => openCompareSettings(comparisonKey)}
+                      title={`Modifier ${compareLabel}`}
                     >
                       <span className="gp-compare-strip__swatch" aria-hidden="true" />
-                      <span className="gp-compare-strip__symbol">{symbol}</span>
+                      <span className="gp-compare-strip__symbol">{compareLabel}</span>
                     </button>
                     <button
                       type="button"
                       className="gp-compare-strip__remove"
-                      aria-label={`Retirer ${symbol}`}
+                      aria-label={`Retirer ${compareLabel}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        dispatch(removeComparisonSymbol(symbol));
+                        dispatch(removeComparisonSymbol(comparisonKey));
                       }}
                     >
                       <i className="bi bi-x" aria-hidden="true" />
@@ -1887,8 +2497,19 @@ const ChartUI: React.FC = () => {
                 <div
                   ref={refs.fullscreenChartContainerRef}
                   className={clsx("gp-chart-container", isZenMode && "zen-mode")}
+                  data-chart-context-menu-surface="true"
+                  data-replay-selecting={isReplaySelectingStart ? "true" : "false"}
+                  onClickCapture={!isMultiChartMode ? handleReplayStartSelectionClick : undefined}
+                  onContextMenuCapture={!isMultiChartMode ? handlePrimaryChartContextMenu : undefined}
                   style={{ position: "relative" }}
                 >
+                  {isReplaySelectingStart && !replayState.isActive && (
+                    <div className="gp-replay-selection-banner" role="status">
+                      <i className="bi bi-crosshair" aria-hidden="true" />
+                      <span>Sélectionnez la bougie de départ · Échap pour annuler</span>
+                    </div>
+                  )}
+
                   {replayState.isActive && (
                     <div
                       className={clsx("replay-badge", showReplayFullText ? "is-full" : "is-collapsed")}
@@ -1903,19 +2524,49 @@ const ChartUI: React.FC = () => {
                     </div>
                   )}
 
+                  {!isMultiChartMode && replayState.isActive && (
+                    <ReplayControls
+                      isPaused={replayState.isPaused}
+                      speed={replayState.speed}
+                      currentIndex={replayState.currentIndex}
+                      totalCandles={replayState.totalCandles}
+                      currentTime={String(activeDisplayChartData[activeDisplayChartData.length - 1]?.time ?? "")}
+                      onTogglePause={marketData.toggleReplayPause}
+                      onStepForward={() => marketData.stepReplay(1)}
+                      onSpeedChange={(speedMs) => dispatch(setReplaySpeed(speedMs))}
+                      onJumpToRealtime={marketData.jumpReplayToRealtime}
+                      onExit={marketData.stopReplay}
+                    />
+                  )}
+
                   <MultiChartLayoutGrid
                     layout={multiChartLayout}
                     marketData={displayMarketData}
                     dataLoadState={mergedLoadState}
-                    dataSourceByKey={comparisonDataSourceByKey}
                     dataMode={dataMode}
                     activeChartInstanceRef={refs.chartInstanceRef}
                     chartAppearance={chartAppearance}
                     uiState={uiStateProxy}
                     hiddenObjectIds={hiddenObjectIds}
                     onActivateChart={handleActivateLayoutChart}
+                    onChartContextMenu={handleMultiChartContextMenu}
                     onRequestMarketSelection={handleRequestLayoutMarketSelection}
                     onRequestTickerSelection={handleRequestLayoutTickerSelection}
+                    onHistoryBoundaryRequest={(cell, direction) => {
+                      if (cell.chartId === multiChartLayout.activeChartId) {
+                        marketData.requestMoreHistory(direction);
+                        return;
+                      }
+                      const sourceKind = "sourceKind" in cell && cell.sourceKind === "index" ? "index" as const : "equity" as const;
+                      const sourceId = "sourceId" in cell ? String(cell.sourceId ?? "").trim() : "";
+                      requestMoreComparisonHistory({
+                        symbol: cell.symbol,
+                        market: cell.exchange,
+                        timeframe: cell.interval,
+                        sourceKind,
+                        sourceId,
+                      }, direction);
+                    }}
                   >
                     <div
                       data-interaction-scope={chartInteractionScopeKey}
@@ -1973,7 +2624,7 @@ const ChartUI: React.FC = () => {
                           advancedIndicators,
                           indicatorPeriods,
                           bollingerSettings,
-                          chartAppearance,
+                          chartAppearance: effectivePrimaryChartAppearance,
                           uiState: uiStateProxy,
                           displaySymbol: activeChartSymbol,
                           displayLogoUrl: activeChartLogoUrl,
@@ -1999,6 +2650,18 @@ const ChartUI: React.FC = () => {
                         cursor={activeCursorRendererProps}
                       />
                       )}
+
+                      <VolumeStudyLegend
+                        chartInstanceRef={refs.chartInstanceRef as React.RefObject<EChartsInstance | null>}
+                        attached={volumeStudyLifecycle.attached}
+                        visible={volumeStudyLifecycle.studyVisible}
+                        outputEnabled={volumeStudyLifecycle.outputEnabled}
+                        symbol={activeChartSymbol || chartState.displaySymbolName}
+                        onToggleVisibility={handleToggleVolumeStudyVisibility}
+                        onConfigure={handleConfigureVolumeStudy}
+                        onRemove={handleRemoveVolumeStudy}
+                        onOpenObjectTree={handleOpenVolumeObjectTree}
+                      />
 
                       <canvas
                         ref={refs.cursorCanvasRef}
@@ -2220,6 +2883,24 @@ const ChartUI: React.FC = () => {
           </svg>
         </button>
       </div>
+
+      <ChartContextMenu
+        state={chartContextMenu}
+        canTrade={Boolean(brokerState)}
+        onAction={handleChartContextMenuAction}
+        onClose={closeChartContextMenu}
+      />
+      <PriceScaleContextMenu
+        state={priceScaleContextMenu}
+        mode={chartAppearance.priceScaleMode ?? "regular"}
+        position={chartAppearance.priceScalePosition === "left" ? "left" : "right"}
+        inverted={chartAppearance.priceScaleInverted === true}
+        labelsVisible={chartAppearance.showPriceScaleLabels !== false}
+        linesVisible={chartAppearance.showPriceScaleLines !== false}
+        plusButtonVisible={chartAppearance.showPriceScalePlusButton !== false}
+        onAction={handlePriceScaleContextMenuAction}
+        onClose={closePriceScaleContextMenu}
+      />
 
       {shouldMountModalOrchestrator && (
         <MemoizedModalOrchestrator

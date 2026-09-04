@@ -7,20 +7,31 @@ import { useDispatch,
   useSelector } from "react-redux";
 import {
   setTimeframe,
+  setTimeRange,
   setChartConfig,
   setAdvancedIndicators,
+  setIndicatorPeriods,
+  setBollingerSettings,
+  setChartAppearance,
   hydrateMultiChartLayout,
   setModalOpen,
+  setActiveMarket,
+  clearComparisonSymbols,
+  addComparisonSymbol,
+  setComparisonSeriesSettings,
 } from "../store/technicalAnalysisSlice";
 import {
   selectChartConfig,
   selectAdvancedIndicators,
+  selectIndicatorPeriods,
+  selectBollingerSettings,
+  selectChartAppearance,
   selectUiState,
 } from "../store/selectors";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import type { SavedAnalysis } from "../config/persistence/savedAnalysisTypes";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { idbGet, idbSet } from "./drawing/drawingPersistence";
+import { idbGetStrict, idbSetStrict } from "./drawing/drawingPersistence";
 
 /**
  * [TENOR 2026 SRE] useTechnicalAnalysisActions
@@ -29,7 +40,7 @@ import { idbGet, idbSet } from "./drawing/drawingPersistence";
  * when saving massive 10k+ candle analysis objects.
  */
 export const useTechnicalAnalysisActions = (
-  setChartData?: (data: ChartDataPoint[]) => void,
+  _setChartData?: (data: ChartDataPoint[]) => void,
   setSavedAnalysesList?: (list: SavedAnalysis[]) => void
 ) => {
   const dispatch = useDispatch();
@@ -37,6 +48,9 @@ export const useTechnicalAnalysisActions = (
 
   const chartConfig = useSelector(selectChartConfig);
   const advancedIndicators = useSelector(selectAdvancedIndicators);
+  const indicatorPeriods = useSelector(selectIndicatorPeriods);
+  const bollingerSettings = useSelector(selectBollingerSettings);
+  const chartAppearance = useSelector(selectChartAppearance);
   const uiState = useSelector(selectUiState);
 
   const handleTimeframeChange = useCallback((tf: string) => {
@@ -45,36 +59,52 @@ export const useTechnicalAnalysisActions = (
 
   const handleSaveAnalysis = useCallback(async () => {
     try {
-      const analysisConfig = {
-        symbol: chartConfig.symbol,
-        timeframe: chartConfig.timeframe,
-        chartType: chartConfig.chartType,
-        indicators: chartConfig.indicators,
-        advancedIndicators: advancedIndicators,
-        multiChartLayout: uiState.multiChartLayout,
-        timeRange: uiState.selectedTimeRange,
-        savedAt: new Date().toISOString(),
-      };
-
-      const savedAnalyses: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
-
-      // XSS Shield: Sanitize the symbol before using it in the name
+      const savedAt = new Date().toISOString();
       const DOMPurify = (await import("dompurify")).default;
       const safeSymbol = DOMPurify.sanitize(chartConfig.symbol, { ALLOWED_TAGS: [] }).trim() || "UNKNOWN";
+      const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? `analysis_${crypto.randomUUID()}`
+        : `analysis_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
-      // Append new analysis
-      savedAnalyses.push({
-        id: `analysis_${Date.now()}`,
-        name: `${safeSymbol} - ${new Date().toLocaleDateString()}`,
-        config: analysisConfig,
-      });
+      const analysis: SavedAnalysis = {
+        id,
+        name: `${safeSymbol} - ${new Date(savedAt).toLocaleString()}`,
+        config: {
+          version: 2,
+          symbol: chartConfig.symbol,
+          timeframe: chartConfig.timeframe,
+          chartType: chartConfig.chartType,
+          indicators: chartConfig.indicators,
+          advancedIndicators,
+          indicatorPeriods,
+          bollingerSettings,
+          chartAppearance,
+          multiChartLayout: uiState.multiChartLayout,
+          comparisonSymbols: [...uiState.comparisonSymbols],
+          comparisonSettings: uiState.comparisonSettings,
+          activeMarket: uiState.activeMarket,
+          timeRange: uiState.selectedTimeRange,
+          savedAt,
+        },
+      };
 
-      // Save back to IndexedDB (Off-Main-Thread)
-      await idbSet("savedAnalyses", savedAnalyses);
+      const current = await idbGetStrict<SavedAnalysis[]>("savedAnalyses") ?? [];
+      const next = [analysis, ...current.filter((item) => item.id !== id)].slice(0, 100);
+      await idbSetStrict("savedAnalyses", next);
+
+      // Durability/read-after-write contract: never display success until the
+      // committed IndexedDB transaction can be read back with the same identity.
+      const persisted = await idbGetStrict<SavedAnalysis[]>("savedAnalyses");
+      if (!persisted?.some((item) => item.id === id && item.config.savedAt === savedAt)) {
+        throw new Error("IndexedDB durability verification failed");
+      }
+      setSavedAnalysesList?.([...persisted].sort(
+        (a, b) => new Date(b.config.savedAt).getTime() - new Date(a.config.savedAt).getTime(),
+      ));
 
       addNotification({
         title: "Analyse sauvegardée",
-        message: `Configuration de ${safeSymbol} enregistrée avec succès`,
+        message: `Configuration complète de ${safeSymbol} enregistrée dans IndexedDB`,
         type: "success",
         iconType: "faSave",
         duration: 3000,
@@ -83,16 +113,29 @@ export const useTechnicalAnalysisActions = (
       console.error("[SRE] Error saving analysis to IndexedDB:", error);
       addNotification({
         title: "Erreur de sauvegarde",
-        message: "Impossible de sauvegarder l'analyse. Espace insuffisant ou erreur système.",
+        message: "La sauvegarde n'a pas été confirmée par IndexedDB. Aucun faux succès n'a été affiché.",
         type: "error",
         iconType: "faTimesCircle",
       });
     }
-  }, [chartConfig, advancedIndicators, uiState.selectedTimeRange, uiState.multiChartLayout, addNotification]);
+  }, [
+    addNotification,
+    advancedIndicators,
+    bollingerSettings,
+    chartAppearance,
+    chartConfig,
+    indicatorPeriods,
+    setSavedAnalysesList,
+    uiState.activeMarket,
+    uiState.comparisonSettings,
+    uiState.comparisonSymbols,
+    uiState.multiChartLayout,
+    uiState.selectedTimeRange,
+  ]);
 
   const handleOpenLoadModal = useCallback(async () => {
     try {
-      const saved: SavedAnalysis[] = await idbGet<SavedAnalysis[]>("savedAnalyses") || [];
+      const saved: SavedAnalysis[] = await idbGetStrict<SavedAnalysis[]>("savedAnalyses") || [];
 
       // Sort by date descending
       saved.sort(
@@ -118,13 +161,20 @@ export const useTechnicalAnalysisActions = (
   const handleLoadAnalysis = useCallback((analysis: SavedAnalysis) => {
     const config = analysis.config;
     const savedAdvancedIndicators = config.advancedIndicators ?? {};
-    
+
+    // Restore workspace market first because changing market intentionally clears
+    // symbol/layout bindings; the saved chart state is then applied deterministically.
+    if (config.activeMarket) {
+      dispatch(setActiveMarket(config.activeMarket));
+    }
+
     dispatch(setChartConfig({
       symbol: config.symbol,
       timeframe: config.timeframe,
       chartType: normalizeChartType(config.chartType),
       indicators: {
         ...config.indicators,
+        volumeVisible: config.indicators.volumeVisible ?? true,
         activeSma: config.indicators.activeSma ?? [],
         activeEma: config.indicators.activeEma ?? [],
         activeWma: config.indicators.activeWma ?? [],
@@ -272,8 +322,26 @@ export const useTechnicalAnalysisActions = (
       bbPercentB: savedAdvancedIndicators.bbPercentB ?? false,
     }));
 
+    if (config.indicatorPeriods) {
+      dispatch(setIndicatorPeriods(config.indicatorPeriods));
+    }
+    if (config.bollingerSettings) {
+      dispatch(setBollingerSettings(config.bollingerSettings));
+    }
+    if (config.chartAppearance) {
+      dispatch(setChartAppearance(config.chartAppearance));
+    }
     if (config.timeRange) {
-      dispatch(setTimeframe(config.timeRange));
+      dispatch(setTimeRange(config.timeRange));
+    }
+
+    dispatch(clearComparisonSymbols());
+    for (const comparisonSymbol of config.comparisonSymbols ?? []) {
+      dispatch(addComparisonSymbol(comparisonSymbol));
+      const savedSettings = config.comparisonSettings?.[comparisonSymbol];
+      if (savedSettings) {
+        dispatch(setComparisonSeriesSettings({ symbol: comparisonSymbol, settings: savedSettings }));
+      }
     }
 
     if (config.multiChartLayout) {

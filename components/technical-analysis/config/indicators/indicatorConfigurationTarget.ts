@@ -9,7 +9,7 @@ import {
 } from "./advancedMovingAverageSeries";
 import type { BackendIndicatorItem, CompositeIndicatorSpec } from "./indicatorModalRegistry";
 
-export type IndicatorConfigurationTargetKind = "sma" | "ema" | "rsi" | "bollinger" | "advanced";
+export type IndicatorConfigurationTargetKind = "sma" | "ema" | "rsi" | "bollinger" | "volume" | "advanced";
 
 export interface IndicatorConfigurationTarget {
   id: string;
@@ -42,6 +42,13 @@ export const createMovingAverageConfigurationTarget = (
   kind: family,
   period,
   seriesId: `${family}-${period}`,
+});
+
+export const createVolumeConfigurationTarget = (): IndicatorConfigurationTarget => ({
+  id: "volume",
+  label: "Volume",
+  kind: "volume",
+  seriesId: "volume-bar",
 });
 
 export const createAdvancedMovingAverageConfigurationTarget = (
@@ -91,6 +98,10 @@ export const resolveIndicatorConfigurationTargetFromSeries = (
   const rawId = typeof seriesId === "string" ? seriesId : "";
   const normalizedId = stripSeriesSuffix(rawId);
   const normalizedName = typeof seriesName === "string" ? seriesName.trim().toLowerCase() : "";
+
+  if (normalizedId === "volume-bar" || normalizedId === "volume" || normalizedName === "volume") {
+    return createVolumeConfigurationTarget();
+  }
 
   const movingAverageMatch = /^(sma|ema)-(\d+)$/.exec(normalizedId);
   if (movingAverageMatch) {

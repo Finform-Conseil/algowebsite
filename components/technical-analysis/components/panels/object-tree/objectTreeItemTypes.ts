@@ -5,4 +5,5 @@ export type ObjectTreeItem = {
   visible: boolean;
   color: string;
   removable: boolean;
+  comparisonKey?: string;
 };

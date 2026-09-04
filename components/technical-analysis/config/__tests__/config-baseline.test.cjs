@@ -361,10 +361,10 @@ test("multiChartLayout preserves layout counts, market scope, and caller-supplie
   assert.equal(reconciled.charts.length, 8);
   assert.deepEqual(reconciled.sync, {
     symbol: false,
-    interval: true,
+    interval: false,
     crosshair: false,
-    time: true,
-    dateRange: true,
+    time: false,
+    dateRange: false,
   });
 
   const sectorPreset = pureMultiChartLayouts.MULTI_CHART_PRESETS.find((preset) => preset.id === "sector_compare");

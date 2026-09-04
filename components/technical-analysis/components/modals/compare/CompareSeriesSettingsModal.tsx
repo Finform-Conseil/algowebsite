@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { BaseModal } from "../../common/primitives/BaseModal";
 import {
   createDefaultCompareSeriesSettings,
+  getCompareInstrumentLabel,
   normalizeCompareSeriesSettings,
   normalizeCompareSymbol,
   type CompareSeriesLineStyle,
@@ -116,7 +117,7 @@ export const CompareSeriesSettingsModal: React.FC<CompareSeriesSettingsModalProp
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`${normalizedSymbol} · ${primarySymbol || "BRVM"}`}
+      title={`${getCompareInstrumentLabel(normalizedSymbol)} · vs ${primarySymbol || "graphique principal"}`}
       maxWidth="438px"
       className="tv-compare-settings"
       footer={footer}

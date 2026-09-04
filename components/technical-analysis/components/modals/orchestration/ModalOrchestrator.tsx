@@ -209,7 +209,7 @@ export interface ModalOrchestratorProps {
   ) => Promise<string | null>;
 
   // Data & Simulation State
-  startReplay: () => void;
+  startReplay: (startTime?: string | null) => void;
   setChartData: React.Dispatch<React.SetStateAction<ChartDataPoint[]>>;
   onRevealObjectIds?: (objectIds: readonly IndicatorObjectId[]) => void;
   onConfigureIndicator?: (target: IndicatorConfigurationTarget) => void;

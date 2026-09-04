@@ -288,6 +288,25 @@
       "readTime": "5 min"
     }
   },
+  "technicalAnalysis": {
+    "chartTypes": {
+      "typeTitle": "Type de graphique : {label}",
+      "typeAria": "Type de graphique : {label}",
+      "panelTypeTitle": "Type de graphique du panneau : {label}",
+      "panelTypeAria": "Type de graphique du panneau : {label}",
+      "indexLineOnly": "Les indices sont rendus sous forme de ligne",
+      "syntheticBadge": "Synthétique",
+      "syntheticTooltip": "Prix construits ; ils ne correspondent pas directement à des prix de marché exécutables.",
+      "approximateBadge": "Approx.",
+      "approximateTooltip": "Approximation fondée sur les données OHLCV disponibles, sans données tick/intrabar complètes.",
+      "groups": {
+        "price": "Barres de prix",
+        "line": "Lignes et plages",
+        "volume": "Volume et profil de marché",
+        "synthetic": "Construction synthétique des prix"
+      }
+    }
+  },
   "common": {
     "loading": "Chargement...",
     "error": "Une erreur est survenue",
