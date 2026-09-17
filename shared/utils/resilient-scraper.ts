@@ -4,7 +4,12 @@
 
 import { Agent, fetch } from 'undici';
 import { getCircuitBreaker } from './circuit-breaker';
-import { redisClient } from '@/core/infra/security/rate/redis-rate-limiter';
+import { redisClient } from '@/core/infra/cache/redis-client';
+import {
+  RedisResilienceGate,
+  resolveRedisBudgetMs,
+  withRedisLatencyBudget,
+} from '@/app/api/proxy/redis-resilience';
 
 // ============================================================================
 // 🔒 SECURITY CONFIGURATION (SCAR-117 FIX)
@@ -61,42 +66,60 @@ interface ScraperOptions {
   retries?: number;
   cacheTtl?: number;
   staleTtl?: number;
+  /**
+   * Optional fetch used only by stale-while-revalidate work that outlives the
+   * HTTP request. Route handlers should use this when their foreground fetch
+   * is bound to request.signal; background refresh must never inherit a signal
+   * whose lifetime ends as soon as the response is returned.
+   */
+  backgroundFetchFn?: () => Promise<string>;
 }
 
 // ============================================================================
-// 🛡️ CIRCUIT BREAKER REDIS
+// 🛡️ REDIS RESILIENCE GATE
+// A latency-budget breach is degradation, not proof of a broken connection.
 // ============================================================================
-let redisIsDown = false;
-let redisDownSince = 0;
-const REDIS_COOLDOWN = 30000;
+const REDIS_OPERATION_TIMEOUT_MS = resolveRedisBudgetMs(
+  process.env.SCRAPER_REDIS_OPERATION_BUDGET_MS,
+  500,
+);
+const redisGate = new RedisResilienceGate({
+  latencyBreachThreshold: 3,
+  latencyCooldownMs: 15_000,
+  failureCooldownMs: 30_000,
+});
 
-function checkRedisStatus() {
-  if (redisIsDown && Date.now() - redisDownSince > REDIS_COOLDOWN) {
-    redisIsDown = false;
-  }
-  return !redisIsDown && redisClient;
+function canUseRedis() {
+  return Boolean(redisClient) && redisGate.canAttempt();
 }
 
-async function withRedisTimeout<T>(promise: Promise<T>, ms: number = 3000): Promise<T | null> {
-  let timeoutId: NodeJS.Timeout;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('REDIS_TIMEOUT')), ms);
-  });
-
+async function runRedisOperation<T>(operation: Promise<T>, operationName: string): Promise<T | null> {
   try {
-    return await Promise.race([promise, timeoutPromise]);
-  } catch (err: unknown) {
-    if ((err as Error).message === 'REDIS_TIMEOUT') {
-      if (!redisIsDown) {
-        console.error(`[ResilientScraper] Redis Circuit breaker activated. Bypass 30s.`);
-        redisIsDown = true;
-        redisDownSince = Date.now();
+    const result = await withRedisLatencyBudget(operation, {
+      component: 'scraper',
+      operation: operationName,
+      budgetMs: REDIS_OPERATION_TIMEOUT_MS,
+    });
+    redisGate.recordSuccess();
+    return result;
+  } catch (error) {
+    const classification = redisGate.recordFailure(error);
+    if (classification.kind === 'latency') {
+      if (classification.opened) {
+        console.warn(
+          `[REDIS_DEGRADED] ResilientScraper : budget de latence dépassé à répétition. ` +
+          `L1/SWR prioritaire pendant ${classification.bypassMs}ms.`,
+        );
       }
+      return null;
     }
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[CIRCUIT BREAKER] ResilientScraper : panne Redis confirmée (${message}). ` +
+      `Bypass distant pendant ${classification.bypassMs}ms.`,
+    );
     return null;
-  } finally {
-    // @ts-expect-error - Nettoyage obligatoire du timer
-    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
@@ -127,7 +150,11 @@ export async function fetchWithResilience(
   fetchFn: () => Promise<string>,
   options: ScraperOptions = {}
 ): Promise<{ data: string; status: 'HIT_L1' | 'HIT' | 'MISS' | 'STALE' | 'FALLBACK' }> {
-  const { cacheTtl = 600, staleTtl = 86400 } = options;
+  const {
+    cacheTtl = 600,
+    staleTtl = 86400,
+    backgroundFetchFn = fetchFn,
+  } = options;
   const fullKey = `scraper:v1:${cacheKey}`;
   const now = Date.now();
 
@@ -139,9 +166,10 @@ export async function fetchWithResilience(
 
   // L2: Redis (Distributed)
   let staleData: string | null = null;
-  if (checkRedisStatus()) {
-    const cached = await withRedisTimeout(
-      redisClient!.get<{ data: string; timestamp: number }>(fullKey)
+  if (canUseRedis()) {
+    const cached = await runRedisOperation(
+      redisClient!.get<{ data: string; timestamp: number }>(fullKey),
+      'GET',
     );
 
     if (cached) {
@@ -160,12 +188,13 @@ export async function fetchWithResilience(
   if (staleData && !inFlightBackgroundRequests.has(fullKey)) {
     const refreshPromise = (async () => {
       try {
-        const fresh = await fetchFn();
+        const fresh = await backgroundFetchFn();
         setL1CacheSafe(fullKey, fresh, Date.now());
 
-        if (checkRedisStatus()) {
-          await withRedisTimeout(
-            redisClient!.set(fullKey, { data: fresh, timestamp: Date.now() }, { ex: staleTtl })
+        if (canUseRedis()) {
+          await runRedisOperation(
+            redisClient!.set(fullKey, { data: fresh, timestamp: Date.now() }, { ex: staleTtl }),
+            'SET',
           );
         }
         console.warn(`[ResilientScraper] Background refresh SUCCESS for ${cacheKey}`);
@@ -185,9 +214,10 @@ export async function fetchWithResilience(
     const freshData = await fetchFn();
     setL1CacheSafe(fullKey, freshData, now);
 
-    if (checkRedisStatus()) {
-      await withRedisTimeout(
-        redisClient!.set(fullKey, { data: freshData, timestamp: now }, { ex: staleTtl })
+    if (canUseRedis()) {
+      await runRedisOperation(
+        redisClient!.set(fullKey, { data: freshData, timestamp: now }, { ex: staleTtl }),
+        'SET',
       );
     }
     return { data: freshData, status: 'MISS' };
@@ -244,9 +274,10 @@ async function _executeFetch(
 
     const controller = new AbortController();
     const releaseExternalAbort = linkExternalAbort(signal, controller);
-    // [FIX] AbortController comme filet de sécurité UNIQUEMENT (Diagnostic Confirmé)
-    // headersTimeout undici gère le vrai timeout — l'abort est au-delà (+15s)
-    const timeoutId = setTimeout(() => controller.abort(new Error('ABORT_SAFETY_NET')), timeout + 15000);
+    // `timeout` is the public end-to-end budget of this attempt. Undici's
+    // connect/headers/body timeouts remain lower-level guards, but must never
+    // extend the caller-visible latency beyond this contract.
+    const timeoutId = setTimeout(() => controller.abort(new Error('BRVM_FETCH_TIMEOUT')), timeout);
 
     try {
       const response = await fetch(url, {
@@ -282,7 +313,7 @@ async function _executeFetch(
       
       // Undici encapsule ses erreurs dans e.cause pour les HeadersTimeout/BodyTimeout (Diagnostic Confirmé)
       const undiciCode = err.cause?.code ?? err.code ?? '';
-      const isTimeout = err.name === 'AbortError' || undiciCode === 'UND_ERR_HEADERS_TIMEOUT' || undiciCode === 'UND_ERR_BODY_TIMEOUT' || undiciCode === 'UND_ERR_CONNECT_TIMEOUT' || err.message === 'ABORT_SAFETY_NET';
+      const isTimeout = err.name === 'AbortError' || undiciCode === 'UND_ERR_HEADERS_TIMEOUT' || undiciCode === 'UND_ERR_BODY_TIMEOUT' || undiciCode === 'UND_ERR_CONNECT_TIMEOUT' || err.message === 'BRVM_FETCH_TIMEOUT';
       const errKind = signal?.aborted ? 'EXTERNAL_ABORT' : isTimeout ? 'TIMEOUT' : undiciCode || err.name || 'UNKNOWN';
 
       console.error(`${tag} attempt=${attempt}/${maxRetries} kind=${errKind} url=${url} err=${err.message || String(e)}`);

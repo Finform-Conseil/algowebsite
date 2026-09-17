@@ -71,7 +71,12 @@ export const TickerSelectorProvider: React.FC<TickerSelectorProviderProps> = ({
 }) => {
   const normalizedInitialTicker = initialTicker?.trim().toUpperCase() || null;
   const [selectedTicker, setSelectedTicker] = useState<BRVMSecurity | null>(null);
-  const [preferredTicker, setPreferredTicker] = useState<string | null>(normalizedInitialTicker);
+  // Cold-start invariant: market bootstrap must never wait for IndexedDB.
+  // Start with a deterministic renderable symbol immediately; asynchronous
+  // persistence hydration may replace it once the user's preference is known.
+  const [preferredTicker, setPreferredTicker] = useState<string>(
+    normalizedInitialTicker ?? DEFAULT_PRIMARY_TICKER,
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingMarket, setPendingMarket] = useState<PendingMarketSelection | null>(null);
   const [pendingLayoutChartId, setPendingLayoutChartId] = useState<string | null>(null);

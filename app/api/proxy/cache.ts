@@ -8,8 +8,13 @@
 // Seules les stratégies compatibles Edge (Redis, in-memory, none) sont conservées.
 // ================================================================================
 
-import { Redis } from '@upstash/redis';
+import { redisClient, redisConfigurationState } from '@/core/infra/cache/redis-client';
 import { proxyConfig } from './config';
+import {
+  RedisResilienceGate,
+  resolveRedisBudgetMs,
+  withRedisLatencyBudget,
+} from './redis-resilience';
 
 // --- Définition de l'Interface (le Contrat) ---
 export interface CachedResponse {
@@ -28,28 +33,16 @@ export interface ICacheAdapter {
   set: (key: string, response: Response, ttlSeconds: number) => Promise<void>;
 }
 
-const REDIS_OPERATION_BUDGET_MS = Math.max(
-  50,
-  Number.parseInt(process.env.PROXY_REDIS_CACHE_BUDGET_MS || '100', 10) || 100,
+const REDIS_OPERATION_BUDGET_MS = resolveRedisBudgetMs(
+  process.env.PROXY_REDIS_CACHE_BUDGET_MS,
+  500,
 );
 const MAX_IN_MEMORY_CACHE_ENTRIES = 2_000;
-
-const withRedisBudget = async <T>(operation: Promise<T>, label: string): Promise<T> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error(`Redis cache ${label} exceeded ${REDIS_OPERATION_BUDGET_MS}ms latency budget`)),
-          REDIS_OPERATION_BUDGET_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-};
+const redisGate = new RedisResilienceGate({
+  latencyBreachThreshold: 3,
+  latencyCooldownMs: 15_000,
+  failureCooldownMs: 60_000,
+});
 
 /**
  * [FIX #3 — DRY] Construit une entrée de cache canonique à partir d'une réponse.
@@ -115,40 +108,34 @@ const inMemoryAdapter: ICacheAdapter = {
 };
 
 // ============================================================================
-// 🛡️ CIRCUIT BREAKER REDIS (ANTI-LATENCE / ANTI-SKELETON INFINI)
+// 🛡️ REDIS RESILIENCE GATE
+// Latency degradation and genuine connectivity failures are different states.
 // ============================================================================
-let redisIsDown = false;
-let redisDownSince = 0;
-const REDIS_COOLDOWN = 60000; // 1 minute de pénalité avant de réessayer
-
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-// [TENOR 2026 FIX] Detect placeholders to avoid ConnectTimeoutError (10s latency)
-const isPlaceholder = redisUrl?.includes('votre-instance') || redisToken?.includes('votre_token');
-
-const redisClient = (redisUrl && redisToken && !isPlaceholder)
-  ? Redis.fromEnv()
-  : null;
-
-if (isPlaceholder) {
-  console.warn('[CACHE_INIT] Placeholders détectés dans .env pour Redis. Cache désactivé.');
+if (redisConfigurationState === 'placeholder') {
+  console.warn('[CACHE_INIT] Placeholders détectés dans .env pour Redis. Cache distant désactivé.');
 }
 
-function checkRedisStatus() {
-  if (redisIsDown && Date.now() - redisDownSince > REDIS_COOLDOWN) {
-    redisIsDown = false;
-    console.log("[CIRCUIT BREAKER] Cache : Tentative de reconnexion à Redis...");
-  }
-  return !redisIsDown && redisClient;
+function canUseRedis() {
+  return Boolean(redisClient) && redisGate.canAttempt();
 }
 
-function markRedisDown(error: any) {
-  if (!redisIsDown) {
-    console.error("[CIRCUIT BREAKER] Cache : Connexion Redis échouée. Bypass activé pour 60s.", error);
-    redisIsDown = true;
-    redisDownSince = Date.now();
+function recordRedisFailure(error: unknown) {
+  const classification = redisGate.recordFailure(error);
+  if (classification.kind === 'latency') {
+    if (classification.opened) {
+      console.warn(
+        `[REDIS_DEGRADED] Cache : budget de latence dépassé à répétition. ` +
+        `L1 mémoire prioritaire pendant ${classification.bypassMs}ms.`,
+      );
+    }
+    return;
   }
+
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(
+    `[CIRCUIT BREAKER] Cache : panne Redis confirmée (${message}). ` +
+    `Bypass distant pendant ${classification.bypassMs}ms.`,
+  );
 }
 
 // --- Implémentation 3 : Adaptateur Redis (Pour la Production sur l'Edge) ---
@@ -157,18 +144,19 @@ const redisAdapter: ICacheAdapter = {
     // Redis mode is two-level: L1 memory must be checked before any remote RTT.
     const localEntry = await inMemoryAdapter.get(key);
     if (localEntry) return localEntry;
-    if (!checkRedisStatus()) return null;
+    if (!canUseRedis()) return null;
 
     try {
-      const remoteEntry = await withRedisBudget(
+      const remoteEntry = await withRedisLatencyBudget(
         redisClient!.get<CachedResponse>(key),
-        'GET',
+        { component: 'cache', operation: 'GET', budgetMs: REDIS_OPERATION_BUDGET_MS },
       );
+      redisGate.recordSuccess();
       if (!remoteEntry || Date.now() >= remoteEntry.expiresAt) return null;
       setMemoryEntry(key, remoteEntry);
       return remoteEntry;
     } catch (error) {
-      markRedisDown(error);
+      recordRedisFailure(error);
       return null;
     }
   },
@@ -179,15 +167,16 @@ const redisAdapter: ICacheAdapter = {
     // never become a multi-second blocker on the trading data path.
     const dataToCache = await buildCacheEntry(response, ttlSeconds);
     setMemoryEntry(key, dataToCache);
-    if (!checkRedisStatus()) return;
+    if (!canUseRedis()) return;
 
     try {
-      await withRedisBudget(
+      await withRedisLatencyBudget(
         redisClient!.set(key, dataToCache, { ex: ttlSeconds }),
-        'SET',
+        { component: 'cache', operation: 'SET', budgetMs: REDIS_OPERATION_BUDGET_MS },
       );
+      redisGate.recordSuccess();
     } catch (error) {
-      markRedisDown(error);
+      recordRedisFailure(error);
     }
   }
 };
@@ -201,9 +190,12 @@ if (proxyConfig.cache.strategy === 'none') {
   cacheAdapter = inMemoryAdapter;
 } else if (proxyConfig.cache.strategy === 'redis' && redisClient) {
   cacheAdapter = redisAdapter;
+} else if (proxyConfig.cache.strategy === 'redis') {
+  // Local development deliberately disables the remote transport by default;
+  // keep the L1 cache semantics instead of falling all the way back to no cache.
+  cacheAdapter = inMemoryAdapter;
 } else {
-  // Fallback sécurisé si Redis est configuré mais que les variables d'env sont manquantes
-  console.warn(`[CACHE_INIT] Stratégie de cache '${proxyConfig.cache.strategy}' non disponible. Fallback sur 'none'.`);
+  console.warn(`[CACHE_INIT] Stratégie de cache '${proxyConfig.cache.strategy}' inconnue. Fallback sur 'none'.`);
   cacheAdapter = noOpCacheAdapter;
 }
 

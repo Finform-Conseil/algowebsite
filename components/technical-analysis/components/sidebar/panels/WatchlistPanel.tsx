@@ -150,45 +150,47 @@ const IndicesSkeletonRows = () => (
   </div>
 );
 
-const IndicesPanel = ({ data, error, isLoading, isOpen }: { data: Record<string, BRVMIndexData> | null; error: string | null; isLoading: boolean; isOpen: boolean }) => (
-  <div className={clsx("gp-indices-panel", isOpen && "gp-indices-panel-open")}>
-    <div className="gp-indices-table">
-      <div className="gp-indices-table-header">
-        <span className="col-name">Name</span>
-        <span className="col-last">Last</span>
-        <span className="col-chg-pct">Chg%</span>
-      </div>
-      <div className="gp-indices-table-section-title">
-        <i className="bi bi-chevron-down me-1" style={{ fontSize: "0.8em" }} /> INDICES
-      </div>
-      {isLoading ? (
-        <IndicesSkeletonRows />
-      ) : error ? (
-        <div className="text-warning text-center py-2 px-1" style={{ fontSize: "10px" }}><i className="bi bi-exclamation-triangle-fill me-1" /> Données non vérifiées ({error})</div>
-      ) : !data ? (
-        <IndicesSkeletonRows />
-      ) : Object.keys(data).length === 0 ? (
-        <div className="text-warning text-center py-2 px-1" style={{ fontSize: "10px" }}><i className="bi bi-exclamation-triangle-fill me-1" /> Données non vérifiées (indisponibles)</div>
-      ) : (
-        INDEX_ROWS.map((indexRow) => {
-          const indexData = data[indexRow.key];
-          if (!indexData) return null;
-          const isPositive = !indexData.variation.startsWith("-");
-          return (
-            <div key={indexRow.key} className="gp-indices-row">
-              <div className="gp-indices-cell-name">
-                <span className={clsx("gp-indices-icon", indexRow.iconClass)}>{indexRow.icon}</span>
-                <span className="gp-indices-ticker" title={indexData.name || indexRow.label}>{indexRow.label}</span>
+const IndicesPanel = ({ data, error, isLoading, isOpen }: { data: Record<string, BRVMIndexData> | null; error: string | null; isLoading: boolean; isOpen: boolean }) => {
+  const shouldShowSkeleton = isOpen && (isLoading || (!error && data === null));
+
+  return (
+    <div className={clsx("gp-indices-panel", isOpen && "gp-indices-panel-open")} aria-hidden={!isOpen}>
+      <div className="gp-indices-table">
+        <div className="gp-indices-table-header">
+          <span className="col-name">Name</span>
+          <span className="col-last">Last</span>
+          <span className="col-chg-pct">Chg%</span>
+        </div>
+        <div className="gp-indices-table-section-title">
+          <i className="bi bi-chevron-down me-1" style={{ fontSize: "0.8em" }} /> INDICES
+        </div>
+        {shouldShowSkeleton ? (
+          <IndicesSkeletonRows />
+        ) : error ? (
+          <div className="text-warning text-center py-2 px-1" style={{ fontSize: "10px" }}><i className="bi bi-exclamation-triangle-fill me-1" /> Données non vérifiées ({error})</div>
+        ) : data && Object.keys(data).length === 0 ? (
+          <div className="text-warning text-center py-2 px-1" style={{ fontSize: "10px" }}><i className="bi bi-exclamation-triangle-fill me-1" /> Données non vérifiées (indisponibles)</div>
+        ) : data ? (
+          INDEX_ROWS.map((indexRow) => {
+            const indexData = data[indexRow.key];
+            if (!indexData) return null;
+            const isPositive = !indexData.variation.startsWith("-");
+            return (
+              <div key={indexRow.key} className="gp-indices-row">
+                <div className="gp-indices-cell-name">
+                  <span className={clsx("gp-indices-icon", indexRow.iconClass)}>{indexRow.icon}</span>
+                  <span className="gp-indices-ticker" title={indexData.name || indexRow.label}>{indexRow.label}</span>
+                </div>
+                <span className="gp-indices-cell-last">{indexData.price.toFixed(2).replace(".", ",")}</span>
+                <span className={clsx("gp-indices-cell-chg-pct", isPositive ? "text-success" : "text-danger")}>{indexData.variation}</span>
               </div>
-              <span className="gp-indices-cell-last">{indexData.price.toFixed(2).replace(".", ",")}</span>
-              <span className={clsx("gp-indices-cell-chg-pct", isPositive ? "text-success" : "text-danger")}>{indexData.variation}</span>
-            </div>
-          );
-        })
-      )}
+            );
+          })
+        ) : null}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const WatchlistPanel = React.memo(({
   auditTrail,

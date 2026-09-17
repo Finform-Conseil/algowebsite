@@ -89,7 +89,7 @@ const buildPeerChartState = (
   };
 };
 
-export const FullPeerChart: React.FC<FullPeerChartProps> = ({
+const FullPeerChartEngine: React.FC<FullPeerChartProps> = ({
   cell,
   data,
   loadStatus,
@@ -473,4 +473,114 @@ export const FullPeerChart: React.FC<FullPeerChartProps> = ({
       </div>
     </div>
   );
+};
+
+const DeferredPeerChartShell: React.FC<FullPeerChartProps> = ({
+  cell,
+  loadStatus,
+  dataMode,
+  headerActions,
+  isActive = false,
+  onActivate,
+  onHeaderClick,
+  metaDensity = "comfortable",
+}) => {
+  const hasSelectedSymbol = cell.symbol.trim().length > 0;
+  const displaySymbol = hasSelectedSymbol ? cell.symbol : "Choisir un titre";
+  const isCompactMeta = metaDensity === "dense";
+  const hasTerminalNoData = hasSelectedSymbol
+    && (dataMode !== "real" || loadStatus === "empty" || loadStatus === "failed");
+  const shouldShowLoader = hasSelectedSymbol && dataMode === "real" && !hasTerminalNoData;
+  const intradayIntervalLabel: Partial<Record<string, string>> = {
+    "1m": "1 min",
+    "5m": "5 min",
+    "15m": "15 min",
+    "30m": "30 min",
+    "1H": "1 h",
+    "4H": "4 h",
+  };
+  const formattedIntradayInterval = intradayIntervalLabel[cell.interval];
+  const isIntradayEmpty = loadStatus === "empty" && Boolean(formattedIntradayInterval);
+  const emptyLabel = loadStatus === "failed"
+    ? "Impossible de charger les cotations"
+    : isIntradayEmpty
+      ? "Historique intraday indisponible"
+      : "Historique de cotation indisponible";
+  const emptyDetail = isIntradayEmpty
+    ? `Aucune bougie ${formattedIntradayInterval} n’est disponible pour ${displaySymbol}.`
+    : `${displaySymbol} · ${cell.interval}`;
+
+  const handleHeaderClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    onHeaderClick();
+  };
+
+  return (
+    <div
+      className={`gp-peer-chart${isActive ? " is-active" : ""}${isCompactMeta ? " is-meta-compact" : ""}`}
+      data-chart-activity={isActive ? "active" : "inactive"}
+      data-chart-meta-density={isCompactMeta ? "compact" : "stacked"}
+      onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        if (hasSelectedSymbol) onActivate();
+        else onHeaderClick();
+      }}
+      aria-label={hasSelectedSymbol
+        ? `Activer le graphique secondaire de ${displaySymbol}`
+        : `Choisir un titre · ${cell.exchange || "N/D"}`}
+    >
+      <div className="gp-peer-chart__header" data-panel-drag-surface="true">
+        <span
+          className="gp-peer-chart__symbol-area gp-multi-chart-cell--interactive-header"
+          onClick={handleHeaderClick}
+          role="button"
+          tabIndex={0}
+          aria-label={`Modifier le symbole ${displaySymbol}`}
+        >
+          <strong className="gp-peer-chart__symbol">{displaySymbol}</strong>
+          <span className="gp-peer-chart__interval">{cell.exchange || "N/D"}</span>
+          <span className="gp-peer-chart__interval">{cell.interval}</span>
+          {isActive && <em className="gp-peer-chart__active-badge">Active</em>}
+          <i className="bi bi-search gp-peer-chart__search-icon" aria-hidden="true" />
+        </span>
+        {headerActions}
+      </div>
+
+      <div className="gp-peer-chart__canvas" data-interaction-scope={`peer:${cell.chartId}`}>
+        <div className="gp-chart-world-map gp-peer-chart__world-map" aria-hidden="true" />
+        {shouldShowLoader && (
+          <div className="gp-peer-chart__loading" aria-live="polite">
+            <span className="gp-mini-data-spinner" aria-hidden="true" />
+            <strong>Chargement des cotations</strong>
+            <em>{displaySymbol}</em>
+          </div>
+        )}
+        {!hasSelectedSymbol && (
+          <div className="gp-peer-chart__empty-state" aria-live="polite">
+            <i className="bi bi-plus-circle" aria-hidden="true" />
+            <strong>Choisir un titre</strong>
+            <em>{cell.exchange}</em>
+          </div>
+        )}
+        {hasTerminalNoData && (
+          <div className="gp-peer-chart__empty-state" aria-live="polite">
+            <i className="bi bi-exclamation-triangle" aria-hidden="true" />
+            <strong>{emptyLabel}</strong>
+            <em>{emptyDetail}</em>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const FullPeerChart: React.FC<FullPeerChartProps> = (props) => {
+  const hasRenderableCandles = getRenderableOhlcvSeries(props.data).length > 0;
+  return hasRenderableCandles
+    ? <FullPeerChartEngine {...props} />
+    : <DeferredPeerChartShell {...props} />;
 };

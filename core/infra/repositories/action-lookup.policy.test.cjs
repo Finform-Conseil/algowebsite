@@ -7,6 +7,7 @@ const ts = require("typescript");
 
 const projectRoot = path.resolve(__dirname, "../../..");
 const policyPath = path.join(projectRoot, "core/infra/repositories/action-lookup.policy.ts");
+const repositoryImplPath = path.join(projectRoot, "core/infra/repositories/action.repository.impl.ts");
 
 const transpileTypeScript = (filename) => ts.transpileModule(fs.readFileSync(filename, "utf8"), {
   compilerOptions: {
@@ -23,6 +24,7 @@ require.extensions[".ts"] = function loadTypeScript(module, filename) {
 
 const {
   actionMatchesLookup,
+  buildActionLookupPlan,
   buildActionLookupQuery,
   buildActionLookupRequestKey,
   buildActionMarketCatalogQuery,
@@ -42,6 +44,27 @@ test("market-aware action lookup uses the lightweight index before detail hydrat
   });
   assert.equal(query.view_type, "screener");
   assert.equal(buildActionLookupRequestKey(criteria), "actions:lookup:market:CSE:ticker:BOA:isin:");
+});
+
+test("lookup plan traverses a known market catalog exactly once", () => {
+  const scoped = normalizeActionLookupCriteria({
+    ticker: "BOA",
+    marketTicker: "CSE",
+    isin: "MA0000012437",
+  });
+  assert.deepEqual(buildActionLookupPlan(scoped), { strategy: "market-catalog" });
+
+  const unscopedWithIsin = normalizeActionLookupCriteria({ ticker: "BOA", isin: "MA0000012437" });
+  assert.deepEqual(buildActionLookupPlan(unscopedWithIsin), {
+    strategy: "indexed",
+    fields: ["isin", "ticker"],
+  });
+
+  const unscopedTickerOnly = normalizeActionLookupCriteria({ ticker: "BOA" });
+  assert.deepEqual(buildActionLookupPlan(unscopedTickerOnly), {
+    strategy: "indexed",
+    fields: ["ticker"],
+  });
 });
 
 test("market catalog fallback stays bounded and omits fragile ticker filters", () => {
@@ -74,4 +97,12 @@ test("action matching is strict on ticker, market and optional ISIN", () => {
   assert.equal(actionMatchesLookup(action, normalizeActionLookupCriteria({ ticker: "BOA", marketTicker: "BRVM" })), false);
   assert.equal(actionMatchesLookup(action, normalizeActionLookupCriteria({ ticker: "BOA_NG", marketTicker: "CSE" })), false);
   assert.equal(actionMatchesLookup(action, normalizeActionLookupCriteria({ ticker: "BOA", marketTicker: "CSE", isin: "WRONG" })), false);
+});
+
+test("repository never caches hook-bound RTK request promises in module scope", () => {
+  const source = fs.readFileSync(repositoryImplPath, "utf8");
+  assert.equal(source.includes("actionRequestsInFlight"), false);
+  assert.equal(source.includes("getSharedActionRequest"), false);
+  assert.match(source, /triggerGetAllActions\(params, preferCacheValue\)\.unwrap\(\)/);
+  assert.match(source, /triggerGetActionById\(\{ id: candidateId \}, true\)\.unwrap\(\)/);
 });

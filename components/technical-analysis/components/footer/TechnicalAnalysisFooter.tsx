@@ -7,6 +7,7 @@ import {
   getBrvmMarketStatus,
   type BrvmMarketStatus,
 } from "../../utils/brvmMarketSession";
+import { CHART_DATE_RANGES, decodeCustomDateRange } from "../../config/market/dateRangeSeries";
 
 interface TechnicalAnalysisFooterProps {
   chartFooterRef: React.Ref<HTMLDivElement>;
@@ -21,7 +22,7 @@ interface FooterClockState {
   marketStatus: BrvmMarketStatus;
 }
 
-const TIME_RANGES = ["1J", "5J", "1M", "3M", "6M", "YTD", "1Y", "5Y", "Tout"];
+const TIME_RANGES = CHART_DATE_RANGES;
 
 const createInitialFooterClockState = (): FooterClockState => ({
   time: "",
@@ -56,6 +57,11 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
     return () => window.clearInterval(timer);
   }, []);
 
+  const customRange = decodeCustomDateRange(selectedTimeRange);
+  const datePickerLabel = customRange
+    ? `Plage personnalisée du ${customRange.start} au ${customRange.end}`
+    : "Plage de dates";
+
   return (
     <div ref={chartFooterRef} className="gp-chart-footer">
       <div className="gp-time-selector" aria-label="Plages temporelles">
@@ -80,9 +86,10 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
         })}
         <button
           type="button"
-          className={clsx("gp-toolbar-btn", "hover-lift", isHistoricalDataUnavailable && "disabled")}
-          title="Plage de dates"
-          aria-label="Ouvrir la selection de plage de dates"
+          className={clsx("gp-toolbar-btn", "hover-lift", customRange && "active", isHistoricalDataUnavailable && "disabled")}
+          title={datePickerLabel}
+          aria-label={customRange ? datePickerLabel : "Ouvrir la sélection de plage de dates"}
+          aria-pressed={Boolean(customRange)}
           aria-disabled={isHistoricalDataUnavailable}
           disabled={isHistoricalDataUnavailable}
           onClick={() => {

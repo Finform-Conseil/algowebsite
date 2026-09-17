@@ -6,6 +6,6 @@ export default proxy;
 
 export const config = {
   matcher: [
-    '/((?!api|_next|_vercel|.*\\..*).*)',
+    '/((?!api|_next|_vercel|engine-v2-benchmark|.*\\..*).*)',
   ],
 };

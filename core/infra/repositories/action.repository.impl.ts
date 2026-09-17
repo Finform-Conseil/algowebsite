@@ -20,32 +20,11 @@ import {
 } from './action-identity.persistence';
 import {
   actionMatchesLookup,
+  buildActionLookupPlan,
   buildActionLookupQuery,
-  buildActionLookupRequestKey,
   buildActionMarketCatalogQuery,
   normalizeActionLookupCriteria,
 } from './action-lookup.policy';
-
-const actionRequestsInFlight = new Map<string, Promise<unknown>>();
-
-const serializeActionParams = (params: ActionQueryParams): string =>
-  JSON.stringify(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "").sort(([left], [right]) => left.localeCompare(right)));
-
-const getSharedActionRequest = <T>(
-  key: string,
-  factory: () => Promise<T>
-): Promise<T> => {
-  const existing = actionRequestsInFlight.get(key);
-  if (existing) return existing as Promise<T>;
-
-  const request = factory();
-  actionRequestsInFlight.set(key, request);
-  const clearRequest = () => {
-    if (actionRequestsInFlight.get(key) === request) actionRequestsInFlight.delete(key);
-  };
-  void request.then(clearRequest, clearRequest);
-  return request;
-};
 
 export const useActionRepository = (): IActionRepository => {
   const [
@@ -151,12 +130,12 @@ export const useActionRepository = (): IActionRepository => {
       params: ActionQueryParams = {},
       options: ActionRequestOptions = {},
     ): Promise<PaginatedResponse<ActionEntity>> => {
-      const key = `actions:list:${serializeActionParams(params)}`;
       const preferCacheValue = options.forceRefetch !== true;
-      const response = await getSharedActionRequest(
-        key,
-        () => triggerGetAllActions(params, preferCacheValue).unwrap(),
-      );
+      // RTK Query owns request deduplication at store level. Keeping a second
+      // module-global promise cache here is unsafe because the promise factory
+      // closes over lazy-query triggers that belong to a specific React hook
+      // instance and can outlive that instance after remounts/hot reloads.
+      const response = await triggerGetAllActions(params, preferCacheValue).unwrap();
       writePersistedActionIdentities(response.data ?? []);
       return response;
     },
@@ -178,10 +157,11 @@ export const useActionRepository = (): IActionRepository => {
     setIsLoadingActionByTickerQuery(true);
     setIsFetchingActionByTickerQuery(true);
     setActionByTickerQueryError(undefined);
-    const key = buildActionLookupRequestKey(normalizedCriteria);
-
     try {
-      const action = await getSharedActionRequest(key, async () => {
+      // Do not retain hook-bound RTK lazy-query promises in module scope.
+      // RTK Query already deduplicates identical endpoint+arg requests in the
+      // Redux cache while keeping lifecycle ownership attached to the store.
+      const action = await (async () => {
         const indexCriteria = {
           ticker: normalizedCriteria.ticker,
           ...(normalizedCriteria.marketTicker ? { marketTicker: normalizedCriteria.marketTicker } : {}),
@@ -230,59 +210,38 @@ export const useActionRepository = (): IActionRepository => {
         };
 
         const resolveIndexedLookup = async (field: "isin" | "ticker"): Promise<ActionEntity | null> => {
-          let filteredLookupFailed = false;
-          try {
-            const result = await triggerGetAllActions(
-              buildActionLookupQuery(normalizedCriteria, field),
-              true,
-            ).unwrap();
-            if (!normalizedCriteria.marketTicker && result.count > 1) {
-              throw new Error(
-                `Ambiguous API action ticker ${normalizedCriteria.ticker}: ${result.count} matches; marketTicker is required.`,
-              );
-            }
-            const hydratedCandidate = await hydrateIndexedAction(findIndexedCandidate(result.data ?? []));
-            if (hydratedCandidate) return hydratedCandidate;
-          } catch (error) {
-            if (!normalizedCriteria.marketTicker) throw error;
-            filteredLookupFailed = true;
-            console.warn("[ActionRepository] Filtered action lookup failed; trying bounded market catalog fallback", {
-              market: normalizedCriteria.marketTicker,
-              ticker: normalizedCriteria.ticker,
-              field,
-            });
+          const result = await triggerGetAllActions(
+            buildActionLookupQuery(normalizedCriteria, field),
+            true,
+          ).unwrap();
+          if (result.count > 1) {
+            throw new Error(
+              `Ambiguous API action ticker ${normalizedCriteria.ticker}: ${result.count} matches; marketTicker is required.`,
+            );
           }
-
-          if (normalizedCriteria.marketTicker) {
-            try {
-              const catalogCandidate = await resolveFromMarketCatalog();
-              if (catalogCandidate) return catalogCandidate;
-            } catch (error) {
-              if (filteredLookupFailed) {
-                console.warn("[ActionRepository] Market catalog fallback also failed", {
-                  market: normalizedCriteria.marketTicker,
-                  ticker: normalizedCriteria.ticker,
-                });
-              }
-              throw error;
-            }
-          }
-          return null;
+          return hydrateIndexedAction(findIndexedCandidate(result.data ?? []));
         };
 
-        if (normalizedCriteria.isin) {
-          const resolvedByIsin = await resolveIndexedLookup("isin");
-          if (resolvedByIsin) return resolvedByIsin;
+        const lookupPlan = buildActionLookupPlan(normalizedCriteria);
+        if (lookupPlan.strategy === "market-catalog") {
+          // A scoped lookup must traverse the market catalog at most once. The catalog
+          // already carries ticker/market identity and hydration verifies optional ISIN.
+          const resolvedAction = await resolveFromMarketCatalog();
+          if (!resolvedAction) {
+            throw new Error(
+              `API action not found for ${normalizedCriteria.ticker} on ${normalizedCriteria.marketTicker}.`,
+            );
+          }
+          return resolvedAction;
         }
 
-        const resolvedAction = await resolveIndexedLookup("ticker");
-        if (!resolvedAction) {
-          throw new Error(
-            `API action not found for ${normalizedCriteria.ticker}${normalizedCriteria.marketTicker ? ` on ${normalizedCriteria.marketTicker}` : ""}.`,
-          );
+        for (const field of lookupPlan.fields) {
+          const resolvedAction = await resolveIndexedLookup(field);
+          if (resolvedAction) return resolvedAction;
         }
-        return resolvedAction;
-      });
+
+        throw new Error(`API action not found for ${normalizedCriteria.ticker}.`);
+      })();
       writePersistedActionIdentity(action);
       if (actionByTickerRequestIdRef.current === requestId) {
         setCurrentActionByTickerQueryResult(action);

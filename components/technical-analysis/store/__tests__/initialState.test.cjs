@@ -187,7 +187,7 @@ test("settings and appearance defaults remain stable", () => {
     scaleTextColor: "#cbd5e1",
     scaleTextSize: 12,
     scaleLineColor: "#334155",
-    marginTopPercent: 10,
+    marginTopPercent: 4,
     marginBottomPercent: 8,
     rightOffsetBars: 10,
     upColor: "#00da3c",

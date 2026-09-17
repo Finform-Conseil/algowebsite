@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import {
   BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
-  BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
   fetchBrvmPage,
   fetchWithResilience,
 } from '@/shared/utils/resilient-scraper';
@@ -21,20 +20,34 @@ interface BRVMNewsItem {
 }
 
 const FALLBACK_CACHE_SECONDS = 60;
+// News is auxiliary UI data: on a true cold start we prefer a bounded fallback
+// over blocking the technical-analysis workspace on a slow Drupal origin.
+const BRVM_NEWS_COLD_FETCH_TIMEOUT_MS = 8_000;
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const { data: html, status } = await fetchWithResilience(
       'brvm_news_list',
+      // Cache hydration is server-owned work with its own strict latency budget.
+      // It must not inherit one browser request's lifetime: a tab navigation,
+      // React cancellation or client disconnect is not an origin failure and
+      // must never abort a healthy BRVM fetch shared by subsequent callers.
       () => fetchBrvmPage(
         'https://www.brvm.org/fr/mediacentre/actualites',
-        BRVM_ROUTE_PAGE_FETCH_TIMEOUT_MS,
+        BRVM_NEWS_COLD_FETCH_TIMEOUT_MS,
         BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
-        request.signal,
       ),
       {
         cacheTtl: 3600, // 1 hour freshness
-        staleTtl: 86400 // 24 hours survival
+        staleTtl: 86400, // 24 hours survival
+        // SWR continues after this route has already returned. Binding that
+        // refresh to request.signal turns a healthy background refresh into an
+        // EXTERNAL_ABORT as soon as the request lifecycle ends.
+        backgroundFetchFn: () => fetchBrvmPage(
+          'https://www.brvm.org/fr/mediacentre/actualites',
+          BRVM_NEWS_COLD_FETCH_TIMEOUT_MS,
+          BRVM_ROUTE_PAGE_FETCH_MAX_RETRIES,
+        ),
       }
     );
 

@@ -42,6 +42,13 @@ export const makeStore = () => {
           ignoredPaths: [
             'technicalAnalysis.marketData',
             'technicalAnalysis.marketSnapshots',
+            'api.queries',
+            'api.mutations',
+          ],
+          ignoredActionPaths: [
+            'meta.arg',
+            'meta.baseQueryMeta',
+            'payload',
           ],
           warnAfter: 128,
         },
@@ -49,9 +56,11 @@ export const makeStore = () => {
           ignoredPaths: [
             'technicalAnalysis.marketData',
             'technicalAnalysis.marketSnapshots',
+            'api.queries',
+            'api.mutations',
           ],
           warnAfter: 128,
-        },
+        }
       }).concat(api.middleware),
     devTools: process.env.NODE_ENV !== 'production',
   });

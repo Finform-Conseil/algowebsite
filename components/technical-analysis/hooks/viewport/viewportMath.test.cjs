@@ -17,6 +17,11 @@ const {
   computePriceAxisDragViewport,
   computePriceAxisPan,
   computeTradingViewWheelZoomViewport,
+  exponentialApproach,
+  filterPanVelocity,
+  decayPanVelocity,
+  TV_ZOOM_EASE_TAU_MS,
+  TV_PAN_MOMENTUM_TAU_MS,
 } = loadedModule.exports;
 
 const nearlyEqual = (actual, expected, epsilon = 1e-9) => {
@@ -79,7 +84,7 @@ test("vertical chart pan is bounded to 80 percent of the scaled price range", ()
   }), -32);
 });
 
-test("multi-chart time-wheel helper uses the same bounded TradingView law as single chart", () => {
+test("multi-chart time-wheel helper uses exponential bar-spacing zoom while preserving the right edge", () => {
   const result = computeTradingViewWheelZoomViewport({
     startIdx: 20,
     endIdx: 99,
@@ -89,5 +94,24 @@ test("multi-chart time-wheel helper uses the same bounded TradingView law as sin
     maxFutureBars: 0,
   });
   assert.equal(result.endIdx, 99);
-  assert.ok(result.startIdx > 20, "zoom-in must reduce visible span while preserving the right edge");
+  assert.ok(result.startIdx >= 40, "a full wheel notch must produce a deliberate zoom-in, not a weak linear step");
+});
+
+test("viewport easing is frame-rate independent and converges without overshoot", () => {
+  const oneFrame = exponentialApproach(0, 100, 16, TV_ZOOM_EASE_TAU_MS);
+  const twoHalfFrames = exponentialApproach(
+    exponentialApproach(0, 100, 8, TV_ZOOM_EASE_TAU_MS),
+    100,
+    8,
+    TV_ZOOM_EASE_TAU_MS,
+  );
+  nearlyEqual(oneFrame, twoHalfFrames, 1e-10);
+  assert.ok(oneFrame > 0 && oneFrame < 100);
+});
+
+test("pan velocity filter rejects pointer noise and momentum decays exponentially", () => {
+  const filtered = filterPanVelocity(0.5, 1);
+  nearlyEqual(filtered, 0.7);
+  const decayed = decayPanVelocity(filtered, TV_PAN_MOMENTUM_TAU_MS, TV_PAN_MOMENTUM_TAU_MS);
+  nearlyEqual(decayed, filtered / Math.E, 1e-10);
 });

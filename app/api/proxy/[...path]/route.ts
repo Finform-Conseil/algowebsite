@@ -13,7 +13,7 @@
 // VERSION : HARMONISÉE 5.0 (SRE CIRCUIT BREAKER ENFORCEMENT)
 // ================================================================================
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { proxyConfig } from '../config';
 import { createSecureHeaders, isRequestOriginAllowed, isValidApiIdentifier, isValidTargetUrl, arePathSegmentsSafe, sanitizePath } from '../security';
 import { checkRateLimit } from '../rate-limiter';
@@ -124,22 +124,7 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
   }
 
   const isCacheable = method === 'GET' && applicableTtl > 0;
-  if (isCacheable) {
-    const cacheKey = `proxy-cache:${requestPath}`;
-    const cached = await getCachedResponse(cacheKey);
-    if (cached) {
-      // [OBSERVABILITÉ #4] Cache HIT enregistré au point exact de résolution.
-      proxyMetrics.recordCache(true);
-      const headers = new Headers(cached.headers);
-      headers.set('X-Cache-Status', `HIT (${proxyConfig.cache.strategy})`);
-      return new NextResponse(cached.body, {
-        status: cached.status,
-        headers: headers,
-      });
-    }
-    // [OBSERVABILITÉ #4] MISS : le chemin descend vers l'upstream réel.
-    proxyMetrics.recordCache(false);
-  }
+  const cacheKey = isCacheable ? `proxy-cache:${requestPath}` : null;
 
   const rawPath = params.path.join('/');
   const sanitizedPath = sanitizePath(rawPath);
@@ -179,10 +164,31 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
     return NextResponse.json({ error: 'Identifiant API invalide', requestId }, { status: 400 });
   }
 
-  const { isRateLimited, headers: rateLimitHeaders } = await checkRateLimit(`${userIdForRateLimit}:${apiIdentifier}`);
+  // Cache lookup and distributed rate limiting are independent remote Redis operations.
+  // Start both together so a cold MISS pays at most the slower Redis RTT instead of
+  // serially accumulating both latency budgets. Preserve the historical fast-path for
+  // cache HITs: cached data returns as soon as available while the limiter finishes in
+  // the background; only a MISS waits for the already-running rate-limit decision.
+  const cacheLookupPromise = cacheKey
+    ? getCachedResponse(cacheKey)
+    : Promise.resolve(null);
+  const rateLimitPromise = checkRateLimit(`${userIdForRateLimit}:${apiIdentifier}`);
+  const cached = await cacheLookupPromise;
 
+  if (cached) {
+    proxyMetrics.recordCache(true);
+    void rateLimitPromise;
+    const headers = new Headers(cached.headers);
+    headers.set('X-Cache-Status', `HIT (${proxyConfig.cache.strategy})`);
+    return new NextResponse(cached.body, {
+      status: cached.status,
+      headers,
+    });
+  }
+  if (cacheKey) proxyMetrics.recordCache(false);
+
+  const { isRateLimited, headers: rateLimitHeaders } = await rateLimitPromise;
   if (isRateLimited) {
-    // [TENOR 2026 FIX] Cast explicite pour résoudre l'erreur TS 2322
     return NextResponse.json(
       { error: 'Trop de requêtes', requestId },
       { status: 429, headers: rateLimitHeaders as Record<string, string> }
@@ -317,15 +323,24 @@ async function handleRequestCore(method: string, request: NextRequest, params: R
     }
 
     const isOk = result.status >= 200 && result.status < 300;
-    if (method === 'GET' && isOk && applicableTtl > 0) {
-      const cacheKey = `proxy-cache:${requestPath}`;
-      // [FIX #8] Await obligatoire : garantit la persistance du cache sur Edge.
-      // Le buffer est rejouable — on reconstruit une Response fraîche pour le set.
-      await setCachedResponse(
-        cacheKey,
-        new Response(result.bodyBuffer, { status: result.status, headers: result.headers }),
-        applicableTtl,
-      );
+    if (method === 'GET' && isOk && cacheKey) {
+      // Next.js `after()` keeps post-response work within the request lifecycle without
+      // adding the remote Redis SET RTT to user-visible TTFB. The cache adapter still
+      // commits L1 before its bounded L2 persistence when this callback executes.
+      const cacheResponse = new Response(result.bodyBuffer, {
+        status: result.status,
+        headers: result.headers,
+      });
+      after(async () => {
+        try {
+          await setCachedResponse(cacheKey, cacheResponse, applicableTtl);
+        } catch (error) {
+          logger.warn('Persistance cache post-réponse échouée.', {
+            ...logContext,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
     }
 
     const responseHeaders = createSecureHeaders(new Headers(result.headers));

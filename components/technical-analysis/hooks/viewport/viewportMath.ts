@@ -10,12 +10,23 @@ export type ZoomRangeSnapshot = {
 
 export const TV_Y_AXIS_WIDTH = 78;
 export const TV_X_AXIS_HEIGHT = 28;
-export const TV_ZOOM_VELOCITY = 0.001;
+export const TV_ZOOM_VELOCITY = 0.004;
+export const TV_PRICE_WHEEL_VELOCITY = 0.001;
+export const TV_PRICE_DRAG_VELOCITY = 0.004;
+export const TV_TIME_AXIS_DRAG_ZOOM_VELOCITY = 0.004;
+export const TV_ZOOM_EASE_TAU_MS = 70;
+export const TV_PAN_MOMENTUM_TAU_MS = 110;
+export const TV_SCROLL_EASE_TAU_MS = 130;
+export const TV_AUTOSCALE_EASE_TAU_MS = 80;
+export const TV_PAN_VELOCITY_BLEND = 0.4;
+export const TV_PAN_FLING_MIN_VELOCITY_PX_PER_MS = 0.04;
+export const TV_PAN_FLING_MAX_AGE_MS = 60;
+export const TV_PAN_STOP_VELOCITY_PX_PER_MS = 0.006;
 export const TV_AUTO_SCALE_PADDING = 0.08;
 export const TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING = 0.22;
 export const TV_MIN_VISIBLE_BARS = 10;
 export const TV_CURSOR_INFLUENCE = 1.0;
-export const TV_PAN_DRIFT_DAMPING = 0.85;
+export const TV_PAN_DRIFT_DAMPING = 1.0;
 export const TV_INITIAL_VISIBLE_BARS = 100;
 export const TV_RESET_VISIBLE_BARS = 120;
 export const TV_MAX_FUTURE_BARS = 80;
@@ -30,6 +41,44 @@ const TV_WHEEL_DELTA_CAP_PX = 80;
 
 export const lerp = (start: number, end: number, weight: number): number =>
   start + ((end - start) * weight);
+
+/** Frame-rate independent exponential approach used by viewport motion. */
+export const exponentialApproach = (
+  current: number,
+  target: number,
+  deltaMs: number,
+  tauMs: number,
+): number => {
+  if (!Number.isFinite(current) || !Number.isFinite(target)) return target;
+  const safeTau = Math.max(Number.EPSILON, Math.abs(tauMs));
+  const safeDelta = Math.max(0, Math.min(64, Number.isFinite(deltaMs) ? deltaMs : 0));
+  const alpha = 1 - Math.exp(-safeDelta / safeTau);
+  return current + ((target - current) * alpha);
+};
+
+/** Low-pass pointer velocity: stable enough for a fling without making drag laggy. */
+export const filterPanVelocity = (
+  previousVelocity: number,
+  instantaneousVelocity: number,
+  blend = TV_PAN_VELOCITY_BLEND,
+): number => {
+  const safePrevious = Number.isFinite(previousVelocity) ? previousVelocity : 0;
+  const safeInstantaneous = Number.isFinite(instantaneousVelocity) ? instantaneousVelocity : 0;
+  const safeBlend = Math.max(0, Math.min(1, blend));
+  return (safePrevious * (1 - safeBlend)) + (safeInstantaneous * safeBlend);
+};
+
+/** Exponential momentum decay, independent of refresh rate. */
+export const decayPanVelocity = (
+  velocity: number,
+  deltaMs: number,
+  tauMs = TV_PAN_MOMENTUM_TAU_MS,
+): number => {
+  if (!Number.isFinite(velocity)) return 0;
+  const safeTau = Math.max(Number.EPSILON, Math.abs(tauMs));
+  const safeDelta = Math.max(0, Math.min(64, Number.isFinite(deltaMs) ? deltaMs : 0));
+  return velocity * Math.exp(-safeDelta / safeTau);
+};
 
 export const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
@@ -259,7 +308,7 @@ export const computePriceAxisWheelViewport = ({
   const currentRange = safeBaseRange * safeScale;
   const oldPriceAtCursor = center + safePan + currentRange * (0.5 - ratio);
   const wheelStep = Math.sign(wheelDeltaY) * Math.min(1, Math.abs(wheelDeltaY) / TV_WHEEL_DELTA_CAP_PX);
-  const nextScale = clamp(safeScale * Math.exp(wheelStep * TV_ZOOM_VELOCITY * TV_WHEEL_DELTA_CAP_PX), 0.1, 5);
+  const nextScale = clamp(safeScale * Math.exp(wheelStep * TV_PRICE_WHEEL_VELOCITY * TV_WHEEL_DELTA_CAP_PX), 0.1, 5);
   const nextRange = safeBaseRange * nextScale;
   const shiftedCursorRatio = clamp(ratio + ((15 * wheelStep) / Math.max(1, gridHeight)), 0, 1);
 
@@ -292,7 +341,7 @@ export const computePriceAxisDragViewport = ({
   const safeInitialPan = Number.isFinite(initialYPan) ? initialYPan : 0;
   const initialRange = safeBaseRange * safeInitialScale;
   const anchorPrice = center + safeInitialPan + initialRange * (0.5 - clamp(startRatio, 0, 1));
-  const nextScale = clamp(safeInitialScale * Math.exp(deltaY * 0.01), 0.1, 5);
+  const nextScale = clamp(safeInitialScale * Math.exp(deltaY * TV_PRICE_DRAG_VELOCITY), 0.1, 5);
   const nextRange = safeBaseRange * nextScale;
   return {
     yScale: nextScale,
@@ -345,9 +394,10 @@ export const computeTradingViewWheelZoomViewport = ({
   const historyGap = Math.max(0, Math.round(maxHistoryGapBars));
   const maxViewportSpan = maxSpan + historyGap;
   const currentSpan = Math.max(minSpan, Math.min(maxViewportSpan, endIdx - startIdx));
-  const normalizedWheelDirection =
-    Math.sign(-deltaY) * Math.min(1, Math.abs(deltaY) / TV_WHEEL_DELTA_CAP_PX);
-  const spacingFactor = 1 + (normalizedWheelDirection / 10);
+  // A time scale is perceptually linear in bar spacing, not in visible-bar count.
+  // Exponential wheel scaling keeps mouse wheels and trackpads consistent.
+  const boundedDeltaY = clamp(deltaY, -TV_WHEEL_DELTA_CAP_PX, TV_WHEEL_DELTA_CAP_PX);
+  const spacingFactor = Math.exp(-boundedDeltaY * TV_ZOOM_VELOCITY);
   const targetSpan = clamp(currentSpan / spacingFactor, minSpan, maxViewportSpan);
   const rightEdge = Number.isFinite(endIdx) ? endIdx : maxSpan;
 

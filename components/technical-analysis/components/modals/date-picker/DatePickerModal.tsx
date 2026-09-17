@@ -1,201 +1,256 @@
-import React, { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { BaseModal } from "../../common/primitives/BaseModal";
+import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { setModalOpen } from "../../../store/technicalAnalysisSlice";
-
-/**
- * [TENOR 2026] DatePickerModal - Autonomous Smart Component
- * Refactored to manage its own local calendar state, eliminating prop-drilling
- * and preventing re-renders in the God Component during date selection.
- */
+import { BaseModal } from "../../common/primitives/BaseModal";
+import type { ChartCustomDateRange } from "../../../config/market/dateRangeSeries";
 
 interface DatePickerModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onApply: (range: { start: Date | null; end: Date | null }) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onApply: (range: ChartCustomDateRange) => void;
+  minDate?: string | null;
+  maxDate?: string | null;
+  value?: ChartCustomDateRange | null;
 }
 
+type CalendarMonth = { year: number; month: number };
+type PendingRange = { start: string | null; end: string | null };
+
+const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] as const;
+const MONTHS = Array.from({ length: 12 }, (_, index) =>
+  new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2020, index, 1))),
+);
+
+const parseDateKey = (key: string): Date | null => {
+  const timestamp = Date.parse(`${key}T00:00:00.000Z`);
+  if (!Number.isFinite(timestamp)) return null;
+  const date = new Date(timestamp);
+  return date.toISOString().slice(0, 10) === key ? date : null;
+};
+
+const dateKeyFromParts = (year: number, month: number, day: number): string =>
+  `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+const shiftDateKey = (key: string, days: number): string => {
+  const date = parseDateKey(key);
+  if (!date) return key;
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const monthFromDateKey = (key: string): CalendarMonth => {
+  const date = parseDateKey(key) ?? new Date();
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() };
+};
+
+const clampDateKey = (key: string, minDate: string, maxDate: string): string =>
+  key < minDate ? minDate : key > maxDate ? maxDate : key;
+
+const formatDateKey = (key: string | null): string => {
+  if (!key) return "—";
+  const date = parseDateKey(key);
+  return date
+    ? new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(date)
+    : key;
+};
+
+const compareMonth = (a: CalendarMonth, b: CalendarMonth): number => (a.year * 12 + a.month) - (b.year * 12 + b.month);
+
 export const DatePickerModal: React.FC<DatePickerModalProps> = ({
-    isOpen,
-    onClose,
-    onApply,
+  isOpen,
+  onClose,
+  onApply,
+  minDate,
+  maxDate,
+  value,
 }) => {
-    const dispatch = useDispatch();
+  const effectiveMin = minDate && parseDateKey(minDate) ? minDate : null;
+  const effectiveMax = maxDate && parseDateKey(maxDate) ? maxDate : null;
+  const hasBounds = Boolean(effectiveMin && effectiveMax && effectiveMin <= effectiveMax);
 
-    // --- Local State ---
-    const [calendarMonth, setCalendarMonth] = useState(() => new Date());
-    const [dateRangeSelection, setDateRangeSelection] = useState<{
-        start: Date | null;
-        end: Date | null;
-    }>(() => ({
-        start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Default: Last 7 days
-        end: new Date(),
-    }));
-    useEffect(() => {
-        if (!isOpen || !dateRangeSelection.start) return;
-
-        setCalendarMonth(new Date(dateRangeSelection.start));
-    }, [dateRangeSelection.start, isOpen]);
-
-    // --- Helpers ---
-    const getDaysInMonth = (date: Date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        return { firstDay, daysInMonth };
+  const defaultRange = useMemo<PendingRange>(() => {
+    if (!hasBounds || !effectiveMin || !effectiveMax) return { start: null, end: null };
+    if (value && value.start >= effectiveMin && value.end <= effectiveMax && value.start <= value.end) {
+      return { start: value.start, end: value.end };
+    }
+    return {
+      start: clampDateKey(shiftDateKey(effectiveMax, -30), effectiveMin, effectiveMax),
+      end: effectiveMax,
     };
+  }, [effectiveMax, effectiveMin, hasBounds, value]);
 
-    // --- Handlers ---
-    const handleApply = () => {
-        if (dateRangeSelection.start && dateRangeSelection.end) {
-            onApply(dateRangeSelection);
-            dispatch(setModalOpen({ modal: "datePicker", isOpen: false }));
-        }
-    };
+  const [selection, setSelection] = useState<PendingRange>(defaultRange);
+  const [calendarMonth, setCalendarMonth] = useState<CalendarMonth>(() =>
+    monthFromDateKey(defaultRange.start ?? effectiveMax ?? new Date().toISOString().slice(0, 10)),
+  );
 
-    return (
-        <BaseModal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Sélecteur de Période Premium"
-            icon={<i className="bi bi-calendar3" style={{ color: "var(--gp-accent-gold)" }} />}
-            maxWidth="800px"
-            footer={
-                <div className="d-flex justify-content-end w-100">
-                    <button
-                        className="btn btn-warning px-4"
-                        onClick={handleApply}
-                        disabled={!dateRangeSelection.start || !dateRangeSelection.end}
-                    >
-                        Appliquer la Période
-                    </button>
-                </div>
-            }
-        >
-            <div className={"gp-datepicker-container"}>
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                    <button
-                        className="btn btn-sm btn-outline-secondary border-0"
-                        onClick={() =>
-                            setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))
-                        }
-                    >
-                        <i className="bi bi-chevron-left" style={{ fontSize: "1.2rem" }}></i>
-                    </button>
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelection(defaultRange);
+    setCalendarMonth(monthFromDateKey(defaultRange.start ?? effectiveMax ?? new Date().toISOString().slice(0, 10)));
+  }, [defaultRange, effectiveMax, isOpen]);
 
-                    <div className="d-flex gap-2">
-                        {/* [TENOR 2026] MONTH SELECTOR */}
-                        <select
-                            className={"gp-datepicker-select"}
-                            value={calendarMonth.getMonth()}
-                            onChange={(e) =>
-                                setCalendarMonth(new Date(calendarMonth.getFullYear(), parseInt(e.target.value), 1))
-                            }
-                        >
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i} value={i}>
-                                    {new Date(2000, i, 1).toLocaleString("default", { month: "long" })}
-                                </option>
-                            ))}
-                        </select>
+  const minMonth = effectiveMin ? monthFromDateKey(effectiveMin) : calendarMonth;
+  const maxMonth = effectiveMax ? monthFromDateKey(effectiveMax) : calendarMonth;
+  const canGoPrevious = hasBounds && compareMonth(calendarMonth, minMonth) > 0;
+  const canGoNext = hasBounds && compareMonth(calendarMonth, maxMonth) < 0;
+  const yearOptions = useMemo(() => {
+    if (!hasBounds) return [calendarMonth.year];
+    return Array.from({ length: maxMonth.year - minMonth.year + 1 }, (_, index) => minMonth.year + index);
+  }, [calendarMonth.year, hasBounds, maxMonth.year, minMonth.year]);
 
-                        {/* [TENOR 2026] YEAR SELECTOR */}
-                        <select
-                            className={"gp-datepicker-select"}
-                            value={calendarMonth.getFullYear()}
-                            onChange={(e) =>
-                                setCalendarMonth(new Date(parseInt(e.target.value), calendarMonth.getMonth(), 1))
-                            }
-                        >
-                            {Array.from({ length: 41 }, (_, i) => {
-                                const year = 1990 + i;
-                                return (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                );
-                            })}
-                        </select>
-                    </div>
+  const firstDay = new Date(Date.UTC(calendarMonth.year, calendarMonth.month, 1)).getUTCDay();
+  const firstGridIndex = (firstDay + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(calendarMonth.year, calendarMonth.month + 1, 0)).getUTCDate();
+  const isComplete = Boolean(selection.start && selection.end && selection.start <= selection.end);
 
-                    <button
-                        className="btn btn-sm btn-outline-secondary border-0"
-                        onClick={() =>
-                            setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))
-                        }
-                    >
-                        <i className="bi bi-chevron-right" style={{ fontSize: "1.2rem" }}></i>
-                    </button>
-                </div>
+  const moveMonth = (delta: number) => {
+    const absolute = calendarMonth.year * 12 + calendarMonth.month + delta;
+    const next = { year: Math.floor(absolute / 12), month: ((absolute % 12) + 12) % 12 };
+    if (hasBounds && (compareMonth(next, minMonth) < 0 || compareMonth(next, maxMonth) > 0)) return;
+    setCalendarMonth(next);
+  };
 
-                <div className={"gp-calendar-grid"}>
-                    {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map((day) => (
-                        <div key={day} className={"gp-calendar-day-header"}>
-                            {day}
-                        </div>
-                    ))}
-                    {(() => {
-                        const { firstDay, daysInMonth } = getDaysInMonth(calendarMonth);
-                        const cells = [];
+  const selectDate = (dateKey: string) => {
+    if (!hasBounds || !effectiveMin || !effectiveMax || dateKey < effectiveMin || dateKey > effectiveMax) return;
+    setSelection((current) => {
+      if (!current.start || current.end) return { start: dateKey, end: null };
+      if (dateKey < current.start) return { start: dateKey, end: current.start };
+      return { start: current.start, end: dateKey };
+    });
+  };
 
-                        for (let i = 0; i < firstDay; i++) {
-                            cells.push(<div key={`empty-${i}`} className={"gp-calendar-day"} />);
-                        }
+  const handleApply = () => {
+    if (!selection.start || !selection.end || selection.start > selection.end) return;
+    onApply({ start: selection.start, end: selection.end });
+  };
 
-                        for (let d = 1; d <= daysInMonth; d++) {
-                            const date = new Date(
-                                calendarMonth.getFullYear(),
-                                calendarMonth.getMonth(),
-                                d
-                            );
-                            const isStart =
-                                dateRangeSelection.start?.toDateString() === date.toDateString();
-                            const isEnd =
-                                dateRangeSelection.end?.toDateString() === date.toDateString();
-                            const inRange =
-                                dateRangeSelection.start &&
-                                dateRangeSelection.end &&
-                                date > dateRangeSelection.start &&
-                                date < dateRangeSelection.end;
+  return (
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Plage de dates"
+      icon={<i className="bi bi-calendar3" style={{ color: "var(--gp-accent-gold)" }} />}
+      maxWidth="760px"
+      className="gp-date-range-modal"
+      footer={
+        <div className="d-flex justify-content-end gap-2 w-100">
+          <button type="button" className="btn btn-secondary btn-sm px-3" onClick={onClose}>
+            Annuler
+          </button>
+          <button type="button" className="btn btn-warning btn-sm px-4" onClick={handleApply} disabled={!isComplete}>
+            Appliquer
+          </button>
+        </div>
+      }
+    >
+      <div className="gp-datepicker-container">
+        <div className="d-flex gap-3 mb-4" role="status" aria-live="polite">
+          <div className="flex-fill rounded border px-3 py-2">
+            <div className="text-secondary small mb-1">Début</div>
+            <strong>{formatDateKey(selection.start)}</strong>
+          </div>
+          <div className="d-flex align-items-center text-secondary" aria-hidden="true">→</div>
+          <div className="flex-fill rounded border px-3 py-2">
+            <div className="text-secondary small mb-1">Fin</div>
+            <strong>{formatDateKey(selection.end)}</strong>
+          </div>
+        </div>
 
-                            cells.push(
-                                <div
-                                    key={d}
-                                    className={clsx(
-                                        "gp-calendar-day",
-                                        (isStart || isEnd) && "active",
-                                        inRange && "in-range"
-                                    )}
-                                    onClick={() => {
-                                        if (
-                                            !dateRangeSelection.start ||
-                                            (dateRangeSelection.start && dateRangeSelection.end)
-                                        ) {
-                                            setDateRangeSelection({ start: date, end: null });
-                                        } else {
-                                            if (date < dateRangeSelection.start) {
-                                                setDateRangeSelection({ start: date, end: null });
-                                            } else {
-                                                setDateRangeSelection({
-                                                    start: dateRangeSelection.start,
-                                                    end: date,
-                                                });
-                                            }
-                                        }
-                                    }}
-                                >
-                                    {d}
-                                </div>
-                            );
-                        }
-                        return cells;
-                    })()}
-                </div>
+        {!hasBounds ? (
+          <div className="alert alert-secondary mb-0" role="status">
+            Aucune donnée historique datée n’est disponible pour ce graphique.
+          </div>
+        ) : (
+          <>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary border-0"
+                aria-label="Mois précédent"
+                disabled={!canGoPrevious}
+                onClick={() => moveMonth(-1)}
+              >
+                <i className="bi bi-chevron-left" aria-hidden="true" />
+              </button>
+
+              <div className="d-flex gap-2">
+                <select
+                  className="gp-datepicker-select"
+                  aria-label="Mois"
+                  value={calendarMonth.month}
+                  onChange={(event) => {
+                    const next = { ...calendarMonth, month: Number(event.target.value) };
+                    if (compareMonth(next, minMonth) < 0) setCalendarMonth(minMonth);
+                    else if (compareMonth(next, maxMonth) > 0) setCalendarMonth(maxMonth);
+                    else setCalendarMonth(next);
+                  }}
+                >
+                  {MONTHS.map((month, index) => <option key={month} value={index}>{month}</option>)}
+                </select>
+                <select
+                  className="gp-datepicker-select"
+                  aria-label="Année"
+                  value={calendarMonth.year}
+                  onChange={(event) => {
+                    const next = { ...calendarMonth, year: Number(event.target.value) };
+                    if (compareMonth(next, minMonth) < 0) setCalendarMonth(minMonth);
+                    else if (compareMonth(next, maxMonth) > 0) setCalendarMonth(maxMonth);
+                    else setCalendarMonth(next);
+                  }}
+                >
+                  {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary border-0"
+                aria-label="Mois suivant"
+                disabled={!canGoNext}
+                onClick={() => moveMonth(1)}
+              >
+                <i className="bi bi-chevron-right" aria-hidden="true" />
+              </button>
             </div>
-        </BaseModal>
-    );
+
+            <div className="gp-calendar-grid" role="grid" aria-label="Calendrier de sélection de plage">
+              {WEEKDAYS.map((day) => (
+                <div key={day} className="gp-calendar-day-header" role="columnheader">{day}</div>
+              ))}
+              {Array.from({ length: firstGridIndex }, (_, index) => (
+                <span key={`empty-${index}`} className="gp-calendar-day" aria-hidden="true" />
+              ))}
+              {Array.from({ length: daysInMonth }, (_, index) => {
+                const day = index + 1;
+                const dateKey = dateKeyFromParts(calendarMonth.year, calendarMonth.month, day);
+                const disabled = !effectiveMin || !effectiveMax || dateKey < effectiveMin || dateKey > effectiveMax;
+                const isStart = selection.start === dateKey;
+                const isEnd = selection.end === dateKey;
+                const inRange = Boolean(selection.start && selection.end && dateKey > selection.start && dateKey < selection.end);
+                return (
+                  <button
+                    key={dateKey}
+                    type="button"
+                    role="gridcell"
+                    className={clsx("gp-calendar-day", (isStart || isEnd) && "active", inRange && "in-range")}
+                    disabled={disabled}
+                    aria-selected={isStart || isEnd || inRange}
+                    aria-label={formatDateKey(dateKey)}
+                    onClick={() => selectDate(dateKey)}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="small text-secondary mt-3">
+              Sélectionnez le premier jour puis le dernier. La plage est bornée par l’historique disponible dans la source de données.
+            </div>
+          </>
+        )}
+      </div>
+    </BaseModal>
+  );
 };
 
 // --- EOF ---

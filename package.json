@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@luxalgo/vela": "0.7.2",
     "@phosphor-icons/react": "^2.1.10",
     "@reduxjs/toolkit": "^2.11.2",
     "@tanstack/react-table": "^8.21.3",

@@ -30,6 +30,7 @@ import type { CurrencyConversionStatus } from "../hooks/MarketData/useCurrencyCo
 import { TickerSelectorProvider, useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
 import { readPersistedMarketPreference } from "../hooks/MarketData/marketPreferencePersistence";
 import { setActiveMarket } from "../store/technicalAnalysisSlice";
+import { filterChartDataByDateRange } from "../config/market/dateRangeSeries";
 
 // ============================================================================
 // CONTEXT DEFINITIONS & EXPORTS
@@ -339,45 +340,10 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const hasLiveStitchedCandle = false;
 
-  const filteredChartData = useMemo(() => {
-    if (chartData.length === 0) return chartData;
-    const range = selectedTimeRange;
-    if (range === "Tout" || !range) return chartData;
-
-    const now = new Date();
-    let cutoffDate: Date | null = null;
-
-    if (range === "1J") {
-      cutoffDate = new Date(now);
-      cutoffDate.setDate(cutoffDate.getDate() - 1);
-    } else if (range === "5J") {
-      cutoffDate = new Date(now);
-      cutoffDate.setDate(cutoffDate.getDate() - 5);
-    } else if (range === "1M") {
-      cutoffDate = new Date(now);
-      cutoffDate.setMonth(cutoffDate.getMonth() - 1);
-    } else if (range === "3M") {
-      cutoffDate = new Date(now);
-      cutoffDate.setMonth(cutoffDate.getMonth() - 3);
-    } else if (range === "6M") {
-      cutoffDate = new Date(now);
-      cutoffDate.setMonth(cutoffDate.getMonth() - 6);
-    } else if (range === "YTD") {
-      cutoffDate = new Date(now.getFullYear(), 0, 1);
-    } else if (range === "1Y") {
-      cutoffDate = new Date(now);
-      cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
-    } else if (range === "5Y") {
-      cutoffDate = new Date(now);
-      cutoffDate.setFullYear(cutoffDate.getFullYear() - 5);
-    }
-
-    if (!cutoffDate) return chartData;
-
-    const cutoff = cutoffDate.getTime();
-    const filtered = chartData.filter((point) => new Date(point.time).getTime() >= cutoff);
-    return filtered.length > 0 ? filtered : chartData.slice(-1);
-  }, [chartData, selectedTimeRange]);
+  const filteredChartData = useMemo(
+    () => filterChartDataByDateRange(chartData, selectedTimeRange),
+    [chartData, selectedTimeRange],
+  );
 
   // ============================================================================
   // [TENOR 2026 SRE] INCREMENTAL MEMOIZATION (O(1) LIVE TICK SHIELD)

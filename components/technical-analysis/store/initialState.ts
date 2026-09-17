@@ -213,7 +213,10 @@ export const initialState: TechnicalAnalysisState = {
     showPriceScaleLabels: true,
     showPriceScaleLines: true,
     showPriceScalePlusButton: true,
-    marginTopPercent: 10,
+    // Keep the default plot close to the OHLC/status lane. A 10% default created
+    // a large dead band above candles on every fresh/reloaded chart and also
+    // overrode the renderer's compact canonical fallback.
+    marginTopPercent: 4,
     marginBottomPercent: 8,
     rightOffsetBars: 10,
     upColor: "#00da3c",

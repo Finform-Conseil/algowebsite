@@ -1,6 +1,6 @@
 export type ChartGridLayoutOption = Record<string, unknown>;
 
-export const DEFAULT_CHART_TOP_MARGIN_PERCENT = 8;
+export const DEFAULT_CHART_TOP_MARGIN_PERCENT = 4;
 export const DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT = 5;
 export const DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT = 20;
 

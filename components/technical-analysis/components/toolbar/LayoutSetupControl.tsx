@@ -348,7 +348,11 @@ export const LayoutSetupControl: React.FC = () => {
               return (
                 <button
                   key={preset.id}
-                  disabled={!isAvailable || Boolean(resolvingPresetId)}
+                  className={clsx(isResolving && "is-resolving")}
+                  disabled={!isAvailable || (Boolean(resolvingPresetId) && !isResolving)}
+                  aria-disabled={!isAvailable || Boolean(resolvingPresetId) || undefined}
+                  aria-busy={isResolving || undefined}
+                  style={isResolving ? { cursor: "wait" } : undefined}
                   title={isAvailable ? preset.name : "Intervalle non pris en charge par le moteur multi-chart"}
                   onClick={() => { void applyPreset(preset.id); }}
                 >

@@ -160,10 +160,15 @@ export const MULTI_CHART_PRESETS: MultiChartPreset[] = [
   {
     id: "market_monitor",
     name: "Market Monitor",
-    layoutId: "six_grid",
+    layoutId: "sixteen_grid",
     sync: { ...DEFAULT_MULTI_CHART_SYNC, crosshair: true },
     symbols: [],
-    intervals: ["1D", "1D", "1D", "1D", "1D", "1D"],
+    intervals: [
+      "1D", "1D", "1D", "1D",
+      "1D", "1D", "1D", "1D",
+      "1D", "1D", "1D", "1D",
+      "1D", "1D", "1D", "1D",
+    ],
   },
 ];
 

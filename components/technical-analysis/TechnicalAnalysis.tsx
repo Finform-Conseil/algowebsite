@@ -904,6 +904,7 @@ const ChartUI: React.FC = () => {
     deleteDrawing,
     addDrawing,
     reorderDrawing,
+    handlePointerDownCapture,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
@@ -2684,6 +2685,7 @@ const ChartUI: React.FC = () => {
                           cursor: drawingCanvasCursor,
                           touchAction: "none",
                         }}
+                        onPointerDownCapture={handlePointerDownCapture}
                         onPointerDown={handlePointerDown}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
@@ -2910,6 +2912,9 @@ const ChartUI: React.FC = () => {
           createImageNoteDrawing={createImageNoteDrawing}
           startReplay={marketData.startReplay}
           setChartData={marketData.setChartData}
+          chartData={marketData.chartData}
+          dateRangeBounds={marketData.historyDateBounds}
+          onEnsureDateRangeLoaded={marketData.ensureHistoryThroughDate}
           onRevealObjectIds={revealIndicatorObjectIds}
           onConfigureIndicator={setIndicatorConfigurationTarget}
         />

@@ -11,7 +11,7 @@
 // Cela permet à Bootstrap d'être isolé sans écraser nos styles SCSS.
 @layer bootstrap;
 
-// Abstracts
+// Runtime theme CSS. Compile-time design tokens are imported above via @use.
 @include meta.load-css('abstracts/variables');
 
 // Base
@@ -32,10 +32,10 @@
 @include meta.load-css('components/opcvm-chart-view');
 @include meta.load-css('components/drawing-tools-v2');
 @include meta.load-css('components/screener-header');
-@import 'components/yield-curve';
-@import 'components/interactive-map';
-@import 'components/technical-analysis-chart';
-@import 'components/opcvm-comparison-charts';
+@include meta.load-css('components/yield-curve');
+@include meta.load-css('components/interactive-map');
+@include meta.load-css('components/technical-analysis-chart');
+@include meta.load-css('components/opcvm-comparison-charts');
 
 // Pages
 @include meta.load-css('afrimarket-homepage');
@@ -77,8 +77,8 @@
 @include meta.load-css('pages/opcvm-simulator');
 @include meta.load-css('pages/mtp-screener');
 @include meta.load-css('pages/equity-home');
-@import 'pages/macro-home';
-@import 'pages/macro';
+@include meta.load-css('pages/macro-home');
+@include meta.load-css('pages/macro');
 @include meta.load-css('./pages/glossary');
 @include meta.load-css('pages/new-home');
 
@@ -111,17 +111,6 @@
   to {
     opacity: 1;
     transform: translateX(0);
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
   }
 }
 

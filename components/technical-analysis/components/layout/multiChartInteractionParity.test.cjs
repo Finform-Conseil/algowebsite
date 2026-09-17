@@ -17,6 +17,8 @@ const viewportEngineSource = read("components/technical-analysis/hooks/useChartV
 const viewportCommitSource = read("components/technical-analysis/hooks/viewport/viewportChangeCommit.ts");
 const layoutSetupSource = read("components/technical-analysis/components/toolbar/LayoutSetupControl.tsx");
 const rendererSource = read("components/technical-analysis/hooks/useEChartsRenderer.ts");
+const volumeLegendSource = read("components/technical-analysis/components/chart/VolumeStudyLegend.tsx");
+const drawingManagerSource = read("components/technical-analysis/hooks/useDrawingManager.ts");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
 
 test("multi-chart keeps one price renderer per cell and mounts interaction-only logic on the active peer", () => {
@@ -52,13 +54,43 @@ test("active peer delegates both price-axis badges to the canonical interaction 
   assert.match(priceAxisBadgeSource, /export const updateLastPriceAxisBadge/);
 });
 
-test("inactive peers do not reserve the active quote-card gutter", () => {
+test("inactive peers reserve the active quote-card gutter only on the configured price-scale side", () => {
   assert.match(rendererSource, /const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = 42;/);
   assert.match(rendererSource, /reserveLastPriceAxisBadge = true/);
-  assert.match(rendererSource, /const gridRight = reserveLastPriceAxisBadge \? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
+  assert.match(rendererSource, /const mainPriceAxisGutterPx = reserveLastPriceAxisBadge \? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
+  assert.match(rendererSource, /const gridLeft = priceScalePosition === "left"[\s\S]*?Math\.max\(naturalGridLeft, mainPriceAxisGutterPx\)[\s\S]*?: naturalGridLeft;/);
+  assert.match(rendererSource, /const gridRight = priceScalePosition === "right"[\s\S]*?\? mainPriceAxisGutterPx[\s\S]*?: COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
   assert.match(rendererSource, /rightOffsetBars: chartAppearance\.rightOffsetBars/);
   assert.match(rendererSource, /viewportWithConfiguredRightOffset/);
   assert.match(styleSource, /&__last-badge \{[\s\S]*?width:\s*42px;[\s\S]*?min-width:\s*42px;[\s\S]*?max-width:\s*42px;/);
+});
+
+test("volume study legend auto-collapses and its x closes only the toolbar, never the Volume study", () => {
+  assert.match(volumeLegendSource, /isLegendCollapsed/);
+  assert.match(volumeLegendSource, /data-volume-study-legend-restore="true"/);
+  assert.match(volumeLegendSource, /aria-label="Masquer la barre Volume"/);
+  assert.match(volumeLegendSource, /className="gp-volume-study-legend__action is-collapse"[\s\S]*?bi bi-x-lg/);
+  assert.match(volumeLegendSource, /onClick=\{\(event\) => invokeWithoutChartPropagation\(event, collapseLegend\)\}/);
+  assert.match(volumeLegendSource, /window\.setTimeout\([\s\S]*?setIsLegendCollapsed\(true\)[\s\S]*?1800\)/);
+  assert.match(volumeLegendSource, /onPointerEnter=\{cancelAutoCollapse\}/);
+  assert.match(volumeLegendSource, /onPointerLeave=\{scheduleAutoCollapse\}/);
+  assert.match(volumeLegendSource, /Supprimer Volume/);
+  assert.match(volumeLegendSource, /onRemove\(\)/);
+  assert.match(styleSource, /\.gp-volume-study-legend__actions \{/);
+  assert.match(styleSource, /max-width: 0;/);
+  assert.match(styleSource, /pointer-events: none;/);
+  assert.match(styleSource, /\.gp-volume-study-legend:hover \.gp-volume-study-legend__actions/);
+  assert.match(styleSource, /\.gp-volume-study-legend:focus-within \.gp-volume-study-legend__actions/);
+  assert.match(styleSource, /\.gp-volume-study-legend__restore \{/);
+});
+
+test("drawing drag owns its complete pointer stream and cannot pan the chart underneath", () => {
+  assert.match(drawingManagerSource, /if \(e\.cancelable\) e\.preventDefault\(\)/);
+  assert.match(drawingManagerSource, /stopImmediatePropagation/);
+  assert.match(drawingManagerSource, /setPointerCapture\(e\.pointerId\)/);
+  assert.match(drawingManagerSource, /if \(isDraggingRef\.current && dragTargetRef\.current && isChartUsable\(dragChart\)\) \{[\s\S]*?claimDrawingPointerEvent\(e\)/);
+  assert.match(drawingManagerSource, /const drawingOwnedGesture = isDraggingRef\.current[\s\S]*?if \(drawingOwnedGesture\) claimDrawingPointerEvent\(e\)/);
+  assert.doesNotMatch(drawingManagerSource, /dispatchAction\(\{\s*type:\s*["']dataZoom["']/);
 });
 
 test("multi-chart activity is visually asymmetric while the active peer matches single-chart", () => {

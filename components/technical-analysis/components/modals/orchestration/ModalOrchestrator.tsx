@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   useDispatch,
@@ -12,6 +12,7 @@ import {
   setSearchMode,
   applyTemplate,
   setReplaySpeed,
+  setTimeRange,
 } from "../../../store/technicalAnalysisSlice";
 import {
   selectModals,
@@ -33,6 +34,12 @@ import {
   type IndicatorsModalComponent,
 } from "./indicatorsModalLoader";
 import { normalizeScrollTop, readStoredIndicatorsModalScrollTop, storeIndicatorsModalScrollTop } from "./scrollMemory";
+import {
+  decodeCustomDateRange,
+  encodeCustomDateRange,
+  resolveChartDataDateBounds,
+  type ChartDataDateBounds,
+} from "../../../config/market/dateRangeSeries";
 
 const indicatorSkeletonGroups = [
   { id: "moving-averages", rows: [6, 5] },
@@ -211,6 +218,9 @@ export interface ModalOrchestratorProps {
   // Data & Simulation State
   startReplay: (startTime?: string | null) => void;
   setChartData: React.Dispatch<React.SetStateAction<ChartDataPoint[]>>;
+  chartData: readonly ChartDataPoint[];
+  dateRangeBounds?: ChartDataDateBounds | null;
+  onEnsureDateRangeLoaded?: (startDate: string) => Promise<void>;
   onRevealObjectIds?: (objectIds: readonly IndicatorObjectId[]) => void;
   onConfigureIndicator?: (target: IndicatorConfigurationTarget) => void;
 }
@@ -225,6 +235,9 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   createImageNoteDrawing,
   startReplay,
   setChartData,
+  chartData,
+  dateRangeBounds,
+  onEnsureDateRangeLoaded,
   onRevealObjectIds,
   onConfigureIndicator,
 }) => {
@@ -362,19 +375,24 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   }, [modals.loadAnalysis, openLoadModal]);
 
   const replaceChartSymbol = useCallback((symbol: string) => {
+    // The market-data hook owns this transition atomically. Injecting generated
+    // candles here could make the date picker derive years from synthetic data
+    // while the real API request for the newly selected security was in flight.
     dispatch(setChartConfig({ symbol }));
     dispatch(setSearchMode("replace"));
-    void import("../../../lib/Indicators/TechnicalIndicators").then(({ generateInitialData }) => {
-      setChartData(generateInitialData(200));
-    });
-  }, [dispatch, setChartData]);
+  }, [dispatch]);
 
-  const applyDateRangeData = useCallback(() => {
-    const sampleSize = Math.floor(Math.random() * 300) + 100;
-    void import("../../../lib/Indicators/TechnicalIndicators").then(({ generateInitialData }) => {
-      setChartData(generateInitialData(sampleSize));
-    });
-  }, [setChartData]);
+  const loadedDateRangeBounds = useMemo(() => resolveChartDataDateBounds(chartData), [chartData]);
+  // `null` is authoritative: the selected security currently has no resolved
+  // bounds, so falling back to the previous chart series would leak stale years.
+  // Only `undefined` means this caller does not provide authoritative bounds.
+  const effectiveDateRangeBounds = dateRangeBounds === undefined
+    ? loadedDateRangeBounds
+    : dateRangeBounds;
+  const currentCustomDateRange = useMemo(
+    () => decodeCustomDateRange(uiState.selectedTimeRange),
+    [uiState.selectedTimeRange],
+  );
 
   return (
     <>
@@ -479,11 +497,19 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
         <DatePickerModal
           isOpen={modals.datePicker}
           onClose={() => closeModal("datePicker")}
+          minDate={effectiveDateRangeBounds?.minDate ?? null}
+          maxDate={effectiveDateRangeBounds?.maxDate ?? null}
+          value={currentCustomDateRange}
           onApply={(range) => {
-            if (range.start && range.end) {
-              applyDateRangeData();
-              closeModal("datePicker");
-            }
+            void (async () => {
+              try {
+                await onEnsureDateRangeLoaded?.(range.start);
+                dispatch(setTimeRange(encodeCustomDateRange(range.start, range.end)));
+                closeModal("datePicker");
+              } catch (error) {
+                console.warn("[DatePicker] Unable to load the selected historical range:", error);
+              }
+            })();
           }}
         />
       )}

@@ -4,30 +4,22 @@
 // NIVEAU : HDR (Habilitation à Diriger des Recherches) - Production Grade
 // ================================================================================
 import { proxyConfig } from './config';
-import { Redis } from '@upstash/redis';
+import { redisClient as redis } from '@/core/infra/cache/redis-client';
+import {
+  RedisResilienceGate,
+  resolveRedisBudgetMs,
+  withRedisLatencyBudget,
+} from './redis-resilience';
 
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN ? Redis.fromEnv() : null;
-const REDIS_RATE_LIMIT_BUDGET_MS = Math.max(
-  50,
-  Number.parseInt(process.env.PROXY_REDIS_RATE_LIMIT_BUDGET_MS || '100', 10) || 100,
+const REDIS_RATE_LIMIT_BUDGET_MS = resolveRedisBudgetMs(
+  process.env.PROXY_REDIS_RATE_LIMIT_BUDGET_MS,
+  750,
 );
-
-const withRedisBudget = async <T>(operation: Promise<T>): Promise<T> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error(`Redis rate limiter exceeded ${REDIS_RATE_LIMIT_BUDGET_MS}ms latency budget`)),
-          REDIS_RATE_LIMIT_BUDGET_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-};
+const redisGate = new RedisResilienceGate({
+  latencyBreachThreshold: 3,
+  latencyCooldownMs: 15_000,
+  failureCooldownMs: 60_000,
+});
 
 if (!redis && proxyConfig.rateLimitingEnabled) {
   console.warn("[SECURITY] PROXY_RATE_LIMITING_ENABLED est 'true' mais Redis n'est pas configuré. Le Fallback In-Memory sera utilisé exclusivement.");
@@ -87,27 +79,29 @@ class InMemoryRateLimiter {
 const localLimiter = new InMemoryRateLimiter();
 
 // ============================================================================
-// 🛡️ CIRCUIT BREAKER REDIS
+// 🛡️ REDIS RESILIENCE GATE
 // ============================================================================
-let redisIsDown = false;
-let redisDownSince = 0;
-const REDIS_COOLDOWN = 60000; // 1 minute de pénalité avant de retenter Redis
-
-function checkRedisStatus() {
-  if (redisIsDown && Date.now() - redisDownSince > REDIS_COOLDOWN) {
-    redisIsDown = false;
-    console.log("[CIRCUIT BREAKER] Rate Limiter : Tentative de reconnexion à Redis...");
-  }
-  return !redisIsDown && redis;
+function canUseRedis() {
+  return Boolean(redis) && redisGate.canAttempt();
 }
 
-function markRedisDown(error: unknown) {
-  if (!redisIsDown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[CIRCUIT BREAKER] Rate Limiter : Connexion Redis échouée (${msg}). Bascule sur le Fallback In-Memory pour 60s.`);
-    redisIsDown = true;
-    redisDownSince = Date.now();
+function recordRedisFailure(error: unknown) {
+  const classification = redisGate.recordFailure(error);
+  if (classification.kind === 'latency') {
+    if (classification.opened) {
+      console.warn(
+        `[REDIS_DEGRADED] Rate Limiter : budget de latence dépassé à répétition. ` +
+        `Fallback in-memory pendant ${classification.bypassMs}ms.`,
+      );
+    }
+    return;
   }
+
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(
+    `[CIRCUIT BREAKER] Rate Limiter : panne Redis confirmée (${message}). ` +
+    `Fallback in-memory pendant ${classification.bypassMs}ms.`,
+  );
 }
 
 export async function checkRateLimit(identifier: string) {
@@ -120,15 +114,17 @@ export async function checkRateLimit(identifier: string) {
   const windowSec = proxyConfig.rateLimit.window;
 
   // 1. TENTATIVE REDIS (Distributed Rate Limiting)
-  if (checkRedisStatus()) {
+  if (canUseRedis()) {
     try {
       const key = `proxy_rate_limit:${identifier}`;
-      const result = await withRedisBudget(
+      const result = await withRedisLatencyBudget(
         redis!.multi()
           .incr(key)
           .expire(key, windowSec, 'NX')
           .exec(),
+        { component: 'rate-limiter', operation: 'MULTI', budgetMs: REDIS_RATE_LIMIT_BUDGET_MS },
       );
+      redisGate.recordSuccess();
 
       const count = result[0] as number;
       const isRateLimited = count > limit;
@@ -143,8 +139,7 @@ export async function checkRateLimit(identifier: string) {
         }
       };
     } catch (error) {
-      // Déclenchement du Circuit Breaker
-      markRedisDown(error);
+      recordRedisFailure(error);
       // ⚠️ CRITICAL FIX (SCAR-110): Ne pas retourner ici (Fail-Open). 
       // On "fall through" vers le fallback in-memory ci-dessous.
     }

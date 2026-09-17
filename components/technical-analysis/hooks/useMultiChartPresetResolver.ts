@@ -3,8 +3,13 @@
 import { useCallback } from "react";
 import type { ActionEntity } from "@/core/domain/entities/action.entity";
 import type { IndiceEntity } from "@/core/domain/entities/indice.entity";
+import { BRVM_SECURITIES } from "@/core/data/brvm-securities";
 import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
 import { useIndiceRepository } from "@/core/infra/repositories/indice.repository.impl";
+import {
+  getLayoutDefinition,
+  MULTI_CHART_PRESETS,
+} from "../config/layout/multiChartLayouts";
 import {
   rankMarketMonitorEquities,
   rankSectorPeers,
@@ -20,6 +25,48 @@ const MAX_INDEX_PAGES = 10;
 
 const normalize = (value: unknown): string => String(value ?? "").trim().toUpperCase();
 
+const normalizeIssuerName = (value: unknown): string => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toUpperCase()
+  .replace(/[^A-Z0-9]+/g, " ")
+  .trim();
+
+const resolveCanonicalSector = (action: ActionEntity): string | null => {
+  const actionTicker = normalize(action.ticker);
+  const directTickerMatch = BRVM_SECURITIES.find((security) => (
+    security.status !== "delisted"
+    && normalize(security.exchange) === "BRVM"
+    && normalize(security.ticker) === actionTicker
+  ));
+  if (directTickerMatch) return directTickerMatch.sector;
+
+  const issuerName = normalizeIssuerName(action.society?.name);
+  if (!issuerName) return null;
+  const issuerMatch = BRVM_SECURITIES.find((security) => {
+    if (security.status === "delisted" || normalize(security.exchange) !== "BRVM") return false;
+    const canonicalName = normalizeIssuerName(security.name);
+    if (!canonicalName) return false;
+    if (canonicalName === issuerName) return true;
+    return canonicalName.length >= 8
+      && issuerName.length >= 8
+      && (canonicalName.includes(issuerName) || issuerName.includes(canonicalName));
+  });
+  return issuerMatch?.sector ?? null;
+};
+
+const rankCanonicalSectorPeers = (
+  primary: ActionEntity,
+  actions: readonly ActionEntity[],
+  market: string,
+  limit: number,
+): ActionEntity[] => {
+  const sector = resolveCanonicalSector(primary);
+  if (!sector) return [];
+  const candidates = actions.filter((candidate) => resolveCanonicalSector(candidate) === sector);
+  return rankMarketMonitorEquities(candidates, market, limit, [primary.ticker]);
+};
+
 export interface ResolvedMultiChartPresetBinding {
   symbol: string;
   exchange: string;
@@ -33,17 +80,22 @@ export type MultiChartPresetResolution =
   | { ok: true; bindings: ResolvedMultiChartPresetBinding[] }
   | { ok: false; reason: string };
 
+const EQUITY_INSTRUMENT_SOURCE_PREFIX = "instrument:";
+
 const toEquityBinding = (
   action: ActionEntity,
   timeframe: ChartTimeframe = "1D",
-): ResolvedMultiChartPresetBinding => ({
-  symbol: normalize(action.ticker),
-  exchange: normalize(action.bourse?.ticker),
-  timeframe,
-  sourceKind: "equity",
-  sourceId: String(action.id ?? "").trim(),
-  chartType: "candles",
-});
+): ResolvedMultiChartPresetBinding => {
+  const instrumentId = String(action.instrument ?? "").trim();
+  return {
+    symbol: normalize(action.ticker),
+    exchange: normalize(action.bourse?.ticker),
+    timeframe,
+    sourceKind: "equity",
+    sourceId: instrumentId ? `${EQUITY_INSTRUMENT_SOURCE_PREFIX}${instrumentId}` : "",
+    chartType: "candles",
+  };
+};
 
 export const useMultiChartPresetResolver = () => {
   const { getActionByTicker, getAllActions } = useActionRepository();
@@ -106,6 +158,10 @@ export const useMultiChartPresetResolver = () => {
       return { ok: false, reason: "Sélectionnez d’abord une bourse et un titre." };
     }
 
+    const preset = MULTI_CHART_PRESETS.find((entry) => entry.id === presetId);
+    if (!preset) return { ok: false, reason: `Preset multi-chart inconnu : ${presetId}.` };
+    const targetChartCount = getLayoutDefinition(preset.layoutId).chartCount;
+
     const primary = await getActionByTicker({ ticker: symbol, marketTicker: normalizedMarket });
     const primaryBinding = toEquityBinding(primary);
 
@@ -148,13 +204,17 @@ export const useMultiChartPresetResolver = () => {
     const marketActions = await loadMarketActions(normalizedMarket);
 
     if (presetId === "sector_compare") {
-      const peers = rankSectorPeers(primary, marketActions, 3);
+      const peerLimit = Math.max(0, targetChartCount - 1);
+      const apiPeers = rankSectorPeers(primary, marketActions, peerLimit);
+      const peers = apiPeers.length > 0
+        ? apiPeers
+        : rankCanonicalSectorPeers(primary, marketActions, normalizedMarket, peerLimit);
       if (peers.length === 0) {
         return { ok: false, reason: `Aucun pair sectoriel exploitable n’est disponible pour ${symbol} sur ${normalizedMarket}.` };
       }
       return {
         ok: true,
-        bindings: [primaryBinding, ...peers.map((peer) => toEquityBinding(peer))],
+        bindings: [primaryBinding, ...peers.map((peer) => toEquityBinding(peer))].slice(0, targetChartCount),
       };
     }
 
@@ -164,8 +224,24 @@ export const useMultiChartPresetResolver = () => {
         : null;
       const indices = explicitPrincipal ? [] : await loadIndices();
       const benchmark = resolveBenchmarkIndex(normalizedMarket, indices, explicitPrincipal);
-      const equityLimit = benchmark ? 4 : 5;
-      const leaders = rankMarketMonitorEquities(marketActions, normalizedMarket, equityLimit, [primary.ticker]);
+      const reservedSlots = 1 + (benchmark ? 1 : 0);
+      const equityLimit = Math.max(0, targetChartCount - reservedSlots);
+      const leaderCandidates = rankMarketMonitorEquities(marketActions, normalizedMarket, equityLimit, [primary.ticker]);
+      const leaders: ActionEntity[] = [];
+      const hydrationConcurrency = 4;
+      for (let offset = 0; offset < leaderCandidates.length; offset += hydrationConcurrency) {
+        const batch = leaderCandidates.slice(offset, offset + hydrationConcurrency);
+        const hydratedBatch = await Promise.allSettled(batch.map(async (leader) => {
+          if (String(leader.instrument ?? "").trim()) return leader;
+          return getActionByTicker({
+            ticker: normalize(leader.ticker),
+            marketTicker: normalizedMarket,
+          });
+        }));
+        hydratedBatch.forEach((result, index) => {
+          leaders.push(result.status === "fulfilled" ? result.value : batch[index]);
+        });
+      }
       const bindings: ResolvedMultiChartPresetBinding[] = [primaryBinding];
       if (benchmark) {
         bindings.push({
@@ -181,7 +257,7 @@ export const useMultiChartPresetResolver = () => {
       if (bindings.length < 2) {
         return { ok: false, reason: `Le Market Monitor ne dispose pas d’assez de séries pour ${normalizedMarket}.` };
       }
-      return { ok: true, bindings: bindings.slice(0, 6) };
+      return { ok: true, bindings: bindings.slice(0, targetChartCount) };
     }
 
     return { ok: false, reason: `Preset multi-chart inconnu : ${presetId}.` };

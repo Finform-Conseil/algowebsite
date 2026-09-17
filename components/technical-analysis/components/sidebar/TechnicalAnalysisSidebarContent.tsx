@@ -16,34 +16,35 @@ import { SidebarRailSkeleton } from "./SidebarRailSkeleton";
 import { ProductsMenuPopover, DEFAULT_PINNED, type ProductsMenuEntryId } from "./panels/ProductsMenuPopover";
 import { useTechnicalAnalysisPortalTarget } from "@/components/technical-analysis/components/common/portal/useTechnicalAnalysisPortalTarget";
 import { BrvmRailPanel } from "./panels/BrvmRailPanel";
-import { CalendarRailPanel } from "./panels/CalendarRailPanel";
-import { ChatsRailPanel } from "./panels/ChatsRailPanel";
-import { CommunityRailPanel } from "./panels/CommunityRailPanel";
-import { AlertsRailPanel } from "./panels/AlertsRailPanel";
-import { AlertsRailRuntime } from "./panels/alertsRail/AlertsRailRuntime";
 import type { AlertsRailContext, AlertsRailContextByTicker } from "./panels/alertsRailModel";
 import { buildIndicatorAlertValuesFromSeries } from "./panels/alertsRail/alertsRailIndicatorMetrics";
-import { BondsPanel } from "./panels/BondsPanel";
-import { DividendsPanel } from "./panels/DividendsPanel";
-import { FundamentalsPanel } from "./panels/FundamentalsPanel";
-import { IncomeStatementPanel } from "./panels/IncomeStatementPanel";
-import { ModelHeuristicPanel } from "./panels/ModelHeuristicPanel";
-import { PerformancePanel } from "./panels/PerformancePanel";
-import { PineEditorPanel } from "./panels/PineEditorPanel";
-import { ProfilePanel } from "./panels/ProfilePanel";
-import { NotificationsRailPanel } from "./panels/NotificationsRailPanel";
-import { SeasonalityPanel } from "./panels/SeasonalityPanel";
-import { ScreenersPanel } from "./panels/ScreenersPanel";
-import { SidebarNewsPanel } from "./panels/SidebarNewsPanel";
-import { SidebarStatsPanel } from "./panels/SidebarStatsPanel";
-import { TechnicalsPanel } from "./panels/TechnicalsPanel";
-import { VolatilityPanels } from "./panels/VolatilityPanels";
 import { WatchlistPanel } from "./panels/WatchlistPanel";
 import {
   SIDEBAR_DESTINATION_TARGETS,
   TECHNICAL_ANALYSIS_SIDEBAR_NAVIGATE,
   type TechnicalAnalysisSidebarDestination,
 } from "./sidebarNavigation";
+
+const CalendarRailPanel = dynamic(() => import("./panels/CalendarRailPanel").then((module) => module.CalendarRailPanel), { loading: () => null });
+const ChatsRailPanel = dynamic(() => import("./panels/ChatsRailPanel").then((module) => module.ChatsRailPanel), { loading: () => null });
+const CommunityRailPanel = dynamic(() => import("./panels/CommunityRailPanel").then((module) => module.CommunityRailPanel), { loading: () => null });
+const AlertsRailPanel = dynamic(() => import("./panels/AlertsRailPanel").then((module) => module.AlertsRailPanel), { loading: () => null });
+const AlertsRailRuntime = dynamic(() => import("./panels/alertsRail/AlertsRailRuntime").then((module) => module.AlertsRailRuntime), { loading: () => null });
+const BondsPanel = dynamic(() => import("./panels/BondsPanel").then((module) => module.BondsPanel), { loading: () => null });
+const DividendsPanel = dynamic(() => import("./panels/DividendsPanel").then((module) => module.DividendsPanel), { loading: () => null });
+const FundamentalsPanel = dynamic(() => import("./panels/FundamentalsPanel").then((module) => module.FundamentalsPanel), { loading: () => null });
+const IncomeStatementPanel = dynamic(() => import("./panels/IncomeStatementPanel").then((module) => module.IncomeStatementPanel), { loading: () => null });
+const ModelHeuristicPanel = dynamic(() => import("./panels/ModelHeuristicPanel").then((module) => module.ModelHeuristicPanel), { loading: () => null });
+const PerformancePanel = dynamic(() => import("./panels/PerformancePanel").then((module) => module.PerformancePanel), { loading: () => null });
+const PineEditorPanel = dynamic(() => import("./panels/PineEditorPanel").then((module) => module.PineEditorPanel), { loading: () => null });
+const ProfilePanel = dynamic(() => import("./panels/ProfilePanel").then((module) => module.ProfilePanel), { loading: () => null });
+const NotificationsRailPanel = dynamic(() => import("./panels/NotificationsRailPanel").then((module) => module.NotificationsRailPanel), { loading: () => null });
+const SeasonalityPanel = dynamic(() => import("./panels/SeasonalityPanel").then((module) => module.SeasonalityPanel), { loading: () => null });
+const ScreenersPanel = dynamic(() => import("./panels/ScreenersPanel").then((module) => module.ScreenersPanel), { loading: () => null });
+const SidebarNewsPanel = dynamic(() => import("./panels/SidebarNewsPanel").then((module) => module.SidebarNewsPanel), { loading: () => null });
+const SidebarStatsPanel = dynamic(() => import("./panels/SidebarStatsPanel").then((module) => module.SidebarStatsPanel), { loading: () => null });
+const TechnicalsPanel = dynamic(() => import("./panels/TechnicalsPanel").then((module) => module.TechnicalsPanel), { loading: () => null });
+const VolatilityPanels = dynamic(() => import("./panels/VolatilityPanels").then((module) => module.VolatilityPanels), { loading: () => null });
 
 const DividendHistoryModal = dynamic(
   () => import("./modals/DividendHistoryModal").then((module) => module.DividendHistoryModal),
@@ -427,7 +428,10 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
           </div>
         )}
         <div className="gp-sidebar-content" data-active-sidebar-entry={activeEntry}>
-          {activeEntry === "watchlist" && <>{watchlistPanel}{newsPanel}{statsPanel}{fundamentalsPanel}{dividendsPanel}{incomePanel}{performancePanel}{seasonalityPanel}{technicalsPanel}{modelPanel}{bondsPanel}{volatilityPanels}{profilePanel}</>}
+          {activeEntry === "watchlist" && <>
+            {watchlistPanel}
+            {newsPanel}{statsPanel}{fundamentalsPanel}{dividendsPanel}{incomePanel}{performancePanel}{seasonalityPanel}{technicalsPanel}{modelPanel}{bondsPanel}{volatilityPanels}{profilePanel}
+          </>}
           {activeEntry === "alerts" && alertPanel}
           {activeEntry === "object-tree" && !props.overlayContent && <BrvmRailPanel title="Objets et data window" subtitle="Le panneau Object Tree se charge dans le slot overlay" rows={[{ label: "Etat", value: "Overlay indisponible", tone: "warning" }]} />}
           {activeEntry === "chats" && <ChatsRailPanel marketLabel={marketLabel} sector={security.sector || "Secteur N/D"} ticker={security.ticker} />}

@@ -8,11 +8,21 @@ import {
   TV_MAX_HISTORY_GAP_BARS,
   TV_MIN_VISIBLE_BARS,
   TV_PAN_DRIFT_DAMPING,
+  TV_PAN_FLING_MAX_AGE_MS,
+  TV_PAN_FLING_MIN_VELOCITY_PX_PER_MS,
+  TV_PAN_MOMENTUM_TAU_MS,
+  TV_PAN_STOP_VELOCITY_PX_PER_MS,
   TV_RESET_VISIBLE_BARS,
+  TV_SCROLL_EASE_TAU_MS,
+  TV_TIME_AXIS_DRAG_ZOOM_VELOCITY,
   TV_X_AXIS_HEIGHT,
   TV_Y_AXIS_WIDTH,
+  TV_ZOOM_EASE_TAU_MS,
   TV_ZOOM_VELOCITY,
   clampViewportWindowWithFuture,
+  decayPanVelocity,
+  exponentialApproach,
+  filterPanVelocity,
   computeDirectionalZoomViewport,
   computeHorizontalPanViewport,
   computePriceAxisDragViewport,
@@ -35,6 +45,10 @@ import {
   publishTimeViewportSync,
 } from "./sync/timeViewportSyncBus";
 import { ViewportChangeCommitBuffer } from "./viewport/viewportChangeCommit";
+import {
+  isDrawingPointerEventOwned,
+  shouldDrawingOwnPointerEvent,
+} from "./drawing/drawingPointerOwnership";
 
 export type { ViewportWindow, ZoomRangeSnapshot } from "./viewport/viewportMath";
 export {
@@ -146,10 +160,18 @@ export const useChartViewport = ({
     isYManual: false,
     lastDataLength: 0,
     isDraggingXPan: false,
+    isDraggingXScale: false,
     isDraggingYScale: false,
     isDraggingChart: false,
+    gestureActivated: false,
+    pointerDownX: 0,
+    pointerDownY: 0,
     startX: 0,
     startY: 0,
+    initialXSpan: 0,
+    initialXEnd: 0,
+    panVelocityPxPerMs: 0,
+    lastPanAt: 0,
     initialYScale: 1.0,
     initialYPan: 0,
     lastTap: 0,
@@ -245,8 +267,8 @@ export const useChartViewport = ({
       return;
     }
 
-    state.startIdx = Math.max(-state.historyGapBars, Math.min(totalBars - 1, Math.round(state.startIdx)));
-    state.endIdx = Math.min(totalBars - 1 + TV_MAX_FUTURE_BARS, Math.round(state.endIdx));
+    state.startIdx = Math.max(-state.historyGapBars, Math.min(totalBars - 1, state.startIdx));
+    state.endIdx = Math.min(totalBars - 1 + TV_MAX_FUTURE_BARS, state.endIdx);
 
     if (state.startIdx >= state.endIdx) {
       state.startIdx = Math.max(-state.historyGapBars, state.endIdx - 10);
@@ -509,6 +531,12 @@ export const useChartViewport = ({
     let wheelFrameId: number | null = null;
     let pendingWheelDeltaY = 0;
     let pendingWheelDeltaX = 0;
+    let viewportGlideFrameId: number | null = null;
+    let viewportGlideLastTimestamp = 0;
+    let viewportGlideTauMs = TV_ZOOM_EASE_TAU_MS;
+    let viewportGlideTarget: { startIdx: number; endIdx: number } | null = null;
+    let panMomentumFrameId: number | null = null;
+    let panMomentumLastTimestamp = 0;
 
     const resolveExpandablePanViewport = (
       state: typeof viewportStateRef.current,
@@ -538,6 +566,98 @@ export const useChartViewport = ({
         maxFutureBars: isFutureDirectedPan ? TV_MAX_FUTURE_BARS : 0,
         preserveEnd: isElasticHistoryPan,
       });
+    };
+
+    const cancelViewportGlide = () => {
+      if (viewportGlideFrameId !== null) cancelAnimationFrame(viewportGlideFrameId);
+      viewportGlideFrameId = null;
+      viewportGlideLastTimestamp = 0;
+      viewportGlideTarget = null;
+    };
+
+    const runViewportGlide = (timestamp: number) => {
+      const target = viewportGlideTarget;
+      if (!target || !getLiveChart()) {
+        cancelViewportGlide();
+        return;
+      }
+      const state = viewportStateRef.current;
+      const deltaMs = viewportGlideLastTimestamp === 0
+        ? 1000 / 60
+        : Math.max(1, Math.min(64, timestamp - viewportGlideLastTimestamp));
+      viewportGlideLastTimestamp = timestamp;
+      state.startIdx = exponentialApproach(state.startIdx, target.startIdx, deltaMs, viewportGlideTauMs);
+      state.endIdx = exponentialApproach(state.endIdx, target.endIdx, deltaMs, viewportGlideTauMs);
+      const remaining = Math.max(
+        Math.abs(target.startIdx - state.startIdx),
+        Math.abs(target.endIdx - state.endIdx),
+      );
+      if (remaining < 0.05) {
+        state.startIdx = target.startIdx;
+        state.endIdx = target.endIdx;
+        viewportGlideTarget = null;
+        viewportGlideFrameId = null;
+        viewportGlideLastTimestamp = 0;
+        scheduleViewportApply("immediate");
+        viewportChangeCommitRef.current?.flush();
+        return;
+      }
+      scheduleViewportApply("immediate");
+      viewportGlideFrameId = requestAnimationFrame(runViewportGlide);
+    };
+
+    const glideToViewport = (target: { startIdx: number; endIdx: number }, tauMs: number) => {
+      viewportGlideTarget = target;
+      viewportGlideTauMs = tauMs;
+      if (viewportGlideFrameId !== null) return;
+      viewportGlideLastTimestamp = 0;
+      viewportGlideFrameId = requestAnimationFrame(runViewportGlide);
+    };
+
+    const cancelPanMomentum = () => {
+      if (panMomentumFrameId !== null) cancelAnimationFrame(panMomentumFrameId);
+      panMomentumFrameId = null;
+      panMomentumLastTimestamp = 0;
+    };
+
+    const runPanMomentum = (timestamp: number) => {
+      const state = viewportStateRef.current;
+      const chart = getLiveChart();
+      if (!chart || Math.abs(state.panVelocityPxPerMs) < TV_PAN_STOP_VELOCITY_PX_PER_MS) {
+        cancelPanMomentum();
+        state.panVelocityPxPerMs = 0;
+        viewportChangeCommitRef.current?.flush();
+        return;
+      }
+      const deltaMs = panMomentumLastTimestamp === 0
+        ? 1000 / 60
+        : Math.max(1, Math.min(32, timestamp - panMomentumLastTimestamp));
+      panMomentumLastTimestamp = timestamp;
+      const rect = containerEl.getBoundingClientRect();
+      const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH);
+      const visibleCount = Math.max(1, state.endIdx - state.startIdx);
+      const pixelTravel = state.panVelocityPxPerMs * deltaMs;
+      const shift = -(pixelTravel / gridWidth) * visibleCount;
+      const totalBars = chartDataRef.current.length;
+      const nextViewport = resolveExpandablePanViewport(state, totalBars, shift);
+      state.startIdx = nextViewport.startIdx;
+      state.endIdx = nextViewport.endIdx;
+      state.panVelocityPxPerMs = decayPanVelocity(
+        state.panVelocityPxPerMs,
+        deltaMs,
+        TV_PAN_MOMENTUM_TAU_MS,
+      );
+      notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
+      scheduleViewportApply("immediate");
+      panMomentumFrameId = requestAnimationFrame(runPanMomentum);
+    };
+
+    const startPanMomentum = () => {
+      if (Math.abs(viewportStateRef.current.panVelocityPxPerMs) < TV_PAN_FLING_MIN_VELOCITY_PX_PER_MS) return;
+      cancelViewportGlide();
+      cancelPanMomentum();
+      panMomentumLastTimestamp = 0;
+      panMomentumFrameId = requestAnimationFrame(runPanMomentum);
     };
 
     const applyExternalTimeZoom = (direction: "in" | "out") => {
@@ -639,11 +759,12 @@ export const useChartViewport = ({
       const state = viewportStateRef.current;
       const totalBars = chartDataRef.current.length;
       if (Math.abs(deltaY) > Math.abs(deltaX)) {
-        const currentFutureBars = Math.max(0, state.endIdx - (totalBars - 1));
+        const baseViewport = viewportGlideTarget ?? { startIdx: state.startIdx, endIdx: state.endIdx };
+        const currentFutureBars = Math.max(0, baseViewport.endIdx - (totalBars - 1));
         const isHistoryRevealWheel = deltaY > 0;
         const nextViewport = computeTradingViewWheelZoomViewport({
-          startIdx: state.startIdx,
-          endIdx: state.endIdx,
+          startIdx: baseViewport.startIdx,
+          endIdx: baseViewport.endIdx,
           totalBars,
           deltaY,
           maxHistoryGapBars: TV_MAX_HISTORY_GAP_BARS,
@@ -654,22 +775,24 @@ export const useChartViewport = ({
           maxFutureBars: isHistoryRevealWheel ? 0 : currentFutureBars,
         });
 
-        state.startIdx = nextViewport.startIdx;
-        state.endIdx = nextViewport.endIdx;
         state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
+        glideToViewport(nextViewport, TV_ZOOM_EASE_TAU_MS);
       } else {
         const rect = containerEl.getBoundingClientRect();
-        const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
-        const visibleCount = state.endIdx - state.startIdx;
+        const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH);
+        const baseViewport = viewportGlideTarget ?? { startIdx: state.startIdx, endIdx: state.endIdx };
+        const visibleCount = baseViewport.endIdx - baseViewport.startIdx;
         const shift = (deltaX / gridWidth) * visibleCount;
-        const nextViewport = resolveExpandablePanViewport(state, totalBars, shift);
-
-        state.startIdx = nextViewport.startIdx;
-        state.endIdx = nextViewport.endIdx;
+        const nextViewport = resolveExpandablePanViewport(
+          { ...state, startIdx: baseViewport.startIdx, endIdx: baseViewport.endIdx },
+          totalBars,
+          shift,
+        );
+        glideToViewport(nextViewport, TV_SCROLL_EASE_TAU_MS);
       }
 
-      notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
-      scheduleViewportApply("immediate");
+      const target = viewportGlideTarget ?? { startIdx: state.startIdx, endIdx: state.endIdx };
+      notifyHistoryBoundary(target.startIdx, target.endIdx, totalBars);
     };
 
     const onWheel = (event: WheelEvent) => {
@@ -699,8 +822,12 @@ export const useChartViewport = ({
       const isOnChart = mouseX < gridRightPx && mouseY < gridBottomPx;
 
       const state = viewportStateRef.current;
-      const wheelDeltaY = normalizeWheelDeltaPx(event.deltaY, event.deltaMode);
-      const wheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
+      const rawWheelDeltaY = normalizeWheelDeltaPx(event.deltaY, event.deltaMode);
+      const rawWheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
+      const wheelDeltaY = event.shiftKey && !isOnYAxis ? 0 : rawWheelDeltaY;
+      const wheelDeltaX = event.shiftKey && !isOnYAxis
+        ? (Math.abs(rawWheelDeltaX) > Math.abs(rawWheelDeltaY) ? rawWheelDeltaX : rawWheelDeltaY)
+        : rawWheelDeltaX;
 
       if (isOnYAxis) {
         const totalBars = chartDataRef.current.length;
@@ -735,9 +862,20 @@ export const useChartViewport = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
+      // Drawing ownership is decided during React root capture before this native
+      // container-capture listener runs. A drawing drag and viewport pan are
+      // mutually exclusive, matching TradingView's interaction contract.
+      if (isDrawingPointerEventOwned(event)) return;
       if (!getLiveChart()) return;
 
       const state = viewportStateRef.current;
+      cancelViewportGlide();
+      cancelPanMomentum();
+      state.panVelocityPxPerMs = 0;
+      state.lastPanAt = event.timeStamp;
+      state.gestureActivated = false;
+      state.pointerDownX = event.clientX;
+      state.pointerDownY = event.clientY;
       state.activePointers.set(event.pointerId, event);
       
       // [TENOR 2026 SRE] Cache rect on pointer down to avoid layout thrashing in pointermove
@@ -747,6 +885,8 @@ export const useChartViewport = ({
       if (now - state.lastTap < 300 && state.activePointers.size === 1) {
         onDoubleClick(event);
         state.lastTap = 0;
+        state.activePointers.delete(event.pointerId);
+        state.cachedRect = null;
         return;
       }
       state.lastTap = now;
@@ -754,19 +894,36 @@ export const useChartViewport = ({
       const target = event.target as HTMLElement;
       if (target) {
         if (isPriceAxisInteractiveTarget(event.target)) {
+          state.activePointers.delete(event.pointerId);
+          state.cachedRect = null;
           return;
         }
         const drawingCanvas = target.closest('.gp-drawing-canvas') as HTMLCanvasElement | null;
         const drawingInteraction = drawingCanvas?.dataset.drawingInteraction;
-        if (drawingInteraction === 'tool' || drawingInteraction === 'eraser' || drawingInteraction === 'magic') {
+        if (
+          drawingInteraction === 'tool'
+          || drawingInteraction === 'eraser'
+          || drawingInteraction === 'magic'
+          || (drawingInteraction === 'selection' && shouldDrawingOwnPointerEvent(drawingCanvas, event))
+        ) {
+          state.activePointers.delete(event.pointerId);
+          state.cachedRect = null;
           return;
         }
         // Chart canvases may expose a move/grab cursor while still being the
         // horizontal pan surface. Drawing canvases remain protected above by their
         // explicit interaction modes, so cursor styling must not veto chart panning.
         if (target.closest('.gp-drawing-overlay-shield')) {
+          state.activePointers.delete(event.pointerId);
+          state.cachedRect = null;
           return;
         }
+      }
+
+      try {
+        containerEl.setPointerCapture?.(event.pointerId);
+      } catch {
+        // Window capture listeners remain the fallback on browsers that reject capture here.
       }
 
       const rect = state.cachedRect;
@@ -783,6 +940,7 @@ export const useChartViewport = ({
         state.initialPinchCenter = ((p1.clientX + p2.clientX) / 2) - rect.left;
         
         state.isDraggingXPan = false;
+        state.isDraggingXScale = false;
         state.isDraggingYScale = false;
         state.isDraggingChart = false;
         return;
@@ -804,8 +962,10 @@ export const useChartViewport = ({
         state.initialYScale = state.yScale;
         state.initialYPan = state.yPan;
       } else if (isOnXAxis) {
-        state.isDraggingXPan = true;
+        state.isDraggingXScale = true;
         state.startX = event.clientX;
+        state.initialXSpan = Math.max(TV_MIN_VISIBLE_BARS, state.endIdx - state.startIdx);
+        state.initialXEnd = state.endIdx;
       } else if (isOnChart) {
         state.isDraggingChart = true;
         state.startX = event.clientX;
@@ -872,6 +1032,12 @@ export const useChartViewport = ({
         return;
       }
 
+      if (state.activePointers.size === 1 && !state.gestureActivated) {
+        const threshold = event.pointerType === "touch" ? 8 : 2;
+        if (Math.hypot(event.clientX - state.pointerDownX, event.clientY - state.pointerDownY) < threshold) return;
+        state.gestureActivated = true;
+      }
+
       if (state.isDraggingYScale) {
         const deltaY = event.clientY - state.startY;
         const rect = state.cachedRect || containerEl.getBoundingClientRect();
@@ -892,9 +1058,27 @@ export const useChartViewport = ({
         state.yPan = nextPriceViewport.yPan;
         state.isYManual = true;
         scheduleViewportApply("immediate");
+      } else if (state.isDraggingXScale) {
+        const deltaX = event.clientX - state.startX;
+        const totalBars = chartDataRef.current.length;
+        const targetSpan = state.initialXSpan * Math.exp(deltaX * TV_TIME_AXIS_DRAG_ZOOM_VELOCITY);
+        const nextViewport = clampViewportWindowWithFuture(
+          state.initialXEnd - targetSpan,
+          state.initialXEnd,
+          totalBars,
+          Math.max(0, state.initialXEnd - (totalBars - 1)),
+          TV_MAX_HISTORY_GAP_BARS,
+        );
+        state.startIdx = nextViewport.startIdx;
+        state.endIdx = nextViewport.endIdx;
+        notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
+        scheduleViewportApply("immediate");
       } else if (state.isDraggingChart || state.isDraggingXPan) {
         const deltaX = event.clientX - state.startX;
         state.startX = event.clientX;
+        const deltaTime = Math.max(1, event.timeStamp - state.lastPanAt);
+        state.panVelocityPxPerMs = filterPanVelocity(state.panVelocityPxPerMs, deltaX / deltaTime);
+        state.lastPanAt = event.timeStamp;
 
         const totalBars = chartDataRef.current.length;
         const visibleCount = state.endIdx - state.startIdx;
@@ -938,7 +1122,14 @@ export const useChartViewport = ({
 
     const onPointerUp = (event: PointerEvent) => {
       const state = viewportStateRef.current;
+      const wasPanGesture = state.gestureActivated && (state.isDraggingChart || state.isDraggingXPan);
+      const lastPanAgeMs = Math.max(0, event.timeStamp - state.lastPanAt);
       state.activePointers.delete(event.pointerId);
+      try {
+        if (containerEl.hasPointerCapture?.(event.pointerId)) containerEl.releasePointerCapture(event.pointerId);
+      } catch {
+        // Global pointerup already terminates the gesture if capture release is rejected.
+      }
 
       if (state.activePointers.size < 2) {
         state.initialPinchDistance = 0;
@@ -946,13 +1137,17 @@ export const useChartViewport = ({
 
       if (state.activePointers.size === 0) {
         state.isDraggingXPan = false;
+        state.isDraggingXScale = false;
         state.isDraggingYScale = false;
         state.isDraggingChart = false;
+        state.gestureActivated = false;
         state.cachedRect = null;
-        // Pointer gestures have an explicit boundary. Flush the durable snapshot
-        // now when it is already available; a final RAF still in flight falls back
-        // to the short idle commit without blocking the renderer.
-        viewportChangeCommitRef.current?.flush();
+        if (wasPanGesture && lastPanAgeMs <= TV_PAN_FLING_MAX_AGE_MS) {
+          startPanMomentum();
+        } else {
+          state.panVelocityPxPerMs = 0;
+          viewportChangeCommitRef.current?.flush();
+        }
       } else if (state.activePointers.size === 1) {
         const remainingPointer = Array.from(state.activePointers.values())[0];
         state.startX = remainingPointer.clientX;
@@ -1008,6 +1203,8 @@ export const useChartViewport = ({
     return () => {
       if (registryFrameId !== null) cancelAnimationFrame(registryFrameId);
       if (wheelFrameId !== null) cancelAnimationFrame(wheelFrameId);
+      cancelViewportGlide();
+      cancelPanMomentum();
       pendingWheelDeltaY = 0;
       pendingWheelDeltaX = 0;
       if (registeredChart) TimeAxisRegistry.delete(registeredChart);

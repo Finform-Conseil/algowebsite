@@ -353,7 +353,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const scaleTextColor = draftAppearance.scaleTextColor ?? DEFAULT_SCALE_TEXT_COLOR;
   const scaleTextSize = draftAppearance.scaleTextSize ?? 12;
   const scaleLineColor = draftAppearance.scaleLineColor ?? DEFAULT_SCALE_LINE_COLOR;
-  const marginTopPercent = draftAppearance.marginTopPercent ?? 10;
+  const marginTopPercent = draftAppearance.marginTopPercent ?? 4;
   const marginBottomPercent = draftAppearance.marginBottomPercent ?? 8;
   const rightOffsetBars = draftAppearance.rightOffsetBars ?? 10;
 

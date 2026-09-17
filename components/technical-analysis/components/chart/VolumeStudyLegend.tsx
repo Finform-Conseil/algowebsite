@@ -93,8 +93,32 @@ export const VolumeStudyLegend: React.FC<VolumeStudyLegendProps> = ({
   onOpenObjectTree,
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
+  const autoCollapseTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState<LegendPosition>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
+
+  const cancelAutoCollapse = useCallback(() => {
+    if (autoCollapseTimerRef.current !== null) {
+      window.clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = null;
+    }
+  }, []);
+
+  const collapseLegend = useCallback(() => {
+    cancelAutoCollapse();
+    setMoreOpen(false);
+    setIsLegendCollapsed(true);
+  }, [cancelAutoCollapse]);
+
+  const scheduleAutoCollapse = useCallback(() => {
+    cancelAutoCollapse();
+    autoCollapseTimerRef.current = window.setTimeout(() => {
+      autoCollapseTimerRef.current = null;
+      setMoreOpen(false);
+      setIsLegendCollapsed(true);
+    }, 1800);
+  }, [cancelAutoCollapse]);
 
   const refreshPosition = useCallback(() => {
     setPosition(resolveVolumeLegendPosition(chartInstanceRef.current));
@@ -104,6 +128,7 @@ export const VolumeStudyLegend: React.FC<VolumeStudyLegendProps> = ({
     if (!attached) {
       setPosition(null);
       setMoreOpen(false);
+      setIsLegendCollapsed(false);
       return;
     }
 
@@ -148,19 +173,54 @@ export const VolumeStudyLegend: React.FC<VolumeStudyLegendProps> = ({
     };
   }, [moreOpen]);
 
+  useEffect(() => {
+    if (!attached || isLegendCollapsed || moreOpen) {
+      cancelAutoCollapse();
+      return;
+    }
+    scheduleAutoCollapse();
+    return cancelAutoCollapse;
+  }, [attached, cancelAutoCollapse, isLegendCollapsed, moreOpen, scheduleAutoCollapse]);
+
   if (!attached || !position) return null;
 
   const safeSymbol = symbol.trim() || "Titre";
   const status = !visible ? "Masqué" : !outputEnabled ? "Style masqué" : "Visible";
 
+  if (isLegendCollapsed) {
+    return (
+      <button
+        type="button"
+        className="gp-volume-study-legend__restore"
+        data-volume-study-legend-restore="true"
+        aria-label={`Afficher la barre Volume · ${safeSymbol}`}
+        title="Afficher la barre Volume"
+        style={{ top: `${position.top}px`, left: `${position.left}px` }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => invokeWithoutChartPropagation(event, () => setIsLegendCollapsed(false))}
+      >
+        <span aria-hidden="true">Vol</span>
+      </button>
+    );
+  }
+
   return (
     <div
       ref={rootRef}
-      className={`gp-volume-study-legend${visible ? " is-visible" : " is-hidden"}${outputEnabled ? "" : " is-output-disabled"}`}
+      className={`gp-volume-study-legend${visible ? " is-visible" : " is-hidden"}${outputEnabled ? "" : " is-output-disabled"}${moreOpen ? " is-more-open" : ""}`}
       data-volume-study-legend="true"
       role="group"
+      tabIndex={0}
       aria-label={`Volume · ${safeSymbol}`}
       style={{ top: `${position.top}px`, left: `${position.left}px` }}
+      onPointerEnter={cancelAutoCollapse}
+      onPointerLeave={scheduleAutoCollapse}
+      onFocusCapture={cancelAutoCollapse}
+      onBlurCapture={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+        scheduleAutoCollapse();
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -173,7 +233,7 @@ export const VolumeStudyLegend: React.FC<VolumeStudyLegendProps> = ({
         <button type="button" className="gp-volume-study-legend__action" aria-label="Paramètres de Volume" title="Paramètres" onClick={(event) => invokeWithoutChartPropagation(event, onConfigure)}>
           <i className="bi bi-gear" aria-hidden="true" />
         </button>
-        <button type="button" className="gp-volume-study-legend__action is-remove" aria-label="Supprimer Volume" title="Supprimer" onClick={(event) => invokeWithoutChartPropagation(event, onRemove)}>
+        <button type="button" className="gp-volume-study-legend__action is-collapse" aria-label="Masquer la barre Volume" title="Masquer la barre" onClick={(event) => invokeWithoutChartPropagation(event, collapseLegend)}>
           <i className="bi bi-x-lg" aria-hidden="true" />
         </button>
         <button type="button" className="gp-volume-study-legend__action" aria-label="Plus d’actions Volume" aria-haspopup="menu" aria-expanded={moreOpen} title="Plus" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMoreOpen((current) => !current); }}>
@@ -185,6 +245,10 @@ export const VolumeStudyLegend: React.FC<VolumeStudyLegendProps> = ({
           <button type="button" role="menuitem" onClick={(event) => invokeWithoutChartPropagation(event, () => { setMoreOpen(false); onOpenObjectTree(); })}>
             <i className="bi bi-diagram-3" aria-hidden="true" />
             <span>Arborescence des objets</span>
+          </button>
+          <button type="button" role="menuitem" className="is-danger" onClick={(event) => invokeWithoutChartPropagation(event, () => { setMoreOpen(false); onRemove(); })}>
+            <i className="bi bi-trash3" aria-hidden="true" />
+            <span>Supprimer Volume</span>
           </button>
         </div>
       ) : null}

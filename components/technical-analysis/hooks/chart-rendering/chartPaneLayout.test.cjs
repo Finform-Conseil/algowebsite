@@ -47,7 +47,7 @@ test("invalid or negative axis heights fail safe without creating negative layou
   ]);
 });
 
-test("price + volume peers share the canonical 8/67/20 geometry and put time below volume", () => {
+test("price + volume peers use a compact 4/71/20 geometry and put time below volume", () => {
   assert.deepEqual(buildPriceVolumePaneLayout({
     left: 12,
     right: 58,
@@ -55,7 +55,7 @@ test("price + volume peers share the canonical 8/67/20 geometry and put time bel
     timeAxisHeightPx: 28,
   }), {
     grids: [
-      { left: 12, right: 58, top: "8%", height: "67%", containLabel: false },
+      { left: 12, right: 58, top: "4%", height: "71%", containLabel: false },
       { left: 12, right: 58, top: "75%", height: "auto", containLabel: false, bottom: 28 },
     ],
     visibleTimeAxisIndex: 1,
@@ -70,7 +70,7 @@ test("a price-only peer owns the same fixed time-axis lane", () => {
     timeAxisHeightPx: 28,
   }), {
     grids: [
-      { left: 12, right: 58, top: "8%", height: "auto", containLabel: false, bottom: 28 },
+      { left: 12, right: 58, top: "4%", height: "auto", containLabel: false, bottom: 28 },
     ],
     visibleTimeAxisIndex: 0,
   });

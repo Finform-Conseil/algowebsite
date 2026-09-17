@@ -1,39 +1,11 @@
 // CHEMIN : core/infra/security/rate/redis-rate-limiter.ts
 // VERSION : 2.0.0 - Enhanced with flexible configuration and in-memory fallback
-import { Redis } from '@upstash/redis';
+import { redisClient } from '@/core/infra/cache/redis-client';
 import { RATE_LIMIT_CONFIGS, type RateLimitConfig } from './rate-limit-config';
 
 export { RATE_LIMIT_CONFIGS, type RateLimitConfig } from './rate-limit-config';
 
-// ============================================================================
-// 🔌 REDIS CLIENT (Shared instance)
-// ============================================================================
-export const redisClient: Redis | null = (() => {
-  try {
-    const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-    const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (redisUrl && redisToken) {
-      // [TENOR 2026 FIX] Detect placeholders to avoid ConnectTimeoutError (10s latency)
-      const isPlaceholder = redisUrl.includes('votre-instance') || redisToken.includes('votre_token');
-      
-      if (!isPlaceholder) {
-        console.warn('✅ [RATE_LIMITER] Redis initialized');
-        return new Redis({ url: redisUrl, token: redisToken });
-      } else {
-        console.warn('⚠️ [RATE_LIMITER] Placeholders détectés dans .env. Fallback in-memory activé.');
-      }
-    }
-  } catch (error) {
-    console.error('❌ [RATE_LIMITER] Redis init failed:', error);
-  }
-  
-  if (process.env.NODE_ENV === 'production') {
-    console.error("CRITICAL_ERROR: Redis non configuré en production. Rate Limiting INOPÉRANT.");
-  } else {
-    console.warn('⚠️ [RATE_LIMITER] Redis non configuré, fallback in-memory activé');
-  }
-  return null;
-})();
+export { redisClient } from '@/core/infra/cache/redis-client';
 
 // ============================================================================
 // 💾 IN-MEMORY FALLBACK STORE

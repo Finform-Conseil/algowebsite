@@ -67,11 +67,16 @@ import {
   idbSet,
   saveDrawingAsset,
 } from "./drawing/drawingPersistence";
+import {
+  markDrawingPointerEventOwned,
+  registerDrawingPointerHitTest,
+} from "./drawing/drawingPointerOwnership";
 
 const saveDrawingToCloudDisabled = createDisabledDrawingCloudPersistence("save");
 const restoreDrawingsFromCloudDisabled = createDisabledDrawingCloudPersistence("restore");
 const FREEHAND_MIN_POINT_DISTANCE_PX = 3;
 const FREEHAND_MAX_POINTS = 900;
+const DRAWING_HIT_THRESHOLD_PX = 15;
 
 // ============================================================================
 // TYPES
@@ -992,26 +997,86 @@ export const useDrawingManager = ({
     markDirty();
   }, [cancelDrawingSession, completeDrawingSession, markDirty, extractBarPatternData]);
 
+  const claimDrawingPointerEvent = useCallback((
+    e: React.PointerEvent<HTMLCanvasElement>,
+    options: { capturePointer?: boolean } = {},
+  ) => {
+    // A drawing gesture owns the complete pointer stream. In particular, cancel
+    // the primary mouse pointer event as well as touch: otherwise browsers may
+    // synthesize compatibility mouse events that ZRender/ECharts interprets as
+    // a chart-pan gesture underneath the drawing overlay.
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+    if (e.nativeEvent) {
+      e.nativeEvent.stopPropagation();
+      if (typeof e.nativeEvent.stopImmediatePropagation === "function") {
+        e.nativeEvent.stopImmediatePropagation();
+      }
+    }
+    if (options.capturePointer && drawingCanvasRef.current && e.pointerId !== undefined) {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {}
+    }
+  }, [drawingCanvasRef]);
+
+  const hitTestDrawingAtClientPoint = useCallback((event: { clientX: number; clientY: number }): boolean => {
+    const canvas = drawingCanvasRef.current;
+    const chart = chartInstanceRef.current;
+    const renderer = rendererRef.current;
+    if (!canvas || !isChartUsable(chart) || !renderer || drawingsRef.current.length === 0) return false;
+
+    const pointerPixel = clientPointToLocalPixel(event, canvas.getBoundingClientRect());
+    if (!isInsideGridRect(pointerPixel, getInteractiveGridRect(chart))) return false;
+
+    const candidates = spatialGridRef.current.query(pointerPixel.x, pointerPixel.y);
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (renderer.hitTest(
+        pointerPixel.x,
+        pointerPixel.y,
+        candidates[i],
+        chart,
+        DRAWING_HIT_THRESHOLD_PX,
+      ).isHit) {
+        return true;
+      }
+    }
+    return false;
+  }, [chartInstanceRef, drawingCanvasRef]);
+
+  useEffect(() => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return undefined;
+    return registerDrawingPointerHitTest(canvas, (event) => hitTestDrawingAtClientPoint(event));
+  }, [drawingCanvasRef, drawingInteractionScopeKey, hitTestDrawingAtClientPoint]);
+
+  /**
+   * React-side ownership remains useful for tools/eraser/magic and as a second
+   * guard after the viewport's synchronous native-capture arbitration.
+   */
+  const handlePointerDownCapture = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    const currentActiveTool = activeToolRef.current;
+    const mode = cursorModeRef.current;
+    if (
+      currentActiveTool
+      || mode === 'eraser'
+      || mode === 'magic'
+      || hitTestDrawingAtClientPoint(e)
+    ) {
+      markDrawingPointerEventOwned(e.nativeEvent);
+    }
+  }, [hitTestDrawingAtClientPoint]);
+
   // --- Pointer Down Handler ---
-  // [TENOR 2026 SRE FIX] SCAR-TOUCH-01: PointerEvents fully unified.
+  // Drawing-hit / drawing-creation gestures take exclusive ownership so the
+  // viewport pan engine can never run concurrently with a drawing manipulation.
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    const claimDrawingPointerEvent = () => {
-      if (e.pointerType === 'touch' && e.cancelable) {
-        e.preventDefault();
-      }
-      e.stopPropagation();
-      if (e.nativeEvent && typeof e.nativeEvent.stopPropagation === 'function') {
-        e.nativeEvent.stopPropagation();
-      }
-      if (drawingCanvasRef.current && e.pointerId !== undefined) {
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {}
-      }
-    };
+    const claimPointerDown = () => claimDrawingPointerEvent(e, { capturePointer: true });
 
     if (e.button === 2) {
-      claimDrawingPointerEvent();
+      claimPointerDown();
       cancelDrawingSession(true);
       e.preventDefault();
       return;
@@ -1022,7 +1087,7 @@ export const useDrawingManager = ({
 
     const now = Date.now();
     if (isDrawingRef.current && currentDrawingRef.current && now - lastTapRef.current < 300) {
-      claimDrawingPointerEvent();
+      claimPointerDown();
       handleDoubleClick();
       lastTapRef.current = 0;
       return;
@@ -1042,18 +1107,16 @@ export const useDrawingManager = ({
       return;
     }
 
-    const HIT_THRESHOLD = 15;
-
     // [TENOR 2026 SRE] SPATIAL HASH GRID HIT-TEST (O(1) Lookup)
     if (drawingsRef.current.length > 0 && rendererRef.current) {
       const candidates = spatialGridRef.current.query(mx, my);
       
       for (let i = 0; i < candidates.length; i++) {
         const d = candidates[i];
-        const result = rendererRef.current.hitTest(mx, my, d, chartInstanceRef.current, HIT_THRESHOLD);
+        const result = rendererRef.current.hitTest(mx, my, d, chartInstanceRef.current, DRAWING_HIT_THRESHOLD_PX);
         
         if (result.isHit) {
-          claimDrawingPointerEvent();
+          claimPointerDown();
           if (mode === 'eraser' && !currentActiveTool) {
             deleteDrawing(d.id);
             return;
@@ -1098,7 +1161,7 @@ export const useDrawingManager = ({
     }
 
     if (mode === 'eraser' && !currentActiveTool) {
-      claimDrawingPointerEvent();
+      claimPointerDown();
       setSelectedDrawingId(null);
       markDirty();
       return;
@@ -1112,7 +1175,7 @@ export const useDrawingManager = ({
 
     const coords = getChartCoordinates(e);
     if (!coords) return;
-    claimDrawingPointerEvent();
+    claimPointerDown();
 
     if (currentActiveTool === "brush" || currentActiveTool === "highlighter") {
       const freehandCoords = getFreehandCoordinates(e);
@@ -1731,7 +1794,7 @@ export const useDrawingManager = ({
       }
       return;
     }
-  }, [cancelDrawingSession, chartInstanceRef, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
+  }, [cancelDrawingSession, chartInstanceRef, claimDrawingPointerEvent, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
@@ -1745,6 +1808,10 @@ export const useDrawingManager = ({
 
     const dragChart = chartInstanceRef.current;
     if (isDraggingRef.current && dragTargetRef.current && isChartUsable(dragChart)) {
+      // The drawing owns this pointer stream until pointerup/cancel. Cancelling
+      // compatibility mouse events here prevents ZRender from advancing a latent
+      // pan gesture while the drawing itself is translated.
+      claimDrawingPointerEvent(e);
       const { drawingId, type, pointIndex, initialPoints, mouseStart } = dragTargetRef.current;
       const dx = mx - mouseStart.x;
       const dy = my - mouseStart.y;
@@ -1936,7 +2003,7 @@ export const useDrawingManager = ({
       const candidates = spatialGridRef.current.query(mx, my);
       
       for (let i = 0; i < candidates.length; i++) {
-        const hit = rendererRef.current?.hitTest(mx, my, candidates[i], hoverChart, 15);
+        const hit = rendererRef.current?.hitTest(mx, my, candidates[i], hoverChart, DRAWING_HIT_THRESHOLD_PX);
         if (hit?.isHit) {
           hoveringInt = true;
           if (hit.hitType === "point") cursor = "grab";
@@ -1951,9 +2018,13 @@ export const useDrawingManager = ({
 
     if (!hoveringInt) cursor = (activeToolRef.current || isDrawingRef.current) ? "crosshair" : "default";
     drawingCanvasRef.current.style.cursor = cursor;
-  }, [chartInstanceRef, drawingCanvasRef, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, markDirty]);
+  }, [chartInstanceRef, claimDrawingPointerEvent, drawingCanvasRef, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, markDirty]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const drawingOwnedGesture = isDraggingRef.current
+      || Boolean(isDrawingRef.current && currentDrawingRef.current);
+    if (drawingOwnedGesture) claimDrawingPointerEvent(e);
+
     if (drawingCanvasRef.current && e.pointerId !== undefined) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -1992,7 +2063,7 @@ export const useDrawingManager = ({
         ? "crosshair"
         : "default";
     }
-  }, [cancelDrawingSession, completeDrawingSession, drawingCanvasRef, pushHistory, markDirty]);
+  }, [cancelDrawingSession, claimDrawingPointerEvent, completeDrawingSession, drawingCanvasRef, pushHistory, markDirty]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLElement) {
@@ -2236,6 +2307,7 @@ export const useDrawingManager = ({
     saveNamedTemplate,
     applyNamedTemplate,
     deleteNamedTemplate,
+    handlePointerDownCapture,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

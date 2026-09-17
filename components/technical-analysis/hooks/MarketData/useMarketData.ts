@@ -78,6 +78,10 @@ import {
 } from "../../config/market/timeframeCatalog";
 import { loadTimeframeSeries } from "../../config/market/timeframeSeriesPolicy";
 import {
+  resolveChartDataDateBounds,
+  type ChartDataDateBounds,
+} from "../../config/market/dateRangeSeries";
+import {
   createComparisonRequestSetKey,
   parseComparisonRequestSetKey,
   type ComparisonMarketRequest,
@@ -112,6 +116,25 @@ type ComparisonFetchResult = {
 };
 const COMPARISON_NO_DATA_GRACE_MS = 1500;
 const MAX_INDEX_HISTORY_PAGES = 64;
+// Dense market walls optimise for fast first paint: one 500-point index page is
+// already roughly two years of trading sessions, while fetching more pages
+// serially delays every other panel without improving the initial overview.
+const DENSE_LAYOUT_MAX_INDEX_HISTORY_PAGES = 1;
+const COMPARISON_MAX_CONCURRENT_REQUESTS = 4;
+// Dense market walls must not re-expand one scheduled symbol into five parallel
+// OHLCV page requests inside getCoursHistory(). One 100-candle daily page is
+// enough for first paint; deeper history remains available on demand.
+const DENSE_LAYOUT_INITIAL_EQUITY_POINTS = 100;
+const EQUITY_INSTRUMENT_SOURCE_PREFIX = "instrument:";
+const resolveBoundEquityInstrumentId = (sourceId: string): string => (
+  sourceId.startsWith(EQUITY_INSTRUMENT_SOURCE_PREFIX)
+    ? sourceId.slice(EQUITY_INSTRUMENT_SOURCE_PREFIX.length).trim()
+    : ""
+);
+// Never fail a healthy-but-slow upstream request before the proxy/RTK transport
+// gets its normal chance to settle. The scheduler protects CPU/network pressure;
+// this timeout only prevents genuinely stuck promises.
+const DENSE_LAYOUT_COMPARISON_REQUEST_TIMEOUT_MS = 40_000;
 
 // Nombre de bougies historiques par page API (contrat backend: 100 items par page).
 const OHLCV_PAGE_SIZE = 100;
@@ -122,13 +145,17 @@ type MarketDataLoadOptions = { silent?: boolean; historyPage?: number; deferAppl
 // Keep one workflow guard above those layers so a lost promise can never leave
 // the chart in an indeterminate skeleton state forever.
 const MARKET_REQUEST_TIMEOUT_MS = 45_000;
-const withRequestTimeout = <T>(request: Promise<T>, label: string): Promise<T> => new Promise((resolve, reject) => {
+const withRequestTimeout = <T>(
+  request: Promise<T>,
+  label: string,
+  timeoutMs = MARKET_REQUEST_TIMEOUT_MS,
+): Promise<T> => new Promise((resolve, reject) => {
   let settled = false;
   const timer = setTimeout(() => {
     if (settled) return;
     settled = true;
-    reject(new Error(`${label} timed out after ${MARKET_REQUEST_TIMEOUT_MS}ms`));
-  }, MARKET_REQUEST_TIMEOUT_MS);
+    reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
 
   request.then(
     (value) => {
@@ -145,6 +172,34 @@ const withRequestTimeout = <T>(request: Promise<T>, label: string): Promise<T> =
     },
   );
 });
+
+type AsyncRequestScheduler = <T>(task: () => Promise<T>) => Promise<T>;
+
+const createAsyncRequestScheduler = (maxConcurrent: number): AsyncRequestScheduler => {
+  let activeCount = 0;
+  const queue: Array<() => void> = [];
+
+  const drain = () => {
+    while (activeCount < maxConcurrent && queue.length > 0) {
+      const run = queue.shift();
+      if (!run) return;
+      activeCount += 1;
+      run();
+    }
+  };
+
+  return <T,>(task: () => Promise<T>): Promise<T> => new Promise<T>((resolve, reject) => {
+    queue.push(() => {
+      void task()
+        .then(resolve, reject)
+        .finally(() => {
+          activeCount = Math.max(0, activeCount - 1);
+          drain();
+        });
+    });
+    drain();
+  });
+};
 
 const mergeChartHistory = (current: ChartDataPoint[], incoming: ChartDataPoint[]): ChartDataPoint[] => {
   if (current.length === 0) return incoming;
@@ -227,6 +282,10 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
   const requestedTimeframe = normalizeChartTimeframe(chartConfig.timeframe) ?? "1D";
   const requestedTimeframeSeconds = getTimeframeSeconds(requestedTimeframe) ?? 86400;
   const isDailyTimeframe = requestedTimeframe === "1D";
+  // Date availability belongs to the selected security identity, never to a
+  // transient render or to the previously selected symbol. Keeping the scope
+  // alongside the bounds makes stale data fail closed before effects run.
+  const historyDateBoundsScopeKey = `${marketScope}:${symbol}:${normalizeTicker(forcedIsin)}`;
 
   // --- STATE ---
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -234,6 +293,13 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
   const [showReplayFullText, setShowReplayFullText] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadStatus, setLoadStatus] = useState<ComparisonLoadStatus>(symbol ? "loading" : "idle");
+  const [scopedHistoryDateBounds, setScopedHistoryDateBounds] = useState<{
+    scopeKey: string;
+    bounds: ChartDataDateBounds;
+  } | null>(null);
+  const historyDateBounds = scopedHistoryDateBounds?.scopeKey === historyDateBoundsScopeKey
+    ? scopedHistoryDateBounds.bounds
+    : null;
 
   // --- STABLE REFS (préservation de la mécanique SRE existante) ---
   const replayOriginalData = useRef<ChartDataPoint[]>([]);
@@ -309,6 +375,53 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       void writePersistedMarketData(marketScope, upperTicker, series);
     }
   }, [applyWindowFirstData, marketScope, requestedTimeframe]);
+
+  const publishAvailableHistoryBounds = useCallback((
+    ticker: string,
+    instrumentId: string,
+    pageSeries: readonly ChartDataPoint[],
+    totalPages: number | null,
+    requestScopeKey: string,
+  ) => {
+    const pageBounds = resolveChartDataDateBounds(pageSeries);
+    if (!pageBounds) return;
+    const boundsScopeKey = `${marketScope}:${normalizeTicker(ticker)}:${normalizeTicker(forcedIsin)}`;
+    setScopedHistoryDateBounds({ scopeKey: boundsScopeKey, bounds: pageBounds });
+
+    if (requestedTimeframe !== "1D" || !totalPages || totalPages <= 1) return;
+
+    void withRequestTimeout(
+      getAllCoursRef.current({
+        instrument: instrumentId,
+        timeframe: requestedTimeframeSeconds,
+        page: totalPages,
+        page_size: OHLCV_PAGE_SIZE,
+      }),
+      "History bounds",
+    ).then((response) => {
+      if (
+        !isMounted.current
+        || historyScopeKeyRef.current !== requestScopeKey
+        || normalizeTicker(symbolRef.current) !== normalizeTicker(ticker)
+        || marketScopeRef.current !== marketScope
+        || timeframeRef.current !== requestedTimeframe
+      ) return;
+
+      const tailBounds = resolveChartDataDateBounds(coursSeriesToChartData(response?.data ?? []));
+      if (!tailBounds) return;
+      setScopedHistoryDateBounds({
+        scopeKey: boundsScopeKey,
+        bounds: {
+          minDate: tailBounds.minDate,
+          maxDate: pageBounds.maxDate,
+          minTimestamp: tailBounds.minTimestamp,
+          maxTimestamp: pageBounds.maxTimestamp,
+        },
+      });
+    }).catch((error: unknown) => {
+      console.warn(`[MarketData] Unable to resolve full history bounds for ${ticker}:`, error);
+    });
+  }, [forcedIsin, marketScope, requestedTimeframe, requestedTimeframeSeconds]);
 
   useEffect(() => {
     if (mode !== "real" || !symbol || !isMounted.current) return;
@@ -393,12 +506,21 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       return;
     }
 
-    // [SRE] Race Condition Guard (Fetch ID).
-    // Silent SWR refreshes belong to the current market+ticker generation and
-    // must never supersede the blocking bootstrap request. Otherwise the
-    // bootstrap `finally` cannot close its loader and the UI can remain stuck.
+    // [SRE] Scope authority guard.
+    // React effect cleanup/remounts may invalidate a technical generation while
+    // the user's market intent is unchanged. Accept responses by business scope
+    // (market+ticker+ISIN+timeframe), not by an incidental render generation;
+    // otherwise a valid cold-start response can be discarded until the 5-minute
+    // polling cycle happens to repair the chart.
     if (!isSilentRefresh) currentFetchIdRef.current += 1;
-    const thisFetchId = currentFetchIdRef.current;
+    const requestScopeKey = `${marketScope}:${normalizeTicker(ticker)}:${normalizeTicker(forcedIsin)}:${requestedTimeframe}`;
+    const isRequestCurrent = () => (
+      isMounted.current
+      && historyScopeKeyRef.current === requestScopeKey
+      && normalizeTicker(symbolRef.current) === normalizeTicker(ticker)
+      && marketScopeRef.current === marketScope
+      && timeframeRef.current === requestedTimeframe
+    );
 
     if (!isSilentRefresh) {
       setLoadStatus("loading");
@@ -430,14 +552,14 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       const actionResolutionPromise: Promise<ActionEntity> = cachedAction
         ? Promise.resolve(cachedAction)
         : withRequestTimeout(
-            getActionByTickerRef.current({ ticker: upperTicker, isin: forcedIsin, marketTicker: marketScope }),
-            "Action resolution",
-          );
+          getActionByTickerRef.current({ ticker: upperTicker, isin: forcedIsin, marketTicker: marketScope }),
+          "Action resolution",
+        );
       const validatedActionPromise = actionResolutionPromise.then((action) => {
         if (!isActionForMarket(action, upperTicker, marketScope)) {
           throw new Error(`API action ticker mismatch for ${upperTicker}.`);
         }
-        if (isMounted.current && currentFetchIdRef.current === thisFetchId) {
+        if (isRequestCurrent()) {
           resolvedActionRef.current = action;
           setResolvedActionByTicker(action);
         }
@@ -450,7 +572,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
 
       if (!instrumentId) {
         const action = await validatedActionPromise;
-        if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) return;
+        if (!isRequestCurrent()) return;
         instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
       } else if (!cachedAction) {
         void validatedActionPromise.catch((error: unknown) => {
@@ -547,10 +669,15 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       if (reportedTotalPages !== null) historyTotalPagesRef.current = reportedTotalPages;
 
       // [SRE] Race Condition Guard.
-      if (!isMounted.current || currentFetchIdRef.current !== thisFetchId) return;
+      if (!isRequestCurrent()) return;
 
       const incomingSeries = resolvedSeries ?? coursSeriesToChartData(paginatedData);
       const knownTotalPages = reportedTotalPages ?? historyTotalPagesRef.current;
+      const isFirstDailyPage = requestedTimeframe === "1D"
+        && (historyPage === 1 || (historyPage === null && baseSeries.length === 0));
+      if (isFirstDailyPage && incomingSeries.length > 0) {
+        publishAvailableHistoryBounds(upperTicker, instrumentId, incomingSeries, knownTotalPages, requestScopeKey);
+      }
       if (requestedTimeframe !== "1D") {
         const previousCount = baseSeries.length;
         historyExhaustedRef.current = boundedHistoryPoints >= 10_000
@@ -586,10 +713,10 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     } catch (error: unknown) {
       const err = error as Error;
       console.warn(`[MarketData] API fetch failed for ${upperTicker}:`, err?.message ?? err);
-      if (!isSilentRefresh && chartDataRef.current.length === 0 && isMounted.current && currentFetchIdRef.current === thisFetchId) {
+      if (!isSilentRefresh && chartDataRef.current.length === 0 && isRequestCurrent()) {
         setLoadStatus("failed");
       }
-      if (chartDataRef.current.length === 0 && isMounted.current && currentFetchIdRef.current === thisFetchId) {
+      if (chartDataRef.current.length === 0 && isRequestCurrent()) {
         addNotificationRef.current({
           title: "Échec du flux de données",
           message: `Difficulté passagère sur ${upperTicker}. L'API n'a pas répondu.`,
@@ -598,12 +725,12 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
         });
       }
     } finally {
-      if (!isSilentRefresh && isMounted.current && currentFetchIdRef.current === thisFetchId) {
+      if (!isSilentRefresh && isRequestCurrent()) {
         resolvedDataSymbolRef.current = upperTicker;
         setIsLoading(false);
       }
     }
-  }, [applyWindowFirstData, commitChartSeries, forcedIsin, getCoursHistory, marketScope, requestedTimeframe, requestedTimeframeSeconds]);
+  }, [applyWindowFirstData, commitChartSeries, forcedIsin, getCoursHistory, marketScope, publishAvailableHistoryBounds, requestedTimeframe, requestedTimeframeSeconds]);
 
   const loadMarketDataPage = useCallback(async (ticker: string, page: number) => {
     symbolRef.current = ticker;
@@ -630,9 +757,9 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       const actionResolutionPromise: Promise<ActionEntity> = cachedAction
         ? Promise.resolve(cachedAction)
         : withRequestTimeout(
-            getActionByTickerRef.current({ ticker: upperTicker, isin: forcedIsin, marketTicker: marketScope }),
-            "Action resolution",
-          );
+          getActionByTickerRef.current({ ticker: upperTicker, isin: forcedIsin, marketTicker: marketScope }),
+          "Action resolution",
+        );
       const validatedActionPromise = actionResolutionPromise.then((action) => {
         if (!isActionForMarket(action, upperTicker, marketScope)) {
           throw new Error(`API action ticker mismatch for ${upperTicker}.`);
@@ -751,6 +878,65 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
 
   requestMoreHistoryRef.current = requestMoreHistory;
 
+  const ensureHistoryThroughDate = useCallback(async (startDate: string) => {
+    if (requestedTimeframe !== "1D") return;
+    const targetTimestamp = Date.parse(`${startDate}T00:00:00.000Z`);
+    if (!Number.isFinite(targetTimestamp)) return;
+
+    const currentBounds = resolveChartDataDateBounds(chartDataRef.current);
+    if (currentBounds && currentBounds.minTimestamp <= targetTimestamp) return;
+
+    const historyTicker = normalizeTicker(symbolRef.current);
+    const historyMarket = marketScopeRef.current;
+    if (!historyTicker || !historyMarket) return;
+
+    const cachedAction = isActionForMarket(resolvedActionRef.current, historyTicker, historyMarket)
+      ? resolvedActionRef.current
+      : null;
+    const persistedIdentity = cachedAction
+      ? null
+      : readPersistedActionIdentity(historyMarket, historyTicker, forcedIsin);
+    const action = cachedAction ?? await withRequestTimeout(
+      getActionByTickerRef.current({ ticker: historyTicker, isin: forcedIsin, marketTicker: historyMarket }),
+      "Date-range action resolution",
+    );
+    if (!isActionForMarket(action, historyTicker, historyMarket)) return;
+
+    const instrumentId = typeof action.instrument === "string" && action.instrument.trim()
+      ? action.instrument.trim()
+      : persistedIdentity?.instrumentId ?? "";
+    if (!instrumentId) return;
+
+    const entities = await withRequestTimeout(
+      getCoursHistory({ instrument: instrumentId, timeframe: requestedTimeframeSeconds }, 10_000),
+      "Date-range history",
+    );
+    if (
+      !isMounted.current
+      || normalizeTicker(symbolRef.current) !== historyTicker
+      || marketScopeRef.current !== historyMarket
+    ) return;
+
+    const fullSeries = coursSeriesToChartData(entities);
+    if (fullSeries.length === 0) return;
+    const mergedSeries = mergeChartHistory(chartDataRef.current, fullSeries);
+    commitChartSeries(historyTicker, mergedSeries);
+
+    const bounds = resolveChartDataDateBounds(mergedSeries);
+    if (bounds) {
+      setScopedHistoryDateBounds({
+        scopeKey: `${historyMarket}:${historyTicker}:${normalizeTicker(forcedIsin)}`,
+        bounds,
+      });
+    }
+    historyLimitRef.current = mergedSeries.length;
+    historyCurrentPageRef.current = Math.max(1, Math.ceil(mergedSeries.length / OHLCV_PAGE_SIZE));
+    const knownTotalPages = historyTotalPagesRef.current;
+    if (knownTotalPages !== null && historyCurrentPageRef.current >= knownTotalPages) {
+      historyExhaustedRef.current = true;
+    }
+  }, [commitChartSeries, forcedIsin, getCoursHistory, requestedTimeframe, requestedTimeframeSeconds]);
+
   // ============================================================================
   // [SRE] NETWORK LIFECYCLE SHIELD — Page Visibility + navigator.onLine.
   // Polling piloté API (pas de scraping). Pause en onglet caché / hors-ligne.
@@ -780,7 +966,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     // instance globally. Previously a title exhausted on the left could leave
     // historyExhausted/currentPage behind when the user selected another title
     // on the same exchange, causing the new chart to stop forever at page 1.
-    const nextHistoryScopeKey = `${marketScope}:${symbol}:${requestedTimeframe}`;
+    const nextHistoryScopeKey = `${marketScope}:${symbol}:${normalizeTicker(forcedIsin)}:${requestedTimeframe}`;
     const historyScopeChanged = historyScopeKeyRef.current !== nextHistoryScopeKey;
     if (historyScopeChanged) {
       historyScopeKeyRef.current = nextHistoryScopeKey;
@@ -794,6 +980,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       historyLoadInFlightRef.current = false;
       pendingHistorySeriesRef.current = null;
       pendingHistoryDirtyRef.current = false;
+      setScopedHistoryDateBounds(null);
       const cachedScopeSeries = isDailyTimeframe
         ? marketDataCacheRef.current[createMarketDataCacheKey(marketScope, symbol)] ?? []
         : [];
@@ -858,37 +1045,55 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       });
     };
 
-    // Bootstrap: show Redux/IndexedDB API cache first, then revalidate in the background.
+    // Bootstrap contract: Redux is synchronous, IndexedDB is an optional SWR
+    // snapshot, and the API is authoritative. Never serialize the API behind
+    // IndexedDB: a blocked/slow browser database must not delay first network
+    // data. A late persisted snapshot may render only while no API/canonical
+    // series has won the current business scope.
     const bootstrap = async () => {
-      let cachedSeries: ChartDataPoint[] = isDailyTimeframe
+      const reduxSeries: ChartDataPoint[] = isDailyTimeframe
         ? marketDataCacheRef.current[createMarketDataCacheKey(marketScope, symbol)] ?? []
         : [];
-      if (isDailyTimeframe && cachedSeries.length === 0) {
-        cachedSeries = await readPersistedMarketData(marketScope, symbol);
-      }
-      if (!isMounted.current || symbolRef.current !== symbol) return;
-      if (cachedSeries.length > 0) {
+
+      const applyCachedSeries = (cachedSeries: ChartDataPoint[]): boolean => {
+        if (
+          cachedSeries.length === 0
+          || !isMounted.current
+          || symbolRef.current !== symbol
+          || marketScopeRef.current !== marketScope
+          || timeframeRef.current !== requestedTimeframe
+        ) return false;
+        if (chartDataSymbolRef.current === symbol && chartDataRef.current.length > 0) return false;
+
         applyWindowFirstData(symbol, cachedSeries);
         dispatchRef.current(updateMarketData({ market: marketScope, symbol, data: cachedSeries }));
         resolvedDataSymbolRef.current = symbol;
-        // Cached candles are already renderable. Close the blocking bootstrap
-        // loader before the silent API revalidation so stale-while-revalidate
-        // never leaves the chart dimmed indefinitely when that request fails.
         setLoadStatus("loaded");
         setIsLoading(false);
-        // Persisted history is stored as a contiguous page prefix (page 1..N).
-        // Restore the pagination cursor from the cached bar count so a reload or
-        // symbol revisit continues with the next unseen historical page instead
-        // of re-requesting pages 2..4 forever.
+
         const cachedPageCount = Math.max(1, Math.ceil(cachedSeries.length / OHLCV_PAGE_SIZE));
         historyCurrentPageRef.current = cachedPageCount;
         historyLimitRef.current = cachedSeries.length;
+        return true;
+      };
+
+      if (reduxSeries.length > 0) {
+        applyCachedSeries(reduxSeries);
         await loadMarketData(symbol, OHLCV_PAGE_SIZE, { silent: true, historyPage: 1 });
-      } else {
-        chartDataSymbolRef.current = "";
-        setChartData([]);
-        await loadMarketData(symbol);
+        return;
       }
+
+      chartDataSymbolRef.current = "";
+      setChartData([]);
+
+      // Start the authoritative path first. IndexedDB races alongside it and is
+      // never allowed to become a prerequisite for the API request.
+      const apiBootstrapPromise = loadMarketData(symbol);
+      if (isDailyTimeframe) {
+        const persistedSeries = await readPersistedMarketData(marketScope, symbol);
+        applyCachedSeries(persistedSeries);
+      }
+      await apiBootstrapPromise;
     };
     void bootstrap();
 
@@ -1057,6 +1262,8 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     currentVolume,
     avgVolume,
     requestMoreHistory,
+    historyDateBounds,
+    ensureHistoryThroughDate,
     currentActionByTickerData: effectiveActionByTickerData,
     apiPriceMetric: (effectiveActionByTickerData?.latest_price_metric ?? null) as PriceIndicatorEntity | null,
     apiTechnicalIndicator: (effectiveActionByTickerData?.latest_technical_indicator ?? null) as TechnicalIndicatorEntity | null,
@@ -1132,6 +1339,9 @@ export const useComparisonManager = (
   const { getCoursHistory } = useCoursRepository();
   const { getIndicesCoursByIndice } = useIndiceRepository();
   const inflightFetches = useRef<Map<string, Promise<ComparisonFetchResult>>>(new Map());
+  const comparisonFetchSchedulerRef = useRef<AsyncRequestScheduler | null>(null);
+  const comparisonFetchScheduler = comparisonFetchSchedulerRef.current
+    ?? (comparisonFetchSchedulerRef.current = createAsyncRequestScheduler(COMPARISON_MAX_CONCURRENT_REQUESTS));
   const historyFetches = useRef<Map<string, Promise<void>>>(new Map());
   const historyBudgetByKeyRef = useRef<Map<string, number>>(new Map());
   const historyExhaustedKeysRef = useRef<Set<string>>(new Set());
@@ -1201,6 +1411,14 @@ export const useComparisonManager = (
         createTimeframeMarketDataCacheKey(market, symbol, timeframe, sourceKind, sourceId)),
     );
 
+    const isDenseComparisonSet = safeRequests.length >= 8;
+    const indexHistoryPageLimit = isDenseComparisonSet
+      ? DENSE_LAYOUT_MAX_INDEX_HISTORY_PAGES
+      : MAX_INDEX_HISTORY_PAGES;
+    const comparisonRequestTimeoutMs = isDenseComparisonSet
+      ? DENSE_LAYOUT_COMPARISON_REQUEST_TIMEOUT_MS
+      : MARKET_REQUEST_TIMEOUT_MS;
+
     const clearGraceTimer = (requestKey: string) => {
       const timer = comparisonGraceTimersRef.current.get(requestKey);
       if (!timer) return;
@@ -1248,14 +1466,33 @@ export const useComparisonManager = (
       );
       const cachedSeries = marketDataCacheRef.current[requestKey] ?? [];
       const hasCachedSeries = cachedSeries.length > 0;
-      const hasKnownCurrency = Boolean(currencyByKeyRef.current[requestKey]);
+      const persistenceTicker = `comparison:${requestKey}`;
+      let hasUsableSeries = hasCachedSeries;
 
       if (hasCachedSeries) {
         setRequestStatus(requestKey, "loaded");
-        if (sourceKind === "index" || hasKnownCurrency) return;
+        // Prime IndexedDB even when this series came from Redux/another chart so a
+        // hard reload can paint immediately before the background revalidation.
+        void writePersistedMarketData(market, persistenceTicker, cachedSeries);
       } else {
         setRequestStatus(requestKey, "loading");
       }
+
+      const hydrationRequest = hasCachedSeries
+        ? Promise.resolve()
+        : readPersistedMarketData(market, persistenceTicker).then((persistedSeries) => {
+          if (!isActive || !requestKeys.has(requestKey) || persistedSeries.length === 0) return;
+          hasUsableSeries = true;
+          dispatch(updateMarketData({
+            market,
+            symbol,
+            data: persistedSeries,
+            timeframe: normalizedTimeframe,
+            sourceKind,
+            sourceId,
+          }));
+          setRequestStatus(requestKey, "loaded");
+        });
 
       const startedAt = Date.now();
       const existingRequest = inflightFetches.current.get(requestKey);
@@ -1273,7 +1510,7 @@ export const useComparisonManager = (
         const entities = [...(firstPage.data ?? [])];
         const totalPages = Math.min(
           Math.max(1, Number(firstPage.total_pages) || 1),
-          MAX_INDEX_HISTORY_PAGES,
+          indexHistoryPageLimit,
         );
         const effectivePageSize = Math.max(1, Number(firstPage.page_size) || pageSize);
         for (let page = 2; page <= totalPages; page += 1) {
@@ -1299,49 +1536,59 @@ export const useComparisonManager = (
         };
       };
 
-      const loadEquity = (): Promise<ComparisonFetchResult> => getActionByTickerRef.current({ ticker: symbol, marketTicker: market })
-        .then(async (action): Promise<ComparisonFetchResult> => {
-          const currency = typeof action.bourse?.currency?.symbol === "string"
-            ? action.bourse.currency.symbol.trim().toUpperCase()
-            : "";
-          const latestCachedSeries = marketDataCacheRef.current[requestKey] ?? [];
-          if (latestCachedSeries.length > 0) {
-            return { series: latestCachedSeries, currency, source: "native", timeframe: normalizedTimeframe };
-          }
-
-          const instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
-          if (!instrumentId) {
-            throw new Error(`Action ${symbol} on ${market} has no instrument identifier.`);
-          }
-
-          const resolution = await loadTimeframeSeries(normalizedTimeframe, async (apiSeconds) => {
-            const historyBudget = apiSeconds === 86400 && normalizedTimeframe !== "1D" ? 1000 : 500;
-            const entities = await getCoursHistoryRef.current(
-              { instrument: instrumentId, timeframe: apiSeconds },
-              historyBudget,
-            );
-            return coursSeriesToChartData(entities);
-          });
-          if (resolution.series.length > 0) {
-            dispatch(updateMarketData({
-              market,
-              symbol,
-              data: resolution.series,
-              timeframe: normalizedTimeframe,
-              sourceKind,
-              sourceId,
-            }));
-          }
-          return {
-            series: resolution.series,
-            currency,
-            source: resolution.source,
-            timeframe: resolution.timeframe,
-          };
+      const loadEquitySeries = async (instrumentId: string, currency = ""): Promise<ComparisonFetchResult> => {
+        if (!instrumentId) {
+          throw new Error(`Action ${symbol} on ${market} has no instrument identifier.`);
+        }
+        const resolution = await loadTimeframeSeries(normalizedTimeframe, async (apiSeconds) => {
+          const historyBudget = isDenseComparisonSet && normalizedTimeframe === "1D"
+            ? DENSE_LAYOUT_INITIAL_EQUITY_POINTS
+            : apiSeconds === 86400 && normalizedTimeframe !== "1D"
+              ? 1000
+              : 500;
+          const entities = await getCoursHistoryRef.current(
+            { instrument: instrumentId, timeframe: apiSeconds },
+            historyBudget,
+          );
+          return coursSeriesToChartData(entities);
         });
+        if (resolution.series.length > 0) {
+          dispatch(updateMarketData({
+            market,
+            symbol,
+            data: resolution.series,
+            timeframe: normalizedTimeframe,
+            sourceKind,
+            sourceId,
+          }));
+        }
+        return {
+          series: resolution.series,
+          currency,
+          source: resolution.source,
+          timeframe: resolution.timeframe,
+        };
+      };
+
+      const loadEquity = (): Promise<ComparisonFetchResult> => {
+        const boundInstrumentId = resolveBoundEquityInstrumentId(sourceId);
+        if (boundInstrumentId) return loadEquitySeries(boundInstrumentId);
+        return getActionByTickerRef.current({ ticker: symbol, marketTicker: market })
+          .then((action) => {
+            const currency = typeof action.bourse?.currency?.symbol === "string"
+              ? action.bourse.currency.symbol.trim().toUpperCase()
+              : "";
+            const instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
+            return loadEquitySeries(instrumentId, currency);
+          });
+      };
 
       const request: Promise<ComparisonFetchResult> = existingRequest
-        ?? (sourceKind === "index" ? loadIndex() : loadEquity());
+        ?? hydrationRequest.then(() => comparisonFetchScheduler(() => withRequestTimeout(
+          sourceKind === "index" ? loadIndex() : loadEquity(),
+          `Comparison ${sourceKind} ${symbol} on ${market} (${normalizedTimeframe})`,
+          comparisonRequestTimeoutMs,
+        )));
 
       if (!existingRequest) {
         inflightFetches.current.set(requestKey, request);
@@ -1362,6 +1609,7 @@ export const useComparisonManager = (
             ));
           }
           if (series.length > 0) {
+            hasUsableSeries = true;
             dispatch(updateMarketData({
               market,
               symbol,
@@ -1370,6 +1618,7 @@ export const useComparisonManager = (
               sourceKind,
               sourceId,
             }));
+            void writePersistedMarketData(market, persistenceTicker, series);
           }
           setDataSourceByKey((current) => (
             current[requestKey] === source ? current : { ...current, [requestKey]: source }
@@ -1378,8 +1627,8 @@ export const useComparisonManager = (
         })
         .catch((error: unknown) => {
           if (!isActive || !requestKeys.has(requestKey)) return;
-          if (hasCachedSeries) {
-            console.warn("[ComparisonManager] Metadata unavailable for cached market data", {
+          if (hasUsableSeries || (marketDataCacheRef.current[requestKey]?.length ?? 0) > 0) {
+            console.warn("[ComparisonManager] Background refresh unavailable; keeping cached market data", {
               market,
               symbol,
               timeframe: normalizedTimeframe,
@@ -1427,37 +1676,43 @@ export const useComparisonManager = (
       return;
     }
 
-    const historyRequest = getActionByTickerRef.current({ ticker: symbol, marketTicker: market })
-      .then(async (action) => {
-        const instrumentId = typeof action.instrument === "string" ? action.instrument.trim() : "";
-        if (!instrumentId) throw new Error(`Action ${symbol} on ${market} has no instrument identifier.`);
-        const resolution = await loadTimeframeSeries(timeframe, async (apiSeconds) => {
-          const sourceBudget = apiSeconds === 86400 && timeframe !== "1D"
-            ? Math.min(10_000, Math.max(1_000, nextBudget * 10))
-            : nextBudget;
-          const entities = await getCoursHistoryRef.current(
-            { instrument: instrumentId, timeframe: apiSeconds },
-            sourceBudget,
-          );
-          return coursSeriesToChartData(entities);
-        });
-        const latestSeries = marketDataCacheRef.current[requestKey] ?? [];
-        historyBudgetByKeyRef.current.set(requestKey, nextBudget);
-        if (resolution.series.length <= latestSeries.length) {
-          historyExhaustedKeysRef.current.add(requestKey);
-          return;
-        }
-        dispatch(updateMarketData({
-          market,
-          symbol,
-          data: resolution.series,
-          timeframe,
-          sourceKind: "equity",
-        }));
-        setDataSourceByKey((current) => (
-          current[requestKey] === resolution.source ? current : { ...current, [requestKey]: resolution.source }
-        ));
-      })
+    const loadHistoryWithInstrument = async (instrumentId: string) => {
+      if (!instrumentId) throw new Error(`Action ${symbol} on ${market} has no instrument identifier.`);
+      const resolution = await loadTimeframeSeries(timeframe, async (apiSeconds) => {
+        const sourceBudget = apiSeconds === 86400 && timeframe !== "1D"
+          ? Math.min(10_000, Math.max(1_000, nextBudget * 10))
+          : nextBudget;
+        const entities = await getCoursHistoryRef.current(
+          { instrument: instrumentId, timeframe: apiSeconds },
+          sourceBudget,
+        );
+        return coursSeriesToChartData(entities);
+      });
+      const latestSeries = marketDataCacheRef.current[requestKey] ?? [];
+      historyBudgetByKeyRef.current.set(requestKey, nextBudget);
+      if (resolution.series.length <= latestSeries.length) {
+        historyExhaustedKeysRef.current.add(requestKey);
+        return;
+      }
+      dispatch(updateMarketData({
+        market,
+        symbol,
+        data: resolution.series,
+        timeframe,
+        sourceKind: "equity",
+      }));
+      setDataSourceByKey((current) => (
+        current[requestKey] === resolution.source ? current : { ...current, [requestKey]: resolution.source }
+      ));
+    };
+
+    const boundInstrumentId = resolveBoundEquityInstrumentId(String(request.sourceId ?? "").trim());
+    const historyRequest = (boundInstrumentId
+      ? loadHistoryWithInstrument(boundInstrumentId)
+      : getActionByTickerRef.current({ ticker: symbol, marketTicker: market })
+        .then((action) => loadHistoryWithInstrument(
+          typeof action.instrument === "string" ? action.instrument.trim() : "",
+        )))
       .catch((error: unknown) => {
         console.warn("[ComparisonManager] Unable to extend comparison history", { market, symbol, timeframe, error });
       })

@@ -8,6 +8,13 @@ export type NormalizedActionLookupCriteria = Readonly<{
   marketTicker?: string;
 }>;
 
+export type ActionLookupField = "isin" | "ticker";
+
+export type ActionLookupPlan = Readonly<
+  | { strategy: "market-catalog" }
+  | { strategy: "indexed"; fields: readonly ActionLookupField[] }
+>;
+
 const normalize = (value: unknown): string =>
   typeof value === "string" ? value.trim().toUpperCase() : "";
 
@@ -25,6 +32,16 @@ export const normalizeActionLookupCriteria = (
     ticker,
     ...(isin ? { isin } : {}),
     ...(marketTicker ? { marketTicker } : {}),
+  };
+};
+
+export const buildActionLookupPlan = (
+  criteria: NormalizedActionLookupCriteria,
+): ActionLookupPlan => {
+  if (criteria.marketTicker) return { strategy: "market-catalog" };
+  return {
+    strategy: "indexed",
+    fields: criteria.isin ? ["isin", "ticker"] : ["ticker"],
   };
 };
 

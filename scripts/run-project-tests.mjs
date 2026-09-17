@@ -2,6 +2,9 @@ import { spawnSync } from "node:child_process";
 
 const suites = [
   ["scripts/test-candlestick-patterns.cjs"],
+  ["--test", "scripts/tests/sass-architecture.test.mjs"],
+  ["--test", "app/api/proxy/redis-resilience.test.mjs"],
+  ["--test", "components/technical-analysis/components/sidebar/sidebarStartupPerformance.test.cjs"],
   [
     "--test",
     "components/technical-analysis/components/sidebar/panels/alertsRail/__tests__/alertsRailRuntime.test.cjs",

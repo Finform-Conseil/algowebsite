@@ -20,6 +20,8 @@ const priceAxisOverlaySource = read("components/technical-analysis/components/ov
 const chartTypeIconsSource = read("components/technical-analysis/components/toolbar/chart/chartTypeIcons.tsx");
 const chartTypeMenuSource = read("components/technical-analysis/components/toolbar/chart/ChartTypeMenuContent.tsx");
 const toolbarSource = read("components/technical-analysis/components/toolbar/ChartToolbar.tsx");
+const floatingMenuSource = read("components/technical-analysis/components/common/primitives/FloatingMenu.tsx");
+const floatingMenuPositionSource = read("components/technical-analysis/components/common/primitives/floatingMenuPosition.ts");
 
 const registrySource = read("components/technical-analysis/lib/chart-types/registry/chartTypeRegistry.ts");
 const registeredChartTypes = [...registrySource.matchAll(/^  ([a-z_]+): entry\(/gm)].map((match) => match[1]);
@@ -83,6 +85,21 @@ test("multi-chart resize reconciliation compares the host against the actual ECh
   assert.match(rendererSource, /container\.clientHeight/);
   assert.match(rendererSource, /targetChart\.resize\(\{ width: hostWidth, height: hostHeight \}\)/);
   assert.doesNotMatch(rendererSource, /let observedWidth = container\.clientWidth/);
+});
+
+test("multi-chart panel menus use viewport-aware placement instead of native or down-only popups", () => {
+  assert.doesNotMatch(controlsSource, /<select/);
+  assert.match(controlsSource, /gp-multi-chart-timeframe-menu/);
+  assert.match(controlsSource, /anchorRef=\{timeframeButtonRef\}/);
+  assert.match(controlsSource, /anchorRef=\{chartTypeButtonRef\}/);
+  assert.match(floatingMenuSource, /computeFloatingMenuPosition/);
+  assert.match(floatingMenuSource, /ResizeObserver/);
+  assert.match(floatingMenuSource, /addEventListener\("scroll", updatePosition, true\)/);
+  assert.match(floatingMenuSource, /data-placement=\{position\?\.placement\}/);
+  assert.match(floatingMenuSource, /maxWidth: "calc\(100vw - 16px\)"/);
+  assert.match(floatingMenuPositionSource, /safeMenuHeight <= spaceBelow/);
+  assert.match(floatingMenuPositionSource, /safeMenuHeight <= spaceAbove/);
+  assert.match(floatingMenuPositionSource, /spaceBelow >= spaceAbove \? "bottom" : "top"/);
 });
 
 test("multi-chart header controls override global select dimensions consistently", () => {
