@@ -89,8 +89,8 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         ref={timeframeButtonRef}
         id={`${controlIdPrefix}-timeframe`}
         type="button"
-        className={clsx("gp-multi-chart-cell-select", "gp-multi-chart-timeframe-trigger", compact && "is-icon-only")}
-        style={compact ? { width: 28, minWidth: 28, paddingInline: 0, justifyContent: "center" } : undefined}
+        className={clsx("gp-multi-chart-cell-select", "gp-multi-chart-timeframe-trigger", compact && "is-compact-value")}
+        style={compact ? { width: 34, minWidth: 34, paddingInline: 4, justifyContent: "center" } : undefined}
         title={`Intervalle du panneau : ${timeframe}`}
         aria-label={`Intervalle du panneau : ${timeframe}`}
         aria-haspopup="menu"
@@ -98,7 +98,7 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         onClick={handleTimeframeMenuToggle}
       >
         {compact ? (
-          <i className="bi bi-clock-history" aria-hidden="true" />
+          <span className="gp-multi-chart-timeframe-value">{timeframe}</span>
         ) : (
           <>
             <span>{timeframe}</span>
