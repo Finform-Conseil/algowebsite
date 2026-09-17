@@ -135,6 +135,8 @@ const resolveBoundEquityInstrumentId = (sourceId: string): string => (
 // gets its normal chance to settle. The scheduler protects CPU/network pressure;
 // this timeout only prevents genuinely stuck promises.
 const DENSE_LAYOUT_COMPARISON_REQUEST_TIMEOUT_MS = 40_000;
+const COMPARISON_MAX_ATTEMPTS = 2;
+const COMPARISON_RETRY_BASE_DELAY_MS = 650;
 
 // Nombre de bougies historiques par page API (contrat backend: 100 items par page).
 const OHLCV_PAGE_SIZE = 100;
@@ -172,6 +174,55 @@ const withRequestTimeout = <T>(
     },
   );
 });
+
+const getComparisonErrorStatus = (error: unknown): number | null => {
+  if (!error || typeof error !== "object") return null;
+  const candidate = error as { status?: unknown; originalStatus?: unknown };
+  for (const value of [candidate.status, candidate.originalStatus]) {
+    const status = typeof value === "number" ? value : Number(value);
+    if (Number.isInteger(status) && status >= 100 && status <= 599) return status;
+  }
+  return null;
+};
+
+const isRetryableComparisonError = (error: unknown): boolean => {
+  const status = getComparisonErrorStatus(error);
+  if (status !== null) {
+    return status === 408 || status === 425 || status === 429 || status >= 500;
+  }
+  if (error instanceof TypeError) return true;
+  const candidate = error && typeof error === "object"
+    ? error as { status?: unknown; error?: unknown; message?: unknown }
+    : null;
+  const statusMarker = String(candidate?.status ?? "").toUpperCase();
+  if (statusMarker === "FETCH_ERROR" || statusMarker === "TIMEOUT_ERROR") return true;
+  const message = error instanceof Error
+    ? error.message
+    : String(candidate?.error ?? candidate?.message ?? error ?? "");
+  return /(timed?\s*out|timeout|fetch failed|network|responseaborted|aborted|connection|socket|econnreset|etimedout)/i.test(message);
+};
+
+const waitForComparisonRetry = (attempt: number): Promise<void> => new Promise((resolve) => {
+  window.setTimeout(resolve, COMPARISON_RETRY_BASE_DELAY_MS * attempt);
+});
+
+const withComparisonRetry = async <T>(
+  task: () => Promise<T>,
+  label: string,
+  timeoutMs: number,
+): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= COMPARISON_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await withRequestTimeout(task(), `${label} [attempt ${attempt}]`, timeoutMs);
+    } catch (error: unknown) {
+      lastError = error;
+      if (attempt >= COMPARISON_MAX_ATTEMPTS || !isRetryableComparisonError(error)) throw error;
+      await waitForComparisonRetry(attempt);
+    }
+  }
+  throw lastError;
+};
 
 type AsyncRequestScheduler = <T>(task: () => Promise<T>) => Promise<T>;
 
@@ -1583,10 +1634,11 @@ export const useComparisonManager = (
           });
       };
 
+      const comparisonLabel = `Comparison ${sourceKind} ${symbol} on ${market} (${normalizedTimeframe})`;
       const request: Promise<ComparisonFetchResult> = existingRequest
-        ?? hydrationRequest.then(() => comparisonFetchScheduler(() => withRequestTimeout(
-          sourceKind === "index" ? loadIndex() : loadEquity(),
-          `Comparison ${sourceKind} ${symbol} on ${market} (${normalizedTimeframe})`,
+        ?? hydrationRequest.then(() => comparisonFetchScheduler(() => withComparisonRetry(
+          () => sourceKind === "index" ? loadIndex() : loadEquity(),
+          comparisonLabel,
           comparisonRequestTimeoutMs,
         )));
 

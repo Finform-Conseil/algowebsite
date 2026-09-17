@@ -13,7 +13,7 @@ import type {
 } from "../../config/layout/multiChartCellState";
 import type { ChartAppearance } from "../../config/state/chartStateTypes";
 import type { UiState } from "../../config/state/uiStateTypes";
-import { getLayoutDefinition } from "../../config/layout/multiChartLayouts";
+import { getLayoutDefinition, isDenseMultiChartLayout } from "../../config/layout/multiChartLayouts";
 import { createTimeframeMarketDataCacheKey } from "../../config/market/timeframeCatalog";
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../lib/types/echarts";
@@ -145,6 +145,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
     ? layout.charts.filter((cell) => cell.chartId === maximizedChartId)
     : layout.charts;
   const hasEmptySlot = layout.charts.some((cell) => !cell.symbol.trim());
+  const isDenseLayout = isDenseMultiChartLayout(layout.layoutId);
   const effectiveActiveChartId = useMemo(() => {
     const requestedActive = layout.charts.find((cell) => cell.chartId === layout.activeChartId);
     if (requestedActive?.symbol.trim()) return requestedActive.chartId;
@@ -530,6 +531,8 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
       <MultiChartCellControls
         cell={cell}
         canDuplicate={hasEmptySlot}
+        compact={isDenseLayout && !maximizedChartId}
+        showDuplicate={!isDenseLayout}
         isMaximized={maximizedChartId === cell.chartId}
         onTimeframeChange={(timeframe) => dispatch(updateLayoutChart({ chartId: cell.chartId, timeframe }))}
         onChartTypeChange={(chartType) => dispatch(updateLayoutChart({ chartId: cell.chartId, chartType }))}

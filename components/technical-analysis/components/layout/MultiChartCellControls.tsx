@@ -18,6 +18,8 @@ import {
 interface MultiChartCellControlsProps {
   cell: MultiChartLayoutCell;
   canDuplicate: boolean;
+  compact?: boolean;
+  showDuplicate?: boolean;
   isMaximized: boolean;
   onTimeframeChange: (timeframe: string) => void;
   onChartTypeChange: (chartType: ChartType) => void;
@@ -34,6 +36,8 @@ const stopPointerPropagation = (event: React.SyntheticEvent) => {
 export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
   cell,
   canDuplicate,
+  compact = false,
+  showDuplicate = true,
   isMaximized,
   onTimeframeChange,
   onChartTypeChange,
@@ -85,15 +89,22 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         ref={timeframeButtonRef}
         id={`${controlIdPrefix}-timeframe`}
         type="button"
-        className="gp-multi-chart-cell-select gp-multi-chart-timeframe-trigger"
-        title="Intervalle du panneau"
+        className={clsx("gp-multi-chart-cell-select", "gp-multi-chart-timeframe-trigger", compact && "is-icon-only")}
+        style={compact ? { width: 28, minWidth: 28, paddingInline: 0, justifyContent: "center" } : undefined}
+        title={`Intervalle du panneau : ${timeframe}`}
         aria-label={`Intervalle du panneau : ${timeframe}`}
         aria-haspopup="menu"
         aria-expanded={isTimeframeMenuOpen}
         onClick={handleTimeframeMenuToggle}
       >
-        <span>{timeframe}</span>
-        <i className="bi bi-chevron-down" aria-hidden="true" />
+        {compact ? (
+          <i className="bi bi-clock-history" aria-hidden="true" />
+        ) : (
+          <>
+            <span>{timeframe}</span>
+            <i className="bi bi-chevron-down" aria-hidden="true" />
+          </>
+        )}
       </button>
       <FloatingMenu
         isOpen={isTimeframeMenuOpen}
@@ -124,7 +135,8 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         ref={chartTypeButtonRef}
         id={`${controlIdPrefix}-chart-type`}
         type="button"
-        className="gp-multi-chart-cell-select gp-multi-chart-chart-type-trigger"
+        className={clsx("gp-multi-chart-cell-select", "gp-multi-chart-chart-type-trigger", compact && "is-icon-only")}
+        style={compact ? { width: 28, minWidth: 28, paddingInline: 0, justifyContent: "center" } : undefined}
         disabled={sourceKind === "index"}
         title={sourceKind === "index"
           ? chartTypeT("indexLineOnly")
@@ -135,8 +147,8 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
         onClick={handleChartTypeMenuToggle}
       >
         <span className="gp-multi-chart-chart-type-icon" aria-hidden="true">{renderChartTypeIcon(chartType)}</span>
-        <span className="gp-multi-chart-chart-type-label">{activeChartTypeEntry.label}</span>
-        <i className="bi bi-chevron-down gp-multi-chart-chart-type-chevron" aria-hidden="true" />
+        {!compact && <span className="gp-multi-chart-chart-type-label">{activeChartTypeEntry.label}</span>}
+        {!compact && <i className="bi bi-chevron-down gp-multi-chart-chart-type-chevron" aria-hidden="true" />}
       </button>
       <FloatingMenu
         isOpen={isChartTypeMenuOpen}
@@ -169,16 +181,18 @@ export const MultiChartCellControls: React.FC<MultiChartCellControlsProps> = ({
       >
         <i className={clsx("bi", isMaximized ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")} aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        className="gp-multi-chart-cell-action"
-        disabled={!canDuplicate}
-        title={canDuplicate ? "Dupliquer vers une case vide" : "Aucune case vide disponible"}
-        aria-label="Dupliquer le panneau"
-        onClick={onDuplicate}
-      >
-        <i className="bi bi-copy" aria-hidden="true" />
-      </button>
+      {showDuplicate && (
+        <button
+          type="button"
+          className="gp-multi-chart-cell-action"
+          disabled={!canDuplicate}
+          title={canDuplicate ? "Dupliquer vers une case vide" : "Aucune case vide disponible"}
+          aria-label="Dupliquer le panneau"
+          onClick={onDuplicate}
+        >
+          <i className="bi bi-copy" aria-hidden="true" />
+        </button>
+      )}
       <button
         type="button"
         className="gp-multi-chart-cell-action is-danger"
