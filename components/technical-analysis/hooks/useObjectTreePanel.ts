@@ -129,6 +129,8 @@ const detectCandleAnomalies = (
   candle: ChartDataPoint,
   prevCandle: ChartDataPoint | undefined,
   nowMs: number,
+  isLatestCandle: boolean,
+  hasLiveSnapshot: boolean,
 ): DataAnomalyFlag[] => {
   const flags: DataAnomalyFlag[] = [];
   const vol = candle.volume ?? 0;
@@ -167,8 +169,11 @@ const detectCandleAnomalies = (
     }
   }
 
-  // STALE_DATA : dernière bougie datant de plus de 3 jours ouvrés
-  if (candle.time) {
+  // STALE_DATA qualifie la fraîcheur du FLUX, pas l'âge de la bougie survolée.
+  // Une bougie historique reste une donnée historique valide, même plusieurs mois plus tard.
+  // On ne peut signaler "stale" que sur la dernière bougie disponible et seulement lorsqu'aucun
+  // snapshot live ne prouve que la source courante est fraîche.
+  if (isLatestCandle && !hasLiveSnapshot && candle.time) {
     const candleMs = new Date(candle.time).getTime();
     if (Number.isFinite(candleMs) && countTradingDaysSince(candleMs, nowMs) > 3) {
       flags.push("STALE_DATA");
@@ -292,6 +297,7 @@ export const useObjectTreePanel = ({
 
     let boundChart: EChartsType | null = null;
     let boundZr: ReturnType<EChartsType["getZr"]> | null = null;
+    let boundPointerSurface: HTMLElement | null = null;
     let axisCategories: AxisCategories = [];
     let rafId: number | null = null;
     lastDataWindowIndexRef.current = null;
@@ -315,7 +321,13 @@ export const useObjectTreePanel = ({
       const nowMs = Date.now();
       const isLastCandle = idx === data.length - 1;
       const prevCandle = idx > 0 ? data[idx - 1] : undefined;
-      const anomalyFlags = detectCandleAnomalies(candle, prevCandle, nowMs);
+      const anomalyFlags = detectCandleAnomalies(
+        candle,
+        prevCandle,
+        nowMs,
+        isLastCandle,
+        hasLiveSnapshotRef.current,
+      );
       const provenanceLabel = resolveProvenanceLabel(
         candle,
         hasLiveSnapshotRef.current,
@@ -493,13 +505,36 @@ export const useObjectTreePanel = ({
       if (idx !== null) updateDataWindowAtIndex(idx);
     };
 
+    // The drawing canvas sits above ECharts and legitimately owns pointer events.
+    // Listen on the shared chart surface in capture phase so Data Window receives
+    // hover coordinates regardless of which visual layer is currently on top.
+    const handleChartSurfaceMouseMove = (event: MouseEvent) => {
+      const chart = boundChart;
+      if (!chart || chart.isDisposed()) return;
+      const chartDom = chart.getDom();
+      const rect = chartDom.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+      const idx = resolvePixelPointerIndex(
+        chart,
+        { offsetX, offsetY },
+        chartDataRef.current,
+        axisCategories,
+      );
+      if (idx !== null) updateDataWindowAtIndex(idx);
+    };
+
     const unbindChart = () => {
       if (boundChart && boundZr && !boundChart.isDisposed()) {
         boundChart.off("updateAxisPointer", handleAxisPointerMove);
         boundZr.off("mousemove", handleCanvasMouseMove);
       }
+      if (boundPointerSurface) {
+        boundPointerSurface.removeEventListener("mousemove", handleChartSurfaceMouseMove, true);
+      }
       boundChart = null;
       boundZr = null;
+      boundPointerSurface = null;
       axisCategories = [];
     };
 
@@ -519,6 +554,12 @@ export const useObjectTreePanel = ({
       // Le fallback ZRender maintient le Data Window alimenté par le pixel souris réel.
       boundChart.on("updateAxisPointer", handleAxisPointerMove);
       boundZr.on("mousemove", handleCanvasMouseMove);
+
+      const chartDom = nextChart.getDom();
+      boundPointerSurface =
+        chartDom.closest<HTMLElement>(".gp-chart-main-section")
+        ?? chartDom.parentElement;
+      boundPointerSurface?.addEventListener("mousemove", handleChartSurfaceMouseMove, true);
     };
 
     syncChartBinding();

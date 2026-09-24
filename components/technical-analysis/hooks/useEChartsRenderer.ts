@@ -95,6 +95,7 @@ import {
   resolveChartStructureSignature,
   type ChartCommitMode,
 } from "./chart-rendering/chartCommitPolicy";
+import { isEChartsMainProcessActive } from "./chart-rendering/chartMutationSafety";
 import { bindSeriesToStableCartesianAxisIds } from "./chart-rendering/chartAxisBinding";
 import {
   alignCustomRenderItemWithHistoryAxis,
@@ -110,7 +111,7 @@ import {
 
 let areEChartsModulesRegistered = false;
 
-const CHART_OPTION_REPLACE_MERGE = ["series", "xAxis", "yAxis", "grid", "dataZoom", "graphic"];
+const CHART_OPTION_REPLACE_MERGE = ["series", "xAxis", "yAxis", "grid", "dataZoom", "graphic", "legend"];
 const DEFAULT_SETTINGS_BACKGROUND = "#102a43";
 const DEFAULT_SETTINGS_GRID_LINE = "#334155";
 const DEFAULT_SETTINGS_CROSSHAIR = "#94a3b8";
@@ -120,13 +121,6 @@ const DEFAULT_SETTINGS_SCALE_LINE = "#334155";
 const MAX_PRICE_AXIS_SPLIT_LINES_WITH_LOWER_PANES = 4;
 const MAX_PRICE_AXIS_SPLIT_LINES_SINGLE_PANE = 6;
 const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = 42;
-
-type EChartsMainProcessAware = {
-  __flagInMainProcess?: boolean;
-};
-
-const isEChartsMainProcessActive = (chart: EChartsInstance): boolean =>
-  Boolean((chart as unknown as EChartsMainProcessAware).__flagInMainProcess);
 
 const applyChartOption = (
   chart: EChartsInstance,
@@ -278,6 +272,8 @@ export interface UseEChartsRendererProps {
   legendLayoutMode?: ChartLegendLayoutMode;
   /** Active peers reserve the full TradingView-style quote card lane; inactive peers keep only a compact price scale. */
   reserveLastPriceAxisBadge?: boolean;
+  /** Master gate for cartesian split lines. Used by dense multi-chart layouts to reduce visual noise. */
+  gridLinesVisible?: boolean;
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
   lastPriceAxisValue?: number;
   isMainChartVisible?: boolean;
@@ -662,6 +658,7 @@ interface ChartBuilderContext {
   hideChartTitle: boolean;
   legendLayoutMode: ChartLegendLayoutMode;
   reserveLastPriceAxisBadge: boolean;
+  gridLinesVisible: boolean;
   indicatorsData: Record<string, (number | string)[]>;
   structuredResults: IndicatorStructuredResults;
   comparisonSeries: NonNullable<UseEChartsRendererProps["comparisonSeries"]>;
@@ -930,6 +927,7 @@ const buildEChartsOption = ({
   hideChartTitle,
   legendLayoutMode,
   reserveLastPriceAxisBadge,
+  gridLinesVisible,
   viewportWindowRef,
   chartContainerHeightPx,
 }: ChartBuilderContext): TechnicalEChartsOption => {
@@ -950,8 +948,8 @@ const buildEChartsOption = ({
   const horizontalGridLineOpacity = resolveChartSettingNumber(chartAppearance.horizontalGridLineOpacity, 1, 0, 1);
   const horizontalGridLineStyle = chartAppearance.horizontalGridLineStyle || "dashed";
   const verticalGridLineStyle = chartAppearance.verticalGridLineStyle || "solid";
-  const horizontalGridVisible = chartAppearance.horizontalGridLines ?? chartAppearance.showGrid;
-  const verticalGridVisible = chartAppearance.verticalGridLines ?? chartAppearance.showGrid;
+  const horizontalGridVisible = gridLinesVisible && (chartAppearance.horizontalGridLines ?? chartAppearance.showGrid);
+  const verticalGridVisible = gridLinesVisible && (chartAppearance.verticalGridLines ?? chartAppearance.showGrid);
   const crosshairColor = chartAppearance.crosshairColor || DEFAULT_SETTINGS_CROSSHAIR;
   const watermarkColor = chartAppearance.watermarkColor || DEFAULT_SETTINGS_WATERMARK;
   const backgroundMode = chartAppearance.backgroundMode || "solid";
@@ -988,7 +986,8 @@ const buildEChartsOption = ({
       ? solidBackgroundColor
       : DEFAULT_SETTINGS_BACKGROUND;
 
-  const isObjectVisible = (id: string) => hiddenObjectIds[id] !== true;
+  const areAllIndicatorsHidden = hiddenObjectIds["__all-indicators__"] === true;
+  const isObjectVisible = (id: string) => !areAllIndicatorsHidden && hiddenObjectIds[id] !== true;
   const isCci20Active = advancedIndicators.cci20 || advancedIndicators.cci;
   const hasVisibleMacdPanel = advancedIndicators.macd
     && isObjectVisible("macd")
@@ -1395,7 +1394,7 @@ const buildEChartsOption = ({
     appearance: chartAppearance,
   });
   const shouldAttachVolumePanel = volumeLifecycle.paneAttached;
-  const shouldRenderVolumeBars = volumeLifecycle.barsVisible;
+  const shouldRenderVolumeBars = volumeLifecycle.barsVisible && !areAllIndicatorsHidden;
 
   const oscillatorPanels = [
     advancedIndicators.rsi && isObjectVisible("rsi") ? "RSI" : null,
@@ -1459,12 +1458,22 @@ const buildEChartsOption = ({
   const gridRight = priceScalePosition === "right"
     ? mainPriceAxisGutterPx
     : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;
-  const topMarginPercent = resolveChartSettingNumber(
+  const configuredTopMarginPercent = resolveChartSettingNumber(
     chartAppearance.marginTopPercent,
     DEFAULT_CHART_TOP_MARGIN_PERCENT,
     0,
     50,
   );
+  // The main chart owns two distinct top lanes:
+  //   1) symbol / timeframe / market / OHLC
+  //   2) active indicator legend
+  // Keep enough headroom for both lanes so the legend never competes with
+  // candles or the title, even when the user configured an aggressively small
+  // chart top margin. Compact peer charts keep their dedicated layout contract.
+  const hasDedicatedDefaultLegendLane = !hideChartTitle && legendLayoutMode === "default";
+  const topMarginPercent = hasDedicatedDefaultLegendLane
+    ? Math.max(configuredTopMarginPercent, 5.5)
+    : configuredTopMarginPercent;
   // This percentage is only a pane-sizing budget. It decides where the last
   // lower pane begins; it must never become rendered whitespace. The actual
   // time-axis reservation is anchored later to TV_X_AXIS_HEIGHT in pixels.
@@ -1595,6 +1604,11 @@ const buildEChartsOption = ({
     axisTick: { show: false },
     axisLabel: lowerPanelCount === 0
       ? {
+          // ECharts merges same-id axis components across setOption calls. Be
+          // explicit when this axis becomes the visible time owner again;
+          // otherwise a previous `{ show: false }` survives the Volume OFF
+          // transition and the date lane remains blank.
+          show: true,
           color: textColor,
           fontSize: scaleTextSize,
           hideOverlap: true,
@@ -1719,6 +1733,7 @@ const buildEChartsOption = ({
       boundaryGap: true,
       axisLabel: shouldShowLowerTimeAxis(volumePanelOrdinal)
         ? {
+            show: true,
             color: textColor,
             fontSize: scaleTextSize,
             hideOverlap: true,
@@ -4575,6 +4590,7 @@ const buildEChartsOption = ({
       splitLine: subtleVerticalGrid,
       axisLabel: shouldShowLowerTimeAxis(oscillatorPanelOrdinal)
         ? {
+            show: true,
             color: textColor,
             fontSize: scaleTextSize,
             hideOverlap: true,
@@ -5552,11 +5568,25 @@ const buildEChartsOption = ({
         animationDurationUpdate: 0,
       }
     : {
-        top: 0,
-        left: "center" as const,
-        textStyle: { color: textColor },
-        itemWidth: 15,
-        itemHeight: 10,
+        type: "scroll" as const,
+        // Trading-terminal hierarchy: the first row belongs exclusively to
+        // symbol/OHLC information; indicators live in a compact second row.
+        top: 24,
+        left: 8,
+        right: gridRight + 4,
+        orient: "horizontal" as const,
+        itemWidth: 9,
+        itemHeight: 7,
+        itemGap: 8,
+        textStyle: { color: textColor, fontSize: 9 },
+        pageButtonPosition: "end" as const,
+        pageButtonItemGap: 4,
+        pageButtonGap: 5,
+        pageIconSize: 9,
+        pageIconColor: "#94a3b8",
+        pageIconInactiveColor: "#475569",
+        pageTextStyle: { color: "#64748b", fontSize: 8 },
+        animationDurationUpdate: 0,
       };
 
   // ECharts accepts a pixel `bottom` and an automatic height. Anchoring only
@@ -5639,6 +5669,7 @@ export const useEChartsRenderer = ({
   hideChartTitle = false,
   legendLayoutMode = "default",
   reserveLastPriceAxisBadge = true,
+  gridLinesVisible = true,
   lastZoomRangeRef,
   lastPriceAxisValue,
   isMainChartVisible = true,
@@ -6267,6 +6298,7 @@ export const useEChartsRenderer = ({
       hideChartTitle,
       legendLayoutMode,
       reserveLastPriceAxisBadge,
+      gridLinesVisible,
       indicatorsData,
       structuredResults: structuredIndicatorResults,
       comparisonSeries: renderComparisonSeries,
@@ -6518,6 +6550,7 @@ export const useEChartsRenderer = ({
     displayLogoUrl,
     hideChartTitle,
     legendLayoutMode,
+    gridLinesVisible,
     chartAppearance,
     indicatorPeriods,
     bollingerSettings,

@@ -1,7 +1,16 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BaseModal } from "../../../common/primitives/BaseModal";
+import { INDICATOR_TEMPLATE_IDS, INDICATOR_TEMPLATE_SPECS, type IndicatorTemplateId } from "../../../../store/templates/indicatorTemplates";
+import styles from "./IndicatorTemplatesModal.module.scss";
 
-type IndicatorTemplateType = "day" | "swing" | "scalping" | "long";
+type IndicatorTemplateType = IndicatorTemplateId;
+
+const TEMPLATE_ICONS: Record<IndicatorTemplateType, string> = {
+    day: "bi-activity",
+    swing: "bi-graph-up-arrow",
+    scalping: "bi-lightning-charge-fill",
+    long: "bi-globe2",
+};
 
 interface IndicatorTemplatesModalProps {
     isOpen: boolean;
@@ -14,87 +23,83 @@ export const IndicatorTemplatesModal: React.FC<IndicatorTemplatesModalProps> = (
     onClose,
     onApplyTemplate,
 }) => {
-    const [optimisticTemplate, setOptimisticTemplate] = useState<IndicatorTemplateType | null>(null);
+    const [selectedTemplate, setSelectedTemplate] = useState<IndicatorTemplateType>("day");
+    const [isApplying, setIsApplying] = useState(false);
 
     useEffect(() => {
-        if (!isOpen) setOptimisticTemplate(null);
+        if (!isOpen) {
+            setSelectedTemplate("day");
+            setIsApplying(false);
+        }
     }, [isOpen]);
 
-    const handleApplyTemplate = useCallback((type: IndicatorTemplateType) => {
-        setOptimisticTemplate(type);
-        setTimeout(() => onApplyTemplate(type), 0);
-    }, [onApplyTemplate]);
+    const templates = useMemo(() => INDICATOR_TEMPLATE_IDS.map((id) => ({ id, ...INDICATOR_TEMPLATE_SPECS[id] })), []);
+
+    const handleApplyTemplate = useCallback(() => {
+        if (isApplying) return;
+        setIsApplying(true);
+        window.setTimeout(() => onApplyTemplate(selectedTemplate), 0);
+    }, [isApplying, onApplyTemplate, selectedTemplate]);
 
     if (!isOpen) return null;
-
-    const templates = [
-        {
-            id: "day",
-            title: "Day Trading",
-            icon: <i className="bi bi-lightning-charge-fill text-warning me-2"></i>,
-            description: "SMA5, SMA10, RSI, MACD",
-        },
-        {
-            id: "swing",
-            title: "Swing Trading",
-            icon: <i className="bi bi-graph-up text-success me-2"></i>,
-            description: "SMA20, SMA50, Bollinger Bands, Stochastic",
-        },
-        {
-            id: "scalping",
-            title: "Scalping",
-            icon: <i className="bi bi-speedometer text-danger me-2"></i>,
-            description: "EMA5, EMA10, ATR, Volume",
-        },
-        {
-            id: "long",
-            title: "Investissement Long Terme",
-            icon: <i className="bi bi-piggy-bank text-info me-2"></i>,
-            description: "SMA50, SMA200, Volume",
-        },
-    ] as const;
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Modèles d'Indicateurs"
-            icon="bi-window-stack"
-            maxWidth="700px"
+            title="Playbooks de Trading"
+            icon={<i className="bi bi-stars" aria-hidden="true" />}
+            maxWidth="920px"
+            className={styles.modal}
+            overlayClassName={styles.overlay}
+            primaryAction={handleApplyTemplate}
+            primaryLabel={isApplying ? "Application…" : "Appliquer le playbook"}
+            primaryVariant="warning"
+            secondaryAction={onClose}
             secondaryLabel="Fermer"
         >
-            <div className="p-1">
-                <p className="text-secondary mb-4">
-                    Chargez des configurations prédéfinies d&apos;indicateurs pour
-                    différents styles de trading.
-                </p>
-                <div className="row g-3">
+            <div className={styles.shell}>
+                <div className={styles.intro}>
+                    <div>
+                        <span className={styles.eyebrow}>PRO TRADING WORKSPACE</span>
+                        <h3>Choisissez un environnement de travail, pas une simple liste d&apos;indicateurs.</h3>
+                        <p>Chaque playbook active uniquement des modules réellement calculés par le moteur AfriMarket, avec une confluence adaptée à son horizon.</p>
+                    </div>
+                    <div className={styles.coverage}><span className={styles.coverageDot} aria-hidden="true" />Modules natifs vérifiés</div>
+                </div>
+
+                <div className={styles.grid} role="radiogroup" aria-label="Playbooks de trading">
                     {templates.map((tpl) => {
-                        const isApplying = optimisticTemplate === tpl.id;
+                        const isSelected = selectedTemplate === tpl.id;
                         return (
-                        <div className="col-md-6" key={tpl.id}>
-                            <div
-                                className={`card bg-dark h-100 ${isApplying ? "border-warning" : "border-secondary"}`}
-                                style={{
-                                    cursor: "pointer",
-                                    backgroundColor: isApplying ? "rgba(255,159,4,0.14)" : "rgba(255,255,255,0.05)",
-                                    boxShadow: isApplying ? "0 0 0 2px rgba(255,159,4,0.2)" : "none",
-                                    transition: "background-color 120ms ease, box-shadow 120ms ease",
-                                }}
-                                onClick={() => handleApplyTemplate(tpl.id)}
-                            >
-                                <div className="card-body">
-                                    <h6 className="card-title text-white d-flex align-items-center">
-                                        {tpl.icon} {tpl.title}
-                                    </h6>
-                                    <p className="card-text text-secondary small">
-                                        {isApplying ? "Application..." : tpl.description}
-                                    </p>
+                            <button key={tpl.id} type="button" role="radio" aria-checked={isSelected} className={`${styles.card} ${isSelected ? styles.selected : ""}`} onClick={() => setSelectedTemplate(tpl.id)}>
+                                <div className={styles.cardHeader}>
+                                    <div className={styles.identity}>
+                                        <span className={styles.iconWrap}><i className={`bi ${TEMPLATE_ICONS[tpl.id]}`} aria-hidden="true" /></span>
+                                        <div>
+                                            <div className={styles.titleRow}><strong>{tpl.title}</strong><span className={styles.badge}>{tpl.badge}</span></div>
+                                            <span className={styles.horizon}>{tpl.horizon}</span>
+                                        </div>
+                                    </div>
+                                    <span className={styles.radioMark} aria-hidden="true">{isSelected ? <i className="bi bi-check-lg" /> : null}</span>
                                 </div>
-                            </div>
-                        </div>
+                                <p className={styles.objective}>{tpl.objective}</p>
+                                <div className={styles.modules}>
+                                    {tpl.modules.map((module) => (
+                                        <div className={styles.module} key={module.label}>
+                                            <span className={styles.moduleLabel}>{module.label}</span>
+                                            <div className={styles.chips}>{module.items.map((item) => <span className={styles.chip} key={item}>{item}</span>)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </button>
                         );
                     })}
+                </div>
+
+                <div className={styles.disclaimer}>
+                    <i className="bi bi-shield-check" aria-hidden="true" />
+                    <span>Les concepts nécessitant une détection dédiée non encore native au moteur de templates (ex. Order Blocks, FVG, BOS/CHoCH automatiques) ne sont pas simulés ni affichés artificiellement.</span>
                 </div>
             </div>
         </BaseModal>

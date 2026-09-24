@@ -1,10 +1,8 @@
 "use client";
 
-import {
-  normalizeChartType } from "../lib/chart-types";
-import { useCallback } from "react";
-import { useDispatch,
-  useSelector } from "react-redux";
+import { normalizeChartType } from "../lib/chart-types";
+import { useCallback, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   setTimeframe,
   setTimeRange,
@@ -30,21 +28,45 @@ import {
 } from "../store/selectors";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import type { SavedAnalysis } from "../config/persistence/savedAnalysisTypes";
+import {
+  deleteSavedAnalysis,
+  duplicateSavedAnalysis,
+  listSavedAnalyses,
+  persistSavedAnalysis,
+  renameSavedAnalysis,
+} from "../config/persistence/savedAnalysisRepository";
+import type { Drawing } from "../config/drawing/drawingModelTypes";
 import type { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
-import { idbGetStrict, idbSetStrict } from "./drawing/drawingPersistence";
+
+type SavedAnalysisRuntime = {
+  drawings?: readonly Drawing[];
+  replaceDrawings?: (drawings: Drawing[]) => void;
+};
+
+type SaveAnalysisOptions = {
+  name?: string;
+  mode?: "update" | "copy";
+};
+
+const createAnalysisId = (): string =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? `analysis_${crypto.randomUUID()}`
+    : `analysis_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 /**
- * [TENOR 2026 SRE] useTechnicalAnalysisActions
- * Refactored to use IndexedDB (Asynchronous) instead of Web Storage (Synchronous).
- * Eradicates the 5MB storage limit and prevents Main Thread blocking (UI Freezes)
- * when saving massive 10k+ candle analysis objects.
+ * Single source of truth for saved-analysis lifecycle.
+ * IndexedDB owns durability; this hook owns the UI list and active analysis identity.
  */
 export const useTechnicalAnalysisActions = (
   _setChartData?: (data: ChartDataPoint[]) => void,
-  setSavedAnalysesList?: (list: SavedAnalysis[]) => void
+  setExternalSavedAnalysesList?: (list: SavedAnalysis[]) => void,
+  runtime?: SavedAnalysisRuntime,
 ) => {
   const dispatch = useDispatch();
   const { addNotification } = useGlobalNotification();
+  const [savedAnalysesList, setSavedAnalysesList] = useState<SavedAnalysis[]>([]);
+  const [activeSavedAnalysisId, setActiveSavedAnalysisId] = useState<string | null>(null);
+  const [activeSavedAnalysisName, setActiveSavedAnalysisName] = useState<string | null>(null);
 
   const chartConfig = useSelector(selectChartConfig);
   const advancedIndicators = useSelector(selectAdvancedIndicators);
@@ -53,24 +75,34 @@ export const useTechnicalAnalysisActions = (
   const chartAppearance = useSelector(selectChartAppearance);
   const uiState = useSelector(selectUiState);
 
+  const publishList = useCallback((list: SavedAnalysis[]) => {
+    setSavedAnalysesList(list);
+    setExternalSavedAnalysesList?.(list);
+  }, [setExternalSavedAnalysesList]);
+
   const handleTimeframeChange = useCallback((tf: string) => {
     dispatch(setTimeframe(tf));
   }, [dispatch]);
 
-  const handleSaveAnalysis = useCallback(async () => {
+  const handleSaveAnalysis = useCallback(async (options?: SaveAnalysisOptions) => {
     try {
-      const savedAt = new Date().toISOString();
+      const now = new Date().toISOString();
       const DOMPurify = (await import("dompurify")).default;
       const safeSymbol = DOMPurify.sanitize(chartConfig.symbol, { ALLOWED_TAGS: [] }).trim() || "UNKNOWN";
-      const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? `analysis_${crypto.randomUUID()}`
-        : `analysis_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const isCopy = options?.mode === "copy";
+      const id = !isCopy && activeSavedAnalysisId ? activeSavedAnalysisId : createAnalysisId();
+      const existing = savedAnalysesList.find((item) => item.id === id);
+      const requestedName = DOMPurify.sanitize(options?.name ?? "", { ALLOWED_TAGS: [] }).trim();
+      const name = requestedName
+        || (!isCopy && activeSavedAnalysisName)
+        || `${safeSymbol} · ${chartConfig.timeframe}`;
+      const drawings = runtime?.drawings ? structuredClone([...runtime.drawings]) : [];
 
       const analysis: SavedAnalysis = {
         id,
-        name: `${safeSymbol} - ${new Date(savedAt).toLocaleString()}`,
+        name,
         config: {
-          version: 2,
+          version: 3,
           symbol: chartConfig.symbol,
           timeframe: chartConfig.timeframe,
           chartType: chartConfig.chartType,
@@ -84,31 +116,26 @@ export const useTechnicalAnalysisActions = (
           comparisonSettings: uiState.comparisonSettings,
           activeMarket: uiState.activeMarket,
           timeRange: uiState.selectedTimeRange,
-          savedAt,
+          drawings,
+          createdAt: existing?.config.createdAt ?? existing?.config.savedAt ?? now,
+          updatedAt: now,
+          savedAt: now,
         },
       };
 
-      const current = await idbGetStrict<SavedAnalysis[]>("savedAnalyses") ?? [];
-      const next = [analysis, ...current.filter((item) => item.id !== id)].slice(0, 100);
-      await idbSetStrict("savedAnalyses", next);
-
-      // Durability/read-after-write contract: never display success until the
-      // committed IndexedDB transaction can be read back with the same identity.
-      const persisted = await idbGetStrict<SavedAnalysis[]>("savedAnalyses");
-      if (!persisted?.some((item) => item.id === id && item.config.savedAt === savedAt)) {
-        throw new Error("IndexedDB durability verification failed");
-      }
-      setSavedAnalysesList?.([...persisted].sort(
-        (a, b) => new Date(b.config.savedAt).getTime() - new Date(a.config.savedAt).getTime(),
-      ));
+      const persisted = await persistSavedAnalysis(analysis);
+      publishList(persisted);
+      setActiveSavedAnalysisId(id);
+      setActiveSavedAnalysisName(name);
 
       addNotification({
-        title: "Analyse sauvegardée",
-        message: `Configuration complète de ${safeSymbol} enregistrée dans IndexedDB`,
+        title: existing && !isCopy ? "Analyse mise à jour" : "Analyse sauvegardée",
+        message: `${name} · ${drawings.length} dessin${drawings.length > 1 ? "s" : ""} · ${safeSymbol} ${chartConfig.timeframe}`,
         type: "success",
         iconType: "faSave",
         duration: 3000,
       });
+      return analysis;
     } catch (error) {
       console.error("[SRE] Error saving analysis to IndexedDB:", error);
       addNotification({
@@ -117,15 +144,20 @@ export const useTechnicalAnalysisActions = (
         type: "error",
         iconType: "faTimesCircle",
       });
+      return null;
     }
   }, [
+    activeSavedAnalysisId,
+    activeSavedAnalysisName,
     addNotification,
     advancedIndicators,
     bollingerSettings,
     chartAppearance,
     chartConfig,
     indicatorPeriods,
-    setSavedAnalysesList,
+    publishList,
+    runtime?.drawings,
+    savedAnalysesList,
     uiState.activeMarket,
     uiState.comparisonSettings,
     uiState.comparisonSymbols,
@@ -135,17 +167,8 @@ export const useTechnicalAnalysisActions = (
 
   const handleOpenLoadModal = useCallback(async () => {
     try {
-      const saved: SavedAnalysis[] = await idbGetStrict<SavedAnalysis[]>("savedAnalyses") || [];
-
-      // Sort by date descending
-      saved.sort(
-        (a: SavedAnalysis, b: SavedAnalysis) =>
-          new Date(b.config.savedAt).getTime() - new Date(a.config.savedAt).getTime(),
-      );
-
-      if (setSavedAnalysesList) {
-        setSavedAnalysesList(saved);
-      }
+      const saved = await listSavedAnalyses();
+      publishList(saved);
       dispatch(setModalOpen({ modal: "loadAnalysis", isOpen: true }));
     } catch (error) {
       console.error("[SRE] Error loading analyses from IndexedDB:", error);
@@ -156,7 +179,56 @@ export const useTechnicalAnalysisActions = (
         iconType: "faTimesCircle",
       });
     }
-  }, [dispatch, setSavedAnalysesList, addNotification]);
+  }, [addNotification, dispatch, publishList]);
+
+  const handleDeleteAnalysis = useCallback(async (id: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    try {
+      const next = await deleteSavedAnalysis(id);
+      publishList(next);
+      if (activeSavedAnalysisId === id) {
+        setActiveSavedAnalysisId(null);
+        setActiveSavedAnalysisName(null);
+      }
+      addNotification({
+        title: "Analyse supprimée",
+        message: "L'analyse a été retirée de l'historique.",
+        type: "info",
+        iconType: "faTrash",
+      });
+    } catch (error) {
+      console.error("[SRE] Error deleting saved analysis:", error);
+      addNotification({
+        title: "Erreur de suppression",
+        message: "Impossible de supprimer cette analyse.",
+        type: "error",
+        iconType: "faTimesCircle",
+      });
+    }
+  }, [activeSavedAnalysisId, addNotification, publishList]);
+
+  const handleRenameAnalysis = useCallback(async (id: string, name: string) => {
+    try {
+      const next = await renameSavedAnalysis(id, name);
+      publishList(next);
+      if (activeSavedAnalysisId === id) setActiveSavedAnalysisName(name.trim());
+      addNotification({ title: "Analyse renommée", message: name.trim(), type: "success", iconType: "faCheck" });
+    } catch (error) {
+      console.error("[SRE] Error renaming saved analysis:", error);
+      addNotification({ title: "Renommage impossible", message: "Vérifiez le nom puis réessayez.", type: "error", iconType: "faTimesCircle" });
+    }
+  }, [activeSavedAnalysisId, addNotification, publishList]);
+
+  const handleDuplicateAnalysis = useCallback(async (id: string) => {
+    try {
+      const { list, duplicate } = await duplicateSavedAnalysis(id, createAnalysisId);
+      publishList(list);
+      addNotification({ title: "Analyse dupliquée", message: duplicate.name, type: "success", iconType: "faCheck" });
+    } catch (error) {
+      console.error("[SRE] Error duplicating saved analysis:", error);
+      addNotification({ title: "Duplication impossible", message: "Impossible de dupliquer cette analyse.", type: "error", iconType: "faTimesCircle" });
+    }
+  }, [addNotification, publishList]);
 
   const handleLoadAnalysis = useCallback((analysis: SavedAnalysis) => {
     const config = analysis.config;
@@ -348,21 +420,33 @@ export const useTechnicalAnalysisActions = (
       dispatch(hydrateMultiChartLayout(config.multiChartLayout));
     }
 
+    if (Array.isArray(config.drawings)) {
+      runtime?.replaceDrawings?.(structuredClone(config.drawings));
+    }
+
+    setActiveSavedAnalysisId(analysis.id);
+    setActiveSavedAnalysisName(analysis.name);
     dispatch(setModalOpen({ modal: "loadAnalysis", isOpen: false }));
-    
+
     addNotification({
       title: "Analyse chargée",
-      message: `Configuration ${config.symbol} restaurée avec succès`,
+      message: `${analysis.name} · ${config.symbol} ${config.timeframe} restaurée`,
       type: "success",
       iconType: "faCheck",
     });
-  }, [dispatch, addNotification]);
+  }, [dispatch, addNotification, runtime]);
 
   return {
+    savedAnalysesList,
+    activeSavedAnalysisId,
+    activeSavedAnalysisName,
     handleTimeframeChange,
     handleSaveAnalysis,
     handleOpenLoadModal,
     handleLoadAnalysis,
+    handleDeleteAnalysis,
+    handleRenameAnalysis,
+    handleDuplicateAnalysis,
   };
 };
 // --- EOF ---

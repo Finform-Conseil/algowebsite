@@ -105,7 +105,7 @@ test("mount enables Vela native navigation/autoscale and wires viewport events",
   assert.equal(createCall[1], container);
   assert.deepEqual(createCall[2].animations, { zoom: true, pan: true, scroll: true, autoscale: true, liveBar: false });
   assert.equal(createCall[2].currentPriceLine, true);
-  assert.equal(createCall[2].drawings, false);
+  assert.equal(createCall[2].drawings, true);
   assert.ok(harness.calls.some(([name, event]) => name === "on" && event === "viewport:changed"));
 
   harness.emitViewport({ from: 3_000, to: 4_000 });

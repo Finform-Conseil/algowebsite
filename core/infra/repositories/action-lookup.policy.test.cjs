@@ -27,7 +27,6 @@ const {
   buildActionLookupPlan,
   buildActionLookupQuery,
   buildActionLookupRequestKey,
-  buildActionMarketCatalogQuery,
   normalizeActionLookupCriteria,
 } = require(policyPath);
 
@@ -46,13 +45,16 @@ test("market-aware action lookup uses the lightweight index before detail hydrat
   assert.equal(buildActionLookupRequestKey(criteria), "actions:lookup:market:CSE:ticker:BOA:isin:");
 });
 
-test("lookup plan traverses a known market catalog exactly once", () => {
+test("lookup plan stays indexed for scoped and unscoped identities", () => {
   const scoped = normalizeActionLookupCriteria({
     ticker: "BOA",
     marketTicker: "CSE",
     isin: "MA0000012437",
   });
-  assert.deepEqual(buildActionLookupPlan(scoped), { strategy: "market-catalog" });
+  assert.deepEqual(buildActionLookupPlan(scoped), {
+    strategy: "indexed",
+    fields: ["isin", "ticker"],
+  });
 
   const unscopedWithIsin = normalizeActionLookupCriteria({ ticker: "BOA", isin: "MA0000012437" });
   assert.deepEqual(buildActionLookupPlan(unscopedWithIsin), {
@@ -67,17 +69,16 @@ test("lookup plan traverses a known market catalog exactly once", () => {
   });
 });
 
-test("market catalog fallback stays bounded and omits fragile ticker filters", () => {
-  const criteria = normalizeActionLookupCriteria({ ticker: "BOA", marketTicker: "CSE" });
-  assert.deepEqual(buildActionMarketCatalogQuery(criteria), {
-    page: 1,
-    page_size: 100,
-    bourse_tickers: "CSE",
-    view_type: "screener",
+test("scoped ISIN lookup remains server-filtered and bounded to one candidate", () => {
+  const criteria = normalizeActionLookupCriteria({
+    ticker: "BOA",
+    marketTicker: "CSE",
+    isin: "MA0000012437",
   });
-  assert.deepEqual(buildActionMarketCatalogQuery(criteria, 3), {
-    page: 3,
-    page_size: 100,
+  assert.deepEqual(buildActionLookupQuery(criteria, "isin"), {
+    page: 1,
+    page_size: 1,
+    isin: "MA0000012437",
     bourse_tickers: "CSE",
     view_type: "screener",
   });

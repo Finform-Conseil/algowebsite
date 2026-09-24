@@ -1,6 +1,6 @@
 export type PineScriptKind = "indicator" | "strategy" | "library";
 export type PineDiagnosticSeverity = "error" | "warning" | "info";
-export type PineRuntimeStatus = "idle" | "compiled" | "attached" | "storage_error";
+export type PineRuntimeStatus = "idle" | "compiled" | "running" | "attached" | "runtime_error" | "storage_error";
 
 export interface PineDiagnostic {
   code: string;
@@ -94,6 +94,9 @@ export interface PineEditorState {
   draftName: string;
   isDirty: boolean;
   lastSavedAt: string | null;
+  runtimeDiagnostics: PineDiagnostic[];
+  runtimeEngine: "PineTS" | null;
+  runtimeError: string | null;
   runtimeStatus: PineRuntimeStatus;
   savedScripts: PineSavedScript[];
   source: string;
@@ -108,5 +111,9 @@ export type PineEditorAction =
   | { type: "save_draft_success"; now: string }
   | { type: "save_success"; now: string; script: PineSavedScript }
   | { type: "save_failed"; message: string }
+  | { type: "runtime_start" }
+  | { type: "runtime_success"; diagnostics: PineDiagnostic[]; engine: "PineTS" }
+  | { type: "runtime_failed"; message: string }
   | { type: "attach_overlay"; chartOverlay: PineChartOverlayPayload; now: string }
+  | { type: "detach_overlay" }
   | { type: "reset_storage_error" };

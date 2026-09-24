@@ -3,6 +3,7 @@ import type { CompareSeriesSettingsMap } from "../compare-series/compareSeries";
 import type { MultiChartLayoutState } from "../layout/multiChartLayoutTypes";
 import type { ChartAppearance } from "../state/chartStateTypes";
 import type { ActiveMarketState } from "../state/uiStateTypes";
+import type { Drawing } from "../drawing/drawingModelTypes";
 
 export interface SavedAnalysisIndicators {
   sma: boolean;
@@ -161,7 +162,7 @@ export interface SavedAnalysis {
   name: string;
   config: {
     /** Schema version for backward-compatible IndexedDB migrations. */
-    version?: 2;
+    version?: 2 | 3;
     symbol: string;
     timeframe: string;
     chartType: string;
@@ -175,6 +176,12 @@ export interface SavedAnalysis {
     comparisonSettings?: CompareSeriesSettingsMap;
     activeMarket?: ActiveMarketState;
     timeRange?: string;
+    /** Drawing workspace snapshot. Optional for backward compatibility with v2. */
+    drawings?: Drawing[];
+    /** Immutable creation timestamp; v2 records fall back to savedAt. */
+    createdAt?: string;
+    /** Last durable update timestamp; v2 records fall back to savedAt. */
+    updatedAt?: string;
     savedAt: string;
   };
 }

@@ -21,24 +21,28 @@
  * Les 5 slots statiques pour la DataWindow sont pré-alloués pour le Zero-Lag DOM Mutation.
  */
 
-import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useRef, useEffect, type RefObject } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { AdvancedIndicatorsState } from "../../../config/indicators/advancedIndicatorsTypes";
 import type { ObjectTreePanelTab, DataWindowCandleValues } from "../../../config/object-tree/objectTreeTypes";
 import type { ChartAppearance, ChartState } from "../../../config/state/chartStateTypes";
-import type { PineChartOverlayPayload } from "../../../components/sidebar/panels/pineEditor/pineTypes";
 import { setAdvancedIndicators, setChartConfig, removeComparisonSymbol, clearPineChartOverlay } from "../../../store/technicalAnalysisSlice";
 import { resolveTrendSignalSourceAveragePeriods } from "../../../config/indicators/movingAverageSeries";
 import { resolvePriceVsSmaSourceAveragePeriods } from "../../../config/indicators/priceVsSmaMetrics";
 import { resolvePriceVsEmaSourceAveragePeriods } from "../../../config/indicators/priceVsEmaMetrics";
 import type { RootState } from "@/core/infra/store";
+import type { EChartsType } from "echarts/core";
 import { DataWindowTab } from "./DataWindowTab";
 import { ObjectTreeActionToolbar, type ObjectTreePanelMenu, type VisualOrderDirection } from "./ObjectTreeActionToolbar";
 import { ObjectTreeDrawingList } from "./ObjectTreeDrawingList";
 import { ObjectTreeInlineStates } from "./ObjectTreeInlineStates";
 import { resolveDrawingBulkAction, type DrawingBulkAction } from "./objectTreeDrawingActions";
 import { buildObjectTreeItems } from "./objectTreeItems";
+import {
+  buildChartObjectRegistry,
+  type RuntimeChartSeriesDescriptor,
+} from "./objectTreeRegistry";
 import type { ObjectTreeItem } from "./objectTreeItemTypes";
 import { IconButton, ObjectTreeItemRow } from "./objectTreeRows";
 import { TV } from "./objectTreePanelStyles";
@@ -71,6 +75,7 @@ export interface ObjectTreePanelProps {
   activeTool: string | null;
   hiddenObjectIds: Record<string, boolean>;
   setHiddenObjectIds: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  chartInstanceRef: RefObject<EChartsType | null>;
 }
 
 // ============================================================================
@@ -97,6 +102,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   activeTool,
   hiddenObjectIds,
   setHiddenObjectIds,
+  chartInstanceRef,
 }) => {
   const dispatch = useDispatch();
 
@@ -108,6 +114,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const priceVsEmaMetricState = useSelector((state: RootState) => state.technicalAnalysis.ui.priceVsEmaMetrics);
   const indicatorPeriods = useSelector((state: RootState) => state.technicalAnalysis.indicatorPeriods);
   const pineChartOverlay = useSelector((state: RootState) => state.technicalAnalysis.pineChartOverlay);
+  const alerts = useSelector((state: RootState) => state.technicalAnalysis.alerts);
+  const orders = useSelector((state: RootState) => state.technicalAnalysis.orders);
   const movingAverageTrendSignals = useMemo(
     () => resolveTrendSignalSourceAveragePeriods(movingAverageTrendSignalState),
     [movingAverageTrendSignalState],
@@ -124,6 +132,50 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const [activeMenu, setActiveMenu] = useState<ObjectTreePanelMenu | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [runtimeSeries, setRuntimeSeries] = useState<RuntimeChartSeriesDescriptor[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let previousFingerprint = "";
+    const syncRuntimeSeries = () => {
+      const chart = chartInstanceRef.current;
+      if (!chart || chart.isDisposed()) return;
+
+      const option = chart.getOption() as { series?: unknown[] };
+      const series = Array.isArray(option.series) ? option.series : [];
+      const next = series.map((raw, index) => {
+        const item = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+        const lineStyle = (item.lineStyle && typeof item.lineStyle === "object" ? item.lineStyle : {}) as Record<string, unknown>;
+        const itemStyle = (item.itemStyle && typeof item.itemStyle === "object" ? item.itemStyle : {}) as Record<string, unknown>;
+        const id = typeof item.id === "string" && item.id ? item.id : `series-${index}`;
+        const label =
+          (typeof item.name === "string" && item.name)
+          || (typeof item.id === "string" && item.id)
+          || `Series ${index + 1}`;
+        const color =
+          (typeof lineStyle.color === "string" && lineStyle.color)
+          || (typeof itemStyle.color === "string" && itemStyle.color)
+          || "#94a3b8";
+        const visible =
+          item.show !== false
+          && lineStyle.opacity !== 0
+          && itemStyle.opacity !== 0;
+
+        return { id, label, color, visible } satisfies RuntimeChartSeriesDescriptor;
+      });
+
+      const fingerprint = JSON.stringify(next);
+      if (fingerprint !== previousFingerprint) {
+        previousFingerprint = fingerprint;
+        setRuntimeSeries(next);
+      }
+    };
+
+    syncRuntimeSeries();
+    const intervalId = window.setInterval(syncRuntimeSeries, 500);
+    return () => window.clearInterval(intervalId);
+  }, [chartInstanceRef, isOpen]);
 
   // [TENOR 2026] Inline UI States (Replacing native dialogs)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -297,21 +349,57 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   if (!isOpen) return null;
 
-  const objectTreeItems = buildObjectTreeItems({
-    chartConfig,
-    indicatorPeriods,
-    chartAppearance,
-    advancedIndicators,
-    isMainChartVisible,
-    activeTool,
-    hiddenObjectIds,
-    comparisonSymbols,
-    comparisonSettings,
-    movingAverageTrendSignals,
-    priceVsSmaSourcePeriods,
-    priceVsEmaSourcePeriods,
-    pineChartOverlay,
+  const configuredObjectTreeItems = [
+    ...buildObjectTreeItems({
+      chartConfig,
+      indicatorPeriods,
+      chartAppearance,
+      advancedIndicators,
+      isMainChartVisible,
+      activeTool,
+      hiddenObjectIds,
+      comparisonSymbols,
+      comparisonSettings,
+      movingAverageTrendSignals,
+      priceVsSmaSourcePeriods,
+      priceVsEmaSourcePeriods,
+      pineChartOverlay,
+    }),
+    ...alerts
+      .filter((alert) => alert.active)
+      .map((alert): ObjectTreeItem => ({
+        id: `alert-${alert.id}`,
+        label: `Alert ${alert.condition === "GREATER_THAN" ? ">" : "<"} ${alert.value}`,
+        kind: "alert",
+        visible: true,
+        color: "#f59e0b",
+        removable: false,
+        capabilities: { visibility: false, remove: false },
+      })),
+    ...orders
+      .filter((order) => order.status === "active")
+      .map((order): ObjectTreeItem => ({
+        id: `order-${order.id}`,
+        label: `${order.side.toUpperCase()} ${order.orderType} · ${order.triggerPrice}`,
+        kind: "order",
+        visible: true,
+        color: order.side === "buy" ? "#26a69a" : "#ef5350",
+        removable: false,
+        capabilities: { visibility: false, remove: false },
+      })),
+  ];
+
+  const chartObjectRegistry = buildChartObjectRegistry({
+    drawings,
+    objectItems: configuredObjectTreeItems,
+    runtimeSeries,
   });
+  const objectTreeItems = chartObjectRegistry
+    .filter((entry) => entry.source === "object")
+    .map((entry) => entry.item);
+  const registryDrawings = chartObjectRegistry
+    .filter((entry) => entry.source === "drawing")
+    .map((entry) => entry.drawing);
 
   const selectedObject = objectTreeItems.find((item) => item.id === selectedObjectId) ?? null;
 
@@ -460,7 +548,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             )}
 
             <ObjectTreeDrawingList
-              drawings={drawings}
+              drawings={registryDrawings}
               selectedDrawingId={selectedDrawingId}
               collapsedGroups={collapsedGroups}
               onGroupToggle={toggleGroupCollapse}

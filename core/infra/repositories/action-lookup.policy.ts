@@ -10,10 +10,10 @@ export type NormalizedActionLookupCriteria = Readonly<{
 
 export type ActionLookupField = "isin" | "ticker";
 
-export type ActionLookupPlan = Readonly<
-  | { strategy: "market-catalog" }
-  | { strategy: "indexed"; fields: readonly ActionLookupField[] }
->;
+export type ActionLookupPlan = Readonly<{
+  strategy: "indexed";
+  fields: readonly ActionLookupField[];
+}>;
 
 const normalize = (value: unknown): string =>
   typeof value === "string" ? value.trim().toUpperCase() : "";
@@ -37,13 +37,14 @@ export const normalizeActionLookupCriteria = (
 
 export const buildActionLookupPlan = (
   criteria: NormalizedActionLookupCriteria,
-): ActionLookupPlan => {
-  if (criteria.marketTicker) return { strategy: "market-catalog" };
-  return {
-    strategy: "indexed",
-    fields: criteria.isin ? ["isin", "ticker"] : ["ticker"],
-  };
-};
+): ActionLookupPlan => ({
+  // The API supports server-side ticker/ISIN + market filtering. A lookup must
+  // therefore stay O(1) in market size: fetching the complete market catalog
+  // made metadata resolution proportional to every listed security and could
+  // exhaust the client timeout before the requested action was hydrated.
+  strategy: "indexed",
+  fields: criteria.isin ? ["isin", "ticker"] : ["ticker"],
+});
 
 export const buildActionLookupRequestKey = (
   criteria: NormalizedActionLookupCriteria,
@@ -74,21 +75,6 @@ export const buildActionLookupQuery = (
   }
 
   return query;
-};
-
-export const buildActionMarketCatalogQuery = (
-  criteria: NormalizedActionLookupCriteria,
-  page = 1,
-): ActionQueryParams => {
-  if (!criteria.marketTicker) {
-    throw new Error("A market ticker is required for catalog fallback.");
-  }
-  return {
-    page: Math.max(1, Math.floor(page)),
-    page_size: 100,
-    bourse_tickers: criteria.marketTicker,
-    view_type: "screener",
-  };
 };
 
 export const actionMatchesLookup = (

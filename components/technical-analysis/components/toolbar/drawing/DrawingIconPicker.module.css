@@ -1,0 +1,18 @@
+.scrollArea {
+  scrollbar-width: auto;
+}
+.scrollArea::-webkit-scrollbar { width: 5px; }
+.scrollArea::-webkit-scrollbar-track { background: transparent; }
+.scrollArea::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border-radius: 999px;
+  background: rgba(174, 180, 191, 0.58);
+}
+.scrollArea::-webkit-scrollbar-thumb:hover { background: rgba(209, 212, 220, 0.78); }
+.scrollArea::-webkit-scrollbar-button,
+.scrollArea::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}

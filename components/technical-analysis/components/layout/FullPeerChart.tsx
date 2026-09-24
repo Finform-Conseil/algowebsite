@@ -47,6 +47,8 @@ export interface FullPeerChartProps {
   activeBounds?: { start: string; end: string };
   headerActions?: React.ReactNode;
   isActive?: boolean;
+  /** In dense layouts (>2 cells), only the active chart renders cartesian grid lines. */
+  showGridLines?: boolean;
   interactionOverlay?: React.ReactNode;
   onActivate: () => void;
   onHeaderClick: () => void;
@@ -101,6 +103,7 @@ const FullPeerChartEngine: React.FC<FullPeerChartProps> = ({
   activeBounds,
   headerActions,
   isActive = false,
+  showGridLines = true,
   interactionOverlay,
   onActivate,
   onHeaderClick,
@@ -240,6 +243,7 @@ const FullPeerChartEngine: React.FC<FullPeerChartProps> = ({
     hideChartTitle: true,
     legendLayoutMode: isCompactMeta ? "peer-compact" : "peer-stacked",
     reserveLastPriceAxisBadge: isActive,
+    gridLinesVisible: showGridLines,
     lastZoomRangeRef,
     lastPriceAxisValue: latestPoint?.close,
     isMainChartVisible: true,
@@ -375,6 +379,7 @@ const FullPeerChartEngine: React.FC<FullPeerChartProps> = ({
       ref={containerRef}
       className={`gp-peer-chart${isActive ? " is-active" : ""}${isCompactMeta ? " is-meta-compact" : ""}`}
       data-chart-activity={isActive ? "active" : "inactive"}
+      data-grid-lines={showGridLines ? "visible" : "hidden"}
       data-chart-meta-density={isCompactMeta ? "compact" : "stacked"}
       onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
       role="button"
@@ -481,6 +486,7 @@ const DeferredPeerChartShell: React.FC<FullPeerChartProps> = ({
   dataMode,
   headerActions,
   isActive = false,
+  showGridLines = true,
   onActivate,
   onHeaderClick,
   metaDensity = "comfortable",
@@ -519,6 +525,7 @@ const DeferredPeerChartShell: React.FC<FullPeerChartProps> = ({
     <div
       className={`gp-peer-chart${isActive ? " is-active" : ""}${isCompactMeta ? " is-meta-compact" : ""}`}
       data-chart-activity={isActive ? "active" : "inactive"}
+      data-grid-lines={showGridLines ? "visible" : "hidden"}
       data-chart-meta-density={isCompactMeta ? "compact" : "stacked"}
       onClick={hasSelectedSymbol ? onActivate : onHeaderClick}
       role="button"

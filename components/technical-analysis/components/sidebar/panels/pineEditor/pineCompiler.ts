@@ -1,7 +1,7 @@
 import type { PineCompileResult, PineDiagnostic, PinePlot, PineScriptKind, PineSignal } from "./pineTypes";
 
-const MAX_SOURCE_LENGTH = 12_000;
-const MAX_SOURCE_LINES = 320;
+const MAX_SOURCE_LENGTH = 200_000;
+const MAX_SOURCE_LINES = 5_000;
 const FALLBACK_TITLE = "Untitled Pine Script";
 const DECLARATION_PATTERN = /^\s*(indicator|strategy|library)\s*\(\s*["']([^"']{1,90})["']/m;
 
@@ -76,10 +76,14 @@ export const compilePineScript = (source: string): PineCompileResult => {
   if (declaration?.kind === "library" && !hasChartOutput) {
     diagnostics.push(info("PINE_LIBRARY_NO_OUTPUT", 1, "Library scripts define helper functions and cannot be attached to the chart."));
   }
+  const canAttachToChart = Boolean(declaration && declaration.kind !== "library");
   return {
     checksum: buildPineChecksum(normalized),
     diagnostics,
-    isExecutable: diagnostics.every((diagnostic) => diagnostic.severity !== "error") && hasChartOutput,
+    // Static checks are only a safety/preflight gate. PineTS is the runtime
+    // authority and may support outputs that this lightweight metadata pass
+    // does not extract (hline, plotcandle, drawings, tables, etc.).
+    isExecutable: diagnostics.every((diagnostic) => diagnostic.severity !== "error") && canAttachToChart,
     kind: declaration?.kind ?? "indicator",
     lines,
     plots,
@@ -92,7 +96,7 @@ const pushSourceGuards = (source: string, normalized: string, lines: number, dia
   if (normalized.trim().length === 0) diagnostics.push(error("PINE_EMPTY_SOURCE", 1, "Pine source cannot be empty."));
   if (source.length > MAX_SOURCE_LENGTH) diagnostics.push(error("PINE_SOURCE_TOO_LARGE", 1, `Source is capped at ${MAX_SOURCE_LENGTH} characters.`));
   if (lines > MAX_SOURCE_LINES) diagnostics.push(error("PINE_TOO_MANY_LINES", MAX_SOURCE_LINES + 1, `Source is capped at ${MAX_SOURCE_LINES} lines.`));
-  if (!/^\s*\/\/@version=5/m.test(normalized)) diagnostics.push(error("PINE_VERSION_REQUIRED", 1, "Add //@version=5 at the top of the script."));
+  if (!/^\s*\/\/@version=(5|6)\b/m.test(normalized)) diagnostics.push(error("PINE_VERSION_REQUIRED", 1, "Add //@version=5 or //@version=6 at the top of the script."));
 };
 
 const pushSyntaxGuards = (source: string, diagnostics: PineDiagnostic[]) => {

@@ -12,6 +12,9 @@ export const createInitialPineEditorState = (template: PineScriptTemplate): Pine
     draftName: template.name,
     isDirty: false,
     lastSavedAt: null,
+    runtimeDiagnostics: [],
+    runtimeEngine: null,
+    runtimeError: null,
     runtimeStatus: compileResult.isExecutable ? "compiled" : "idle",
     savedScripts: [],
     source: template.source,
@@ -23,6 +26,9 @@ export const applyPineCompileResult = (state: PineEditorState, result: PineCompi
   ...state,
   compileResult: result,
   draftName: result.title,
+  runtimeDiagnostics: [],
+  runtimeEngine: null,
+  runtimeError: null,
   runtimeStatus: result.isExecutable ? "compiled" : "idle",
 });
 
@@ -34,7 +40,11 @@ export const pineEditorReducer = (state: PineEditorState, action: PineEditorActi
   if (action.type === "save_draft_success") return saveDraft(state, action.now);
   if (action.type === "save_success") return saveScript(state, action.script, action.now);
   if (action.type === "save_failed") return { ...state, runtimeStatus: "storage_error", storageError: action.message };
+  if (action.type === "runtime_start") return { ...state, runtimeDiagnostics: [], runtimeEngine: "PineTS", runtimeError: null, runtimeStatus: "running" };
+  if (action.type === "runtime_success") return { ...state, runtimeDiagnostics: action.diagnostics, runtimeEngine: action.engine, runtimeError: null, runtimeStatus: state.attachedOverlay ? "attached" : "compiled" };
+  if (action.type === "runtime_failed") return { ...state, runtimeDiagnostics: [], runtimeEngine: "PineTS", runtimeError: action.message, runtimeStatus: "runtime_error" };
   if (action.type === "attach_overlay") return attachOverlay(state, action.chartOverlay, action.now);
+  if (action.type === "detach_overlay") return { ...state, attachedOverlay: null, runtimeStatus: state.compileResult.isExecutable ? "compiled" : "idle" };
   if (action.type === "reset_storage_error") return { ...state, runtimeStatus: state.compileResult.isExecutable ? "compiled" : "idle", storageError: null };
   return state;
 };
@@ -47,6 +57,9 @@ const editSource = (state: PineEditorState, source: string): PineEditorState => 
     compileResult,
     draftName: compileResult.title,
     isDirty: true,
+    runtimeDiagnostics: [],
+    runtimeEngine: null,
+    runtimeError: null,
     runtimeStatus: compileResult.isExecutable ? "compiled" : "idle",
     source,
     storageError: null,
@@ -62,6 +75,9 @@ const selectTemplate = (state: PineEditorState, template: PineScriptTemplate): P
     compileResult,
     draftName: template.name,
     isDirty: true,
+    runtimeDiagnostics: [],
+    runtimeEngine: null,
+    runtimeError: null,
     runtimeStatus: compileResult.isExecutable ? "compiled" : "idle",
     source: template.source,
     storageError: null,
@@ -96,7 +112,7 @@ const attachOverlay = (state: PineEditorState, chartOverlay: PineAttachedOverlay
     title: state.compileResult.title,
     updatedAt: now,
   };
-  return { ...state, attachedOverlay, runtimeStatus: "attached", storageError: null };
+  return { ...state, attachedOverlay, runtimeEngine: "PineTS", runtimeError: null, runtimeStatus: "attached", storageError: null };
 };
 
 const upsertSavedScript = (scripts: PineSavedScript[], script: PineSavedScript) => [

@@ -17,6 +17,7 @@ const viewportEngineSource = read("components/technical-analysis/hooks/useChartV
 const viewportCommitSource = read("components/technical-analysis/hooks/viewport/viewportChangeCommit.ts");
 const layoutSetupSource = read("components/technical-analysis/components/toolbar/LayoutSetupControl.tsx");
 const rendererSource = read("components/technical-analysis/hooks/useEChartsRenderer.ts");
+const mutationSafetySource = read("components/technical-analysis/hooks/chart-rendering/chartMutationSafety.ts");
 const volumeLegendSource = read("components/technical-analysis/components/chart/VolumeStudyLegend.tsx");
 const drawingManagerSource = read("components/technical-analysis/hooks/useDrawingManager.ts");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
@@ -117,9 +118,14 @@ test("peer viewport delegates desktop price/time interactions to the canonical c
 });
 
 test("chart mutation scheduler defers resize and option work while ECharts is in its main process", () => {
-  assert.match(rendererSource, /__flagInMainProcess/);
+  assert.match(mutationSafetySource, /__flagInMainProcess/);
   assert.match(rendererSource, /if \(isEChartsMainProcessActive\(chart\)\) \{\s*chartMutationRafRef\.current = requestAnimationFrame\(flushChartMutationQueue\);\s*return;/);
   assert.match(rendererSource, /scheduleChartMutation\("resize", \(targetChart\) => \{[\s\S]*?targetChart\.resize\(\{ width: hostWidth, height: hostHeight \}\);/);
+  assert.match(viewportEngineSource, /if \(scheduleChartMutation\) \{\s*scheduleChartMutation\(key, mutation\);\s*return;/);
+  assert.doesNotMatch(viewportEngineSource, /mode === "queued" && scheduleChartMutation/);
+  assert.match(cursorSource, /scheduleIdleChartMutation\(chart, "cursor-title"/);
+  assert.match(cursorSource, /scheduleIdleChartMutation\(hoveredChart, "cursor-title"/);
+  assert.match(mutationSafetySource, /if \(isEChartsMainProcessActive\(chart\)\) \{\s*scheduleFlush\(chart, queue\);\s*return;/);
 });
 
 test("multi-chart hover cannot retrigger the full renderer through unstable empty inputs or hidden-title mutations", () => {

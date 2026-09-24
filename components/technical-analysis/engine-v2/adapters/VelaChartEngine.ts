@@ -84,7 +84,9 @@ export class VelaChartEngine implements FinancialChartEngine {
       priceStyle: "candles",
       currentPriceLine: true,
       animations: { zoom: true, pan: true, scroll: true, autoscale: true, liveBar: false },
-      drawings: false,
+      // Vela owns its native interaction surface when selected in the real chart.
+      // The legacy ECharts drawing canvas is intentionally unmounted in that mode.
+      drawings: true,
     });
     if (generation !== this.generation) {
       chart.destroy();

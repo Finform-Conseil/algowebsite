@@ -77,6 +77,116 @@ const restoreDrawingsFromCloudDisabled = createDisabledDrawingCloudPersistence("
 const FREEHAND_MIN_POINT_DISTANCE_PX = 3;
 const FREEHAND_MAX_POINTS = 900;
 const DRAWING_HIT_THRESHOLD_PX = 15;
+const WEAK_MAGNET_THRESHOLD_PX = 14;
+const KEEP_DRAWING_STORAGE_KEY = "ta:keep-drawing:v1";
+const MAGNET_PREFERENCES_STORAGE_KEY = "ta:drawing-magnet-preferences:v1";
+
+type MagnetMode = "off" | "weak" | "strong";
+type ActiveMagnetMode = Exclude<MagnetMode, "off">;
+
+interface MagnetPreferences {
+  mode: MagnetMode;
+  lastActiveMode: ActiveMagnetMode;
+  snapToIndicators: boolean;
+}
+
+const persistMagnetPreferences = (preferences: MagnetPreferences): void => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MAGNET_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+  } catch {
+    // Preference persistence is best-effort; drawing interaction must remain usable.
+  }
+};
+
+const readMagnetPreferences = (): MagnetPreferences | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(MAGNET_PREFERENCES_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<MagnetPreferences>;
+    const mode: MagnetMode = parsed.mode === "weak" || parsed.mode === "strong" ? parsed.mode : "off";
+    const lastActiveMode: ActiveMagnetMode =
+      parsed.lastActiveMode === "strong" || parsed.lastActiveMode === "weak"
+        ? parsed.lastActiveMode
+        : mode === "strong"
+          ? "strong"
+          : "weak";
+    return {
+      mode,
+      lastActiveMode,
+      snapToIndicators: parsed.snapToIndicators === true,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const formatQuickMeasureNumber = (value: number): string => {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
+  if (absolute >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (absolute >= 1_000) return `${(value / 1_000).toFixed(2)}K`;
+  return value.toFixed(2);
+};
+
+const formatQuickMeasureDuration = (start: unknown, end: unknown): string | null => {
+  const startMs = typeof start === "number" && start > 10_000_000_000 ? start : Date.parse(String(start));
+  const endMs = typeof end === "number" && end > 10_000_000_000 ? end : Date.parse(String(end));
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  const minutes = Math.round(Math.abs(endMs - startMs) / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+};
+
+const buildQuickMeasureLabel = (drawing: Drawing, data: ChartDataPoint[]): string => {
+  const [start, end] = drawing.points;
+  if (!start || !end) return "";
+  const delta = end.value - start.value;
+  const percent = start.value === 0 ? 0 : (delta / Math.abs(start.value)) * 100;
+  const signedDelta = `${delta >= 0 ? "+" : ""}${formatQuickMeasureNumber(delta)}`;
+  const signedPercent = `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
+  const indexFor = (time: DrawingPoint["time"]) => data.findIndex((point) => String(point.time) === String(time));
+  const startIndex = indexFor(start.time);
+  const endIndex = indexFor(end.time);
+  const parts = [`${signedDelta} (${signedPercent})`];
+
+  if (startIndex >= 0 && endIndex >= 0) {
+    const first = Math.min(startIndex, endIndex);
+    const last = Math.max(startIndex, endIndex);
+    parts.push(`${last - first + 1} bars`);
+    const volume = data.slice(first, last + 1).reduce((sum, point) => sum + (Number(point.volume) || 0), 0);
+    if (volume > 0) parts.push(`Vol ${formatQuickMeasureNumber(volume)}`);
+  }
+
+  const duration = formatQuickMeasureDuration(start.time, end.time);
+  if (duration) parts.splice(Math.min(2, parts.length), 0, duration);
+  return parts.join(" · ");
+};
+
+const decorateQuickMeasureDrawing = (drawing: Drawing, data: ChartDataPoint[]): Drawing => {
+  const [start, end] = drawing.points;
+  const isPositive = !start || !end || end.value >= start.value;
+  const measureColor = isPositive ? "#089981" : "#f23645";
+  return {
+    ...drawing,
+    showText: true,
+    text: buildQuickMeasureLabel(drawing, data),
+    textColor: "#ffffff",
+    textBold: true,
+    fontSize: 12,
+    style: {
+      ...drawing.style,
+      color: measureColor,
+      fillColor: measureColor,
+      fillOpacity: 0.18,
+      fillEnabled: true,
+      lineWidth: 1,
+    },
+  };
+};
 
 // ============================================================================
 // TYPES
@@ -107,7 +217,88 @@ export const useDrawingManager = ({
 
   // --- State ---
   const [activeTool, setActiveTool] = useState<AllToolType>(null);
+  const [measureModeActive, setMeasureModeActive] = useState(false);
+  const measureModeRef = useRef(false);
+  const transientMeasureRef = useRef<Drawing | null>(null);
+  const quickMeasureDragRef = useRef(false);
+  const [keepDrawing, setKeepDrawingState] = useState(false);
+  const keepDrawingRef = useRef(false);
+  const [magnetMode, setMagnetModeState] = useState<MagnetMode>("off");
+  const magnetModeRef = useRef<MagnetMode>("off");
+  const lastActiveMagnetModeRef = useRef<ActiveMagnetMode>("weak");
+  const [snapToIndicators, setSnapToIndicatorsState] = useState(false);
+  const snapToIndicatorsRef = useRef(false);
+  const [positionsOrdersHidden, setPositionsOrdersHidden] = useState(false);
+  const positionsOrdersHiddenRef = useRef(false);
+  const pendingIconSymbolRef = useRef<string | null>(null);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
+
+  const setKeepDrawing = useCallback((enabled: boolean) => {
+    keepDrawingRef.current = enabled;
+    setKeepDrawingState(enabled);
+
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(KEEP_DRAWING_STORAGE_KEY, enabled ? "true" : "false");
+    } catch {
+      // Preference persistence is best-effort; drawing interaction must remain usable.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const persisted = window.localStorage.getItem(KEEP_DRAWING_STORAGE_KEY);
+      if (persisted !== "true" && persisted !== "false") return;
+
+      const enabled = persisted === "true";
+      keepDrawingRef.current = enabled;
+      setKeepDrawingState(enabled);
+    } catch {
+      // Ignore storage failures and keep the safe default (disabled).
+    }
+  }, []);
+
+  const setMagnetMode = useCallback((mode: MagnetMode) => {
+    magnetModeRef.current = mode;
+    if (mode !== "off") lastActiveMagnetModeRef.current = mode;
+    setMagnetModeState(mode);
+    persistMagnetPreferences({
+      mode,
+      lastActiveMode: lastActiveMagnetModeRef.current,
+      snapToIndicators: snapToIndicatorsRef.current,
+    });
+  }, []);
+
+  const toggleMagnetMode = useCallback(() => {
+    setMagnetMode(
+      magnetModeRef.current === "off"
+        ? lastActiveMagnetModeRef.current
+        : "off",
+    );
+  }, [setMagnetMode]);
+
+  const setSnapToIndicators = useCallback((enabled: boolean) => {
+    snapToIndicatorsRef.current = enabled;
+    setSnapToIndicatorsState(enabled);
+    persistMagnetPreferences({
+      mode: magnetModeRef.current,
+      lastActiveMode: lastActiveMagnetModeRef.current,
+      snapToIndicators: enabled,
+    });
+  }, []);
+
+  useEffect(() => {
+    const preferences = readMagnetPreferences();
+    if (!preferences) return;
+    magnetModeRef.current = preferences.mode;
+    lastActiveMagnetModeRef.current = preferences.lastActiveMode;
+    snapToIndicatorsRef.current = preferences.snapToIndicators;
+    setMagnetModeState(preferences.mode);
+    setSnapToIndicatorsState(preferences.snapToIndicators);
+  }, []);
+
   const [, setCurrentDrawing] = useState<Drawing | null>(null);
   const [selectedDrawingId, setSelectedDrawingIdState] = useState<string | null>(null);
   const selectedDrawingIdRef = useRef<string | null>(null);
@@ -143,6 +334,9 @@ export const useDrawingManager = ({
   // the next IndexedDB bucket is being restored asynchronously.
   useLayoutEffect(() => {
     drawingsLoadedScopeRef.current = null;
+    historyRef.current = [[]];
+    historyStepRef.current = 0;
+    setHistoryAvailability({ canUndo: false, canRedo: false });
     setDrawings([]);
     setCurrentDrawing(null);
     setSelectedDrawingId(null);
@@ -176,6 +370,9 @@ export const useDrawingManager = ({
             .map((drawing) => normalizeFlagMark(drawing))
             .map((drawing) => normalizeImageNote(drawing))
           : [];
+        historyRef.current = [[...restored]];
+        historyStepRef.current = 0;
+        setHistoryAvailability({ canUndo: false, canRedo: false });
         setDrawings(restored);
       } catch {
         if (!cancelled) setDrawings([]);
@@ -207,6 +404,11 @@ export const useDrawingManager = ({
   const markDirty = useCallback(() => {
     isDirtyRef.current = true;
   }, []);
+
+  useEffect(() => {
+    positionsOrdersHiddenRef.current = positionsOrdersHidden;
+    markDirty();
+  }, [positionsOrdersHidden, markDirty]);
 
   const selectedAlerts = useSelector(selectAlerts);
   const selectedOrders = useSelector(selectOrders);
@@ -259,6 +461,14 @@ export const useDrawingManager = ({
     setCurrentDrawing(null);
     markDirty();
   }, [activeTool, uiState.cursorMode, drawingInteractionScopeKey, markDirty]);
+
+  useEffect(() => {
+    if (!measureModeActive || activeTool === "date_price_range") return;
+    measureModeRef.current = false;
+    setMeasureModeActive(false);
+    transientMeasureRef.current = null;
+    markDirty();
+  }, [activeTool, markDirty, measureModeActive]);
 
   // --- High-Performance Refs ---
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
@@ -324,10 +534,31 @@ export const useDrawingManager = ({
   const historyRef = useRef<Drawing[][]>([[]]);
   const historyStepRef = useRef<number>(0);
   const pendingHistoryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [historyAvailability, setHistoryAvailability] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
+
+  const syncHistoryAvailability = useCallback(() => {
+    queueMicrotask(() => {
+      setHistoryAvailability({
+        canUndo: historyStepRef.current > 0,
+        canRedo: historyStepRef.current < historyRef.current.length - 1,
+      });
+    });
+  }, []);
 
   const pushHistory = useCallback((newDrawings: Drawing[]) => {
     const currentStep = historyStepRef.current;
     let newHistory = historyRef.current.slice(0, currentStep + 1);
+    const currentSnapshot = newHistory[currentStep] ?? [];
+    const isNoOpSnapshot =
+      currentSnapshot.length === newDrawings.length
+      && currentSnapshot.every((drawing, index) => drawing === newDrawings[index]);
+    if (isNoOpSnapshot) {
+      syncHistoryAvailability();
+      return;
+    }
     
     // [TENOR 2026 SRE] STRUCTURAL SHARING
     // We rely on React's strict immutability. `newDrawings` is an array of references.
@@ -340,7 +571,8 @@ export const useDrawingManager = ({
     
     historyRef.current = newHistory;
     historyStepRef.current = newHistory.length - 1;
-  }, []);
+    syncHistoryAvailability();
+  }, [syncHistoryAvailability]);
 
   const pushHistoryDebounced = useCallback((newDrawings: Drawing[]) => {
     if (pendingHistoryTimeoutRef.current) clearTimeout(pendingHistoryTimeoutRef.current);
@@ -359,9 +591,10 @@ export const useDrawingManager = ({
       historyStepRef.current -= 1;
       cancelDrawingSession();
       setDrawings(historyRef.current[historyStepRef.current]);
+      syncHistoryAvailability();
       markDirty();
     }
-  }, [cancelDrawingSession, markDirty]);
+  }, [cancelDrawingSession, markDirty, syncHistoryAvailability]);
 
   const redo = useCallback(() => {
     if (pendingHistoryTimeoutRef.current) {
@@ -372,9 +605,10 @@ export const useDrawingManager = ({
       historyStepRef.current += 1;
       cancelDrawingSession();
       setDrawings(historyRef.current[historyStepRef.current]);
+      syncHistoryAvailability();
       markDirty();
     }
-  }, [cancelDrawingSession, markDirty]);
+  }, [cancelDrawingSession, markDirty, syncHistoryAvailability]);
 
   // --- CRUD Operations ---
   const selectedIdRef = useRef<string | null>(null);
@@ -413,6 +647,19 @@ export const useDrawingManager = ({
 
   const completeDrawingSession = useCallback((drawing: Drawing) => {
     const finalDrawing = { ...drawing, isCreating: false };
+
+    if (measureModeRef.current && finalDrawing.type === "date_price_range") {
+      transientMeasureRef.current = decorateQuickMeasureDrawing(finalDrawing, chartDataRef.current);
+      measureModeRef.current = false;
+      setMeasureModeActive(false);
+      resetDrawingInteraction();
+      clearCurrentDrawing();
+      setActiveTool(null);
+      setSelectedDrawingId(null);
+      markDirty();
+      return;
+    }
+
     resetDrawingInteraction();
     addDrawing(finalDrawing);
     setSelectedDrawingId(finalDrawing.id);
@@ -423,7 +670,10 @@ export const useDrawingManager = ({
       });
     }
     clearCurrentDrawing();
-    setActiveTool(null);
+    if (!keepDrawingRef.current) {
+      setActiveTool(null);
+      pendingIconSymbolRef.current = null;
+    }
     markDirty();
   }, [addDrawing, clearCurrentDrawing, resetDrawingInteraction, markDirty, setSelectedDrawingId]);
 
@@ -595,12 +845,24 @@ export const useDrawingManager = ({
       chartSyncRef.current++;
       markDirty();
     };
+    const handleBgPointerDown = () => {
+      if (transientMeasureRef.current && !measureModeRef.current) {
+        transientMeasureRef.current = null;
+        quickMeasureDragRef.current = false;
+        setSelectedDrawingId(null);
+        markDirty();
+      }
+    };
+
     const handleBgClick = () => {
       if (suppressNextChartBgClickRef.current) {
         suppressNextChartBgClickRef.current = false;
         return;
       }
       if (!activeToolRef.current && !isDrawingRef.current) {
+        if (transientMeasureRef.current) {
+          transientMeasureRef.current = null;
+        }
         setSelectedDrawingId(null);
         markDirty();
       }
@@ -612,6 +874,7 @@ export const useDrawingManager = ({
           chart.off("datazoom", markDirty);
           chart.off("restore", markDirty);
           chart.off("finished", handleFinished);
+          chart.getZr().off("mousedown", handleBgPointerDown);
           chart.getZr().off("click", handleBgClick);
         }
       } catch {
@@ -630,6 +893,7 @@ export const useDrawingManager = ({
 
       try {
         chart.on("finished", handleFinished);
+        chart.getZr().on("mousedown", handleBgPointerDown);
         chart.getZr().on("click", handleBgClick);
         chart.on("datazoom", markDirty);
         chart.on("restore", markDirty);
@@ -724,7 +988,9 @@ export const useDrawingManager = ({
           markDirty();
         }
 
-        let renderDrawings = drawingsRef.current;
+        let renderDrawings = transientMeasureRef.current
+          ? [...drawingsRef.current, transientMeasureRef.current]
+          : drawingsRef.current;
         
         if (isDraggingRef.current && draggedDrawingRef.current) {
           renderDrawings = [];
@@ -748,7 +1014,7 @@ export const useDrawingManager = ({
             gridRectRef.current,
             chartDataRef.current,
             alertsRef.current,
-            ordersRef.current
+            positionsOrdersHiddenRef.current ? EMPTY_ORDERS : ordersRef.current
           );
           
           // [TENOR 2026 SRE] Rebuild Spatial Hash Grid after render if dirty
@@ -797,7 +1063,89 @@ export const useDrawingManager = ({
     if (!isInsideGridRect(pointerPixel, getInteractiveGridRect(chart))) return null;
     const priceSeriesIndex = getPriceSeriesIndex(chart);
     const point = safeConvertFromPixelToChartPoint(chart, [x, y], priceSeriesIndex);
-    return point ? { time: point[0], value: point[1] } : null;
+    if (!point) return null;
+
+    const mode = magnetModeRef.current;
+    if (mode === "off") return { time: point[0], value: point[1] };
+
+    const data = chartDataRef.current;
+    if (!data.length) return { time: point[0], value: point[1] };
+
+    let barIndex = -1;
+    if (typeof point[0] === "number" && Number.isFinite(point[0])) {
+      barIndex = Math.max(0, Math.min(Math.round(point[0]), data.length - 1));
+    } else {
+      const exactIndex = data.findIndex((bar) => bar.time === point[0]);
+      if (exactIndex >= 0) {
+        barIndex = exactIndex;
+      } else {
+        const targetMs = new Date(String(point[0])).getTime();
+        if (Number.isFinite(targetMs)) {
+          let bestDistance = Number.POSITIVE_INFINITY;
+          for (let index = 0; index < data.length; index++) {
+            const barMs = new Date(String(data[index].time)).getTime();
+            if (!Number.isFinite(barMs)) continue;
+            const distance = Math.abs(barMs - targetMs);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              barIndex = index;
+            }
+          }
+        }
+      }
+    }
+
+    const bar = barIndex >= 0 ? data[barIndex] : undefined;
+    if (!bar) return { time: point[0], value: point[1] };
+
+    const candidates = [bar.open, bar.high, bar.low, bar.close].filter(Number.isFinite);
+    if (snapToIndicatorsRef.current) {
+      const option = chart.getOption() as {
+        series?: Array<{
+          type?: string;
+          yAxisIndex?: number | number[];
+          data?: unknown[];
+        }>;
+      };
+      const pushFiniteIndicatorValues = (datum: unknown) => {
+        if (typeof datum === "number" && Number.isFinite(datum)) {
+          candidates.push(datum);
+          return;
+        }
+        if (Array.isArray(datum)) {
+          datum.forEach((value, index) => {
+            if (index === 0) return;
+            if (typeof value === "number" && Number.isFinite(value)) candidates.push(value);
+          });
+          return;
+        }
+        if (datum && typeof datum === "object" && "value" in datum) {
+          pushFiniteIndicatorValues((datum as { value?: unknown }).value);
+        }
+      };
+
+      option.series?.forEach((series) => {
+        if (series.type === "candlestick") return;
+        const yAxisIndexes = Array.isArray(series.yAxisIndex)
+          ? series.yAxisIndex
+          : [series.yAxisIndex ?? 0];
+        if (!yAxisIndexes.includes(0)) return;
+        pushFiniteIndicatorValues(series.data?.[barIndex]);
+      });
+    }
+    if (!candidates.length) return { time: point[0], value: point[1] };
+    const snappedValue = candidates.reduce((best, candidate) =>
+      Math.abs(candidate - point[1]) < Math.abs(best - point[1]) ? candidate : best,
+    candidates[0]);
+
+    if (mode === "weak") {
+      const snappedPixel = safeConvertToPixel(chart, [bar.time, snappedValue], priceSeriesIndex);
+      if (!snappedPixel || Math.hypot(snappedPixel[0] - x, snappedPixel[1] - y) > WEAK_MAGNET_THRESHOLD_PX) {
+        return { time: point[0], value: point[1] };
+      }
+    }
+
+    return { time: bar.time, value: snappedValue };
   }, [chartInstanceRef, getChartLocalPixel]);
 
   const getChartPointerPixel = useCallback((e: React.PointerEvent<HTMLCanvasElement> | PointerEvent): { x: number; y: number } | null => {
@@ -1059,8 +1407,16 @@ export const useDrawingManager = ({
 
     const currentActiveTool = activeToolRef.current;
     const mode = cursorModeRef.current;
+    const isShiftMeasureGesture =
+      e.shiftKey
+      && !e.ctrlKey
+      && !e.altKey
+      && !e.metaKey
+      && !currentActiveTool
+      && !isDrawingRef.current;
     if (
       currentActiveTool
+      || isShiftMeasureGesture
       || mode === 'eraser'
       || mode === 'magic'
       || hitTestDrawingAtClientPoint(e)
@@ -1086,7 +1442,12 @@ export const useDrawingManager = ({
     if (!isChartUsable(chartInstanceRef.current)) return;
 
     const now = Date.now();
-    if (isDrawingRef.current && currentDrawingRef.current && now - lastTapRef.current < 300) {
+    if (
+      isDrawingRef.current
+      && currentDrawingRef.current
+      && MULTI_CLICK_TOOLS.includes(currentDrawingRef.current.type)
+      && now - lastTapRef.current < 300
+    ) {
       claimPointerDown();
       handleDoubleClick();
       lastTapRef.current = 0;
@@ -1098,8 +1459,62 @@ export const useDrawingManager = ({
     if (!pointerPixel) return;
     const { x: mx, y: my } = pointerPixel;
 
-    const currentActiveTool = activeToolRef.current;
+    let currentActiveTool = activeToolRef.current;
     const mode = cursorModeRef.current;
+    const isShiftMeasureGesture =
+      e.shiftKey
+      && !e.ctrlKey
+      && !e.altKey
+      && !e.metaKey
+      && !currentActiveTool
+      && !isDrawingRef.current;
+
+    // TradingView contract: Shift by itself does nothing. The shortcut is
+    // specifically Shift + click on the chart. Arm the same one-shot Measure
+    // session as the toolbar button, but let this very click become point #1.
+    if (isShiftMeasureGesture) {
+      const coords = getChartCoordinates(e);
+      if (!coords) return;
+      claimPointerDown();
+      transientMeasureRef.current = null;
+      measureModeRef.current = true;
+      quickMeasureDragRef.current = true;
+      setMeasureModeActive(true);
+      setSelectedDrawingId(null);
+
+      // TradingView quick-measure contract: Shift + chart press starts a
+      // temporary ruler immediately. It is deliberately NOT routed through
+      // activeTool/date_price_range, otherwise React's tool-change lifecycle
+      // resets the gesture and turns the shortcut into the persistent 2-click
+      // measurer.
+      const quickMeasure = decorateQuickMeasureDrawing({
+        id: generateId(),
+        type: "date_price_range",
+        points: [coords, coords],
+        style: { ...getToolDefault("date_price_range") },
+        isCreating: true,
+      }, chartDataRef.current);
+      currentDrawingRef.current = quickMeasure;
+      setCurrentDrawing(quickMeasure);
+      setIsDrawing(true);
+      markDirty();
+      return;
+    }
+
+    // TradingView removes the completed standalone measurement with a plain
+    // chart click. It never enters drawings/history/persistence.
+    if (transientMeasureRef.current && !measureModeRef.current) {
+      claimPointerDown();
+      transientMeasureRef.current = null;
+      quickMeasureDragRef.current = false;
+      activeToolRef.current = null;
+      setActiveTool(null);
+      setSelectedDrawingId(null);
+      resetDrawingInteraction();
+      clearCurrentDrawing();
+      markDirty();
+      return;
+    }
 
     if (mode === 'magic' && !currentActiveTool) {
       setSelectedDrawingId(null);
@@ -1108,7 +1523,7 @@ export const useDrawingManager = ({
     }
 
     // [TENOR 2026 SRE] SPATIAL HASH GRID HIT-TEST (O(1) Lookup)
-    if (drawingsRef.current.length > 0 && rendererRef.current) {
+    if (!isShiftMeasureGesture && drawingsRef.current.length > 0 && rendererRef.current) {
       const candidates = spatialGridRef.current.query(mx, my);
       
       for (let i = 0; i < candidates.length; i++) {
@@ -1243,13 +1658,15 @@ export const useDrawingManager = ({
 
       if (TEXT_NOTE_TOOL_VARIANT_SET.has(newDrawing.type)) {
         newDrawing.showText = true;
-        newDrawing.text = newDrawing.type === "price_label"
+        newDrawing.text = newDrawing.type === "text_note" && pendingIconSymbolRef.current
+          ? pendingIconSymbolRef.current
+          : newDrawing.type === "price_label"
           ? String(Math.round(coords.value).toLocaleString())
           : newDrawing.type === "price_note"
             ? String(Math.round(coords.value).toLocaleString())
             : "Text";
-        newDrawing.textColor = newDrawing.style.color;
-        newDrawing.fontSize = newDrawing.type === "comment" ? 16 : 14;
+        newDrawing.textColor = newDrawing.type === "text_note" && pendingIconSymbolRef.current ? "#d1d4dc" : newDrawing.style.color;
+        newDrawing.fontSize = newDrawing.type === "text_note" && pendingIconSymbolRef.current ? 24 : newDrawing.type === "comment" ? 16 : 14;
 
         if (newDrawing.type === "price_label") {
           newDrawing.textColor = "#ffffff";
@@ -1794,7 +2211,7 @@ export const useDrawingManager = ({
       }
       return;
     }
-  }, [cancelDrawingSession, chartInstanceRef, claimDrawingPointerEvent, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
+  }, [cancelDrawingSession, chartInstanceRef, claimDrawingPointerEvent, clearCurrentDrawing, completeDrawingSession, deleteDrawing, drawingCanvasRef, getChartCoordinates, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, getToolDefault, handleDoubleClick, setIsDrawing, markDirty, extractBarPatternData, resetDrawingInteraction, startEditingDrawing, resolveTimeToChartIndex, setSelectedDrawingId]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
@@ -1805,6 +2222,29 @@ export const useDrawingManager = ({
     const { x: mx, y: my } = pointerPixel;
     mousePosRef.current = { x: mx, y: my };
     markDirty();
+
+    if (
+      quickMeasureDragRef.current
+      && measureModeRef.current
+      && isDrawingRef.current
+      && currentDrawingRef.current?.type === "date_price_range"
+    ) {
+      claimDrawingPointerEvent(e);
+      const coords = getChartCoordinates(e);
+      if (coords) {
+        const start = currentDrawingRef.current.points[0];
+        const nextMeasure = decorateQuickMeasureDrawing({
+          ...currentDrawingRef.current,
+          points: [start, coords],
+          isCreating: true,
+        }, chartDataRef.current);
+        currentDrawingRef.current = nextMeasure;
+        setCurrentDrawing(nextMeasure);
+        drawingCanvasRef.current.style.cursor = "crosshair";
+        markDirty();
+      }
+      return;
+    }
 
     const dragChart = chartInstanceRef.current;
     if (isDraggingRef.current && dragTargetRef.current && isChartUsable(dragChart)) {
@@ -2018,7 +2458,7 @@ export const useDrawingManager = ({
 
     if (!hoveringInt) cursor = (activeToolRef.current || isDrawingRef.current) ? "crosshair" : "default";
     drawingCanvasRef.current.style.cursor = cursor;
-  }, [chartInstanceRef, claimDrawingPointerEvent, drawingCanvasRef, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, markDirty]);
+  }, [chartInstanceRef, claimDrawingPointerEvent, drawingCanvasRef, getChartCoordinates, getChartLocalPixel, getChartPointerPixel, getFreehandCoordinates, markDirty, resolveTimeToChartIndex]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const drawingOwnedGesture = isDraggingRef.current
@@ -2030,6 +2470,22 @@ export const useDrawingManager = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {}
     }
+
+    if (
+      quickMeasureDragRef.current
+      && measureModeRef.current
+      && isDrawingRef.current
+      && currentDrawingRef.current?.type === "date_price_range"
+    ) {
+      const quickMeasure = currentDrawingRef.current;
+      quickMeasureDragRef.current = false;
+      completeDrawingSession(decorateQuickMeasureDrawing({
+        ...quickMeasure,
+        isCreating: false,
+      }, chartDataRef.current));
+      return;
+    }
+
     if (isDrawingRef.current && currentDrawingRef.current && (currentDrawingRef.current.type === "brush" || currentDrawingRef.current.type === "highlighter")) {
       const drawing = currentDrawingRef.current;
       lastFreehandPixelRef.current = null;
@@ -2214,7 +2670,7 @@ export const useDrawingManager = ({
     completeDrawingSession(newDrawing);
     markDirty();
     return newDrawing.id;
-  }, [completeDrawingSession, decodeImageElement, getToolDefault, markDirty]);
+  }, [chartInstanceRef, completeDrawingSession, decodeImageElement, getToolDefault, markDirty]);
 
   /** Replace an existing image_note's asset, preserving id + center, recalculating size. */
   const replaceImageNoteAsset = useCallback(async (
@@ -2243,7 +2699,7 @@ export const useDrawingManager = ({
       imageNoteProps: buildImageNoteProps(assetId, validated, cssWidth, cssHeight, transparency),
     });
     markDirty();
-  }, [decodeImageElement, deleteDrawingAsset, updateDrawing, markDirty]);
+  }, [chartInstanceRef, decodeImageElement, updateDrawing, markDirty]);
 
   // [IMAGE NOTE] Let async asset loads request a redraw once decoded.
   useEffect(() => {
@@ -2281,14 +2737,114 @@ export const useDrawingManager = ({
     return () => window.removeEventListener("paste", onPaste);
   }, [createImageNoteDrawing]);
 
+  const setAllDrawingsLocked = useCallback((locked: boolean) => {
+    setDrawings((current) => {
+      const next = current.map((drawing) => ({ ...drawing, locked }));
+      pushHistory(next);
+      return next;
+    });
+    if (locked) setSelectedDrawingId(null);
+    markDirty();
+  }, [markDirty, pushHistory, setSelectedDrawingId]);
+
+  const setAllDrawingsHidden = useCallback((hidden: boolean) => {
+    setDrawings((current) => {
+      const next = current.map((drawing) => ({ ...drawing, hidden }));
+      pushHistory(next);
+      return next;
+    });
+    if (hidden) setSelectedDrawingId(null);
+    markDirty();
+  }, [markDirty, pushHistory, setSelectedDrawingId]);
+
+  const removeAllDrawings = useCallback((includeLocked = false) => {
+    setDrawings((current) => {
+      const next = includeLocked ? [] : current.filter((drawing) => drawing.locked);
+      pushHistory(next);
+      return next;
+    });
+    setSelectedDrawingId(null);
+    markDirty();
+  }, [markDirty, pushHistory, setSelectedDrawingId]);
+
+  const cancelMeasureMode = useCallback(() => {
+    measureModeRef.current = false;
+    quickMeasureDragRef.current = false;
+    transientMeasureRef.current = null;
+    setMeasureModeActive(false);
+    if (activeToolRef.current === "date_price_range") {
+      setActiveTool(null);
+    }
+    resetDrawingInteraction();
+    clearCurrentDrawing();
+    markDirty();
+  }, [clearCurrentDrawing, markDirty, resetDrawingInteraction]);
+
+  const activateMeasureMode = useCallback(() => {
+    transientMeasureRef.current = null;
+    measureModeRef.current = true;
+    setMeasureModeActive(true);
+    setSelectedDrawingId(null);
+    setActiveTool("date_price_range");
+    markDirty();
+  }, [markDirty, setSelectedDrawingId]);
+
+  const toggleMeasureMode = useCallback(() => {
+    if (measureModeRef.current) {
+      cancelMeasureMode();
+      return;
+    }
+    activateMeasureMode();
+  }, [activateMeasureMode, cancelMeasureMode]);
+
+  const armIconDrawing = useCallback((symbol: string) => {
+    cancelMeasureMode();
+    pendingIconSymbolRef.current = symbol;
+    setActiveTool("text_note");
+  }, [cancelMeasureMode]);
+
+  const replaceDrawings = useCallback((nextDrawings: Drawing[]) => {
+    const normalized = nextDrawings
+      .map((drawing) => normalizeSignpost(drawing, { resolveBarIndex: (time) => Number(time) }))
+      .map((drawing) => normalizeFlagMark(drawing))
+      .map((drawing) => normalizeImageNote(drawing));
+    historyRef.current = [[...normalized]];
+    historyStepRef.current = 0;
+    setHistoryAvailability({ canUndo: false, canRedo: false });
+    setDrawings(normalized);
+    setCurrentDrawing(null);
+    setSelectedDrawingId(null);
+    setEditingDrawingId(null);
+    setEditingDrawingPosition(null);
+    setEditingTableCell(null);
+    markDirty();
+  }, [markDirty, setSelectedDrawingId]);
+
   return {
     activeTool,
     setActiveTool,
+    measureModeActive,
+    toggleMeasureMode,
+    cancelMeasureMode,
+    keepDrawing,
+    setKeepDrawing,
+    magnetMode,
+    setMagnetMode,
+    toggleMagnetMode,
+    snapToIndicators,
+    setSnapToIndicators,
+    positionsOrdersHidden,
+    setPositionsOrdersHidden,
+    armIconDrawing,
+    setAllDrawingsLocked,
+    setAllDrawingsHidden,
+    removeAllDrawings,
     clearDrawings: () => {
       setDrawings([]);
       pushHistory([]);
       markDirty();
     },
+    replaceDrawings,
     drawings,
     selectedDrawingId,
     setSelectedDrawingId,
@@ -2296,6 +2852,8 @@ export const useDrawingManager = ({
     updateDrawing,
     addDrawing,
     reorderDrawing,
+    canUndo: historyAvailability.canUndo,
+    canRedo: historyAvailability.canRedo,
     undo,
     redo,
     drawingCloudPersistenceStatus: DRAWING_CLOUD_PERSISTENCE_STATUS,

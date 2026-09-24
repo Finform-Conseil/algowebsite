@@ -35,7 +35,7 @@ export const getToolMemoryBucket = (toolId: AllToolType | null): keyof ToolCateg
   ) {
     return "chartPatterns";
   }
-  if (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED || tool.category === TOOL_CATEGORIES.MEASURERS) {
+  if (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED) {
     return "forecasting";
   }
   if (tool.category === TOOL_CATEGORIES.BRUSH_DRAWING || tool.category === TOOL_CATEGORIES.SHAPES) {
@@ -79,7 +79,7 @@ export const isForecastingToolActiveForTool = (activeTool: AllToolType | null): 
   return DRAWING_TOOL_SPECS.some(
     (tool) =>
       tool.id === activeTool &&
-      (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED || tool.category === TOOL_CATEGORIES.MEASURERS),
+      (tool.category === TOOL_CATEGORIES.FORECASTING || tool.category === TOOL_CATEGORIES.VOLUME_BASED),
   );
 };
 

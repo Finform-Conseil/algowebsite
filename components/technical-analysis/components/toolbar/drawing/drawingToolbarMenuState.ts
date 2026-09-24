@@ -12,6 +12,7 @@ import type {
 
 export const useDrawingToolbarMenuState = (
   mainContainerRef: RefObject<HTMLElement | null>,
+  onBeforeMenuOpen?: () => void,
 ) => {
   const trendMenu = useFloatingMenu(mainContainerRef);
   const fibMenu = useFloatingMenu(mainContainerRef);
@@ -66,107 +67,57 @@ export const useDrawingToolbarMenuState = (
 
   const toggleTrendDropdown = useCallback((event: MouseEvent) => {
     if (!isTrendMenuOpen) {
+      onBeforeMenuOpen?.();
+      closeAllDropdowns();
       setTrendDropdownView("categories");
-      setFibMenuOpen(false);
-      setChartPatternsMenuOpen(false);
-      setForecastingMenuOpen(false);
     }
     toggleTrendMenu(event);
-  }, [
-    isTrendMenuOpen,
-    setFibMenuOpen,
-    setChartPatternsMenuOpen,
-    setForecastingMenuOpen,
-    toggleTrendMenu,
-  ]);
+  }, [closeAllDropdowns, isTrendMenuOpen, onBeforeMenuOpen, toggleTrendMenu]);
 
   const toggleFibDropdown = useCallback((event: MouseEvent) => {
     if (!isFibMenuOpen) {
+      onBeforeMenuOpen?.();
+      closeAllDropdowns();
       setFibDropdownView("categories");
-      setTrendMenuOpen(false);
-      setChartPatternsMenuOpen(false);
-      setForecastingMenuOpen(false);
     }
     toggleFibMenu(event);
-  }, [
-    isFibMenuOpen,
-    setTrendMenuOpen,
-    setChartPatternsMenuOpen,
-    setForecastingMenuOpen,
-    toggleFibMenu,
-  ]);
+  }, [closeAllDropdowns, isFibMenuOpen, onBeforeMenuOpen, toggleFibMenu]);
 
   const toggleChartPatternsDropdown = useCallback((event: MouseEvent) => {
     if (!isChartPatternsMenuOpen) {
+      onBeforeMenuOpen?.();
+      closeAllDropdowns();
       setChartPatternsDropdownView("categories");
-      setTrendMenuOpen(false);
-      setFibMenuOpen(false);
-      setForecastingMenuOpen(false);
     }
     toggleChartPatternsMenu(event);
-  }, [
-    isChartPatternsMenuOpen,
-    setTrendMenuOpen,
-    setFibMenuOpen,
-    setForecastingMenuOpen,
-    toggleChartPatternsMenu,
-  ]);
+  }, [closeAllDropdowns, isChartPatternsMenuOpen, onBeforeMenuOpen, toggleChartPatternsMenu]);
 
   const toggleForecastingDropdown = useCallback((event: MouseEvent) => {
     if (!isForecastingMenuOpen) {
+      onBeforeMenuOpen?.();
+      closeAllDropdowns();
       setForecastingDropdownView("categories");
-      setTrendMenuOpen(false);
-      setFibMenuOpen(false);
-      setChartPatternsMenuOpen(false);
-      setBrushMenuOpen(false);
     }
     toggleForecastingMenu(event);
-  }, [
-    isForecastingMenuOpen,
-    setTrendMenuOpen,
-    setFibMenuOpen,
-    setChartPatternsMenuOpen,
-    setBrushMenuOpen,
-    toggleForecastingMenu,
-  ]);
+  }, [closeAllDropdowns, isForecastingMenuOpen, onBeforeMenuOpen, toggleForecastingMenu]);
 
   const toggleAnnotationsDropdown = useCallback((event: MouseEvent) => {
     if (!isAnnotationsMenuOpen) {
+      onBeforeMenuOpen?.();
+      closeAllDropdowns();
       setAnnotationsDropdownView("categories");
-      setTrendMenuOpen(false);
-      setFibMenuOpen(false);
-      setChartPatternsMenuOpen(false);
-      setForecastingMenuOpen(false);
-      setBrushMenuOpen(false);
     }
     toggleAnnotationsMenu(event);
-  }, [
-    isAnnotationsMenuOpen,
-    setTrendMenuOpen,
-    setFibMenuOpen,
-    setChartPatternsMenuOpen,
-    setForecastingMenuOpen,
-    setBrushMenuOpen,
-    toggleAnnotationsMenu,
-  ]);
+  }, [closeAllDropdowns, isAnnotationsMenuOpen, onBeforeMenuOpen, toggleAnnotationsMenu]);
 
   const toggleBrushDropdown = useCallback((event: MouseEvent) => {
     if (!isBrushMenuOpen) {
+      onBeforeMenuOpen?.();
+      closeAllDropdowns();
       setBrushDropdownView("categories");
-      setTrendMenuOpen(false);
-      setFibMenuOpen(false);
-      setChartPatternsMenuOpen(false);
-      setForecastingMenuOpen(false);
     }
     toggleBrushMenu(event);
-  }, [
-    isBrushMenuOpen,
-    setTrendMenuOpen,
-    setFibMenuOpen,
-    setChartPatternsMenuOpen,
-    setForecastingMenuOpen,
-    toggleBrushMenu,
-  ]);
+  }, [closeAllDropdowns, isBrushMenuOpen, onBeforeMenuOpen, toggleBrushMenu]);
 
   return {
     trend: {

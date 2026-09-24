@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useCallback, useEffect } from 'react';
 import type { EChartsInstance } from '../lib/types/echarts';
+import { scheduleIdleChartMutation } from './chart-rendering/chartMutationSafety';
 import { useMasterRenderLoop, type RenderFrameMeta } from './useMasterRenderLoop';
 import {
   clamp,
@@ -426,7 +427,9 @@ export const useCursorRenderer = ({
       const hoveredChart = hoveredHeaderChartRef.current;
       const baseTitle = hoveredHeaderBaseTextRef.current;
       if (hoveredChart && baseTitle && !hoveredChart.isDisposed()) {
-        hoveredChart.setOption({ title: { text: baseTitle } });
+        scheduleIdleChartMutation(hoveredChart, "cursor-title", (targetChart) => {
+          targetChart.setOption({ title: { text: baseTitle } });
+        });
       }
       hoveredHeaderChartRef.current = null;
       hoveredHeaderBaseTextRef.current = null;
@@ -893,7 +896,9 @@ export const useCursorRenderer = ({
           "{ohlcLabel|L}{ohlcValue|" + dLow.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "} " +
           "{ohlcLabel|C}{ohlcValue|" + dClose.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "}" + changeText;
         if (prefix && nextTitle !== hoveredHeaderLastTextRef.current) {
-          chart.setOption({ title: { text: nextTitle } });
+          scheduleIdleChartMutation(chart, "cursor-title", (targetChart) => {
+            targetChart.setOption({ title: { text: nextTitle } });
+          });
           hoveredHeaderLastTextRef.current = nextTitle;
         }
         hideHtmlTooltip();

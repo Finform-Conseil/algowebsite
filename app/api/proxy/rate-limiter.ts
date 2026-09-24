@@ -4,7 +4,7 @@
 // NIVEAU : HDR (Habilitation à Diriger des Recherches) - Production Grade
 // ================================================================================
 import { proxyConfig } from './config';
-import { redisClient as redis } from '@/core/infra/cache/redis-client';
+import { redisClient as redis, redisConfigurationState } from '@/core/infra/cache/redis-client';
 import {
   RedisResilienceGate,
   resolveRedisBudgetMs,
@@ -21,8 +21,11 @@ const redisGate = new RedisResilienceGate({
   failureCooldownMs: 60_000,
 });
 
-if (!redis && proxyConfig.rateLimitingEnabled) {
-  console.warn("[SECURITY] PROXY_RATE_LIMITING_ENABLED est 'true' mais Redis n'est pas configuré. Le Fallback In-Memory sera utilisé exclusivement.");
+if (!redis && proxyConfig.rateLimitingEnabled && redisConfigurationState !== 'disabled') {
+  console.warn(
+    `[SECURITY] Rate limiting distribué indisponible (Redis: ${redisConfigurationState}). ` +
+    'Protection in-memory active sur cet isolate.',
+  );
 }
 
 // ============================================================================

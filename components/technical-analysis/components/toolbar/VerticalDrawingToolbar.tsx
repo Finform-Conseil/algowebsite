@@ -29,7 +29,7 @@ import {
   ForecastingToolDropdown,
   TrendToolDropdown,
 } from "./drawing/DrawingToolDropdown";
-import { DrawingToolbarFooter, DrawingToolbarUtilityActions } from "./drawing/DrawingToolbarFooter";
+import { DrawingToolbarFooter, DrawingToolbarUtilityActions, type DrawingToolbarFooterMenu } from "./drawing/DrawingToolbarFooter";
 import { getDrawingToolCounts } from "./drawing/drawingToolCounts";
 import {
   createEmptyToolCategoryMemory,
@@ -50,14 +50,45 @@ import {
   renderTrendToolIcon,
 } from "./drawing/toolIconCatalog";
 
+type DrawingToolbarAuxMenu = "cursor" | "icons" | DrawingToolbarFooterMenu;
+
 interface VerticalDrawingToolbarProps {
   activeTool: AllToolType | null;
   setActiveTool: (tool: AllToolType | null) => void;
   mainContainerRef: React.RefObject<HTMLDivElement>;
   verticalToolbarRef?: React.RefObject<HTMLDivElement>;
-  handleClearAllDrawings: () => void;
+  keepDrawing: boolean;
+  onKeepDrawingChange: (enabled: boolean) => void;
+  magnetMode: "off" | "weak" | "strong";
+  onMagnetModeChange: (mode: "off" | "weak" | "strong") => void;
+  onMagnetToggle: () => void;
+  snapToIndicators: boolean;
+  onSnapToIndicatorsChange: (enabled: boolean) => void;
+  indicatorsLocked: boolean;
+  onIndicatorsLockedChange: (locked: boolean) => void;
+  areIndicatorsHidden: boolean;
+  onIndicatorsHiddenChange: (hidden: boolean) => void;
+  positionsOrdersHidden: boolean;
+  onPositionsOrdersHiddenChange: (hidden: boolean) => void;
+  onArmIconDrawing: (symbol: string) => void;
+  onSetAllDrawingsLocked: (locked: boolean) => void;
+  onSetAllDrawingsHidden: (hidden: boolean) => void;
+  onRemoveAllDrawings: (includeLocked?: boolean) => void;
+  onRemoveAllIndicators: () => void;
+  indicatorCount: number;
+  measureModeActive: boolean;
+  onMeasureModeToggle: () => void;
+  onMeasureModeCancel: () => void;
+  zoomInModeActive: boolean;
+  onZoomInModeToggle: () => void;
+  onZoomInModeCancel: () => void;
+  zoomOutVisible: boolean;
+  onZoomOut: () => void;
+  drawingCount: number;
   isInitialLoading?: boolean;
 }
+
+const DRAWING_TOOLBAR_VISIBLE_ITEM_COUNT = 15;
 
 const VerticalDrawingToolbarLoadingOverlay = () => (
   <div
@@ -68,53 +99,28 @@ const VerticalDrawingToolbarLoadingOverlay = () => (
       zIndex: 2,
       display: "flex",
       flexDirection: "column",
+      alignItems: "center",
       gap: 4,
       padding: 4,
       pointerEvents: "none",
       background: "var(--gp-bg-toolbar, #0d2136)",
       borderRadius: "var(--gp-radius-md)",
+      overflow: "hidden",
     }}
   >
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-      {Array.from({ length: 10 }, (_, index) => (
-        <span
-          key={`toolbar-${index}`}
-          className="is-loading-skeleton"
-          style={{
-            display: "block",
-            width: "var(--gp-toolbar-btn-size)",
-            height: "var(--gp-toolbar-btn-size)",
-            borderRadius: "var(--gp-radius-sm)",
-            flexShrink: 0,
-          }}
-        />
-      ))}
-    </div>
-    <div style={{ flex: 1 }} />
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 4,
-        paddingTop: 8,
-        borderTop: "1px solid var(--gp-border-color, rgba(255,255,255,0.12))",
-      }}
-    >
-      {Array.from({ length: 5 }, (_, index) => (
-        <span
-          key={`footer-${index}`}
-          className="is-loading-skeleton"
-          style={{
-            display: "block",
-            width: "var(--gp-toolbar-btn-size)",
-            height: "var(--gp-toolbar-btn-size)",
-            borderRadius: "var(--gp-radius-sm)",
-            flexShrink: 0,
-          }}
-        />
-      ))}
-    </div>
+    {Array.from({ length: DRAWING_TOOLBAR_VISIBLE_ITEM_COUNT }, (_, index) => (
+      <span
+        key={`toolbar-${index}`}
+        className="is-loading-skeleton"
+        style={{
+          display: "block",
+          width: "var(--gp-toolbar-btn-size)",
+          height: "var(--gp-toolbar-btn-size)",
+          borderRadius: "var(--gp-radius-sm)",
+          flexShrink: 0,
+        }}
+      />
+    ))}
   </div>
 );
 
@@ -123,14 +129,43 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   setActiveTool,
   mainContainerRef,
   verticalToolbarRef,
-  handleClearAllDrawings,
+  keepDrawing,
+  onKeepDrawingChange,
+  magnetMode,
+  onMagnetModeChange,
+  onMagnetToggle,
+  snapToIndicators,
+  onSnapToIndicatorsChange,
+  indicatorsLocked,
+  onIndicatorsLockedChange,
+  areIndicatorsHidden,
+  onIndicatorsHiddenChange,
+  positionsOrdersHidden,
+  onPositionsOrdersHiddenChange,
+  onArmIconDrawing,
+  onSetAllDrawingsLocked,
+  onSetAllDrawingsHidden,
+  onRemoveAllDrawings,
+  onRemoveAllIndicators,
+  indicatorCount,
+  measureModeActive,
+  onMeasureModeToggle,
+  onMeasureModeCancel,
+  zoomInModeActive,
+  onZoomInModeToggle,
+  onZoomInModeCancel,
+  zoomOutVisible,
+  onZoomOut,
+  drawingCount,
   isInitialLoading = false,
 }) => {
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
   const cursorDropdownRef = useRef<HTMLButtonElement>(null);
+  const [openAuxMenu, setOpenAuxMenu] = useState<DrawingToolbarAuxMenu | null>(null);
+  const closeAuxMenus = useCallback(() => setOpenAuxMenu(null), []);
 
-  const toolbarMenus = useDrawingToolbarMenuState(mainContainerRef);
+  const toolbarMenus = useDrawingToolbarMenuState(mainContainerRef, closeAuxMenus);
   const {
     isOpen: isTrendDropdownOpen,
     setIsOpen: setIsTrendDropdownOpen,
@@ -200,8 +235,13 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   const { closeAllDropdowns } = toolbarMenus;
   const [lastSelectedToolByCategory, setLastSelectedToolByCategory] = useState<ToolCategoryMemory>(createEmptyToolCategoryMemory);
 
-  const [isCursorDropdownOpen, setIsCursorDropdownOpen] = useState(false);
+  const isCursorDropdownOpen = openAuxMenu === "cursor";
   const [cursorDropdownPos, setCursorDropdownPos] = useState({ top: 0, left: 0 });
+
+  const setExclusiveAuxMenu = useCallback((menu: DrawingToolbarAuxMenu | null) => {
+    if (menu) closeAllDropdowns();
+    setOpenAuxMenu(menu);
+  }, [closeAllDropdowns]);
 
   const activeToolCategory = useMemo(() => getActiveToolCategory(activeTool), [activeTool]);
 
@@ -238,11 +278,14 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
   const drawingCounts = useMemo(getDrawingToolCounts, []);
 
   const handleSelectDrawingTool = useCallback((toolId: AllToolType) => {
+    onMeasureModeCancel();
+    onZoomInModeCancel();
     // [IMAGE NOTE] Selecting the Image tool opens the insertion modal
     // immediately instead of arming the canvas (TradingView contract).
     if (toolId === "image_note") {
       dispatch(setModalOpen({ modal: "imageNote", isOpen: true }));
       closeAllDropdowns();
+      closeAuxMenus();
       return;
     }
     const bucket = getToolMemoryBucket(toolId);
@@ -252,31 +295,33 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setActiveTool(toolId);
     dispatch(setCursorMode("cross"));
     closeAllDropdowns();
+    closeAuxMenus();
     setFibDropdownView("categories");
     setForecastingDropdownView("categories");
     setBrushDropdownView("categories");
     setAnnotationsDropdownView("categories");
-  }, [closeAllDropdowns, dispatch, setActiveTool, setFibDropdownView, setForecastingDropdownView, setBrushDropdownView, setAnnotationsDropdownView]);
+  }, [closeAllDropdowns, closeAuxMenus, dispatch, onMeasureModeCancel, onZoomInModeCancel, setActiveTool, setFibDropdownView, setForecastingDropdownView, setBrushDropdownView, setAnnotationsDropdownView]);
 
   const toggleCursorDropdown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     if (isCursorDropdownOpen) {
-      setIsCursorDropdownOpen(false);
-    } else {
-      if (cursorDropdownRef.current) {
-        const rect = cursorDropdownRef.current.getBoundingClientRect();
-        setCursorDropdownPos({ top: rect.top, left: rect.right + 15 });
-        setIsCursorDropdownOpen(true);
-      }
+      setOpenAuxMenu(null);
+      return;
     }
-  }, [isCursorDropdownOpen]);
+    if (cursorDropdownRef.current) {
+      const rect = cursorDropdownRef.current.getBoundingClientRect();
+      setCursorDropdownPos({ top: rect.top, left: rect.right + 15 });
+      setExclusiveAuxMenu("cursor");
+    }
+  }, [isCursorDropdownOpen, setExclusiveAuxMenu]);
 
   const handleSelectCursorMode = useCallback((mode: CursorModeType) => {
+    onZoomInModeCancel();
     dispatch(setCursorMode(mode));
     setActiveTool(null);
-    setIsCursorDropdownOpen(false);
-  }, [dispatch, setActiveTool, setIsCursorDropdownOpen]);
+    setOpenAuxMenu(null);
+  }, [dispatch, onZoomInModeCancel, setActiveTool]);
 
   const reactivateRememberedTool = useCallback((toolId: AllToolType | null) => {
     if (!toolId) return;
@@ -284,6 +329,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setActiveTool(toolId);
     dispatch(setCursorMode("cross"));
     closeAllDropdowns();
+    closeAuxMenus();
     setTrendDropdownView("categories");
     setFibDropdownView("categories");
     setChartPatternsDropdownView("categories");
@@ -292,6 +338,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     setAnnotationsDropdownView("categories");
   }, [
     closeAllDropdowns,
+    closeAuxMenus,
     dispatch,
     setActiveTool,
     setTrendDropdownView,
@@ -386,19 +433,46 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     </span>
   ), [isInitialLoading]);
 
-  const handleGlobalLockToggle = () => {
+  const handleDrawingsLockToggle = () => {
+    const nextLocked = !uiState.isLockedAll;
+    onSetAllDrawingsLocked(nextLocked);
     dispatch(toggleLockedAll());
   };
 
+  const handleIndicatorsLockToggle = () => {
+    onIndicatorsLockedChange(!indicatorsLocked);
+  };
+
+  const handleGlobalLockToggle = () => {
+    const nextLocked = !(uiState.isLockedAll && indicatorsLocked);
+    if (uiState.isLockedAll !== nextLocked) {
+      onSetAllDrawingsLocked(nextLocked);
+      dispatch(toggleLockedAll());
+    }
+    onIndicatorsLockedChange(nextLocked);
+  };
+
   const handleVisibilityToggle = () => {
+    const nextHidden = !uiState.areDrawingsHidden;
+    onSetAllDrawingsHidden(nextHidden);
     dispatch(toggleAreDrawingsHidden());
+  };
+
+  const handleHideAllToggle = () => {
+    const nextHidden = !(uiState.areDrawingsHidden && areIndicatorsHidden && positionsOrdersHidden);
+    if (uiState.areDrawingsHidden !== nextHidden) {
+      onSetAllDrawingsHidden(nextHidden);
+      dispatch(toggleAreDrawingsHidden());
+    }
+    onIndicatorsHiddenChange(nextHidden);
+    onPositionsOrdersHiddenChange(nextHidden);
   };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (cursorDropdownRef.current && !cursorDropdownRef.current.contains(target)) {
-        setIsCursorDropdownOpen(false);
+        setOpenAuxMenu(null);
       }
       if (trendDropdownRef.current && !trendDropdownRef.current.contains(target) && !target.closest(".gp-cursor-dropdown-portal")) {
         setIsTrendDropdownOpen(false);
@@ -446,6 +520,9 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         "animated-element",
       )}
       style={{ position: "relative" }}
+      data-indicators-locked={indicatorsLocked ? "true" : "false"}
+      data-indicators-hidden={areIndicatorsHidden ? "true" : "false"}
+      data-positions-orders-hidden={positionsOrdersHidden ? "true" : "false"}
     >
       {isInitialLoading && <VerticalDrawingToolbarLoadingOverlay />}
       <div className={"gp-toolbar-scroll-container"}>
@@ -464,7 +541,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           ref={trendDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
             "gp-toolbar-btn",
-            "gp-toolbar-btn-split",
             "hover-lift",
             (isTrendDropdownOpen || (!isFibDropdownOpen && isTrendToolActive)) ? "active" : "",
           )}
@@ -494,7 +570,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           ref={fibDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
             "gp-toolbar-btn",
-            "gp-toolbar-btn-split",
             "hover-lift",
             (isFibDropdownOpen || (!isTrendDropdownOpen && isFibToolActive)) ? "active" : "",
           )}
@@ -523,7 +598,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           ref={chartPatternsDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
             "gp-toolbar-btn",
-            "gp-toolbar-btn-split",
             "hover-lift",
             (isChartPatternsDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && isChartPatternsToolActive)) ? "active" : "",
           )}
@@ -556,7 +630,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           ref={forecastingDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
             "gp-toolbar-btn",
-            "gp-toolbar-btn-split",
             "hover-lift",
             (isForecastingDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && isForecastingToolActive)) ? "active" : "",
           )}
@@ -589,7 +662,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           ref={brushDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
             "gp-toolbar-btn",
-            "gp-toolbar-btn-split",
             "hover-lift",
             (isBrushDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && !isForecastingDropdownOpen && isBrushToolActive)) ? "active" : "",
           )}
@@ -623,7 +695,6 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           ref={annotationsDropdownRef as React.RefObject<HTMLButtonElement>}
           className={clsx(
             "gp-toolbar-btn",
-            "gp-toolbar-btn-split",
             "hover-lift",
             (isAnnotationsDropdownOpen || (!isTrendDropdownOpen && !isFibDropdownOpen && !isChartPatternsDropdownOpen && !isForecastingDropdownOpen && !isBrushDropdownOpen && isAnnotationToolActive)) ? "active" : "",
           )}
@@ -653,19 +724,48 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
         />
 
         <DrawingToolbarUtilityActions
-          activeTool={activeTool}
-          onSelectTool={handleSelectDrawingTool}
+          measureActive={measureModeActive}
+          iconPickerOpen={openAuxMenu === "icons"}
+          onIconPickerOpenChange={(open) => setExclusiveAuxMenu(open ? "icons" : null)}
+          onMeasureToggle={onMeasureModeToggle}
+          onArmIconDrawing={(symbol) => {
+            onZoomInModeCancel();
+            onArmIconDrawing(symbol);
+            dispatch(setCursorMode("cross"));
+          }}
+          zoomInActive={zoomInModeActive}
+          onZoomInToggle={onZoomInModeToggle}
+          zoomOutVisible={zoomOutVisible}
+          onZoomOut={onZoomOut}
         />
       </div>
 
       <DrawingToolbarFooter
-        activeTool={activeTool}
+        openMenu={openAuxMenu === "magnet" || openAuxMenu === "lock" || openAuxMenu === "hide" || openAuxMenu === "remove" ? openAuxMenu : null}
+        onOpenMenuChange={(menu) => setExclusiveAuxMenu(menu)}
+        keepDrawing={keepDrawing}
+        onKeepDrawingChange={onKeepDrawingChange}
+        magnetMode={magnetMode}
+        onMagnetModeChange={onMagnetModeChange}
+        onMagnetToggle={onMagnetToggle}
+        snapToIndicators={snapToIndicators}
+        onSnapToIndicatorsChange={onSnapToIndicatorsChange}
         isLockedAll={uiState.isLockedAll}
         areDrawingsHidden={uiState.areDrawingsHidden}
-        onSelectTool={handleSelectDrawingTool}
+        drawingCount={drawingCount}
+        indicatorCount={indicatorCount}
+        indicatorsLocked={indicatorsLocked}
+        areIndicatorsHidden={areIndicatorsHidden}
+        positionsOrdersHidden={positionsOrdersHidden}
+        onDrawingsLockToggle={handleDrawingsLockToggle}
+        onIndicatorsLockToggle={handleIndicatorsLockToggle}
         onGlobalLockToggle={handleGlobalLockToggle}
         onVisibilityToggle={handleVisibilityToggle}
-        onClearAllDrawings={handleClearAllDrawings}
+        onIndicatorsVisibilityToggle={() => onIndicatorsHiddenChange(!areIndicatorsHidden)}
+        onPositionsOrdersVisibilityToggle={() => onPositionsOrdersHiddenChange(!positionsOrdersHidden)}
+        onHideAllToggle={handleHideAllToggle}
+        onRemoveAllDrawings={onRemoveAllDrawings}
+        onRemoveAllIndicators={onRemoveAllIndicators}
       />
     </aside >
   );

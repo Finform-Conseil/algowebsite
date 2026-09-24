@@ -174,6 +174,9 @@
   --gp-sidebar-toggle-size: 1.875rem;
   --gp-sidebar-toggle-size-sm: 1.75rem;
   --gp-floating-control-top: 2.625rem;
+  // Dedicated vertical lane for the BUY/SELL HUD. Keep this below the
+  // title/OHLC row and the indicator legend row on every breakpoint.
+  --gp-trade-hud-top: 52px;
   --gp-icon-size-sm: 1.125rem;
   --gp-icon-size-md: 1.25rem;
   --gp-field-padding-x: .75rem;
@@ -470,7 +473,7 @@
 .gp-trade-btn-container {
   position: absolute;
   // Keep the quote controls below the chart legend with a stable visual gap.
-  top: 34px;
+  top: var(--gp-trade-hud-top);
   left: 8px;
   z-index: 85;
   display: flex;
@@ -939,6 +942,7 @@
 
 .gp-vertical-toolbar {
   flex-shrink: 0;
+  min-height: 0;
   width: var(--gp-toolbar-width);
   background-color: var(--gp-bg-toolbar);
   border-radius: var(--gp-radius-md);
@@ -946,18 +950,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
   z-index: 500;
 }
 
 .gp-toolbar-scroll-container {
-  flex-grow: 1;
+  flex: 0 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: visible;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--gp-space-2xs);
+  gap: 2px;
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: relative;
@@ -966,26 +972,35 @@
 }
 
 .gp-toolbar-footer {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--gp-space-2xs);
-  padding-top: var(--gp-space-xs);
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.gp-vertical-toolbar .gp-toolbar-divider {
+  flex: 0 0 1px;
+  width: 40px;
+  height: 1px;
+  min-height: 1px;
+  margin: 4px 0;
+  background: rgba(160, 174, 192, .24);
 }
 
 .gp-toolbar-split-trigger {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: 1px;
+  bottom: 1px;
   z-index: 2;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.125rem 0.0625rem 0;
+  width: 1rem;
+  height: 1rem;
+  padding: 0 1px 1px 0;
   color: inherit;
   pointer-events: none;
 }
@@ -1024,7 +1039,7 @@
   &.active svg {
     color: var(--gp-accent-blue);
     stroke: var(--gp-accent-blue);
-    filter: drop-shadow(0 0 4px rgba(41,98,255,.8));
+    filter: none;
   }
 
   &-ghost { opacity: .4; }
@@ -1081,6 +1096,79 @@
       border-color: transparent transparent var(--gp-accent-blue) transparent;
       opacity: 1;
     }
+  }
+}
+
+.gp-vertical-toolbar .gp-toolbar-btn {
+  line-height: 1;
+
+  > i.bi {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--gp-icon-size-md);
+    height: var(--gp-icon-size-md);
+    font-size: var(--gp-icon-size-md);
+    line-height: 1;
+  }
+
+  > i.bi::before {
+    line-height: 1;
+    vertical-align: 0;
+  }
+
+  &.active {
+    background-color: rgba(41, 98, 255, .13);
+    color: #e0e3eb;
+    box-shadow: none;
+  }
+
+  &.active svg,
+  &.active > i.bi {
+    color: #5b8cff;
+    filter: none;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 769px) {
+  .gp-toolbar-scroll-container {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .gp-toolbar-footer {
+    flex: 0 0 auto;
+  }
+}
+
+.gp-history-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.gp-history-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 1.45;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:disabled {
+    opacity: .35;
+    cursor: default;
+    transform: none !important;
+    box-shadow: none !important;
   }
 }
 
@@ -2866,6 +2954,56 @@
   }
 }
 
+.gp-render-engine-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .72);
+  flex: 0 0 auto;
+}
+
+.gp-render-engine-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--gp-text-secondary);
+  min-width: 54px;
+  height: 24px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--gp-text-primary);
+    background: rgba(148, 163, 184, .09);
+  }
+
+  &.active,
+  &[aria-pressed="true"] {
+    color: #e0f2fe;
+    background: rgba(14, 165, 233, .18);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, .38);
+  }
+
+  &:focus-visible {
+    outline: 1px solid #38bdf8;
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .42;
+  }
+}
+
 .gp-timestamp {
   display: flex;
   align-items: center;
@@ -2915,7 +3053,10 @@
   height: 100%;
   max-height: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  // The shell owns the chart/sidebar boundary toggle. Keep the shell visible so
+  // the toggle remains usable when the inner sidebar collapses to width 0.
+  // Sidebar content remains clipped by .gp-sidebar itself.
+  overflow: visible;
 }
 
 .gp-sidebar-shell:has(.gp-sidebar.sidebar-closed) {
@@ -6323,8 +6464,12 @@ textarea.gp-pine-code {
 .gp-sidebar-toggle-btn {
   position: absolute;
   top: 50%;
-  right: 16px; // Default position when sidebar is CLOSED
-  transform: translateY(-50%);
+  // Structural anchor: the button is owned by .gp-sidebar-shell, whose real
+  // left edge follows every sidebar width (watchlist, Pine Editor, etc.).
+  // The flex gap is exactly the distance between chart edge and shell edge.
+  left: calc(-1 * var(--gp-layout-gap));
+  right: auto;
+  transform: translate(-50%, -50%);
   z-index: 1300;
   width: var(--gp-sidebar-toggle-size);
   height: var(--gp-sidebar-toggle-size);
@@ -6337,7 +6482,7 @@ textarea.gp-pine-code {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); // Smooth glide experience
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 
   svg {
@@ -6351,15 +6496,15 @@ textarea.gp-pine-code {
     border-color: rgba(255, 255, 255, 0.3);
     color: #ffffff;
     box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-    transform: translateY(-50%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1);
   }
 
   &.flipped svg { transform: rotate(180deg); }
 }
 
-// [TENOR 2026] DYNAMIC GLIDE — Button follows the boundary between chart and sidebar
+// Open-state styling only. Position is derived from the real shell boundary,
+// never from a duplicated sidebar-width calculation.
 .technical-analysis-root:not(.sidebar-closed) .gp-sidebar-toggle-btn {
-  right: calc(var(--gp-sidebar-width) + 10px); // Pushed back further into the chart area
   background: rgba(15, 23, 42, 0.95);
   border-color: var(--accent-gold);
   box-shadow: 0 0 20px rgba(255, 159, 4, 0.3);
@@ -10192,6 +10337,12 @@ textarea.gp-pine-code {
   border: 1px solid var(--gp-border-color); border-radius: var(--bs-border-radius);
   box-shadow: 0 10px 40px rgba(0,0,0,.5); padding: .5rem;
   display: flex; flex-direction: column; gap: .2rem;
+  width: 160px;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: min(332px, calc(100vh - 170px));
+  overflow-y: auto;
+  align-self: flex-start;
   animation: fadeIn .2s ease-out; z-index: 20000;
 }
 
@@ -11239,11 +11390,11 @@ textarea.gp-pine-code {
 }
 
 @media (max-width: 820px) {
-  .gp-sidebar-toggle-btn { right: 0 !important; width: var(--gp-sidebar-toggle-size-sm) !important; height: var(--gp-sidebar-toggle-size-sm) !important; }
+  .gp-sidebar-toggle-btn { width: var(--gp-sidebar-toggle-size-sm) !important; height: var(--gp-sidebar-toggle-size-sm) !important; }
 }
 
 @media (max-width: 768px) {
-  .gp-trade-btn-container { top: 24px !important; left: .625rem !important; transform: scale(0.75); transform-origin: top left; }
+  .gp-trade-btn-container { top: var(--gp-trade-hud-top) !important; left: .625rem !important; transform: scale(0.75); transform-origin: top left; }
   .gp-currency-btn { top: var(--gp-floating-control-top) !important; right: var(--gp-toolbar-width-lg) !important; transform: scale(0.75); transform-origin: top right; }
 
   .gp-nav-pills-styled .nav-link { font-size: var(--bs-body-font-size-x); padding: 0.1rem 0.3rem !important; }
@@ -11268,7 +11419,7 @@ textarea.gp-pine-code {
     &.gp-mobile-sidebar-active { margin-left: calc(0px - var(--gp-page-padding-x)) !important; margin-right: calc(0px - var(--gp-page-padding-x)) !important; width: calc(100% + var(--gp-page-padding-x) + var(--gp-page-padding-x)) !important; }
   }
 
-  .gp-trade-btn-container { top: 24px; left: var(--gp-space-xs); gap: var(--gp-space-2xs); transform: scale(0.72); transform-origin: top left; }
+  .gp-trade-btn-container { top: var(--gp-trade-hud-top); left: var(--gp-space-xs); gap: var(--gp-space-2xs); transform: scale(0.72); transform-origin: top left; }
   .gp-trade-btn { min-width: 56px; padding: 0 8px; }
   .gp-currency-btn { top: var(--gp-floating-control-top); right: var(--gp-space-xs); transform: scale(0.72); transform-origin: top right; }
 }
@@ -11290,8 +11441,9 @@ textarea.gp-pine-code {
       .gp-chart-main-section { position: relative; flex: 1 1 0 !important; flex-basis: 0 !important; max-width: none !important; min-width: 0 !important; min-height: 0 !important; height: 100% !important; max-height: 100% !important; width: auto !important; gap: var(--gp-layout-gap) !important; overflow: hidden !important; z-index: 1200; pointer-events: auto; }
       .gp-vertical-toolbar { display: none !important; width: 0 !important; min-width: 0 !important; opacity: 0 !important; pointer-events: none !important; }
       .gp-chart-view-wrapper { display: flex !important; width: auto !important; min-width: 0 !important; min-height: 0 !important; height: 100% !important; max-height: 100% !important; opacity: 1 !important; pointer-events: auto !important; overflow: hidden !important; flex: 1 1 0 !important; flex-basis: 0 !important; }
-      .gp-sidebar-shell, .gp-sidebar { position: relative; inset: auto; flex: 0 0 var(--gp-sidebar-width); width: var(--gp-sidebar-width); max-width: var(--gp-sidebar-width); min-width: 0; min-height: 0; height: 100%; max-height: 100%; overflow: hidden; z-index: 1100; }
-      .gp-sidebar-toggle-btn { left: auto; right: -14px; top: 50%; transform: translateY(-50%); opacity: 1; visibility: visible; pointer-events: auto !important; z-index: 1300; }
+      .gp-sidebar-shell { position: relative; inset: auto; flex: 0 0 var(--gp-sidebar-width); width: var(--gp-sidebar-width); max-width: var(--gp-sidebar-width); min-width: 0; min-height: 0; height: 100%; max-height: 100%; overflow: visible; z-index: 1100; }
+      .gp-sidebar { position: relative; inset: auto; flex: 0 0 var(--gp-sidebar-width); width: var(--gp-sidebar-width); max-width: var(--gp-sidebar-width); min-width: 0; min-height: 0; height: 100%; max-height: 100%; overflow: hidden; z-index: 1100; }
+      .gp-sidebar-toggle-btn { left: calc(-1 * var(--gp-layout-gap)); right: auto; top: 50%; transform: translate(-50%, -50%); opacity: 1; visibility: visible; pointer-events: auto !important; z-index: 1300; }
     }
   }
 }
@@ -12202,6 +12354,21 @@ textarea.gp-pine-code {
   cursor: crosshair !important;
 }
 
+.gp-chart-container[data-zoom-in-active="true"] .technical-analysis-chart,
+.gp-chart-container[data-zoom-in-active="true"] canvas {
+  cursor: zoom-in !important;
+}
+
+.gp-zoom-selection-rect {
+  position: absolute;
+  z-index: 640;
+  box-sizing: border-box;
+  pointer-events: none;
+  border: 1px solid rgba(41, 98, 255, .95);
+  background: rgba(41, 98, 255, .14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+
 .gp-replay-selection-banner {
   position: absolute;
   top: 12px;
@@ -12400,5 +12567,1137 @@ textarea.gp-pine-code {
   .gp-replay-controls__progress-track,
   .gp-replay-controls__button--text span {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   Pine Editor workbench — measured TradingView-style replication
+   ========================================================================== */
+
+.gp-sidebar-shell:has(.gp-sidebar-content[data-active-sidebar-entry="strategies"]) {
+  --gp-sidebar-width: 470px;
+  flex-basis: var(--gp-sidebar-width);
+  width: var(--gp-sidebar-width);
+}
+
+.gp-sidebar-content[data-active-sidebar-entry="strategies"] {
+  padding: 0;
+  overflow: hidden;
+  background: #0d1420;
+}
+
+.gp-sidebar-content[data-active-sidebar-entry="strategies"] > .gp-pine-workbench {
+  height: 100%;
+}
+
+.gp-sidebar-content[data-active-sidebar-entry="strategies"] > .gp-pine-workbench.is-maximized {
+  // Override the sidebar's 100% height when the editor leaves normal flow.
+  height: auto;
+}
+
+.gp-sidebar-shell:has(.gp-pine-workbench.is-maximized) > .gp-sidebar-toggle-btn {
+  // The workspace owns the full chart surface while maximized.
+  display: none;
+}
+
+.gp-pine-workbench {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid rgba(120, 123, 134, .18);
+  background: #0d1420;
+  color: #d1d4dc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  &.is-maximized {
+    position: fixed;
+    // Maximise inside the actual chart workspace, never underneath the
+    // application navbar/ticker/top controls and never beyond the viewport.
+    inset:
+      var(--gp-chart-modal-top, 158px)
+      8px
+      8px
+      calc(8px + var(--gp-toolbar-width, 50px));
+    z-index: 2400;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: calc(100vh - var(--gp-chart-modal-top, 158px) - 8px);
+    border: 1px solid rgba(120, 123, 134, .28);
+    border-radius: 6px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .58);
+  }
+}
+
+.gp-pine-windowbar,
+.gp-pine-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-bottom: 1px solid rgba(120, 123, 134, .18);
+  background: #111827;
+}
+
+.gp-pine-windowbar {
+  height: 44px;
+  padding: 0 8px 0 12px;
+  justify-content: space-between;
+}
+
+.gp-pine-windowbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  svg { color: #b2b5be; }
+
+  strong {
+    overflow: hidden;
+    color: #f0f3fa;
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    border: 1px solid rgba(41, 98, 255, .32);
+    border-radius: 4px;
+    background: rgba(41, 98, 255, .09);
+    color: #8aa8ff;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    padding: 2px 5px;
+  }
+}
+
+.gp-pine-windowbar-actions,
+.gp-pine-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  > button,
+  > .gp-pine-overflow-wrap > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #b2b5be;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      background: rgba(120, 123, 134, .14);
+      color: #f0f3fa;
+    }
+
+    &:disabled {
+      opacity: .42;
+      cursor: default;
+    }
+  }
+}
+
+.gp-pine-toolbar {
+  height: 48px;
+  padding: 0 8px;
+  gap: 8px;
+}
+
+.gp-pine-script-selector-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gp-pine-script-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: min(230px, 100%);
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #f0f3fa;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: rgba(120, 123, 134, .13);
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.gp-pine-toolbar-actions {
+  flex: 0 0 auto;
+}
+
+.gp-pine-toolbar-actions > .gp-pine-toolbar-run {
+  color: #7896ff;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(41, 98, 255, .13);
+    color: #9eb2ff;
+  }
+}
+
+.gp-pine-overflow-wrap {
+  position: relative;
+}
+
+.gp-pine-template-popover,
+.gp-pine-overflow-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 2450;
+  overflow: hidden;
+  border: 1px solid rgba(120, 123, 134, .24);
+  border-radius: 6px;
+  background: #1e222d;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .42);
+}
+
+.gp-pine-template-popover {
+  left: 0;
+  width: min(340px, calc(100vw - 90px));
+  padding: 6px;
+}
+
+.gp-pine-overflow-menu {
+  right: 0;
+  width: 210px;
+  padding: 6px;
+
+  button,
+  .gp-pine-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #d1d4dc;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      background: rgba(120, 123, 134, .16);
+      color: #fff;
+    }
+
+    svg { color: #9aa0ac; }
+  }
+}
+
+.gp-pine-template-popover > .gp-pine-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #d1d4dc;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: rgba(120, 123, 134, .16); }
+}
+
+.gp-pine-menu-heading {
+  padding: 8px 9px 4px;
+  color: #787b86;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.gp-pine-menu-separator {
+  height: 1px;
+  margin: 5px 0;
+  background: rgba(120, 123, 134, .18);
+}
+
+.gp-pine-template-popover .gp-pine-script-list {
+  gap: 2px;
+}
+
+.gp-pine-template-popover .gp-pine-script-card {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 7px 8px;
+
+  &:hover,
+  &.is-active {
+    background: rgba(41, 98, 255, .12);
+  }
+}
+
+.gp-pine-settings-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 40px;
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(120, 123, 134, .16);
+  background: #151b27;
+  color: #b2b5be;
+  font-size: 11px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  select {
+    height: 26px;
+    border: 1px solid rgba(120, 123, 134, .28);
+    border-radius: 4px;
+    background: #0d1420;
+    color: #d1d4dc;
+    padding: 0 6px;
+  }
+
+  button {
+    margin-left: auto;
+    border: 0;
+    border-radius: 4px;
+    background: rgba(41, 98, 255, .14);
+    color: #9eb2ff;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+}
+
+.gp-pine-toggle-setting input {
+  accent-color: #2962ff;
+}
+
+.gp-pine-editor-main {
+  flex: 1 1 auto;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #0d1420;
+}
+
+.gp-pine-workbench .gp-pine-editor-card {
+  flex: 1 1 auto;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #0d1420;
+}
+
+.gp-pine-editor-surface {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gp-pine-line-numbers {
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid rgba(120, 123, 134, .08);
+  background: #0d1420;
+  color: #5f6673;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.6;
+  text-align: right;
+  user-select: none;
+
+  > div {
+    will-change: transform;
+  }
+
+  span {
+    display: block;
+    height: 1.6em;
+    padding-right: 12px;
+  }
+}
+
+.gp-pine-workbench .gp-pine-code {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  margin: 0;
+  resize: none;
+  overflow: auto;
+  border: 0;
+  outline: 0;
+  background: #0d1420;
+  color: #d1d4dc;
+  caret-color: #f0f3fa;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.6;
+  padding: 0 16px 40px 12px;
+  scrollbar-width: thin;
+  tab-size: 4;
+
+  &::selection {
+    background: rgba(41, 98, 255, .34);
+  }
+}
+
+.gp-pine-drawer-toggle-row {
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(120, 123, 134, .14);
+  background: #111827;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 28px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: #9aa0ac;
+    font-size: 11px;
+    cursor: pointer;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 17px;
+      height: 17px;
+      border-radius: 9px;
+      background: rgba(239, 83, 80, .14);
+      color: #ff7b78;
+      font-size: 9px;
+    }
+  }
+}
+
+.gp-pine-bottom-drawer {
+  flex: 0 0 auto;
+  max-height: 220px;
+  overflow: auto;
+  border-top: 1px solid rgba(120, 123, 134, .18);
+  background: #111827;
+  padding: 8px;
+}
+
+.gp-pine-bottom-drawer .gp-pine-diagnostics,
+.gp-pine-bottom-drawer .gp-pine-saved-list {
+  border: 0;
+  background: transparent;
+}
+
+.gp-pine-runtime-details {
+  margin-top: 8px;
+  border-top: 1px solid rgba(120, 123, 134, .14);
+  padding-top: 6px;
+  color: #9aa0ac;
+  font-size: 11px;
+
+  summary {
+    cursor: pointer;
+    color: #b2b5be;
+  }
+}
+
+.gp-pine-runtime-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px 14px;
+  margin-top: 8px;
+
+  span { color: #787b86; }
+  strong {
+    overflow: hidden;
+    color: #d1d4dc;
+    font-weight: 500;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.gp-pine-workbench > [aria-label="Attached Pine overlay"] {
+  position: absolute !important;
+  right: 12px !important;
+  bottom: 34px !important;
+  z-index: 15;
+  width: min(300px, calc(100% - 24px));
+  box-sizing: border-box;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .36);
+}
+
+.gp-pine-statusbar {
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border-top: 1px solid rgba(120, 123, 134, .14);
+  background: #111827;
+  color: #787b86;
+  font-size: 10px;
+
+  > div {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  strong {
+    color: #b2b5be;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  button {
+    height: 22px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: #9aa0ac;
+    font-size: 10px;
+  }
+}
+
+.gp-pine-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+
+  &.is-running {
+    background: #f59e0b;
+    animation: gp-pine-runtime-pulse 1s ease-in-out infinite;
+  }
+
+  &.is-error {
+    background: #ef5350;
+  }
+}
+
+@keyframes gp-pine-runtime-pulse {
+  50% { opacity: .35; }
+}
+
+@media (max-width: 900px) {
+  .gp-sidebar-shell:has(.gp-sidebar-content[data-active-sidebar-entry="strategies"]) {
+    --gp-sidebar-width: min(88vw, 470px);
+  }
+
+  .gp-pine-workbench.is-maximized {
+    inset: var(--gp-chart-modal-top, 158px) 4px 4px 4px;
+    max-height: calc(100vh - var(--gp-chart-modal-top, 158px) - 4px);
+  }
+}
+
+.gp-save-analysis-menu {
+  padding: 12px;
+}
+
+.gp-save-analysis-menu__header {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+
+  small {
+    color: var(--gp-text-secondary, #787b86);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+}
+
+.gp-save-analysis-menu__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gp-text-primary, #f0f3fa);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.gp-save-analysis-menu__field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+
+  > span {
+    color: var(--gp-text-secondary, #a0a5b1);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+
+  input {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 6px;
+    outline: none;
+    background: rgba(255,255,255,.055);
+    color: var(--gp-text-primary, #f0f3fa);
+    font: inherit;
+
+    &:focus {
+      border-color: var(--gp-accent, #2962ff);
+      box-shadow: 0 0 0 2px rgba(41,98,255,.18);
+    }
+  }
+}
+
+.gp-save-analysis-menu__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gp-save-analysis-menu__primary,
+.gp-save-analysis-menu__secondary {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+  }
+}
+
+.gp-save-analysis-menu__primary {
+  border: 1px solid var(--gp-accent, #2962ff);
+  background: var(--gp-accent, #2962ff);
+  color: #fff;
+}
+
+.gp-save-analysis-menu__secondary {
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.055);
+  color: var(--gp-text-primary, #f0f3fa);
+}
+
+.gp-save-analysis-menu__primary--full {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .gp-save-analysis-menu {
+    width: min(340px, calc(100vw - 16px)) !important;
+  }
+
+  .gp-save-analysis-menu__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+// TradingView-style profile surface anchored to the top-left avatar.
+// FloatingMenu owns viewport clamping, scroll/resize tracking, Escape and outside-click dismissal.
+.gp-profile-menu {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(96,165,250,.24);
+  border-radius: 8px;
+  background: #0f2740;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(1,7,18,.48), 0 18px 48px rgba(1,7,18,.42);
+  font-size: 14px;
+}
+
+.gp-profile-menu__account {
+  display: flex;
+  height: 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  font-weight: 600;
+
+  > i {
+    color: #9aa0ac;
+    font-size: 13px;
+  }
+}
+
+.gp-profile-menu__avatar {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 50%;
+  background: var(--gp-accent-gold, #ff9f04);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(255,159,4,.12);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gp-profile-menu__account-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: #fff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gp-profile-menu__section {
+  padding: 4px 0;
+}
+
+.gp-profile-menu__separator {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(255,255,255,.09);
+}
+
+.gp-profile-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  line-height: 1.2;
+
+  > i:first-child {
+    display: inline-flex;
+    width: 20px;
+    flex: 0 0 20px;
+    align-items: center;
+    justify-content: center;
+    color: #b2b5be;
+    font-size: 17px;
+  }
+
+  > span:not(.gp-profile-menu__meta):not(.gp-profile-menu__switch) {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+}
+
+.gp-profile-menu__item:is(button) {
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: rgba(255,255,255,.07);
+  }
+}
+
+.gp-profile-menu__meta {
+  margin-left: auto;
+  color: #9aa0ac;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.gp-profile-menu__switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: #5c606b;
+
+  > span {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform .16s ease;
+  }
+
+  &.is-on {
+    background: #2962ff;
+
+    > span {
+      transform: translateX(16px);
+    }
+  }
+}
+
+.gp-profile-menu__item--locale {
+  min-height: 46px;
+}
+
+.gp-profile-menu__locale-picker {
+  display: inline-flex;
+  flex: 0 0 auto !important;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid rgba(96,165,250,.22);
+  border-radius: 6px;
+  background: rgba(5,19,35,.42);
+}
+
+.gp-profile-menu__locale-option {
+  min-width: 64px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: #a9c5e8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .16s ease, color .16s ease;
+
+  + .gp-profile-menu__locale-option {
+    border-left: 1px solid rgba(96,165,250,.18);
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: rgba(96,165,250,.10);
+    color: #fff;
+  }
+
+  &.is-active {
+    background: #2962ff;
+    color: #fff;
+  }
+}
+
+.gp-profile-menu__item--danger {
+  color: #f23645;
+
+  > i:first-child {
+    color: currentColor;
+  }
+}
+
+.gp-keyboard-shortcuts-modal {
+  width: min(920px, calc(100vw - 32px)) !important;
+  // Keep a deliberate breathing zone below the application navigation.
+  // The shortcut list scrolls inside the body instead of growing toward the navbar.
+  max-height: min(720px, calc(100vh - 160px));
+  border-color: rgba(96,165,250,.24);
+  background: #0f2740;
+  box-shadow: 0 2px 8px rgba(1,7,18,.48), 0 24px 70px rgba(1,7,18,.56);
+
+  .gp-modal-body {
+    max-height: min(58vh, 560px) !important;
+    padding: 18px 24px 22px;
+  }
+}
+
+.gp-keyboard-shortcuts-overlay {
+  // TradingView parity: preserve outside-click capture without dimming the chart.
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.gp-keyboard-shortcuts {
+  display: grid;
+  gap: 16px;
+}
+
+.gp-keyboard-shortcuts__intro {
+  margin: 0;
+  color: #a9c5e8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.gp-keyboard-shortcuts__search {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 11px;
+  border: 1px solid rgba(96,165,250,.24);
+  border-radius: 7px;
+  background: #0b2035;
+  color: #8eaac7;
+
+  input {
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+
+    &::placeholder {
+      color: #7892ad;
+    }
+  }
+
+  button {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #9eb7d3;
+
+    &:hover,
+    &:focus-visible {
+      outline: 0;
+      background: rgba(96,165,250,.12);
+      color: #fff;
+    }
+  }
+}
+
+.gp-keyboard-shortcuts__categories {
+  display: grid;
+  gap: 8px;
+}
+
+.gp-keyboard-shortcuts__category {
+  overflow: hidden;
+  border: 1px solid rgba(96,165,250,.14);
+  border-radius: 8px;
+  background: rgba(5,19,35,.28);
+}
+
+.gp-keyboard-shortcuts__category-trigger {
+  display: grid;
+  width: 100%;
+  min-height: 56px;
+  grid-template-columns: 34px minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: 0;
+    background: rgba(96,165,250,.08);
+  }
+}
+
+.gp-keyboard-shortcuts__category-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(96,165,250,.22);
+  border-radius: 7px;
+  background: rgba(96,165,250,.09);
+  color: #b9d5f4;
+  font-size: 16px;
+}
+
+.gp-keyboard-shortcuts__count {
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(96,165,250,.11);
+  color: #9eb7d3;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gp-keyboard-shortcuts__rows {
+  border-top: 1px solid rgba(96,165,250,.12);
+}
+
+.gp-keyboard-shortcuts__row {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px 14px 8px 58px;
+  border-bottom: 1px solid rgba(96,165,250,.08);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.gp-keyboard-shortcuts__label {
+  min-width: 0;
+  color: #e9f2fb;
+  font-size: 13px;
+}
+
+.gp-keyboard-shortcuts__keys,
+.gp-keyboard-shortcuts__combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gp-keyboard-shortcuts__keys {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+
+  kbd {
+    min-width: 28px;
+    height: 26px;
+    padding: 3px 7px;
+    border: 1px solid rgba(151,190,230,.28);
+    border-bottom-color: rgba(151,190,230,.42);
+    border-radius: 5px;
+    background: #132f4c;
+    color: #fff;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,.06);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+.gp-keyboard-shortcuts__plus,
+.gp-keyboard-shortcuts__or {
+  color: #7994b0;
+  font-size: 10px;
+}
+
+.gp-keyboard-shortcuts__empty {
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #8eaac7;
+}
+
+@media (max-width: 640px) {
+  .gp-keyboard-shortcuts-modal .gp-modal-body {
+    padding: 14px;
+  }
+
+  .gp-keyboard-shortcuts__row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding-left: 14px;
+  }
+
+  .gp-keyboard-shortcuts__keys {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .gp-profile-menu {
+    width: min(260px, calc(100vw - 16px)) !important;
+  }
+}
+
+.gp-date-range-endpoint {
+  appearance: none;
+  min-width: 0;
+  background: rgba(255, 255, 255, .018);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+
+  &:hover {
+    border-color: rgba(255, 159, 4, .48) !important;
+    background: rgba(255, 159, 4, .045);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--gp-accent-gold, #ff9f04) !important;
+    box-shadow: 0 0 0 2px rgba(255, 159, 4, .16);
+  }
+
+  &.is-active {
+    border-color: var(--gp-accent-gold, #ff9f04) !important;
+    background: rgba(255, 159, 4, .075);
+    box-shadow: inset 0 0 0 1px rgba(255, 159, 4, .18);
+
+    .text-secondary {
+      color: var(--gp-accent-gold, #ff9f04) !important;
+    }
   }
 }

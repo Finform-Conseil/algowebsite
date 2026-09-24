@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import clsx from "clsx";
 import { useSelector } from "react-redux";
 import { useAppDispatch } from "@/core/infra/store/hooks";
+import { useLocaleNavigation } from "@/components/navigation/useLocaleNavigation";
 import { SettingsToggle } from "../common/inputs/SettingsField";
 import {
   setModalOpen,
   setChartType,
+  setChartConfig,
   toggleZenMode,
   setAnonyme,
   setSelectedPseudo,
@@ -48,8 +50,15 @@ interface ChartToolbarProps {
   isReplaySelectingStart: boolean;
   onReplayRequest: () => void;
   onTimeframeChange: (timeframe: string) => void;
-  onSaveAnalysis: () => void | Promise<void>;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  activeSavedAnalysisId: string | null;
+  activeSavedAnalysisName: string | null;
+  onSaveAnalysis: (options?: { name?: string; mode?: "update" | "copy" }) => unknown | Promise<unknown>;
   onOpenLoadModal: () => void | Promise<void>;
+  onOpenKeyboardShortcuts: () => void;
   onSnapshotDownload: () => void | Promise<void>;
   onSnapshotCopy: () => void | Promise<void>;
   onSnapshotOpen: () => void | Promise<void>;
@@ -62,8 +71,15 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   isReplaySelectingStart,
   onReplayRequest,
   onTimeframeChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  activeSavedAnalysisId,
+  activeSavedAnalysisName,
   onSaveAnalysis,
   onOpenLoadModal,
+  onOpenKeyboardShortcuts,
   onSnapshotDownload,
   onSnapshotCopy,
   onSnapshotOpen,
@@ -74,7 +90,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const advancedIndicators = useSelector(selectAdvancedIndicators);
   const uiState = useSelector(selectUiState);
   const activeMarket = useSelector(selectActiveMarket);
-  const locale = useLocale();
+  const { locale, switchLocale } = useLocaleNavigation();
   const chartTypeT = useTranslations("technicalAnalysis.chartTypes");
   const marketLabel = locale === "fr" ? "Bourse" : "Exchange";
   const isMultiChartMode = uiState.multiChartLayout.isEnabled
@@ -102,14 +118,63 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   const [isPseudoDropdownOpen, setIsPseudoDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const pseudoDropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [profileAnchorRect, setProfileAnchorRect] = useState<DOMRect | null>(null);
+  const profileButtonRef = useRef<HTMLSpanElement>(null);
   const [isChartTypeMenuOpen, setIsChartTypeMenuOpen] = useState(false);
   const [chartTypeAnchorRect, setChartTypeAnchorRect] = useState<DOMRect | null>(null);
   const chartTypeButtonRef = useRef<HTMLButtonElement>(null);
   const [isSnapshotMenuOpen, setIsSnapshotMenuOpen] = useState(false);
   const [snapshotAnchorRect, setSnapshotAnchorRect] = useState<DOMRect | null>(null);
   const snapshotButtonRef = useRef<HTMLButtonElement>(null);
+  const [isSaveMenuOpen, setIsSaveMenuOpen] = useState(false);
+  const [saveAnchorRect, setSaveAnchorRect] = useState<DOMRect | null>(null);
+  const [saveDraftName, setSaveDraftName] = useState("");
+  const [isSavingAnalysis, setIsSavingAnalysis] = useState(false);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const openSaveMenu = useCallback(() => {
+    const rect = saveButtonRef.current?.getBoundingClientRect() ?? null;
+    setSaveAnchorRect(rect);
+    setSaveDraftName(activeSavedAnalysisName?.trim() || `${displaySymbol} · ${chartConfig.timeframe}`);
+    setIsSaveMenuOpen(true);
+  }, [activeSavedAnalysisName, chartConfig.timeframe, displaySymbol]);
+
+  const submitSave = useCallback(async (mode: "update" | "copy") => {
+    const name = saveDraftName.trim();
+    if (!name || isSavingAnalysis) return;
+    setIsSavingAnalysis(true);
+    try {
+      const result = await onSaveAnalysis({ name, mode });
+      if (result !== null) setIsSaveMenuOpen(false);
+    } finally {
+      setIsSavingAnalysis(false);
+    }
+  }, [isSavingAnalysis, onSaveAnalysis, saveDraftName]);
+
   const activeChartType = normalizeChartType(chartConfig.chartType);
   const activeChartTypeEntry = CHART_TYPE_REGISTRY[activeChartType];
+  const isActiveIndex = activeLayoutCell
+    && "sourceKind" in activeLayoutCell
+    && activeLayoutCell.sourceKind === "index";
+  const isVolumeAttached = chartConfig.indicators.volume === true;
+  const volumeToggleLabel = isActiveIndex
+    ? (locale === "fr" ? "Volume indisponible pour un indice close-only" : "Volume unavailable for a close-only index")
+    : locale === "fr"
+      ? (isVolumeAttached ? "Masquer le volume" : "Afficher le volume")
+      : (isVolumeAttached ? "Hide volume" : "Show volume");
+
+  const handleVolumeToggle = useCallback(() => {
+    if (isActiveIndex) return;
+    dispatch(setChartConfig({
+      indicators: {
+        ...chartConfig.indicators,
+        volume: !isVolumeAttached,
+        // Re-attaching from the toolbar must always produce a visible study.
+        // Study-level hide/show remains available from the Volume legend.
+        volumeVisible: !isVolumeAttached ? true : chartConfig.indicators.volumeVisible,
+      },
+    }));
+  }, [chartConfig.indicators, dispatch, isActiveIndex, isVolumeAttached]);
 
   const handleChartTypeMenuToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -154,12 +219,15 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
 
   const handleTogglePseudoDropdown = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
+    setIsProfileMenuOpen(false);
     togglePseudoDropdownFromElement(e.currentTarget);
   };
 
   const handleProfileToggle = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
-    togglePseudoDropdownFromElement(e.currentTarget);
+    setIsPseudoDropdownOpen(false);
+    setProfileAnchorRect(e.currentTarget.getBoundingClientRect());
+    setIsProfileMenuOpen((current) => !current);
   };
 
   const openMarketSelector = () => {
@@ -211,21 +279,115 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               justifyContent: "center !important",
               marginLeft: "4px",
             }}
+            ref={profileButtonRef}
             role="button"
             tabIndex={0}
+            aria-label="Menu du profil"
             aria-haspopup="menu"
-            aria-expanded={isPseudoDropdownOpen}
+            aria-expanded={isProfileMenuOpen}
             onClick={handleProfileToggle}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                togglePseudoDropdownFromElement(event.currentTarget);
+                setIsPseudoDropdownOpen(false);
+                setProfileAnchorRect(event.currentTarget.getBoundingClientRect());
+                setIsProfileMenuOpen((current) => !current);
               }
             }}
           >
             {userInitials === "DA" ? <i className="bi bi-person-circle" style={{ fontSize: "1.2rem" }}></i> : userInitials}
           </span>
         </div>
+
+        <FloatingMenu
+          isOpen={isProfileMenuOpen}
+          onClose={() => setIsProfileMenuOpen(false)}
+          anchorRect={profileAnchorRect}
+          anchorRef={profileButtonRef}
+          width={260}
+          className="gp-profile-menu"
+          zIndex={7000}
+        >
+          <div className="gp-profile-menu__account" role="menuitem">
+            <span className="gp-profile-menu__avatar" aria-hidden="true">
+              {userInitials === "DA" ? "A" : userInitials.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="gp-profile-menu__account-name">AfriMarket</span>
+            <i className="bi bi-chevron-right" aria-hidden="true" />
+          </div>
+
+          <div className="gp-profile-menu__section">
+            <button type="button" className="gp-profile-menu__item" onClick={() => window.location.assign(`/${locale}`)}>
+              <i className="bi bi-house" aria-hidden="true" />
+              <span>Home</span>
+            </button>
+          </div>
+
+          <div className="gp-profile-menu__separator" />
+
+          <div className="gp-profile-menu__section">
+            <div className="gp-profile-menu__item" role="menuitem">
+              <i className="bi bi-layout-sidebar" aria-hidden="true" />
+              <span>Drawings panel</span>
+              <span className="gp-profile-menu__switch is-on" aria-hidden="true"><span /></span>
+            </div>
+            <div className="gp-profile-menu__item gp-profile-menu__item--locale" role="group" aria-label={locale === "fr" ? "Choisir la langue" : "Choose language"}>
+              <i className="bi bi-globe2" aria-hidden="true" />
+              <span>{locale === "fr" ? "Langue" : "Language"}</span>
+              <span className="gp-profile-menu__locale-picker">
+                <button
+                  type="button"
+                  className={clsx("gp-profile-menu__locale-option", locale === "en" && "is-active")}
+                  aria-pressed={locale === "en"}
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    switchLocale("en");
+                  }}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  className={clsx("gp-profile-menu__locale-option", locale === "fr" && "is-active")}
+                  aria-pressed={locale === "fr"}
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    switchLocale("fr");
+                  }}
+                >
+                  Français
+                </button>
+              </span>
+            </div>
+            <button
+              type="button"
+              className="gp-profile-menu__item"
+              onClick={() => {
+                setIsProfileMenuOpen(false);
+                onOpenKeyboardShortcuts();
+              }}
+              aria-label={locale === "fr" ? "Ouvrir les raccourcis clavier" : "Open keyboard shortcuts"}
+            >
+              <i className="bi bi-keyboard" aria-hidden="true" />
+              <span>{locale === "fr" ? "Raccourcis clavier" : "Keyboard shortcuts"}</span>
+              <span className="gp-profile-menu__meta">Ctrl + /</span>
+            </button>
+            <div className="gp-profile-menu__item" role="menuitem">
+              <i className="bi bi-display" aria-hidden="true" />
+              <span>Get desktop app</span>
+              <i className="bi bi-box-arrow-up-right gp-profile-menu__meta" aria-hidden="true" />
+            </div>
+          </div>
+
+          <div className="gp-profile-menu__separator" />
+
+          <div className="gp-profile-menu__section">
+            <div className="gp-profile-menu__item gp-profile-menu__item--danger" role="menuitem">
+              <i className="bi bi-box-arrow-right" aria-hidden="true" />
+              <span>Sign out</span>
+            </div>
+          </div>
+        </FloatingMenu>
 
         {!isMultiChartMode && (
           <>
@@ -354,6 +516,20 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             <i className="bi bi-activity"></i>
           </button>
 
+          {!isMultiChartMode && (
+            <button
+              type="button"
+              className={clsx(toolbarButtonClassNames, "gp-toolbar-volume-toggle", !isActiveIndex && isVolumeAttached && "active")}
+              disabled={Boolean(isActiveIndex)}
+              title={volumeToggleLabel}
+              aria-label={volumeToggleLabel}
+              aria-pressed={!isActiveIndex && isVolumeAttached}
+              onClick={handleVolumeToggle}
+            >
+              <span className="gp-toolbar-volume-toggle__label">Vol</span>
+            </button>
+          )}
+
           <button
             className={clsx(toolbarButtonClassNames)}
             title="Modèles d'indicateurs"
@@ -394,6 +570,39 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               )}></i>
             </button>
           )}
+
+          <div className={"gp-toolbar-v-divider"}></div>
+
+          <div className="gp-history-controls" role="group" aria-label="Historique du graphique">
+            <button
+              type="button"
+              className={clsx(toolbarSecondaryButtonClassNames, "gp-history-btn")}
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+              data-name="undo"
+              disabled={!canUndo}
+              onClick={onUndo}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+                <path d="M9 7H5V3" />
+                <path d="M5.4 7C7.1 4.8 9.7 3.5 12.6 3.8C16.8 4.2 20 7.7 20 12C20 16.4 16.4 20 12 20C9.4 20 7.1 18.8 5.6 16.9" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={clsx(toolbarSecondaryButtonClassNames, "gp-history-btn")}
+              title="Redo (Ctrl+Shift+Z / Ctrl+Y)"
+              aria-label="Redo"
+              data-name="redo"
+              disabled={!canRedo}
+              onClick={onRedo}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+                <path d="M15 7H19V3" />
+                <path d="M18.6 7C16.9 4.8 14.3 3.5 11.4 3.8C7.2 4.2 4 7.7 4 12C4 16.4 7.6 20 12 20C14.6 20 16.9 18.8 18.4 16.9" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -455,12 +664,72 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         <div className={clsx("gp-toolbar-scroll-wrapper-right", "flex-shrink-0")}>
           <div className={"gp-toolbar-scroll-content-right"}>
             <button
-              className={clsx(toolbarSecondaryButtonClassNames)}
-              title="Sauvegarder l'analyse"
-              onClick={() => { void onSaveAnalysis(); }}
+              ref={saveButtonRef}
+              type="button"
+              className={clsx(toolbarSecondaryButtonClassNames, isSaveMenuOpen && "active")}
+              title={activeSavedAnalysisId ? "Enregistrer les modifications de l'analyse" : "Sauvegarder l'analyse"}
+              aria-label={activeSavedAnalysisId ? "Enregistrer les modifications de l'analyse" : "Sauvegarder l'analyse"}
+              aria-haspopup="dialog"
+              aria-expanded={isSaveMenuOpen}
+              onClick={openSaveMenu}
             >
-              <i className="bi bi-save"></i>
+              <i className={clsx("bi", isSavingAnalysis ? "bi-hourglass-split" : "bi-save")}></i>
             </button>
+            <FloatingMenu
+              isOpen={isSaveMenuOpen}
+              onClose={() => setIsSaveMenuOpen(false)}
+              anchorRect={saveAnchorRect}
+              width={340}
+              className="gp-save-analysis-menu"
+              zIndex={6500}
+            >
+              <div className="gp-save-analysis-menu__header">
+                <div className="gp-save-analysis-menu__title">
+                  <i className="bi bi-save2" aria-hidden="true" />
+                  <span>{activeSavedAnalysisId ? "Enregistrer les modifications" : "Nouvelle analyse"}</span>
+                </div>
+                <small>
+                  {activeSavedAnalysisId
+                    ? "Choisissez de remplacer la sauvegarde active ou d’en créer une nouvelle."
+                    : "Donnez un nom clair à cette analyse avant de l’enregistrer."}
+                </small>
+              </div>
+              <label className="gp-save-analysis-menu__field">
+                <span>Nom de l’analyse</span>
+                <input
+                  autoFocus
+                  type="text"
+                  value={saveDraftName}
+                  maxLength={120}
+                  onChange={(event) => setSaveDraftName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setIsSaveMenuOpen(false);
+                    if (event.key === "Enter" && saveDraftName.trim()) {
+                      void submitSave(activeSavedAnalysisId ? "update" : "copy");
+                    }
+                  }}
+                  placeholder="Ex. ORANGE_CI · Breakout journalier"
+                  aria-label="Nom de l’analyse à sauvegarder"
+                />
+              </label>
+              {activeSavedAnalysisId ? (
+                <div className="gp-save-analysis-menu__actions">
+                  <button type="button" className="gp-save-analysis-menu__primary" disabled={!saveDraftName.trim() || isSavingAnalysis} onClick={() => { void submitSave("update"); }}>
+                    <i className="bi bi-arrow-repeat" aria-hidden="true" />
+                    <span>{isSavingAnalysis ? "Enregistrement…" : "Mettre à jour"}</span>
+                  </button>
+                  <button type="button" className="gp-save-analysis-menu__secondary" disabled={!saveDraftName.trim() || isSavingAnalysis} onClick={() => { void submitSave("copy"); }}>
+                    <i className="bi bi-plus-square" aria-hidden="true" />
+                    <span>Enregistrer comme nouvelle</span>
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="gp-save-analysis-menu__primary gp-save-analysis-menu__primary--full" disabled={!saveDraftName.trim() || isSavingAnalysis} onClick={() => { void submitSave("copy"); }}>
+                  <i className="bi bi-check2" aria-hidden="true" />
+                  <span>{isSavingAnalysis ? "Enregistrement…" : "Enregistrer l’analyse"}</span>
+                </button>
+              )}
+            </FloatingMenu>
             <LayoutSetupControl />
             <button
               className={clsx(toolbarSecondaryButtonClassNames)}
@@ -546,7 +815,18 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           />
           <div
             className={"pseudo-dropdown"}
-            style={{ position: "fixed", top: dropdownPos.top + 5, left: dropdownPos.left - 100, zIndex: 50000, width: "160px" }}
+            style={{
+              position: "fixed",
+              top: dropdownPos.top + 5,
+              left: dropdownPos.left - 100,
+              zIndex: 50000,
+              width: "160px",
+              height: "auto",
+              minHeight: "0",
+              maxHeight: "min(332px, calc(100vh - 170px))",
+              overflowY: "auto",
+              alignSelf: "flex-start",
+            }}
           >
             {ANONYMOUS_PSEUDOS.map((pseudo) => (
               <div

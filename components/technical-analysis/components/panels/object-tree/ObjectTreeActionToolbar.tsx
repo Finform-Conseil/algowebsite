@@ -118,17 +118,23 @@ export const ObjectTreeActionToolbar: React.FC<ObjectTreeActionToolbarProps> = (
       <div style={globalActionMenuStyle}>
         {selectedObject && (
           <>
-            <MenuButton icon={`bi ${selectedObject.visible ? "bi-eye-slash" : "bi-eye"}`} onClick={onSelectedObjectVisibilityToggle}>
-              {selectedObject.visible ? "Hide selected object" : "Show selected object"}
-            </MenuButton>
-            <MenuButton
-              icon="bi bi-trash"
-              onClick={onSelectedObjectRemove}
-              style={{ color: selectedObject.removable ? "#f23645" : TV.tabMuted }}
-            >
-              Remove selected object
-            </MenuButton>
-            <div style={menuDividerStyle} />
+            {(selectedObject.capabilities?.visibility ?? true) && (
+              <MenuButton icon={`bi ${selectedObject.visible ? "bi-eye-slash" : "bi-eye"}`} onClick={onSelectedObjectVisibilityToggle}>
+                {selectedObject.visible ? "Hide selected object" : "Show selected object"}
+              </MenuButton>
+            )}
+            {(selectedObject.capabilities?.remove ?? selectedObject.removable) && (
+              <MenuButton
+                icon="bi bi-trash"
+                onClick={onSelectedObjectRemove}
+                style={{ color: "#f23645" }}
+              >
+                Remove selected object
+              </MenuButton>
+            )}
+            {((selectedObject.capabilities?.visibility ?? true) || (selectedObject.capabilities?.remove ?? selectedObject.removable)) && (
+              <div style={menuDividerStyle} />
+            )}
           </>
         )}
         <MenuButton icon="bi bi-eye-slash" onClick={onHideAllDrawings}>Hide all drawings</MenuButton>

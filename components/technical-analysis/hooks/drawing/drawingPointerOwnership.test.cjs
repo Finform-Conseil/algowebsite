@@ -46,6 +46,6 @@ test("drawing hit arbitration runs in capture before viewport pan initialization
 
 test("selection mode still allows background chart pan because ownership is hit-tested, not blanket-blocked", () => {
   assert.match(drawingManagerSource, /spatialGridRef\.current\.query\(pointerPixel\.x, pointerPixel\.y\)/);
-  assert.match(drawingManagerSource, /if \(hit\.isHit\) \{/);
+  assert.match(drawingManagerSource, /if \(hit\??\.isHit\) \{/);
   assert.doesNotMatch(viewportSource, /drawingInteraction === ['"]selection['"]\)\s*\{\s*return/);
 });

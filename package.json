@@ -28,7 +28,8 @@
     "test:market-logos": "node --test core/data/__tests__/market-logo-registry.test.cjs",
     "sync:cse-casablanca-logos": "node scripts/sync-cse-casablanca-logos.mjs",
     "test:alerts-rail": "node --test components/technical-analysis/components/sidebar/panels/alertsRail/__tests__/alertsRailRuntime.test.cjs",
-    "test:pine-editor": "node --test components/technical-analysis/components/sidebar/panels/pineEditor/__tests__/pineEditor.test.cjs"
+    "test:pine-editor": "node --test components/technical-analysis/components/sidebar/panels/pineEditor/__tests__/pineEditor.test.cjs",
+    "test:pine-parity": "node scripts/pine-parity-lab.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -60,6 +61,7 @@
     "next": "16.3.3",
     "next-auth": "^4.24.14",
     "next-intl": "^4.13.0",
+    "pinets": "0.9.34",
     "react": "^19.2.3",
     "react-chartjs-2": "^5.2.0",
     "react-dnd": "^16.0.1",
@@ -75,6 +77,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@heyphat/piner": "0.13.0",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
     "@types/react": "^18",

@@ -1,32 +1,21 @@
-'use client';
+"use client";
 
-import { useLocale } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
-import { routing } from '@/i18n/routing';
+import { routing } from "@/i18n/routing";
+import { useLocaleNavigation } from "./useLocaleNavigation";
 
 export default function LocaleSwitcher() {
-  const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const handleSwitch = (newLocale: string) => {
-    const segments = pathname.split('/');
-    if (routing.locales.includes(segments[1] as 'en' | 'fr')) {
-      segments[1] = newLocale;
-    } else {
-      segments.splice(1, 0, newLocale);
-    }
-    router.push(segments.join('/'));
-  };
+  const { locale, switchLocale } = useLocaleNavigation();
 
   return (
     <div className="locale-switcher">
       {routing.locales.map((loc) => (
         <button
           key={loc}
-          onClick={() => handleSwitch(loc)}
-          className={`locale-btn ${locale === loc ? 'active' : ''}`}
-          aria-label={loc === 'en' ? 'English' : 'Français'}
+          type="button"
+          onClick={() => switchLocale(loc)}
+          className={`locale-btn ${locale === loc ? "active" : ""}`}
+          aria-label={loc === "en" ? "English" : "Français"}
+          aria-pressed={locale === loc}
         >
           {loc.toUpperCase()}
         </button>

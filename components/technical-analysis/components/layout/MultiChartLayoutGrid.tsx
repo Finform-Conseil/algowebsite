@@ -564,6 +564,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
     )}>
       {renderedCharts.map((cell) => {
         const isActive = cell.chartId === effectiveActiveChartId;
+        const showGridLines = renderedCharts.length <= 2 || isActive;
         const hasSelectedSymbol = cell.symbol.trim().length > 0;
         const cellCacheKey = getCellCacheKey(cell);
         const cellData = marketData[cellCacheKey] ?? [];
@@ -666,6 +667,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
                 hiddenObjectIds={hiddenObjectIds}
                 headerActions={headerActions}
                 isActive={isActive}
+                showGridLines={showGridLines}
                 interactionOverlay={isActive && secondaryChartsById[cell.chartId] ? children : null}
                 metaDensity={!maximizedChartId && renderedCharts.length >= 4 ? "dense" : "comfortable"}
                 onActivate={() => onActivateChart(cell.chartId)}

@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useCallback,
   useState,
+  useRef,
   useDeferredValue,
 } from "react";
 import dynamic from "next/dynamic";
@@ -33,6 +34,7 @@ import {
   commitLayoutChartAppearance,
   setTimeRange,
   setModalOpen,
+  closeAllModals,
   setPrefilledAlert,
   setSymbol,
   setZenMode,
@@ -85,6 +87,7 @@ import {
   type IndicatorConfigurationTarget,
 } from "@/components/technical-analysis/config/indicators/indicatorConfigurationTarget";
 import { IndicatorConfigurationModal } from "@/components/technical-analysis/components/modals/indicators/IndicatorConfigurationModal";
+import { KeyboardShortcutsModal } from "@/components/technical-analysis/components/modals/KeyboardShortcutsModal";
 import type { ObjectTreePanelProps } from "@/components/technical-analysis/components/panels/object-tree/ObjectTreePanel";
 import type { CompareSeriesSettingsModalProps } from "@/components/technical-analysis/components/modals/compare/CompareSeriesSettingsModal";
 import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/time-axis/TimeAxisControls";
@@ -111,7 +114,7 @@ import { useTechnicalAnalysisActions } from "@/components/technical-analysis/hoo
 import { useToolbarHandlers } from "@/components/technical-analysis/hooks/useToolbarHandlers";
 import { useFloatingToolbar } from "@/components/technical-analysis/hooks/useFloatingToolbar";
 import { useObjectTreePanel } from "@/components/technical-analysis/hooks/useObjectTreePanel";
-import { TimeAxisRegistry, type ChartViewportChange } from "@/components/technical-analysis/hooks/useChartViewport";
+import { MAIN_GRID_LEFT, TV_X_AXIS_HEIGHT, TV_Y_AXIS_WIDTH, TimeAxisRegistry, type ChartViewportChange } from "@/components/technical-analysis/hooks/useChartViewport";
 import { PriceAxisOverlay, type PriceAxisActionId } from "@/components/technical-analysis/components/overlays/PriceAxisOverlay";
 import {
   ChartContextMenu,
@@ -132,6 +135,8 @@ import { VolumeStudyLegend } from "@/components/technical-analysis/components/ch
 import { ReplayControls } from "@/components/technical-analysis/components/chart/ReplayControls";
 import { ChartRenderEngine, type ChartRenderEngineProps } from "@/components/technical-analysis/components/chart/ChartRenderEngine";
 import { ChartInteractionEngine } from "@/components/technical-analysis/components/chart/ChartInteractionEngine";
+import { VelaChartAdapter } from "@/components/technical-analysis/engine-v2/react/VelaChartAdapter";
+import { usePrimaryChartRenderEngine } from "@/components/technical-analysis/engine-v2/runtime/usePrimaryChartRenderEngine";
 import { resolvePrimaryChartAsyncPresentation } from "@/components/technical-analysis/components/chart/chartAsyncPresentation";
 import { useGlobalNotification } from "@/components/design-system/layouts/HeaderHome/context/GlobalNotificationContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -792,6 +797,7 @@ const ChartUI: React.FC = () => {
     setSelectedTicker,
   } = useTickerSelector();
   const { addNotification } = useGlobalNotification();
+  const { engine: primaryChartRenderEngine, setEngine: setPrimaryChartRenderEngine } = usePrimaryChartRenderEngine();
   const { displayCurrency, rates } = useCurrency();
   const pineChartOverlay = useSelector(selectPineChartOverlay);
   const dispatchPineOverlay = useCallback((overlay: PineChartOverlayPayload | null) => {
@@ -897,6 +903,23 @@ const ChartUI: React.FC = () => {
   const {
     activeTool,
     setActiveTool,
+    measureModeActive,
+    toggleMeasureMode,
+    cancelMeasureMode,
+    keepDrawing,
+    setKeepDrawing,
+    magnetMode,
+    setMagnetMode,
+    toggleMagnetMode,
+    snapToIndicators,
+    setSnapToIndicators,
+    positionsOrdersHidden,
+    setPositionsOrdersHidden,
+    armIconDrawing,
+    setAllDrawingsLocked,
+    setAllDrawingsHidden,
+    removeAllDrawings,
+    replaceDrawings,
     drawings,
     selectedDrawingId,
     setSelectedDrawingId,
@@ -904,6 +927,10 @@ const ChartUI: React.FC = () => {
     deleteDrawing,
     addDrawing,
     reorderDrawing,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
     handlePointerDownCapture,
     handlePointerDown,
     handlePointerMove,
@@ -934,6 +961,166 @@ const ChartUI: React.FC = () => {
   const bollingerSettings = useSelector(selectBollingerSettings, shallowEqual);
   const isZenMode = useSelector((state: RootState) => state.technicalAnalysis.ui.isZenMode);
   const cursorMode = useSelector((state: RootState) => state.technicalAnalysis.ui.cursorMode);
+  const [zoomInModeActive, setZoomInModeActive] = useState(false);
+  const [interactiveZoomDepth, setInteractiveZoomDepth] = useState(0);
+  const [zoomSelectionRect, setZoomSelectionRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const zoomSelectionGestureRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    currentClientX: number;
+    currentClientY: number;
+    plotLeft: number;
+    plotTop: number;
+    plotWidth: number;
+    plotHeight: number;
+  } | null>(null);
+
+  const cancelZoomInMode = useCallback(() => {
+    zoomSelectionGestureRef.current = null;
+    setZoomSelectionRect(null);
+    setZoomInModeActive(false);
+  }, []);
+
+  const toggleZoomInMode = useCallback(() => {
+    if (zoomInModeActive) {
+      cancelZoomInMode();
+      return;
+    }
+    cancelMeasureMode();
+    setActiveTool(null);
+    setZoomSelectionRect(null);
+    setZoomInModeActive(true);
+  }, [cancelMeasureMode, cancelZoomInMode, setActiveTool, zoomInModeActive]);
+
+  useEffect(() => {
+    if (zoomInModeActive && activeTool !== null) {
+      cancelZoomInMode();
+    }
+  }, [activeTool, cancelZoomInMode, zoomInModeActive]);
+
+  const handleZoomInPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>): boolean => {
+    if (event.button !== 0) return false;
+    if (!zoomInModeActive) return false;
+
+    const chart = refs.chartInstanceRef.current;
+    if (!chart) return false;
+
+    const chartDom = chart.getDom();
+    const target = event.target;
+    if (!(target instanceof Node) || !chartDom.contains(target)) return false;
+
+    const rect = chartDom.getBoundingClientRect();
+    const plotLeft = rect.left + MAIN_GRID_LEFT;
+    const plotTop = rect.top;
+    const plotRight = rect.right - TV_Y_AXIS_WIDTH;
+    const plotBottom = rect.bottom - TV_X_AXIS_HEIGHT;
+    if (
+      event.clientX < plotLeft
+      || event.clientX > plotRight
+      || event.clientY < plotTop
+      || event.clientY > plotBottom
+    ) {
+      return false;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const plotWidth = Math.max(1, plotRight - plotLeft);
+    const plotHeight = Math.max(1, plotBottom - plotTop);
+    const existingSelection = zoomSelectionGestureRef.current;
+
+    if (!existingSelection) {
+      zoomSelectionGestureRef.current = {
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        currentClientX: event.clientX,
+        currentClientY: event.clientY,
+        plotLeft,
+        plotTop,
+        plotWidth,
+        plotHeight,
+      };
+
+      const containerRect = event.currentTarget.getBoundingClientRect();
+      setZoomSelectionRect({
+        left: event.clientX - containerRect.left,
+        top: event.clientY - containerRect.top,
+        width: 0,
+        height: 0,
+      });
+      return true;
+    }
+
+    const clientX = Math.max(
+      existingSelection.plotLeft,
+      Math.min(existingSelection.plotLeft + existingSelection.plotWidth, event.clientX),
+    );
+    const clientY = Math.max(
+      existingSelection.plotTop,
+      Math.min(existingSelection.plotTop + existingSelection.plotHeight, event.clientY),
+    );
+    existingSelection.currentClientX = clientX;
+    existingSelection.currentClientY = clientY;
+
+    const controls = TimeAxisRegistry.get(chart);
+    zoomSelectionGestureRef.current = null;
+    setZoomSelectionRect(null);
+    if (!controls) return true;
+
+    const selectionWidth = Math.abs(clientX - existingSelection.startClientX);
+    const selectionHeight = Math.abs(clientY - existingSelection.startClientY);
+    if (selectionWidth < 8 || selectionHeight < 8) {
+      controls.zoomInAt((clientX - existingSelection.plotLeft) / existingSelection.plotWidth);
+      setInteractiveZoomDepth((depth) => depth + 1);
+      return true;
+    }
+
+    controls.zoomToSelection({
+      xStartRatio: (existingSelection.startClientX - existingSelection.plotLeft) / existingSelection.plotWidth,
+      xEndRatio: (clientX - existingSelection.plotLeft) / existingSelection.plotWidth,
+      yStartRatio: (existingSelection.startClientY - existingSelection.plotTop) / existingSelection.plotHeight,
+      yEndRatio: (clientY - existingSelection.plotTop) / existingSelection.plotHeight,
+    });
+    setInteractiveZoomDepth((depth) => depth + 1);
+    return true;
+  }, [refs.chartInstanceRef, zoomInModeActive]);
+
+  const handleInteractiveZoomOut = useCallback(() => {
+    const chart = refs.chartInstanceRef.current;
+    const controls = chart ? TimeAxisRegistry.get(chart) : null;
+    if (!controls) return;
+
+    if (controls.undoInteractiveZoom()) {
+      setInteractiveZoomDepth((depth) => Math.max(0, depth - 1));
+    } else {
+      setInteractiveZoomDepth(0);
+    }
+  }, [refs.chartInstanceRef]);
+
+  const handleZoomInPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const gesture = zoomSelectionGestureRef.current;
+    if (!zoomInModeActive || !gesture) return;
+
+    const clientX = Math.max(gesture.plotLeft, Math.min(gesture.plotLeft + gesture.plotWidth, event.clientX));
+    const clientY = Math.max(gesture.plotTop, Math.min(gesture.plotTop + gesture.plotHeight, event.clientY));
+    gesture.currentClientX = clientX;
+    gesture.currentClientY = clientY;
+
+    const containerRect = event.currentTarget.getBoundingClientRect();
+    setZoomSelectionRect({
+      left: Math.min(gesture.startClientX, clientX) - containerRect.left,
+      top: Math.min(gesture.startClientY, clientY) - containerRect.top,
+      width: Math.abs(clientX - gesture.startClientX),
+      height: Math.abs(clientY - gesture.startClientY),
+    });
+  }, [zoomInModeActive]);
+
   const comparisonSymbols = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSymbols, shallowEqual);
   const comparisonSettings = useSelector((state: RootState) => state.technicalAnalysis.ui.comparisonSettings, shallowEqual);
   const movingAverageTrendSignals = useSelector(
@@ -987,12 +1174,28 @@ const ChartUI: React.FC = () => {
   const [isReplaySelectingStart, setIsReplaySelectingStart] = useState(false);
   const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
   const [indicatorConfigurationTarget, setIndicatorConfigurationTarget] = useState<IndicatorConfigurationTarget | null>(null);
+  const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuModel | null>(null);
   const [priceScaleContextMenu, setPriceScaleContextMenu] = useState<PriceScaleContextMenuModel | null>(null);
   const chartContextTargetRef = React.useRef<EChartsInstance | null>(null);
   const priceScaleContextTargetRef = React.useRef<EChartsInstance | null>(null);
 
-  const { handleTimeframeChange, handleSaveAnalysis, handleOpenLoadModal } = useTechnicalAnalysisActions(marketData.setChartData);
+  const {
+    savedAnalysesList,
+    activeSavedAnalysisId,
+    activeSavedAnalysisName,
+    handleTimeframeChange,
+    handleSaveAnalysis,
+    handleOpenLoadModal,
+    handleLoadAnalysis,
+    handleDeleteAnalysis,
+    handleRenameAnalysis,
+    handleDuplicateAnalysis,
+  } = useTechnicalAnalysisActions(
+    marketData.setChartData,
+    undefined,
+    { drawings, replaceDrawings },
+  );
 
   useEffect(() => {
     if (!isZenMode) return;
@@ -1021,6 +1224,10 @@ const ChartUI: React.FC = () => {
       }
 
       if (event.key === "Escape") {
+        if (zoomInModeActive) {
+          event.preventDefault();
+          cancelZoomInMode();
+        }
         if (isReplaySelectingStart) {
           event.preventDefault();
           setIsReplaySelectingStart(false);
@@ -1034,7 +1241,7 @@ const ChartUI: React.FC = () => {
 
     window.addEventListener("keydown", handleFocusShortcut);
     return () => window.removeEventListener("keydown", handleFocusShortcut);
-  }, [dispatch, isReplaySelectingStart, isZenMode]);
+  }, [cancelZoomInMode, dispatch, isReplaySelectingStart, isZenMode, zoomInModeActive]);
 
   // ============================================================================
   // [TENOR 2026] KEYBOARD SHORTCUTS ENGINE
@@ -1145,33 +1352,6 @@ const ChartUI: React.FC = () => {
         }
       }
 
-      // Alt + H: Draw horizontal line
-      if (e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "h") {
-        e.preventDefault();
-        const latestPoint = marketData.chartData[marketData.chartData.length - 1];
-        if (latestPoint) {
-          const newDrawing: Drawing = {
-            id: createUiId(),
-            type: "horizontal_line",
-            points: [{ time: latestPoint.time, value: priceValue }],
-            style: {
-              color: "#3b82f6", // horizontal line with blue styling
-              lineWidth: 2,
-              lineStyle: "solid",
-              fillColor: "#3b82f6",
-              fillOpacity: 0.08,
-            },
-          };
-          drawingManager.addDrawing(newDrawing);
-          drawingManager.setSelectedDrawingId(newDrawing.id);
-          addNotification({
-            title: "Niveau tracÃ©",
-            message: `Ligne horizontale ajoutÃ©e Ã  ${priceLabel}`,
-            type: "success",
-            iconType: "faCheck",
-          });
-        }
-      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -1183,8 +1363,6 @@ const ChartUI: React.FC = () => {
     brokerState,
     dispatch,
     addNotification,
-    drawingManager,
-    marketData.chartData,
   ]);
 
   const handleTimeRangeSelect = useCallback(
@@ -1207,6 +1385,151 @@ const ChartUI: React.FC = () => {
     // hook can resolve the provenance label ("BRVM Live" vs "BRVM CSV") for the Data Window.
     hasLiveSnapshot: chartUiLiveSnapshot !== null,
   });
+
+  const openKeyboardShortcuts = useCallback(() => {
+    dispatch(closeAllModals());
+    setIsKeyboardShortcutsOpen(true);
+  }, [dispatch]);
+
+  useEffect(() => {
+    const handleWorkspaceShortcut = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const activeElement = document.activeElement;
+      const isEditing = activeElement instanceof HTMLElement && (
+        activeElement.tagName === "INPUT"
+        || activeElement.tagName === "TEXTAREA"
+        || activeElement.tagName === "SELECT"
+        || activeElement.isContentEditable
+      );
+
+      const isKeyboardHelpShortcut = (event.ctrlKey || event.metaKey)
+        && !event.altKey
+        && !event.shiftKey
+        && (event.key === "/" || event.code === "Slash");
+      if (isKeyboardHelpShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isKeyboardShortcutsOpen) dispatch(closeAllModals());
+        setIsKeyboardShortcutsOpen((open) => !open);
+        return;
+      }
+
+      if (isEditing || isKeyboardShortcutsOpen) return;
+
+      const chart = refs.chartInstanceRef.current;
+      const timeAxis = chart ? TimeAxisRegistry.get(chart) : null;
+      const noModifiers = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "k") {
+        event.preventDefault();
+        openTickerSelector();
+        return;
+      }
+
+      if (noModifiers && event.key === "/") {
+        event.preventDefault();
+        dispatch(setModalOpen({ modal: "indicators", isOpen: true }));
+        return;
+      }
+
+      if (noModifiers && event.key === ".") {
+        event.preventDefault();
+        void handleOpenLoadModal();
+        return;
+      }
+
+      if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && key === "d") {
+        event.preventDefault();
+        setObjectTreeTab("data_window");
+        if (!isObjectTreeOpen) toggleObjectTree();
+        return;
+      }
+
+      if (noModifiers && event.key === "ArrowLeft") {
+        event.preventDefault();
+        timeAxis?.panLeft();
+        return;
+      }
+
+      if (noModifiers && event.key === "ArrowRight") {
+        event.preventDefault();
+        timeAxis?.panRight();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === "ArrowUp") {
+        event.preventDefault();
+        timeAxis?.zoomIn();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === "ArrowDown") {
+        event.preventDefault();
+        timeAxis?.zoomOut();
+        return;
+      }
+
+      if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && key === "r") {
+        event.preventDefault();
+        timeAxis?.reset();
+        setInteractiveZoomDepth(0);
+        return;
+      }
+
+      const armDrawingShortcut = (tool: Parameters<typeof setActiveTool>[0]) => {
+        cancelMeasureMode();
+        cancelZoomInMode();
+        setActiveTool(tool);
+      };
+
+      if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        const toolByKey: Record<string, Parameters<typeof setActiveTool>[0]> = {
+          t: "line",
+          h: "horizontal_line",
+          j: "horizontal_ray",
+          v: "vertical_line",
+          c: "crosshair",
+          f: "fib_retracement",
+          n: "text_note",
+        };
+        const tool = toolByKey[key];
+        if (tool) {
+          event.preventDefault();
+          armDrawingShortcut(tool);
+          return;
+        }
+      }
+
+      if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && key === "r") {
+        event.preventDefault();
+        armDrawingShortcut("rectangle");
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey && key === "h") {
+        event.preventDefault();
+        const allHidden = drawings.length > 0 && drawings.every((drawing) => drawing.hidden === true);
+        setAllDrawingsHidden(!allHidden);
+      }
+    };
+
+    document.addEventListener("keydown", handleWorkspaceShortcut, true);
+    return () => document.removeEventListener("keydown", handleWorkspaceShortcut, true);
+  }, [
+    cancelMeasureMode,
+    cancelZoomInMode,
+    dispatch,
+    drawings,
+    handleOpenLoadModal,
+    isKeyboardShortcutsOpen,
+    isObjectTreeOpen,
+    openTickerSelector,
+    refs.chartInstanceRef,
+    setActiveTool,
+    setAllDrawingsHidden,
+    setObjectTreeTab,
+    toggleObjectTree,
+  ]);
 
   const closeChartContextMenu = useCallback(() => {
     setChartContextMenu(null);
@@ -1709,7 +2032,6 @@ const ChartUI: React.FC = () => {
     handleLockToggle,
     handleClone,
     handleVisualOrder,
-    handleClearAllDrawings,
     handleHide,
     handleReverse,
     handleCopyToClipboard,
@@ -1796,6 +2118,11 @@ const ChartUI: React.FC = () => {
   const chartInteractionScopeKey = `${multiChartLayout.layoutId}:${multiChartLayout.activeChartId}`;
 
   const [hiddenObjectIds, setHiddenObjectIds] = useState<Record<string, boolean>>({});
+  const [indicatorsLocked, setIndicatorsLocked] = useState(false);
+  const areIndicatorsHidden = hiddenObjectIds["__all-indicators__"] === true;
+  const setAllIndicatorsHidden = useCallback((hidden: boolean) => {
+    setHiddenObjectIds((current) => ({ ...current, "__all-indicators__": hidden }));
+  }, []);
 
   const revealIndicatorObjectIds = useCallback((objectIds: readonly IndicatorObjectId[]) => {
     setHiddenObjectIds((currentHiddenObjectIds) => revealHiddenObjectIds(currentHiddenObjectIds, objectIds));
@@ -1852,6 +2179,14 @@ const ChartUI: React.FC = () => {
     cell.chartId === multiChartLayout.activeChartId
   ));
   const isMultiChartMode = multiChartLayout.isEnabled && multiChartLayout.charts.length > 1;
+  const isVelaPrimaryRenderer = !isMultiChartMode && primaryChartRenderEngine === "vela";
+  const isEChartsPrimaryRenderer = !isMultiChartMode && primaryChartRenderEngine === "echarts";
+  const usesEChartsInteractionLayer = isMultiChartMode || isEChartsPrimaryRenderer;
+  const handleVelaRendererError = useCallback((error: unknown) => {
+    console.error("[TechnicalAnalysis] Vela renderer failed; falling back to ECharts.", error);
+    setPrimaryChartRenderEngine("echarts");
+  }, [setPrimaryChartRenderEngine]);
+
   const handleActiveChartViewportChange = useCallback((viewport: ChartViewportChange) => {
     if (!multiChartLayout.isEnabled) return;
     const activeCell = multiChartLayout.charts.find(
@@ -1882,7 +2217,7 @@ const ChartUI: React.FC = () => {
   useEffect(() => {
     if (!isMultiChartMode || !brokerState?.isBrokerModalOpen) return;
     brokerState.setIsBrokerModalOpen(false);
-  }, [brokerState?.isBrokerModalOpen, brokerState?.setIsBrokerModalOpen, isMultiChartMode]);
+  }, [brokerState, isMultiChartMode]);
   const activeLayoutSymbol = String(activeLayoutCell?.symbol ?? "").trim().toUpperCase();
   const activeSymbol = String(activeLayoutSymbol || chartConfig.symbol || chartState.security.ticker || "").trim().toUpperCase();
   const hasExplicitActiveLayoutSymbol = Boolean(activeSymbol);
@@ -2425,8 +2760,15 @@ const ChartUI: React.FC = () => {
             isReplaySelectingStart={isReplaySelectingStart}
             onReplayRequest={handleReplayToolbarRequest}
             onTimeframeChange={handleTimeframeChange}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={undo}
+            onRedo={redo}
+            activeSavedAnalysisId={activeSavedAnalysisId}
+            activeSavedAnalysisName={activeSavedAnalysisName}
             onSaveAnalysis={handleSaveAnalysis}
             onOpenLoadModal={handleOpenLoadModal}
+            onOpenKeyboardShortcuts={openKeyboardShortcuts}
             onSnapshotDownload={handleSnapshotDownload}
             onSnapshotCopy={handleSnapshotCopy}
             onSnapshotOpen={handleSnapshotOpen}
@@ -2485,25 +2827,78 @@ const ChartUI: React.FC = () => {
             <div ref={refs.sidebarBackdropRef} className={"gp-sidebar-backdrop"} onClick={handleSidebarBackdropClick} />
 
             <div className={"gp-chart-main-section"}>
+              {!isVelaPrimaryRenderer && (
               <VerticalDrawingToolbar
                 activeTool={activeTool}
                 setActiveTool={setActiveTool}
                 mainContainerRef={refs.mainContainerRef as React.RefObject<HTMLDivElement>}
                 verticalToolbarRef={refs.verticalToolbarRef}
-                handleClearAllDrawings={handleClearAllDrawings}
+                keepDrawing={keepDrawing}
+                onKeepDrawingChange={setKeepDrawing}
+                magnetMode={magnetMode}
+                onMagnetModeChange={setMagnetMode}
+                onMagnetToggle={toggleMagnetMode}
+                snapToIndicators={snapToIndicators}
+                onSnapToIndicatorsChange={setSnapToIndicators}
+                indicatorsLocked={indicatorsLocked}
+                onIndicatorsLockedChange={setIndicatorsLocked}
+                areIndicatorsHidden={areIndicatorsHidden}
+                onIndicatorsHiddenChange={setAllIndicatorsHidden}
+                positionsOrdersHidden={positionsOrdersHidden}
+                onPositionsOrdersHiddenChange={setPositionsOrdersHidden}
+                onArmIconDrawing={armIconDrawing}
+                onSetAllDrawingsLocked={setAllDrawingsLocked}
+                onSetAllDrawingsHidden={setAllDrawingsHidden}
+                onRemoveAllDrawings={removeAllDrawings}
+                onRemoveAllIndicators={() => dispatch(clearAllIndicators())}
+                indicatorCount={activeIndicatorCount}
+                measureModeActive={measureModeActive}
+                onMeasureModeToggle={toggleMeasureMode}
+                onMeasureModeCancel={cancelMeasureMode}
+                zoomInModeActive={zoomInModeActive}
+                onZoomInModeToggle={toggleZoomInMode}
+                onZoomInModeCancel={cancelZoomInMode}
+                zoomOutVisible={interactiveZoomDepth > 0}
+                onZoomOut={handleInteractiveZoomOut}
+                drawingCount={drawings.length}
                 isInitialLoading={isInitialSidebarLoading}
               />
+              )}
 
               <div ref={refs.chartViewWrapperRef} className={"gp-chart-view-wrapper"}>
                 <div
                   ref={refs.fullscreenChartContainerRef}
                   className={clsx("gp-chart-container", isZenMode && "zen-mode")}
                   data-chart-context-menu-surface="true"
+                  data-primary-render-engine={isMultiChartMode ? "echarts-multichart" : primaryChartRenderEngine}
                   data-replay-selecting={isReplaySelectingStart ? "true" : "false"}
-                  onClickCapture={!isMultiChartMode ? handleReplayStartSelectionClick : undefined}
-                  onContextMenuCapture={!isMultiChartMode ? handlePrimaryChartContextMenu : undefined}
+                  data-zoom-in-active={zoomInModeActive ? "true" : "false"}
+                  onPointerDownCapture={isEChartsPrimaryRenderer ? handleZoomInPointerDown : undefined}
+                  onPointerMoveCapture={isEChartsPrimaryRenderer ? handleZoomInPointerMove : undefined}
+                  onClickCapture={isEChartsPrimaryRenderer ? (event) => {
+                    if (zoomInModeActive) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      return;
+                    }
+                    handleReplayStartSelectionClick(event);
+                  } : undefined}
+                  onContextMenuCapture={isEChartsPrimaryRenderer ? handlePrimaryChartContextMenu : undefined}
                   style={{ position: "relative" }}
                 >
+                  {isEChartsPrimaryRenderer && zoomSelectionRect && zoomInModeActive && (
+                    <div
+                      className="gp-zoom-selection-rect"
+                      aria-hidden="true"
+                      style={{
+                        left: zoomSelectionRect.left,
+                        top: zoomSelectionRect.top,
+                        width: zoomSelectionRect.width,
+                        height: zoomSelectionRect.height,
+                      }}
+                    />
+                  )}
+
                   {isReplaySelectingStart && !replayState.isActive && (
                     <div className="gp-replay-selection-banner" role="status">
                       <i className="bi bi-crosshair" aria-hidden="true" />
@@ -2600,12 +2995,22 @@ const ChartUI: React.FC = () => {
                           draggable={false}
                         />
                       )}
-                      {!isMultiChartMode && (
+                      {isEChartsPrimaryRenderer && (
                         <div
                           id="gp-stock-chart"
                           className={clsx("technical-analysis-chart", `cursor-mode-${cursorMode.split("-")[0]}`)}
                           ref={refs.stockChartRef}
+                          data-engine-adapter="legacy-echarts"
                           style={{ width: "100%", height: "100%", touchAction: "none", position: "relative", zIndex: 1 }}
+                        />
+                      )}
+                      {isVelaPrimaryRenderer && !shouldShowPrimaryChartEmptyState && (
+                        <VelaChartAdapter
+                          bars={activeDisplayChartData}
+                          symbol={activeChartSymbol || chartState.displaySymbolName || chartConfig.symbol || "N/A"}
+                          timeframe={chartConfig.timeframe || "1D"}
+                          backend="canvas2d"
+                          onError={handleVelaRendererError}
                         />
                       )}
 
@@ -2614,7 +3019,7 @@ const ChartUI: React.FC = () => {
                           overlay={activeOverlayRendererProps}
                           cursor={activeCursorRendererProps}
                         />
-                      ) : (
+                      ) : isEChartsPrimaryRenderer ? (
                       <ChartRenderEngine
                         chart={{
                           stockChartRef: refs.stockChartRef,
@@ -2650,20 +3055,24 @@ const ChartUI: React.FC = () => {
                         overlay={activeOverlayRendererProps}
                         cursor={activeCursorRendererProps}
                       />
+                      ) : null}
+
+                      {usesEChartsInteractionLayer && (
+                        <VolumeStudyLegend
+                          chartInstanceRef={refs.chartInstanceRef as React.RefObject<EChartsInstance | null>}
+                          attached={volumeStudyLifecycle.attached}
+                          visible={volumeStudyLifecycle.studyVisible}
+                          outputEnabled={volumeStudyLifecycle.outputEnabled}
+                          symbol={activeChartSymbol || chartState.displaySymbolName}
+                          onToggleVisibility={handleToggleVolumeStudyVisibility}
+                          onConfigure={handleConfigureVolumeStudy}
+                          onRemove={handleRemoveVolumeStudy}
+                          onOpenObjectTree={handleOpenVolumeObjectTree}
+                        />
                       )}
 
-                      <VolumeStudyLegend
-                        chartInstanceRef={refs.chartInstanceRef as React.RefObject<EChartsInstance | null>}
-                        attached={volumeStudyLifecycle.attached}
-                        visible={volumeStudyLifecycle.studyVisible}
-                        outputEnabled={volumeStudyLifecycle.outputEnabled}
-                        symbol={activeChartSymbol || chartState.displaySymbolName}
-                        onToggleVisibility={handleToggleVolumeStudyVisibility}
-                        onConfigure={handleConfigureVolumeStudy}
-                        onRemove={handleRemoveVolumeStudy}
-                        onOpenObjectTree={handleOpenVolumeObjectTree}
-                      />
-
+                      {usesEChartsInteractionLayer && (
+                      <>
                       <canvas
                         ref={refs.cursorCanvasRef}
                         className={"gp-cursor-canvas"}
@@ -2693,6 +3102,8 @@ const ChartUI: React.FC = () => {
                         onDoubleClick={handleDoubleClick}
                         onContextMenu={(e) => e.preventDefault()}
                       />
+                      </>
+                      )}
 
                     {!isMultiChartMode && hasExplicitActiveLayoutSymbol && hasActiveDisplayData && <ConnectedTradeHUD />}
 
@@ -2711,9 +3122,9 @@ const ChartUI: React.FC = () => {
                       />
                     )}
 
-                    <ConnectedPriceAxisOverlay />
+                    {usesEChartsInteractionLayer && <ConnectedPriceAxisOverlay />}
 
-                    {!isMultiChartMode && <TimeAxisControls chartInstanceRef={refs.chartInstanceRef} />}
+                    {isEChartsPrimaryRenderer && <TimeAxisControls chartInstanceRef={refs.chartInstanceRef} />}
 
                     {!isMultiChartMode && <MemoizedPremiumLoader isVisible={shouldShowPrimaryChartLoader} />}
                     {!isMultiChartMode && shouldShowPrimaryChartEmptyState && <MemoizedChartEmptyState />}
@@ -2722,6 +3133,7 @@ const ChartUI: React.FC = () => {
                     <div
                       className="gp-drawing-overlay-shield"
                       style={{
+                        display: isVelaPrimaryRenderer ? "none" : undefined,
                         position: "absolute",
                         top: gridRect ? gridRect.y : 30,
                         left: gridRect ? gridRect.x : 15,
@@ -2832,11 +3244,27 @@ const ChartUI: React.FC = () => {
                   handleTimeRangeSelect={handleTimeRangeSelect}
                   isHistoricalDataUnavailable={shouldShowPrimaryChartEmptyState}
                   setIsDatePickerModalOpen={handleOpenDatePicker}
+                  renderEngine={isMultiChartMode ? "echarts" : primaryChartRenderEngine}
+                  onRenderEngineChange={setPrimaryChartRenderEngine}
+                  renderEngineSwitchDisabled={isMultiChartMode}
                 />
               </div>
             </div>
 
             <div className="gp-sidebar-shell">
+              <button
+                ref={refs.sidebarToggleRef}
+                id="gp-sidebar-toggle"
+                className="gp-sidebar-toggle-btn"
+                type="button"
+                title="Basculer la barre latérale"
+                aria-label="Basculer la barre latérale"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M11 6 l6 6 l-6 6" />
+                </svg>
+              </button>
+
               <ConnectedSidebar
                   isObjectTreeOpen={isObjectTreeOpen}
                   onPineOverlayAttach={dispatchPineOverlay}
@@ -2866,6 +3294,7 @@ const ChartUI: React.FC = () => {
                         activeTool={activeTool}
                         hiddenObjectIds={hiddenObjectIds}
                         setHiddenObjectIds={setHiddenObjectIds}
+                        chartInstanceRef={refs.chartInstanceRef as React.RefObject<EChartsInstance | null>}
                       />
                     ) : null
                   }
@@ -2874,17 +3303,12 @@ const ChartUI: React.FC = () => {
           </div>
         </div>
 
-        <button
-          ref={refs.sidebarToggleRef}
-          id="gp-sidebar-toggle"
-          className={"gp-sidebar-toggle-btn"}
-          title="Basculer la barre latérale"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 6 l6 6 l-6 6" />
-          </svg>
-        </button>
       </div>
+
+      <KeyboardShortcutsModal
+        isOpen={isKeyboardShortcutsOpen}
+        onClose={() => setIsKeyboardShortcutsOpen(false)}
+      />
 
       <ChartContextMenu
         state={chartContextMenu}
@@ -2911,12 +3335,17 @@ const ChartUI: React.FC = () => {
           replaceImageNoteAsset={replaceImageNoteAsset}
           createImageNoteDrawing={createImageNoteDrawing}
           startReplay={marketData.startReplay}
-          setChartData={marketData.setChartData}
           chartData={marketData.chartData}
           dateRangeBounds={marketData.historyDateBounds}
           onEnsureDateRangeLoaded={marketData.ensureHistoryThroughDate}
           onRevealObjectIds={revealIndicatorObjectIds}
           onConfigureIndicator={setIndicatorConfigurationTarget}
+          savedAnalysesList={savedAnalysesList}
+          activeSavedAnalysisId={activeSavedAnalysisId}
+          onLoadAnalysis={handleLoadAnalysis}
+          onDeleteAnalysis={handleDeleteAnalysis}
+          onRenameAnalysis={handleRenameAnalysis}
+          onDuplicateAnalysis={handleDuplicateAnalysis}
         />
       )}
       <IndicatorConfigurationModal

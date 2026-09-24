@@ -8,6 +8,7 @@ import {
   type BrvmMarketStatus,
 } from "../../utils/brvmMarketSession";
 import { CHART_DATE_RANGES, decodeCustomDateRange } from "../../config/market/dateRangeSeries";
+import type { PrimaryChartRenderEngine } from "../../engine-v2/runtime/usePrimaryChartRenderEngine";
 
 interface TechnicalAnalysisFooterProps {
   chartFooterRef: React.Ref<HTMLDivElement>;
@@ -15,6 +16,9 @@ interface TechnicalAnalysisFooterProps {
   handleTimeRangeSelect: (range: string) => void;
   isHistoricalDataUnavailable: boolean;
   setIsDatePickerModalOpen: (open: boolean) => void;
+  renderEngine: PrimaryChartRenderEngine;
+  onRenderEngineChange: (engine: PrimaryChartRenderEngine) => void;
+  renderEngineSwitchDisabled?: boolean;
 }
 
 interface FooterClockState {
@@ -43,6 +47,9 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
   handleTimeRangeSelect,
   isHistoricalDataUnavailable,
   setIsDatePickerModalOpen,
+  renderEngine,
+  onRenderEngineChange,
+  renderEngineSwitchDisabled = false,
 }) => {
   const [{ time, marketStatus }, setClockState] = useState(createInitialFooterClockState);
 
@@ -99,6 +106,59 @@ export const TechnicalAnalysisFooter: React.FC<TechnicalAnalysisFooterProps> = (
           <Calendar size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>
       </div>
+
+      <div
+        className="gp-render-engine-switch"
+        role="group"
+        aria-label="Moteur de rendu du graphique"
+        data-render-engine={renderEngine}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          padding: 2,
+          marginLeft: "auto",
+          marginRight: 8,
+          border: "1px solid #2a2e39",
+          borderRadius: 6,
+          background: "#131722",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {(["echarts", "vela"] as const).map((engine) => {
+          const active = renderEngine === engine;
+          const label = engine === "echarts" ? "ECharts" : "Vela";
+          return (
+            <button
+              key={engine}
+              type="button"
+              className={clsx("gp-render-engine-btn", active && "active")}
+              aria-pressed={active}
+              disabled={renderEngineSwitchDisabled}
+              title={renderEngineSwitchDisabled
+                ? "Le changement de moteur est disponible en mode graphique unique"
+                : `Utiliser le moteur ${label}`}
+              onClick={() => onRenderEngineChange(engine)}
+              style={{
+                height: 24,
+                padding: "0 9px",
+                border: 0,
+                borderRadius: 4,
+                background: active ? "#2962ff" : "transparent",
+                color: active ? "#ffffff" : "#9aa4b2",
+                fontSize: 11,
+                fontWeight: 600,
+                lineHeight: "24px",
+                cursor: renderEngineSwitchDisabled ? "not-allowed" : "pointer",
+                opacity: renderEngineSwitchDisabled ? 0.55 : 1,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="gp-timestamp">
         <div
           className={clsx("gp-market-status", !marketStatus.isOpen && "closed")}

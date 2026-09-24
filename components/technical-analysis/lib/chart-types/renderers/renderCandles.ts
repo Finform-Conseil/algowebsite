@@ -1,25 +1,28 @@
-import { getCandleDirectionColor, resolveCandleDirection, type CandleDirection } from "../../chart/directionalOhlcv";
+import { resolveCandleDirection, type CandleDirection } from "../../chart/directionalOhlcv";
 import type { ChartTypeRenderer } from "./types";
 import { buildLatestPriceMarkLine } from "./helpers";
 
-// [TENOR 2026] barWidth/barMinWidth/barMaxWidth calibrés pour la parité TradingView.
-// barWidth 68% : corps centré dans son slot sans débordement inter-bougies.
-// MIN 7px  : garantit un corps VISIBLE même sur doji (open == close) — critique
-//            pour marchés à faible liquidité (BRVM : BOAB, SGBCI, etc.) où de
-//            longues séries de bougies identiques sont normales.
-// MAX 22px : borne haute pour zooms très proches (< 10 bougies visibles).
+// TradingView-like candle geometry, measured against the reference canvas.
 //
-// [FIX REGRESSION] Trois bugs introduits par un LLM intermédiaire, rétablis :
-//   1. large:true  → supprimé : mode large ECharts ne rend que les mèches (wicks),
-//      supprime entièrement le corps rectangulaire open/close.
-//   2. barMinWidth:1 → restauré à 7 : valeur 1px rendait les dojis BRVM invisibles.
-//   3. encode + date-prefix ([date,O,C,L,H]) → retiré : le format natif ECharts
-//      candlestick [O,C,L,H] positionné par index catégorie est plus stable.
-const CANDLE_BODY_WIDTH = "68%";
-const MIN_CANDLE_BODY_WIDTH = 7;
-const MAX_CANDLE_BODY_WIDTH = 22;
+// Reference capture at DPR=1:
+// - candle slot: ~10-11 px
+// - body: mostly 7 px
+// - wick: one centered device pixel
+//
+// Our main chart uses wider category slots at the default viewport, so a 68% body
+// produced visually heavy 10-11 px rectangles. Keep the width proportional, but
+// lower the body occupancy and remove the artificial 7 px floor so zoomed-out
+// charts can naturally converge to thin 1-3 px candles like TradingView.
+//
+// Important: wicks remain native ECharts candlestick strokes (borderWidth=1).
+// We never synthesize High/Low. When the BRVM API provides high/low=null, the
+// canonical market-data mapper collapses them to the real open/close envelope;
+// therefore no fictitious wick is drawn.
+const CANDLE_BODY_WIDTH = "48%";
+const MIN_CANDLE_BODY_WIDTH = 1;
+const MAX_CANDLE_BODY_WIDTH = 14;
 
-export const renderCandles: ChartTypeRenderer = ({ id, name, result, palette, latestPrice, visible }) => {
+export const renderCandles: ChartTypeRenderer = ({ id, name, result, palette, latestPrice }) => {
   if (result.kind !== "ohlc") return [];
 
   let lastDirection: CandleDirection = 1;

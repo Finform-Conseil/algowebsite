@@ -19,6 +19,7 @@ import {
   TV_Y_AXIS_WIDTH,
   TV_ZOOM_EASE_TAU_MS,
   TV_ZOOM_VELOCITY,
+  clamp,
   clampViewportWindowWithFuture,
   decayPanVelocity,
   exponentialApproach,
@@ -100,7 +101,15 @@ type HistoryPrependCommit = {
 
 export interface TradingViewTimeAxisControls {
   zoomIn: () => void;
+  zoomInAt: (cursorRatio: number) => void;
+  zoomToSelection: (selection: {
+    xStartRatio: number;
+    xEndRatio: number;
+    yStartRatio: number;
+    yEndRatio: number;
+  }) => void;
   zoomOut: () => void;
+  undoInteractiveZoom: () => boolean;
   panLeft: () => void;
   panRight: () => void;
   reset: () => void;
@@ -181,6 +190,15 @@ export const useChartViewport = ({
     cachedRect: null as DOMRect | null // [TENOR 2026 SRE] Cache rect on pointerdown
   });
 
+  const interactiveZoomHistoryRef = useRef<Array<{
+    startIdx: number;
+    endIdx: number;
+    yScale: number;
+    yPan: number;
+    isYManual: boolean;
+    historyGapBars: number;
+  }>>([]);
+
   const prevDataMaxRef = useRef<number>(0);
   const lastDataFirstTimeRef = useRef<string | null>(null);
   const previousPriceLevelGraphicIdsRef = useRef<Set<string>>(new Set());
@@ -219,8 +237,12 @@ export const useChartViewport = ({
   }, [interactionScopeKey]);
   useEffect(() => () => viewportChangeCommitRef.current?.cancel(), []);
 
-  const enqueueChartMutation = useCallback((key: string, mutation: (chart: ECharts) => void, mode: ViewportApplyMode = "queued") => {
-    if (mode === "queued" && scheduleChartMutation) {
+  const enqueueChartMutation = useCallback((key: string, mutation: (chart: ECharts) => void, _mode: ViewportApplyMode = "queued") => {
+    // Once a canonical scheduler exists, every viewport mutation must pass through
+    // it — including interaction paths historically labelled "immediate". Bypassing
+    // the scheduler can re-enter ECharts while a full-option commit is still inside
+    // its main process, which ECharts explicitly rejects.
+    if (scheduleChartMutation) {
       scheduleChartMutation(key, mutation);
       return;
     }
@@ -660,19 +682,51 @@ export const useChartViewport = ({
       panMomentumFrameId = requestAnimationFrame(runPanMomentum);
     };
 
-    const applyExternalTimeZoom = (direction: "in" | "out") => {
+    const pushInteractiveZoomSnapshot = () => {
+      const state = viewportStateRef.current;
+      interactiveZoomHistoryRef.current.push({
+        startIdx: state.startIdx,
+        endIdx: state.endIdx,
+        yScale: state.yScale,
+        yPan: state.yPan,
+        isYManual: state.isYManual,
+        historyGapBars: state.historyGapBars,
+      });
+    };
+
+    const undoInteractiveZoom = (): boolean => {
+      const previous = interactiveZoomHistoryRef.current.pop();
+      if (!previous) return false;
+
+      const state = viewportStateRef.current;
+      state.startIdx = previous.startIdx;
+      state.endIdx = previous.endIdx;
+      state.yScale = previous.yScale;
+      state.yPan = previous.yPan;
+      state.isYManual = previous.isYManual;
+      state.historyGapBars = previous.historyGapBars;
+      notifyHistoryBoundary(state.startIdx, state.endIdx, chartDataRef.current.length);
+      applyViewport("immediate");
+      return true;
+    };
+
+    const applyExternalTimeZoom = (direction: "in" | "out", cursorRatio = 0.5, trackInteractive = false) => {
       const chart = getLiveChart();
       if (!chart || chartDataRef.current.length === 0) return;
       const state = viewportStateRef.current;
       const totalBars = chartDataRef.current.length;
+      if (trackInteractive && direction === "in") {
+        pushInteractiveZoomSnapshot();
+      }
       const syntheticDeltaY = direction === "in" ? -120 : 120;
       const zoomFactor = Math.exp(syntheticDeltaY * TV_ZOOM_VELOCITY);
+      const boundedCursorRatio = Math.max(0, Math.min(1, cursorRatio));
 
       const nextViewport = computeDirectionalZoomViewport({
         startIdx: state.startIdx,
         endIdx: state.endIdx,
         totalBars,
-        cursorRatio: 0.5,
+        cursorRatio: boundedCursorRatio,
         zoomFactor,
         deltaY: 0,
       });
@@ -681,6 +735,81 @@ export const useChartViewport = ({
       state.endIdx = nextViewport.endIdx;
       notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
       applyViewport();
+    };
+
+    const applyExternalZoomSelection = ({
+      xStartRatio,
+      xEndRatio,
+      yStartRatio,
+      yEndRatio,
+    }: {
+      xStartRatio: number;
+      xEndRatio: number;
+      yStartRatio: number;
+      yEndRatio: number;
+    }) => {
+      const chart = getLiveChart();
+      if (!chart || chartDataRef.current.length === 0) return;
+
+      const state = viewportStateRef.current;
+      const totalBars = chartDataRef.current.length;
+      pushInteractiveZoomSnapshot();
+      const previousStart = state.startIdx;
+      const previousEnd = state.endIdx;
+      const previousSpan = Math.max(1, previousEnd - previousStart);
+      const leftRatio = clamp(Math.min(xStartRatio, xEndRatio), 0, 1);
+      const rightRatio = clamp(Math.max(xStartRatio, xEndRatio), 0, 1);
+
+      const nextStart = previousStart + (previousSpan * leftRatio);
+      const nextEnd = previousStart + (previousSpan * rightRatio);
+      const nextViewport = clampViewportWindowWithFuture(
+        nextStart,
+        nextEnd,
+        totalBars,
+        Math.max(0, previousEnd - (totalBars - 1)),
+      );
+
+      const option = chart.getOption() as any;
+      const primaryYAxis = Array.isArray(option?.yAxis) ? option.yAxis[0] : option?.yAxis;
+      const currentMin = Number(primaryYAxis?.min);
+      const currentMax = Number(primaryYAxis?.max);
+      const topRatio = clamp(Math.min(yStartRatio, yEndRatio), 0, 1);
+      const bottomRatio = clamp(Math.max(yStartRatio, yEndRatio), 0, 1);
+
+      state.startIdx = nextViewport.startIdx;
+      state.endIdx = nextViewport.endIdx;
+
+      if (
+        Number.isFinite(currentMin)
+        && Number.isFinite(currentMax)
+        && currentMax > currentMin
+        && bottomRatio - topRatio > 0.01
+      ) {
+        const currentRange = currentMax - currentMin;
+        const selectedMax = currentMax - (currentRange * topRatio);
+        const selectedMin = currentMax - (currentRange * bottomRatio);
+        const selectedRange = selectedMax - selectedMin;
+        const selectedCenter = (selectedMax + selectedMin) / 2;
+
+        const autoRange = resolveAutoViewportPriceRange({
+          chartData: chartDataRef.current,
+          startIdx: Math.max(0, Math.floor(state.startIdx)),
+          endIdx: Math.max(0, Math.min(totalBars - 1, Math.ceil(state.endIdx))),
+          hasComparisonEndLabels,
+          lastPriceAxisValue,
+        });
+        const autoBaseRange = Math.max(
+          Number.EPSILON,
+          (autoRange.visibleMax - autoRange.visibleMin) + (autoRange.padding * 2),
+        );
+
+        state.isYManual = true;
+        state.yScale = selectedRange / autoBaseRange;
+        state.yPan = selectedCenter - autoRange.center;
+      }
+
+      notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
+      applyViewport("immediate");
     };
 
     const applyExternalTimePan = (direction: "left" | "right") => {
@@ -713,6 +842,7 @@ export const useChartViewport = ({
       state.yScale = 1.0;
       state.yPan = 0;
       state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
+      interactiveZoomHistoryRef.current = [];
       applyViewport();
     };
 
@@ -725,7 +855,10 @@ export const useChartViewport = ({
       registeredChart = chart;
       TimeAxisRegistry.set(chart, {
         zoomIn: () => applyExternalTimeZoom("in"),
+        zoomInAt: (cursorRatio) => applyExternalTimeZoom("in", cursorRatio, true),
+        zoomToSelection: (selection) => applyExternalZoomSelection(selection),
         zoomOut: () => applyExternalTimeZoom("out"),
+        undoInteractiveZoom,
         panLeft: () => applyExternalTimePan("left"),
         panRight: () => applyExternalTimePan("right"),
         reset: resetExternalTimeViewport,
@@ -1217,9 +1350,13 @@ export const useChartViewport = ({
       window.removeEventListener("pointercancel", onPointerUp, interactionListenerOptions);
     };
   }, [
+    chartData.length,
     chartInstanceRef,
     getChartContainer,
+    hasComparisonEndLabels,
     interactionScopeKey,
+    lastPriceAxisValue,
+    notifyHistoryBoundary,
     applyViewport,
     scheduleViewportApply,
   ]);

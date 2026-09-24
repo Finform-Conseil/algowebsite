@@ -169,35 +169,41 @@ export const ObjectTreeItemRow: React.FC<ObjectTreeItemRowProps> = ({
     <span style={{ flex: 1, color: item.visible ? TV.tabText : TV.tabMuted, fontSize: 12, fontWeight: item.kind === "series" ? 700 : 500 }}>
       {item.label}
     </span>
-    <span style={{ color: TV.tabMuted, fontSize: 10, textTransform: "uppercase" }}>{item.kind}</span>
-    <button
-      type="button"
-      aria-label={item.visible ? "Masquer" : "Afficher"}
-      title={item.visible ? "Masquer" : "Afficher"}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (item.id === "main-series") {
-          onMainVisibilityToggle();
-          return;
-        }
-        onVisibilityToggle?.(item);
-      }}
-      style={{ ...iconBtnStyle, opacity: 1, cursor: "pointer" }}
-    >
-      <i className={`bi ${item.visible ? "bi-eye" : "bi-eye-slash"}`} />
-    </button>
-    <button
-      type="button"
-      aria-label="Supprimer"
-      title={item.removable ? "Supprimer du graphique" : "Non supprimable depuis cette ligne"}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (item.removable) onRemove?.(item);
-      }}
-      style={{ ...iconBtnStyle, opacity: item.removable ? 1 : 0.35, cursor: item.removable ? "pointer" : "default" }}
-    >
-      <i className="bi bi-trash" />
-    </button>
+    <span style={{ color: TV.tabMuted, fontSize: 10, textTransform: "uppercase" }}>
+      {item.runtimeOnly ? "runtime" : item.kind}
+    </span>
+    {(item.capabilities?.visibility ?? true) && (
+      <button
+        type="button"
+        aria-label={item.visible ? "Masquer" : "Afficher"}
+        title={item.visible ? "Masquer" : "Afficher"}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (item.id === "main-series") {
+            onMainVisibilityToggle();
+            return;
+          }
+          onVisibilityToggle?.(item);
+        }}
+        style={{ ...iconBtnStyle, opacity: 1, cursor: "pointer" }}
+      >
+        <i className={`bi ${item.visible ? "bi-eye" : "bi-eye-slash"}`} />
+      </button>
+    )}
+    {(item.capabilities?.remove ?? item.removable) && (
+      <button
+        type="button"
+        aria-label="Supprimer"
+        title="Supprimer du graphique"
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove?.(item);
+        }}
+        style={{ ...iconBtnStyle, opacity: 1, cursor: "pointer" }}
+      >
+        <i className="bi bi-trash" />
+      </button>
+    )}
   </div>
 );
 

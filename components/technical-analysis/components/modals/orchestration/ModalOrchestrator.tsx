@@ -23,7 +23,7 @@ import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { IndicatorObjectId } from "../../../config/object-tree/indicatorObjectVisibility";
 import type { IndicatorConfigurationTarget } from "../../../config/indicators/indicatorConfigurationTarget";
 import type { ChartDataPoint } from "../../../lib/Indicators/TechnicalIndicators";
-import { useModalOrchestrator } from "../../../hooks/useModalOrchestrator";
+import type { SavedAnalysis } from "../../../config/persistence/savedAnalysisTypes";
 import { BaseModal } from "../../common/primitives/BaseModal";
 import { SearchSymbolModal } from "../search-symbol/SearchSymbolModal";
 import {
@@ -217,12 +217,17 @@ export interface ModalOrchestratorProps {
 
   // Data & Simulation State
   startReplay: (startTime?: string | null) => void;
-  setChartData: React.Dispatch<React.SetStateAction<ChartDataPoint[]>>;
   chartData: readonly ChartDataPoint[];
   dateRangeBounds?: ChartDataDateBounds | null;
   onEnsureDateRangeLoaded?: (startDate: string) => Promise<void>;
   onRevealObjectIds?: (objectIds: readonly IndicatorObjectId[]) => void;
   onConfigureIndicator?: (target: IndicatorConfigurationTarget) => void;
+  savedAnalysesList: SavedAnalysis[];
+  activeSavedAnalysisId: string | null;
+  onLoadAnalysis: (analysis: SavedAnalysis) => void;
+  onDeleteAnalysis: (id: string, event?: React.MouseEvent) => Promise<void>;
+  onRenameAnalysis: (id: string, name: string) => Promise<void>;
+  onDuplicateAnalysis: (id: string) => Promise<void>;
 }
 
 // ============================================================================
@@ -234,15 +239,19 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
   replaceImageNoteAsset,
   createImageNoteDrawing,
   startReplay,
-  setChartData,
   chartData,
   dateRangeBounds,
   onEnsureDateRangeLoaded,
   onRevealObjectIds,
   onConfigureIndicator,
+  savedAnalysesList,
+  activeSavedAnalysisId,
+  onLoadAnalysis,
+  onDeleteAnalysis,
+  onRenameAnalysis,
+  onDuplicateAnalysis,
 }) => {
   const dispatch = useDispatch();
-  const { savedAnalysesList, handleLoadAnalysis, handleDeleteAnalysis, openLoadModal } = useModalOrchestrator(setChartData);
 
   // --- Global State ---
   const modals = useSelector(selectModals);
@@ -361,19 +370,6 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
     ensureIndicatorsModalLoaded({ forceRetry: true });
   }, [ensureIndicatorsModalLoaded]);
 
-  const didHydrateLoadAnalysisRef = useRef(false);
-
-  useEffect(() => {
-    if (!modals.loadAnalysis) {
-      didHydrateLoadAnalysisRef.current = false;
-      return;
-    }
-
-    if (didHydrateLoadAnalysisRef.current) return;
-    didHydrateLoadAnalysisRef.current = true;
-    void openLoadModal();
-  }, [modals.loadAnalysis, openLoadModal]);
-
   const replaceChartSymbol = useCallback((symbol: string) => {
     // The market-data hook owns this transition atomically. Injecting generated
     // candles here could make the date picker derive years from synthetic data
@@ -456,8 +452,11 @@ export const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
           isOpen={modals.loadAnalysis}
           onClose={() => closeModal("loadAnalysis")}
           savedAnalysesList={savedAnalysesList}
-          onLoad={handleLoadAnalysis}
-          onDelete={handleDeleteAnalysis}
+          activeSavedAnalysisId={activeSavedAnalysisId}
+          onLoad={onLoadAnalysis}
+          onDelete={onDeleteAnalysis}
+          onRename={onRenameAnalysis}
+          onDuplicate={onDuplicateAnalysis}
         />
       )}
 

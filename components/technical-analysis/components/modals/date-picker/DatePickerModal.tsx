@@ -14,6 +14,7 @@ interface DatePickerModalProps {
 
 type CalendarMonth = { year: number; month: number };
 type PendingRange = { start: string | null; end: string | null };
+type ActiveRangeEndpoint = keyof PendingRange;
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] as const;
 const MONTHS = Array.from({ length: 12 }, (_, index) =>
@@ -79,6 +80,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
   }, [effectiveMax, effectiveMin, hasBounds, value]);
 
   const [selection, setSelection] = useState<PendingRange>(defaultRange);
+  const [activeEndpoint, setActiveEndpoint] = useState<ActiveRangeEndpoint>("start");
   const [calendarMonth, setCalendarMonth] = useState<CalendarMonth>(() =>
     monthFromDateKey(defaultRange.start ?? effectiveMax ?? new Date().toISOString().slice(0, 10)),
   );
@@ -86,6 +88,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setSelection(defaultRange);
+    setActiveEndpoint("start");
     setCalendarMonth(monthFromDateKey(defaultRange.start ?? effectiveMax ?? new Date().toISOString().slice(0, 10)));
   }, [defaultRange, effectiveMax, isOpen]);
 
@@ -110,13 +113,36 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
     setCalendarMonth(next);
   };
 
+  const focusEndpoint = (endpoint: ActiveRangeEndpoint) => {
+    setActiveEndpoint(endpoint);
+    const targetDate = selection[endpoint]
+      ?? (endpoint === "start" ? effectiveMin : effectiveMax)
+      ?? selection.start
+      ?? selection.end;
+    if (targetDate) setCalendarMonth(monthFromDateKey(targetDate));
+  };
+
   const selectDate = (dateKey: string) => {
     if (!hasBounds || !effectiveMin || !effectiveMax || dateKey < effectiveMin || dateKey > effectiveMax) return;
+
     setSelection((current) => {
-      if (!current.start || current.end) return { start: dateKey, end: null };
-      if (dateKey < current.start) return { start: dateKey, end: current.start };
-      return { start: current.start, end: dateKey };
+      if (activeEndpoint === "start") {
+        return {
+          start: dateKey,
+          end: current.end && current.end >= dateKey ? current.end : null,
+        };
+      }
+
+      if (!current.start) {
+        return { start: dateKey, end: null };
+      }
+
+      return dateKey >= current.start
+        ? { start: current.start, end: dateKey }
+        : { start: dateKey, end: current.start };
     });
+
+    if (activeEndpoint === "start") setActiveEndpoint("end");
   };
 
   const handleApply = () => {
@@ -144,16 +170,28 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
       }
     >
       <div className="gp-datepicker-container">
-        <div className="d-flex gap-3 mb-4" role="status" aria-live="polite">
-          <div className="flex-fill rounded border px-3 py-2">
-            <div className="text-secondary small mb-1">Début</div>
+        <div className="d-flex gap-3 mb-4" role="group" aria-label="Choisir la borne de la plage">
+          <button
+            type="button"
+            className={clsx("gp-date-range-endpoint flex-fill rounded border px-3 py-2 text-start", activeEndpoint === "start" && "is-active")}
+            aria-pressed={activeEndpoint === "start"}
+            aria-label={`Modifier la date de début, actuellement ${formatDateKey(selection.start)}`}
+            onClick={() => focusEndpoint("start")}
+          >
+            <span className="text-secondary small mb-1 d-block">Début</span>
             <strong>{formatDateKey(selection.start)}</strong>
-          </div>
+          </button>
           <div className="d-flex align-items-center text-secondary" aria-hidden="true">→</div>
-          <div className="flex-fill rounded border px-3 py-2">
-            <div className="text-secondary small mb-1">Fin</div>
+          <button
+            type="button"
+            className={clsx("gp-date-range-endpoint flex-fill rounded border px-3 py-2 text-start", activeEndpoint === "end" && "is-active")}
+            aria-pressed={activeEndpoint === "end"}
+            aria-label={`Modifier la date de fin, actuellement ${formatDateKey(selection.end)}`}
+            onClick={() => focusEndpoint("end")}
+          >
+            <span className="text-secondary small mb-1 d-block">Fin</span>
             <strong>{formatDateKey(selection.end)}</strong>
-          </div>
+          </button>
         </div>
 
         {!hasBounds ? (
@@ -243,8 +281,11 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 );
               })}
             </div>
-            <div className="small text-secondary mt-3">
-              Sélectionnez le premier jour puis le dernier. La plage est bornée par l’historique disponible dans la source de données.
+            <div className="small text-secondary mt-3" aria-live="polite">
+              {activeEndpoint === "start"
+                ? "Sélectionnez la date de début. Cliquez sur « Fin » pour modifier directement la borne de fin."
+                : "Sélectionnez la date de fin. Cliquez sur « Début » pour revenir directement à la borne de début."}
+              {" "}La plage est bornée par l’historique disponible dans la source de données.
             </div>
           </>
         )}

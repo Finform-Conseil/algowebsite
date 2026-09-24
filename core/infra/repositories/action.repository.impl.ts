@@ -22,7 +22,6 @@ import {
   actionMatchesLookup,
   buildActionLookupPlan,
   buildActionLookupQuery,
-  buildActionMarketCatalogQuery,
   normalizeActionLookupCriteria,
 } from './action-lookup.policy';
 
@@ -184,30 +183,6 @@ export const useActionRepository = (): IActionRepository => {
           actions.find((candidate) => actionMatchesLookup(candidate, indexCriteria))
         );
 
-        const resolveFromMarketCatalog = async (): Promise<ActionEntity | null> => {
-          if (!normalizedCriteria.marketTicker) return null;
-          let page = 1;
-          let totalPages = 1;
-          const maxFallbackPages = 20;
-
-          do {
-            const catalogResult = await triggerGetAllActions(
-              buildActionMarketCatalogQuery(normalizedCriteria, page),
-              true,
-            ).unwrap();
-            const indexedCandidate = findIndexedCandidate(catalogResult.data ?? []);
-            const hydratedCandidate = await hydrateIndexedAction(indexedCandidate);
-            if (hydratedCandidate) return hydratedCandidate;
-
-            const reportedTotalPages = Number(catalogResult.total_pages);
-            totalPages = Number.isFinite(reportedTotalPages) && reportedTotalPages > 0
-              ? Math.min(maxFallbackPages, Math.floor(reportedTotalPages))
-              : 1;
-            page += 1;
-          } while (page <= totalPages);
-
-          return null;
-        };
 
         const resolveIndexedLookup = async (field: "isin" | "ticker"): Promise<ActionEntity | null> => {
           const result = await triggerGetAllActions(
@@ -223,18 +198,6 @@ export const useActionRepository = (): IActionRepository => {
         };
 
         const lookupPlan = buildActionLookupPlan(normalizedCriteria);
-        if (lookupPlan.strategy === "market-catalog") {
-          // A scoped lookup must traverse the market catalog at most once. The catalog
-          // already carries ticker/market identity and hydration verifies optional ISIN.
-          const resolvedAction = await resolveFromMarketCatalog();
-          if (!resolvedAction) {
-            throw new Error(
-              `API action not found for ${normalizedCriteria.ticker} on ${normalizedCriteria.marketTicker}.`,
-            );
-          }
-          return resolvedAction;
-        }
-
         for (const field of lookupPlan.fields) {
           const resolvedAction = await resolveIndexedLookup(field);
           if (resolvedAction) return resolvedAction;

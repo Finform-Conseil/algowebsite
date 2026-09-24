@@ -136,11 +136,21 @@ export const CursorModeSelector: React.FC<CursorModeSelectorProps> = ({
     <button
       ref={buttonRef}
       type="button"
-      className={clsx("gp-toolbar-btn", "gp-toolbar-btn-split", "hover-lift", isActive && "active")}
+      className={clsx("gp-toolbar-btn", "hover-lift", isActive && "active")}
       title={`Mode de curseur : ${cursorMode}`}
       onClick={onToggle}
     >
       {renderCursorIcon(cursorMode, isActive)}
+      <span className="gp-toolbar-split-trigger" aria-hidden="true">
+        <i
+          className="bi bi-caret-down-fill"
+          style={{
+            fontSize: "0.5rem",
+            color: isOpen ? ACTIVE_BLUE : "rgba(160, 174, 192, 0.9)",
+            lineHeight: 1,
+          }}
+        ></i>
+      </span>
     </button>
 
     {isOpen &&
