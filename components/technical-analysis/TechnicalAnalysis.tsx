@@ -29,6 +29,7 @@ import {
   clearComparisonSymbols,
   clearAllIndicators,
   setChartConfig,
+  restoreChartHistorySnapshot,
   setChartAppearance,
   setActiveLayoutChart,
   commitLayoutChartAppearance,
@@ -105,6 +106,8 @@ import { isMultiChartTickerContextIsolated } from "@/components/technical-analys
 
 // Hooks & Libs
 import { useDrawingManager } from "@/components/technical-analysis/hooks/useDrawingManager";
+import { useChartHistory } from "@/components/technical-analysis/hooks/useChartHistory";
+import type { ChartHistoryReduxSnapshot } from "@/components/technical-analysis/store/reducers/chartHistoryReducers";
 import {
   useLiveMetrics,
   useComparisonManager,
@@ -479,7 +482,7 @@ const ConnectedTradeHUD = React.memo(() => {
 });
 ConnectedTradeHUD.displayName = "ConnectedTradeHUD";
 
-const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, onPineOverlayClear, onToggleObjectTree, overlayContent, openTickerSelector }: { isObjectTreeOpen: boolean; onPineOverlayAttach?: (overlay: PineChartOverlayPayload | null) => void; onPineOverlayClear?: () => void; onToggleObjectTree?: () => void; overlayContent?: React.ReactNode; openTickerSelector?: () => void }) => {
+const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, onPineOverlayClear, onRequestSidebarCollapse, onToggleObjectTree, overlayContent, openTickerSelector }: { isObjectTreeOpen: boolean; onPineOverlayAttach?: (overlay: PineChartOverlayPayload | null) => void; onPineOverlayClear?: () => void; onRequestSidebarCollapse?: () => void; onToggleObjectTree?: () => void; overlayContent?: React.ReactNode; openTickerSelector?: () => void }) => {
   const marketData = useMarketDataContext();
   const chartState = useChartStateContext();
   const refs = useChartRefsContext();
@@ -548,6 +551,7 @@ const ConnectedSidebar = React.memo(({ isObjectTreeOpen, onPineOverlayAttach, on
       openTickerSelector={openTickerSelector}
       onPineOverlayAttach={onPineOverlayAttach}
       onPineOverlayClear={onPineOverlayClear}
+      onRequestSidebarCollapse={onRequestSidebarCollapse}
     />
   );
 });
@@ -927,10 +931,6 @@ const ChartUI: React.FC = () => {
     deleteDrawing,
     addDrawing,
     reorderDrawing,
-    canUndo,
-    canRedo,
-    undo,
-    redo,
     handlePointerDownCapture,
     handlePointerDown,
     handlePointerMove,
@@ -1165,6 +1165,97 @@ const ChartUI: React.FC = () => {
   const dataMode = useSelector(selectDataMode);
   const activeMarket = useSelector(selectActiveMarket);
   const modals = useSelector(selectModals, shallowEqual);
+  const isLockedAll = useSelector((state: RootState) => state.technicalAnalysis.ui.isLockedAll);
+  const areDrawingsHidden = useSelector((state: RootState) => state.technicalAnalysis.ui.areDrawingsHidden);
+
+  const chartHistoryReduxSnapshot = useMemo<ChartHistoryReduxSnapshot>(() => ({
+    chartConfig,
+    advancedIndicators,
+    indicatorPeriods,
+    bollingerSettings,
+    chartAppearance,
+    pineChartOverlay,
+    ui: {
+      activeMarket,
+      selectedTimeRange,
+      comparisonSymbols,
+      comparisonSettings,
+      movingAverageTrendSignals,
+      priceVsSmaMetrics,
+      priceVsEmaMetrics,
+      isLockedAll,
+      areDrawingsHidden,
+    },
+  }), [
+    activeMarket,
+    advancedIndicators,
+    areDrawingsHidden,
+    bollingerSettings,
+    chartAppearance,
+    chartConfig,
+    comparisonSettings,
+    comparisonSymbols,
+    indicatorPeriods,
+    isLockedAll,
+    movingAverageTrendSignals,
+    pineChartOverlay,
+    priceVsEmaMetrics,
+    priceVsSmaMetrics,
+    selectedTimeRange,
+  ]);
+
+  const chartHistoryTrackedIndicatorMutationSignal = useMemo(() => JSON.stringify({
+    chartIndicators: chartConfig.indicators,
+    advancedIndicators,
+    indicatorPeriods,
+    bollingerSettings,
+  }), [
+    advancedIndicators,
+    bollingerSettings,
+    chartConfig.indicators,
+    indicatorPeriods,
+  ]);
+
+  const chartHistorySnapshot = useMemo(() => ({
+    redux: chartHistoryReduxSnapshot,
+    drawings,
+    drawingTools: {
+      keepDrawing,
+      magnetMode,
+      snapToIndicators,
+      positionsOrdersHidden,
+    },
+  }), [
+    chartHistoryReduxSnapshot,
+    drawings,
+    keepDrawing,
+    magnetMode,
+    positionsOrdersHidden,
+    snapToIndicators,
+  ]);
+
+  const restoreGlobalChartHistory = useCallback((snapshot: typeof chartHistorySnapshot) => {
+    dispatch(restoreChartHistorySnapshot(snapshot.redux));
+    replaceDrawings(snapshot.drawings);
+    setKeepDrawing(snapshot.drawingTools.keepDrawing);
+    setMagnetMode(snapshot.drawingTools.magnetMode);
+    setSnapToIndicators(snapshot.drawingTools.snapToIndicators);
+    setPositionsOrdersHidden(snapshot.drawingTools.positionsOrdersHidden);
+  }, [
+    dispatch,
+    replaceDrawings,
+    setKeepDrawing,
+    setMagnetMode,
+    setPositionsOrdersHidden,
+    setSnapToIndicators,
+  ]);
+
+  const { canUndo, canRedo, undo, redo } = useChartHistory({
+    snapshot: chartHistorySnapshot,
+    restore: restoreGlobalChartHistory,
+    trackedMutationSignal: chartHistoryTrackedIndicatorMutationSignal,
+  });
+
   // [TENOR 2026 â Option F] Live snapshot for the currently active chart symbol.
   // Used by useObjectTreePanel to resolve provenance label in Financial Proof Mode.
   const chartUiLiveSnapshot = marketData.liveSnapshot;
@@ -1262,6 +1353,22 @@ const ChartUI: React.FC = () => {
         activeEl instanceof HTMLElement &&
         (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable)
       ) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      const commandModifier = e.ctrlKey || e.metaKey;
+
+      if (commandModifier && !e.altKey && key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+
+      if (commandModifier && !e.altKey && !e.shiftKey && key === "y") {
+        e.preventDefault();
+        redo();
         return;
       }
 
@@ -1363,6 +1470,8 @@ const ChartUI: React.FC = () => {
     brokerState,
     dispatch,
     addNotification,
+    undo,
+    redo,
   ]);
 
   const handleTimeRangeSelect = useCallback(
@@ -2646,6 +2755,29 @@ const ChartUI: React.FC = () => {
     }
   }, [refs]);
 
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    const root = refs.mainContainerRef.current;
+    const sidebar = refs.sidebarRef.current;
+    if (!root || !sidebar) return;
+
+    root.classList.toggle("sidebar-closed", collapsed);
+    sidebar.classList.toggle("sidebar-closed", collapsed);
+
+    if (!collapsed) {
+      sidebar.style.visibility = "visible";
+      sidebar.style.opacity = "1";
+      sidebar.style.transform = "translateX(0)";
+    }
+
+    updateSidebarState();
+  }, [refs.mainContainerRef, refs.sidebarRef, updateSidebarState]);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    const sidebar = refs.sidebarRef.current;
+    if (!sidebar) return;
+    setSidebarCollapsed(!sidebar.classList.contains("sidebar-closed"));
+  }, [refs.sidebarRef, setSidebarCollapsed]);
+
   const handleSidebarBackdropClick = useCallback(() => {
     const sidebar = refs.sidebarRef.current;
     if (sidebar) {
@@ -2665,10 +2797,9 @@ const ChartUI: React.FC = () => {
         hideSidebar();
       }
 
-      sidebar.classList.add("sidebar-closed");
-      updateSidebarState();
+      setSidebarCollapsed(true);
     }
-  }, [updateSidebarState, refs.sidebarRef]);
+  }, [refs.sidebarRef, setSidebarCollapsed]);
 
   useLayoutEffect(() => {
     const sidebarToggle = refs.sidebarToggleRef.current;
@@ -2677,19 +2808,7 @@ const ChartUI: React.FC = () => {
 
     const initialSetup = () => updateSidebarState();
     const handleToggleClick = () => {
-      const root = refs.mainContainerRef.current;
-      const sidebar = refs.sidebarRef.current;
-      if (!root || !sidebar) return;
-
-      const isCurrentlyClosed = root.classList.contains("sidebar-closed");
-      if (isCurrentlyClosed) {
-        root.classList.remove("sidebar-closed");
-        sidebar.classList.remove("sidebar-closed");
-      } else {
-        root.classList.add("sidebar-closed");
-        sidebar.classList.add("sidebar-closed");
-      }
-      updateSidebarState();
+      toggleSidebarCollapsed();
     };
 
     initialSetup();
@@ -2700,7 +2819,7 @@ const ChartUI: React.FC = () => {
       sidebarToggle.removeEventListener("click", handleToggleClick);
       window.removeEventListener("resize", initialSetup);
     };
-  }, [updateSidebarState, refs]);
+  }, [refs, toggleSidebarCollapsed, updateSidebarState]);
 
   const drawingInteractionMode = activeTool ? "tool" : cursorMode === "eraser" ? "eraser" : cursorMode === "magic" ? "magic" : drawings.length > 0 ? "selection" : "inactive";
   const isCustomCursorMode = cursorMode === "dot" || cursorMode === "demonstration" || cursorMode === "magic" || cursorMode === "eraser";
@@ -2776,7 +2895,7 @@ const ChartUI: React.FC = () => {
 
           {comparisonSymbols.length > 0 && (
             <div className="gp-compare-strip">
-              <span className="gp-compare-strip__label">Compare %</span>
+              <span className="gp-compare-strip__label">Compare</span>
               {comparisonSymbols.map((comparisonKey, index) => {
                 const compareSettings = resolveCompareSeriesSettings(comparisonKey, index, comparisonSettings);
                 const compareColor = compareSettings.color;
@@ -3269,6 +3388,7 @@ const ChartUI: React.FC = () => {
                   isObjectTreeOpen={isObjectTreeOpen}
                   onPineOverlayAttach={dispatchPineOverlay}
                   onPineOverlayClear={clearPineOverlay}
+                  onRequestSidebarCollapse={() => setSidebarCollapsed(true)}
                   onToggleObjectTree={toggleObjectTree}
                   openTickerSelector={openTickerSelector}
                   overlayContent={

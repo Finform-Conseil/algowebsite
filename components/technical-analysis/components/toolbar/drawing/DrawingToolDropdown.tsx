@@ -1,10 +1,7 @@
 import React from "react";
-import clsx from "clsx";
-
 import type { AllToolType } from "../../../config/drawing/drawingToolTypes";
 import { getDrawingToolIcon } from "../../../config/drawing/drawingToolIconRegistry";
-import { DRAWING_TOOL_SPECS } from "../../../config/drawing/drawingToolSpecs";
-import { ANNOTATION_TOOLS, SHAPES_TOOLS, TOOL_CATEGORIES } from "../../../config/drawing/drawingConstants";
+import { TOOL_CATEGORIES } from "../../../config/drawing/drawingConstants";
 import { ToolPortal } from "../../common/primitives/ToolPortal";
 import type { DrawingToolCounts } from "./drawingToolCounts";
 import {
@@ -14,27 +11,19 @@ import {
   filterForecastingTools,
   filterTrendTools,
   getFibDropdownTools,
-  getTrendDropdownTools,
   type AnnotationDropdownView,
-  type BrushDropdownView,
   type ChartPatternsDropdownView,
   type FibDropdownView,
   type ForecastingDropdownView,
   type TrendDropdownView,
 } from "./drawingToolFilters";
-import { ACTIVE_BLUE, getActiveOptionStyle } from "./drawingToolbarTheme";
+import { getActiveOptionStyle } from "./drawingToolbarTheme";
 import { cloneIconWithActiveState } from "./toolIconCatalog";
 
 type ToolPortalPosition = {
   top: number;
   left: number;
   maxHeight: number;
-};
-
-type CategoryRowConfig<View extends string> = {
-  id: View;
-  label: string;
-  count: number;
 };
 
 interface BaseDropdownProps<View extends string> {
@@ -49,58 +38,7 @@ interface BaseDropdownProps<View extends string> {
   onSelectTool: (toolId: AllToolType) => void;
 }
 
-const categoryRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", cursor: "pointer" };
-
 const headerStyle: React.CSSProperties = { padding: "8px 12px 6px 12px", fontSize: "10.5px", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase", color: "rgba(255, 255, 255, 0.4)", borderBottom: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: "4px", userSelect: "none" };
-
-const backHeaderStyle: React.CSSProperties = { ...headerStyle, display: "flex", alignItems: "center", justifyContent: "space-between" };
-
-const backButtonStyle: React.CSSProperties = { cursor: "pointer", color: "rgba(255, 255, 255, 0.6)", fontSize: "11px", padding: "2px 6px", borderRadius: "3px", background: "rgba(255, 255, 255, 0.05)" };
-
-const renderCategoryRows = <View extends string>(
-  categories: Array<CategoryRowConfig<View>>,
-  onViewChange: (view: View) => void,
-) => (
-  <>
-    {categories.map((category) => (
-      <div
-        key={category.id}
-        className={clsx("gp-cursor-option")}
-        onMouseDown={(event) => {
-          event.preventDefault();
-          onViewChange(category.id);
-        }}
-        style={categoryRowStyle}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ background: ACTIVE_BLUE, color: "white", fontSize: "11px", fontWeight: 600, padding: "2px 6px", borderRadius: "3px", minWidth: "24px", textAlign: "center" }}>{category.count}</span>
-          <span className="gp-cursor-label" style={{ fontWeight: 500 }}>{category.label}</span>
-        </div>
-        <i className="bi bi-chevron-right" style={{ fontSize: "0.8rem", color: "#787b86" }}></i>
-      </div>
-    ))}
-  </>
-);
-
-const BackHeader: React.FC<{
-  title: string;
-  onBack: () => void;
-  compact?: boolean;
-}> = ({ title, onBack, compact = false }) => (
-  <div style={backHeaderStyle}>
-    <span>{title}</span>
-    <div
-      onMouseDown={(event) => {
-        event.preventDefault();
-        onBack();
-      }}
-      style={compact ? { cursor: "pointer" } : backButtonStyle}
-      className={compact ? "back-icon-hover" : undefined}
-    >
-      {compact ? <i className="bi bi-chevron-left" style={{ fontSize: "12px" }}></i> : "← Retour"}
-    </div>
-  </div>
-);
 
 const ToolRow: React.FC<{
   tool: { id: AllToolType; label: string; category?: string };
@@ -133,21 +71,41 @@ const ToolRow: React.FC<{
   </div>
 );
 
+const DRAWING_CATALOG_SECTIONS = [
+  { id: "drawing_tools", label: "LIGNES ET MESURES", kind: "trend", category: TOOL_CATEGORIES.LINES_MEASURES },
+  { id: "channels", label: "CANAUX", kind: "trend", category: TOOL_CATEGORIES.CHANNELS },
+  { id: "pitchforks", label: "FOURCHETTES", kind: "trend", category: TOOL_CATEGORIES.PITCHFORKS },
+  { id: "brushes", label: "BROSSES", kind: "brush", view: "brushes" },
+  { id: "arrows", label: "FLÈCHES", kind: "brush", view: "arrows" },
+  { id: "formes", label: "FORMES", kind: "brush", view: "formes" },
+] as const;
+
 export const TrendToolDropdown: React.FC<BaseDropdownProps<TrendDropdownView> & {
   counts: DrawingToolCounts;
 }> = ({
-  counts,
   isOpen,
   pos,
   searchQuery,
   onSearchChange,
   onClose,
-  view,
-  onViewChange,
   activeTool,
   onSelectTool,
 }) => {
-  const filteredTools = filterTrendTools(searchQuery);
+  const filteredTrendTools = filterTrendTools(searchQuery);
+  const visibleSections = DRAWING_CATALOG_SECTIONS
+    .map((section) => ({
+      ...section,
+      tools: section.kind === "trend"
+        ? filteredTrendTools.filter((tool) => tool.category === section.category)
+        : filterBrushTools(section.view, searchQuery),
+    }))
+    .filter((section) => section.tools.length > 0);
+
+  const selectTool = (toolId: AllToolType) => {
+    onSelectTool(toolId);
+    onSearchChange("");
+    onClose();
+  };
 
   return (
     <ToolPortal
@@ -156,306 +114,277 @@ export const TrendToolDropdown: React.FC<BaseDropdownProps<TrendDropdownView> & 
       searchQuery={searchQuery}
       onSearchChange={onSearchChange}
       onClose={onClose}
-      placeholder="Rechercher un outil..."
+      placeholder="Rechercher un outil de dessin..."
       searchInputId="trend-tool-search"
       searchInputName="trendToolSearch"
-      searchInputLabel="Rechercher un outil de tendance"
+      searchInputLabel="Rechercher un outil de dessin"
     >
-      {searchQuery.trim() ? (
-        <div style={{ padding: "4px 0" }}>
-          {filteredTools.length > 0 ? (
-            filteredTools.map((tool) => (
-              <ToolRow
-                key={`trend-${tool.id}`}
-                tool={tool}
-                isActive={activeTool === tool.id}
-                showCategory
-                useClonedIcon
-                onSelect={(toolId) => {
-                  onSelectTool(toolId);
-                  onSearchChange("");
-                  onClose();
-                }}
-              />
-            ))
-          ) : (
-            <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-          )}
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-          {view === "categories" && renderCategoryRows([
-            { id: "drawing_tools", label: "Lignes et mesures", count: counts.lines },
-            { id: "channels", label: "Canaux", count: counts.channels },
-            { id: "pitchforks", label: "Fourchettes", count: counts.pitchforks },
-          ], onViewChange)}
-
-          {["channels", "pitchforks", "drawing_tools"].includes(view) && (
-            <>
-              <BackHeader title={view === "drawing_tools" ? "LIGNES ET MESURES" : view.toUpperCase()} onBack={() => onViewChange("categories")} compact />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px" }}>
-                {getTrendDropdownTools(view).map((tool) => (
+      <div className="gp-drawing-tool-catalog gp-unified-drawing-tool-catalog" style={{ display: "flex", flexDirection: "column", minWidth: "292px", padding: "2px 0 6px" }}>
+        {visibleSections.length > 0 ? (
+          visibleSections.map((section, sectionIndex) => (
+            <section
+              key={section.id}
+              aria-labelledby={`trend-catalog-${section.id}`}
+              style={{
+                borderTop: sectionIndex === 0 ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
+                paddingTop: sectionIndex === 0 ? 0 : "5px",
+                marginTop: sectionIndex === 0 ? 0 : "5px",
+              }}
+            >
+              <div
+                id={`trend-catalog-${section.id}`}
+                style={{ ...headerStyle, borderBottom: "none", marginBottom: "1px", paddingTop: "7px", paddingBottom: "4px" }}
+              >
+                {section.label}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1px" }}>
+                {section.tools.map((tool) => (
                   <ToolRow
                     key={tool.id}
                     tool={tool}
                     isActive={activeTool === tool.id}
                     useClonedIcon
-                    onSelect={(toolId) => {
-                      onSelectTool(toolId);
-                      onClose();
-                    }}
+                    onSelect={selectTool}
                   />
                 ))}
               </div>
-            </>
-          )}
-        </div>
-      )}
+            </section>
+          ))
+        ) : (
+          <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
+        )}
+      </div>
     </ToolPortal>
   );
 };
 
+const FIB_CATALOG_SECTIONS = [
+  { id: "fibonacci", label: "FIBONACCI", view: "fibonacci" as const },
+  { id: "gann", label: "GANN", view: "gann" as const },
+] as const;
+
 export const FibToolDropdown: React.FC<BaseDropdownProps<FibDropdownView> & {
   counts: DrawingToolCounts;
-}> = (props) => (
-  <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher un outil Fibonacci..." searchInputId="fib-tool-search" searchInputName="fibToolSearch" searchInputLabel="Rechercher un outil Fibonacci">
-    {props.view === "categories" && (
-      <>
-        <div style={headerStyle}>FIBONACCI & GANN</div>
-        {renderCategoryRows([
-          { id: "fibonacci", label: "Fibonacci", count: props.counts.fibPure },
-          { id: "gann", label: "Gann", count: props.counts.gann },
-        ], props.onViewChange)}
-      </>
-    )}
-    {["fibonacci", "gann"].includes(props.view) && <ToolList {...props} view={props.view} title={props.view.toUpperCase()} getTools={getFibDropdownTools} />}
-  </ToolPortal>
-);
+}> = (props) => {
+  const fibQuery = props.searchQuery.trim().toLowerCase();
+  const visibleFibSections = FIB_CATALOG_SECTIONS
+    .map((section) => ({
+      ...section,
+      tools: getFibDropdownTools(section.view).filter((tool) => {
+        if (!fibQuery) return true;
+        return (
+          (tool.label?.toLowerCase() || "").includes(fibQuery) ||
+          tool.id.toLowerCase().includes(fibQuery)
+        );
+      }),
+    }))
+    .filter((section) => section.tools.length > 0);
+
+  const selectFibTool = (toolId: AllToolType) => {
+    props.onSelectTool(toolId);
+    props.onSearchChange("");
+    props.onClose();
+  };
+
+  return (
+    <ToolPortal
+      isOpen={props.isOpen}
+      pos={props.pos}
+      searchQuery={props.searchQuery}
+      onSearchChange={props.onSearchChange}
+      onClose={props.onClose}
+      placeholder="Rechercher un outil Fibonacci..."
+      searchInputId="fib-tool-search"
+      searchInputName="fibToolSearch"
+      searchInputLabel="Rechercher un outil Fibonacci"
+    >
+      <div
+        className="gp-drawing-tool-catalog gp-fib-tool-catalog"
+        style={{ display: "flex", flexDirection: "column", minWidth: "292px", padding: "2px 0 6px" }}
+      >
+        {visibleFibSections.length > 0 ? (
+          visibleFibSections.map((section, sectionIndex) => (
+            <section
+              key={section.id}
+              aria-labelledby={`fib-catalog-${section.id}`}
+              style={{
+                borderTop: sectionIndex === 0 ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
+                paddingTop: sectionIndex === 0 ? 0 : "5px",
+                marginTop: sectionIndex === 0 ? 0 : "5px",
+              }}
+            >
+              <div
+                id={`fib-catalog-${section.id}`}
+                style={{ ...headerStyle, borderBottom: "none", marginBottom: "1px", paddingTop: "7px", paddingBottom: "4px" }}
+              >
+                {section.label}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1px" }}>
+                {section.tools.map((tool) => (
+                  <ToolRow
+                    key={tool.id}
+                    tool={tool}
+                    isActive={props.activeTool === tool.id}
+                    useClonedIcon
+                    onSelect={selectFibTool}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>
+            Aucun outil trouvé
+          </div>
+        )}
+      </div>
+    </ToolPortal>
+  );
+};
+
+const CHART_PATTERN_CATALOG_SECTIONS = [
+  { id: "patterns", label: "FIGURES CHARTISTES", view: "patterns" as const },
+  { id: "elliott", label: "VAGUES D'ELLIOTT", view: "elliott" as const },
+  { id: "cycles", label: "CYCLES", view: "cycles" as const },
+] as const;
 
 export const ChartPatternsToolDropdown: React.FC<BaseDropdownProps<ChartPatternsDropdownView> & {
   counts: DrawingToolCounts;
-}> = (props) => (
-  <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher une figure chartiste..." searchInputId="chart-pattern-tool-search" searchInputName="chartPatternToolSearch" searchInputLabel="Rechercher une figure chartiste">
-    {props.view === "categories" && (
-      <>
-        <div style={headerStyle}>FIGURES CHARTISTES</div>
-        {renderCategoryRows([
-          { id: "patterns", label: "Figures", count: props.counts.patterns },
-          { id: "elliott", label: "Vagues d'Elliott", count: props.counts.elliott },
-          { id: "cycles", label: "Cycles", count: props.counts.cycles },
-        ], props.onViewChange)}
-      </>
-    )}
-    {["patterns", "elliott", "cycles"].includes(props.view) && <ToolList {...props} view={props.view} title={props.view === "patterns" ? "FIGURES CHARTISTES" : props.view.toUpperCase()} getTools={(view) => filterChartPatternTools(view, props.searchQuery)} maxHeight="400px" />}
-  </ToolPortal>
-);
+}> = (props) => {
+  const visibleChartPatternSections = CHART_PATTERN_CATALOG_SECTIONS
+    .map((section) => ({
+      ...section,
+      tools: filterChartPatternTools(section.view, props.searchQuery),
+    }))
+    .filter((section) => section.tools.length > 0);
 
-export const BrushToolDropdown: React.FC<BaseDropdownProps<BrushDropdownView> & {
-  counts: DrawingToolCounts;
-}> = (props) => (
-  <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher un pinceau..." searchInputId="brush-tool-search" searchInputName="brushToolSearch" searchInputLabel="Rechercher un pinceau">
-    {props.searchQuery.trim() ? (
-      <div style={{ padding: "4px 0" }}>
-        {(() => {
-          const q = props.searchQuery.toLowerCase();
-          const results = DRAWING_TOOL_SPECS.filter(tool => {
-            if (tool.category !== TOOL_CATEGORIES.BRUSH_DRAWING && tool.category !== TOOL_CATEGORIES.SHAPES) return false;
-            return (tool.label?.toLowerCase() || "").includes(q) || tool.id.toLowerCase().includes(q);
-          });
-          return results.length > 0 ? (
-            results.map(tool => (
-              <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onSearchChange(""); props.onClose(); }} />
-            ))
-          ) : (
-            <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-          );
-        })()}
-      </div>
-    ) : (
-      <>
-        {props.view === "categories" && (
-          <>
-            <div style={headerStyle}>PINCEAU</div>
-            {renderCategoryRows([
-              { id: "brushes", label: "BROSSES", count: DRAWING_TOOL_SPECS.filter(t => t.id === "brush" || t.id === "highlighter").length },
-              { id: "arrows", label: "FLÈCHES", count: DRAWING_TOOL_SPECS.filter(t => t.id === "arrow_mark_up" || t.id === "arrow_mark_down").length },
-              { id: "formes", label: "FORMES", count: SHAPES_TOOLS.length },
-            ], props.onViewChange)}
-          </>
+  const selectChartPatternTool = (toolId: AllToolType) => {
+    props.onSelectTool(toolId);
+    props.onSearchChange("");
+    props.onClose();
+  };
+
+  return (
+    <ToolPortal
+      isOpen={props.isOpen}
+      pos={props.pos}
+      searchQuery={props.searchQuery}
+      onSearchChange={props.onSearchChange}
+      onClose={props.onClose}
+      placeholder="Rechercher une figure chartiste..."
+      searchInputId="chart-pattern-tool-search"
+      searchInputName="chartPatternToolSearch"
+      searchInputLabel="Rechercher une figure chartiste"
+    >
+      <div
+        className="gp-drawing-tool-catalog gp-chart-pattern-tool-catalog"
+        style={{ display: "flex", flexDirection: "column", minWidth: "292px", padding: "2px 0 6px" }}
+      >
+        {visibleChartPatternSections.length > 0 ? (
+          visibleChartPatternSections.map((section, sectionIndex) => (
+            <section
+              key={section.id}
+              aria-labelledby={`chart-pattern-catalog-${section.id}`}
+              style={{
+                borderTop: sectionIndex === 0 ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
+                paddingTop: sectionIndex === 0 ? 0 : "5px",
+                marginTop: sectionIndex === 0 ? 0 : "5px",
+              }}
+            >
+              <div
+                id={`chart-pattern-catalog-${section.id}`}
+                style={{ ...headerStyle, borderBottom: "none", marginBottom: "1px", paddingTop: "7px", paddingBottom: "4px" }}
+              >
+                {section.label}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1px" }}>
+                {section.tools.map((tool) => (
+                  <ToolRow
+                    key={tool.id}
+                    tool={tool}
+                    isActive={props.activeTool === tool.id}
+                    useClonedIcon
+                    onSelect={selectChartPatternTool}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>
+            Aucun outil trouvé
+          </div>
         )}
-        {props.view === "brushes" && (() => {
-          const tools = filterBrushTools(props.view, props.searchQuery);
-          return (
-            <>
-              <BackHeader title="BROSSES" onBack={() => props.onViewChange("categories" as BrushDropdownView)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px" }}>
-                {tools.length === 0 ? (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-                ) : (
-                  tools.map(tool => (
-                    <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onClose(); }} />
-                  ))
-                )}
-              </div>
-            </>
-          );
-        })()}
-        {props.view === "arrows" && (() => {
-          const tools = filterBrushTools(props.view, props.searchQuery);
-          return (
-            <>
-              <BackHeader title="FLÈCHES" onBack={() => props.onViewChange("categories" as BrushDropdownView)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px" }}>
-                {tools.length === 0 ? (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-                ) : (
-                  tools.map(tool => (
-                    <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onClose(); }} />
-                  ))
-                )}
-              </div>
-            </>
-          );
-        })()}
-        {props.view === "formes" && (() => {
-          const tools = filterBrushTools(props.view, props.searchQuery);
-          return (
-            <>
-              <BackHeader title="FORMES" onBack={() => props.onViewChange("categories" as BrushDropdownView)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px" }}>
-                {tools.length === 0 ? (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-                ) : (
-                  tools.map(tool => (
-                    <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onClose(); }} />
-                  ))
-                )}
-              </div>
-            </>
-          );
-        })()}
-      </>
-    )}
-  </ToolPortal>
-);
+      </div>
+    </ToolPortal>
+  );
+};
+
+const ANNOTATION_CATALOG_SECTIONS = [
+  { id: "text_notes", label: "TEXT AND NOTES", view: "text_notes" as const },
+  { id: "content", label: "CONTENT", view: "content" as const },
+] as const;
 
 export const AnnotationToolDropdown: React.FC<BaseDropdownProps<AnnotationDropdownView> & {
   counts: DrawingToolCounts;
-}> = (props) => (
-  <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher une annotation..." searchInputId="annotation-tool-search" searchInputName="annotationToolSearch" searchInputLabel="Rechercher une annotation">
-    {props.searchQuery.trim() ? (
-      <div style={{ padding: "4px 0" }}>
-        {(() => {
-          const q = props.searchQuery.toLowerCase();
-          const results = DRAWING_TOOL_SPECS.filter(tool => {
-            if (tool.category !== TOOL_CATEGORIES.ANNOTATIONS) return false;
-            return (tool.label?.toLowerCase() || "").includes(q) || tool.id.toLowerCase().includes(q);
-          });
-          return results.length > 0 ? (
-            results.map(tool => (
-              <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onSearchChange(""); props.onClose(); }} />
-            ))
-          ) : (
-            <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucune annotation trouvée</div>
-          );
-        })()}
+}> = (props) => {
+  const visibleAnnotationSections = ANNOTATION_CATALOG_SECTIONS
+    .map((section) => ({ ...section, tools: filterAnnotationTools(section.view, props.searchQuery) }))
+    .filter((section) => section.tools.length > 0);
+
+  const selectAnnotationTool = (toolId: AllToolType) => {
+    props.onSelectTool(toolId);
+    props.onSearchChange("");
+    props.onClose();
+  };
+
+  return (
+    <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher une annotation..." searchInputId="annotation-tool-search" searchInputName="annotationToolSearch" searchInputLabel="Rechercher une annotation">
+      <div className="gp-drawing-tool-catalog gp-annotation-tool-catalog" style={{ display: "flex", flexDirection: "column", minWidth: "292px", padding: "2px 0 6px" }}>
+        {visibleAnnotationSections.length > 0 ? visibleAnnotationSections.map((section, sectionIndex) => (
+          <section key={section.id} aria-labelledby={`annotation-catalog-${section.id}`} style={{ borderTop: sectionIndex === 0 ? "none" : "1px solid rgba(255, 255, 255, 0.08)", paddingTop: sectionIndex === 0 ? 0 : "5px", marginTop: sectionIndex === 0 ? 0 : "5px" }}>
+            <div id={`annotation-catalog-${section.id}`} style={{ ...headerStyle, borderBottom: "none", marginBottom: "1px", paddingTop: "7px", paddingBottom: "4px" }}>{section.label}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1px" }}>
+              {section.tools.map((tool) => <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={selectAnnotationTool} />)}
+            </div>
+          </section>
+        )) : <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucune annotation trouvée</div>}
       </div>
-    ) : (
-      <>
-        {props.view === "categories" && (
-          <>
-            <div style={headerStyle}>ANNOTATIONS</div>
-            {renderCategoryRows([
-              { id: "text_notes", label: "TEXT AND NOTES", count: 10 },
-              { id: "content", label: "CONTENT", count: 3 },
-            ], props.onViewChange)}
-          </>
-        )}
-        {props.view === "text_notes" && (() => {
-          const tools = filterAnnotationTools(props.view, props.searchQuery);
-          return (
-            <>
-              <BackHeader title="TEXT AND NOTES" onBack={() => props.onViewChange("categories" as AnnotationDropdownView)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px" }}>
-                {tools.length === 0 ? (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-                ) : (
-                  tools.map(tool => (
-                    <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onClose(); }} />
-                  ))
-                )}
-              </div>
-            </>
-          );
-        })()}
-        {props.view === "content" && (() => {
-          const tools = filterAnnotationTools(props.view, props.searchQuery);
-          return (
-            <>
-              <BackHeader title="CONTENT" onBack={() => props.onViewChange("categories" as AnnotationDropdownView)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px" }}>
-                {tools.length === 0 ? (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>
-                ) : (
-                  tools.map(tool => (
-                    <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={(toolId) => { props.onSelectTool(toolId); props.onClose(); }} />
-                  ))
-                )}
-              </div>
-            </>
-          );
-        })()}
-      </>
-    )}
-  </ToolPortal>
-);
+    </ToolPortal>
+  );
+};
+
+const FORECASTING_CATALOG_SECTIONS = [
+  { id: "forecasting", label: "PRÉVISIONS", view: "forecasting" as const },
+  { id: "volume", label: "PROFILS DE VOLUME", view: "volume" as const },
+  { id: "measurers", label: "MESUREURS", view: "measurers" as const },
+] as const;
 
 export const ForecastingToolDropdown: React.FC<BaseDropdownProps<ForecastingDropdownView> & {
   counts: DrawingToolCounts;
-}> = (props) => (
-  <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher une prévision ou un profil de volume..." searchInputId="forecasting-tool-search" searchInputName="forecastingToolSearch" searchInputLabel="Rechercher une prévision ou un profil de volume">
-    {props.view === "categories" && (
-      <>
-        <div style={headerStyle}>PRÉVISIONS ET PROFILS DE VOLUME</div>
-        {renderCategoryRows([
-          { id: "forecasting", label: "Prévisions", count: props.counts.forecasting },
-          { id: "volume", label: "Profils de volume", count: props.counts.volume },
-          { id: "measurers", label: "Mesureurs", count: props.counts.measurers },
-        ], props.onViewChange)}
-      </>
-    )}
-    {["forecasting", "volume", "measurers"].includes(props.view) && <ToolList {...props} view={props.view} title={props.view === "forecasting" ? "PRÉVISIONS" : props.view === "volume" ? "PROFILS DE VOLUME" : "MESUREURS"} getTools={(view) => filterForecastingTools(view, props.searchQuery)} />}
-  </ToolPortal>
-);
+}> = (props) => {
+  const visibleForecastingSections = FORECASTING_CATALOG_SECTIONS
+    .map((section) => ({ ...section, tools: filterForecastingTools(section.view, props.searchQuery) }))
+    .filter((section) => section.tools.length > 0);
 
-const ToolList = <View extends string>({
-  view,
-  title,
-  getTools,
-  activeTool,
-  onSelectTool,
-  onViewChange,
-  onClose,
-  maxHeight,
-}: BaseDropdownProps<View> & {
-  title: string;
-  getTools: (view: View) => Array<{ id: AllToolType; label: string; category?: string }>;
-  maxHeight?: string;
-}) => (
-  <>
-    <BackHeader title={title} onBack={() => onViewChange("categories" as View)} />
-    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2px", maxHeight, overflowY: maxHeight ? "auto" : undefined }}>
-      {getTools(view).map((tool) => (
-        <ToolRow
-          key={tool.id}
-          tool={tool}
-          isActive={activeTool === tool.id}
-          onSelect={(toolId) => {
-            onSelectTool(toolId);
-            onClose();
-          }}
-        />
-      ))}
-    </div>
-  </>
-);
+  const selectForecastingTool = (toolId: AllToolType) => {
+    props.onSelectTool(toolId);
+    props.onSearchChange("");
+    props.onClose();
+  };
+
+  return (
+    <ToolPortal isOpen={props.isOpen} pos={props.pos} searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} onClose={props.onClose} placeholder="Rechercher une prévision ou un profil de volume..." searchInputId="forecasting-tool-search" searchInputName="forecastingToolSearch" searchInputLabel="Rechercher une prévision ou un profil de volume">
+      <div className="gp-drawing-tool-catalog gp-forecasting-tool-catalog" style={{ display: "flex", flexDirection: "column", minWidth: "292px", padding: "2px 0 6px" }}>
+        {visibleForecastingSections.length > 0 ? visibleForecastingSections.map((section, sectionIndex) => (
+          <section key={section.id} aria-labelledby={`forecasting-catalog-${section.id}`} style={{ borderTop: sectionIndex === 0 ? "none" : "1px solid rgba(255, 255, 255, 0.08)", paddingTop: sectionIndex === 0 ? 0 : "5px", marginTop: sectionIndex === 0 ? 0 : "5px" }}>
+            <div id={`forecasting-catalog-${section.id}`} style={{ ...headerStyle, borderBottom: "none", marginBottom: "1px", paddingTop: "7px", paddingBottom: "4px" }}>{section.label}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1px" }}>
+              {section.tools.map((tool) => <ToolRow key={tool.id} tool={tool} isActive={props.activeTool === tool.id} useClonedIcon onSelect={selectForecastingTool} />)}
+            </div>
+          </section>
+        )) : <div style={{ padding: "20px", textAlign: "center", color: "#787b86", fontSize: "12px" }}>Aucun outil trouvé</div>}
+      </div>
+    </ToolPortal>
+  );
+};

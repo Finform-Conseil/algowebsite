@@ -24,6 +24,11 @@ import type { ActionEntity } from "@/core/domain/entities/action.entity";
 import { useActionRepository } from "@/core/infra/repositories/action.repository.impl";
 import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import { buildTickerCatalogQuery } from "@/components/design-system/commons/TickerSelectorModal/context/tickerCatalogPolicy";
+import {
+  readPersistedTickerCatalog,
+  writePersistedTickerCatalog,
+  type PersistedTickerCatalogSecurity,
+} from "@/components/design-system/commons/TickerSelectorModal/context/tickerCatalogPersistence";
 import { useGetAllBoursesQuery } from "@/core/infra/store/api";
 import { EXCHANGE_STATIC_INFO } from "@/core/data/ExchangesStaticData";
 import {
@@ -233,7 +238,6 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
   const [searchInput, setSearchInput] = useState("");
   const [apiSecurities, setApiSecurities] = useState<SearchSecurity[] | null>(null);
-  const apiSecuritiesByMarketRef = useRef<Record<string, SearchSecurity[]>>({});
   const lastSuccessfulRefreshByMarketRef = useRef<Record<string, number>>({});
   const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
   const [symbolSource, setSymbolSource] = useState<SymbolSourceState>("loading");
@@ -248,26 +252,52 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
       return;
     }
     let cancelled = false;
-    const cachedSecurities = apiSecuritiesByMarketRef.current[activeMarketTicker] ?? null;
-    const hasUsableLocalCache = cachedSecurities !== null && cachedSecurities.length > 0;
+    let cachedSecurities: SearchSecurity[] | null = null;
 
-    setIsLoadingSymbols(!hasUsableLocalCache);
-    setSymbolSource(hasUsableLocalCache ? "api" : "loading");
+    setIsLoadingSymbols(true);
+    setSymbolSource("loading");
 
     const applySecurities = (securities: SearchSecurity[]) => {
       if (cancelled) return;
-      apiSecuritiesByMarketRef.current[activeMarketTicker] = securities;
       setApiSecurities(securities);
+    };
+
+    const restorePersistedSecurities = (
+      securities: readonly PersistedTickerCatalogSecurity[],
+    ): SearchSecurity[] => securities.map((security) => ({
+      ...security,
+      sector: security.sector as SearchSecurity["sector"],
+      marketCap: security.marketCap ?? Number.NaN,
+      priceChangeD1: security.priceChangeD1 ?? Number.NaN,
+      peRatio: security.peRatio ?? Number.NaN,
+      returnYTD: security.returnYTD ?? Number.NaN,
+      revenueT12M: security.revenueT12M ?? Number.NaN,
+      epsT12M: security.epsT12M ?? Number.NaN,
+    }));
+
+    const persistSecurities = (securities: SearchSecurity[], complete: boolean) => {
+      const persistable: PersistedTickerCatalogSecurity[] = securities.map(({ searchAliases: _searchAliases, ...security }) => ({
+        ...security,
+        status: security.status === "delisted" ? "delisted" as const : "active" as const,
+        marketCap: Number.isFinite(security.marketCap) ? security.marketCap : null,
+        priceChangeD1: Number.isFinite(security.priceChangeD1) ? security.priceChangeD1 : null,
+        peRatio: Number.isFinite(security.peRatio) ? security.peRatio : null,
+        returnYTD: Number.isFinite(security.returnYTD) ? security.returnYTD : null,
+        revenueT12M: Number.isFinite(security.revenueT12M) ? security.revenueT12M : null,
+        epsT12M: Number.isFinite(security.epsT12M) ? security.epsT12M : null,
+      }));
+      void writePersistedTickerCatalog(activeMarketTicker, persistable, persistable.length, complete);
     };
 
     const revalidateCatalog = async (
       totalPages: number,
       initialSecurities: SearchSecurity[],
+      firstPageActions: ActionEntity[],
     ) => {
       const refreshRequests = Array.from(
-        { length: totalPages },
+        { length: Math.max(0, totalPages - 1) },
         (_, index) => getAllActions(
-          buildTickerCatalogQuery(activeMarketTicker, index + 1),
+          buildTickerCatalogQuery(activeMarketTicker, index + 2),
           { forceRefetch: true },
         ),
       );
@@ -275,7 +305,7 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
       if (cancelled) return;
 
-      const successfulActions: ActionEntity[] = [];
+      const successfulActions: ActionEntity[] = [...firstPageActions];
       let hasRefreshFailure = false;
       refreshResults.forEach((result) => {
         if (result.status === "fulfilled") {
@@ -294,6 +324,7 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
       applySecurities(refreshedSecurities);
       if (!hasRefreshFailure) {
         lastSuccessfulRefreshByMarketRef.current[activeMarketTicker] = Date.now();
+        persistSecurities(refreshedSecurities, true);
       }
       setSymbolSource(
         hasRefreshFailure
@@ -307,25 +338,40 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
     const loadApiSecurities = async () => {
       try {
-        const firstPage = await getAllActions(buildTickerCatalogQuery(activeMarketTicker, 1));
-        const firstSecurities = mergeApiSecurities([], firstPage.data || [], activeMarketTicker);
+        const persistedSnapshot = await readPersistedTickerCatalog(activeMarketTicker);
+        if (cancelled) return;
+
+        if (persistedSnapshot?.securities.length) {
+          cachedSecurities = restorePersistedSecurities(persistedSnapshot.securities);
+          applySecurities(cachedSecurities);
+          lastSuccessfulRefreshByMarketRef.current[activeMarketTicker] = persistedSnapshot.updatedAt;
+          const cacheAge = Date.now() - persistedSnapshot.updatedAt;
+          setSymbolSource(cacheAge <= MAX_SYMBOLS_STALE_AGE_MS ? "api" : "api_stale");
+          setIsLoadingSymbols(false);
+
+          if (cacheAge <= MAX_SYMBOLS_STALE_AGE_MS) return;
+        }
+
+        const firstPage = await getAllActions(
+          buildTickerCatalogQuery(activeMarketTicker, 1),
+          { forceRefetch: cachedSecurities !== null },
+        );
+        const firstPageActions = firstPage.data || [];
+        const firstSecurities = mergeApiSecurities([], firstPageActions, activeMarketTicker);
 
         if (cancelled) return;
         applySecurities(firstSecurities);
         lastSuccessfulRefreshByMarketRef.current[activeMarketTicker] = Date.now();
+        persistSecurities(firstSecurities, false);
         setSymbolSource(firstSecurities.length > 0 ? "api" : "api_empty");
         setIsLoadingSymbols(false);
 
         const totalPages = Math.max(1, firstPage.total_pages || 1);
-        void revalidateCatalog(totalPages, firstSecurities);
+        void revalidateCatalog(totalPages, firstSecurities, firstPageActions);
       } catch {
         if (cancelled) return;
-        const lastSuccessfulRefresh = lastSuccessfulRefreshByMarketRef.current[activeMarketTicker] ?? null;
-        const staleAge = lastSuccessfulRefresh === null
-          ? Number.POSITIVE_INFINITY
-          : Date.now() - lastSuccessfulRefresh;
 
-        if (hasUsableLocalCache && staleAge <= MAX_SYMBOLS_STALE_AGE_MS) {
+        if (cachedSecurities && cachedSecurities.length > 0) {
           applySecurities(cachedSecurities);
           setSymbolSource("api_stale");
           setIsLoadingSymbols(false);

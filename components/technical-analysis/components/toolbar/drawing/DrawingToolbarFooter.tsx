@@ -232,7 +232,27 @@ interface DrawingToolbarFooterProps {
 export const DrawingToolbarUtilityActions: React.FC<DrawingToolbarControlsProps> = ({ measureActive, iconPickerOpen, onIconPickerOpenChange, onMeasureToggle, onArmIconDrawing, zoomInActive, onZoomInToggle, zoomOutVisible, onZoomOut }) => {
   const iconAnchorRef = useRef<HTMLButtonElement>(null);
   const measureAnchorRef = useRef<HTMLButtonElement>(null);
+  const zoomOutRef = useRef<HTMLButtonElement>(null);
   const [measureTooltipOpen, setMeasureTooltipOpen] = useState(false);
+
+  useEffect(() => {
+    if (!zoomOutVisible || !zoomOutRef.current) return;
+
+    const button = zoomOutRef.current;
+    const scroller = button.closest<HTMLElement>(".gp-toolbar-scroll-container");
+    if (!scroller) return;
+
+    const buttonRect = button.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const bottomOverflow = buttonRect.bottom - scrollerRect.bottom;
+    const topOverflow = scrollerRect.top - buttonRect.top;
+
+    if (bottomOverflow > 0) {
+      scroller.scrollTop += bottomOverflow + 2;
+    } else if (topOverflow > 0) {
+      scroller.scrollTop -= topOverflow + 2;
+    }
+  }, [zoomOutVisible]);
 
   return (
     <>
@@ -283,6 +303,7 @@ export const DrawingToolbarUtilityActions: React.FC<DrawingToolbarControlsProps>
       </button>
       {zoomOutVisible && (
         <button
+          ref={zoomOutRef}
           type="button"
           className={clsx("gp-toolbar-btn", "hover-lift")}
           title="Zoom out"

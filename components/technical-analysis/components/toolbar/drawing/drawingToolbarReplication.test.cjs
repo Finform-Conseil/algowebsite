@@ -22,8 +22,8 @@ test("vertical drawing toolbar density and short-height responsiveness are Tradi
   assert.match(styles, /\.gp-toolbar-footer \{[\s\S]*?gap: 2px;[\s\S]*?padding-top: 2px;/);
   assert.match(styles, /\.gp-vertical-toolbar \.gp-toolbar-divider \{[\s\S]*?height: 1px;[\s\S]*?margin: 4px 0;/);
   assert.match(styles, /> i\.bi \{[\s\S]*?width: var\(--gp-icon-size-md\);[\s\S]*?height: var\(--gp-icon-size-md\);/);
-  assert.match(styles, /@media \(max-height: 760px\) and \(min-width: 769px\)/);
-  assert.match(styles, /overflow-y: auto;[\s\S]*?overscroll-behavior: contain;/);
+  assert.match(styles, /\.gp-toolbar-scroll-container \{[\s\S]*?overflow-x: hidden;[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior-y: contain;/);
+  assert.doesNotMatch(styles, /@media \(max-height: 760px\)[\s\S]*?gp-toolbar-scroll-container/);
   assert.doesNotMatch(styles, /filter: drop-shadow\(0 0 4px rgba\(41,98,255,.8\)\)/);
 });
 
@@ -32,7 +32,7 @@ test("vertical drawing toolbar skeleton is one uninterrupted column matching vis
   const overlayEnd = toolbar.indexOf("export const VerticalDrawingToolbar");
   const overlay = toolbar.slice(overlayStart, overlayEnd);
 
-  assert.match(overlay, /DRAWING_TOOLBAR_VISIBLE_ITEM_COUNT = 15/);
+  assert.match(overlay, /DRAWING_TOOLBAR_VISIBLE_ITEM_COUNT = 14/);
   assert.match(overlay, /Array\.from\(\{ length: DRAWING_TOOLBAR_VISIBLE_ITEM_COUNT \}/);
   assert.doesNotMatch(overlay, /footer-/);
   assert.doesNotMatch(overlay, /borderTop:/);
@@ -163,8 +163,8 @@ test("Zoom In is a TradingView-style armed chart tool and drawing-count contract
   assert.match(technicalAnalysis, /gp-zoom-selection-rect/);
   assert.match(technicalAnalysis, /if \(!existingSelection\)/);
   assert.match(technicalAnalysis, /zoomSelectionGestureRef\.current = \{/);
-  assert.match(technicalAnalysis, /onPointerDownCapture=\{!isMultiChartMode \? handleZoomInPointerDown/);
-  assert.match(technicalAnalysis, /onPointerMoveCapture=\{!isMultiChartMode \? handleZoomInPointerMove/);
+  assert.match(technicalAnalysis, /onPointerDownCapture=\{isEChartsPrimaryRenderer \? handleZoomInPointerDown : undefined\}/);
+  assert.match(technicalAnalysis, /onPointerMoveCapture=\{isEChartsPrimaryRenderer \? handleZoomInPointerMove : undefined\}/);
   assert.doesNotMatch(technicalAnalysis, /onPointerUpCapture=\{!isMultiChartMode \? handleZoomInPointerUp/);
   assert.match(technicalAnalysis, /data-zoom-in-active=\{zoomInModeActive \? "true" : "false"\}/);
   assert.match(technicalAnalysis, /event\.key === "Escape"/);
@@ -210,15 +210,17 @@ test("Measure is a TradingView-style transient utility with Shift hotkey and liv
   assert.match(technicalAnalysis, /onMeasureModeCancel=\{cancelMeasureMode\}/);
 });
 
-test("topbar Undo/Redo expose the real drawing history with TradingView-style availability", () => {
-  assert.match(manager, /historyAvailability/);
-  assert.match(manager, /canUndo: historyAvailability\.canUndo/);
-  assert.match(manager, /canRedo: historyAvailability\.canRedo/);
-  assert.match(manager, /historyStepRef\.current > 0/);
-  assert.match(manager, /historyStepRef\.current < historyRef\.current\.length - 1/);
-  assert.match(manager, /queueMicrotask/);
-  assert.match(manager, /e\.shiftKey[\s\S]*redo\(\)/);
-  assert.match(manager, /e\.key\.toLowerCase\(\) === 'y'/);
+test("topbar Undo/Redo expose the global chart history with TradingView-style availability", () => {
+  assert.match(technicalAnalysis, /useChartHistory\(/);
+  assert.match(technicalAnalysis, /restoreChartHistorySnapshot/);
+  assert.match(technicalAnalysis, /drawings,/);
+  assert.match(technicalAnalysis, /comparisonSymbols/);
+  assert.match(technicalAnalysis, /advancedIndicators/);
+  assert.match(technicalAnalysis, /e\.key\.toLowerCase\(\)/);
+  assert.match(technicalAnalysis, /key === "z"/);
+  assert.match(technicalAnalysis, /key === "y"/);
+  assert.doesNotMatch(manager, /e\.key\.toLowerCase\(\) === 'z'/);
+  assert.doesNotMatch(manager, /e\.key\.toLowerCase\(\) === 'y'/);
   assert.match(chartToolbar, /data-name="undo"/);
   assert.match(chartToolbar, /data-name="redo"/);
   assert.match(chartToolbar, /disabled=\{!canUndo\}/);
@@ -235,11 +237,14 @@ test("topbar Undo/Redo expose the real drawing history with TradingView-style av
 
 test("left drawing-toolbar dropdowns share one exclusive-open contract", () => {
   assert.match(menuState, /onBeforeMenuOpen\?\.\(\);\s*closeAllDropdowns\(\);/);
-  assert.ok((menuState.match(/closeAllDropdowns\(\);/g) || []).length >= 6);
+  assert.ok((menuState.match(/closeAllDropdowns\(\);/g) || []).length >= 5);
   assert.match(toolbar, /useDrawingToolbarMenuState\(mainContainerRef, closeAuxMenus\)/);
   assert.match(toolbar, /setExclusiveAuxMenu\("cursor"\)/);
   assert.match(toolbar, /iconPickerOpen=\{openAuxMenu === "icons"\}/);
   assert.match(toolbar, /onOpenMenuChange=\{\(menu\) => setExclusiveAuxMenu\(menu\)\}/);
+  assert.match(toolbar, /const isDrawingToolActive = isTrendToolActive \|\| isBrushToolActive/);
+  assert.match(toolbar, /bucket === "trend" \|\| bucket === "brush"/);
+  assert.doesNotMatch(toolbar, /BrushToolDropdown|brushDropdownRef|handleBrushButtonClick/);
   assert.match(footer, /iconPickerOpen: boolean/);
   assert.match(footer, /openMenu: DrawingToolbarFooterMenu \| null/);
 });

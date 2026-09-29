@@ -958,7 +958,9 @@
 .gp-toolbar-scroll-container {
   flex: 0 1 auto;
   min-height: 0;
-  overflow-y: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1100,6 +1102,12 @@
 }
 
 .gp-vertical-toolbar .gp-toolbar-btn {
+  flex: 0 0 var(--gp-toolbar-btn-size);
+  min-width: var(--gp-toolbar-btn-size);
+  min-height: var(--gp-toolbar-btn-size);
+  max-width: var(--gp-toolbar-btn-size);
+  max-height: var(--gp-toolbar-btn-size);
+  box-sizing: border-box;
   line-height: 1;
 
   > i.bi {
@@ -1127,18 +1135,6 @@
   &.active > i.bi {
     color: #5b8cff;
     filter: none;
-  }
-}
-
-@media (max-height: 760px) and (min-width: 769px) {
-  .gp-toolbar-scroll-container {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .gp-toolbar-footer {
-    flex: 0 0 auto;
   }
 }
 
@@ -6499,7 +6495,15 @@ textarea.gp-pine-code {
     transform: translate(-50%, -50%) scale(1.1);
   }
 
-  &.flipped svg { transform: rotate(180deg); }
+  &.flipped {
+    // Keep the button anchored on the shell boundary. The global `.flipped`
+    // utility rotates the whole element and would otherwise erase translate(-50%, -50%).
+    transform: translate(-50%, -50%);
+
+    svg { transform: rotate(180deg); }
+
+    &:hover { transform: translate(-50%, -50%) scale(1.1); }
+  }
 }
 
 // Open-state styling only. Position is derived from the real shell boundary,
@@ -6508,6 +6512,13 @@ textarea.gp-pine-code {
   background: rgba(15, 23, 42, 0.95);
   border-color: var(--accent-gold);
   box-shadow: 0 0 20px rgba(255, 159, 4, 0.3);
+}
+
+// When the sidebar collapses, the shell itself becomes width: 0 at the right
+// edge of the clipped main layout. Pull the boundary toggle inward just enough
+// that its full circular hit-target remains visible, including the hover scale.
+.technical-analysis-root.sidebar-closed .gp-sidebar-toggle-btn {
+  left: calc(-1 * var(--gp-layout-gap) - 10px);
 }
 
 // [TENOR 2026 FIX] Hide sidebar toggle button when the Layout Popover is open
@@ -12574,7 +12585,7 @@ textarea.gp-pine-code {
    Pine Editor workbench — measured TradingView-style replication
    ========================================================================== */
 
-.gp-sidebar-shell:has(.gp-sidebar-content[data-active-sidebar-entry="strategies"]) {
+.gp-sidebar-shell:has(.gp-sidebar:not(.sidebar-closed) .gp-sidebar-content[data-active-sidebar-entry="strategies"]) {
   --gp-sidebar-width: 470px;
   flex-basis: var(--gp-sidebar-width);
   width: var(--gp-sidebar-width);

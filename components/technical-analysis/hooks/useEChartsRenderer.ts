@@ -82,11 +82,11 @@ import {
   type CustomRenderApi,
 } from "./chart-rendering/bandSeries";
 import {
-  buildCompareSymbolMarkPoint,
   buildComparisonLineData,
+  buildComparisonPriceValues,
   formatCompareEndValueLabel,
   getLastFiniteComparisonPoint,
-  normalizeComparisonValues,
+  resolveComparisonAxisGutterPx,
 } from "./chart-rendering/comparisonSeries";
 import type { PineChartOverlayPayload } from "../components/sidebar/panels/pineEditor/pineTypes";
 import type { EChartsInstance, TechnicalEChartsOption } from "../lib/types/echarts";
@@ -668,7 +668,6 @@ interface ChartBuilderContext {
   isMainChartVisible: boolean;
   isChartLoading: boolean;
   legendSelection: Record<string, boolean>;
-  comparisonBaselineIndex: number;
   hasLiveStitchedCandle: boolean;
   pineOverlay: PineChartOverlayPayload | null;
   viewportWindowRef: MutableRefObject<{ startIdx: number; endIdx: number; historyGapBars: number }>;
@@ -919,7 +918,6 @@ const buildEChartsOption = ({
   isMainChartVisible,
   isChartLoading,
   legendSelection,
-  comparisonBaselineIndex,
   hasLiveStitchedCandle,
   pineOverlay,
   marketLabel,
@@ -1321,7 +1319,16 @@ const buildEChartsOption = ({
       const id = getCompareSeriesId(entry.comparisonKey);
       return isObjectVisible(id) && isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe);
     });
-  const hasVisibleComparisonSeries = visibleComparisonSeries.length > 0;
+  const preparedComparisonSeries = visibleComparisonSeries.map(({ entry, index }) => ({
+    entry,
+    index,
+    priceValues: buildComparisonPriceValues(
+      entry.data,
+      chartData,
+      entry.settings.priceSource,
+    ),
+  }));
+  const hasVisibleComparisonSeries = preparedComparisonSeries.length > 0;
 
   const mainSeriesVisible = isMainChartVisible && isObjectVisible("main-series");
   const chartTypePlan = buildChartTypeSeries({
@@ -1451,10 +1458,15 @@ const buildEChartsOption = ({
   ].filter((panel): panel is string => panel !== null);
 
   const mainPriceAxisGutterPx = reserveLastPriceAxisBadge ? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;
-  const naturalGridLeft = hasVisibleComparisonSeries ? 60 : MAIN_GRID_LEFT;
+  const comparisonAxisGutterPx = hasVisibleComparisonSeries
+    ? resolveComparisonAxisGutterPx(
+        preparedComparisonSeries.map(({ priceValues }) => priceValues),
+        MAIN_GRID_LEFT,
+      )
+    : MAIN_GRID_LEFT;
   const gridLeft = priceScalePosition === "left"
-    ? Math.max(naturalGridLeft, mainPriceAxisGutterPx)
-    : naturalGridLeft;
+    ? Math.max(comparisonAxisGutterPx, mainPriceAxisGutterPx)
+    : comparisonAxisGutterPx;
   const gridRight = priceScalePosition === "right"
     ? mainPriceAxisGutterPx
     : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;
@@ -1471,8 +1483,9 @@ const buildEChartsOption = ({
   // candles or the title, even when the user configured an aggressively small
   // chart top margin. Compact peer charts keep their dedicated layout contract.
   const hasDedicatedDefaultLegendLane = !hideChartTitle && legendLayoutMode === "default";
+  const minimumDefaultTopMarginPercent = hasVisibleComparisonSeries ? 8.5 : 5.5;
   const topMarginPercent = hasDedicatedDefaultLegendLane
-    ? Math.max(configuredTopMarginPercent, 5.5)
+    ? Math.max(configuredTopMarginPercent, minimumDefaultTopMarginPercent)
     : configuredTopMarginPercent;
   // This percentage is only a pane-sizing budget. It decides where the last
   // lower pane begins; it must never become rendered whitespace. The actual
@@ -5381,28 +5394,28 @@ const buildEChartsOption = ({
     yAxisOptions.push({
       id: "compare-yaxis",
       position: "left",
+      offset: 0,
       gridIndex: 0,
       scale: true,
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { show: false },
-      axisLabel: { color: textColor, fontSize: 11, formatter: (value: number) => value.toFixed(1) + "%" },
+      axisLabel: {
+        color: textColor,
+        fontSize: 11,
+        margin: 8,
+        hideOverlap: true,
+        formatter: (value: number) => formatAxisPriceValue(value),
+      },
     });
   }
 
-  visibleComparisonSeries.forEach(({ entry, index }) => {
+  preparedComparisonSeries.forEach(({ entry, index, priceValues }) => {
     const id = getCompareSeriesId(entry.comparisonKey);
 
     const color = entry.settings.color || getCompareSeriesColor(index);
-    const normalized = normalizeComparisonValues(
-      entry.data,
-      chartData,
-      comparisonBaselineIndex,
-      entry.settings.priceSource,
-    );
-    const symbolMarkPoint = buildCompareSymbolMarkPoint(entry.label, color, dates, normalized);
-    const lastPoint = getLastFiniteComparisonPoint(dates, normalized);
-    const lineData = buildComparisonLineData(dates, normalized);
+    const lastPoint = getLastFiniteComparisonPoint(dates, priceValues);
+    const lineData = buildComparisonLineData(dates, priceValues);
 
     seriesOptions.push({
       id,
@@ -5413,10 +5426,11 @@ const buildEChartsOption = ({
       encode: { x: 0, y: 1 },
       data: lineData,
       showSymbol: false,
-      connectNulls: true,
-      smooth: true,
+      connectNulls: false,
+      smooth: false,
+      step: false,
       // [TENOR 2026 PERF — ÉTAPE 2] LTTB downsampling for comparison series.
-      // Normalized percentage values; LTTB safe — no anchor data or drawing tool refs.
+      // Raw comparison prices; LTTB safe — no anchor data or drawing tool refs.
       sampling: "lttb",
       z: 30,
       lineStyle: {
@@ -5440,18 +5454,22 @@ const buildEChartsOption = ({
         : {}),
       endLabel: {
         show: true,
-        formatter: (params: { value?: unknown }) => formatCompareEndValueLabel(params.value),
+        formatter: (params: { value?: unknown }) => {
+          const priceLabel = formatCompareEndValueLabel(params.value);
+          return priceLabel ? `${entry.label}  ${priceLabel}` : entry.label;
+        },
         color: "#ffffff",
-        backgroundColor: color,
-        borderWidth: 0,
-        borderRadius: [0, 1, 1, 0],
-        padding: [2, 4],
-        distance: 4,
+        backgroundColor: "rgba(12, 34, 64, 0.92)",
+        borderColor: color,
+        borderWidth: 1,
+        borderRadius: 4,
+        padding: [4, 7],
+        distance: 8,
         fontSize: 11,
         fontWeight: 700,
+        lineHeight: 14,
       },
       labelLayout: { moveOverlap: "shiftY" },
-      ...(symbolMarkPoint ? { markPoint: symbolMarkPoint } : {}),
     });
   });
 
@@ -5502,7 +5520,10 @@ const buildEChartsOption = ({
     stableAxisSeriesOptions
       .filter((series) => {
         const seriesId = typeof series.id === "string" ? series.id : "";
-        return seriesId !== "main-series" && !seriesId.startsWith("pane-shield-") && !hiddenLegendSeriesIds.has(seriesId);
+        return seriesId !== "main-series"
+          && !seriesId.startsWith("compare-")
+          && !seriesId.startsWith("pane-shield-")
+          && !hiddenLegendSeriesIds.has(seriesId);
       })
       .map((series) => series.name)
       .filter((name): name is string => typeof name === "string"),
@@ -5691,8 +5712,6 @@ export const useEChartsRenderer = ({
   const dispatch = useDispatch();
   const [legendSelection, setLegendSelection] = useState<Record<string, boolean>>({});
   const legendSelectionRef = useRef<Record<string, boolean>>({});
-  const comparisonBaselineRafRef = useRef<number | null>(null);
-  const comparisonBaselineIndexRef = useRef(0);
 
   // [TENOR 2026 SRE] Strict Lifecycle Guard for RAFs and Observers
   const isMountedRef = useRef(true);
@@ -6124,55 +6143,6 @@ export const useEChartsRenderer = ({
     scheduleChartMutation,
   });
 
-  // ============================================================================
-  // [TENOR 2026 HDR] DYNAMIC COMPARISON BASELINE (TradingView Parity)
-  // Recalculates the 0% baseline based on the first visible point during zoom.
-  // ============================================================================
-  const updateComparisonBaselines = useCallback(() => {
-    if (!isMountedRef.current || !chartInstanceRef.current || chartInstanceRef.current.isDisposed() || renderComparisonSeries.length === 0) return;
-
-    try {
-      const chart = chartInstanceRef.current;
-      const option = chart.getOption();
-      const dz = option.dataZoom as any[];
-      let startIdx = 0;
-
-      if (dz && dz.length > 0 && dz[0].startValue !== undefined) {
-        startIdx = Math.max(0, Math.floor(dz[0].startValue));
-      }
-
-      comparisonBaselineIndexRef.current = startIdx;
-
-      const newSeries = renderComparisonSeries
-        .filter((entry) => (
-          !hiddenObjectIds[getCompareSeriesId(entry.comparisonKey)] &&
-          isCompareSeriesVisibleForTimeframe(entry.settings, chartConfig.timeframe)
-        ))
-        .map((entry) => {
-          const normalized = normalizeComparisonValues(entry.data, renderChartData, startIdx, entry.settings.priceSource);
-          return {
-            id: getCompareSeriesId(entry.comparisonKey),
-            data: buildComparisonLineData(dates, normalized),
-          };
-        });
-
-      // Update only the series data without triggering a full re-render or datazoom event.
-      scheduleChartMutation("comparison-baselines", (targetChart) => {
-        targetChart.setOption({ series: newSeries });
-      });
-    } catch (e) {
-      console.warn("[SRE] Failed to update comparison baselines", e);
-    }
-  }, [chartConfig.timeframe, renderComparisonSeries, chartInstanceRef, hiddenObjectIds, renderChartData, dates, scheduleChartMutation]);
-
-  const scheduleComparisonBaselines = useCallback(() => {
-    if (renderComparisonSeries.length === 0 || comparisonBaselineRafRef.current !== null) return;
-    comparisonBaselineRafRef.current = requestAnimationFrame(() => {
-      comparisonBaselineRafRef.current = null;
-      updateComparisonBaselines();
-    });
-  }, [renderComparisonSeries.length, updateComparisonBaselines]);
-
   // --- ECHARTS RENDER LOGIC (React Cycle) ---
   useEffect(() => {
     const renderGeneration = ++chartRenderGenerationRef.current;
@@ -6309,7 +6279,6 @@ export const useEChartsRenderer = ({
       isChartLoading,
       viewportWindowRef,
       legendSelection: legendSelectionRef.current,
-      comparisonBaselineIndex: comparisonBaselineIndexRef.current,
       hasLiveStitchedCandle,
       pineOverlay,
       chartContainerHeightPx: stockChartRef.current?.clientHeight ?? 720,
@@ -6434,9 +6403,6 @@ export const useEChartsRenderer = ({
           completeHistoryPrependCommit(renderChartData.length);
           applyViewport("immediate");
       });
-      if (renderComparisonSeries.length > 0) {
-        scheduleComparisonBaselines();
-      }
       scheduleVisualReadyFallback();
     }
 
@@ -6517,23 +6483,15 @@ export const useEChartsRenderer = ({
     chart.on('legendselectchanged', handleLegendChange);
     chart.on('click', handleChartItemClick);
     chart.on('dblclick', handleIndicatorDoubleClick);
-    chart.on('datazoom', scheduleComparisonBaselines);
-    chart.on('restore', scheduleComparisonBaselines);
 
     return () => {
       if (resizeRafId !== null) cancelAnimationFrame(resizeRafId);
       visualReadyRafIds.forEach((visualReadyRafId) => cancelAnimationFrame(visualReadyRafId));
-      if (comparisonBaselineRafRef.current !== null) {
-        cancelAnimationFrame(comparisonBaselineRafRef.current);
-        comparisonBaselineRafRef.current = null;
-      }
       if (chart && !chart.isDisposed()) {
         chart.off('finished', reportVisualReady);
         chart.off('legendselectchanged', handleLegendChange);
         chart.off('click', handleChartItemClick);
         chart.off('dblclick', handleIndicatorDoubleClick);
-        chart.off('datazoom', scheduleComparisonBaselines);
-        chart.off('restore', scheduleComparisonBaselines);
       }
       resizeObserver.disconnect();
     };
@@ -6583,7 +6541,6 @@ export const useEChartsRenderer = ({
     hasLiveStitchedCandle,
     hasVisibleComparisonEndLabels,
     scheduleChartMutation,
-    scheduleComparisonBaselines,
     completeHistoryPrependCommit,
     visibleCompareSymbolLookup,
     onCompareSeriesSettingsRequest,

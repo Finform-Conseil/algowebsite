@@ -206,6 +206,11 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
   ] satisfies AuditTrailItem[];
 
   const handleRailSelect = (entryId: SidebarRailEntryId) => {
+    if (entryId === "strategies" && activeEntry === "strategies" && !props.isObjectTreeOpen) {
+      props.onRequestSidebarCollapse?.();
+      return;
+    }
+
     actions.setActiveSidebarEntry(entryId);
     if (entryId === "object-tree") {
       if (!props.isObjectTreeOpen) props.onToggleObjectTree?.();

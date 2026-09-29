@@ -102,15 +102,6 @@ const renderRailButton = (
   const isActive = activeEntry === entry.id;
   const selectEntry = () => onSelect(entry.id);
   const tooltipLabel = entry.label === entry.tradingViewLabel ? entry.label : entry.label + " (" + entry.tradingViewLabel + ")";
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    selectEntry();
-  };
-  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return;
-    selectEntry();
-  };
 
   return (
     <button
@@ -123,8 +114,6 @@ const renderRailButton = (
       data-sidebar-entry={entry.id}
       data-tradingview-label={entry.tradingViewLabel}
       onClick={selectEntry}
-      onKeyDown={handleKeyDown}
-      onPointerDown={handlePointerDown}
     >
       <Icon aria-hidden="true" focusable="false" />
     </button>
@@ -142,12 +131,6 @@ export const SidebarRail = React.memo(({ activeEntry, isProductsMenuOpen = false
     if (onProductsClick) onProductsClick();
   };
 
-  const handleProductsKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    handleProductsClick();
-  };
-
   const ProductsIcon = PRODUCTS_ENTRY.icon;
 
   return (
@@ -163,7 +146,6 @@ export const SidebarRail = React.memo(({ activeEntry, isProductsMenuOpen = false
         aria-haspopup="menu"
         aria-expanded={isProductsMenuOpen}
         onClick={handleProductsClick}
-        onKeyDown={handleProductsKeyDown}
         data-sidebar-entry="products"
       >
         <ProductsIcon aria-hidden="true" focusable="false" />

@@ -3,7 +3,6 @@ import { useCallback, useState, type MouseEvent, type RefObject } from "react";
 import { useFloatingMenu } from "../../../hooks/useFloatingMenu";
 import type {
   AnnotationDropdownView,
-  BrushDropdownView,
   ChartPatternsDropdownView,
   FibDropdownView,
   ForecastingDropdownView,
@@ -18,7 +17,6 @@ export const useDrawingToolbarMenuState = (
   const fibMenu = useFloatingMenu(mainContainerRef);
   const chartPatternsMenu = useFloatingMenu(mainContainerRef);
   const forecastingMenu = useFloatingMenu(mainContainerRef);
-  const brushMenu = useFloatingMenu(mainContainerRef);
   const annotationsMenu = useFloatingMenu(mainContainerRef);
   const { isOpen: isTrendMenuOpen, setIsOpen: setTrendMenuOpen, toggle: toggleTrendMenu } = trendMenu;
   const { isOpen: isFibMenuOpen, setIsOpen: setFibMenuOpen, toggle: toggleFibMenu } = fibMenu;
@@ -33,11 +31,6 @@ export const useDrawingToolbarMenuState = (
     toggle: toggleForecastingMenu,
   } = forecastingMenu;
   const {
-    isOpen: isBrushMenuOpen,
-    setIsOpen: setBrushMenuOpen,
-    toggle: toggleBrushMenu,
-  } = brushMenu;
-  const {
     isOpen: isAnnotationsMenuOpen,
     setIsOpen: setAnnotationsMenuOpen,
     toggle: toggleAnnotationsMenu,
@@ -51,8 +44,6 @@ export const useDrawingToolbarMenuState = (
   const [chartPatternsDropdownView, setChartPatternsDropdownView] = useState<ChartPatternsDropdownView>("categories");
   const [forecastingSearchQuery, setForecastingSearchQuery] = useState("");
   const [forecastingDropdownView, setForecastingDropdownView] = useState<ForecastingDropdownView>("categories");
-  const [brushSearchQuery, setBrushSearchQuery] = useState("");
-  const [brushDropdownView, setBrushDropdownView] = useState<BrushDropdownView>("categories");
   const [annotationsSearchQuery, setAnnotationsSearchQuery] = useState("");
   const [annotationsDropdownView, setAnnotationsDropdownView] = useState<AnnotationDropdownView>("categories");
 
@@ -61,9 +52,8 @@ export const useDrawingToolbarMenuState = (
     setFibMenuOpen(false);
     setChartPatternsMenuOpen(false);
     setForecastingMenuOpen(false);
-    setBrushMenuOpen(false);
     setAnnotationsMenuOpen(false);
-  }, [setTrendMenuOpen, setFibMenuOpen, setChartPatternsMenuOpen, setForecastingMenuOpen, setBrushMenuOpen, setAnnotationsMenuOpen]);
+  }, [setTrendMenuOpen, setFibMenuOpen, setChartPatternsMenuOpen, setForecastingMenuOpen, setAnnotationsMenuOpen]);
 
   const toggleTrendDropdown = useCallback((event: MouseEvent) => {
     if (!isTrendMenuOpen) {
@@ -110,15 +100,6 @@ export const useDrawingToolbarMenuState = (
     toggleAnnotationsMenu(event);
   }, [closeAllDropdowns, isAnnotationsMenuOpen, onBeforeMenuOpen, toggleAnnotationsMenu]);
 
-  const toggleBrushDropdown = useCallback((event: MouseEvent) => {
-    if (!isBrushMenuOpen) {
-      onBeforeMenuOpen?.();
-      closeAllDropdowns();
-      setBrushDropdownView("categories");
-    }
-    toggleBrushMenu(event);
-  }, [closeAllDropdowns, isBrushMenuOpen, onBeforeMenuOpen, toggleBrushMenu]);
-
   return {
     trend: {
       ...trendMenu,
@@ -151,14 +132,6 @@ export const useDrawingToolbarMenuState = (
       view: forecastingDropdownView,
       setView: setForecastingDropdownView,
       toggle: toggleForecastingDropdown,
-    },
-    brush: {
-      ...brushMenu,
-      searchQuery: brushSearchQuery,
-      setSearchQuery: setBrushSearchQuery,
-      view: brushDropdownView,
-      setView: setBrushDropdownView,
-      toggle: toggleBrushDropdown,
     },
     annotations: {
       ...annotationsMenu,

@@ -25,9 +25,14 @@ test("toggle follows the real shell boundary instead of a duplicated sidebar wid
   assert.doesNotMatch(styles, /\.technical-analysis-root:not\(\.sidebar-closed\) \.gp-sidebar-toggle-btn\s*\{[\s\S]*?right:\s*calc\(var\(--gp-sidebar-width\)/);
 });
 
+test("closed sidebar keeps the full toggle inside the clipped main layout", () => {
+  assert.match(styles, /\.technical-analysis-root\.sidebar-closed \.gp-sidebar-toggle-btn\s*\{[\s\S]*?left:\s*calc\(-1 \* var\(--gp-layout-gap\) - 10px\);/);
+  assert.match(styles, /&\.flipped\s*\{[\s\S]*?transform:\s*translate\(-50%, -50%\);[\s\S]*?svg\s*\{\s*transform:\s*rotate\(180deg\);\s*\}/);
+});
+
 test("wide Pine Editor changes shell width without special-casing the toggle", () => {
-  assert.match(styles, /\.gp-sidebar-shell:has\(\.gp-sidebar-content\[data-active-sidebar-entry="strategies"\]\)\s*\{[\s\S]*?--gp-sidebar-width:\s*470px;/);
-  assert.doesNotMatch(styles, /data-active-sidebar-entry="strategies"[\s\S]{0,500}\.gp-sidebar-toggle-btn/);
+  assert.match(styles, /\.gp-sidebar-shell:has\(\.gp-sidebar:not\(\.sidebar-closed\) \.gp-sidebar-content\[data-active-sidebar-entry="strategies"\]\)\s*\{[\s\S]*?--gp-sidebar-width:\s*470px;/);
+  assert.doesNotMatch(styles, /\.gp-sidebar-shell:has\([^}]*data-active-sidebar-entry="strategies"[^}]*\)\s+\.gp-sidebar-toggle-btn\s*\{/);
 });
 
 test("responsive rules preserve the structural boundary anchor", () => {

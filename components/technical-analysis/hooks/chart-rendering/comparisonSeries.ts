@@ -1,10 +1,6 @@
 import type { ChartDataPoint } from "../../lib/Indicators/TechnicalIndicators";
-import {
-  normalizeCompareSymbol,
-  type CompareSeriesPriceSource,
-} from "../../config/compare-series/compareSeries";
+import type { CompareSeriesPriceSource } from "../../config/compare-series/compareSeries";
 
-type ChartOptionPart = Record<string, unknown>;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -47,24 +43,15 @@ const resolveComparisonPrice = (
   return Number.isFinite(dailyPrice) ? dailyPrice as number : null;
 };
 
-export const normalizeComparisonValues = (
+export const buildComparisonPriceValues = (
   data: ChartDataPoint[],
   mainData: ChartDataPoint[],
-  startIndex: number,
   priceSource: CompareSeriesPriceSource,
 ): Array<number | null> => {
   const lookup = buildComparisonPriceLookup(data, priceSource);
-  let basePrice: number | null = null;
-
-  for (let index = Math.max(0, startIndex); index < mainData.length; index++) {
-    basePrice = resolveComparisonPrice(lookup, mainData[index].time);
-    if (isFiniteNumber(basePrice) && basePrice !== 0) break;
-  }
-
   return mainData.map((point) => {
-    const close = resolveComparisonPrice(lookup, point.time);
-    if (!isFiniteNumber(close) || !isFiniteNumber(basePrice) || basePrice === 0) return null;
-    return Number((((close - basePrice) / basePrice) * 100).toFixed(2));
+    const price = resolveComparisonPrice(lookup, point.time);
+    return isFiniteNumber(price) ? price : null;
   });
 };
 
@@ -78,28 +65,49 @@ export const buildComparisonLineData = (
     return items;
   }, []);
 
-const getCompareLabelSymbolBackground = (color: string): string => {
-  const match = color.match(/^#([0-9a-f]{6})$/i);
-  if (!match) return color;
-
-  const value = Number.parseInt(match[1], 16);
-  const red = Math.round(((value >> 16) & 255) * 0.86);
-  const green = Math.round(((value >> 8) & 255) * 0.86);
-  const blue = Math.round((value & 255) * 0.86);
-
-  return `rgb(${red}, ${green}, ${blue})`;
-};
-
 export const formatCompareEndValueLabel = (value: unknown): string => {
   const rawValue = Array.isArray(value) ? value[1] : value;
   const numericValue = Number(rawValue);
   if (!Number.isFinite(numericValue)) return "";
-  const sign = numericValue > 0 ? "+" : "";
-  return `${sign}${numericValue.toFixed(2)}%`;
+  const fractionDigits = Math.abs(numericValue) < 10 ? 4 : 2;
+  return numericValue.toLocaleString("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
 };
 
-const formatCompareSymbolLabel = (symbol: string): string =>
-  normalizeCompareSymbol(symbol).replace(/[{}|]/g, "");
+const COMPARE_AXIS_ESTIMATED_GLYPH_WIDTH_PX = 6.5;
+const COMPARE_AXIS_LABEL_MARGIN_PX = 8;
+const COMPARE_AXIS_SAFE_PADDING_PX = 8;
+const COMPARE_AXIS_MIN_GUTTER_PX = 72;
+const COMPARE_AXIS_MAX_GUTTER_PX = 128;
+
+export const resolveComparisonAxisGutterPx = (
+  valueSets: ReadonlyArray<ReadonlyArray<number | null>>,
+  fallbackPx: number,
+): number => {
+  let maxLabelLength = 0;
+
+  valueSets.forEach((values) => {
+    values.forEach((value) => {
+      if (!isFiniteNumber(value)) return;
+      maxLabelLength = Math.max(maxLabelLength, formatCompareEndValueLabel(value).length);
+    });
+  });
+
+  if (maxLabelLength === 0) return fallbackPx;
+
+  const estimatedLabelWidth = Math.ceil(
+    maxLabelLength * COMPARE_AXIS_ESTIMATED_GLYPH_WIDTH_PX
+      + COMPARE_AXIS_LABEL_MARGIN_PX
+      + COMPARE_AXIS_SAFE_PADDING_PX,
+  );
+
+  return Math.min(
+    COMPARE_AXIS_MAX_GUTTER_PX,
+    Math.max(fallbackPx, COMPARE_AXIS_MIN_GUTTER_PX, estimatedLabelWidth),
+  );
+};
 
 export const getLastFiniteComparisonPoint = (
   dates: string[],
@@ -113,38 +121,4 @@ export const getLastFiniteComparisonPoint = (
   }
 
   return null;
-};
-
-export const buildCompareSymbolMarkPoint = (
-  symbol: string,
-  color: string,
-  dates: string[],
-  normalized: Array<number | null>,
-): ChartOptionPart | undefined => {
-  const label = formatCompareSymbolLabel(symbol);
-  const lastPoint = getLastFiniteComparisonPoint(dates, normalized);
-  if (!label || !lastPoint) return undefined;
-
-  return {
-    animation: false,
-    silent: false,
-    symbol: "rect",
-    symbolSize: 1,
-    data: [{
-      coord: [lastPoint.date, lastPoint.value],
-      label: {
-        show: true,
-        formatter: label,
-        position: "left",
-        distance: 0,
-        color: "#ffffff",
-        backgroundColor: getCompareLabelSymbolBackground(color),
-        borderRadius: [1, 0, 0, 1],
-        padding: [2, 4],
-        fontSize: 11,
-        fontWeight: 700,
-      },
-      itemStyle: { color: "transparent" },
-    }],
-  };
 };

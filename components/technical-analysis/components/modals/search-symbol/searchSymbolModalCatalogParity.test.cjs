@@ -15,10 +15,13 @@ test("compare symbol modal requires an explicit supported exchange before loadin
   assert.match(modalSource, /const activeMarketTicker = selectedMarketTicker \?\? "";/);
   assert.match(modalSource, /if \(!isOpen \|\| !activeMarketTicker\)/);
   assert.match(modalSource, /buildTickerCatalogQuery\(activeMarketTicker, 1\)/);
-  assert.match(modalSource, /buildTickerCatalogQuery\(activeMarketTicker, index \+ 1\)/);
+  assert.match(modalSource, /buildTickerCatalogQuery\(activeMarketTicker, index \+ 2\)/);
+  assert.match(modalSource, /readPersistedTickerCatalog\(activeMarketTicker\)/);
+  assert.match(modalSource, /writePersistedTickerCatalog\(activeMarketTicker/);
+  assert.match(modalSource, /if \(cacheAge <= MAX_SYMBOLS_STALE_AGE_MS\) return;/);
   assert.match(modalSource, /createCompareInstrumentKey\(activeMarketTicker, normalizedSymbol\)/);
   assert.match(modalSource, /dispatch\(addComparisonSymbol\(comparisonKey\)\)/);
-  assert.match(modalSource, /apiSecuritiesByMarketRef/);
+  assert.doesNotMatch(modalSource, /apiSecuritiesByMarketRef/);
   assert.match(modalSource, /lastSuccessfulRefreshByMarketRef/);
   assert.match(modalSource, /isActionInMarket\(action, marketTicker\)/);
   assert.doesNotMatch(modalSource, /const activeMarketTicker = normalizeSearch\(activeMarket\.ticker \|\| "BRVM"\)/);

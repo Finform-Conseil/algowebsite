@@ -7,6 +7,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import { initialState } from "./initialState";
 import { alertOrderReducers } from "./reducers/alertOrderReducers";
 import { chartConfigReducers } from "./reducers/chartConfigReducers";
+import { chartHistoryReducers } from "./reducers/chartHistoryReducers";
 import { indicatorReducers } from "./reducers/indicatorReducers";
 import { marketDataReducers } from "./reducers/marketDataReducers";
 import { multiChartReducers } from "./reducers/multiChartReducers";
@@ -22,6 +23,7 @@ export const technicalAnalysisSlice = createSlice({
   initialState,
   reducers: {
     ...chartConfigReducers,
+    ...chartHistoryReducers,
     ...indicatorReducers,
     ...uiReducers,
     ...multiChartReducers,
@@ -41,6 +43,7 @@ export const {
   setChartType,
   toggleChartType,
   setChartConfig,
+  restoreChartHistorySnapshot,
   toggleAdvancedIndicator,
   setAdvancedIndicators,
   setIndicatorPeriods,

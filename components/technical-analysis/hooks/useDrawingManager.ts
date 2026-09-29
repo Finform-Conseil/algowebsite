@@ -2534,19 +2534,10 @@ export const useDrawingManager = ({
     if ((e.key === "Delete" || e.key === "Backspace") && selectedIdRef.current) {
       deleteDrawing(selectedIdRef.current);
     }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-      e.preventDefault();
-      if (e.shiftKey) {
-        redo();
-      } else {
-        undo();
-      }
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-      e.preventDefault();
-      redo();
-    }
-  }, [cancelDrawingSession, deleteDrawing, undo, redo]);
+    // Undo/Redo is intentionally owned by the global TechnicalAnalysis history.
+    // Keeping a second drawing-only Ctrl/Cmd+Z listener here would execute two
+    // independent history stacks for the same keystroke.
+  }, [cancelDrawingSession, deleteDrawing]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);

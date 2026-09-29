@@ -35,6 +35,7 @@ export interface TechnicalAnalysisSidebarProps {
   openTickerSelector?: () => void;
   onPineOverlayAttach?: (overlay: PineChartOverlayPayload | null) => void;
   onPineOverlayClear?: () => void;
+  onRequestSidebarCollapse?: () => void;
 }
 
 export type IncomeViewMode = "annual" | "quarterly";
