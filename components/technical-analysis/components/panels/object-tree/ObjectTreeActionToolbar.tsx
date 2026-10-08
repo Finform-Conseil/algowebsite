@@ -35,12 +35,12 @@ const zOrderMenuStyle: React.CSSProperties = {
   position: "absolute",
   top: "40px",
   left: "60px",
-  background: "#1e222d",
+  background: "var(--gp-bg-popover)",
   border: TV.border,
-  borderRadius: 4,
+  borderRadius: "var(--gp-radius-sm)",
   zIndex: 2000,
-  padding: 4,
-  boxShadow: "0 8px 16px rgba(0,0,0,0.4)",
+  padding: "var(--gp-space-2xs)",
+  boxShadow: "var(--shadow-elevated)",
   minWidth: 170,
 };
 
@@ -48,19 +48,19 @@ const globalActionMenuStyle: React.CSSProperties = {
   position: "absolute",
   top: "40px",
   right: "14px",
-  background: "#1e222d",
+  background: "var(--gp-bg-popover)",
   border: TV.border,
-  borderRadius: 4,
+  borderRadius: "var(--gp-radius-sm)",
   zIndex: 2000,
-  padding: 4,
-  boxShadow: "0 8px 16px rgba(0,0,0,0.4)",
+  padding: "var(--gp-space-2xs)",
+  boxShadow: "var(--shadow-elevated)",
   minWidth: 160,
 };
 
 const menuDividerStyle: React.CSSProperties = {
   height: 1,
-  background: "rgba(255,255,255,0.06)",
-  margin: "4px 0",
+  background: "var(--gp-border-color-light)",
+  margin: "var(--gp-space-2xs) 0",
 };
 
 const MenuButton: React.FC<MenuButtonProps> = ({ icon, children, onClick, style }) => (

@@ -1,4 +1,5 @@
 import React from "react";
+import clsx from "clsx";
 import type { AllToolType } from "../../../config/drawing/drawingToolTypes";
 import { getDrawingToolIcon } from "../../../config/drawing/drawingToolIconRegistry";
 import { TOOL_CATEGORIES } from "../../../config/drawing/drawingConstants";
@@ -17,7 +18,6 @@ import {
   type ForecastingDropdownView,
   type TrendDropdownView,
 } from "./drawingToolFilters";
-import { getActiveOptionStyle } from "./drawingToolbarTheme";
 import { cloneIconWithActiveState } from "./toolIconCatalog";
 
 type ToolPortalPosition = {
@@ -40,36 +40,84 @@ interface BaseDropdownProps<View extends string> {
 
 const headerStyle: React.CSSProperties = { padding: "8px 12px 6px 12px", fontSize: "10.5px", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase", color: "rgba(255, 255, 255, 0.4)", borderBottom: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: "4px", userSelect: "none" };
 
+const DRAWING_FAVORITES_KEY = "finform.ta.drawing-tool-favorites.v1";
+const favoriteListeners = new Set<() => void>();
+const favoriteSnapshot = () => {
+  if (typeof window === "undefined") return "[]";
+  try { return window.localStorage.getItem(DRAWING_FAVORITES_KEY) ?? "[]"; }
+  catch { return "[]"; }
+};
+const subscribeFavorites = (listener: () => void) => {
+  favoriteListeners.add(listener);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === DRAWING_FAVORITES_KEY || event.key === null) listener();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+  return () => {
+    favoriteListeners.delete(listener);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
+  };
+};
+export const useDrawingFavorites = () => {
+  const snapshot = React.useSyncExternalStore(subscribeFavorites, favoriteSnapshot, () => "[]");
+  const favorites = React.useMemo(() => {
+    try {
+      const values: unknown = JSON.parse(snapshot);
+      return Array.isArray(values) ? values.filter((value): value is AllToolType => typeof value === "string") : [];
+    } catch { return [] as AllToolType[]; }
+  }, [snapshot]);
+  const toggle = React.useCallback((id: AllToolType) => {
+    const next = favorites.includes(id) ? favorites.filter((value) => value !== id) : [...favorites, id];
+    try { window.localStorage.setItem(DRAWING_FAVORITES_KEY, JSON.stringify(next)); }
+    catch { return; }
+    favoriteListeners.forEach((listener) => listener());
+  }, [favorites]);
+  return { favorites, toggle };
+};
+
 const ToolRow: React.FC<{
   tool: { id: AllToolType; label: string; category?: string };
   isActive: boolean;
   showCategory?: boolean;
   useClonedIcon?: boolean;
   onSelect: (toolId: AllToolType) => void;
-}> = ({ tool, isActive, showCategory = false, useClonedIcon = false, onSelect }) => (
-  <div
-    key={tool.id}
-    className="gp-cursor-option"
-    style={getActiveOptionStyle(isActive)}
-    title={tool.label ?? tool.id}
-    onMouseDown={(event) => {
-      event.preventDefault();
-      onSelect(tool.id);
-    }}
-  >
-    <div className="icon-container">
-      {useClonedIcon ? cloneIconWithActiveState(getDrawingToolIcon(tool.id), isActive) : getDrawingToolIcon(tool.id)}
+}> = ({ tool, isActive, showCategory = false, useClonedIcon = false, onSelect }) => {
+  const { favorites, toggle } = useDrawingFavorites();
+  const isFavorite = favorites.includes(tool.id);
+  return (
+    <div className={clsx("gp-cursor-option-row", "gp-drawing-tool-option-row", isActive && "active")}>
+      <button
+        type="button"
+        className={clsx("gp-cursor-option", isActive && "active")}
+        title={tool.label ?? tool.id}
+        aria-pressed={isActive}
+        onClick={() => onSelect(tool.id)}
+      >
+        <span className="icon-container" aria-hidden="true">
+          {useClonedIcon ? cloneIconWithActiveState(getDrawingToolIcon(tool.id), isActive) : getDrawingToolIcon(tool.id)}
+        </span>
+        {showCategory ? (
+          <span className="gp-drawing-tool-option-label">
+            <span className="gp-cursor-label">{tool.label || ""}</span>
+            <span className="gp-drawing-tool-option-category">{tool.category}</span>
+          </span>
+        ) : <span className="gp-cursor-label">{tool.label || ""}</span>}
+      </button>
+      <button
+        type="button"
+        className={clsx("gp-cursor-favorite-button", isFavorite && "is-favorite")}
+        aria-label={`${isFavorite ? "Retirer" : "Ajouter"} ${tool.label} ${isFavorite ? "des" : "aux"} favoris`}
+        aria-pressed={isFavorite}
+        onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+        onClick={(event) => { event.stopPropagation(); toggle(tool.id); }}
+      >
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+          <path d="M9 2.13l1.903 3.855.116.236.26.038 4.255.618-3.079 3.001-.188.184.044.26.727 4.238L9.1 13.742 9 13.69l-.1.052-3.806 2.001.727-4.238.044-.26-.188-.184-3.079-3.001 4.255-.618.26-.038.116-.236L9 2.13Z" />
+        </svg>
+      </button>
     </div>
-    {showCategory ? (
-      <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-        <span className="gp-cursor-label">{tool.label || ""}</span>
-        <span style={{ fontSize: "10px", color: "#787b86" }}>{tool.category}</span>
-      </div>
-    ) : (
-      <span className="gp-cursor-label">{tool.label || ""}</span>
-    )}
-  </div>
-);
+  );
+};
 
 const DRAWING_CATALOG_SECTIONS = [
   { id: "drawing_tools", label: "LIGNES ET MESURES", kind: "trend", category: TOOL_CATEGORIES.LINES_MEASURES },

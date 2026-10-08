@@ -44,6 +44,16 @@ test("daily history extension is single-page and single-flight per boundary cros
   assert.doesNotMatch(marketDataHook, /Promise\.all\(pagePromises\)/);
 });
 
+test("an exhausted left boundary explains the authoritative API limit instead of failing silently", () => {
+  assert.match(marketDataHook, /const notifyHistoryBoundaryLimit = useCallback/);
+  assert.match(marketDataHook, /title: "Début des données disponibles"/);
+  assert.match(marketDataHook, /l’API ne fournit aucune bougie antérieure au/);
+  assert.match(marketDataHook, /terminalPageBounds = resolveChartDataDateBounds\(incomingSeries\)/);
+  assert.match(marketDataHook, /notifyHistoryBoundaryLimit\(upperTicker, terminalPageBounds\?\.minDate\)/);
+  assert.match(marketDataHook, /if \(historyExhaustedRef\.current\) \{\s*notifyHistoryBoundaryLimit\(historyTicker\);/);
+  assert.match(marketDataHook, /historyBoundaryNoticeScopeRef\.current = ""/);
+});
+
 test("date-range bounds come from the complete API history rather than only the first 100 candles", () => {
   assert.match(marketDataHook, /publishAvailableHistoryBounds/);
   assert.match(marketDataHook, /page: totalPages,[\s\S]*?page_size: OHLCV_PAGE_SIZE/);

@@ -131,8 +131,21 @@ export const resolveRenderedTimeAxisWindow = ({
   });
 
   if (renderedPoints.length === 0) {
-    const startValue = Math.max(0, Math.min(axisCategories.length - 1, safeHistoryGap + Math.round(sourceStartIdx)));
-    const endValue = Math.max(startValue, Math.min(axisCategories.length - 1, safeHistoryGap + Math.round(sourceEndIdx)));
+    const startValue = Math.max(0, Math.min(axisCategories.length - 1, safeHistoryGap + sourceStartIdx));
+    const endValue = Math.max(startValue, Math.min(axisCategories.length - 1, safeHistoryGap + sourceEndIdx));
+    return { startValue, endValue };
+  }
+
+  // Standard OHLC/candlestick/volume charts are one-to-one with source bars.
+  // Preserve fractional logical coordinates so dataZoom can animate continuously
+  // instead of snapping to whole candle indexes. Sparse/transformed chart types
+  // keep the date-based projection below.
+  const isDirectSourceAxis = renderedPoints.length === sourceTimes.length
+    && renderedPoints.every((point, sourceIndex) => point.sourceIndex === sourceIndex);
+  if (isDirectSourceAxis) {
+    const firstAxisIndex = renderedPoints[0].axisIndex;
+    const startValue = Math.max(0, Math.min(axisCategories.length - 1, firstAxisIndex + sourceStartIdx));
+    const endValue = Math.max(startValue, Math.min(axisCategories.length - 1, firstAxisIndex + sourceEndIdx));
     return { startValue, endValue };
   }
 

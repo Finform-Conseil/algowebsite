@@ -108,7 +108,9 @@ test("TradingView replica CSS locks the modal geometry and dark blue visual syst
     ".tv-settings-footer",
   ].forEach((token) => assert.ok(stylesheet.includes(token), `missing ${token}`));
 
-  assert.doesNotMatch(stylesheet, /\.tv-chart-settings-modal[\s\S]*?background:\s*#fff\s*!important/);
+  // Keep this assertion scoped to the settings modal declaration itself so
+  // unrelated light modals declared later cannot produce a false positive.
+  assert.doesNotMatch(stylesheet, /\.tv-chart-settings-modal\s*\{[^}]*background:\s*#fff\s*!important/);
 });
 
 test("GlobalSettingsModal canvas controls dispatch chart appearance mutations consumed by ECharts", () => {

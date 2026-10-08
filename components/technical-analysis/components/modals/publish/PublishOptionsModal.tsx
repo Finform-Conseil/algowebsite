@@ -16,8 +16,6 @@ type ShareChannel = {
   id: ShareChannelId;
   label: string;
   icon: string;
-  accent: string;
-  background: string;
 };
 
 interface ShareOptionsModalProps {
@@ -29,34 +27,10 @@ interface ShareOptionsModalProps {
 }
 
 const SHARE_CHANNELS: readonly ShareChannel[] = [
-  {
-    id: "whatsapp",
-    label: "WhatsApp",
-    icon: "bi-whatsapp",
-    accent: "#4ade80",
-    background: "rgba(37, 211, 102, 0.12)",
-  },
-  {
-    id: "telegram",
-    label: "Telegram",
-    icon: "bi-telegram",
-    accent: "#38bdf8",
-    background: "rgba(56, 189, 248, 0.12)",
-  },
-  {
-    id: "linkedin",
-    label: "LinkedIn",
-    icon: "bi-linkedin",
-    accent: "#60a5fa",
-    background: "rgba(96, 165, 250, 0.12)",
-  },
-  {
-    id: "x",
-    label: "X",
-    icon: "X",
-    accent: "#f8fafc",
-    background: "rgba(248, 250, 252, 0.09)",
-  },
+  { id: "whatsapp", label: "WhatsApp", icon: "bi-whatsapp" },
+  { id: "telegram", label: "Telegram", icon: "bi-telegram" },
+  { id: "linkedin", label: "LinkedIn", icon: "bi-linkedin" },
+  { id: "x", label: "X", icon: "X" },
 ];
 
 const getCurrentPageUrl = () => (
@@ -193,112 +167,60 @@ export const ShareOptionsModal: React.FC<ShareOptionsModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Partager l’analyse"
-      icon={<i className="bi bi-share-fill" aria-hidden="true" />}
-      footer={
-        <div className="d-flex justify-content-end w-100">
-          <button className="btn btn-outline-light px-4" onClick={onClose} type="button">
-            Fermer
-          </button>
-        </div>
-      }
+      icon={<i className="bi bi-share" aria-hidden="true" />}
+      maxWidth="520px"
+      className="gp-share-modal"
+      hideFooter
     >
-      <div className="d-grid gap-4">
-        <section
-          className="rounded-3 px-3 py-3"
-          style={{
-            backgroundColor: "rgba(148, 163, 184, 0.09)",
-            border: "1px solid rgba(148, 163, 184, 0.22)",
-          }}
-        >
-          <div className="d-flex align-items-center justify-content-between gap-3 mb-2">
-            <span className="small fw-semibold text-uppercase" style={{ color: "#94a3b8", letterSpacing: "0.08em" }}>
-              Analyse active
-            </span>
-            <span className="small fw-semibold" style={{ color: "#cbd5e1" }}>
-              {market.ticker} · {market.currency}
-            </span>
+      <div className="gp-share-panel">
+        <section className="gp-share-context" aria-label="Analyse active">
+          <div>
+            <span className="gp-share-kicker">Analyse active</span>
+            <strong>{symbol} · {timeframe}</strong>
+            <small>{market.name}</small>
           </div>
-          <p className="mb-1 fs-5 fw-semibold text-white">{symbol} · {timeframe}</p>
-          <p className="mb-0 small" style={{ color: "#94a3b8" }}>{market.name}</p>
+          <span className="gp-share-market">{market.ticker} · {market.currency}</span>
         </section>
 
-        <section aria-labelledby="share-channel-title">
-          <div className="d-flex align-items-center justify-content-between mb-2">
-            <h3
-              id="share-channel-title"
-              className="mb-0 small fw-semibold text-uppercase"
-              style={{ color: "#94a3b8", letterSpacing: "0.08em" }}
-            >
-              Partager via
-            </h3>
-            <span className="small" style={{ color: "#64748b" }}>Lien sécurisé</span>
+        <section className="gp-share-section" aria-labelledby="share-channel-title">
+          <div className="gp-share-section__head">
+            <h3 id="share-channel-title">Partager via</h3>
+            <span>Lien sécurisé</span>
           </div>
-          <div className="row g-2">
+          <div className="gp-share-channels">
             {SHARE_CHANNELS.map((channel) => (
-              <div className="col-6" key={channel.id}>
-                <button
-                  aria-label={`Partager sur ${channel.label}`}
-                  className="btn d-flex flex-column align-items-center justify-content-center gap-2 w-100 px-2 py-3 text-center"
-                  onClick={() => handleShareChannel(channel)}
-                  style={{
-                    backgroundColor: channel.background,
-                    border: "1px solid rgba(148, 163, 184, 0.20)",
-                    color: "#f8fafc",
-                    minHeight: "96px",
-                    boxShadow: "none",
-                  }}
-                  type="button"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="d-inline-flex align-items-center justify-content-center rounded-circle"
-                    style={{
-                      backgroundColor: "rgba(15, 23, 42, 0.55)",
-                      border: `1px solid ${channel.accent}`,
-                      color: channel.accent,
-                      fontSize: channel.icon === "X" ? "0.9rem" : "1.1rem",
-                      fontWeight: 800,
-                      height: "36px",
-                      width: "36px",
-                    }}
-                  >
-                    {channel.icon === "X" ? "X" : <i className={`bi ${channel.icon}`} />}
-                  </span>
-                  <span className="small fw-semibold">{channel.label}</span>
-                </button>
-              </div>
+              <button
+                key={channel.id}
+                aria-label={`Partager sur ${channel.label}`}
+                className={`gp-share-channel gp-share-channel--${channel.id}`}
+                onClick={() => handleShareChannel(channel)}
+                type="button"
+              >
+                <span className="gp-share-channel__icon" aria-hidden="true">
+                  {channel.icon === "X" ? "X" : <i className={`bi ${channel.icon}`} />}
+                </span>
+                <span>{channel.label}</span>
+                <i className="bi bi-arrow-up-right gp-share-channel__arrow" aria-hidden="true" />
+              </button>
             ))}
           </div>
         </section>
 
-        <section className="d-grid gap-2" aria-label="Actions de partage supplémentaires">
+        <section className="gp-share-actions" aria-label="Actions de partage supplémentaires">
+          <button className="gp-share-action gp-share-action--primary" onClick={() => { void handleCopyLink(); }} type="button">
+            <i className="bi bi-link-45deg" aria-hidden="true" />
+            <span>Copier le lien</span>
+          </button>
           {canUseNativeShare && (
-            <button
-              className="btn btn-outline-light d-flex align-items-center justify-content-center gap-2 fw-semibold"
-              onClick={() => { void handleNativeShare(); }}
-              type="button"
-            >
+            <button className="gp-share-action" onClick={() => { void handleNativeShare(); }} type="button">
               <i className="bi bi-share" aria-hidden="true" />
-              Plus d’options de partage
+              <span>Autres options</span>
             </button>
           )}
-          <button
-            className="btn d-flex align-items-center justify-content-center gap-2 fw-semibold"
-            onClick={() => { void handleCopyLink(); }}
-            style={{
-              backgroundColor: "rgba(59, 130, 246, 0.12)",
-              border: "1px solid rgba(96, 165, 250, 0.52)",
-              color: "#dbeafe",
-            }}
-            type="button"
-          >
-            <i className="bi bi-link-45deg" aria-hidden="true" />
-            Copier le lien
-          </button>
         </section>
 
         {feedbackMessage && (
-          <p className="mb-0 small" aria-live="polite" role="status" style={{ color: "#94a3b8" }}>
+          <p className="gp-share-feedback" aria-live="polite" role="status">
             {feedbackMessage}
           </p>
         )}

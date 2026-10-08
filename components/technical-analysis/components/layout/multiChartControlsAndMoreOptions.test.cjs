@@ -16,6 +16,7 @@ const navigationSource = read("components/technical-analysis/components/sidebar/
 const sidebarSource = read("components/technical-analysis/components/sidebar/TechnicalAnalysisSidebarContent.tsx");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
 const lastPriceVisualsSource = read("components/technical-analysis/lib/chart/lastPriceAxisVisuals.ts");
+const viewportMathSource = read("components/technical-analysis/hooks/viewport/viewportMath.ts");
 const priceAxisOverlaySource = read("components/technical-analysis/components/overlays/PriceAxisOverlay.tsx");
 const chartTypeIconsSource = read("components/technical-analysis/components/toolbar/chart/chartTypeIcons.tsx");
 const chartTypeMenuSource = read("components/technical-analysis/components/toolbar/chart/ChartTypeMenuContent.tsx");
@@ -141,11 +142,12 @@ test("multi-chart gives OHLC and indicator legends separate responsive metadata 
   assert.match(styleSource, /\.gp-multi-chart-grid\.layout-three-focus-right:not\(\.is-maximized\) \.gp-multi-chart-slot\.is-active \{\n    grid-row: auto;/);
 });
 
-test("multi-chart shares the canonical 78px TradingView-like price scale contract", () => {
-  assert.match(lastPriceVisualsSource, /LAST_PRICE_AXIS_BADGE_WIDTH_PX = 78/);
-  assert.match(lastPriceVisualsSource, /LAST_PRICE_AXIS_GUTTER_PX = 78/);
+test("multi-chart shares the canonical 64px Vela price scale contract", () => {
+  assert.match(lastPriceVisualsSource, /VELA_VISUAL_CONTRACT\.priceAxisWidthPx/);
+  assert.match(viewportMathSource, /TV_Y_AXIS_WIDTH = 64/);
   assert.match(priceAxisOverlaySource, /LAST_PRICE_AXIS_BADGE_WIDTH_PX\}px/);
-  assert.match(rendererSource, /const gridRight = reserveLastPriceAxisBadge \? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
+  assert.match(rendererSource, /const mainPriceAxisGutterPx = reserveLastPriceAxisBadge \? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
+  assert.match(rendererSource, /const gridRight = priceScalePosition === "right"[\s\S]*?\? mainPriceAxisGutterPx[\s\S]*?: COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
   assert.doesNotMatch(peerSource, /PEER_Y_AXIS_WIDTH/);
 });
 

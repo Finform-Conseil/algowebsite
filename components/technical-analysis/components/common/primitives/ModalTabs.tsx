@@ -50,13 +50,9 @@ export const ModalTabs: React.FC<ModalTabsProps> = ({
 
     return (
         <div
-            className={clsx("gp-tabs-nav", className)}
+            className={clsx("gp-tabs-nav", "gp-modal-tabs", className)}
             role="tablist"
             aria-label="Sections de la modale"
-            style={{
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-                marginBottom: "20px"
-            }}
         >
             {tabs.map((tab, index) => (
                 <button
@@ -68,11 +64,10 @@ export const ModalTabs: React.FC<ModalTabsProps> = ({
                     className={clsx("gp-tab-btn", activeTab === tab.id && "active")}
                     onClick={() => onTabChange(tab.id)}
                     onKeyDown={(event) => handleTabKeyDown(event, index)}
-                    style={{ textTransform: "capitalize" }}
                 >
                     {tab.label}
                     {tab.badge !== undefined && (
-                        <span className="badge rounded-pill bg-dark ms-1">
+                        <span className="gp-tab-badge">
                             {tab.badge}
                         </span>
                     )}

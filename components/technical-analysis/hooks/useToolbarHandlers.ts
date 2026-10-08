@@ -20,6 +20,7 @@ import {
     PITCHFORK_TOOLS,
     FIB_PURE_TOOLS,
 } from "../config/drawing/drawingConstants";
+import { primaryColorDrivesText } from "../config/drawing/drawingColorSemantics";
 
 interface UseToolbarHandlersProps {
     drawings: Drawing[];
@@ -49,6 +50,11 @@ export const useToolbarHandlers = ({
             const updates: Partial<Drawing> = {
                 style: { ...current.style, color: newColor, lineOpacity: alpha },
             };
+
+            if (primaryColorDrivesText(current.type)) {
+                updates.textColor = newColor;
+                updates.textColorMode = "linked";
+            }
 
             if (
                 (POSITION_TOOLS as readonly string[]).includes(current.type)
@@ -540,9 +546,15 @@ export const useToolbarHandlers = ({
         shouldClose = false,
     ) => {
         if (!selectedDrawingId) return;
-        updateDrawing(selectedDrawingId, { textColor: newColor });
+        const current = drawings.find((drawing) => drawing.id === selectedDrawingId);
+        updateDrawing(selectedDrawingId, {
+            textColor: newColor,
+            ...(current && primaryColorDrivesText(current.type)
+                ? { textColorMode: "custom" as const }
+                : {}),
+        });
         if (shouldClose) setActiveToolbarPopup(null);
-    }, [selectedDrawingId, updateDrawing, setActiveToolbarPopup]);
+    }, [drawings, selectedDrawingId, updateDrawing, setActiveToolbarPopup]);
 
     return { handleColorChange, handleFillChange, handleLineStyleChange, handleTextColorChange };
 };

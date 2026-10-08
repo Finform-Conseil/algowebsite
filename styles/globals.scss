@@ -194,9 +194,16 @@
     width: 100%;
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
-    background-color: #fff;
-    color: #212529;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-card);
+    color: var(--text-primary);
   }
 }
+
+// Gestion Sous Mandat — native FINFORM module (responsive drawer SCSS).
+// Loaded last so the scoped GSM utility grammar wins over generic parent
+// helpers (.mb-2, .p-4, etc.), while gsm.scss still follows its utilities and
+// therefore retains component-level authority exactly like the standalone app.
+@include meta.load-css('pages/gsm-native');
+@include meta.load-css('pages/gsm');

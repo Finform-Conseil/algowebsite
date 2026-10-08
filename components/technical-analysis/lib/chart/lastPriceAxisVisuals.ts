@@ -1,10 +1,10 @@
-export const LAST_PRICE_AXIS_UP_COLOR = "#047857";
-export const LAST_PRICE_AXIS_DOWN_COLOR = "#c91d2e";
-// TradingView clean-room runtime evidence: the vertical price scale is a dedicated
-// 78px surface, separate from the plot canvas. Keep the local pane contract at the
-// same width so labels and last-price badges live in a compact, stable gutter.
-export const LAST_PRICE_AXIS_BADGE_WIDTH_PX = 78;
-export const LAST_PRICE_AXIS_GUTTER_PX = 78;
+import { VELA_VISUAL_CONTRACT } from "../../config/velaVisualContract";
+
+export const LAST_PRICE_AXIS_UP_COLOR = VELA_VISUAL_CONTRACT.bullish;
+export const LAST_PRICE_AXIS_DOWN_COLOR = VELA_VISUAL_CONTRACT.bearish;
+// Vela 0.7.2 AXIS_MASTER_W is the canonical price-scale surface width.
+export const LAST_PRICE_AXIS_BADGE_WIDTH_PX = VELA_VISUAL_CONTRACT.priceAxisWidthPx;
+export const LAST_PRICE_AXIS_GUTTER_PX = VELA_VISUAL_CONTRACT.priceAxisWidthPx;
 
 const PRICE_AXIS_TARGET_MAJOR_TICK_SPACING_PX = 44;
 const PRICE_AXIS_MIN_SPLITS = 5;

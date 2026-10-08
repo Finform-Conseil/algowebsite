@@ -2,9 +2,11 @@ import type { EChartsInstance } from "../../lib/types/echarts";
 import { TV_X_AXIS_HEIGHT, TV_Y_AXIS_WIDTH, clamp } from "../viewport/viewportMath";
 import { getSafeGridRect } from "../viewport/viewportGraphics";
 
-const TV_AXIS_BADGE_RIGHT_INSET = 8;
+const TV_AXIS_BADGE_RIGHT_INSET = 0;
 const TV_AXIS_ACTION_GAP = 3;
-const TV_CURSOR_BADGE_MIN_WIDTH = 72;
+const TV_CURSOR_BADGE_MIN_WIDTH = TV_Y_AXIS_WIDTH;
+const TV_CURSOR_BADGE_HALF_HEIGHT = 8;
+const TV_LAST_PRICE_BADGE_HALF_HEIGHT = 16;
 
 export interface CursorPriceAxisBadgeElements {
   badge: HTMLDivElement | null;
@@ -19,9 +21,10 @@ export interface LastPriceAxisBadgeElements {
 
 export const formatCursorPriceAxisValue = (value: number): string => {
   const decimals = Math.abs(value) < 10 ? 4 : 2;
-  return value.toLocaleString("en-US", {
+  return value.toLocaleString("fr-FR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
+    useGrouping: false,
   });
 };
 
@@ -114,8 +117,8 @@ export const updateCursorPriceAxisBadge = ({
     const chartTopInOverlay = chartRect.top - overlayRect.top;
     const clampedOverlayY = clamp(
       overlayY,
-      chartTopInOverlay + gridTop + 11,
-      chartTopInOverlay + gridBottom - 11,
+      chartTopInOverlay + gridTop + TV_CURSOR_BADGE_HALF_HEIGHT,
+      chartTopInOverlay + gridBottom - TV_CURSOR_BADGE_HALF_HEIGHT,
     );
 
     text.textContent = formattedPrice;
@@ -208,8 +211,8 @@ export const updateLastPriceAxisBadge = ({
     const chartTopInOverlay = chartRect.top - overlayRect.top;
     const clampedOverlayY = clamp(
       chartTopInOverlay + chartY,
-      chartTopInOverlay + gridTop + 11,
-      chartTopInOverlay + gridBottom - 11,
+      chartTopInOverlay + gridTop + TV_LAST_PRICE_BADGE_HALF_HEIGHT,
+      chartTopInOverlay + gridBottom - TV_LAST_PRICE_BADGE_HALF_HEIGHT,
     );
 
     badge.style.top = `${Math.round(clampedOverlayY)}px`;

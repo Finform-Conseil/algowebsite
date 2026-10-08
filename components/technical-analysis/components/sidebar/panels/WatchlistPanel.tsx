@@ -231,7 +231,7 @@ export const WatchlistPanel = React.memo(({
       </span>
       <div className="gp-sidebar-actions" style={{ position: "relative" }}>
         <button className={clsx("btn", "hover-lift")} title="Add symbol" onClick={onAddSymbol}><i className="bi bi-plus" /></button>
-        <button className={clsx("btn", "hover-lift")} title="Advanced view" onClick={onAdvancedView}><i className="bi bi-pie-chart" /></button>
+        <button className={clsx("btn", "hover-lift")} title="Vue avancée de la liste de surveillance" aria-label="Vue avancée de la liste de surveillance" onClick={onAdvancedView}><i className="bi bi-pie-chart" /></button>
         <button className={clsx("btn", "hover-lift")} title="Settings" onClick={onToggleSettings}><i className="bi bi-three-dots" /></button>
         {isSettingsOpen && (
           <div className="gp-watchlist-settings-dropdown">

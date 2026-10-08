@@ -166,10 +166,13 @@ export const useTechnicalAnalysisActions = (
   ]);
 
   const handleOpenLoadModal = useCallback(async () => {
+    // Opening the history is a UI action and must never be blocked by IndexedDB.
+    // Mount the modal first, then refresh its data asynchronously.
+    dispatch(setModalOpen({ modal: "loadAnalysis", isOpen: true }));
+
     try {
       const saved = await listSavedAnalyses();
       publishList(saved);
-      dispatch(setModalOpen({ modal: "loadAnalysis", isOpen: true }));
     } catch (error) {
       console.error("[SRE] Error loading analyses from IndexedDB:", error);
       addNotification({

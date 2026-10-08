@@ -56,14 +56,14 @@ test("active peer delegates both price-axis badges to the canonical interaction 
 });
 
 test("inactive peers reserve the active quote-card gutter only on the configured price-scale side", () => {
-  assert.match(rendererSource, /const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = 42;/);
+  assert.match(rendererSource, /const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = TV_Y_AXIS_WIDTH;/);
   assert.match(rendererSource, /reserveLastPriceAxisBadge = true/);
   assert.match(rendererSource, /const mainPriceAxisGutterPx = reserveLastPriceAxisBadge \? TV_Y_AXIS_WIDTH : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
-  assert.match(rendererSource, /const gridLeft = priceScalePosition === "left"[\s\S]*?Math\.max\(naturalGridLeft, mainPriceAxisGutterPx\)[\s\S]*?: naturalGridLeft;/);
+  assert.match(rendererSource, /const gridLeft = priceScalePosition === "left"[\s\S]*?Math\.max\(comparisonAxisGutterPx, mainPriceAxisGutterPx\)[\s\S]*?: comparisonAxisGutterPx;/);
   assert.match(rendererSource, /const gridRight = priceScalePosition === "right"[\s\S]*?\? mainPriceAxisGutterPx[\s\S]*?: COMPACT_PEER_PRICE_AXIS_GUTTER_PX;/);
   assert.match(rendererSource, /rightOffsetBars: chartAppearance\.rightOffsetBars/);
   assert.match(rendererSource, /viewportWithConfiguredRightOffset/);
-  assert.match(styleSource, /&__last-badge \{[\s\S]*?width:\s*42px;[\s\S]*?min-width:\s*42px;[\s\S]*?max-width:\s*42px;/);
+  assert.match(styleSource, /&__last-badge \{[\s\S]*?width:\s*64px;[\s\S]*?min-width:\s*64px;[\s\S]*?max-width:\s*64px;/);
 });
 
 test("volume study legend auto-collapses and its x closes only the toolbar, never the Volume study", () => {
@@ -95,8 +95,8 @@ test("drawing drag owns its complete pointer stream and cannot pan the chart und
 });
 
 test("multi-chart activity is visually asymmetric while the active peer matches single-chart", () => {
-  assert.match(styleSource, /--gp-chart-surface-bg:\s*rgb\(16, 42, 67\)/);
-  assert.match(styleSource, /--gp-chart-inactive-surface-bg:\s*#08182a/);
+  assert.match(styleSource, /--gp-chart-surface-bg:\s*var\(--ta-surface-canvas\)/);
+  assert.match(styleSource, /--gp-chart-inactive-surface-bg:\s*var\(--ta-surface-inactive\)/);
   assert.match(styleSource, /\.gp-chart-layers-stack[\s\S]*?background-color:\s*var\(--gp-chart-surface-bg\)/);
   assert.match(styleSource, /\.gp-peer-chart[\s\S]*?background-color:\s*var\(--gp-chart-inactive-surface-bg\)/);
   assert.match(styleSource, /&\.is-active\s*\{[\s\S]*?background-color:\s*var\(--gp-chart-surface-bg\)/);

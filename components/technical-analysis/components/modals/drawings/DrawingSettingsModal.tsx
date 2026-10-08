@@ -20,7 +20,8 @@ import {
 } from "../../common/inputs/SettingsField";
 import { BaseModal } from "../../common/primitives/BaseModal";
 import { ModalTabs } from "../../common/primitives/ModalTabs";
-import type { IntervalKind, DrawingIntervalVisibilityProps, DrawingImageNoteProps } from "../../../config/drawing/drawingModelTypes";
+import type { DrawingIntervalVisibilityProps, DrawingImageNoteProps } from "../../../config/drawing/drawingModelTypes";
+import { DRAWING_INTERVAL_KINDS } from "../../../config/drawing/drawingIntervalVisibility";
 import {
   validateImageFile,
   computeImageCssSize,
@@ -32,8 +33,6 @@ import {
   deleteDrawingAsset,
 } from "../../../hooks/drawing/drawingPersistence";
 import { seedImageNoteImage, clearImageNoteImage } from "../../../lib/imageNote/imageNoteAssetLoader";
-
-const INTERVAL_KINDS: IntervalKind[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W", "1M"];
 
 // [IMAGE NOTE] Style tab: preview/dropzone replacement + transparency + template.
 const ImageNoteStyleBlock: React.FC<{
@@ -176,7 +175,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
     if (!isOpen || !dr) return;
 
     setActiveTab((TOOLS_WITH_INPUTS_TAB as readonly string[]).includes(dr.type) ? "inputs" : "style");
-  }, [dr, isOpen]);
+  }, [dr.id, dr.type, isOpen]);
 
   if (!isOpen || !dr) return null;
 
@@ -315,6 +314,8 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
       title={dr.type.replace("_", " ").toUpperCase()}
       icon="bi-gear-fill"
       maxWidth="550px"
+      className="gp-drawing-settings-modal"
+      overlayClassName="gp-chart-bounded-modal-overlay"
       primaryLabel="Valider"
       primaryAction={onClose} // Validation is real-time, button just closes
     >
@@ -3380,43 +3381,51 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
 
         {/* ================= COORDINATES TAB ================= */}
         {activeTab === "coordinates" && (
-          <div className="d-flex flex-column gap-3">
+          <div className="gp-drawing-coordinates">
             {drPts.map((pt, idx) => (
-              <div
+              <section
                 key={`coord-${idx}`}
-                className="d-flex flex-column gap-1 border-bottom border-secondary pb-3"
+                className="gp-drawing-coordinate-card"
+                aria-labelledby={`drawing-coordinate-point-${idx}`}
               >
-                <label className="text-secondary small fw-bold">
+                <div
+                  id={`drawing-coordinate-point-${idx}`}
+                  className="gp-drawing-coordinate-title"
+                >
                   Point #{idx + 1}
-                </label>
-                <div className="d-flex gap-2">
-                  <SettingsNumberInput
-                    label="Barre"
-                    width="100%"
-                    value={
-                      typeof pt.time === "number"
-                        ? Math.round(pt.time)
-                        : (isNaN(Number(pt.time)) ? "" : Math.round(Number(pt.time)))
-                    }
-                    onChange={(val) => {
-                      const newPts = [...drPts];
-                      newPts[idx] = { ...pt, time: Number(val) };
-                      updateDrawing(dr.id, { points: newPts });
-                    }}
-                  />
-                  <SettingsNumberInput
-                    label="Prix"
-                    width="100%"
-                    value={pt.value}
-                    step="0.001"
-                    onChange={(val) => {
-                      const newPts = [...drPts];
-                      newPts[idx] = { ...pt, value: Number(val) };
-                      updateDrawing(dr.id, { points: newPts });
-                    }}
-                  />
                 </div>
-              </div>
+                <div className="gp-drawing-coordinate-grid">
+                  <div className="gp-drawing-coordinate-field">
+                    <SettingsNumberInput
+                      label="Barre"
+                      width="100%"
+                      value={
+                        typeof pt.time === "number"
+                          ? Math.round(pt.time)
+                          : (isNaN(Number(pt.time)) ? "" : Math.round(Number(pt.time)))
+                      }
+                      onChange={(val) => {
+                        const newPts = [...drPts];
+                        newPts[idx] = { ...pt, time: Number(val) };
+                        updateDrawing(dr.id, { points: newPts });
+                      }}
+                    />
+                  </div>
+                  <div className="gp-drawing-coordinate-field">
+                    <SettingsNumberInput
+                      label="Prix"
+                      width="100%"
+                      value={pt.value}
+                      step="0.001"
+                      onChange={(val) => {
+                        const newPts = [...drPts];
+                        newPts[idx] = { ...pt, value: Number(val) };
+                        updateDrawing(dr.id, { points: newPts });
+                      }}
+                    />
+                  </div>
+                </div>
+              </section>
             ))}
             {dr.type === "signpost" && dr.signpostProps && (
               <SettingsNumberInput
@@ -3504,43 +3513,42 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
 
         {/* ================= VISIBILITY TAB ================= */}
         {activeTab === "visibility" && (
-          (dr.type === "signpost" || dr.type === "flag_mark" || dr.type === "image_note") ? (
-            <div className="d-flex flex-column gap-3">
-              <SettingsCheckbox
-                label="Visibilité par intervalle"
-                checked={dr.intervalVisibility?.enabled ?? false}
-                onChange={(v) =>
-                  updateDrawing(dr.id, {
-                    intervalVisibility: {
-                      enabled: v,
-                      perKind: dr.intervalVisibility?.perKind ?? {},
-                    } as DrawingIntervalVisibilityProps,
-                  })
-                }
-              />
-              {dr.intervalVisibility?.enabled && INTERVAL_KINDS.map((k) => (
-                <SettingsCheckbox
-                  key={k}
-                  label={k}
-                  checked={dr.intervalVisibility?.perKind?.[k] ?? true}
-                  onChange={(v) =>
-                    updateDrawing(dr.id, {
-                      intervalVisibility: {
-                        enabled: dr.intervalVisibility?.enabled ?? true,
-                        perKind: { ...dr.intervalVisibility?.perKind, [k]: v },
-                      } as DrawingIntervalVisibilityProps,
-                    })
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-secondary text-center py-5">
-              <i className="bi bi-eye-slash display-4 d-block mb-3"></i>
-              Options de visibilité temporelle <br />
-              (Bientôt disponible)
-            </div>
-          )
+          <div className="gp-drawing-visibility-panel">
+            <SettingsCheckbox
+              label="Visibilité par intervalle"
+              checked={dr.intervalVisibility?.enabled ?? false}
+              onChange={(v) =>
+                updateDrawing(dr.id, {
+                  intervalVisibility: {
+                    enabled: v,
+                    perKind: dr.intervalVisibility?.perKind ?? {},
+                  } as DrawingIntervalVisibilityProps,
+                })
+              }
+            />
+            <p className="gp-drawing-visibility-hint">
+              Activez ce réglage pour choisir précisément les intervalles sur lesquels ce dessin reste visible.
+            </p>
+            {dr.intervalVisibility?.enabled && (
+              <div className="gp-drawing-visibility-grid" role="group" aria-label="Intervalles visibles">
+                {DRAWING_INTERVAL_KINDS.map((k) => (
+                  <SettingsCheckbox
+                    key={k}
+                    label={k}
+                    checked={dr.intervalVisibility?.perKind?.[k] ?? true}
+                    onChange={(v) =>
+                      updateDrawing(dr.id, {
+                        intervalVisibility: {
+                          enabled: dr.intervalVisibility?.enabled ?? true,
+                          perKind: { ...dr.intervalVisibility?.perKind, [k]: v },
+                        } as DrawingIntervalVisibilityProps,
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </BaseModal>

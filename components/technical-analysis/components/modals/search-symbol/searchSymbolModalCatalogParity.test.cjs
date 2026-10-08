@@ -8,6 +8,9 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 
 const modalSource = read("components/technical-analysis/components/modals/search-symbol/SearchSymbolModal.tsx");
 const toolbarSource = read("components/technical-analysis/components/toolbar/ChartToolbar.tsx");
+const marketSelectorSource = read("components/technical-analysis/components/market/MarketSelectorModal.tsx");
+const marketDirectorySource = read("components/technical-analysis/components/market/MarketDirectory.tsx");
+const stylesSource = read("styles/pages/_technical-analysis-final.scss");
 
 test("compare symbol modal requires an explicit supported exchange before loading its catalog", () => {
   assert.match(modalSource, /SUPPORTED_COMPARE_MARKETS = \["BRVM", "CSE", "GSE", "JSE", "NGX", "NSE"\]/);
@@ -30,14 +33,23 @@ test("compare symbol modal requires an explicit supported exchange before loadin
   assert.doesNotMatch(modalSource, /\.slice\(0,\s*10\)/);
 });
 
- test("compare exchange step reuses the canonical market-selector visual system without a fixed empty body", () => {
-  assert.match(modalSource, /MarketSelectorModal\.module\.scss/);
-  assert.match(modalSource, /marketSelectorStyles\.marketGrid/);
-  assert.match(modalSource, /marketSelectorStyles\.marketCard/);
-  assert.match(modalSource, /marketSelectorStyles\.marketLogoFrame/);
-  assert.match(modalSource, /marketSelectorStyles\.currencyPill/);
+test("compare exchange step and market selector share one canonical Market Directory renderer", () => {
+  assert.match(modalSource, /from "\.\.\/\.\.\/market\/MarketDirectory"/);
+  assert.match(modalSource, /<MarketDirectoryIntro/);
+  assert.match(modalSource, /<MarketDirectoryGrid/);
+  assert.match(marketSelectorSource, /from "\.\/MarketDirectory"/);
+  assert.match(marketSelectorSource, /<MarketDirectoryIntro/);
+  assert.match(marketSelectorSource, /<MarketDirectoryGrid/);
+  assert.match(marketDirectorySource, /MarketSelectorModal\.module\.scss/);
+  assert.match(marketDirectorySource, /styles\.marketGrid/);
+  assert.match(marketDirectorySource, /styles\.marketCard/);
+  assert.match(marketDirectorySource, /styles\.marketLogoFrame/);
+  assert.match(marketDirectorySource, /styles\.currencyPill/);
+  assert.doesNotMatch(modalSource, /marketSelectorStyles\./);
+  assert.doesNotMatch(marketSelectorSource, /markets\.map\(\(market, index\)/);
   assert.match(modalSource, /tv-compare-modal--market-step/);
-  assert.match(modalSource, /\.tv-compare-modal--market-step \.gp-modal-body \{[\s\S]*height: auto;[\s\S]*min-height: 0;/);
+  assert.match(stylesSource, /\.tv-compare-modal--market-step \.gp-modal-body \{[\s\S]*height: auto;[\s\S]*min-height: 0;/);
+  assert.doesNotMatch(modalSource, /tv-compare-modal-override \.gp-modal-body \{/);
 });
 
 test("compare symbol modal exposes TradingView-like type tabs and full-market labels", () => {

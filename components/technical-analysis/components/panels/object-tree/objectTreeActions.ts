@@ -14,6 +14,7 @@ export type ObjectItemRemoveAction =
   | { type: "remove-comparison"; symbol: string }
   | { type: "remove-pine-overlay" }
   | { type: "patch-indicators"; patch: Partial<ChartIndicators> }
+  | { type: "remove-moving-average"; family: "sma" | "ema"; period: number; patch: Partial<ChartIndicators> }
   | { type: "set-advanced-indicator"; patch: Partial<AdvancedIndicatorsState> }
   | { type: "unsupported"; message: string };
 
@@ -70,13 +71,23 @@ export const resolveObjectItemRemoveAction = ({
   if (item.id.startsWith("sma-")) {
     const period = Number(item.id.slice(4));
     const next = indicators.activeSma.filter((p) => p !== period);
-    return { type: "patch-indicators", patch: { activeSma: next, sma: next.length > 0 ? indicators.sma : false } };
+    return {
+      type: "remove-moving-average",
+      family: "sma",
+      period,
+      patch: { activeSma: next, sma: next.length > 0 ? indicators.sma : false },
+    };
   }
 
   if (item.id.startsWith("ema-")) {
     const period = Number(item.id.slice(4));
     const next = indicators.activeEma.filter((p) => p !== period);
-    return { type: "patch-indicators", patch: { activeEma: next, ema: next.length > 0 ? indicators.ema : false } };
+    return {
+      type: "remove-moving-average",
+      family: "ema",
+      period,
+      patch: { activeEma: next, ema: next.length > 0 ? indicators.ema : false },
+    };
   }
 
   const periodPatch =
@@ -92,9 +103,13 @@ export const resolveObjectItemRemoveAction = ({
 
   if (periodPatch) return { type: "patch-indicators", patch: periodPatch };
 
+  // Prefer an exact top-level state id before resolving renderer/object aliases.
+  // Some registry entries intentionally expose legacy aliases that overlap another
+  // indicator's state id (for example cci/cci20, williamsR/williamsR14, roc/roc10).
+  // Deleting a top-level row must always detach the exact study the row represents.
   const advancedIndicatorId =
-    getAdvancedIndicatorIdForObjectId(item.id) ??
-    ((item.id in advancedIndicators ? item.id : null) as keyof AdvancedIndicatorsState | null);
+    ((item.id in advancedIndicators ? item.id : null) as keyof AdvancedIndicatorsState | null) ??
+    getAdvancedIndicatorIdForObjectId(item.id);
 
   if (advancedIndicatorId) {
     return {

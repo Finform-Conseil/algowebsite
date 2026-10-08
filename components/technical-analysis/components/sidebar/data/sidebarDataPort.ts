@@ -37,7 +37,7 @@ export interface SidebarDataPort {
    * Actualités BRVM via scraping (exception validée).
    * Source : route locale /api/market-data/brvm-news (préservée hors _Old).
    */
-  fetchNews(signal: AbortSignal): Promise<BRVMNewsItem[]>;
+  fetchNews(exchange: string, signal: AbortSignal): Promise<BRVMNewsItem[]>;
 
   /**
    * Obligations (bonds) BRVM.

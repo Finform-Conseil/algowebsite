@@ -121,6 +121,22 @@ export const TEXT_NOTE_TOOL_VARIANTS = [
 
 export const TEXT_NOTE_TOOL_VARIANT_SET = new Set<string>(TEXT_NOTE_TOOL_VARIANTS);
 
+/** Textual annotations that should enter inline typing as soon as placement completes. */
+export const IMMEDIATE_INLINE_TEXT_ENTRY_TOOLS = [
+    "text_note",
+    "pin",
+    "comment",
+    "note",
+    "callout",
+    "signpost",
+] as const;
+
+export const IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET = new Set<string>(IMMEDIATE_INLINE_TEXT_ENTRY_TOOLS);
+
+/** Two-point annotations whose editable label lives at the second placement point. */
+export const INLINE_TEXT_EDITOR_SECOND_POINT_TOOLS = ["note", "price_note", "callout"] as const;
+export const INLINE_TEXT_EDITOR_SECOND_POINT_TOOL_SET = new Set<string>(INLINE_TEXT_EDITOR_SECOND_POINT_TOOLS);
+
 /**
  * Shape drawing tools (geometric shapes like Rectangle, Ellipse, etc.)
  */

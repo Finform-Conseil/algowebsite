@@ -55,6 +55,7 @@ export default function CurrencySwitcher() {
                     <div className="currency-dropdown__header">
                         <span>Devise d&apos;affichage</span>
                         <span className="currency-rates-label">{ratesLabel}</span>
+                        <button type="button" className="currency-dropdown__mobile-close" aria-label="Fermer la liste des devises" onClick={() => setOpen(false)}>×</button>
                     </div>
                     <ul className="currency-list">
                         {supportedCurrencies.map((c) => (

@@ -50,6 +50,10 @@ const DividendHistoryModal = dynamic(
   () => import("./modals/DividendHistoryModal").then((module) => module.DividendHistoryModal),
   { ssr: false, loading: () => null },
 );
+const WatchlistAdvancedModal = dynamic(
+  () => import("./modals/WatchlistAdvancedModal").then((module) => module.WatchlistAdvancedModal),
+  { ssr: false, loading: () => null },
+);
 
 const auditTrail = (items: AuditTrailItem[]) => <SidebarAuditTrail items={items} />;
 const unavailable = (message: string) => <SidebarUnavailableState message={message} />;
@@ -178,6 +182,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
   const { apiTechnicalIndicator, chartData, dataMode, isLoading, liveChange, liveChangePercent, livePrice, liveVolume, security } = props;
   const portalTarget = useTechnicalAnalysisPortalTarget();
   const [pendingAlertEditId, setPendingAlertEditId] = React.useState<string | null>(null);
+  const [isWatchlistAdvancedOpen, setIsWatchlistAdvancedOpen] = React.useState(false);
   const [isProductsMenuOpen, setIsProductsMenuOpen] = React.useState(false);
   const [pinnedItems, setPinnedItems] = React.useState<ProductsMenuEntryId[]>(DEFAULT_PINNED);
   const [popoverStyle, setPopoverStyle] = React.useState<React.CSSProperties>({});
@@ -297,7 +302,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       livePrice={livePrice}
       liveVolume={liveVolume}
       onAddSymbol={actions.openSearch}
-      onAdvancedView={() => props.openTickerSelector?.()}
+      onAdvancedView={() => setIsWatchlistAdvancedOpen(true)}
       onSettingChange={actions.setWatchlistSetting}
       onToggleIndices={actions.toggleIndices}
       onToggleSettings={actions.toggleSettings}
@@ -308,7 +313,7 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
     />
   );
   const isNewsPanelLoading = Boolean(isLoading) || feeds.isNewsLoading;
-  const newsPanel = <div id="gp-sidebar-news"><SidebarNewsPanel activeNews={feeds.activeNews} isLoading={isNewsPanelLoading} newsKey={feeds.currentNewsIdx} onHoverChange={actions.setIsNewsHovered} /></div>;
+  const newsPanel = <div id="gp-sidebar-news"><SidebarNewsPanel exchange={controller.newsExchange} activeNews={feeds.activeNews} isLoading={isNewsPanelLoading} newsKey={feeds.currentNewsIdx} onHoverChange={actions.setIsNewsHovered} /></div>;
   const statsPanel = <SidebarStatsPanel auditTrail={auditTrail([...combinedAudit, { label: "Formule", value: "YTD, P/E, Vol, Avg20, Cap, PNB/FY" }, { label: "Devise", value: metrics.auditCurrency }])} avgVolume={props.avgVolume} currentVolume={props.currentVolume} isLoading={isFundamentalsPanelLoading} marketCap={displayMarketCap} currency={currency} peRatio={displayPeRatio} returnYTD={displayReturnYTD} revenueT12M={metrics.displayRevenueT12M} />;
   const fundamentalsPanel = <div id="gp-sidebar-fundamentals"><FundamentalsPanel chartRef={props.benefitsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedEarnings} auditTrail={auditTrail([...fundamentalsAudit, { label: "Formule", value: "Benefice net lu BRVM, trie par exercice" }, { label: "Devise", value: "M " + currency }])} onMoreInfo={() => openBrvmEquityPage(security.ticker)} /></div>;
   const dividendsPanel = <DividendsPanel chartRef={props.dividendsChartRef} isLoading={isFundamentalsPanelLoading} isAvailable={metrics.hasVerifiedDividends} auditTrail={auditTrail([...fundamentalsAudit, { label: "Source", value: "Ratios natifs API; absence => N/D" }, { label: "Devise", value: metrics.auditCurrency }])} onMoreInfo={() => actions.setIsDividendModalOpen(true)} />;
@@ -457,6 +462,19 @@ export const TechnicalAnalysisSidebarContent = ({ controller }: { controller: Te
       </div>
 
       {isDividendModalOpen && <DividendHistoryModal isOpen={isDividendModalOpen} onClose={() => actions.setIsDividendModalOpen(false)} ticker={security.ticker} currency={currency} dividends={chartConfig.validFundamentals?.dividends} />}
+      {isWatchlistAdvancedOpen && (
+        <WatchlistAdvancedModal
+          isOpen={isWatchlistAdvancedOpen}
+          onClose={() => setIsWatchlistAdvancedOpen(false)}
+          security={security}
+          livePrice={livePrice}
+          liveChangePercent={liveChangePercent}
+          liveVolume={liveVolume}
+          marketStatusLabel={marketStatusLabel}
+          sidebarLastUpdateLabel={sidebarLastUpdateLabel}
+          indicesData={feeds.indicesData}
+        />
+      )}
 
       <div className="gp-sidebar-toolbar" ref={toolbarRef}>
         {isLoading ? (

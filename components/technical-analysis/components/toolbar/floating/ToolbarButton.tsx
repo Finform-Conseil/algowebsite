@@ -4,8 +4,10 @@ import type { DrawingStyle } from "../../../config/drawing/drawingPrimitiveTypes
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { ToolbarConfig } from "../../../config/drawing/drawingToolbarTypes";
 import { TEXT_NOTE_TOOL_VARIANT_SET } from "../../../config/drawing/drawingConstants";
+import { resolveDrawingTextColor } from "../../../config/drawing/drawingColorSemantics";
 import { getLockTooltip } from "../../../lib/drawingToolbarLabels";
 import { ToolbarButtonPopups } from "./ToolbarButtonPopups";
+import { FloatingToolbarDragHandle } from "./FloatingToolbarShell";
 
 interface ToolbarButtonProps {
     buttonId: string;
@@ -105,7 +107,16 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     const lineStyle: DrawingStyle["lineStyle"] = drawingStyle.lineStyle || "solid";
     const fillColor = drawingStyle.fillColor || "rgba(41, 98, 255, 0.2)";
     const fillOpacity = drawingStyle.fillOpacity ?? 0.2;
-    const fillEnabled = drawingStyle.fillEnabled !== false;
+    const fillEnabled = drType === "text_note"
+        ? drawingStyle.fillEnabled === true
+        : drawingStyle.fillEnabled !== false;
+    const effectiveTextColor = resolveDrawingTextColor({
+        toolType: drType,
+        primaryColor: lineColor,
+        textColor: dr.textColor,
+        textColorMode: dr.textColorMode,
+        fallback: "#FFFFFF",
+    });
     const closePopup = () => setActiveToolbarPopup(null);
 
 
@@ -256,44 +267,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     };
 
     if (buttonId === "move") {
-        return (
-            <React.Fragment key={buttonId}>
-                <div
-                    data-toolbar-drag-handle="true"
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, 2px)",
-                        gridTemplateRows: "repeat(3, 2px)",
-                        gap: "3px",
-                        cursor: "grab",
-                        color: "#787b86",
-                        padding: "4px",
-                        marginRight: "2px",
-                        alignContent: "center",
-                    }}
-                >
-                    {[...Array(6)].map((_, i) => (
-                        <div
-                            key={i}
-                            style={{
-                                width: "2px",
-                                height: "2px",
-                                backgroundColor: "currentColor",
-                                borderRadius: "50%",
-                            }}
-                        ></div>
-                    ))}
-                </div>
-                <div
-                    style={{
-                        width: "1px",
-                        height: "16px",
-                        backgroundColor: "rgba(255, 255, 255, 0.15)",
-                        margin: "0 4px",
-                    }}
-                ></div>
-            </React.Fragment>
-        );
+        return <FloatingToolbarDragHandle key={buttonId} title="Move toolbar" aria-label="Move toolbar" />;
     }
 
     if (buttonId === "icon_tool") {
@@ -478,7 +452,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
                             style={{
                                 width: "14px",
                                 height: "2px",
-                                backgroundColor: dr?.textColor || "#FFFFFF",
+                                backgroundColor: effectiveTextColor,
                                 borderRadius: "1px",
                             }}
                         />

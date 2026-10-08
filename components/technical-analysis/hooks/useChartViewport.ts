@@ -1,19 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, MutableRefObject, useCallback } from "react";
 import type { ECharts } from "echarts/core";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
+import { resolveVisibleVolumeOverlayAxisMax } from "../lib/chart/directionalOhlcv";
 import { isPriceAxisInteractiveTarget } from "./priceAxisInteractiveTargets";
 import {
   MAIN_GRID_LEFT,
   TV_MAX_FUTURE_BARS,
   TV_MAX_HISTORY_GAP_BARS,
   TV_MIN_VISIBLE_BARS,
-  TV_PAN_DRIFT_DAMPING,
   TV_PAN_FLING_MAX_AGE_MS,
   TV_PAN_FLING_MIN_VELOCITY_PX_PER_MS,
   TV_PAN_MOMENTUM_TAU_MS,
   TV_PAN_STOP_VELOCITY_PX_PER_MS,
   TV_RESET_VISIBLE_BARS,
-  TV_SCROLL_EASE_TAU_MS,
   TV_TIME_AXIS_DRAG_ZOOM_VELOCITY,
   TV_X_AXIS_HEIGHT,
   TV_Y_AXIS_WIDTH,
@@ -22,6 +21,7 @@ import {
   clamp,
   clampViewportWindowWithFuture,
   decayPanVelocity,
+  easeAutoScaleRange,
   exponentialApproach,
   filterPanVelocity,
   computeDirectionalZoomViewport,
@@ -30,9 +30,10 @@ import {
   computePriceAxisPan,
   computePriceAxisWheelViewport,
   computeTradingViewWheelZoomViewport,
-  normalizeWheelDeltaPx,
+  computeVelaPinchViewport,
   reconcileViewportAfterHistoryPrepend,
   resolveInitialViewportWindow,
+  resolveVelaInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
 } from "./viewport/viewportMath";
 import { resolveAutoViewportPriceRange } from "./viewport/viewportPriceRange";
@@ -75,6 +76,7 @@ export {
   normalizeWheelDeltaPx,
   reconcileViewportAfterHistoryPrepend,
   resolveInitialViewportWindow,
+  resolveVelaInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
 } from "./viewport/viewportMath";
 export { resolveAutoViewportPriceRange } from "./viewport/viewportPriceRange";
@@ -138,6 +140,7 @@ export interface UseChartViewportProps {
   getChartContainer: () => HTMLDivElement | null;
   chartData: ChartDataPoint[];
   lastZoomRangeRef?: MutableRefObject<{ start: number; end: number; barsFromRightStart?: number; barsFromRightEnd?: number; futureBarsFromRightEnd?: number; }>;
+  fitInitialData?: boolean;
   interactionScopeKey?: string;
   hasComparisonEndLabels?: boolean;
   lastPriceAxisValue?: number;
@@ -152,6 +155,7 @@ export const useChartViewport = ({
   getChartContainer,
   chartData,
   lastZoomRangeRef,
+  fitInitialData = false,
   interactionScopeKey,
   hasComparisonEndLabels = false,
   lastPriceAxisValue,
@@ -167,6 +171,9 @@ export const useChartViewport = ({
     yScale: 1.0,
     yPan: 0,
     isYManual: false,
+    renderedYMin: Number.NaN,
+    renderedYMax: Number.NaN,
+    lastAutoscaleAt: 0,
     lastDataLength: 0,
     isDraggingXPan: false,
     isDraggingXScale: false,
@@ -179,6 +186,10 @@ export const useChartViewport = ({
     startY: 0,
     initialXSpan: 0,
     initialXEnd: 0,
+    panStartIdx: 0,
+    panStartEnd: 0,
+    lastPanX: 0,
+    panPriceManualAtStart: false,
     panVelocityPxPerMs: 0,
     lastPanAt: 0,
     initialYScale: 1.0,
@@ -187,6 +198,8 @@ export const useChartViewport = ({
     activePointers: new Map<number, PointerEvent>(),
     initialPinchDistance: 0,
     initialPinchCenter: 0,
+    initialPinchSpan: 0,
+    pinchAnchorLogical: 0,
     cachedRect: null as DOMRect | null // [TENOR 2026 SRE] Cache rect on pointerdown
   });
 
@@ -201,6 +214,12 @@ export const useChartViewport = ({
 
   const prevDataMaxRef = useRef<number>(0);
   const lastDataFirstTimeRef = useRef<string | null>(null);
+  const lastFitInitialDataRef = useRef(fitInitialData);
+  // Wheel input is frame-paced. A history response can land after the browser
+  // accepts the wheel but before the first rAF mutates startIdx/endIdx. This barrier
+  // records that user intent synchronously so an in-flight prepend cannot refit
+  // "Tout" over the interaction during that narrow race window.
+  const pendingTimeViewportInteractionRef = useRef(false);
   const previousPriceLevelGraphicIdsRef = useRef<Set<string>>(new Set());
   const onViewportChangeRef = useRef(onViewportChange);
   const viewportChangeCommitRef = useRef<ViewportChangeCommitBuffer | null>(null);
@@ -304,38 +323,31 @@ export const useChartViewport = ({
       lastPriceAxisValue,
     });
     const { visibleMin, visibleMax, center, padding } = autoRange;
-    let finalMin = autoRange.min;
-    let finalMax = autoRange.max;
+    let targetMin = autoRange.min;
+    let targetMax = autoRange.max;
 
     if (state.isYManual) {
       const scaledRange = ((visibleMax - visibleMin) + padding * 2) * state.yScale;
-      finalMin = center - (scaledRange / 2) + state.yPan;
-      finalMax = center + (scaledRange / 2) + state.yPan;
+      targetMin = center - (scaledRange / 2) + state.yPan;
+      targetMax = center + (scaledRange / 2) + state.yPan;
 
       // TradingView permits panning the price scale beyond the visible candle extrema.
       // Reject only non-finite or inverted ranges.
       const isInvalidManualViewport =
-        !Number.isFinite(finalMin) ||
-        !Number.isFinite(finalMax) ||
-        finalMin >= finalMax;
+        !Number.isFinite(targetMin) ||
+        !Number.isFinite(targetMax) ||
+        targetMin >= targetMax;
 
       if (isInvalidManualViewport) {
         state.isYManual = false;
         state.yScale = 1.0;
         state.yPan = 0;
-        finalMin = autoRange.min;
-        finalMax = autoRange.max;
+        targetMin = autoRange.min;
+        targetMax = autoRange.max;
       }
     }
 
-    const offscreenPriceLevelGraphics = buildOffscreenPriceLevelGraphics({
-      chart,
-      container: getChartContainer(),
-      markers: priceLevelMarkers,
-      yAxisMin: finalMin,
-      yAxisMax: finalMax,
-      previousGraphicIds: previousPriceLevelGraphicIdsRef.current,
-    });
+    const autoscaleTarget = { min: targetMin, max: targetMax };
 
     const axisIndexOffset = state.historyGapBars;
     const primaryXAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
@@ -351,7 +363,6 @@ export const useChartViewport = ({
       xAxis: Array.isArray(option.xAxis)
         ? option.xAxis.map((axis: any, index: number) => ({ id: axis?.id ?? index }))
         : undefined,
-      yAxis: [{ id: 'price-yaxis', min: finalMin, max: finalMax, scale: false }],
       dataZoom: [{
         id: 'time-zoom',
         xAxisIndex: resolveTimeDataZoomAxisIndexes(option),
@@ -359,7 +370,6 @@ export const useChartViewport = ({
         startValue: axisCategories.length > 0 ? renderedTimeWindow.startValue : axisIndexOffset + state.startIdx,
         endValue: axisCategories.length > 0 ? renderedTimeWindow.endValue : axisIndexOffset + state.endIdx,
       }],
-      ...(offscreenPriceLevelGraphics.length > 0 ? { graphic: offscreenPriceLevelGraphics } : {}),
     };
 
     const timeViewportSnapshot = createTimeViewportSyncSnapshot(
@@ -382,9 +392,74 @@ export const useChartViewport = ({
       viewportChangeCommitRef.current?.schedule(viewportEmission);
     }
 
-    enqueueChartMutation("viewport", (targetChart) => {
-      targetChart.setOption(viewportOption, false, true);
-    }, mode);
+    const commitViewport = (targetChart: ECharts) => {
+      let finalMin = autoscaleTarget.min;
+      let finalMax = autoscaleTarget.max;
+      let autoscaleMoving = false;
+
+      if (!state.isYManual) {
+        const now = performance.now();
+        const deltaMs = state.lastAutoscaleAt > 0
+          ? Math.max(1, Math.min(64, now - state.lastAutoscaleAt))
+          : 1000 / 60;
+        const currentRange = (
+          Number.isFinite(state.renderedYMin)
+          && Number.isFinite(state.renderedYMax)
+          && state.renderedYMin < state.renderedYMax
+        )
+          ? { min: state.renderedYMin, max: state.renderedYMax }
+          : null;
+        const easedRange = easeAutoScaleRange(currentRange, autoscaleTarget, deltaMs);
+        finalMin = easedRange.min;
+        finalMax = easedRange.max;
+        autoscaleMoving = easedRange.moving;
+        state.lastAutoscaleAt = now;
+      } else {
+        state.lastAutoscaleAt = 0;
+      }
+
+      state.renderedYMin = finalMin;
+      state.renderedYMax = finalMax;
+
+      const offscreenPriceLevelGraphics = buildOffscreenPriceLevelGraphics({
+        chart: targetChart,
+        container: getChartContainer(),
+        markers: priceLevelMarkers,
+        yAxisMin: finalMin,
+        yAxisMax: finalMax,
+        previousGraphicIds: previousPriceLevelGraphicIdsRef.current,
+      });
+
+      const currentYAxis = Array.isArray(option.yAxis) ? option.yAxis : [option.yAxis];
+      const hasVolumeAxis = currentYAxis.some((axis: any) => axis?.id === 'volume-yaxis');
+      const yAxisViewportUpdates: any[] = [
+        { id: 'price-yaxis', min: finalMin, max: finalMax, scale: false },
+      ];
+      if (hasVolumeAxis) {
+        yAxisViewportUpdates.push({
+          id: 'volume-yaxis',
+          min: 0,
+          max: resolveVisibleVolumeOverlayAxisMax(chartData, state.startIdx, state.endIdx),
+          scale: false,
+        });
+      }
+
+      targetChart.setOption({
+        ...viewportOption,
+        yAxis: yAxisViewportUpdates,
+        ...(offscreenPriceLevelGraphics.length > 0 ? { graphic: offscreenPriceLevelGraphics } : {}),
+      }, {
+        notMerge: false,
+        lazyUpdate: false,
+        silent: true,
+      });
+
+      if (autoscaleMoving && scheduleChartMutation) {
+        scheduleChartMutation("viewport", commitViewport);
+      }
+    };
+
+    enqueueChartMutation("viewport", commitViewport, mode);
 
     if (lastZoomRangeRef) {
       lastZoomRangeRef.current = {
@@ -407,6 +482,15 @@ export const useChartViewport = ({
   ]);
 
   const scheduleViewportApply = useCallback((mode: ViewportApplyMode = "queued") => {
+    // The renderer already owns the canonical rAF scheduler. Enqueue immediately
+    // into its keyed viewport slot so rapid input coalesces to one latest-wins
+    // chart mutation per browser frame, matching Vela's Scheduler semantics.
+    if (scheduleChartMutation) {
+      applyViewport(mode);
+      return;
+    }
+
+    // Fallback only for isolated hook usage without the renderer scheduler.
     if (mode === "immediate") {
       viewportApplyModeRef.current = "immediate";
     }
@@ -418,7 +502,7 @@ export const useChartViewport = ({
       viewportApplyRafRef.current = null;
       applyViewport(applyMode);
     });
-  }, [applyViewport]);
+  }, [applyViewport, scheduleChartMutation]);
 
   useEffect(() => () => {
     if (viewportApplyRafRef.current !== null) {
@@ -473,8 +557,39 @@ export const useChartViewport = ({
       ? -1
       : chartData.findIndex((point) => String(point.time) === previousFirstTime);
     const isHistoryPrepend = lastLen > 0 && currentLen > lastLen && prependedBars > 0;
+    const fitAllBecameActive = fitInitialData && !lastFitInitialDataRef.current;
+    const wasStillFitAllBeforePrepend =
+      isHistoryPrepend
+      && Math.abs(state.startIdx) <= 1e-6
+      && state.endIdx >= (lastLen - 1) - 1e-6;
+    const shouldRefitAllAfterPrepend =
+      fitInitialData
+      && !pendingTimeViewportInteractionRef.current
+      && wasStillFitAllBeforePrepend;
 
-    if (isHistoryPrepend) {
+    // "Tout" defines the initial/full-range intent. It must not overwrite a
+    // viewport that the user has already narrowed or panned while a history page
+    // is in flight. Only a viewport that is still genuinely fit-all may expand
+    // when prepended history arrives; otherwise the branch below translates the
+    // live logical window by the prepended bar count.
+    if (fitInitialData && (lastLen === 0 || currentLen < lastLen || fitAllBecameActive || shouldRefitAllAfterPrepend)) {
+      historyPrependCommitRef.current = null;
+      const chartWidth = chartInstanceRef.current?.getWidth?.() ?? getChartContainer()?.clientWidth ?? 0;
+      const plotWidthPx = Math.max(0, chartWidth - TV_Y_AXIS_WIDTH);
+      const nextViewport = plotWidthPx > 0
+        ? resolveVelaInitialViewportWindow(currentLen, plotWidthPx, undefined, undefined, true)
+        : { startIdx: 0, endIdx: currentLen - 1 };
+      state.startIdx = nextViewport.startIdx;
+      state.endIdx = nextViewport.endIdx;
+      state.yScale = 1.0;
+      state.yPan = 0;
+      state.isYManual = false;
+      state.renderedYMin = Number.NaN;
+      state.renderedYMax = Number.NaN;
+      state.lastAutoscaleAt = 0;
+      state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
+      pendingTimeViewportInteractionRef.current = false;
+    } else if (isHistoryPrepend) {
       historyPrependCommitRef.current = {
         dataLength: currentLen,
         prependedBars,
@@ -492,12 +607,21 @@ export const useChartViewport = ({
       state.endIdx = nextViewport.endIdx;
     } else if (lastLen === 0 || currentLen < lastLen) {
       historyPrependCommitRef.current = null;
-      const nextViewport = resolveInitialViewportWindow(currentLen);
+      const chartWidth = chartInstanceRef.current?.getWidth?.() ?? getChartContainer()?.clientWidth ?? 0;
+      const plotWidthPx = Math.max(0, chartWidth - TV_Y_AXIS_WIDTH);
+      const nextViewport = plotWidthPx > 0
+        ? resolveVelaInitialViewportWindow(currentLen, plotWidthPx, undefined, undefined, fitInitialData)
+        : fitInitialData
+          ? { startIdx: 0, endIdx: currentLen - 1 }
+          : resolveInitialViewportWindow(currentLen);
       state.startIdx = nextViewport.startIdx;
       state.endIdx = nextViewport.endIdx;
       state.yScale = 1.0;
       state.yPan = 0;
       state.isYManual = false;
+      state.renderedYMin = Number.NaN;
+      state.renderedYMax = Number.NaN;
+      state.lastAutoscaleAt = 0;
       state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
     } else if (lastLen > 0 && prependedBars === -1 && currentLen >= lastLen) {
       historyPrependCommitRef.current = null;
@@ -515,8 +639,9 @@ export const useChartViewport = ({
     }
 
     lastDataFirstTimeRef.current = firstTime;
+    lastFitInitialDataRef.current = fitInitialData;
     state.lastDataLength = currentLen;
-  }, [chartData]);
+  }, [chartData, fitInitialData]);
 
   const completeHistoryPrependCommit = useCallback((committedDataLength: number): boolean => {
     const pendingCommit = historyPrependCommitRef.current;
@@ -553,10 +678,12 @@ export const useChartViewport = ({
     let wheelFrameId: number | null = null;
     let pendingWheelDeltaY = 0;
     let pendingWheelDeltaX = 0;
-    let viewportGlideFrameId: number | null = null;
-    let viewportGlideLastTimestamp = 0;
-    let viewportGlideTauMs = TV_ZOOM_EASE_TAU_MS;
-    let viewportGlideTarget: { startIdx: number; endIdx: number } | null = null;
+    let pendingWheelAnchorRatio = 1;
+    let zoomGlideFrameId: number | null = null;
+    let zoomGlideLastTimestamp = 0;
+    let zoomTargetSpan: number | null = null;
+    let zoomAnchorLogical = 0;
+    let zoomAnchorRatio = 1;
     let panMomentumFrameId: number | null = null;
     let panMomentumLastTimestamp = 0;
 
@@ -565,14 +692,9 @@ export const useChartViewport = ({
       totalBars: number,
       shift: number,
     ) => {
-      const projectedStart = state.startIdx + (shift * TV_PAN_DRIFT_DAMPING);
-      const currentFutureBars = Math.max(0, state.endIdx - (totalBars - 1));
-      const isFutureDirectedPan = shift > 0;
-      const isElasticHistoryPan = shift < 0 && projectedStart < 0 && currentFutureBars === 0;
-
-      // The left elastic reserve is a fixed coordinate-space budget. Never grow
-      // the synthetic axis while the pointer/wheel is moving: doing so changes the
-      // index offset for every candle/volume point and causes a full-axis rebuild.
+      // Match Vela's continuous rightOffset clamp: history and future reserves
+      // stay in one stable coordinate space in both directions. Collapsing future
+      // space when direction reverses changes the coordinate system mid-gesture.
       state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
 
       return computeHorizontalPanViewport({
@@ -581,59 +703,69 @@ export const useChartViewport = ({
         totalBars,
         shift,
         maxHistoryGapBars: TV_MAX_HISTORY_GAP_BARS,
-        // TradingView-style future whitespace remains available only while the
-        // user intentionally pans toward the future. The instant the direction
-        // reverses toward history, collapse the synthetic future reserve so no
-        // right-hand gap can survive or be recreated during historical browsing.
-        maxFutureBars: isFutureDirectedPan ? TV_MAX_FUTURE_BARS : 0,
-        preserveEnd: isElasticHistoryPan,
+        maxFutureBars: TV_MAX_FUTURE_BARS,
+        preserveEnd: false,
       });
     };
 
-    const cancelViewportGlide = () => {
-      if (viewportGlideFrameId !== null) cancelAnimationFrame(viewportGlideFrameId);
-      viewportGlideFrameId = null;
-      viewportGlideLastTimestamp = 0;
-      viewportGlideTarget = null;
+    const cancelZoomGlide = () => {
+      if (zoomGlideFrameId !== null) cancelAnimationFrame(zoomGlideFrameId);
+      zoomGlideFrameId = null;
+      zoomGlideLastTimestamp = 0;
+      zoomTargetSpan = null;
     };
 
-    const runViewportGlide = (timestamp: number) => {
-      const target = viewportGlideTarget;
-      if (!target || !getLiveChart()) {
-        cancelViewportGlide();
+    const runZoomGlide = (timestamp: number) => {
+      const targetSpan = zoomTargetSpan;
+      const state = viewportStateRef.current;
+      const totalBars = chartDataRef.current.length;
+      if (targetSpan === null || !getLiveChart() || totalBars <= 1) {
+        cancelZoomGlide();
         return;
       }
-      const state = viewportStateRef.current;
-      const deltaMs = viewportGlideLastTimestamp === 0
+
+      const deltaMs = zoomGlideLastTimestamp === 0
         ? 1000 / 60
-        : Math.max(1, Math.min(64, timestamp - viewportGlideLastTimestamp));
-      viewportGlideLastTimestamp = timestamp;
-      state.startIdx = exponentialApproach(state.startIdx, target.startIdx, deltaMs, viewportGlideTauMs);
-      state.endIdx = exponentialApproach(state.endIdx, target.endIdx, deltaMs, viewportGlideTauMs);
-      const remaining = Math.max(
-        Math.abs(target.startIdx - state.startIdx),
-        Math.abs(target.endIdx - state.endIdx),
+        : Math.max(1, Math.min(64, timestamp - zoomGlideLastTimestamp));
+      zoomGlideLastTimestamp = timestamp;
+
+      const currentSpan = Math.max(TV_MIN_VISIBLE_BARS, state.endIdx - state.startIdx);
+      const currentSpacing = 1 / currentSpan;
+      const targetSpacing = 1 / Math.max(TV_MIN_VISIBLE_BARS, targetSpan);
+      const nextSpacing = exponentialApproach(currentSpacing, targetSpacing, deltaMs, TV_ZOOM_EASE_TAU_MS);
+      const nextSpan = 1 / Math.max(Number.EPSILON, nextSpacing);
+      const nextStart = zoomAnchorLogical - (nextSpan * zoomAnchorRatio);
+      const nextViewport = clampViewportWindowWithFuture(
+        nextStart,
+        nextStart + nextSpan,
+        totalBars,
+        TV_MAX_FUTURE_BARS,
+        TV_MAX_HISTORY_GAP_BARS,
       );
-      if (remaining < 0.05) {
-        state.startIdx = target.startIdx;
-        state.endIdx = target.endIdx;
-        viewportGlideTarget = null;
-        viewportGlideFrameId = null;
-        viewportGlideLastTimestamp = 0;
-        scheduleViewportApply("immediate");
+
+      state.startIdx = nextViewport.startIdx;
+      state.endIdx = nextViewport.endIdx;
+      pendingTimeViewportInteractionRef.current = false;
+      notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
+      scheduleViewportApply("immediate");
+
+      if (Math.abs(nextSpan - targetSpan) <= Math.max(0.002, targetSpan * 0.001)) {
+        zoomGlideFrameId = null;
+        zoomGlideLastTimestamp = 0;
+        zoomTargetSpan = null;
         viewportChangeCommitRef.current?.flush();
         return;
       }
-      scheduleViewportApply("immediate");
-      viewportGlideFrameId = requestAnimationFrame(runViewportGlide);
+      zoomGlideFrameId = requestAnimationFrame(runZoomGlide);
     };
 
-    const glideToViewport = (target: { startIdx: number; endIdx: number }, tauMs: number) => {
-      viewportGlideTarget = target;
-      viewportGlideTauMs = tauMs;
-      if (viewportGlideFrameId !== null) return;
-      viewportGlideLastTimestamp = 0;
-      viewportGlideFrameId = requestAnimationFrame(runViewportGlide);
+    const startZoomGlide = (targetSpan: number, anchorLogical: number, anchorRatio: number) => {
+      zoomTargetSpan = Math.max(TV_MIN_VISIBLE_BARS, targetSpan);
+      zoomAnchorLogical = anchorLogical;
+      zoomAnchorRatio = clamp(anchorRatio, 0, 1);
+      if (zoomGlideFrameId !== null) return;
+      zoomGlideLastTimestamp = 0;
+      zoomGlideFrameId = requestAnimationFrame(runZoomGlide);
     };
 
     const cancelPanMomentum = () => {
@@ -676,7 +808,6 @@ export const useChartViewport = ({
 
     const startPanMomentum = () => {
       if (Math.abs(viewportStateRef.current.panVelocityPxPerMs) < TV_PAN_FLING_MIN_VELOCITY_PX_PER_MS) return;
-      cancelViewportGlide();
       cancelPanMomentum();
       panMomentumLastTimestamp = 0;
       panMomentumFrameId = requestAnimationFrame(runPanMomentum);
@@ -891,53 +1022,43 @@ export const useChartViewport = ({
 
       const state = viewportStateRef.current;
       const totalBars = chartDataRef.current.length;
-      if (Math.abs(deltaY) > Math.abs(deltaX)) {
-        const baseViewport = viewportGlideTarget ?? { startIdx: state.startIdx, endIdx: state.endIdx };
-        const currentFutureBars = Math.max(0, baseViewport.endIdx - (totalBars - 1));
-        const isHistoryRevealWheel = deltaY > 0;
-        const nextViewport = computeTradingViewWheelZoomViewport({
-          startIdx: baseViewport.startIdx,
-          endIdx: baseViewport.endIdx,
-          totalBars,
-          deltaY,
-          maxHistoryGapBars: TV_MAX_HISTORY_GAP_BARS,
-          // A wheel zoom-out reveals older history. On that first history-directed
-          // gesture, collapse any previously intentional future whitespace so the
-          // right edge snaps back to the latest real candle. Zoom-in may preserve
-          // an already intentional future gap, but can never create one from zero.
-          maxFutureBars: isHistoryRevealWheel ? 0 : currentFutureBars,
-        });
-
-        state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
-        glideToViewport(nextViewport, TV_ZOOM_EASE_TAU_MS);
-      } else {
+      if (deltaX !== 0) {
+        cancelZoomGlide();
         const rect = containerEl.getBoundingClientRect();
         const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH);
-        const baseViewport = viewportGlideTarget ?? { startIdx: state.startIdx, endIdx: state.endIdx };
-        const visibleCount = baseViewport.endIdx - baseViewport.startIdx;
+        const visibleCount = Math.max(TV_MIN_VISIBLE_BARS, state.endIdx - state.startIdx);
         const shift = (deltaX / gridWidth) * visibleCount;
-        const nextViewport = resolveExpandablePanViewport(
-          { ...state, startIdx: baseViewport.startIdx, endIdx: baseViewport.endIdx },
-          totalBars,
-          shift,
-        );
-        glideToViewport(nextViewport, TV_SCROLL_EASE_TAU_MS);
+        const nextViewport = resolveExpandablePanViewport(state, totalBars, shift);
+        state.startIdx = nextViewport.startIdx;
+        state.endIdx = nextViewport.endIdx;
+        notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
+        scheduleViewportApply("immediate");
+        return;
       }
 
-      const target = viewportGlideTarget ?? { startIdx: state.startIdx, endIdx: state.endIdx };
-      notifyHistoryBoundary(target.startIdx, target.endIdx, totalBars);
+      const currentSpan = Math.max(TV_MIN_VISIBLE_BARS, state.endIdx - state.startIdx);
+      const anchorRatio = pendingWheelAnchorRatio;
+      const anchorLogical = state.startIdx + (currentSpan * anchorRatio);
+      const targetViewport = computeTradingViewWheelZoomViewport({
+        startIdx: state.startIdx,
+        endIdx: state.endIdx,
+        totalBars,
+        deltaY,
+        cursorRatio: anchorRatio,
+        maxHistoryGapBars: TV_MAX_HISTORY_GAP_BARS,
+        maxFutureBars: TV_MAX_FUTURE_BARS,
+      });
+
+      state.historyGapBars = TV_MAX_HISTORY_GAP_BARS;
+      startZoomGlide(
+        Math.max(TV_MIN_VISIBLE_BARS, targetViewport.endIdx - targetViewport.startIdx),
+        anchorLogical,
+        anchorRatio,
+      );
     };
 
     const onWheel = (event: WheelEvent) => {
-      const cursor = (event.target as HTMLElement)?.style?.cursor;
-
-      if (cursor === 'move' || cursor === 'grab' || cursor === 'grabbing' || cursor === 'ns-resize') {
-        return;
-      }
-      if (isPriceAxisInteractiveTarget(event.target)) {
-        return;
-      }
-
+      // Vela owns wheel input regardless of grab/crosshair cursor styling.
       event.preventDefault();
       event.stopPropagation();
       const chart = getLiveChart();
@@ -946,21 +1067,19 @@ export const useChartViewport = ({
       const rect = containerEl.getBoundingClientRect();
       const mouseX = event.clientX - rect.left;
       const mouseY = event.clientY - rect.top;
-
       const gridRightPx = rect.width - TV_Y_AXIS_WIDTH;
       const gridBottomPx = rect.height - TV_X_AXIS_HEIGHT;
-
       const isOnYAxis = mouseX >= gridRightPx;
       const isOnXAxis = mouseY >= gridBottomPx && mouseX < gridRightPx;
       const isOnChart = mouseX < gridRightPx && mouseY < gridBottomPx;
 
       const state = viewportStateRef.current;
-      const rawWheelDeltaY = normalizeWheelDeltaPx(event.deltaY, event.deltaMode);
-      const rawWheelDeltaX = normalizeWheelDeltaPx(event.deltaX, event.deltaMode);
-      const wheelDeltaY = event.shiftKey && !isOnYAxis ? 0 : rawWheelDeltaY;
-      const wheelDeltaX = event.shiftKey && !isOnYAxis
-        ? (Math.abs(rawWheelDeltaX) > Math.abs(rawWheelDeltaY) ? rawWheelDeltaX : rawWheelDeltaY)
-        : rawWheelDeltaX;
+      // Exact Vela 0.7.2 contract: native WheelEvent deltas are consumed directly.
+      const rawWheelDeltaY = event.deltaY;
+      const rawWheelDeltaX = event.deltaX;
+
+      cancelPanMomentum();
+      state.panVelocityPxPerMs = 0;
 
       if (isOnYAxis) {
         const totalBars = chartDataRef.current.length;
@@ -974,17 +1093,35 @@ export const useChartViewport = ({
           yPan: state.yPan,
           cursorRatio: mouseY / gridHeight,
           gridHeight,
-          wheelDeltaY,
+          wheelDeltaY: rawWheelDeltaY,
         });
         state.yScale = nextPriceViewport.yScale;
         state.yPan = nextPriceViewport.yPan;
         state.isYManual = true;
         scheduleViewportApply("immediate");
-      } else if (isOnChart || isOnXAxis) {
-        if (Math.abs(wheelDeltaY) > Math.abs(wheelDeltaX)) {
-          pendingWheelDeltaY += wheelDeltaY;
+        return;
+      }
+
+      if (isOnChart || isOnXAxis) {
+        const horizontalPanDelta = Math.abs(rawWheelDeltaX) > Math.abs(rawWheelDeltaY)
+          ? rawWheelDeltaX
+          : event.shiftKey
+            ? rawWheelDeltaY
+            : null;
+        const gridWidth = Math.max(1, gridRightPx - MAIN_GRID_LEFT);
+        const cursorRatio = clamp((mouseX - MAIN_GRID_LEFT) / gridWidth, 0, 1);
+
+        // Vela rightEdgeZoom=true: ordinary wheel pins the right edge.
+        // Ctrl/Cmd temporarily pins the logical candle under the cursor.
+        pendingWheelAnchorRatio = (event.ctrlKey || event.metaKey) ? cursorRatio : 1;
+        // Mark the interaction before rAF. This closes the race where an
+        // already in-flight history prepend resolves between the wheel event and
+        // flushChartWheel/runZoomGlide mutating the logical viewport.
+        pendingTimeViewportInteractionRef.current = true;
+        if (horizontalPanDelta !== null) {
+          pendingWheelDeltaX += horizontalPanDelta;
         } else {
-          pendingWheelDeltaX += wheelDeltaX;
+          pendingWheelDeltaY += rawWheelDeltaY;
         }
 
         if (wheelFrameId === null) {
@@ -1002,7 +1139,7 @@ export const useChartViewport = ({
       if (!getLiveChart()) return;
 
       const state = viewportStateRef.current;
-      cancelViewportGlide();
+      cancelZoomGlide();
       cancelPanMomentum();
       state.panVelocityPxPerMs = 0;
       state.lastPanAt = event.timeStamp;
@@ -1069,8 +1206,14 @@ export const useChartViewport = ({
         const dx = p1.clientX - p2.clientX;
         const dy = p1.clientY - p2.clientY;
         
-        state.initialPinchDistance = Math.hypot(dx, dy);
+        state.initialPinchDistance = Math.max(1, Math.hypot(dx, dy));
         state.initialPinchCenter = ((p1.clientX + p2.clientX) / 2) - rect.left;
+        state.initialPinchSpan = Math.max(TV_MIN_VISIBLE_BARS, state.endIdx - state.startIdx);
+        state.panStartIdx = state.startIdx;
+        state.panStartEnd = state.endIdx;
+        const pinchGridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH);
+        const pinchStartRatio = clamp((state.initialPinchCenter - MAIN_GRID_LEFT) / pinchGridWidth, 0, 1);
+        state.pinchAnchorLogical = state.startIdx + (state.initialPinchSpan * pinchStartRatio);
         
         state.isDraggingXPan = false;
         state.isDraggingXScale = false;
@@ -1103,6 +1246,12 @@ export const useChartViewport = ({
         state.isDraggingChart = true;
         state.startX = event.clientX;
         state.startY = event.clientY;
+        state.panStartIdx = state.startIdx;
+        state.panStartEnd = state.endIdx;
+        state.lastPanX = event.clientX;
+        state.panPriceManualAtStart = state.isYManual;
+        state.initialYPan = state.yPan;
+        state.initialYScale = state.yScale;
       }
     };
 
@@ -1130,38 +1279,28 @@ export const useChartViewport = ({
           return;
         }
 
-        // [JITTER PROTECTION] Ignore micro-movements (< 5px)
-        if (Math.abs(currentDistance - state.initialPinchDistance) < 5) {
-            return;
-        }
-
-        const rawRatio = state.initialPinchDistance / currentDistance;
-        const zoomFactor = Math.pow(rawRatio, 0.5);
-
         const totalBars = chartDataRef.current.length;
-        const visibleCount = state.endIdx - state.startIdx;
-        
         const rect = state.cachedRect || containerEl.getBoundingClientRect();
-        const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
-        const cursorRatio = Math.max(0, Math.min(1, (state.initialPinchCenter - MAIN_GRID_LEFT) / gridWidth));
+        const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH);
+        const liveMidX = (((p1.clientX + p2.clientX) / 2) - rect.left);
+        const liveMidRatio = clamp((liveMidX - MAIN_GRID_LEFT) / gridWidth, 0, 1);
 
-        const pinchDeltaY = (visibleCount - (visibleCount * zoomFactor)) || 0;
-
-        const nextViewport = computeDirectionalZoomViewport({
-          startIdx: state.startIdx,
-          endIdx: state.endIdx,
+        const nextViewport = computeVelaPinchViewport({
+          startIdx: state.panStartIdx,
+          endIdx: state.panStartEnd,
           totalBars,
-          cursorRatio,
-          zoomFactor,
-          deltaY: pinchDeltaY,
+          startDistance: state.initialPinchDistance,
+          currentDistance,
+          anchorLogical: state.pinchAnchorLogical,
+          currentMidpointRatio: liveMidRatio,
+          maxHistoryGapBars: TV_MAX_HISTORY_GAP_BARS,
+          maxFutureBars: TV_MAX_FUTURE_BARS,
         });
 
         state.startIdx = nextViewport.startIdx;
         state.endIdx = nextViewport.endIdx;
         notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
         scheduleViewportApply("immediate");
-
-        state.initialPinchDistance = currentDistance;
         return;
       }
 
@@ -1207,47 +1346,48 @@ export const useChartViewport = ({
         notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
         scheduleViewportApply("immediate");
       } else if (state.isDraggingChart || state.isDraggingXPan) {
-        const deltaX = event.clientX - state.startX;
-        state.startX = event.clientX;
+        const deltaXFromStart = event.clientX - state.startX;
+        const instantaneousDeltaX = event.clientX - state.lastPanX;
         const deltaTime = Math.max(1, event.timeStamp - state.lastPanAt);
-        state.panVelocityPxPerMs = filterPanVelocity(state.panVelocityPxPerMs, deltaX / deltaTime);
+        state.panVelocityPxPerMs = filterPanVelocity(state.panVelocityPxPerMs, instantaneousDeltaX / deltaTime);
+        state.lastPanX = event.clientX;
         state.lastPanAt = event.timeStamp;
 
         const totalBars = chartDataRef.current.length;
-        const visibleCount = state.endIdx - state.startIdx;
-        
+        const baseStart = state.panStartIdx;
+        const baseEnd = state.panStartEnd > baseStart ? state.panStartEnd : state.endIdx;
+        const visibleCount = Math.max(TV_MIN_VISIBLE_BARS, baseEnd - baseStart);
         const rect = state.cachedRect || containerEl.getBoundingClientRect();
-        const gridWidth = rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH;
-        const shiftX = -(deltaX / gridWidth) * visibleCount;
+        const gridWidth = Math.max(1, rect.width - MAIN_GRID_LEFT - TV_Y_AXIS_WIDTH);
+        const shiftX = -(deltaXFromStart / gridWidth) * visibleCount;
 
-        const nextViewport = resolveExpandablePanViewport(state, totalBars, shiftX);
+        const nextViewport = resolveExpandablePanViewport(
+          { ...state, startIdx: baseStart, endIdx: baseEnd },
+          totalBars,
+          shiftX,
+        );
 
         state.startIdx = nextViewport.startIdx;
         state.endIdx = nextViewport.endIdx;
         notifyHistoryBoundary(state.startIdx, state.endIdx, totalBars);
 
-        if (state.isDraggingChart) {
-          const deltaY = event.clientY - state.startY;
-          state.startY = event.clientY;
-
-          if (Math.abs(deltaY) > 0) {
-            state.isYManual = true;
-            const gridHeight = Math.max(1, rect.height - (rect.height * 0.08) - 30);
-            let visibleMin = Infinity, visibleMax = -Infinity;
-            for (let i = state.startIdx; i <= state.endIdx; i++) {
-              if (chartDataRef.current[i]) {
-                visibleMin = Math.min(visibleMin, chartDataRef.current[i].low);
-                visibleMax = Math.max(visibleMax, chartDataRef.current[i].high);
-              }
-            }
-            state.yPan = computePriceAxisPan({
-              initialYPan: state.yPan,
-              deltaY,
-              gridHeight,
-              priceRange: Math.max(1, visibleMax - visibleMin),
-              yScale: state.yScale,
-            });
-          }
+        if (state.panPriceManualAtStart) {
+          const autoRange = resolveAutoViewportPriceRange({
+            chartData: chartDataRef.current,
+            startIdx: Math.max(0, state.startIdx),
+            endIdx: Math.max(0, Math.min(totalBars - 1, state.endIdx)),
+            hasComparisonEndLabels,
+            lastPriceAxisValue,
+          });
+          const gridHeight = Math.max(1, rect.height - TV_X_AXIS_HEIGHT);
+          const priceRange = Math.max(1, autoRange.visibleMax - autoRange.visibleMin + autoRange.padding * 2);
+          state.yPan = computePriceAxisPan({
+            initialYPan: state.initialYPan,
+            deltaY: event.clientY - state.startY,
+            gridHeight,
+            priceRange,
+            yScale: state.initialYScale,
+          });
         }
         scheduleViewportApply("immediate");
       }
@@ -1285,8 +1425,41 @@ export const useChartViewport = ({
         const remainingPointer = Array.from(state.activePointers.values())[0];
         state.startX = remainingPointer.clientX;
         state.startY = remainingPointer.clientY;
+        state.panStartIdx = state.startIdx;
+        state.panStartEnd = state.endIdx;
+        state.lastPanX = remainingPointer.clientX;
+        state.lastPanAt = event.timeStamp;
         state.isDraggingXPan = true;
       }
+    };
+
+    const onPointerCancel = (event: PointerEvent) => {
+      const state = viewportStateRef.current;
+
+      // Match Vela's cancellation contract: the browser/system owns the pointer
+      // again, so abandon the gesture exactly where it is. Never synthesize a
+      // click or fling from pointercancel, and never leave a latent pinch/drag.
+      state.activePointers.delete(event.pointerId);
+      state.activePointers.clear();
+      state.initialPinchDistance = 0;
+      state.initialPinchCenter = 0;
+      state.initialPinchSpan = 0;
+      state.isDraggingXPan = false;
+      state.isDraggingXScale = false;
+      state.isDraggingYScale = false;
+      state.isDraggingChart = false;
+      state.gestureActivated = false;
+      state.cachedRect = null;
+      state.panVelocityPxPerMs = 0;
+      cancelPanMomentum();
+
+      try {
+        if (containerEl.hasPointerCapture?.(event.pointerId)) containerEl.releasePointerCapture(event.pointerId);
+      } catch {
+        // A cancelled pointer may already have been released by the browser.
+      }
+
+      viewportChangeCommitRef.current?.flush();
     };
 
     const onDoubleClick = (event: MouseEvent | PointerEvent) => {
@@ -1331,12 +1504,12 @@ export const useChartViewport = ({
     // Capture movement/up events as well: ZRender may stop propagation at target.
     window.addEventListener("pointermove", onPointerMove, interactionListenerOptions);
     window.addEventListener("pointerup", onPointerUp, interactionListenerOptions);
-    window.addEventListener("pointercancel", onPointerUp, interactionListenerOptions);
+    window.addEventListener("pointercancel", onPointerCancel, interactionListenerOptions);
 
     return () => {
       if (registryFrameId !== null) cancelAnimationFrame(registryFrameId);
       if (wheelFrameId !== null) cancelAnimationFrame(wheelFrameId);
-      cancelViewportGlide();
+      cancelZoomGlide();
       cancelPanMomentum();
       pendingWheelDeltaY = 0;
       pendingWheelDeltaX = 0;
@@ -1347,7 +1520,7 @@ export const useChartViewport = ({
       
       window.removeEventListener("pointermove", onPointerMove, interactionListenerOptions);
       window.removeEventListener("pointerup", onPointerUp, interactionListenerOptions);
-      window.removeEventListener("pointercancel", onPointerUp, interactionListenerOptions);
+      window.removeEventListener("pointercancel", onPointerCancel, interactionListenerOptions);
     };
   }, [
     chartData.length,

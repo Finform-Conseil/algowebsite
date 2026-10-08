@@ -37,7 +37,7 @@ const VolatilitySection = ({
   title: string;
   unavailableState: React.ReactNode;
 }) => (
-  <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px", borderBottom: "none" }}>
+  <div className="gp-sidebar-section gp-sidebar-subsection gp-sidebar-subsection--terminal">
     <div className="gp-sidebar-header" style={{ marginBottom: "10px" }}>
       <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>{title}</span>
     </div>

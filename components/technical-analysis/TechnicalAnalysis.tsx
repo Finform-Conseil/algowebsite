@@ -94,7 +94,9 @@ import type { CompareSeriesSettingsModalProps } from "@/components/technical-ana
 import { TimeAxisControls } from "@/components/technical-analysis/components/toolbar/time-axis/TimeAxisControls";
 import TechnicalAnalysisSidebar, { type TechnicalAnalysisSidebarProps } from "@/components/technical-analysis/components/sidebar/TechnicalAnalysisSidebar";
 import { ToolbarButton } from "@/components/technical-analysis/components/toolbar/floating/ToolbarButton";
+import { FloatingToolbarShell } from "@/components/technical-analysis/components/toolbar/floating/FloatingToolbarShell";
 import { InlineTextEditor } from "@/components/technical-analysis/components/toolbar/floating/InlineTextEditor";
+import { IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET } from "@/components/technical-analysis/config/drawing/drawingConstants";
 import { VerticalDrawingToolbar } from "@/components/technical-analysis/components/toolbar/VerticalDrawingToolbar";
 import { MultiChartLayoutGrid, type MultiChartContextMenuRequest } from "@/components/technical-analysis/components/layout/MultiChartLayoutGrid";
 import {
@@ -108,6 +110,7 @@ import { isMultiChartTickerContextIsolated } from "@/components/technical-analys
 import { useDrawingManager } from "@/components/technical-analysis/hooks/useDrawingManager";
 import { useChartHistory } from "@/components/technical-analysis/hooks/useChartHistory";
 import type { ChartHistoryReduxSnapshot } from "@/components/technical-analysis/store/reducers/chartHistoryReducers";
+import { snapshotChartHistoryLayout } from "./config/layout/chartHistoryLayout";
 import {
   useLiveMetrics,
   useComparisonManager,
@@ -1155,6 +1158,7 @@ const ChartUI: React.FC = () => {
     appearance: chartAppearance,
   }), [chartAppearance, chartConfig.indicators]);
   const multiChartLayout = useSelector((state: RootState) => state.technicalAnalysis.ui.multiChartLayout, shallowEqual);
+  const chartHistoryLayoutSnapshot = useMemo(() => snapshotChartHistoryLayout(multiChartLayout), [multiChartLayout]);
   const comparisonMarketData = useSelector(selectMarketData, shallowEqual);
   const selectedTimeRange = useSelector((state: RootState) => state.technicalAnalysis.ui.selectedTimeRange);
   const replayState = useSelector((state: RootState) => state.technicalAnalysis.ui.replay, shallowEqual);
@@ -1177,6 +1181,7 @@ const ChartUI: React.FC = () => {
     pineChartOverlay,
     ui: {
       activeMarket,
+      multiChartLayout: chartHistoryLayoutSnapshot,
       selectedTimeRange,
       comparisonSymbols,
       comparisonSettings,
@@ -1193,6 +1198,7 @@ const ChartUI: React.FC = () => {
     bollingerSettings,
     chartAppearance,
     chartConfig,
+    chartHistoryLayoutSnapshot,
     comparisonSettings,
     comparisonSymbols,
     indicatorPeriods,
@@ -1206,6 +1212,7 @@ const ChartUI: React.FC = () => {
 
   const chartHistoryTrackedIndicatorMutationSignal = useMemo(() => JSON.stringify({
     chartIndicators: chartConfig.indicators,
+    layout: chartHistoryLayoutSnapshot,
     advancedIndicators,
     indicatorPeriods,
     bollingerSettings,
@@ -1213,6 +1220,7 @@ const ChartUI: React.FC = () => {
     advancedIndicators,
     bollingerSettings,
     chartConfig.indicators,
+    chartHistoryLayoutSnapshot,
     indicatorPeriods,
   ]);
 
@@ -1250,27 +1258,6 @@ const ChartUI: React.FC = () => {
     setSnapToIndicators,
   ]);
 
-  const { canUndo, canRedo, undo, redo } = useChartHistory({
-    snapshot: chartHistorySnapshot,
-    restore: restoreGlobalChartHistory,
-    trackedMutationSignal: chartHistoryTrackedIndicatorMutationSignal,
-  });
-
-  // [TENOR 2026 â Option F] Live snapshot for the currently active chart symbol.
-  // Used by useObjectTreePanel to resolve provenance label in Financial Proof Mode.
-  const chartUiLiveSnapshot = marketData.liveSnapshot;
-  const shouldMountModalOrchestrator = Object.values(modals).some(Boolean);
-
-  const [showReplayFullText, setShowReplayFullText] = useState(false);
-  const [isReplaySelectingStart, setIsReplaySelectingStart] = useState(false);
-  const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
-  const [indicatorConfigurationTarget, setIndicatorConfigurationTarget] = useState<IndicatorConfigurationTarget | null>(null);
-  const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
-  const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuModel | null>(null);
-  const [priceScaleContextMenu, setPriceScaleContextMenu] = useState<PriceScaleContextMenuModel | null>(null);
-  const chartContextTargetRef = React.useRef<EChartsInstance | null>(null);
-  const priceScaleContextTargetRef = React.useRef<EChartsInstance | null>(null);
-
   const {
     savedAnalysesList,
     activeSavedAnalysisId,
@@ -1287,6 +1274,39 @@ const ChartUI: React.FC = () => {
     undefined,
     { drawings, replaceDrawings },
   );
+
+  const { canUndo, canRedo, undo, redo } = useChartHistory({
+    snapshot: chartHistorySnapshot,
+    restore: restoreGlobalChartHistory,
+    trackedMutationSignal: chartHistoryTrackedIndicatorMutationSignal,
+    persistenceScope: `ta-chart-history:v1:${activeSavedAnalysisId ?? "unsaved-workspace"}`,
+    validateSnapshot: (value: unknown): boolean => {
+      if (!value || typeof value !== "object") return false;
+      const candidate = value as Partial<typeof chartHistorySnapshot>;
+      return Boolean(candidate.redux && typeof candidate.redux === "object"
+        && candidate.redux.chartConfig && candidate.redux.ui
+        && Array.isArray(candidate.drawings) && candidate.drawingTools
+        && typeof candidate.drawingTools.keepDrawing === "boolean"
+        && typeof candidate.drawingTools.magnetMode === "boolean"
+        && typeof candidate.drawingTools.snapToIndicators === "boolean"
+        && typeof candidate.drawingTools.positionsOrdersHidden === "boolean");
+    },
+  });
+
+  // [TENOR 2026 â Option F] Live snapshot for the currently active chart symbol.
+  // Used by useObjectTreePanel to resolve provenance label in Financial Proof Mode.
+  const chartUiLiveSnapshot = marketData.liveSnapshot;
+  const shouldMountModalOrchestrator = Object.values(modals).some(Boolean);
+
+  const [showReplayFullText, setShowReplayFullText] = useState(false);
+  const [isReplaySelectingStart, setIsReplaySelectingStart] = useState(false);
+  const [compareSettingsSymbol, setCompareSettingsSymbol] = useState<string | null>(null);
+  const [indicatorConfigurationTarget, setIndicatorConfigurationTarget] = useState<IndicatorConfigurationTarget | null>(null);
+  const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
+  const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuModel | null>(null);
+  const [priceScaleContextMenu, setPriceScaleContextMenu] = useState<PriceScaleContextMenuModel | null>(null);
+  const chartContextTargetRef = React.useRef<EChartsInstance | null>(null);
+  const priceScaleContextTargetRef = React.useRef<EChartsInstance | null>(null);
 
   useEffect(() => {
     if (!isZenMode) return;
@@ -3264,7 +3284,7 @@ const ChartUI: React.FC = () => {
                         zIndex: 60,
                       }}
                     >
-                      <div
+                      <FloatingToolbarShell
                         ref={refs.drawingToolbarRef}
                         className="gp-drawing-quick-toolbar-box"
                         onPointerDown={handleToolbarDragStart}
@@ -3279,16 +3299,7 @@ const ChartUI: React.FC = () => {
                           display: "none",
                           position: "absolute",
                           transform: "translate(-50%, -100%)",
-                          backgroundColor: "#1e222d",
-                          backdropFilter: "blur(10px)",
-                          borderRadius: "6px",
-                          padding: "4px 6px",
                           zIndex: 1000,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: "2px",
-                          border: "1px solid #2a2e39",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
                           pointerEvents: "auto",
                           cursor: "grab",
                           touchAction: "none",
@@ -3334,7 +3345,7 @@ const ChartUI: React.FC = () => {
                               />
                             )
                           )}
-                      </div>
+                      </FloatingToolbarShell>
 
                       {editingDrawing && editingDrawingPosition && (
                         <InlineTextEditor
@@ -3345,7 +3356,7 @@ const ChartUI: React.FC = () => {
                               ? editingDrawing.tableProps.cells[editingTableCell.row]?.[editingTableCell.col]?.text || ""
                               : undefined
                           }
-                          placeholder={editingDrawing.type === "signpost" ? "Add text" : undefined}
+                          placeholder={IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET.has(editingDrawing.type) ? "Add text" : undefined}
                           onSave={(text) => stopEditingDrawing(text)}
                           onCancel={() => { setEditingDrawingId(null); setEditingDrawingPosition(null); setEditingTableCell(null); }}
                         />
@@ -3370,7 +3381,7 @@ const ChartUI: React.FC = () => {
               </div>
             </div>
 
-            <div className="gp-sidebar-shell">
+            <div className="gp-sidebar-boundary-rail">
               <button
                 ref={refs.sidebarToggleRef}
                 id="gp-sidebar-toggle"
@@ -3379,11 +3390,13 @@ const ChartUI: React.FC = () => {
                 title="Basculer la barre latérale"
                 aria-label="Basculer la barre latérale"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M11 6 l6 6 l-6 6" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10.5 7.5 15 12l-4.5 4.5" />
                 </svg>
               </button>
+            </div>
 
+            <div className="gp-sidebar-shell">
               <ConnectedSidebar
                   isObjectTreeOpen={isObjectTreeOpen}
                   onPineOverlayAttach={dispatchPineOverlay}

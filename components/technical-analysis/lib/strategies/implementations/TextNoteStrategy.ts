@@ -4,6 +4,7 @@ import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { ChartDataPoint } from "../../Indicators/TechnicalIndicators";
 import type { EChartsInstance } from "../../types/echarts";
 import { TEXT_NOTE_TOOL_VARIANT_SET } from "../../../config/drawing/drawingConstants";
+import { resolveDrawingTextColor } from "../../../config/drawing/drawingColorSemantics";
 import type { TableDrawingProps } from "../../../config/drawing/drawingTableTypes";
 import { createDefaultTableProps } from "../../../config/drawing/drawingTableTypes";
 
@@ -415,7 +416,12 @@ export class TextNoteStrategy implements IDrawingStrategy {
     const ctx = h.ctx;
 
     const displayText = drawing.text && drawing.showText ? drawing.text : "Text";
-    const textColor = drawing.textColor || drawing.style.color || "#2962FF";
+    const textColor = resolveDrawingTextColor({
+      toolType: drawing.type,
+      primaryColor: drawing.style.color,
+      textColor: drawing.textColor,
+      textColorMode: drawing.textColorMode,
+    });
     const fontSize = drawing.fontSize || 14;
     const weight = drawing.textBold ? "bold " : "";
     const style = drawing.textItalic ? "italic " : "";
@@ -529,13 +535,15 @@ export class TextNoteStrategy implements IDrawingStrategy {
       const boxX = alignH === "left" ? x : alignH === "right" ? x - cw : x - cw / 2;
       const boxY = alignV === "top" ? y : alignV === "bottom" ? y - ch : y - ch / 2;
 
-      const underlineY = boxY + ch + 2;
-      ctx.strokeStyle = textColor;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(boxX + TEXT_PADDING, underlineY);
-      ctx.lineTo(boxX + cw - TEXT_PADDING, underlineY);
-      ctx.stroke();
+      if (sf.fillEnabled) {
+        const backgroundColor = sf.fillColor || "#2962FF";
+        const backgroundOpacity = sf.fillOpacity ?? 0.2;
+        ctx.save();
+        ctx.fillStyle = hexToRgba(backgroundColor, backgroundOpacity);
+        drawRoundedRect(ctx, boxX, boxY, cw, ch, CHIP_RADIUS);
+        ctx.fill();
+        ctx.restore();
+      }
 
       if (isSelected) {
         const bounds = getTextBounds(x, y, displayText, fontSize, !!drawing.textBold, !!drawing.textItalic, alignH, alignV, ctx);

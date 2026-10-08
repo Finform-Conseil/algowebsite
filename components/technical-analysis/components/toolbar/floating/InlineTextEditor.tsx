@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
+import { resolveDrawingTextColor } from "../../../config/drawing/drawingColorSemantics";
 
 interface InlineTextEditorProps {
   position: { x: number; y: number };
@@ -64,7 +65,13 @@ export const InlineTextEditor: React.FC<InlineTextEditorProps> = ({
         background: "rgba(30, 34, 45, 0.95)",
         border: "2px solid #2962FF",
         borderRadius: 4,
-        color: drawing.textColor || "#FFFFFF",
+        color: resolveDrawingTextColor({
+          toolType: drawing.type,
+          primaryColor: drawing.style.color,
+          textColor: drawing.textColor,
+          textColorMode: drawing.textColorMode,
+          fallback: "#FFFFFF",
+        }),
         fontSize: (drawing.fontSize || 14) + 2,
         fontFamily: "Inter, sans-serif",
         fontWeight: drawing.textBold ? "bold" : "normal",

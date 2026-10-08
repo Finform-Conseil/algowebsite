@@ -53,6 +53,9 @@ export default function Navbar() {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [gsmMobileMenuOpen, setGsmMobileMenuOpen] = useState(false);
+  const onGsmRoute = pathname?.split('/').includes('gsm') ?? false;
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
@@ -243,8 +246,20 @@ export default function Navbar() {
         <span>Afri<span className="accent">Market</span></span>
       </Link>
 
+      {onGsmRoute && (
+        <button type="button" className="gsm-header-search-trigger" aria-label="Ouvrir la recherche" aria-expanded={mobileSearchOpen} aria-controls="global-market-search" onClick={() => setMobileSearchOpen(open => !open)}>
+          <MagnifyingGlass size={20} />
+        </button>
+      )}
+      {onGsmRoute && (
+        <button type="button" className="gsm-mobile-menu-trigger" aria-label="Ouvrir la navigation" aria-expanded={gsmMobileMenuOpen} aria-controls="gsm-mobile-navigation" onClick={() => { setGsmMobileMenuOpen(open => !open); setActiveMenu(null); }}>
+          <span className="gsm-mobile-menu-trigger__label">Menu</span>
+          <span className="gsm-mobile-menu-trigger__glyph" aria-hidden="true"><span /><span /><span /></span>
+        </button>
+      )}
+      {onGsmRoute && <Link href="#" className="gsm-header-mobile-cta">{t('getStarted')}</Link>}
       {/* Search Bar */}
-      <form className="nav-search" onSubmit={handleSearch}>
+      <form className={`nav-search${onGsmRoute && mobileSearchOpen ? ' gsm-header-search-open' : ''}`} onSubmit={handleSearch}>
         <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
@@ -271,7 +286,7 @@ export default function Navbar() {
           type="search"
           aria-label="Search stocks, bonds, and funds"
           autoComplete="off"
-          placeholder={t('search')}
+          placeholder={onGsmRoute ? 'Recherche globale…' : t('search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
@@ -288,16 +303,18 @@ export default function Navbar() {
         )}
       </form>
 
-      <ul className="nav-links">
+      {onGsmRoute && gsmMobileMenuOpen && <button type="button" className="gsm-mobile-menu-scrim" aria-label="Fermer le menu de navigation" onClick={() => { setGsmMobileMenuOpen(false); setActiveMenu(null); }} />}
+      <ul id={onGsmRoute ? "gsm-mobile-navigation" : undefined} className={`nav-links${onGsmRoute && gsmMobileMenuOpen ? " gsm-mobile-navigation--open" : ""}`}>
+        {onGsmRoute && <li className="gsm-mobile-menu-heading"><span className="gsm-mobile-menu-heading__mark">AM</span><span>AfriMarket</span><button type="button" aria-label="Fermer le menu" onClick={() => { setGsmMobileMenuOpen(false); setActiveMenu(null); }}>×</button></li>}
         {navItems.map((item) => (
           <li 
             key={item.label}
             className="nav-item"
-            onMouseEnter={() => item.items && item.items.length > 0 && handleMenuEnter(item.label)}
-            onMouseLeave={handleMenuLeave}
+            onMouseEnter={() => { if (!(onGsmRoute && gsmMobileMenuOpen) && item.items?.length) handleMenuEnter(item.label); }}
+            onMouseLeave={() => { if (!(onGsmRoute && gsmMobileMenuOpen)) handleMenuLeave(); }}
           >
             {item.items && item.items.length > 0 ? (
-              <button className="nav-link" type="button">
+              <button className="nav-link" type="button" aria-expanded={activeMenu === item.label} aria-haspopup="true" onClick={() => { if (menuTimeout) clearTimeout(menuTimeout); setActiveMenu(current => current === item.label ? null : item.label); setActiveSubmenu(null); setActiveNestedSubmenu(null); }}>
                 {item.icon}
                 <span>{item.label}</span>
                 <CaretDown size={14} weight="bold" />
@@ -359,9 +376,19 @@ export default function Navbar() {
             )}
           </li>
         ))}
-        <li><CurrencySwitcher /></li>
-        <li><LocaleSwitcher /></li>
-        <li><Link href="#" className="nav-cta">{t('getStarted')}</Link></li>
+        {onGsmRoute ? (
+          <li className="gsm-nav-preferences">
+            <div className="gsm-nav-preference--currency"><CurrencySwitcher /></div>
+            <div className="gsm-nav-preference--locale"><LocaleSwitcher /></div>
+          </li>
+        ) : (
+          <>
+            <li><CurrencySwitcher /></li>
+            <li><LocaleSwitcher /></li>
+          </>
+        )}
+        <li className="gsm-nav-primary-action"><Link href="#" className="nav-cta">{t('getStarted')}</Link></li>
+        {onGsmRoute && <li className="gsm-mobile-menu-bottom-nav" aria-label="Navigation rapide"><Link href="/" aria-label="Accueil"><Bank size={20} /></Link><button type="button" aria-label="Recherche" onClick={() => { setGsmMobileMenuOpen(false); setMobileSearchOpen(true); }}><MagnifyingGlass size={20} /></button><button type="button" aria-label="Fermer la navigation" onClick={() => setGsmMobileMenuOpen(false)}><span aria-hidden="true" className="gsm-mobile-close-glyph">×</span></button></li>}
       </ul>
     </nav>
   );

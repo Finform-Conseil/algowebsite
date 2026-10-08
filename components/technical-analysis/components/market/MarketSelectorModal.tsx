@@ -10,6 +10,7 @@ import { selectActiveMarket, selectModals, selectUiState } from "@/components/te
 import { useTickerSelector } from "@/components/design-system/commons/TickerSelectorModal";
 import { EXCHANGE_STATIC_INFO } from "@/core/data/ExchangesStaticData";
 import styles from "./MarketSelectorModal.module.scss";
+import { MarketDirectoryContent, MarketDirectoryGrid, MarketDirectoryIntro, type MarketDirectoryMarket } from "./MarketDirectory";
 
 const MARKET_REVALIDATION_WINDOW_MS = 30_000;
 
@@ -86,7 +87,7 @@ export const MarketSelectorModal: React.FC = () => {
     cancelLayoutMarketDirectory();
   }, [cancelLayoutMarketDirectory, dispatch]);
 
-  const selectMarket = useCallback((market: (typeof markets)[number]) => {
+  const selectMarket = useCallback((market: MarketDirectoryMarket) => {
     const selectedMarket = {
       ticker: market.ticker,
       name: market.name,
@@ -117,15 +118,15 @@ export const MarketSelectorModal: React.FC = () => {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className={styles.header}>
-          <div className={styles.headerCopy}>
-            <span className={styles.eyebrow}>Market directory</span>
-            <h2 id="market-selector-title">Bourse / Exchange</h2>
-            <p id="market-selector-description">
-              {isMultiChartMode
+          <MarketDirectoryIntro
+            titleId="market-selector-title"
+            descriptionId="market-selector-description"
+            description={
+              isMultiChartMode
                 ? "Choisissez la bourse du graphique actif. Les autres panneaux restent inchangés."
-                : "Choisissez le marché qui alimente votre espace d’analyse."}
-            </p>
-          </div>
+                : "Choisissez le marché qui alimente votre espace d’analyse."
+            }
+          />
           <div className={styles.headerActions}>
             <span className={styles.activeBadge}>
               <span className={styles.activeDot} aria-hidden="true" />
@@ -144,7 +145,7 @@ export const MarketSelectorModal: React.FC = () => {
           </div>
         ) : null}
 
-        <div className={styles.content}>
+        <MarketDirectoryContent>
           {showLoading ? (
             <div className={styles.statePanel} role="status" aria-live="polite">
               <div className={styles.stateIcon} aria-hidden="true">↗</div>
@@ -176,41 +177,14 @@ export const MarketSelectorModal: React.FC = () => {
               <span>L’API n’a renvoyé aucun marché disponible.</span>
             </div>
           ) : (
-            <div className={styles.marketGrid} role="list" aria-label="Marchés disponibles">
-              {markets.map((market, index) => {
-                const isActive = market.ticker === effectiveMarketTicker;
-                return (
-                  <button
-                    type="button"
-                    className={`${styles.marketCard} ${isActive ? styles.marketCardActive : ""}`}
-                    key={market.ticker}
-                    aria-pressed={isActive}
-                    style={{ "--market-delay": String(index * 55) + "ms" } as React.CSSProperties}
-                    onClick={() => selectMarket(market)}
-                  >
-                    <span className={styles.marketLogoFrame}>
-                      {market.logo ? (
-                        <img className={styles.marketLogo} src={market.logo} alt="" loading="lazy" decoding="async" />
-                      ) : (
-                        <span className={styles.marketLogoPlaceholder} aria-label="Logo indisponible">
-                          {market.ticker.slice(0, 2)}
-                        </span>
-                      )}
-                    </span>
-                    <span className={styles.marketInfo}>
-                      <strong className={styles.marketTicker}>{market.ticker}</strong>
-                      <span className={styles.marketName}>{market.name}</span>
-                    </span>
-                    <span className={styles.marketMeta}>
-                      <span className={styles.currencyPill}>{market.currency}</span>
-                      {isActive ? <span className={styles.activeCheck} aria-label="Marché actif">✓</span> : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <MarketDirectoryGrid
+              markets={markets}
+              activeMarketTicker={effectiveMarketTicker}
+              onSelectMarket={selectMarket}
+              ariaLabel="Marchés disponibles"
+            />
           )}
-        </div>
+        </MarketDirectoryContent>
 
         <footer className={styles.footer}>
           <span className={styles.apiIndicator} aria-hidden="true">⌁</span>

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useCallback, useEffect } from 'react';
 import type { EChartsInstance } from '../lib/types/echarts';
 import { scheduleIdleChartMutation } from './chart-rendering/chartMutationSafety';
+import { isPriceAxisInteractiveTarget } from './priceAxisInteractiveTargets';
 import { useMasterRenderLoop, type RenderFrameMeta } from './useMasterRenderLoop';
 import {
   clamp,
@@ -37,6 +38,9 @@ const MAX_CANVAS_DPR = 2;
 
 // [TENOR 2026] Ajout des modes "magic" et "eraser" pour la parité TradingView
 export type CursorMode = "arrow" | "arrow-tooltip" | "cross" | "cross-tooltip" | "dot" | "demonstration" | "magic" | "eraser";
+
+const cursorModeShowsDataWindow = (mode: CursorMode) =>
+  mode === "arrow-tooltip" || mode === "cross-tooltip";
 
 export type CandleData = {
   time?: string | number;
@@ -490,6 +494,12 @@ export const useCursorRenderer = ({
     };
 
     const handlePointerMove = (event: PointerEvent) => {
+      // The price-axis '+' button/menu live outside the data grid but must stay
+      // interactable. Do not resync/hide the cursor badge while the pointer is
+      // moving across those controls; otherwise the capture listener removes the
+      // button before its React click can complete.
+      if (isPriceAxisInteractiveTarget(event.target)) return;
+
       if (suspendForDrawingRef.current || (modeRef.current !== 'magic' && (pointerGestureActiveRef.current || event.buttons !== 0))) {
         pointerGestureActiveRef.current = event.buttons !== 0;
         clearPointerState();
@@ -500,6 +510,11 @@ export const useCursorRenderer = ({
     };
 
     const handlePointerDown = (event: PointerEvent) => {
+      if (isPriceAxisInteractiveTarget(event.target)) {
+        pointerGestureActiveRef.current = false;
+        return;
+      }
+
       const point = syncPointerState(event);
       if (!point) return;
       pointerGestureActiveRef.current = true;
@@ -1196,8 +1211,8 @@ export const useCursorRenderer = ({
         drawProTooltip(ctx, x, y, clientX, clientY, w, h, chart, currentChartData, true);
       }
 
-      // --- MODE: ARROW-TOOLTIP ---
-      if (currentMode === 'arrow-tooltip') {
+      // --- MODES: + INFO ---
+      if (cursorModeShowsDataWindow(currentMode)) {
         if (chart && currentChartData.length > 0) {
           drawProTooltip(ctx, x, y, clientX, clientY, w, h, chart, currentChartData);
         } else {

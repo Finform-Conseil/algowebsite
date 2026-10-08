@@ -3,6 +3,7 @@ import type { DrawingStyle } from "../../../config/drawing/drawingPrimitiveTypes
 import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import { ProColorPicker } from "../../common/inputs/ProColorPicker";
 import { buildFillBackgroundUpdates } from "./drawingUpdateHelpers";
+import { resolveDrawingTextColor } from "../../../config/drawing/drawingColorSemantics";
 import { buildFloatingPopupStyle, stopFloatingPopupMouseDown } from "./popupStyle";
 
 type PositionFillTarget = "tp" | "sl";
@@ -161,7 +162,13 @@ export const TextColorPopup: React.FC<TextColorPopupProps> = ({
 }) => (
   <ColorPopupShell title="Texte" closeIcon="bi-x-lg" closePopup={closePopup}>
     <ProColorPicker
-      color={drawing.textColor || "#ffffff"}
+      color={resolveDrawingTextColor({
+        toolType: drawing.type,
+        primaryColor: drawing.style.color,
+        textColor: drawing.textColor,
+        textColorMode: drawing.textColorMode,
+        fallback: "#ffffff",
+      })}
       opacity={1}
       onChange={(nextColor, nextOpacity) =>
         handleTextColorChange(nextColor, nextOpacity, false)

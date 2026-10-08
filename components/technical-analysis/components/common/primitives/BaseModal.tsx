@@ -6,6 +6,7 @@ interface BaseModalProps {
   onClose: () => void;
   title: string;
   icon?: React.ReactNode;
+  headerAccessory?: ReactNode;
   children: React.ReactNode;
   maxWidth?: string;
   footer?: ReactNode;
@@ -69,6 +70,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   onClose,
   title,
   icon,
+  headerAccessory,
   children,
   maxWidth = "500px",
   footer,
@@ -340,6 +342,11 @@ export const BaseModal: React.FC<BaseModalProps> = ({
             )}
             {title}
           </h5>
+          {headerAccessory && (
+            <div className="gp-modal-header-accessory">
+              {headerAccessory}
+            </div>
+          )}
           {showCloseButton && (
             <button
               onClick={onClose}
@@ -352,10 +359,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         </div>
 
         {/* Standardized Body */}
-        <div
-          className={"gp-modal-body"}
-          style={{ minHeight: "300px", maxHeight: "70vh", overflowY: "auto" }}
-        >
+        <div className={"gp-modal-body"}>
           {children}
         </div>
 

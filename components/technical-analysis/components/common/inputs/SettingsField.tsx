@@ -33,13 +33,13 @@ export const SettingsNumberInput: React.FC<SettingsNumberInputProps> = ({
   const inputId = useId();
 
   return (
-    <div className="d-flex justify-content-between align-items-center">
-      <label htmlFor={inputId} className="gp-label-premium" style={{ marginBottom: 0 }}>{label}</label>
+    <div className="gp-settings-field-row">
+      <label htmlFor={inputId} className="gp-label-premium">{label}</label>
       <input
         id={inputId}
         type="number"
-        className="gp-input-premium"
-        style={{ width, padding: "4px 8px", height: "28px" }}
+        className="gp-input-premium gp-settings-control gp-settings-number-control"
+        style={{ width }}
         value={value === undefined || value === null || (typeof value === "number" && isNaN(value)) ? "" : value}
         step={step}
         min={min}
@@ -66,15 +66,16 @@ export const SettingsColorInput: React.FC<SettingsColorInputProps> = ({
   const inputId = useId();
 
   return (
-    <div className="d-flex justify-content-between align-items-center">
-      {label && <label htmlFor={inputId} className="gp-label-premium" style={{ marginBottom: 0 }}>{label}</label>}
+    <div className="gp-settings-field-row">
+      {label && <label htmlFor={inputId} className="gp-label-premium">{label}</label>}
       <input
         id={inputId}
         type="color"
         value={value}
         aria-label={label || "Couleur"}
         onChange={(e) => onChange(e.target.value)}
-        style={{ height, width: "40px", padding: 0, border: "none", cursor: "pointer", borderRadius: "4px", backgroundColor: "transparent" }}
+        className="gp-settings-color-control"
+        style={{ height }}
       />
     </div>
   );
@@ -108,21 +109,12 @@ export const SettingsFillControl: React.FC<SettingsFillControlProps> = ({
   const opacityId = useId();
 
   return (
-    <div className="d-flex justify-content-between align-items-center">
-      <span className="gp-label-premium" style={{ marginBottom: 0 }}>{label}</span>
-      <div className="d-flex align-items-center gap-2">
+    <div className="gp-settings-field-row">
+      <span className="gp-label-premium">{label}</span>
+      <div className="gp-settings-inline-controls">
         <div
           id={enabledId}
-          className="d-flex align-items-center justify-content-center flex-shrink-0"
-          style={{
-            width: "18px",
-            height: "18px",
-            borderRadius: "4px",
-            border: `1px solid ${enabled ? "#2962ff" : "rgba(255,255,255,0.2)"}`,
-            backgroundColor: enabled ? "#2962ff" : "transparent",
-            cursor: "pointer",
-            transition: "all 0.2s ease",
-          }}
+          className={`gp-settings-check-control ${enabled ? "is-checked" : ""}`}
           onClick={() => onEnabledChange(!enabled)}
           role="checkbox"
           aria-label={`${label} actif`}
@@ -131,7 +123,7 @@ export const SettingsFillControl: React.FC<SettingsFillControlProps> = ({
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEnabledChange(!enabled); } }}
         >
           {enabled && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           )}
@@ -142,7 +134,7 @@ export const SettingsFillControl: React.FC<SettingsFillControlProps> = ({
           value={color}
           aria-label={`${label} couleur`}
           onChange={(e) => onColorChange(e.target.value)}
-          style={{ height: "24px", width: "24px", padding: 0, border: "none", cursor: "pointer", borderRadius: "4px", backgroundColor: "transparent" }}
+          className="gp-settings-color-control gp-settings-color-control--compact"
         />
         <input
           id={opacityId}
@@ -152,7 +144,8 @@ export const SettingsFillControl: React.FC<SettingsFillControlProps> = ({
           step={opacityStep}
           value={opacity}
           aria-label={`${label} opacité`}
-          style={{ width: opacitySliderWidth, accentColor: "#2962ff", cursor: "pointer" }}
+          className="gp-settings-range"
+          style={{ width: opacitySliderWidth }}
           onChange={(e) => onOpacityChange(parseFloat(e.target.value))}
         />
       </div>
@@ -178,18 +171,18 @@ export const SettingsSelectInput: React.FC<SettingsSelectInputProps> = ({
   const selectId = useId();
 
   return (
-    <div className="d-flex justify-content-between align-items-center">
-      {label && <label htmlFor={selectId} className="gp-label-premium" style={{ marginBottom: 0 }}>{label}</label>}
+    <div className="gp-settings-field-row">
+      {label && <label htmlFor={selectId} className="gp-label-premium">{label}</label>}
       <select
         id={selectId}
-        className="gp-input-premium"
+        className="gp-input-premium gp-settings-control gp-settings-select-control"
         value={value}
         aria-label={label || "Option"}
-        style={{ width, padding: "4px 8px", height: "28px", cursor: "pointer" }}
+        style={{ width }}
         onChange={(e) => onChange(e.target.value)}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value} style={{ background: "#1e222d", color: "#fff" }}>
+          <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
         ))}
@@ -213,8 +206,7 @@ export const SettingsCheckbox: React.FC<SettingsCheckboxProps> = ({
 
   return (
     <div
-      className="d-flex justify-content-between align-items-center"
-      style={{ cursor: "pointer" }}
+      className="gp-settings-field-row gp-settings-checkbox-row"
       onClick={() => onChange(!checked)}
       role="checkbox"
       aria-checked={checked}
@@ -222,21 +214,13 @@ export const SettingsCheckbox: React.FC<SettingsCheckboxProps> = ({
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(!checked); } }}
     >
-      <span id={labelId} className="gp-label-premium" style={{ cursor: "pointer", marginBottom: 0, pointerEvents: "none" }}>{label}</span>
+      <span id={labelId} className="gp-label-premium">{label}</span>
       <div
-        className="d-flex align-items-center justify-content-center flex-shrink-0"
-        style={{
-          width: "18px",
-          height: "18px",
-          borderRadius: "4px",
-          border: `1px solid ${checked ? "#2962ff" : "rgba(255,255,255,0.2)"}`,
-          backgroundColor: checked ? "#2962ff" : "transparent",
-          transition: "all 0.2s ease",
-        }}
+        className={`gp-settings-check-control ${checked ? "is-checked" : ""}`}
         aria-hidden="true"
       >
         {checked && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         )}
@@ -270,14 +254,13 @@ export const SettingsTextArea = React.forwardRef<HTMLTextAreaElement, SettingsTe
       <textarea
         id={textareaId}
         ref={ref}
-        className="gp-input-premium"
+        className="gp-input-premium gp-settings-textarea"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={rows}
         disabled={disabled}
         aria-label={label || placeholder || "Texte"}
-        style={{ width: "100%", outline: "none", resize: "vertical" }}
       />
     </div>
   );
@@ -303,8 +286,7 @@ export const SettingsToggle: React.FC<SettingsToggleProps> = ({
 
   return (
     <div
-      className="d-flex justify-content-between align-items-center p-0 mb-2"
-      style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}
+      className={`gp-settings-toggle-row ${disabled ? "is-disabled" : ""}`}
       onClick={() => !disabled && onChange(!checked)}
       role="switch"
       aria-checked={checked}
@@ -313,28 +295,11 @@ export const SettingsToggle: React.FC<SettingsToggleProps> = ({
       tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => { if (!disabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onChange(!checked); } }}
     >
-      <span id={labelId} className={`small ${theme === "light" ? "text-dark" : "text-white"}`} style={{ cursor: "inherit", fontWeight: theme === "light" ? 400 : 500, marginBottom: 0, pointerEvents: "none" }}>
+      <span id={labelId} className="gp-settings-toggle-label">
         {label}
       </span>
-      <div style={{
-        width: "36px",
-        height: "20px",
-        borderRadius: "10px",
-        backgroundColor: checked ? "#2962ff" : (theme === "light" ? "#e0e3eb" : "rgba(255,255,255,0.1)"),
-        position: "relative",
-        transition: "background-color 0.2s ease",
-      }} aria-hidden="true">
-        <div style={{
-          width: "16px",
-          height: "16px",
-          borderRadius: "50%",
-          backgroundColor: "#ffffff",
-          position: "absolute",
-          top: "2px",
-          left: checked ? "18px" : "2px",
-          transition: "left 0.2s ease",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-        }} />
+      <div className={`gp-settings-toggle ${checked ? "is-checked" : ""} ${theme === "light" ? "is-light" : ""}`} aria-hidden="true">
+        <div className="gp-settings-toggle-knob" />
       </div>
     </div>
   );
@@ -353,13 +318,13 @@ export const SettingsColorOpacityInput: React.FC<SettingsColorOpacityInputProps>
   onColorChange,
   onOpacityChange,
 }) => (
-  <div className="d-flex align-items-center gap-1">
+  <div className="gp-settings-inline-controls gp-settings-inline-controls--compact">
     <input
       type="color"
       value={color}
       aria-label="Couleur"
       onChange={(e) => onColorChange(e.target.value)}
-      style={{ height: "24px", width: "24px", padding: 0, border: "none", cursor: "pointer", borderRadius: "4px", backgroundColor: "transparent" }}
+      className="gp-settings-color-control gp-settings-color-control--compact"
     />
     <input
       type="range"
@@ -368,7 +333,7 @@ export const SettingsColorOpacityInput: React.FC<SettingsColorOpacityInputProps>
       step="0.05"
       value={opacity}
       aria-label="Opacité"
-      style={{ width: "40px", accentColor: "#2962ff", cursor: "pointer" }}
+      className="gp-settings-range gp-settings-range--compact"
       onChange={(e) => onOpacityChange(parseFloat(e.target.value))}
     />
   </div>

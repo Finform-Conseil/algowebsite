@@ -9,6 +9,10 @@ const indicatorObjectVisibility = require("../object-tree/indicatorObjectVisibil
 const indicatorRegistry = require("../indicators/indicatorRegistry.ts");
 const indicatorModalRegistry = require("../indicators/indicatorModalRegistry.ts");
 const indicatorResearchGradePolicy = require("../indicators/indicatorResearchGradePolicy.ts");
+const movingAverageSeries = require("../indicators/movingAverageSeries.ts");
+const priceVsSmaMetrics = require("../indicators/priceVsSmaMetrics.ts");
+const priceVsEmaMetrics = require("../indicators/priceVsEmaMetrics.ts");
+const advancedMovingAverageSeries = require("../indicators/advancedMovingAverageSeries.ts");
 const { ADVANCED_CHILD_ITEM_GROUPS } = require("../../components/panels/object-tree/objectTreeAdvancedChildItems.ts");
 const { ADVANCED_INDICATOR_LABELS } = require("../../components/panels/object-tree/objectTreeAdvancedLabels.ts");
 
@@ -254,7 +258,76 @@ test("worker covers registry formula contracts including structured volume profi
   assert.ok(!rendererSource.includes("calculateVolumeProfile(chartData"));
 });
 
-test("research-grade policy covers the full 224-indicator modal surface", () => {
+test("all 225 unique clickable catalogue indicators have an explicit chart-render activation bridge", () => {
+  const catalogItems = collectModalCatalogItems();
+  const priceVsSmaIds = new Set(priceVsSmaMetrics.PRICE_VS_SMA_METRIC_SPECS.map((spec) => spec.id));
+  const priceVsEmaIds = new Set(priceVsEmaMetrics.PRICE_VS_EMA_METRIC_SPECS.map((spec) => spec.id));
+  const advancedMovingAverageIds = new Set(advancedMovingAverageSeries.ADVANCED_MOVING_AVERAGE_SPECS.map((spec) => spec.id));
+  const missingRenderBridges = [];
+
+  catalogItems.forEach((item) => {
+    const registryEntry = indicatorModalRegistry.getIndicatorRegistryEntryForCatalogKey(item.key);
+    if (registryEntry) {
+      if (!rendererSource.includes("advancedIndicators." + registryEntry.stateId)) {
+        missingRenderBridges.push(item.key + ":state-gate");
+      }
+      registryEntry.renderer.objectTreeIds.forEach((objectId) => {
+        if (!rendererSource.includes("\"" + objectId + "\"")) {
+          missingRenderBridges.push(item.key + ":object:" + objectId);
+        }
+      });
+      return;
+    }
+
+    if (priceVsSmaIds.has(item.key)) {
+      if (!modalSource.includes("handleTogglePriceVsSmaMetric") || !rendererSource.includes("resolvePriceVsSmaSourceAveragePeriods")) {
+        missingRenderBridges.push(item.key + ":price-vs-sma");
+      }
+      return;
+    }
+
+    if (priceVsEmaIds.has(item.key)) {
+      if (!modalSource.includes("handleTogglePriceVsEmaMetric") || !rendererSource.includes("resolvePriceVsEmaSourceAveragePeriods")) {
+        missingRenderBridges.push(item.key + ":price-vs-ema");
+      }
+      return;
+    }
+
+    if (advancedMovingAverageIds.has(item.key)) {
+      if (!modalSource.includes("handleToggleAdvancedMovingAverage") || !rendererSource.includes("buildAdvancedMovingAverageSeriesDefinitions")) {
+        missingRenderBridges.push(item.key + ":advanced-ma");
+      }
+      return;
+    }
+
+    missingRenderBridges.push(item.key + ":unclassified");
+  });
+
+  assert.equal(catalogItems.length, 206);
+  assert.deepEqual(missingRenderBridges.sort(), []);
+
+  const selectableMovingAverages = [
+    ...movingAverageSeries.buildSelectableSmaDefinitions({ sma1: 5, sma2: 10, sma3: 20, rsiPeriod: 14 }),
+    ...movingAverageSeries.buildSelectableEmaDefinitions(),
+  ];
+  assert.equal(selectableMovingAverages.length, 15);
+  assert.ok(rendererSource.includes("buildSmaSeriesDefinitions"));
+  assert.ok(rendererSource.includes("buildEmaSeriesDefinitions"));
+  assert.ok(rendererSource.includes("getMovingAverageLineData"));
+
+  assert.equal(movingAverageSeries.MOVING_AVERAGE_TREND_SIGNAL_SPECS.length, 3);
+  assert.ok(modalSource.includes("dispatch(setMovingAverageTrendSignalSourceAverages(true))"));
+  assert.ok(rendererSource.includes("resolveTrendSignalSourceAveragePeriods"));
+  assert.ok(rendererSource.includes("trendSignalSourceAveragePeriods.sma"));
+  assert.ok(rendererSource.includes("trendSignalSourceAveragePeriods.ema"));
+
+  assert.ok(modalSource.includes("handleToggleNativeVolume"));
+  assert.ok(rendererSource.includes("resolveVolumeStudyLifecycle"));
+
+  assert.equal(catalogItems.length + selectableMovingAverages.length + movingAverageSeries.MOVING_AVERAGE_TREND_SIGNAL_SPECS.length + 1, 225);
+});
+
+test("research-grade policy covers the full 224-indicator analytical inventory", () => {
   const inventory = indicatorResearchGradePolicy.buildIndicatorResearchGradeInventory({
     indicatorPeriods: { sma1: 5, sma2: 10, sma3: 20, rsiPeriod: 14 },
   });

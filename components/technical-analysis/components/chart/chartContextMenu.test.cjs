@@ -15,7 +15,7 @@ const policySource = read("components/technical-analysis/store/policies/indicato
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
 
 test("chart surface owns right-click in single and multi-chart instead of the browser canvas menu", () => {
-  assert.match(technicalAnalysisSource, /className=\{clsx\("gp-chart-container"[\s\S]*?data-chart-context-menu-surface="true"[\s\S]*?onContextMenuCapture=\{!isMultiChartMode \? handlePrimaryChartContextMenu : undefined\}/);
+  assert.match(technicalAnalysisSource, /className=\{clsx\("gp-chart-container"[\s\S]*?data-chart-context-menu-surface="true"[\s\S]*?onContextMenuCapture=\{isEChartsPrimaryRenderer \? handlePrimaryChartContextMenu : undefined\}/);
   assert.match(technicalAnalysisSource, /onContextMenuCapture=\{handleTechnicalAnalysisContextMenuCapture\}/);
   assert.match(technicalAnalysisSource, /const handleTechnicalAnalysisContextMenuCapture[\s\S]*?event\.preventDefault\(\)[\s\S]*?closest\('\[data-chart-context-menu-surface="true"\]'\)[\s\S]*?if \(isChartSurface\) return;[\s\S]*?event\.stopPropagation\(\);[\s\S]*?closeChartContextMenu\(\)/);
   assert.match(multiGridSource, /onContextMenuCapture=\{\(event\) => \{/);

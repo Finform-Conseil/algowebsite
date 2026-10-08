@@ -46,6 +46,8 @@ test("Vela is a real native interactive renderer with lifecycle-safe updates", (
   assert.match(velaAdapter, /engineRef = useRef<VelaChartEngine \| null>/);
   assert.match(velaAdapter, /engine\.setBars\(bars\)/);
   assert.match(velaAdapter, /data-vela-status=\{status\}/);
+  assert.match(velaAdapter, /touchAction: "none"/);
+  assert.match(velaAdapter, /overscrollBehavior: "contain"/);
   assert.match(velaEngine, /priceStyle: "candles"/);
   assert.match(velaEngine, /drawings: true/);
   assert.match(velaEngine, /currentPriceLine: true/);

@@ -34,6 +34,13 @@ test("price pane grid density is capped when lower panes are visible", () => {
   );
 });
 
+test("OHLC header labels keep breathing room from their values", () => {
+  assert.match(
+    rendererSource,
+    /ohlcLabel: \{ color: "#FF9F04", fontSize: 12, fontWeight: 700, padding: \[0, 3, 0, 4\] \}/,
+  );
+});
+
 test("lower panes keep the shared horizontal grid contract", () => {
   const splitLineMatches = [...rendererSource.matchAll(/splitLine: subtleHorizontalGrid/g)];
 

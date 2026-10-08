@@ -264,7 +264,9 @@ export function useSidebarDataPort(): SidebarDataPort {
   const fetchIndices = useCallback(
     async (signal: AbortSignal): Promise<Record<string, BRVMIndexData>> => {
       try {
+        throwIfAborted(signal);
         const allIndices = await getAllIndices({ page_size: 100 });
+        throwIfAborted(signal);
         const record: Record<string, BRVMIndexData> = {};
         const apiSlugToUiKey: Record<string, string> = {
           "brvm-composite": "BRVMC",
@@ -276,11 +278,14 @@ export function useSidebarDataPort(): SidebarDataPort {
           const uiKey = idx.slug ? apiSlugToUiKey[idx.slug.toLowerCase()] : undefined;
           if (!idx.id || !uiKey) continue;
 
+          throwIfAborted(signal);
           const firstPage = await getIndicesCoursByIndice(idx.id, { page_size: 100 });
+          throwIfAborted(signal);
           const lastPageNumber = firstPage.total_pages || 1;
           const latestPage = lastPageNumber > firstPage.current_page
             ? await getIndicesCoursByIndice(idx.id, { page: lastPageNumber, page_size: 100 })
             : firstPage;
+          throwIfAborted(signal);
           const lastCours = [...latestPage.data]
             .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
             .at(-1);
@@ -310,11 +315,24 @@ export function useSidebarDataPort(): SidebarDataPort {
   );
 
   const fetchNews = useCallback(
-    async (signal: AbortSignal): Promise<BRVMNewsItem[]> => {
-      // Exception validée : scraping BRVM news (aucune API).
-      // Route locale préservée : /api/market-data/brvm-news.
+    async (exchange: string, signal: AbortSignal): Promise<BRVMNewsItem[]> => {
+      const market = exchange.trim().toUpperCase();
+      if (market === "BRVM") {
+        try { return await waitForAbortable(getSharedBrvmNews(), signal); }
+        catch (error) { if (signal.aborted) throw error; return []; }
+      }
+      if (!["CSE", "GSE", "JSE", "NGX", "NSE"].includes(market)) return [];
       try {
-        return await waitForAbortable(getSharedBrvmNews(), signal);
+        const response = await fetch(`/api/market-data/exchange-news?exchange=${market}`, { signal });
+        if (!response.ok) return [];
+        const data: unknown = await response.json();
+        if (!Array.isArray(data)) return [];
+        return data.filter((item): item is BRVMNewsItem => (
+          typeof item === "object" && item !== null &&
+          typeof item.title === "string" && Boolean(item.title) &&
+          typeof item.date === "string" &&
+          typeof item.link === "string" && /^https?:\/\//i.test(item.link)
+        ));
       } catch (error) {
         if (signal.aborted) throw error;
         return [];

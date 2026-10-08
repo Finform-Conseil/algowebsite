@@ -41,7 +41,7 @@ export const SeasonalityPanel = React.memo(({
   unavailableState,
   years,
 }: SeasonalityPanelProps) => (
-  <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
+  <div className="gp-sidebar-section gp-sidebar-subsection">
     <div className="gp-sidebar-header" style={{ marginBottom: "12px" }}>
       <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Seasonals</span>
     </div>

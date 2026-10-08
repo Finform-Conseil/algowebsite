@@ -39,8 +39,14 @@ test("global history captures chart-visible state beyond drawings", () => {
   assert.match(technicalAnalysis, /restoreChartHistorySnapshot/);
 });
 
-test("navigation-only multi-chart viewport churn is excluded from global undo history", () => {
-  assert.doesNotMatch(reducer, /multiChartLayout/);
+test("structural multi-chart mutations are undoable without viewport churn", () => {
+  const layout = read("components/technical-analysis/config/layout/chartHistoryLayout.ts");
+  assert.match(reducer, /restoreChartHistoryLayout/);
+  assert.match(technicalAnalysis, /snapshotChartHistoryLayout/);
+  assert.match(technicalAnalysis, /layout: chartHistoryLayoutSnapshot/);
+  assert.match(layout, /viewport: _viewport/);
+  assert.match(layout, /viewportById\.get\(cell\.chartId\)/);
+  assert.match(layout, /completeMultiChartLayout/);
 });
 
 test("history controller truncates redo branches and restores atomically", () => {
@@ -56,7 +62,9 @@ test("history controller truncates redo branches and restores atomically", () =>
     /const beginInteraction[\s\S]*flushPendingCommit\(\);[\s\S]*ensureBaseline\(\);/,
   );
   assert.match(hook, /addEventListener\("pointerdown"/);
-  assert.match(hook, /historyRef\.current\[historyIndexRef\.current\] = latest/);
+  assert.match(hook, /historyRef\.current\[historyIndexRef\.current\] = \{/);
+  assert.match(hook, /committedAt: current\?\.committedAt/);
+  assert.match(hook, /label: current\?\.label/);
   assert.match(hook, /interactionActiveRef\.current \|\| pendingCommitRef\.current !== null/);
   assert.match(hook, /!shouldCommit\) return/);
   assert.match(reducer, /chartAppearancePreview = null/);

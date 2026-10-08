@@ -46,6 +46,11 @@ export interface DirectionalOhlcvSeries {
 
 const DEFAULT_CANDLE_DIRECTION: CandleDirection = 1;
 
+// Vela 0.7.2 native Volume renderer contract.
+export const VELA_VOLUME_OVERLAY_HEIGHT_FRAC = 0.20;
+export const VELA_VOLUME_FILL_ALPHA = 0.5;
+export const VELA_VOLUME_BAR_WIDTH_RATIO = 0.7;
+
 export const resolveCandleDirection = (
   point: Pick<ChartDataPoint, "open" | "close">,
   previous: Pick<ChartDataPoint, "close"> | undefined,
@@ -157,6 +162,31 @@ export const resolveStableVolumeAxisMax = (
   return Number.isFinite(stableMax) && stableMax > 0
     ? stableMax * safeHeadroomMultiplier
     : 100;
+};
+
+export const resolveVisibleVolumeOverlayAxisMax = (
+  points: readonly Pick<ChartDataPoint, "volume">[],
+  startIdx: number,
+  endIdx: number,
+  heightFrac: number = VELA_VOLUME_OVERLAY_HEIGHT_FRAC,
+): number => {
+  if (points.length === 0) return 100;
+
+  const from = Math.max(0, Math.min(points.length - 1, Math.floor(Math.min(startIdx, endIdx))));
+  const to = Math.max(from, Math.min(points.length - 1, Math.ceil(Math.max(startIdx, endIdx))));
+  let visibleMax = 0;
+
+  for (let index = from; index <= to; index += 1) {
+    const volume = Number(points[index]?.volume);
+    if (Number.isFinite(volume) && volume > visibleMax) visibleMax = volume;
+  }
+
+  if (!(visibleMax > 0)) return 100;
+  const safeHeightFrac = Number.isFinite(heightFrac)
+    ? Math.min(0.5, Math.max(0.05, heightFrac))
+    : VELA_VOLUME_OVERLAY_HEIGHT_FRAC;
+
+  return visibleMax / safeHeightFrac;
 };
 
 export const buildDirectionalVolumeBarData = (

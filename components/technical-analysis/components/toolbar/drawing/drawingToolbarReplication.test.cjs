@@ -16,6 +16,58 @@ const menuState = read("components/technical-analysis/components/toolbar/drawing
 const iconPicker = read("components/technical-analysis/components/toolbar/drawing/DrawingIconPicker.tsx");
 const iconPickerData = read("components/technical-analysis/components/toolbar/drawing/drawingIconPickerData.ts");
 const styles = read("styles/pages/_technical-analysis-final.scss");
+const drawingSettingsModal = read("components/technical-analysis/components/modals/drawings/DrawingSettingsModal.tsx");
+const baseModal = read("components/technical-analysis/components/common/primitives/BaseModal.tsx");
+const textNoteStrategy = read("components/technical-analysis/lib/strategies/implementations/TextNoteStrategy.ts");
+const floatingToolbarButton = read("components/technical-analysis/components/toolbar/floating/ToolbarButton.tsx");
+const cursorRenderer = read("components/technical-analysis/hooks/useCursorRenderer.ts");
+const toolbarHandlers = read("components/technical-analysis/hooks/useToolbarHandlers.ts");
+const drawingColorSemantics = read("components/technical-analysis/config/drawing/drawingColorSemantics.ts");
+const drawingModelTypes = read("components/technical-analysis/config/drawing/drawingModelTypes.ts");
+const colorPopup = read("components/technical-analysis/components/toolbar/floating/ColorPopup.tsx");
+const inlineTextEditor = read("components/technical-analysis/components/toolbar/floating/InlineTextEditor.tsx");
+
+test("drawing color semantics link only text-centric annotations and preserve structural color independence", () => {
+  assert.match(drawingColorSemantics, /PRIMARY_COLOR_DRIVES_TEXT_TOOLS = \[[\s\S]*?"text_note"[\s\S]*?"note"[\s\S]*?"callout"[\s\S]*?"comment"[\s\S]*?"price_label"/);
+  for (const structuralTool of ["pin", "table", "price_note", "long_position", "short_position"]) {
+    assert.doesNotMatch(drawingColorSemantics, new RegExp(`PRIMARY_COLOR_DRIVES_TEXT_TOOLS = \\[([\\s\\S]*?)"${structuralTool}"`));
+  }
+  assert.match(drawingModelTypes, /textColorMode\?: "linked" \| "custom"/);
+  assert.match(toolbarHandlers, /if \(primaryColorDrivesText\(current\.type\)\) \{[\s\S]*?updates\.textColor = newColor;[\s\S]*?updates\.textColorMode = "linked";/);
+  assert.match(toolbarHandlers, /primaryColorDrivesText\(current\.type\)[\s\S]*?textColorMode: "custom" as const/);
+  assert.match(textNoteStrategy, /resolveDrawingTextColor\(\{[\s\S]*?toolType: drawing\.type,[\s\S]*?textColorMode: drawing\.textColorMode/);
+  assert.match(floatingToolbarButton, /const effectiveTextColor = resolveDrawingTextColor\(\{[\s\S]*?toolType: drType,[\s\S]*?textColorMode: dr\.textColorMode/);
+  assert.match(floatingToolbarButton, /backgroundColor: effectiveTextColor/);
+  assert.match(colorPopup, /color=\{resolveDrawingTextColor\(\{[\s\S]*?textColorMode: drawing\.textColorMode/);
+  assert.match(inlineTextEditor, /color: resolveDrawingTextColor\(\{[\s\S]*?textColorMode: drawing\.textColorMode/);
+});
+
+test("both + Info cursor modes share the same candle data-window renderer", () => {
+  assert.match(cursorRenderer, /const cursorModeShowsDataWindow = \(mode: CursorMode\) =>[\s\S]*?mode === "arrow-tooltip" \|\| mode === "cross-tooltip"/);
+  assert.match(cursorRenderer, /if \(cursorModeShowsDataWindow\(currentMode\)\) \{[\s\S]*?drawProTooltip\(ctx, x, y, clientX, clientY, w, h, chart, currentChartData\)/);
+  assert.doesNotMatch(cursorRenderer, /if \(currentMode === ['"]arrow-tooltip['"]\) \{[\s\S]*?drawProTooltip\(ctx, x, y, clientX, clientY, w, h, chart, currentChartData\)/);
+});
+
+test("plain Text has no forced underline and its Fill control renders a real background", () => {
+  assert.doesNotMatch(textNoteStrategy, /const underlineY = boxY \+ ch \+ 2/);
+  assert.doesNotMatch(textNoteStrategy, /ctx\.lineTo\(boxX \+ cw - TEXT_PADDING, underlineY\)/);
+  assert.match(textNoteStrategy, /if \(sf\.fillEnabled\) \{[\s\S]*?backgroundColor = sf\.fillColor \|\| "#2962FF"[\s\S]*?drawRoundedRect\(ctx, boxX, boxY, cw, ch, CHIP_RADIUS\);[\s\S]*?ctx\.fill\(\)/);
+  assert.match(floatingToolbarButton, /drType === "text_note"[\s\S]*?drawingStyle\.fillEnabled === true[\s\S]*?: drawingStyle\.fillEnabled !== false/);
+});
+
+test("drawing settings modals are chart-bounded with compact scrollable bodies", () => {
+  assert.match(drawingSettingsModal, /className="gp-drawing-settings-modal"/);
+  assert.match(drawingSettingsModal, /overlayClassName="gp-chart-bounded-modal-overlay"/);
+  assert.doesNotMatch(baseModal, /minHeight: "300px"/);
+  assert.match(styles, /\.gp-drawing-settings-modal \{[\s\S]*?max-height: calc\([\s\S]*?--gp-chart-modal-top[\s\S]*?--gp-chart-modal-bottom/);
+  assert.match(styles, /\.gp-drawing-settings-modal \{[\s\S]*?\.gp-modal-body \{[\s\S]*?min-height: 0 !important;[\s\S]*?max-height: none !important;[\s\S]*?overflow-y: auto;/);
+});
+
+test("drawing settings modal keeps the selected tab stable while live-editing drawing properties", () => {
+  assert.match(drawingSettingsModal, /\}, \[dr\.id, dr\.type, isOpen\]\);/);
+  assert.doesNotMatch(drawingSettingsModal, /\}, \[dr, isOpen\]\);/);
+  assert.match(drawingSettingsModal, /<SettingsTextArea[\s\S]*?label="Contenu"[\s\S]*?value=\{dr\.text \|\| ""\}[\s\S]*?onChange=\{\(val\) => updateDrawing\(dr\.id, \{ text: val \}\)\}/);
+});
 
 test("vertical drawing toolbar density and short-height responsiveness are TradingView-like", () => {
   assert.match(styles, /\.gp-toolbar-scroll-container \{[\s\S]*?flex: 0 1 auto;[\s\S]*?gap: 2px;/);
@@ -37,6 +89,9 @@ test("vertical drawing toolbar skeleton is one uninterrupted column matching vis
   assert.doesNotMatch(overlay, /footer-/);
   assert.doesNotMatch(overlay, /borderTop:/);
   assert.doesNotMatch(overlay, /flex:\s*1/);
+  assert.match(overlay, /zIndex:\s*50/);
+  assert.match(toolbar, /data-loading=\{isInitialLoading \? "true" : "false"\}/);
+  assert.match(styles, /\.gp-vertical-toolbar\[data-loading="true"\] \.gp-toolbar-split-trigger \{[\s\S]*?visibility: hidden !important;[\s\S]*?opacity: 0 !important;/);
 });
 
 test("TradingView lower drawing toolbar labels and split menus are present without placeholders", () => {
@@ -81,6 +136,16 @@ test("TradingView lower drawing toolbar labels and split menus are present witho
   assert.match(technicalAnalysis, /indicatorCount=\{activeIndicatorCount\}/);
 });
 
+test("all sidebar split carets use the exact same filled caret component", () => {
+  assert.match(toolbar, /className="gp-toolbar-split-trigger"/);
+  assert.match(toolbar, /className="bi bi-caret-down-fill"/);
+  assert.match(footer, /className="gp-toolbar-split-trigger gp-toolbar-split-trigger--footer"/);
+  assert.match(footer, /className="bi bi-caret-down-fill"/);
+  assert.match(toolbar, /fontSize: "0\.5rem"/);
+  assert.match(footer, /fontSize: "0\.5rem"/);
+  assert.doesNotMatch(footer, />▾<\/span>/);
+});
+
 test("keep drawing replicates TradingView persistence, immediate state and re-arming semantics", () => {
   assert.match(manager, /KEEP_DRAWING_STORAGE_KEY/);
   assert.match(manager, /keepDrawingRef\.current = enabled/);
@@ -94,7 +159,18 @@ test("keep drawing replicates TradingView persistence, immediate state and re-ar
   assert.doesNotMatch(footer, /bi bi-pencil/);
   assert.match(manager, /pendingIconSymbolRef\.current/);
   assert.match(manager, /setActiveTool\("text_note"\)/);
-  assert.match(manager, /fontSize = newDrawing\.type === "text_note" && pendingIconSymbolRef\.current \? 24/);
+  assert.match(manager, /newDrawing\.fontSize = pendingTextIconSymbol \? 24/);
+});
+
+test("textual annotations enter inline editing immediately when placement completes", () => {
+  assert.match(manager, /IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET\.has\(newDrawing\.type\) && pendingTextIconSymbol === null/);
+  assert.match(manager, /newDrawing\.showText = shouldStartInlineTextEditing \? false/);
+  assert.match(manager, /shouldStartInlineTextEditing\s*\? ""/);
+  assert.match(manager, /if \(shouldStartInlineTextEditing\) \{\s*startEditingDrawing\(newDrawing\)/);
+  assert.match(manager, /IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET\.has\(finalDrawing\.type\)/);
+  assert.match(manager, /startEditingDrawing\(finalDrawing\)/);
+  assert.match(manager, /INLINE_TEXT_EDITOR_SECOND_POINT_TOOL_SET\.has\(d\.type\)/);
+  assert.match(technicalAnalysis, /IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET\.has\(editingDrawing\.type\) \? "Add text" : undefined/);
 });
 
 test("magnet replicates TradingView weak/strong state, persistence and OHLC/indicator snapping", () => {

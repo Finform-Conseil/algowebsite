@@ -124,6 +124,9 @@ export const VelaChartAdapter = ({
         height: "100%",
         minHeight: 0,
         overflow: "hidden",
+        touchAction: "none",
+        overscrollBehavior: "contain",
+        userSelect: "none",
         zIndex: 1,
       }}
     />

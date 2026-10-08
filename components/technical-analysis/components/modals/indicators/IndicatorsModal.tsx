@@ -217,6 +217,99 @@ const countActiveBottomIndicators = (indicators: AdvancedIndicatorsState) =>
     + (hasActiveRawMomentumPanel(indicators) ? 1 : 0)
     + (hasActiveHistoricalVolatilityPanel(indicators) ? 1 : 0));
 
+const INDICATOR_FAVORITES_STORAGE_KEY = "finform.ta.indicator-favorites.v1";
+const DEFAULT_INDICATOR_FAVORITE_CODES = ["macd", "stochastic", "sma-20", "volume"] as const;
+
+type IndicatorFavoritesContextValue = {
+  favoriteCodes: ReadonlySet<string>;
+  toggleFavorite: (code: string) => void;
+};
+
+const IndicatorFavoritesContext = React.createContext<IndicatorFavoritesContextValue>({
+  favoriteCodes: new Set(DEFAULT_INDICATOR_FAVORITE_CODES),
+  toggleFavorite: () => undefined,
+});
+
+type ZonebourseIndicatorRowProps = {
+  label: string;
+  description: string;
+  code: string;
+  family?: string;
+  active?: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+  onConfigure?: () => void;
+};
+
+const ZonebourseIndicatorRow = React.memo(({
+  label,
+  description,
+  code,
+  family,
+  active = false,
+  disabled = false,
+  onToggle,
+  onConfigure,
+}: ZonebourseIndicatorRowProps) => {
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const { favoriteCodes, toggleFavorite } = React.useContext(IndicatorFavoritesContext);
+  const favorite = favoriteCodes.has(code);
+  const infoId = useMemo(() => getIndicatorInfoPanelId(family ?? "catalogue", code), [code, family]);
+  const { handleClick, handleNativeDoubleClick } = useSingleDoubleClick(
+    onToggle,
+    onConfigure ?? (() => undefined),
+  );
+
+  const handleFavoriteClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleFavorite(code);
+  }, [code, toggleFavorite]);
+
+  return (
+    <>
+      <div
+        className={`gp-zb-catalog-row ${active ? "is-active" : ""} ${favorite ? "is-favorite" : ""}`}
+        ref={anchorRef}
+      >
+        <button
+          aria-label={favorite ? `Retirer ${label} des favoris` : `Ajouter ${label} aux favoris`}
+          aria-pressed={favorite}
+          className="gp-zb-catalog-row__favorite"
+          disabled={disabled}
+          onClick={handleFavoriteClick}
+          title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+          type="button"
+        >
+          <span aria-hidden="true">{favorite ? "★" : "☆"}</span>
+        </button>
+        <button
+          aria-describedby={infoId}
+          aria-pressed={disabled ? undefined : active}
+          className="gp-zb-catalog-row__action"
+          disabled={disabled}
+          onClick={handleClick}
+          onDoubleClick={handleNativeDoubleClick}
+          type="button"
+        >
+          <span className="gp-zb-catalog-row__label">{label}</span>
+        </button>
+      </div>
+      <IndicatorHoverInfoPanel
+        anchorRef={anchorRef}
+        code={code}
+        contextLabel={family}
+        description={description}
+        id={infoId}
+        statusLabel={disabled ? "Indicateur indisponible" : active ? "Actif" : "Cliquer pour activer"}
+        title={label}
+        tone={disabled ? "missing" : "default"}
+      />
+    </>
+  );
+});
+ZonebourseIndicatorRow.displayName = "ZonebourseIndicatorRow";
+
 const isAdvancedIndicatorKey = isAdvancedIndicatorRegistryId;
 
 const isBottomPanelIndicatorKey = (id: string): id is typeof BOTTOM_PANEL_INDICATORS[number] =>
@@ -1565,7 +1658,43 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
 
   const [indicatorSearch, setIndicatorSearch] = useState("");
   const [indicatorFocus, setIndicatorFocus] = useState<IndicatorFocusFilter>("all");
+  const [favoriteIndicatorCodes, setFavoriteIndicatorCodes] = useState<string[]>([...DEFAULT_INDICATOR_FAVORITE_CODES]);
   const deferredSearch = useDeferredValue(indicatorSearch);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(INDICATOR_FAVORITES_STORAGE_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) return;
+      const normalized = Array.from(new Set(parsed.filter((value): value is string => typeof value === "string" && value.trim().length > 0)));
+      setFavoriteIndicatorCodes(normalized);
+    } catch (error) {
+      console.warn("[IndicatorsModal] Ignoring invalid indicator favorites storage payload.", error);
+    }
+  }, []);
+
+  const toggleIndicatorFavorite = useCallback((code: string) => {
+    setFavoriteIndicatorCodes((current) => {
+      const next = current.includes(code)
+        ? current.filter((entry) => entry !== code)
+        : [...current, code];
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(INDICATOR_FAVORITES_STORAGE_KEY, JSON.stringify(next));
+        } catch (error) {
+          console.warn("[IndicatorsModal] Unable to persist indicator favorites.", error);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const indicatorFavoritesContextValue = useMemo<IndicatorFavoritesContextValue>(() => ({
+    favoriteCodes: new Set(favoriteIndicatorCodes),
+    toggleFavorite: toggleIndicatorFavorite,
+  }), [favoriteIndicatorCodes, toggleIndicatorFavorite]);
   const modalContentRef = useRef<HTMLDivElement | null>(null);
   const savedScrollTopRef = useRef(Math.max(0, initialScrollTop));
 
@@ -1603,44 +1732,43 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     onClose();
   }, [onClose, persistCurrentScrollTop]);
 
+  useEffect(() => {
+    if (!isOpen || typeof document === "undefined") return;
+
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      const modalNode = modalContentRef.current;
+      if (modalNode?.contains(target)) return;
+
+      const targetElement = target instanceof Element ? target : target.parentElement;
+      if (targetElement?.closest('[data-indicators-modal-trigger="true"]')) return;
+
+      handleClose();
+    };
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
+    };
+  }, [handleClose, isOpen]);
+
   useLayoutEffect(() => {
     if (!isOpen) return;
 
-    savedScrollTopRef.current = Math.max(0, initialScrollTop);
-    restoreSavedScrollTop();
+    savedScrollTopRef.current = 0;
+    const scrollableBody = getScrollableModalBody();
+    if (scrollableBody) scrollableBody.scrollTop = 0;
+    onScrollPositionChange?.(0);
 
     if (typeof window === "undefined") return;
-
-    let frameId = 0;
-    let attempts = 0;
-    const timeoutIds: number[] = [];
-    const runRestoreAttempt = () => {
-      attempts += 1;
-      const restored = restoreSavedScrollTop();
-      if (!restored && attempts < 24) {
-        frameId = window.requestAnimationFrame(runRestoreAttempt);
-      }
-    };
-
-    frameId = window.requestAnimationFrame(runRestoreAttempt);
-    [80, 180, 360, 720, 1200, 2000].forEach((delay) => {
-      timeoutIds.push(window.setTimeout(restoreSavedScrollTop, delay));
+    const frameId = window.requestAnimationFrame(() => {
+      const body = getScrollableModalBody();
+      if (body) body.scrollTop = 0;
     });
-
-    const scrollableBody = getScrollableModalBody();
-    const resizeObserver = scrollableBody && typeof ResizeObserver !== "undefined"
-      ? new ResizeObserver(() => { restoreSavedScrollTop(); })
-      : null;
-    if (scrollableBody && resizeObserver) {
-      resizeObserver.observe(scrollableBody);
-    }
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      resizeObserver?.disconnect();
-    };
-  }, [getScrollableModalBody, initialScrollTop, isOpen, restoreSavedScrollTop]);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [getScrollableModalBody, isOpen, onScrollPositionChange]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1864,7 +1992,13 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   }, [chartIndicators, dispatch, revealObjectIds]);
 
   const handleToggleMovingAverageTrendSignal = useCallback((id: MovingAverageTrendSignalId, active: boolean) => {
-    if (active) revealTrendSignalSourceAverage(id);
+    if (active) {
+      revealTrendSignalSourceAverage(id);
+      // A catalogue click must have an immediate chart-side consequence. Trend
+      // signals are point-in-time regimes, so their chart representation is the
+      // source SMA/EMA used by the signal rather than a fake synthetic series.
+      dispatch(setMovingAverageTrendSignalSourceAverages(true));
+    }
     dispatch(setMovingAverageTrendSignal({ id, active }));
     if (active || !movingAverageTrendSignals.showSourceAverages) return;
 
@@ -2162,6 +2296,270 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
     );
   }, [handleToggleIndicatorGroup, isIndicatorGroupActive]);
 
+  const renderFavoriteIndicator = useCallback((code: string) => {
+    if (code === "volume") {
+      return (
+        <ZonebourseIndicatorRow
+          active={chartIndicators.volume}
+          code="volume"
+          description="Histogramme du volume échangé pour chaque bougie."
+          family="Volume"
+          key="favorite-volume"
+          label="Volume"
+          onConfigure={() => onConfigureIndicator?.(createVolumeConfigurationTarget())}
+          onToggle={handleToggleNativeVolume}
+        />
+      );
+    }
+
+    const sma = smaIndicators.find((entry) => entry.key === code);
+    if (sma) {
+      return (
+        <ZonebourseIndicatorRow
+          active={(chartIndicators.activeSma || []).includes(sma.period)}
+          code={sma.key}
+          description={`Moyenne Mobile Simple sur ${sma.period} périodes.`}
+          family="Moyennes mobiles"
+          key={`favorite-${sma.key}`}
+          label={sma.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", sma.period))}
+          onToggle={() => handleToggleMA("sma", sma.period)}
+        />
+      );
+    }
+
+    const ema = emaIndicators.find((entry) => entry.key === code);
+    if (ema) {
+      return (
+        <ZonebourseIndicatorRow
+          active={(chartIndicators.activeEma || []).includes(ema.period)}
+          code={ema.key}
+          description={`Moyenne Mobile Exponentielle sur ${ema.period} périodes.`}
+          family="Moyennes mobiles"
+          key={`favorite-${ema.key}`}
+          label={ema.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", ema.period))}
+          onToggle={() => handleToggleMA("ema", ema.period)}
+        />
+      );
+    }
+
+    const trend = MOVING_AVERAGE_TREND_SIGNAL_SPECS.find((spec) => spec.id === code);
+    if (trend) {
+      return (
+        <ZonebourseIndicatorRow
+          active={movingAverageTrendSignals.active[trend.id]}
+          code={trend.id}
+          description={trend.description}
+          family="Moyennes mobiles"
+          key={`favorite-${trend.id}`}
+          label={trend.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget(trend.family, trend.period))}
+          onToggle={() => handleToggleMovingAverageTrendSignal(trend.id, !movingAverageTrendSignals.active[trend.id])}
+        />
+      );
+    }
+
+    const advancedMa = ADVANCED_MOVING_AVERAGE_SPECS.find((spec) => spec.id === code);
+    if (advancedMa) {
+      const active = isAdvancedMovingAverageActive(advancedMovingAverages, advancedMa.id);
+      return (
+        <ZonebourseIndicatorRow
+          active={active}
+          code={advancedMa.id}
+          description={advancedMa.description}
+          family="Moyennes & Comparaisons"
+          key={`favorite-${advancedMa.id}`}
+          label={advancedMa.label}
+          onConfigure={() => onConfigureIndicator?.(createAdvancedMovingAverageConfigurationTarget(advancedMa))}
+          onToggle={() => handleToggleAdvancedMovingAverage(advancedMa.id, !active)}
+        />
+      );
+    }
+
+    const priceVsSma = PRICE_VS_SMA_METRIC_SPECS.find((spec) => spec.id === code);
+    if (priceVsSma) {
+      return (
+        <ZonebourseIndicatorRow
+          active={priceVsSmaMetrics.active[priceVsSma.id]}
+          code={priceVsSma.id}
+          description="Distance du prix par rapport à la moyenne mobile simple sélectionnée."
+          family="Moyennes & Comparaisons"
+          key={`favorite-${priceVsSma.id}`}
+          label={priceVsSma.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", priceVsSma.period))}
+          onToggle={() => handleTogglePriceVsSmaMetric(priceVsSma.id, !priceVsSmaMetrics.active[priceVsSma.id])}
+        />
+      );
+    }
+
+    const priceVsEma = PRICE_VS_EMA_METRIC_SPECS.find((spec) => spec.id === code);
+    if (priceVsEma) {
+      return (
+        <ZonebourseIndicatorRow
+          active={priceVsEmaMetrics.active[priceVsEma.id]}
+          code={priceVsEma.id}
+          description="Distance du prix par rapport à la moyenne mobile exponentielle sélectionnée."
+          family="Moyennes & Comparaisons"
+          key={`favorite-${priceVsEma.id}`}
+          label={priceVsEma.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", priceVsEma.period))}
+          onToggle={() => handleTogglePriceVsEmaMetric(priceVsEma.id, !priceVsEmaMetrics.active[priceVsEma.id])}
+        />
+      );
+    }
+
+    const composite = COMPOSITE_INDICATOR_SPECS.find((spec) => spec.id === code && Boolean(spec.wiredId));
+    if (composite?.wiredId) {
+      const wiredId = composite.wiredId as string;
+      return (
+        <ZonebourseIndicatorRow
+          active={isIndicatorActive(wiredId)}
+          code={composite.id}
+          description={composite.desc}
+          family="Indicateurs techniques"
+          key={`favorite-${composite.id}`}
+          label={composite.id === "stochastic" ? "Stochastique" : composite.title}
+          onConfigure={() => onConfigureIndicator?.(createCompositeConfigurationTarget(composite))}
+          onToggle={() => { if (canActivateBottomIndicator(wiredId)) handleToggleAdvanced(wiredId); }}
+        />
+      );
+    }
+
+    for (const group of backendIndicatorGroups) {
+      for (const section of group.sections) {
+        const item = section.items.find((entry) => entry.key === code && Boolean(entry.wiredId));
+        if (!item?.wiredId) continue;
+        const wiredId = item.wiredId as string;
+        return (
+          <ZonebourseIndicatorRow
+            active={isIndicatorActive(wiredId)}
+            code={item.key}
+            description={item.desc}
+            family={section.title}
+            key={`favorite-${item.key}`}
+            label={item.name}
+            onConfigure={() => onConfigureIndicator?.(createCatalogConfigurationTarget(item))}
+            onToggle={() => { if (canActivateBottomIndicator(wiredId)) handleToggleAdvanced(wiredId); }}
+          />
+        );
+      }
+    }
+
+    return null;
+  }, [
+    advancedMovingAverages,
+    backendIndicatorGroups,
+    canActivateBottomIndicator,
+    chartIndicators.activeEma,
+    chartIndicators.activeSma,
+    chartIndicators.volume,
+    emaIndicators,
+    handleToggleAdvanced,
+    handleToggleAdvancedMovingAverage,
+    handleToggleMA,
+    handleToggleMovingAverageTrendSignal,
+    handleToggleNativeVolume,
+    handleTogglePriceVsEmaMetric,
+    handleTogglePriceVsSmaMetric,
+    isIndicatorActive,
+    movingAverageTrendSignals.active,
+    onConfigureIndicator,
+    priceVsEmaMetrics.active,
+    priceVsSmaMetrics.active,
+    smaIndicators,
+  ]);
+
+  const renderZonebourseSectionItems = useCallback((section: BackendIndicatorSection) => {
+    if (section.title === "Prix vs SMA") {
+      const visibleKeys = new Set(section.items.map((item) => item.key));
+      return PRICE_VS_SMA_METRIC_SPECS.filter((spec) => visibleKeys.has(spec.id)).map((spec) => (
+        <ZonebourseIndicatorRow
+          active={priceVsSmaMetrics.active[spec.id]}
+          code={spec.id}
+          description="Distance du prix par rapport à la moyenne mobile simple sélectionnée."
+          family="Moyennes & Comparaisons"
+          key={spec.id}
+          label={spec.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", spec.period))}
+          onToggle={() => handleTogglePriceVsSmaMetric(spec.id, !priceVsSmaMetrics.active[spec.id])}
+        />
+      ));
+    }
+
+    if (section.title === "Prix vs EMA") {
+      const visibleKeys = new Set(section.items.map((item) => item.key));
+      return PRICE_VS_EMA_METRIC_SPECS.filter((spec) => visibleKeys.has(spec.id)).map((spec) => (
+        <ZonebourseIndicatorRow
+          active={priceVsEmaMetrics.active[spec.id]}
+          code={spec.id}
+          description="Distance du prix par rapport à la moyenne mobile exponentielle sélectionnée."
+          family="Moyennes & Comparaisons"
+          key={spec.id}
+          label={spec.label}
+          onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", spec.period))}
+          onToggle={() => handleTogglePriceVsEmaMetric(spec.id, !priceVsEmaMetrics.active[spec.id])}
+        />
+      ));
+    }
+
+    if (["WMA / DEMA / TEMA", "Réduction du retard", "Lissage avancé", "Adaptative", "Pondérée volume"].includes(section.title)) {
+      const visibleKeys = new Set(section.items.map((item) => item.key));
+      return ADVANCED_MOVING_AVERAGE_SPECS.filter((spec) => visibleKeys.has(spec.id)).map((spec) => {
+        const active = isAdvancedMovingAverageActive(advancedMovingAverages, spec.id);
+        return (
+          <ZonebourseIndicatorRow
+            active={active}
+            code={spec.id}
+            description="Moyenne mobile avancée appliquée au prix."
+            family="Moyennes & Comparaisons"
+            key={spec.id}
+            label={spec.label}
+            onConfigure={() => onConfigureIndicator?.(createAdvancedMovingAverageConfigurationTarget(spec))}
+            onToggle={() => handleToggleAdvancedMovingAverage(spec.id, !active)}
+          />
+        );
+      });
+    }
+
+    const composites = COMPOSITE_INDICATOR_SPECS.filter((spec) => isCompositeSpecAllowedInSection(spec, section));
+    const compositeOutputKeys = new Set(composites.flatMap((spec) => spec.outputKeys));
+    const compositeRows = composites.filter((spec) => Boolean(spec.wiredId)).map((spec) => {
+      const wiredId = spec.wiredId as string;
+      return (
+        <ZonebourseIndicatorRow
+          active={isIndicatorActive(wiredId)}
+          code={spec.id}
+          description={spec.desc}
+          family={section.title}
+          key={`composite-${spec.id}`}
+          label={spec.title}
+          onConfigure={() => onConfigureIndicator?.(createCompositeConfigurationTarget(spec))}
+          onToggle={() => { if (canActivateBottomIndicator(wiredId)) handleToggleAdvanced(wiredId); }}
+        />
+      );
+    });
+    const standaloneRows = section.items
+      .filter((item) => !compositeOutputKeys.has(item.key) && Boolean(item.wiredId))
+      .map((item) => {
+        const wiredId = item.wiredId as string;
+        return (
+          <ZonebourseIndicatorRow
+            active={isIndicatorActive(wiredId)}
+            code={item.key}
+            description={item.desc}
+            family={section.title}
+            key={item.key}
+            label={item.name}
+            onConfigure={() => onConfigureIndicator?.(createCatalogConfigurationTarget(item))}
+            onToggle={() => { if (canActivateBottomIndicator(wiredId)) handleToggleAdvanced(wiredId); }}
+          />
+        );
+      });
+
+    return [...compositeRows, ...standaloneRows];
+  }, [advancedMovingAverages, canActivateBottomIndicator, handleToggleAdvanced, handleToggleAdvancedMovingAverage, handleTogglePriceVsEmaMetric, handleTogglePriceVsSmaMetric, isIndicatorActive, onConfigureIndicator, priceVsEmaMetrics.active, priceVsSmaMetrics.active]);
+
   const renderIndicatorSectionItems = useCallback((section: BackendIndicatorSection) => {
     if (section.title === "Prix vs SMA") {
       const visibleKeys = new Set(section.items.map((item) => item.key));
@@ -2352,47 +2750,43 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
   ]);
 
   return (
+    <IndicatorFavoritesContext.Provider value={indicatorFavoritesContextValue}>
     <BaseModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Indicateurs Techniques"
-      icon={<i className="bi bi-activity me-2"></i>}
-      primaryLabel="Appliquer"
-      primaryAction={handleClose}
-      secondaryLabel="Fermer"
-      maxWidth="750px"
-      className="gp-indicators-modal"
+      title="Indicateurs"
+      headerAccessory={(
+        <div className="gp-zb-indicator-search">
+          <i className="bi bi-search" aria-hidden="true"></i>
+          <label htmlFor={INDICATOR_SEARCH_INPUT_ID} className="gp-indicator-info-sr-only">Rechercher un indicateur technique</label>
+          <input
+            id={INDICATOR_SEARCH_INPUT_ID}
+            name="technicalAnalysisIndicatorSearch"
+            aria-label="Rechercher un indicateur technique"
+            className="gp-indicator-search-input"
+            onChange={(event) => setIndicatorSearch(event.target.value)}
+            placeholder="Recherche indicateur"
+            type="search"
+            value={indicatorSearch}
+          />
+          {hasIndicatorSearch && (
+            <button aria-label="Effacer la recherche" className="gp-indicator-search-clear" onClick={() => setIndicatorSearch("")} type="button">
+              <i className="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          )}
+        </div>
+      )}
+      hideFooter
+      showCloseButton={false}
+      maxWidth="872px"
+      className="gp-indicators-modal gp-indicators-modal--zonebourse"
       overlayClassName="gp-indicators-modal-overlay"
       contentRef={modalContentRef}
       draggable
     >
       <div className="gp-indicators-modal-scroll-content">
-        <div className="gp-indicator-search-panel">
-          <div className="gp-indicator-search-box">
-            <i className="bi bi-search" aria-hidden="true"></i>
-            <label htmlFor={INDICATOR_SEARCH_INPUT_ID} style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 }}>
-              Rechercher un indicateur technique
-            </label>
-            <input
-              id={INDICATOR_SEARCH_INPUT_ID}
-              name="technicalAnalysisIndicatorSearch"
-              aria-label="Rechercher un indicateur technique"
-              className="gp-indicator-search-input"
-              onChange={(event) => setIndicatorSearch(event.target.value)}
-              placeholder="Rechercher RSI, EMA 20, Ichimoku, Doji..."
-              type="search"
-              value={indicatorSearch}
-            />
-            {hasIndicatorSearch && (
-              <button
-                aria-label="Effacer la recherche"
-                className="gp-indicator-search-clear"
-                onClick={() => setIndicatorSearch("")}
-                type="button"
-              >
-                <i className="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            )}
+        <div className="gp-indicator-search-panel gp-indicator-search-panel--status-only">
+          <div className="gp-indicator-search-box gp-indicator-search-box--legacy" aria-hidden="true">
           </div>
           <div className="gp-indicator-search-meta" aria-live="polite">
             <span className="gp-indicator-search-count">
@@ -2410,7 +2804,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
               </span>
             )}
           </div>
-        <section className="gp-indicator-control-strip" aria-label="Contrôles du catalogue des indicateurs">
+        <section className="gp-indicator-control-strip" aria-label="Contrôles du catalogue des indicateurs" hidden>
           <div className="gp-indicator-control-head">
             <div className="gp-indicator-control-heading">
               <span className="gp-indicator-control-heading__title">Focus trader</span>
@@ -2447,168 +2841,57 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         </section>
         </div>
 
-        {showNativeVolume && (
-          <div className="mb-4" data-native-volume-catalog-entry="true">
-            <div className="d-flex align-items-center mb-3 px-1">
-              <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #7c6cf2, #2962ff)", borderRadius: "2px", marginRight: "8px" }} />
-              <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-                Study natif
-              </small>
+        {!hasIndicatorSearch && indicatorFocus === "all" && (
+          <section className="gp-zb-indicator-section gp-zb-indicator-favorites" aria-labelledby="gp-zb-favorites-title">
+            <h6 className="gp-zb-indicator-section-title" id="gp-zb-favorites-title">Indicateurs favoris</h6>
+            <div className="gp-zb-favorites-grid">
+              {favoriteIndicatorCodes.length > 0
+                ? favoriteIndicatorCodes.map(renderFavoriteIndicator)
+                : <div className="gp-zb-favorites-empty">Aucun favori · clique sur ☆ pour en ajouter.</div>}
             </div>
-            <div className="row row-cols-1 mx-0">
-              <NativeVolumeCard
-                isAttached={chartIndicators.volume}
-                isVisible={chartIndicators.volumeVisible !== false}
-                onToggle={handleToggleNativeVolume}
-                onConfigure={() => onConfigureIndicator?.(createVolumeConfigurationTarget())}
-              />
-            </div>
-          </div>
+          </section>
         )}
 
-        {/* --- SECTION 1: MOYENNES MOBILES --- */}
-        {hasVisibleMovingAverages && (
-          <div className="mb-4">
-            <div className="d-flex align-items-center mb-3 px-1">
-              <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #ff9800, #ff5252)", borderRadius: "2px", marginRight: "8px" }} />
-              <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-                Moyennes Mobiles
-              </small>
-            </div>
-            <div className="gp-ma-groups">
-              {filteredSmaIndicators.length > 0 && (
-                <div className="gp-ma-group gp-ma-group-sma">
-                  <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
-                    <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Simple Moving Average</span>
-                    <strong style={{ color: "#f8fafc", fontSize: "12px" }}>SMA</strong>
-                  </div>
-                  <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 mx-0 mt-2">
-                    {filteredSmaIndicators.map(({ key, period, label, color }) => (
-                      <MACard
-                        key={key}
-                        type="sma"
-                        period={period}
-                        label={label}
-                        color={color}
-                        isActive={(chartIndicators.activeSma || []).includes(period)}
-                        onToggle={handleToggleMA}
-                        onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", period))}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+        <h6 className="gp-zb-indicator-section-title gp-zb-all-title">Tous les indicateurs</h6>
 
-              {filteredEmaIndicators.length > 0 && (
-                <div className="gp-ma-group gp-ma-group-ema mt-3">
-                  <div className="gp-ma-group-header" style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between" }}>
-                    <span className="gp-ma-group-kicker" style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase" }}>Exponential Moving Average</span>
-                    <strong style={{ color: "#f8fafc", fontSize: "12px" }}>EMA</strong>
-                  </div>
-                  <div className="row row-cols-1 row-cols-sm-2 mx-0 mt-2">
-                    {filteredEmaIndicators.map(({ key, period, label, color }) => (
-                      <MACard
-                        key={key}
-                        type="ema"
-                        period={period}
-                        label={label}
-                        color={color}
-                        isActive={(chartIndicators.activeEma || []).includes(period)}
-                        onToggle={handleToggleMA}
-                        onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", period))}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+        <div className="gp-zb-catalog-families" aria-label="Tous les indicateurs">
+          {(showNativeVolume || filteredSmaIndicators.length > 0 || filteredEmaIndicators.length > 0 || filteredMovingAverageTrendIndicators.length > 0) && (
+            <section className="gp-zb-catalog-family" aria-labelledby="gp-zb-family-moving-averages">
+              <div className="gp-zb-catalog-family__header">
+                <strong id="gp-zb-family-moving-averages">Moyennes mobiles</strong>
+                <span>Tendance et lissage du prix</span>
+              </div>
+              <div className="gp-zb-catalog-grid" role="list">
+                {showNativeVolume && (
+                  <ZonebourseIndicatorRow active={chartIndicators.volume} code="volume" description="Histogramme du volume échangé pour chaque bougie." family="Moyennes mobiles" label="Volume" onConfigure={() => onConfigureIndicator?.(createVolumeConfigurationTarget())} onToggle={handleToggleNativeVolume} />
+                )}
+                {filteredSmaIndicators.map(({ key, period, label }) => (
+                  <ZonebourseIndicatorRow active={(chartIndicators.activeSma || []).includes(period)} code={key} description={`Moyenne Mobile Simple sur ${period} périodes.`} family="Moyennes mobiles" key={key} label={label} onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("sma", period))} onToggle={() => handleToggleMA("sma", period)} />
+                ))}
+                {filteredEmaIndicators.map(({ key, period, label }) => (
+                  <ZonebourseIndicatorRow active={(chartIndicators.activeEma || []).includes(period)} code={key} description={`Moyenne Mobile Exponentielle sur ${period} périodes.`} family="Moyennes mobiles" key={key} label={label} onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget("ema", period))} onToggle={() => handleToggleMA("ema", period)} />
+                ))}
+                {filteredMovingAverageTrendIndicators.map((spec) => (
+                  <ZonebourseIndicatorRow active={movingAverageTrendSignals.active[spec.id]} code={spec.id} description="Signal de position du prix par rapport à sa moyenne mobile." family="Moyennes mobiles" key={spec.id} label={spec.label} onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget(spec.family, spec.period))} onToggle={() => handleToggleMovingAverageTrendSignal(spec.id, !movingAverageTrendSignals.active[spec.id])} />
+                ))}
+              </div>
+            </section>
+          )}
 
-              {filteredMovingAverageTrendIndicators.length > 0 && (
-                <div className="gp-ma-group gp-ma-group-trend mt-3">
-                  <div className="gp-ma-trend-header">
-                    <span className="gp-ma-group-kicker">Tendance moyenne mobile</span>
-                    <strong>Signaux</strong>
-                  </div>
-                  <div className={`gp-composite-indicator gp-ma-trend-composite ${areAllTrendSignalsActive ? "active" : ""}`}>
-                    <div className="gp-ma-trend-parent-row">
-                      <div className="gp-composite-indicator-parent gp-ma-trend-parent">
-                        <span className="gp-composite-indicator-check gp-ma-trend-parent-check" aria-hidden="true">
-                          {areAllTrendSignalsActive && <Check size={13} strokeWidth={3.4} />}
-                        </span>
-                        <span className="gp-composite-indicator-copy gp-ma-trend-parent-copy">
-                          <strong>Prix vs Moyennes</strong>
-                          <small>État du prix par rapport aux moyennes de référence de la timeframe courante.</small>
-                        </span>
-                      </div>
-                      <button
-                        className={`gp-ma-trend-bulk-btn ${areAllTrendSignalsActive ? "is-active" : ""}`}
-                        onClick={handleToggleAllMovingAverageTrendSignals}
-                        type="button"
-                      >
-                        {areAllTrendSignalsActive ? "Tout désactiver" : "Tout activer"}
-                      </button>
-                    </div>
-                    <div className="gp-ma-trend-children">
-                      {filteredMovingAverageTrendIndicators.map((spec) => {
-                        const result = movingAverageTrendSignalResultById.get(spec.id);
-                        if (!result) return null;
-
-                        return (
-                          <MovingAverageTrendSignalCard
-                            key={spec.id}
-                            result={result}
-                            isActive={movingAverageTrendSignals.active[spec.id]}
-                            sourceLinesEnabled={movingAverageTrendSignals.showSourceAverages}
-                            onToggle={handleToggleMovingAverageTrendSignal}
-                            onConfigure={() => onConfigureIndicator?.(createMovingAverageConfigurationTarget(result.spec.family, result.spec.period))}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="gp-ma-trend-secondary-row">
-                    <MovingAverageTrendSourceToggle
-                      activeCount={activeTrendSignalCount}
-                      checked={movingAverageTrendSignals.showSourceAverages}
-                      onToggle={handleToggleTrendSignalSourceLines}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* --- SECTION 2: CATALOGUE DES INDICATEURS STRUCTURÉ --- */}
-        {filteredBackendIndicatorGroups.length > 0 && (
-          <div className="mb-4">
-            <div className="d-flex align-items-center mb-3 px-1">
-              <div style={{ width: "3px", height: "16px", background: "linear-gradient(180deg, #2962ff, #00bcd4)", borderRadius: "2px", marginRight: "8px" }} />
-              <small className="text-secondary fw-semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "10px" }}>
-                Catalogue des indicateurs
-              </small>
-            </div>
-            <div className="gp-indicator-catalog">
-              {filteredBackendIndicatorGroups.map((group) => (
-                <section className="gp-indicator-family mb-4" data-focus={getIndicatorFocusForGroup(group.title) ?? "other"} key={group.title}>
-                  <div className="gp-indicator-family-header mb-2">
-                    <div>
-                      <strong style={{ color: "#f8fafc", fontSize: "14px", display: "block" }}>{group.title}</strong>
-                      <span style={{ color: "#64748b", fontSize: "11px" }}>{group.subtitle}</span>
-                    </div>
-                  </div>
-                  <div className="gp-indicator-subfamilies">
-                    {group.sections.map((section) => (
-                      <div className="gp-indicator-subfamily mb-3" data-family={section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")} key={`${group.title}-${section.title}`}>
-                        {renderIndicatorSectionTitle(section)}
-                        {renderIndicatorSectionItems(section)}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </div>
-        )}
+          {filteredBackendIndicatorGroups.map((group) => (
+            <section className="gp-zb-catalog-family" key={group.title}>
+              <div className="gp-zb-catalog-family__header">
+                <strong>{group.title}</strong>
+                <span>{group.subtitle}</span>
+              </div>
+              <div className="gp-zb-catalog-grid" role="list">
+                {group.sections.map((section) => (
+                  <React.Fragment key={`${group.title}-${section.title}`}>{renderZonebourseSectionItems(section)}</React.Fragment>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
         {!hasVisibleIndicators && (
           <div className="gp-indicator-empty-state" style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
@@ -2619,6 +2902,7 @@ export const IndicatorsModal: React.FC<IndicatorsModalProps> = ({
         )}
       </div>
     </BaseModal>
+    </IndicatorFavoritesContext.Provider>
   );
 };
 

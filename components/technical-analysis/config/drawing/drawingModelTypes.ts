@@ -26,6 +26,7 @@ export interface Drawing {
   text?: string;
   showText?: boolean;
   textColor?: string;
+  textColorMode?: "linked" | "custom";
   fontSize?: number;
   textBold?: boolean;
   textItalic?: boolean;
@@ -80,7 +81,7 @@ export interface DrawingImageNoteProps {
   originalFileName?: string;
 }
 
-export type IntervalKind = "1m" | "5m" | "15m" | "1H" | "4H" | "1D" | "1W" | "1M";
+export type IntervalKind = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
 
 export interface DrawingIntervalRange {
   from?: string | number;

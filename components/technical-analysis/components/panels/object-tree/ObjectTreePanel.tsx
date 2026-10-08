@@ -27,10 +27,27 @@ import type { Drawing } from "../../../config/drawing/drawingModelTypes";
 import type { AdvancedIndicatorsState } from "../../../config/indicators/advancedIndicatorsTypes";
 import type { ObjectTreePanelTab, DataWindowCandleValues } from "../../../config/object-tree/objectTreeTypes";
 import type { ChartAppearance, ChartState } from "../../../config/state/chartStateTypes";
-import { setAdvancedIndicators, setChartConfig, removeComparisonSymbol, clearPineChartOverlay } from "../../../store/technicalAnalysisSlice";
-import { resolveTrendSignalSourceAveragePeriods } from "../../../config/indicators/movingAverageSeries";
-import { resolvePriceVsSmaSourceAveragePeriods } from "../../../config/indicators/priceVsSmaMetrics";
-import { resolvePriceVsEmaSourceAveragePeriods } from "../../../config/indicators/priceVsEmaMetrics";
+import {
+  setAdvancedIndicators,
+  setChartConfig,
+  removeComparisonSymbol,
+  clearPineChartOverlay,
+  setMovingAverageTrendSignal,
+  setPriceVsSmaMetric,
+  setPriceVsEmaMetric,
+} from "../../../store/technicalAnalysisSlice";
+import {
+  MOVING_AVERAGE_TREND_SIGNAL_SPECS,
+  resolveTrendSignalSourceAveragePeriods,
+} from "../../../config/indicators/movingAverageSeries";
+import {
+  PRICE_VS_SMA_METRIC_SPECS,
+  resolvePriceVsSmaSourceAveragePeriods,
+} from "../../../config/indicators/priceVsSmaMetrics";
+import {
+  PRICE_VS_EMA_METRIC_SPECS,
+  resolvePriceVsEmaSourceAveragePeriods,
+} from "../../../config/indicators/priceVsEmaMetrics";
 import type { RootState } from "@/core/infra/store";
 import type { EChartsType } from "echarts/core";
 import { DataWindowTab } from "./DataWindowTab";
@@ -240,6 +257,24 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       case "patch-indicators":
         patchChartIndicators(action.patch);
         return;
+      case "remove-moving-average": {
+        patchChartIndicators(action.patch);
+
+        MOVING_AVERAGE_TREND_SIGNAL_SPECS
+          .filter((spec) => spec.family === action.family && spec.period === action.period)
+          .forEach((spec) => dispatch(setMovingAverageTrendSignal({ id: spec.id, active: false })));
+
+        if (action.family === "sma") {
+          PRICE_VS_SMA_METRIC_SPECS
+            .filter((spec) => spec.period === action.period)
+            .forEach((spec) => dispatch(setPriceVsSmaMetric({ id: spec.id, active: false })));
+        } else {
+          PRICE_VS_EMA_METRIC_SPECS
+            .filter((spec) => spec.period === action.period)
+            .forEach((spec) => dispatch(setPriceVsEmaMetric({ id: spec.id, active: false })));
+        }
+        return;
+      }
       case "set-advanced-indicator":
         dispatch(setAdvancedIndicators(action.patch));
         return;
@@ -409,28 +444,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       role="complementary"
       aria-label="Object tree and data window"
       onClick={() => setActiveMenu(null)}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        height: "100%",
-        background: TV.bg,
-        borderLeft: TV.border,
-        overflow: "hidden",
-        fontFamily: "Inter, system-ui, sans-serif",
-      }}
+      className="gp-object-tree-panel"
     >
       {/* Segmented Tab Control (TV Pill Style) */}
-      <div style={{ padding: "12px 14px 8px 14px", flexShrink: 0 }}>
+      <div className="gp-object-tree-tabs-shell">
         <div
           role="tablist"
-          style={{
-            display: "flex",
-            background: "rgba(255, 255, 255, 0.04)",
-            borderRadius: "6px",
-            padding: "4px",
-            gap: "4px",
-          }}
+          className="gp-object-tree-tablist"
         >
           {(["object_tree", "data_window"] as ObjectTreePanelTab[]).map((tab) => {
             const isActive = activeTab === tab;
@@ -443,20 +463,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 aria-selected={isActive}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                style={{
-                  flex: 1,
-                  padding: "6px 12px",
-                  border: "none",
-                  background: isActive ? "var(--gp-bg-toolbar, #0d2136)" : "transparent",
-                  color: isActive ? TV.tabText : TV.tabMuted,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  boxShadow: isActive ? "0 2px 4px rgba(0,0,0,0.2)" : "none",
-                  whiteSpace: "nowrap",
-                }}
+                className={`gp-object-tree-tab ${isActive ? "is-active" : ""}`}
               >
                 {label}
               </button>
@@ -466,7 +473,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       </div>
 
       {/* Content area (scrollable) */}
-      <div className="gp-object-tree-scrollpane" style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="gp-object-tree-scrollpane">
         {activeTab === "object_tree" ? (
           <>
             <ObjectTreeActionToolbar
@@ -508,8 +515,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             />
 
             {/* TV Symbol Row */}
-            <div style={{ display: "flex", padding: "10px 14px", alignItems: "center", borderBottom: TV.divider, background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
-              <span style={{ color: TV.tabText, marginRight: "10px", opacity: 0.8, display: "flex", alignItems: "center" }}>
+            <div className="gp-object-tree-symbol-row">
+              <span className="gp-object-tree-symbol-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="22" height="22" fill="currentColor">
                   <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z"></path>
                   <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z"></path>
@@ -517,13 +524,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                   <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z"></path>
                 </svg>
               </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: TV.tabText, flex: 1, textTransform: "uppercase" }}>
+              <span className="gp-object-tree-symbol-name">
                 {symbolDisplay}
               </span>
               <IconButton
                 icon={isMainChartVisible ? "bi bi-eye" : "bi bi-eye-slash"}
                 title={isMainChartVisible ? "Masquer le graphique" : "Afficher le graphique"}
-                style={{ padding: "4px", fontSize: 14 }}
                 onClick={() => setIsMainChartVisible(!isMainChartVisible)}
               />
             </div>

@@ -19,6 +19,14 @@ import { useDispatch } from "react-redux";
 import type { AdvancedIndicatorsState, IndicatorPeriods, BollingerSettings } from "../config/indicators/advancedIndicatorsTypes";
 import type { ChartState, ChartAppearance } from "../config/state/chartStateTypes";
 import type { UiState } from "../config/state/uiStateTypes";
+import {
+  FINFORM_SKIN_CONTRACT,
+  LEGACY_ECHARTS_VISUAL_DEFAULTS,
+  resolveFinformSkinBackground,
+  resolveFinformSkinGridLine,
+  resolveVelaParityToken,
+  VELA_VISUAL_CONTRACT,
+} from "../config/velaVisualContract";
 import { calculateAcceleratorOscillator, calculateADLine, calculateADX, calculateALMA, calculateAPO, calculateATR, calculateAroon, calculateAroonOscillator, calculateAwesomeOscillator, calculateCCI, calculateCMF, calculateCMO, calculateChaikinOscillator, calculateChaikinVolatility, calculateCoppockCurve, calculateDEMA, calculateDPO, calculateDYMI, calculateDonchianChannels, calculateElderBullBearPower, calculateElderForceIndex, calculateEMA, calculateEOM, calculateFisherTransform, calculateFiftyTwoWeekLevels, calculateHMA, calculateHistoricalRecordLevels, calculateHistoricalVolatility, calculateKAMA, calculateKST, calculateKeltnerChannels, calculateKlingerOscillator, calculateLinearRegressionIndicator, calculateMACD, calculateMFI, calculateMassIndex, calculateMomentum, calculateMovingAverageCrossSignals, calculateNATR, calculateNVI, calculateOBV, calculatePPO, calculatePVI, calculateParabolicSAR, calculatePivotPointsFibonacci, calculatePivotPointsStandard, calculatePriceActionSignals, calculateCandlestickPatterns, calculatePriceStdDev, calculateROC, calculateRVI, calculateSMA, calculateSMMA, calculateSTC, calculateSupertrend, calculateTEMA, calculateTRIX, calculateTSI, calculateUlcerIndex, calculateUltimateOscillator, calculateVROC, calculateVWAP, calculateVWMA, calculateVolumeOscillator, calculateVortex, calculateWilliamsR, calculateWMA, calculateZLEMA, ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import type { VolumeProfileResult } from "../lib/Indicators/TechnicalIndicators";
 import {
@@ -32,6 +40,7 @@ import {
   clampViewportWindowWithFuture,
   resolveAutoViewportPriceRange,
   resolveInitialViewportWindow,
+  resolveVelaInitialViewportWindow,
   resolveTimeDataZoomAxisIndexes,
   type ChartMutationScheduler,
   type ChartViewportChange,
@@ -49,7 +58,9 @@ import {
 import {
   buildDirectionalOhlcvSeries,
   buildDirectionalVolumeBarData,
-  resolveStableVolumeAxisMax,
+  resolveVisibleVolumeOverlayAxisMax,
+  VELA_VOLUME_BAR_WIDTH_RATIO,
+  VELA_VOLUME_FILL_ALPHA,
   type DirectionalVolumeDataPoint,
 } from "../lib/chart/directionalOhlcv";
 import { resolvePriceAxisSplitNumber } from "../lib/chart/lastPriceAxisVisuals";
@@ -106,21 +117,23 @@ import {
   anchorLastPaneToFixedTimeAxis,
   DEFAULT_CHART_TOP_MARGIN_PERCENT,
   DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT,
-  DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT,
+  resolveVelaPaneWeightLayout,
 } from "./chart-rendering/chartPaneLayout";
 
 let areEChartsModulesRegistered = false;
 
 const CHART_OPTION_REPLACE_MERGE = ["series", "xAxis", "yAxis", "grid", "dataZoom", "graphic", "legend"];
-const DEFAULT_SETTINGS_BACKGROUND = "#102a43";
-const DEFAULT_SETTINGS_GRID_LINE = "#334155";
-const DEFAULT_SETTINGS_CROSSHAIR = "#94a3b8";
+const DEFAULT_SETTINGS_BACKGROUND = FINFORM_SKIN_CONTRACT.solidBackground;
+const DEFAULT_SETTINGS_GRADIENT_TOP = FINFORM_SKIN_CONTRACT.gradientTop;
+const DEFAULT_SETTINGS_GRADIENT_BOTTOM = FINFORM_SKIN_CONTRACT.gradientBottom;
+const DEFAULT_SETTINGS_GRID_LINE = FINFORM_SKIN_CONTRACT.gridLine;
+const DEFAULT_SETTINGS_CROSSHAIR = VELA_VISUAL_CONTRACT.crosshair;
 const DEFAULT_SETTINGS_WATERMARK = "#475569";
-const DEFAULT_SETTINGS_SCALE_TEXT = "#a0aec0";
-const DEFAULT_SETTINGS_SCALE_LINE = "#334155";
+const DEFAULT_SETTINGS_SCALE_TEXT = VELA_VISUAL_CONTRACT.text;
+const DEFAULT_SETTINGS_SCALE_LINE = VELA_VISUAL_CONTRACT.border;
 const MAX_PRICE_AXIS_SPLIT_LINES_WITH_LOWER_PANES = 4;
 const MAX_PRICE_AXIS_SPLIT_LINES_SINGLE_PANE = 6;
-const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = 42;
+const COMPACT_PEER_PRICE_AXIS_GUTTER_PX = TV_Y_AXIS_WIDTH;
 
 const applyChartOption = (
   chart: EChartsInstance,
@@ -496,7 +509,9 @@ const withStableInitialViewport = ({
   zoomRange,
   historyGapBars,
   rightOffsetBars,
+  plotWidthPx,
   liveViewport,
+  fitAllData = false,
 }: {
   option: TechnicalEChartsOption;
   chartData: ChartDataPoint[];
@@ -505,12 +520,19 @@ const withStableInitialViewport = ({
   zoomRange?: ZoomRangeSnapshot;
   historyGapBars: number;
   rightOffsetBars?: number;
+  plotWidthPx?: number;
   liveViewport?: {
     startIdx: number;
     endIdx: number;
     historyGapBars: number;
+    yScale: number;
+    yPan: number;
+    isYManual: boolean;
+    renderedYMin: number;
+    renderedYMax: number;
     lastDataLength: number;
   };
+  fitAllData?: boolean;
 }): TechnicalEChartsOption => {
   if (chartData.length === 0) return option;
 
@@ -520,6 +542,9 @@ const withStableInitialViewport = ({
     TV_MAX_HISTORY_GAP_BARS,
     Math.round(hasLiveViewport ? liveViewport.historyGapBars : historyGapBars),
   );
+  const hasAnchoredZoomRange =
+    Number.isFinite(zoomRange?.barsFromRightStart) &&
+    Number.isFinite(zoomRange?.barsFromRightEnd);
   const viewport = hasLiveViewport
     ? clampViewportWindowWithFuture(
         liveViewport.startIdx,
@@ -528,7 +553,15 @@ const withStableInitialViewport = ({
         TV_MAX_FUTURE_BARS,
         axisIndexOffset,
       )
-    : resolveInitialViewportWindow(chartData.length, zoomRange);
+    : hasAnchoredZoomRange
+      ? resolveInitialViewportWindow(chartData.length, zoomRange)
+      : resolveVelaInitialViewportWindow(
+          chartData.length,
+          plotWidthPx ?? 0,
+          undefined,
+          undefined,
+          fitAllData,
+        );
   const safeRightOffsetBars = clamp(
     Number.isFinite(rightOffsetBars) ? Math.round(rightOffsetBars as number) : 0,
     0,
@@ -550,6 +583,25 @@ const withStableInitialViewport = ({
     hasComparisonEndLabels,
     lastPriceAxisValue,
   });
+  let priceMin = priceRange.min;
+  let priceMax = priceRange.max;
+
+  if (liveViewport?.isYManual) {
+    const scaledRange = ((priceRange.visibleMax - priceRange.visibleMin) + priceRange.padding * 2) * liveViewport.yScale;
+    const manualMin = priceRange.center - (scaledRange / 2) + liveViewport.yPan;
+    const manualMax = priceRange.center + (scaledRange / 2) + liveViewport.yPan;
+    if (Number.isFinite(manualMin) && Number.isFinite(manualMax) && manualMin < manualMax) {
+      priceMin = manualMin;
+      priceMax = manualMax;
+    }
+  } else if (
+    Number.isFinite(liveViewport?.renderedYMin) &&
+    Number.isFinite(liveViewport?.renderedYMax) &&
+    (liveViewport?.renderedYMin as number) < (liveViewport?.renderedYMax as number)
+  ) {
+    priceMin = liveViewport?.renderedYMin as number;
+    priceMax = liveViewport?.renderedYMax as number;
+  }
   const timeAxisIndexes = resolveTimeDataZoomAxisIndexes(seedableOption);
   const primaryXAxis = Array.isArray(seedableOption.xAxis)
     ? seedableOption.xAxis[0]
@@ -610,10 +662,10 @@ const withStableInitialViewport = ({
         if (!axis || typeof axis !== "object") return axis;
         const axisOption = axis as Record<string, unknown>;
         if (index !== 0 && axisOption.id !== "price-yaxis") return axis;
-        return { ...axisOption, min: priceRange.min, max: priceRange.max };
+        return { ...axisOption, min: priceMin, max: priceMax };
       })
     : seedableOption.yAxis && typeof seedableOption.yAxis === "object"
-      ? { ...(seedableOption.yAxis as Record<string, unknown>), min: priceRange.min, max: priceRange.max }
+      ? { ...(seedableOption.yAxis as Record<string, unknown>), min: priceMin, max: priceMax }
       : seedableOption.yAxis;
 
   return {
@@ -671,6 +723,7 @@ interface ChartBuilderContext {
   hasLiveStitchedCandle: boolean;
   pineOverlay: PineChartOverlayPayload | null;
   viewportWindowRef: MutableRefObject<{ startIdx: number; endIdx: number; historyGapBars: number }>;
+  chartContainerWidthPx: number;
   chartContainerHeightPx: number;
 }
 
@@ -900,7 +953,6 @@ const pushPaneBackgroundSeries = (
 
 const buildEChartsOption = ({
   dates,
-  volumes,
   chartData,
   chartConfig,
   advancedIndicators,
@@ -927,33 +979,49 @@ const buildEChartsOption = ({
   reserveLastPriceAxisBadge,
   gridLinesVisible,
   viewportWindowRef,
+  chartContainerWidthPx,
   chartContainerHeightPx,
 }: ChartBuilderContext): TechnicalEChartsOption => {
-  const upColor = chartAppearance.upColor;
-  const downColor = chartAppearance.downColor;
-  const textColor = chartAppearance.scaleTextColor || DEFAULT_SETTINGS_SCALE_TEXT;
-  const scaleTextSize = resolveChartSettingNumber(chartAppearance.scaleTextSize, 12, 10, 14);
-  const scaleLineColor = chartAppearance.scaleLineColor || DEFAULT_SETTINGS_SCALE_LINE;
+  const upColor = resolveVelaParityToken(chartAppearance.upColor, LEGACY_ECHARTS_VISUAL_DEFAULTS.bullish, VELA_VISUAL_CONTRACT.bullish);
+  const downColor = resolveVelaParityToken(chartAppearance.downColor, LEGACY_ECHARTS_VISUAL_DEFAULTS.bearish, VELA_VISUAL_CONTRACT.bearish);
+  const textColor = resolveVelaParityToken(chartAppearance.scaleTextColor, LEGACY_ECHARTS_VISUAL_DEFAULTS.text, DEFAULT_SETTINGS_SCALE_TEXT);
+  const scaleTextSize = resolveChartSettingNumber(chartAppearance.scaleTextSize, VELA_VISUAL_CONTRACT.fontSize, 10, 14);
+  const scaleLineColor = resolveVelaParityToken(chartAppearance.scaleLineColor, LEGACY_ECHARTS_VISUAL_DEFAULTS.border, DEFAULT_SETTINGS_SCALE_LINE);
   const priceScaleMode = chartAppearance.priceScaleMode ?? "regular";
   const priceScalePosition = chartAppearance.priceScalePosition === "left" ? "left" : "right";
   const priceScaleInverted = chartAppearance.priceScaleInverted === true;
   const priceScaleLabelsVisible = chartAppearance.showPriceScaleLabels !== false;
   const priceScaleLinesVisible = chartAppearance.showPriceScaleLines !== false;
-  const legacyGridLineColor = chartAppearance.gridLineColor || DEFAULT_SETTINGS_GRID_LINE;
-  const verticalGridLineColor = chartAppearance.verticalGridLineColor || legacyGridLineColor;
-  const horizontalGridLineColor = chartAppearance.horizontalGridLineColor || legacyGridLineColor;
+  const legacyGridLineColor = resolveFinformSkinGridLine(chartAppearance.gridLineColor, DEFAULT_SETTINGS_GRID_LINE);
+  const verticalGridLineColor = resolveFinformSkinGridLine(chartAppearance.verticalGridLineColor, legacyGridLineColor);
+  const horizontalGridLineColor = resolveFinformSkinGridLine(chartAppearance.horizontalGridLineColor, legacyGridLineColor);
   const verticalGridLineOpacity = resolveChartSettingNumber(chartAppearance.verticalGridLineOpacity, 1, 0, 1);
   const horizontalGridLineOpacity = resolveChartSettingNumber(chartAppearance.horizontalGridLineOpacity, 1, 0, 1);
-  const horizontalGridLineStyle = chartAppearance.horizontalGridLineStyle || "dashed";
+  const horizontalGridLineStyle = chartAppearance.horizontalGridLineStyle === "dashed"
+    && LEGACY_ECHARTS_VISUAL_DEFAULTS.grid.some((legacy) => legacy.toLowerCase() === String(chartAppearance.horizontalGridLineColor || chartAppearance.gridLineColor).toLowerCase())
+    ? "solid"
+    : chartAppearance.horizontalGridLineStyle || "solid";
   const verticalGridLineStyle = chartAppearance.verticalGridLineStyle || "solid";
   const horizontalGridVisible = gridLinesVisible && (chartAppearance.horizontalGridLines ?? chartAppearance.showGrid);
   const verticalGridVisible = gridLinesVisible && (chartAppearance.verticalGridLines ?? chartAppearance.showGrid);
-  const crosshairColor = chartAppearance.crosshairColor || DEFAULT_SETTINGS_CROSSHAIR;
+  const crosshairColor = resolveVelaParityToken(chartAppearance.crosshairColor, LEGACY_ECHARTS_VISUAL_DEFAULTS.crosshair, DEFAULT_SETTINGS_CROSSHAIR);
   const watermarkColor = chartAppearance.watermarkColor || DEFAULT_SETTINGS_WATERMARK;
   const backgroundMode = chartAppearance.backgroundMode || "solid";
-  const solidBackgroundColor = chartAppearance.backgroundColor || "transparent";
-  const gradientTopColor = chartAppearance.backgroundGradientTopColor || DEFAULT_SETTINGS_BACKGROUND;
-  const gradientBottomColor = chartAppearance.backgroundGradientBottomColor || DEFAULT_SETTINGS_BACKGROUND;
+  // FINFORM owns the skin/background. Vela owns the chart mechanics and
+  // internal geometry. Migrate only the Vela default black to FINFORM blue;
+  // preserve any genuinely custom background chosen by the user.
+  const solidBackgroundColor = resolveFinformSkinBackground(
+    chartAppearance.backgroundColor,
+    DEFAULT_SETTINGS_BACKGROUND,
+  );
+  const gradientTopColor = resolveFinformSkinBackground(
+    chartAppearance.backgroundGradientTopColor,
+    DEFAULT_SETTINGS_GRADIENT_TOP,
+  );
+  const gradientBottomColor = resolveFinformSkinBackground(
+    chartAppearance.backgroundGradientBottomColor,
+    DEFAULT_SETTINGS_GRADIENT_BOTTOM,
+  );
   const chartBackgroundColor = backgroundMode === "gradient"
     ? {
         type: "linear" as const,
@@ -1470,6 +1538,11 @@ const buildEChartsOption = ({
   const gridRight = priceScalePosition === "right"
     ? mainPriceAxisGutterPx
     : COMPACT_PEER_PRICE_AXIS_GUTTER_PX;
+  const timeAxisPlotWidthPx = Math.max(1, chartContainerWidthPx - gridLeft - gridRight);
+  const timeAxisVisibleSpanBars = Math.max(1, Math.abs(viewportWindowRef.current.endIdx - viewportWindowRef.current.startIdx));
+  const timeAxisTargetTickCount = clamp(Math.floor(timeAxisPlotWidthPx / 64), 3, 8);
+  const timeAxisLabelInterval = Math.max(0, Math.ceil(timeAxisVisibleSpanBars / timeAxisTargetTickCount) - 1);
+  const timeAxisLabelMargin = Math.max(0, Math.floor((TV_X_AXIS_HEIGHT - scaleTextSize) / 2));
   const configuredTopMarginPercent = resolveChartSettingNumber(
     chartAppearance.marginTopPercent,
     DEFAULT_CHART_TOP_MARGIN_PERCENT,
@@ -1482,11 +1555,9 @@ const buildEChartsOption = ({
   // Keep enough headroom for both lanes so the legend never competes with
   // candles or the title, even when the user configured an aggressively small
   // chart top margin. Compact peer charts keep their dedicated layout contract.
-  const hasDedicatedDefaultLegendLane = !hideChartTitle && legendLayoutMode === "default";
-  const minimumDefaultTopMarginPercent = hasVisibleComparisonSeries ? 8.5 : 5.5;
-  const topMarginPercent = hasDedicatedDefaultLegendLane
-    ? Math.max(configuredTopMarginPercent, minimumDefaultTopMarginPercent)
-    : configuredTopMarginPercent;
+  // Vela overlays title/legend chrome on the plot; it does not shrink the price
+  // pane to reserve a synthetic top lane.
+  const topMarginPercent = configuredTopMarginPercent;
   // This percentage is only a pane-sizing budget. It decides where the last
   // lower pane begins; it must never become rendered whitespace. The actual
   // time-axis reservation is anchored later to TV_X_AXIS_HEIGHT in pixels.
@@ -1497,15 +1568,17 @@ const buildEChartsOption = ({
     50,
   );
 
-  const panelCount = (shouldAttachVolumePanel ? 1 : 0) + oscillatorPanels.length;
+  // Vela 0.7.2 renders native Volume as a price-pane overlay. It must not
+  // consume a lower-pane slot; only true oscillators participate in pane sizing.
+  const panelCount = oscillatorPanels.length;
   const panelSpacingPercent = 0;
-  const panelHeightPercent = panelCount <= 1
-    ? DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT
-    : Math.min(DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT, Math.max(7, (100 - topMarginPercent - paneSizingBottomBudgetPercent - 35 - panelSpacingPercent * panelCount) / panelCount));
-  const mainGridHeightPercent = Math.max(
-    panelCount <= 1 ? 30 : 35,
-    100 - topMarginPercent - paneSizingBottomBudgetPercent - panelCount * (panelHeightPercent + panelSpacingPercent)
+  const paneHeightBudgetPercent = Math.max(
+    0,
+    100 - topMarginPercent - paneSizingBottomBudgetPercent - panelSpacingPercent * panelCount,
   );
+  const velaPaneLayout = resolveVelaPaneWeightLayout(paneHeightBudgetPercent, panelCount);
+  const panelHeightPercent = velaPaneLayout.studyPaneHeightPercent;
+  const mainGridHeightPercent = velaPaneLayout.mainPaneHeightPercent;
   const maxPriceAxisSplitLines = panelCount > 0
     ? MAX_PRICE_AXIS_SPLIT_LINES_WITH_LOWER_PANES
     : MAX_PRICE_AXIS_SPLIT_LINES_SINGLE_PANE;
@@ -1532,25 +1605,15 @@ const buildEChartsOption = ({
     priceOverlayStatusNotes.push(text);
   };
 
-  // [TENOR 2026 FIX v3 — VOLUME Y-AXIS STABILITY]
-  //
-  // ARCHITECTURE NOTE:
-  //   `viewport` lives in `withStableInitialViewport` (outer wrapper function).
-  //   This code runs inside `buildEChartsOption` — a different function scope.
-  //   → viewport.startIdx / viewport.endIdx are NOT accessible here.
-  //
-  // PROBLEM WITH filterMode:"none":
-  //   ECharts does NOT filter data by dataZoom, so `value.max` in the yAxis
-  //   max callback = max over the ENTIRE dataset. An off-screen spike makes
-  //   `value.max` enormous → all visible bars become microscopic pixels.
-  //
-  // CORRECT APPROACH (no viewport needed):
-  //   Compute a stable Y-axis max from the GLOBAL dataset using a median-based
-  //   spike cap. The median of all volumes is a robust central estimate; capping
-  //   at 5× median prevents any single off-screen outlier from dominating the
-  //   axis. The max is constant across panning → no freeze/snap artefact.
-  //   Any true spike visible on screen will be clipped (clip:true on series).
-  const getVolumeAxisMax = (): number => resolveStableVolumeAxisMax(volumeSourceSeries.volumes);
+  // Vela normalizes native Volume against the VISIBLE logical range on every
+  // frame. Because ECharts uses filterMode:'none' for stable time navigation,
+  // derive the hidden volume axis explicitly from the same viewport instead of
+  // accepting ECharts' whole-dataset extrema.
+  const getVolumeAxisMax = (): number => resolveVisibleVolumeOverlayAxisMax(
+    chartTypePlan.volumeSourceData,
+    viewportWindowRef.current.startIdx,
+    viewportWindowRef.current.endIdx,
+  );
 
   const getPriceAxisBoundaryPadding = (value: { min: number; max: number }): number => {
     const min = Number(value.min);
@@ -1625,6 +1688,10 @@ const buildEChartsOption = ({
           color: textColor,
           fontSize: scaleTextSize,
           hideOverlap: true,
+          interval: timeAxisLabelInterval,
+          margin: timeAxisLabelMargin,
+          showMinLabel: false,
+          showMaxLabel: false,
           align: "center",
           alignMinLabel: "center",
           alignMaxLabel: "center",
@@ -1650,8 +1717,8 @@ const buildEChartsOption = ({
     axisLabel: { show: priceScaleLabelsVisible, color: textColor, fontSize: scaleTextSize, formatter: formatPriceScaleAxisValue },
     axisPointer: {
       show: !isChartLoading && uiState.cursorMode !== "arrow",
-      lineStyle: { color: crosshairColor, width: 1, type: "dashed" },
-      label: { show: false },
+      lineStyle: { color: crosshairColor, width: 1, type: "dashed", opacity: VELA_VISUAL_CONTRACT.crosshairOpacity },
+      label: { show: false, backgroundColor: VELA_VISUAL_CONTRACT.crosshairLabelBackground },
     },
     ...priceAxisBoundaryLevelPadding,
   });
@@ -1719,95 +1786,30 @@ const buildEChartsOption = ({
   }
 
   if (shouldAttachVolumePanel) {
-    lowerPanelOrdinal += 1;
-    const volumePanelOrdinal = lowerPanelOrdinal;
-    const volumeGridIndex = gridOptions.length;
-    const volumeXAxisIndex = xAxisOptions.length;
+    // Vela 0.7.2 native Volume is an overlay on the PRICE pane (`paneHint:price`,
+    // `overlay:true`), not a second grid. Give it a hidden independent value axis
+    // bound to grid 0 so its scale cannot disturb candle prices.
     const volumeYAxisIndex = yAxisOptions.length;
-
-    gridOptions.push({
-      left: gridLeft,
-      right: gridRight,
-      top: `${nextPanelTopPercent}%`,
-      height: `${panelHeightPercent}%`,
-      containLabel: false,
-    });
-
-    xAxisOptions.push({
-      id: "volume-xaxis",
-      type: "category",
-      gridIndex: volumeGridIndex,
-      data: axisDates,
-      // [TENOR FIX] boundaryGap:true (ECharts default for bar series) ensures
-      // volume bars are centered in their slots with half-slot padding on each
-      // side. With boundaryGap:false the bar's left edge bleeds visually past
-      // the grid's left boundary, making the volume panel appear to start
-      // earlier than the candlestick panel above it.
-      boundaryGap: true,
-      axisLabel: shouldShowLowerTimeAxis(volumePanelOrdinal)
-        ? {
-            show: true,
-            color: textColor,
-            fontSize: scaleTextSize,
-            hideOverlap: true,
-            margin: 8,
-            align: "center",
-            alignMinLabel: "center",
-            alignMaxLabel: "center",
-            formatter: formatCompactUtcDate,
-          }
-        : { show: false },
-      axisTick: { show: false },
-      splitLine: subtleVerticalGrid,
-      min: "dataMin",
-      max: "dataMax"
-    });
-
     yAxisOptions.push({
       id: "volume-yaxis",
       position: "right",
-      gridIndex: volumeGridIndex,
+      gridIndex: 0,
       min: 0,
-      scale: true,
+      max: getVolumeAxisMax(),
+      scale: false,
       axisLabel: { show: false },
-      axisLine: { show: true, lineStyle: { color: scaleLineColor } },
+      axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: subtleHorizontalGrid,
-      axisPointer: {
-        show: !isChartLoading && uiState.cursorMode !== "arrow",
-        lineStyle: { color: crosshairColor, width: 1, type: "dashed" },
-        label: { show: false },
-      },
-      max: getVolumeAxisMax,
+      splitLine: { show: false },
+      axisPointer: { show: false },
       boundaryGap: [0, 0],
     });
 
-    pushPaneBackgroundSeries(
-      seriesOptions,
-      "volume-panel-background",
-      volumeXAxisIndex,
-      volumeYAxisIndex,
-      "transparent",
-      PANE_CONTENT_MIN_Z + 3,
-      "rgba(203, 213, 225, 0.82)",
-    );
-
-    // [FIX — VOLUME DIRECTIONAL COLORS]
-    // The previous split-series approach (volume-bar-up + volume-bar-down with
-    // large:true + stack:"volume-stack") caused ALL bars to render green:
-    // ECharts large mode + stacking ignores the "-" null-data convention and
-    // collapses both series to the first series' color.
-    //
-    // Correct approach: single series using buildDirectionalVolumeBarData, which
-    // assigns per-item itemStyle.color based on the direction field of each bar.
-    // Per-item styles are incompatible with large:true (by design in ECharts),
-    // so we drop large mode — the perf impact is negligible for typical data sizes
-    // (daily/weekly data rarely exceeds the 2000-bar threshold anyway).
     if (shouldRenderVolumeBars) {
       const volumeBarData = buildDirectionalVolumeBarData(
         volumeSourceSeries.volumes,
         { upColor, downColor },
-        1,
+        VELA_VOLUME_FILL_ALPHA,
         Math.min(volumeSourceSeries.volumes.length, renderDates.length),
         renderDates,
       );
@@ -1816,19 +1818,17 @@ const buildEChartsOption = ({
         id: "volume-bar",
         name: "Volume",
         type: "bar",
-        xAxisIndex: volumeXAxisIndex,
+        xAxisIndex: 0,
         yAxisIndex: volumeYAxisIndex,
         encode: { x: 0, y: 1 },
         data: volumeBarData,
-        barWidth: "65%",
+        barWidth: `${VELA_VOLUME_BAR_WIDTH_RATIO * 100}%`,
+        barGap: "-100%",
         clip: true,
-        z: PANE_CONTENT_MIN_Z + 4,
+        silent: true,
+        z: PANE_CONTENT_MIN_Z + 2,
       });
     }
-
-
-
-    nextPanelTopPercent += panelHeightPercent + panelSpacingPercent;
   }
 
   const pushLine = (
@@ -2318,17 +2318,32 @@ const buildEChartsOption = ({
     return false;
   };
 
+  const isCandlestickPatternPriorityPeerVisible = (pattern: CandlestickPatternKey): boolean => {
+    const stateId = pattern === "ladderBottomBrvm" ? "ladderBottom" : pattern;
+    const presentation = getCandlestickPatternPresentation(pattern);
+    return Boolean(advancedIndicators[stateId as keyof AdvancedIndicatorsState])
+      && isObjectVisible(stateId)
+      && isObjectVisible(presentation.markerId);
+  };
+
   const shouldRenderCandlestickPattern = (
     pattern: CandlestickPatternKey,
     index: number,
     patternSeries: CandlestickPatternSeriesMap,
   ): boolean => {
-    if (pattern !== "tristar" && isIndexCoveredByTristar(patternSeries.tristar, index)) return false;
+    if (
+      pattern !== "tristar"
+      && isCandlestickPatternPriorityPeerVisible("tristar")
+      && isIndexCoveredByTristar(patternSeries.tristar, index)
+    ) return false;
     const patternRank = CANDLESTICK_PATTERN_PRIORITY.indexOf(pattern);
     if (patternRank < 0) return false;
     return !CANDLESTICK_PATTERN_PRIORITY
       .slice(0, patternRank)
-      .some((candidate) => isCandlestickSignalActive(patternSeries[candidate], index));
+      .some((candidate) => (
+        isCandlestickPatternPriorityPeerVisible(candidate)
+        && isCandlestickSignalActive(patternSeries[candidate], index)
+      ));
   };
 
   const getCandlestickPatternIndexes = (
@@ -3069,7 +3084,6 @@ const buildEChartsOption = ({
         const top = Math.min(startHighCoord[1], endHighCoord[1]);
         const bottom = Math.max(startLowCoord[1], endLowCoord[1]);
         const width = Math.max(8, right - left);
-        const height = Math.max(8, bottom - top);
         const bracketTop = clamp(top, params.coordSys.y + 2, params.coordSys.y + params.coordSys.height - 4);
         const bracketBottom = clamp(bottom, params.coordSys.y + 4, params.coordSys.y + params.coordSys.height - 2);
         const markerCenterX = clamp(endHighCoord[0], params.coordSys.x + 3, params.coordSys.x + params.coordSys.width - 3);
@@ -4607,7 +4621,10 @@ const buildEChartsOption = ({
             color: textColor,
             fontSize: scaleTextSize,
             hideOverlap: true,
-            margin: 8,
+            interval: timeAxisLabelInterval,
+            margin: timeAxisLabelMargin,
+            showMinLabel: false,
+            showMaxLabel: false,
             align: "center",
             alignMinLabel: "center",
             alignMaxLabel: "center",
@@ -4631,8 +4648,8 @@ const buildEChartsOption = ({
       max: bounded0to100 ? 100 : boundedWillR ? 0 : boundedCmo || boundedAroonOsc ? 100 : boundedCmf ? 1 : undefined,
       axisPointer: {
         show: !isChartLoading && uiState.cursorMode !== "arrow",
-        lineStyle: { color: crosshairColor, width: 1, type: "dashed" },
-        label: { show: true },
+        lineStyle: { color: crosshairColor, width: 1, type: "dashed", opacity: VELA_VISUAL_CONTRACT.crosshairOpacity },
+        label: { show: true, backgroundColor: VELA_VISUAL_CONTRACT.crosshairLabelBackground, color: "#fff" },
       },
     });
 
@@ -5459,15 +5476,14 @@ const buildEChartsOption = ({
           return priceLabel ? `${entry.label}  ${priceLabel}` : entry.label;
         },
         color: "#ffffff",
-        backgroundColor: "rgba(12, 34, 64, 0.92)",
-        borderColor: color,
-        borderWidth: 1,
-        borderRadius: 4,
-        padding: [4, 7],
-        distance: 8,
+        backgroundColor: color,
+        borderWidth: 0,
+        borderRadius: 0,
+        padding: [2, 4],
+        distance: 1,
         fontSize: 11,
-        fontWeight: 700,
-        lineHeight: 14,
+        fontWeight: 500,
+        lineHeight: 12,
       },
       labelLayout: { moveOverlap: "shiftY" },
     });
@@ -5477,17 +5493,25 @@ const buildEChartsOption = ({
   // category labels. Keep every time axis pannable across the configured future
   // categories with null-only, silent boundary series; they cannot render a candle,
   // volume bar, tooltip value, or legend entry.
-  const viewportBoundarySeries: ChartOptionPart[] = xAxisOptions.map((_axis, axisIndex) => ({
-    id: `viewport-boundary-${axisIndex}`,
-    type: "line",
-    xAxisIndex: axisIndex,
-    yAxisIndex: axisIndex,
-    data: Array.from({ length: axisDates.length }, () => null),
-    silent: true,
-    show: false,
-    animation: false,
-    tooltip: { show: false },
-  }));
+  const viewportBoundarySeries: ChartOptionPart[] = xAxisOptions.map((axis, axisIndex) => {
+    const gridIndex = Number(axis.gridIndex ?? 0);
+    const yAxisIndex = Math.max(0, yAxisOptions.findIndex((candidate) =>
+      Number(candidate.gridIndex ?? 0) === gridIndex
+      && candidate.id !== "volume-yaxis"
+      && candidate.id !== "compare-yaxis"
+    ));
+    return {
+      id: `viewport-boundary-${axisIndex}`,
+      type: "line",
+      xAxisIndex: axisIndex,
+      yAxisIndex,
+      data: Array.from({ length: axisDates.length }, () => null),
+      silent: true,
+      show: false,
+      animation: false,
+      tooltip: { show: false },
+    };
+  });
   const alignedSeriesOptions = [...seriesOptions, ...viewportBoundarySeries]
     .map((series) => alignSeriesWithHistoryAxis(series, historyGapBars))
     .map(enforceLowerPaneContentZ);
@@ -5629,7 +5653,7 @@ const buildEChartsOption = ({
         fontWeight: "normal",
         rich: {
           title: { color: textColor, fontSize: 14, fontWeight: "normal" },
-          ohlcLabel: { color: "#FF9F04", fontSize: 12, fontWeight: 700 },
+          ohlcLabel: { color: "#FF9F04", fontSize: 12, fontWeight: 700, padding: [0, 3, 0, 4] },
           ohlcValue: { color: "#e2e8f0", fontSize: 12, fontWeight: 600 },
           change: { color: "#e2e8f0", fontSize: 12, fontWeight: 600 },
         },
@@ -5654,7 +5678,7 @@ const buildEChartsOption = ({
       padding: 8,
       extraCssText: "box-shadow:0 10px 28px rgba(2,6,23,.34);border-radius:6px;",
       textStyle: { color: "#e2e8f0" },
-      axisPointer: { type: "line", lineStyle: { color: crosshairColor, width: 1, type: "dashed" } },
+      axisPointer: { type: "line", lineStyle: { color: crosshairColor, width: 1, type: "dashed", opacity: VELA_VISUAL_CONTRACT.crosshairOpacity } },
       formatter: (params: unknown) => formatCandleTooltip(params, chartData),
     },
     axisPointer: { show: false },
@@ -6134,6 +6158,7 @@ export const useEChartsRenderer = ({
     getChartContainer: getLayersStack,
     chartData: renderChartData,
     lastZoomRangeRef,
+    fitInitialData: uiState.selectedTimeRange === "Tout",
     interactionScopeKey: chartInteractionScopeKey,
     hasComparisonEndLabels: hasVisibleComparisonEndLabels,
     lastPriceAxisValue,
@@ -6281,6 +6306,7 @@ export const useEChartsRenderer = ({
       legendSelection: legendSelectionRef.current,
       hasLiveStitchedCandle,
       pineOverlay,
+      chartContainerWidthPx: stockChartRef.current?.clientWidth ?? 1280,
       chartContainerHeightPx: stockChartRef.current?.clientHeight ?? 720,
     };
 
@@ -6316,7 +6342,9 @@ export const useEChartsRenderer = ({
       zoomRange: lastZoomRangeRef?.current,
       historyGapBars,
       rightOffsetBars: chartAppearance.rightOffsetBars,
+      plotWidthPx: Math.max(0, (stockChartRef.current?.clientWidth ?? 0) - TV_Y_AXIS_WIDTH),
       liveViewport: viewportWindowRef.current,
+      fitAllData: uiState.selectedTimeRange === "Tout",
     });
     const chartStructureSignature = resolveChartStructureSignature(option);
 
@@ -6387,6 +6415,31 @@ export const useEChartsRenderer = ({
               : zoom)
             : option.dataZoom;
 
+          const livePriceRangeAvailable = Number.isFinite(liveViewport?.renderedYMin)
+            && Number.isFinite(liveViewport?.renderedYMax)
+            && liveViewport.renderedYMin < liveViewport.renderedYMax;
+          const liveYAxis = livePriceRangeAvailable
+            ? (
+                Array.isArray(option.yAxis)
+                  ? option.yAxis.map((axis: any, index: number) => (
+                      index === 0 || axis?.id === "price-yaxis"
+                        ? {
+                            ...axis,
+                            min: liveViewport.renderedYMin,
+                            max: liveViewport.renderedYMax,
+                          }
+                        : axis
+                    ))
+                  : option.yAxis && typeof option.yAxis === "object"
+                    ? {
+                        ...(option.yAxis as Record<string, unknown>),
+                        min: liveViewport.renderedYMin,
+                        max: liveViewport.renderedYMax,
+                      }
+                    : option.yAxis
+              )
+            : option.yAxis;
+
           const pendingHistoryPrepend = historyPrependCommitRef.current;
           const isMatchingHistoryPrepend = pendingHistoryPrepend?.dataLength === renderChartData.length;
           const commitMode = resolveChartCommitMode({
@@ -6398,10 +6451,13 @@ export const useEChartsRenderer = ({
           // Dataset, axes and reconciled viewport are committed as one visual
           // transaction. A pure prepend merges into the existing chart topology;
           // structural changes still use replaceMerge to remove obsolete panes.
-          applyChartOption(targetChart, { ...option, dataZoom: liveDataZoom }, commitMode);
+          applyChartOption(targetChart, {
+            ...option,
+            dataZoom: liveDataZoom,
+            yAxis: liveYAxis,
+          }, commitMode);
           lastCommittedChartStructureSignatureRef.current = chartStructureSignature;
           completeHistoryPrependCommit(renderChartData.length);
-          applyViewport("immediate");
       });
       scheduleVisualReadyFallback();
     }

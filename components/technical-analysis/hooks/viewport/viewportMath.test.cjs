@@ -17,38 +17,55 @@ const {
   computePriceAxisDragViewport,
   computePriceAxisPan,
   computeTradingViewWheelZoomViewport,
+  computeVelaPinchViewport,
   exponentialApproach,
   filterPanVelocity,
   decayPanVelocity,
   TV_ZOOM_EASE_TAU_MS,
   TV_PAN_MOMENTUM_TAU_MS,
+  TV_PAN_STOP_VELOCITY_PX_PER_MS,
+  TV_MIN_VISIBLE_BARS,
+  resolveVelaInitialViewportWindow,
+  VELA_DEFAULT_BAR_SPACING_PX,
+  VELA_DEFAULT_RIGHT_OFFSET_BARS,
 } = loadedModule.exports;
 
 const nearlyEqual = (actual, expected, epsilon = 1e-9) => {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
 };
 
-test("price-axis wheel zoom preserves the price anchored under the shifted cursor", () => {
-  const center = 100;
-  const baseRange = 20;
-  const cursorRatio = 0.25;
-  const gridHeight = 500;
-  const wheelDeltaY = 80;
-  const oldPrice = center + baseRange * (0.5 - cursorRatio);
+test("initial viewport follows Vela 8px spacing and +6 right offset exactly", () => {
+  assert.equal(VELA_DEFAULT_BAR_SPACING_PX, 8);
+  assert.equal(VELA_DEFAULT_RIGHT_OFFSET_BARS, 6);
+  const result = resolveVelaInitialViewportWindow(500, 800);
+  nearlyEqual(result.endIdx, 505);
+  nearlyEqual(result.startIdx, 405);
+});
+
+test("initial viewport never creates blank synthetic history before the first candle", () => {
+  const result = resolveVelaInitialViewportWindow(60, 1200);
+  nearlyEqual(result.startIdx, 0);
+  nearlyEqual(result.endIdx, 65);
+});
+
+test("fit-all initial viewport exposes the complete loaded history from the first candle", () => {
+  const result = resolveVelaInitialViewportWindow(500, 800, undefined, undefined, true);
+  nearlyEqual(result.startIdx, 0);
+  nearlyEqual(result.endIdx, 505);
+});
+
+test("price-axis wheel matches Vela's centered 0.25 × 0.004 scale law", () => {
   const result = computePriceAxisWheelViewport({
-    center,
-    baseRange,
+    center: 100,
+    baseRange: 20,
     yScale: 1,
-    yPan: 0,
-    cursorRatio,
-    gridHeight,
-    wheelDeltaY,
+    yPan: 3,
+    cursorRatio: 0.25,
+    gridHeight: 500,
+    wheelDeltaY: 80,
   });
-  const wheelStep = 1;
-  const shiftedRatio = cursorRatio + (15 * wheelStep) / gridHeight;
-  const newPrice = center + result.yPan + baseRange * result.yScale * (0.5 - shiftedRatio);
-  nearlyEqual(newPrice, oldPrice);
-  assert.ok(result.yScale > 1);
+  nearlyEqual(result.yScale, Math.exp(80 * 0.25 * 0.004), 1e-12);
+  nearlyEqual(result.yPan, 3, 1e-12);
 });
 
 test("price-axis drag scales around the drag anchor instead of drifting the price", () => {
@@ -84,7 +101,7 @@ test("vertical chart pan is bounded to 80 percent of the scaled price range", ()
   }), -32);
 });
 
-test("multi-chart time-wheel helper uses exponential bar-spacing zoom while preserving the right edge", () => {
+test("ordinary time-wheel zoom matches Vela rightEdgeZoom=true", () => {
   const result = computeTradingViewWheelZoomViewport({
     startIdx: 20,
     endIdx: 99,
@@ -93,8 +110,49 @@ test("multi-chart time-wheel helper uses exponential bar-spacing zoom while pres
     maxHistoryGapBars: 0,
     maxFutureBars: 0,
   });
-  assert.equal(result.endIdx, 99);
-  assert.ok(result.startIdx >= 40, "a full wheel notch must produce a deliberate zoom-in, not a weak linear step");
+  nearlyEqual(result.endIdx, 99, 1e-9);
+  assert.ok((result.endIdx - result.startIdx) < 79, "wheel-up must zoom in around the right edge");
+});
+
+test("Ctrl/Cmd-style time-wheel zoom pins the logical candle under the cursor", () => {
+  const startIdx = 20;
+  const endIdx = 99;
+  const cursorRatio = 0.25;
+  const focusBefore = startIdx + ((endIdx - startIdx) * cursorRatio);
+  const result = computeTradingViewWheelZoomViewport({
+    startIdx,
+    endIdx,
+    totalBars: 100,
+    deltaY: -30,
+    cursorRatio,
+    maxHistoryGapBars: 0,
+    maxFutureBars: 0,
+  });
+  const focusAfter = result.startIdx + ((result.endIdx - result.startIdx) * cursorRatio);
+  nearlyEqual(focusAfter, focusBefore, 1e-9);
+});
+
+test("pinch uses Vela distance ratio and keeps initial logical anchor under live midpoint", () => {
+  const result = computeVelaPinchViewport({
+    startIdx: 20,
+    endIdx: 100,
+    totalBars: 200,
+    startDistance: 100,
+    currentDistance: 200,
+    anchorLogical: 60,
+    currentMidpointRatio: 0.25,
+    maxHistoryGapBars: 0,
+    maxFutureBars: 0,
+  });
+  nearlyEqual(result.endIdx - result.startIdx, 40, 1e-9);
+  nearlyEqual(result.startIdx + ((result.endIdx - result.startIdx) * 0.25), 60, 1e-9);
+});
+
+test("Vela interaction constants keep 2 visible bars and stop fling at 0.02 px/ms", () => {
+  assert.equal(TV_MIN_VISIBLE_BARS, 2);
+  assert.equal(TV_PAN_STOP_VELOCITY_PX_PER_MS, 0.02);
+  assert.equal(TV_ZOOM_EASE_TAU_MS, 70);
+  assert.equal(TV_PAN_MOMENTUM_TAU_MS, 110);
 });
 
 test("viewport easing is frame-rate independent and converges without overshoot", () => {
@@ -113,5 +171,5 @@ test("pan velocity filter rejects pointer noise and momentum decays exponentiall
   const filtered = filterPanVelocity(0.5, 1);
   nearlyEqual(filtered, 0.7);
   const decayed = decayPanVelocity(filtered, TV_PAN_MOMENTUM_TAU_MS, TV_PAN_MOMENTUM_TAU_MS);
-  nearlyEqual(decayed, filtered / Math.E, 1e-10);
+  nearlyEqual(decayed, filtered * Math.exp(-64 / TV_PAN_MOMENTUM_TAU_MS), 1e-10);
 });

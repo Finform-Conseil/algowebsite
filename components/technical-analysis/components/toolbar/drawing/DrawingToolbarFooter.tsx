@@ -46,7 +46,16 @@ const MENU_ROW_STYLE: React.CSSProperties = {
 };
 
 const SplitCaret = ({ active = false }: { active?: boolean }) => (
-  <span aria-hidden="true" style={{ position: "absolute", right: 3, bottom: 2, fontSize: 7, lineHeight: 1, color: active ? ACTIVE_BLUE : "rgba(160,174,192,.9)" }}>▾</span>
+  <span className="gp-toolbar-split-trigger gp-toolbar-split-trigger--footer" aria-hidden="true">
+    <i
+      className="bi bi-caret-down-fill"
+      style={{
+        fontSize: "0.5rem",
+        color: active ? ACTIVE_BLUE : "rgba(160, 174, 192, 0.9)",
+        lineHeight: 1,
+      }}
+    />
+  </span>
 );
 
 const MenuRow: React.FC<{ label: string; checked?: boolean; disabled?: boolean; onClick?: () => void }> = ({ label, checked = false, disabled = false, onClick }) => (

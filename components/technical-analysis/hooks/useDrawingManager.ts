@@ -9,10 +9,11 @@ import {
 import type { AllToolType } from "../config/drawing/drawingToolTypes";
 import type { DrawingPoint, DrawingStyle } from "../config/drawing/drawingPrimitiveTypes";
 import type { Drawing } from "../config/drawing/drawingModelTypes";
+import { isDrawingVisibleAtInterval } from "../config/drawing/drawingIntervalVisibility";
 import type { Alert, Order } from "../config/state/technicalAnalysisStateTypes";
 import type { UiState } from "../config/state/uiStateTypes";
 import { DrawingRenderer } from "../lib/DrawingRenderer";
-import { MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS, TEXT_NOTE_TOOL_VARIANT_SET } from "../config/drawing/drawingConstants";
+import { IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET, INLINE_TEXT_EDITOR_SECOND_POINT_TOOL_SET, MEASURE_TOOLS, FIB_PURE_TOOLS, PITCHFORK_TOOLS, TEXT_NOTE_TOOL_VARIANT_SET } from "../config/drawing/drawingConstants";
 import type { EChartsType } from "echarts/core";
 import { ChartDataPoint } from "../lib/Indicators/TechnicalIndicators";
 import {
@@ -214,6 +215,7 @@ export const useDrawingManager = ({
   ).trim() || "chart_1";
   const drawingsStorageKey = createDrawingsStorageKey(activeDrawingScope);
   const drawingInteractionScopeKey = `${uiState.multiChartLayout.layoutId}:${uiState.multiChartLayout.activeChartId}:${activeDrawingScope}`;
+  const activeDrawingInterval = activeLayoutCell?.interval ?? "1D";
 
   // --- State ---
   const [activeTool, setActiveTool] = useState<AllToolType>(null);
@@ -409,6 +411,10 @@ export const useDrawingManager = ({
     positionsOrdersHiddenRef.current = positionsOrdersHidden;
     markDirty();
   }, [positionsOrdersHidden, markDirty]);
+
+  useEffect(() => {
+    markDirty();
+  }, [activeDrawingInterval, markDirty]);
 
   const selectedAlerts = useSelector(selectAlerts);
   const selectedOrders = useSelector(selectOrders);
@@ -962,9 +968,7 @@ export const useDrawingManager = ({
 
         const width = chart.getWidth();
         const height = chart.getHeight();
-        const TV_Y_AXIS_WIDTH = 84;
-        const TV_X_AXIS_HEIGHT = 28;
-        const safeTop = Math.max(30, height * 0.08);
+        const safeTop = 0;
         const safeBottom = height - TV_X_AXIS_HEIGHT;
         const safeLeft = MAIN_GRID_LEFT;
         const safeRight = width - TV_Y_AXIS_WIDTH;
@@ -1003,6 +1007,10 @@ export const useDrawingManager = ({
           }
         }
 
+        renderDrawings = renderDrawings.filter((drawing) =>
+          isDrawingVisibleAtInterval(drawing, activeDrawingInterval)
+        );
+
         try {
           rendererRef.current.render(
             renderDrawings,
@@ -1040,7 +1048,7 @@ export const useDrawingManager = ({
         detachFromChart(attachedToChart);
       }
     };
-  }, [drawingCanvasRef, chartInstanceRef, drawingInteractionScopeKey, markDirty, setSelectedDrawingId]);
+  }, [drawingCanvasRef, chartInstanceRef, drawingInteractionScopeKey, markDirty, setSelectedDrawingId, activeDrawingInterval]);
 
 
   // --- Coordinate Conversion ---
@@ -1226,7 +1234,9 @@ export const useDrawingManager = ({
       px = (pts[0][0] + pts[1][0] + pts[2][0]) / 3;
       py = (pts[0][1] + pts[1][1] + pts[2][1]) / 3;
     } else {
-      const pixel = chart.convertToPixel({ seriesIndex: 0 }, [d.points[0].time, d.points[0].value]);
+      const editPointIndex = INLINE_TEXT_EDITOR_SECOND_POINT_TOOL_SET.has(d.type) && d.points.length >= 2 ? 1 : 0;
+      const editPoint = d.points[editPointIndex];
+      const pixel = chart.convertToPixel({ seriesIndex: 0 }, [editPoint.time, editPoint.value]);
       if (!pixel) return;
       px = pixel[0];
       py = pixel[1];
@@ -1523,7 +1533,7 @@ export const useDrawingManager = ({
     }
 
     // [TENOR 2026 SRE] SPATIAL HASH GRID HIT-TEST (O(1) Lookup)
-    if (!isShiftMeasureGesture && drawingsRef.current.length > 0 && rendererRef.current) {
+    if (!currentActiveTool && !isShiftMeasureGesture && drawingsRef.current.length > 0 && rendererRef.current) {
       const candidates = spatialGridRef.current.query(mx, my);
       
       for (let i = 0; i < candidates.length; i++) {
@@ -1656,17 +1666,22 @@ export const useDrawingManager = ({
         newDrawing.anchoredVolumeProfileProps = createDefaultAnchoredVolumeProfileProps();
       }
 
+      let shouldStartInlineTextEditing = false;
       if (TEXT_NOTE_TOOL_VARIANT_SET.has(newDrawing.type)) {
-        newDrawing.showText = true;
-        newDrawing.text = newDrawing.type === "text_note" && pendingIconSymbolRef.current
-          ? pendingIconSymbolRef.current
-          : newDrawing.type === "price_label"
-          ? String(Math.round(coords.value).toLocaleString())
-          : newDrawing.type === "price_note"
-            ? String(Math.round(coords.value).toLocaleString())
-            : "Text";
-        newDrawing.textColor = newDrawing.type === "text_note" && pendingIconSymbolRef.current ? "#d1d4dc" : newDrawing.style.color;
-        newDrawing.fontSize = newDrawing.type === "text_note" && pendingIconSymbolRef.current ? 24 : newDrawing.type === "comment" ? 16 : 14;
+        const pendingTextIconSymbol = newDrawing.type === "text_note" ? pendingIconSymbolRef.current : null;
+        shouldStartInlineTextEditing = IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET.has(newDrawing.type) && pendingTextIconSymbol === null;
+        newDrawing.showText = shouldStartInlineTextEditing ? false : newDrawing.type !== "text_note" || pendingTextIconSymbol !== null;
+        newDrawing.text = pendingTextIconSymbol
+          ? pendingTextIconSymbol
+          : shouldStartInlineTextEditing
+            ? ""
+            : newDrawing.type === "price_label"
+              ? String(Math.round(coords.value).toLocaleString())
+              : newDrawing.type === "price_note"
+                ? String(Math.round(coords.value).toLocaleString())
+                : "Text";
+        newDrawing.textColor = pendingTextIconSymbol ? "#d1d4dc" : newDrawing.style.color;
+        newDrawing.fontSize = pendingTextIconSymbol ? 24 : newDrawing.type === "comment" ? 16 : 14;
 
         if (newDrawing.type === "price_label") {
           newDrawing.textColor = "#ffffff";
@@ -1716,7 +1731,7 @@ export const useDrawingManager = ({
       }
 
       completeDrawingSession(newDrawing);
-      if (newDrawing.type === "signpost") {
+      if (shouldStartInlineTextEditing) {
         startEditingDrawing(newDrawing);
       }
       return;
@@ -2188,8 +2203,9 @@ export const useDrawingManager = ({
             };
           }
           if (finalDrawing.type === "note" || finalDrawing.type === "callout" || finalDrawing.type === "comment") {
-            finalDrawing.showText = true;
-            finalDrawing.text = "Text";
+            const shouldStartInlineTextEditing = IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET.has(finalDrawing.type);
+            finalDrawing.showText = shouldStartInlineTextEditing ? false : true;
+            finalDrawing.text = shouldStartInlineTextEditing ? "" : "Text";
             finalDrawing.textColor = finalDrawing.style.color;
             finalDrawing.fontSize = finalDrawing.type === "comment" ? 16 : 14;
           }
@@ -2202,6 +2218,9 @@ export const useDrawingManager = ({
             finalDrawing.textBold = true;
           }
           completeDrawingSession(finalDrawing);
+          if (IMMEDIATE_INLINE_TEXT_ENTRY_TOOL_SET.has(finalDrawing.type)) {
+            startEditingDrawing(finalDrawing);
+          }
         } else {
           const updatedDrawing = { ...currentDrawingRef.current, points: updatedPoints };
           setCurrentDrawing(updatedDrawing);

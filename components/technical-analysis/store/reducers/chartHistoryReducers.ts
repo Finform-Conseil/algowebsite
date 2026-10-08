@@ -2,6 +2,7 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 
 import type { TechnicalAnalysisState } from "../../config/state/technicalAnalysisStateTypes";
 import type { UiState } from "../../config/state/uiStateTypes";
+import { restoreChartHistoryLayout, type ChartHistoryLayoutSnapshot } from "../../config/layout/chartHistoryLayout";
 
 export type ChartHistoryReduxSnapshot = {
   chartConfig: TechnicalAnalysisState["chartConfig"];
@@ -21,7 +22,9 @@ export type ChartHistoryReduxSnapshot = {
     | "priceVsEmaMetrics"
     | "isLockedAll"
     | "areDrawingsHidden"
-  >;
+  > & {
+    multiChartLayout?: ChartHistoryLayoutSnapshot;
+  };
 };
 
 export const chartHistoryReducers = {
@@ -39,6 +42,9 @@ export const chartHistoryReducers = {
     state.pineChartOverlay = snapshot.pineChartOverlay;
 
     state.ui.activeMarket = snapshot.ui.activeMarket;
+    if (snapshot.ui.multiChartLayout) {
+      state.ui.multiChartLayout = restoreChartHistoryLayout(snapshot.ui.multiChartLayout, state.ui.multiChartLayout);
+    }
     state.ui.selectedTimeRange = snapshot.ui.selectedTimeRange;
     state.ui.comparisonSymbols = snapshot.ui.comparisonSymbols;
     state.ui.comparisonSettings = snapshot.ui.comparisonSettings;

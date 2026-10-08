@@ -43,7 +43,7 @@ export const TechnicalsPanel = React.memo(({
   const gaugeParts = technicalData ? toSentimentGaugeParts(technicalData.score) : null;
 
   return (
-    <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
+    <div className="gp-sidebar-section gp-sidebar-subsection">
       <div className="gp-sidebar-header" style={{ marginBottom: "0px" }}>
         <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Technicals</span>
       </div>

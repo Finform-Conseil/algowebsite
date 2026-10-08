@@ -94,7 +94,7 @@ const VerticalDrawingToolbarLoadingOverlay = () => (
     style={{
       position: "absolute",
       inset: 0,
-      zIndex: 2,
+      zIndex: 50,
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -497,6 +497,7 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
       data-indicators-locked={indicatorsLocked ? "true" : "false"}
       data-indicators-hidden={areIndicatorsHidden ? "true" : "false"}
       data-positions-orders-hidden={positionsOrdersHidden ? "true" : "false"}
+      data-loading={isInitialLoading ? "true" : "false"}
     >
       {isInitialLoading && <VerticalDrawingToolbarLoadingOverlay />}
       <div className={"gp-toolbar-scroll-container"}>
@@ -508,6 +509,8 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           buttonRef={cursorDropdownRef}
           onToggle={toggleCursorDropdown}
           onSelectMode={handleSelectCursorMode}
+           activeDrawingTool={activeTool}
+           onSelectDrawingTool={handleSelectDrawingTool}
         />
 
         {/* --- UNIFIED DRAWING TOOLS SELECTOR: TREND + BRUSH/ARROWS/SHAPES --- */}

@@ -18,7 +18,7 @@ const formatPerformanceValue = (value: number | null) => {
 const getPerformanceTone = (value: number | null) => ((value ?? 0) >= 0 ? "positive" : "negative");
 
 export const PerformancePanel = React.memo(({ auditTrail, rows }: PerformancePanelProps) => (
-  <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
+  <div className="gp-sidebar-section gp-sidebar-subsection">
     <div className="gp-sidebar-header" style={{ marginBottom: "12px" }}>
       <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Performance</span>
     </div>

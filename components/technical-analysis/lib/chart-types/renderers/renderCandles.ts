@@ -2,23 +2,15 @@ import { resolveCandleDirection, type CandleDirection } from "../../chart/direct
 import type { ChartTypeRenderer } from "./types";
 import { buildLatestPriceMarkLine } from "./helpers";
 
-// TradingView-like candle geometry, measured against the reference canvas.
-//
-// Reference capture at DPR=1:
-// - candle slot: ~10-11 px
-// - body: mostly 7 px
-// - wick: one centered device pixel
-//
-// Our main chart uses wider category slots at the default viewport, so a 68% body
-// produced visually heavy 10-11 px rectangles. Keep the width proportional, but
-// lower the body occupancy and remove the artificial 7 px floor so zoomed-out
-// charts can naturally converge to thin 1-3 px candles like TradingView.
+// Vela 0.7.2 candle geometry: bodyDev = floor(spacing * 0.7 * bodyScale),
+// with a one-device-pixel wick. ECharts expresses bar width as a percentage of
+// the category pitch, so 70% is the exact native occupancy contract.
 //
 // Important: wicks remain native ECharts candlestick strokes (borderWidth=1).
 // We never synthesize High/Low. When the BRVM API provides high/low=null, the
 // canonical market-data mapper collapses them to the real open/close envelope;
 // therefore no fictitious wick is drawn.
-const CANDLE_BODY_WIDTH = "48%";
+const CANDLE_BODY_WIDTH = "70%";
 const MIN_CANDLE_BODY_WIDTH = 1;
 const MAX_CANDLE_BODY_WIDTH = 14;
 

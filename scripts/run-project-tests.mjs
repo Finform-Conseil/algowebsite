@@ -5,6 +5,7 @@ const suites = [
   ["--test", "scripts/tests/sass-architecture.test.mjs"],
   ["--test", "app/api/proxy/redis-resilience.test.mjs"],
   ["--test", "components/technical-analysis/components/sidebar/sidebarStartupPerformance.test.cjs"],
+  ["--test", "components/technical-analysis/components/sidebar/data/exchangeNewsRobustness.test.cjs"],
   [
     "--test",
     "components/technical-analysis/components/sidebar/panels/alertsRail/__tests__/alertsRailRuntime.test.cjs",
@@ -26,6 +27,9 @@ const suites = [
     "components/technical-analysis/components/modals/settings/globalSettingsModalTradingViewReplica.test.cjs",
     "components/technical-analysis/store/__tests__/chartModalPolicies.test.cjs",
     "components/technical-analysis/lib/DrawingRenderer.hitTest.test.cjs",
+    "components/technical-analysis/hooks/drawing/drawingPointerOwnership.test.cjs",
+    "components/technical-analysis/hooks/drawing/drawingCreationPriority.test.cjs",
+    "components/technical-analysis/context/tickerSelectionSynchronization.test.cjs",
     "components/technical-analysis/components/chart/chartAsyncPresentation.test.cjs",
     "components/technical-analysis/hooks/chart-rendering/bandSeries.test.cjs",
     "components/technical-analysis/store/policies/multiChartIndicatorStatePolicy.test.cjs",

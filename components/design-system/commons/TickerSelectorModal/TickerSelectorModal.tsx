@@ -11,7 +11,7 @@ import { useActionRepository } from "@/core/infra/repositories/action.repository
 import { BrvmLogoMark } from "@/components/design-system/commons/BrvmLogoMark/BrvmLogoMark";
 import { useTickerSelector } from "./context/TickerSelectorContext";
 import { selectActiveMarket, selectUiState } from "@/components/technical-analysis/store/selectors";
-import { setActiveMarket, updateLayoutChart } from "@/components/technical-analysis/store/technicalAnalysisSlice";
+import { setActiveMarket, setSymbol, updateLayoutChart } from "@/components/technical-analysis/store/technicalAnalysisSlice";
 import { writePersistedMarketPreference } from "@/components/technical-analysis/hooks/MarketData/marketPreferencePersistence";
 import { getMarketLogoUrl } from "@/core/data/market-logo-registry";
 import {
@@ -916,6 +916,12 @@ export const TickerSelectorModal: React.FC = () => {
     if (pendingMarket && !isMultiChartSelection) {
       dispatch(setActiveMarket(pendingMarket));
       void writePersistedMarketPreference(pendingMarket);
+    }
+
+    if (!isMultiChartSelection) {
+      // Single-chart selection is one canonical state transition. Redux drives
+      // every chart-facing consumer; selector context mirrors the chosen entity.
+      dispatch(setSymbol(selectedSecurity.ticker));
     }
     setSelectedTicker(selectedSecurity);
     closeModal();

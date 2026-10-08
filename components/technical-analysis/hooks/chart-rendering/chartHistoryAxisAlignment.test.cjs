@@ -88,6 +88,18 @@ test("transformed viewport maps sparse and duplicate render dates back to source
   }), { startValue: 80, endValue: 82 });
 });
 
+test("direct OHLC axis preserves fractional logical viewport coordinates", () => {
+  const result = resolveRenderedTimeAxisWindow({
+    sourceTimes: ["t0", "t1", "t2"],
+    axisCategories: ["", "t0", "t1", "t2", ""],
+    sourceStartIdx: 0.25,
+    sourceEndIdx: 1.75,
+    historyGapBars: 1,
+  });
+  assert.equal(result.startValue, 1.25);
+  assert.equal(result.endValue, 2.75);
+});
+
 test("transformed viewport preserves history and future space around compact output", () => {
   const history = Array.from({ length: 80 }, (_, index) => `__history__${index + 1}`);
   const future = Array.from({ length: 80 }, (_, index) => `__future__${index + 1}`);

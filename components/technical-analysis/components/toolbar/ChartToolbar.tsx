@@ -393,7 +393,6 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           <>
             <div
               className={clsx("gp-toolbar-symbol-selector", "hover-lift")}
-              style={{ marginLeft: "12px" }}
               onClick={openTickerSelector}
               title="Rechercher un symbole"
               role="button"
@@ -475,7 +474,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               title={`Intervalle ${tf}`}
               onClick={() => onTimeframeChange(tf)}
             >
-              <span style={{ fontSize: "13px", fontWeight: 600, lineHeight: 1 }}>{tf}</span>
+              <span className="gp-toolbar-text-label">{tf}</span>
             </button>
           ))}
 
@@ -509,9 +508,11 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             className={clsx(toolbarButtonClassNames, hasActiveOverlayIndicator && "active")}
             title="Indicateurs"
             aria-label="Indicateurs"
+            aria-pressed={uiState.modals.indicators}
+            data-indicators-modal-trigger="true"
             onFocus={() => { void preloadIndicatorsModal(); }}
             onPointerEnter={() => { void preloadIndicatorsModal(); }}
-            onClick={() => dispatch(setModalOpen({ modal: "indicators", isOpen: true }))}
+            onClick={() => dispatch(setModalOpen({ modal: "indicators", isOpen: !uiState.modals.indicators }))}
           >
             <i className="bi bi-activity"></i>
           </button>
@@ -526,7 +527,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
               aria-pressed={!isActiveIndex && isVolumeAttached}
               onClick={handleVolumeToggle}
             >
-              <span className="gp-toolbar-volume-toggle__label">Vol</span>
+              <span className="gp-toolbar-volume-toggle__label gp-toolbar-text-label">Vol</span>
             </button>
           )}
 
@@ -644,7 +645,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           />
           <button
             type="button"
-            className="p-1 d-flex align-items-center bg-transparent border-0 text-current"
+            className="gp-toolbar-compact-trigger"
             ref={pseudoDropdownButtonRef}
             onClick={handleTogglePseudoDropdown}
             aria-haspopup="menu"
@@ -652,8 +653,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             aria-label="Choisir un pseudonyme"
           >
             <i
-              className={clsx("bi bi-chevron-down", uiState.isAnonyme && "text-info", isPseudoDropdownOpen && "rotate-180")}
-              style={{ fontSize: "0.8rem", marginTop: "1px", transition: "transform 0.2s ease" }}
+              className={clsx("bi bi-chevron-down gp-toolbar-compact-trigger__icon", uiState.isAnonyme && "text-info", isPseudoDropdownOpen && "rotate-180")}
             ></i>
           </button>
         </div>
@@ -732,15 +732,19 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             </FloatingMenu>
             <LayoutSetupControl />
             <button
+              type="button"
               className={clsx(toolbarSecondaryButtonClassNames)}
               title="Historique des analyses"
+              aria-label="Historique des analyses"
               onClick={() => { void onOpenLoadModal(); }}
             >
               <i className="bi bi-folder2-open"></i>
             </button>
             <button
+              type="button"
               className={clsx(toolbarSecondaryButtonClassNames)}
-              title="Paramètres de l'indicateur"
+              title="Paramètres du graphique"
+              aria-label="Paramètres du graphique"
               onClick={() => dispatch(setModalOpen({ modal: "settings", isOpen: true }))}
             >
               <i className="bi bi-nut"></i>
@@ -795,14 +799,15 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         {/* Share Button (Hidden on small screens) */}
         <button
           className={clsx(publishButtonClassNames)}
-          style={{ height: "28px", padding: "0 16px" }}
           title="Partager l’analyse actuelle"
           aria-label="Partager l’analyse actuelle"
           onClick={() => dispatch(setModalOpen({ modal: "publish", isOpen: true }))}
           type="button"
         >
-          <i className="bi bi-share-fill me-2" aria-hidden="true" />
-          Partager
+          <span className="gp-share-button__icon-wrap" aria-hidden="true">
+            <i className="bi bi-share-fill gp-share-button__icon" />
+          </span>
+          <span className="gp-share-button__label">Partager</span>
         </button>
       </div>
 

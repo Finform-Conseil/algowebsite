@@ -14,6 +14,8 @@ export interface BRVMNewsItem {
   title: string;
   date: string;
   link: string;
+  /** Original publisher for aggregated RSS links; never infer this from the exchange code. */
+  sourceDomain?: string;
 }
 
 export interface BRVMBond {
@@ -75,9 +77,10 @@ export async function fetchSidebarIndices(
  */
 export async function fetchSidebarNews(
   port: SidebarDataPort,
+  exchange: string,
   signal: AbortSignal,
 ): Promise<BRVMNewsItem[]> {
-  return port.fetchNews(signal);
+  return port.fetchNews(exchange, signal);
 }
 
 /**

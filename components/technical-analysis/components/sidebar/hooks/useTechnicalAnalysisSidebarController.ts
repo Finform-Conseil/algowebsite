@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDispatch, useSelector } from "react-redux";
 import { setChartAppearance, setModalOpen, setPrefilledAlert, setSearchMode } from "../../../store/technicalAnalysisSlice";
-import { selectChartAppearance, selectUiState } from "../../../store/selectors";
+import { selectActiveMarket, selectChartAppearance, selectUiState } from "../../../store/selectors";
 import { copySidebarText, getSidebarClipboardLabel, type SidebarClipboardStatus } from "../actions/sidebarClipboard";
 import type { SidebarClipboardKey, TechnicalAnalysisSidebarProps } from "../TechnicalAnalysisSidebar.types";
 import type { AlertsRailDraftRequest } from "../panels/AlertsRailPanel";
@@ -33,6 +33,10 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
   } = props;
   const dispatch = useDispatch();
   const uiState = useSelector(selectUiState);
+  const activeMarket = useSelector(selectActiveMarket);
+  const activeLayoutCell = uiState.multiChartLayout.charts.find((chart) => chart.chartId === uiState.multiChartLayout.activeChartId);
+  const newsExchange = (uiState.multiChartLayout.isEnabled && uiState.multiChartLayout.charts.length > 1
+    ? activeLayoutCell?.exchange : activeMarket.ticker) || activeMarket.ticker || security.exchange || "BRVM";
   const chartAppearance = useSelector(selectChartAppearance);
   const isSecondaryWorkReady = useSidebarSecondaryWorkReady(!props.isLoading);
   const isChartRuntimeReady = useSidebarChartRuntimeReady(isSecondaryWorkReady);
@@ -42,7 +46,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     dataMode,
     isSecondaryWorkReady,
     securityTicker: security.ticker,
-    marketTicker: security.exchange ?? "",
+    marketTicker: newsExchange,
   });
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
@@ -203,6 +207,7 @@ export function useTechnicalAnalysisSidebarController(props: TechnicalAnalysisSi
     isSecondaryWorkReady,
     isSettingsOpen,
     marketClock,
+    newsExchange,
     metrics: derived,
     props,
     refs: {

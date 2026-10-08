@@ -31,3 +31,22 @@ test("active endpoint has explicit visual feedback", () => {
   assert.match(styles, /&\.is-active\s*\{/);
   assert.match(styles, /var\(--gp-accent-gold/);
 });
+
+test("date picker stays compact and single-column on desktop", () => {
+  assert.match(source, /maxWidth="560px"/);
+  assert.match(source, /className="gp-date-range-endpoints"/);
+  assert.match(source, /className="gp-date-range-navigation"/);
+  assert.match(source, /className="gp-date-range-actions"/);
+  assert.match(styles, /\.gp-date-range-modal\s*\{[\s\S]*?width:\s*min\(560px, calc\(100vw - 24px\)\)/);
+  assert.match(styles, /\.gp-date-range-modal\s*\{[\s\S]*?\.gp-datepicker-container\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) !important/);
+  assert.match(styles, /\.gp-date-range-actions\s*\{[\s\S]*?justify-content:\s*flex-end/);
+  assert.doesNotMatch(source, /maxWidth="760px"/);
+});
+
+test("calendar is flat and selected range reads as a continuous band", () => {
+  assert.match(styles, /\.gp-date-range-modal\s*\{[\s\S]*?\.gp-calendar-grid\s*\{[\s\S]*?gap:\s*0;[\s\S]*?border:\s*0;/);
+  assert.match(styles, /\.gp-calendar-day\s*\{[\s\S]*?background:\s*transparent;[\s\S]*?border-radius:\s*0;/);
+  assert.match(styles, /&\.in-range\s*\{[\s\S]*?border-radius:\s*0;/);
+  assert.match(styles, /&\.active\s*\{[\s\S]*?border-color:\s*color-mix/);
+  assert.doesNotMatch(styles, /\.gp-date-range-modal[\s\S]*?\.gp-calendar-day\s*\{[\s\S]*?min-height:\s*3[6-9]px/);
+});

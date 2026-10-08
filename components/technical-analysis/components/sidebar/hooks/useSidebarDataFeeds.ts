@@ -7,6 +7,7 @@ import { useSidebarDataPort } from "../data/sidebarDataPortAdapter";
 type NewsStatus = "idle" | "loading" | "ready" | "error";
 type IndicesStatus = "idle" | "loading" | "ready" | "error";
 const SIDEBAR_MARKET = "BRVM";
+const INDICES_REQUEST_TIMEOUT_MS = 8_000;
 
 interface UseSidebarDataFeedsInput {
   dataMode: "mock" | "real";
@@ -25,7 +26,9 @@ export function useSidebarDataFeeds({
   const normalizedSecurityTicker = useMemo(() => normalizeTicker(securityTicker), [securityTicker]);
   const normalizedMarketTicker = useMemo(() => normalizeTicker(marketTicker), [marketTicker]);
   const fundamentalsCacheKey = `${normalizedMarketTicker || "UNKNOWN"}:${normalizedSecurityTicker}`;
+  const newsMarket = normalizedMarketTicker || "BRVM";
   const [news, setNews] = useState<BRVMNewsItem[]>([]);
+  const [newsOwner, setNewsOwner] = useState(newsMarket);
   const [newsStatus, setNewsStatus] = useState<NewsStatus>("idle");
   const [currentNewsIdx, setCurrentNewsIdx] = useState(0);
   const [isNewsHovered, setIsNewsHovered] = useState(false);
@@ -49,6 +52,9 @@ export function useSidebarDataFeeds({
     if (!isIndicesOpen) return;
 
     const controller = new AbortController();
+    let timeoutId: number | null = null;
+    let timedOut = false;
+
     void readSidebarSnapshot("indices", SIDEBAR_MARKET, "GLOBAL").then((cached) => {
       if (!controller.signal.aborted && cached && Object.keys(cached).length > 0) {
         latestIndicesRef.current = cached;
@@ -60,7 +66,16 @@ export function useSidebarDataFeeds({
     setIndicesStatus("loading");
     setIndicesError(null);
 
-    void fetchSidebarIndices(port, controller.signal)
+    const liveRequest = fetchSidebarIndices(port, controller.signal);
+    const timeoutRequest = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new Error("Délai de chargement des indices dépassé"));
+      }, INDICES_REQUEST_TIMEOUT_MS);
+    });
+
+    void Promise.race([liveRequest, timeoutRequest])
       .then((data) => {
         if (!controller.signal.aborted) {
           latestIndicesRef.current = data;
@@ -70,22 +85,28 @@ export function useSidebarDataFeeds({
         }
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (controller.signal.aborted) return;
+        const isAbortError = error instanceof DOMException && error.name === "AbortError";
+        if (controller.signal.aborted && !timedOut) return;
+        if (isAbortError && !timedOut) return;
+
         if (latestIndicesRef.current) {
           setIndicesData(latestIndicesRef.current);
           setIndicesError(null);
         } else {
           setIndicesData(null);
-          setIndicesError(error instanceof Error ? error.message : "Erreur reseau");
+          setIndicesError(error instanceof Error ? error.message : "Erreur réseau");
         }
         setIndicesStatus("error");
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsIndicesLoading(false);
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        if (!controller.signal.aborted || timedOut) setIsIndicesLoading(false);
       });
 
-    return () => controller.abort();
+    return () => {
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [dataMode, isIndicesOpen, port]);
 
   useEffect(() => {
@@ -95,49 +116,79 @@ export function useSidebarDataFeeds({
     }
 
     const controllers = new Set<AbortController>();
+    let disposed = false;
+    latestNewsRef.current = [];
+    setNewsOwner(newsMarket);
+    setNews([]);
+    setCurrentNewsIdx(0);
+    setNewsStatus("loading");
     const fetchNews = async () => {
+      if (disposed || controllers.size > 0) return;
       const controller = new AbortController();
       controllers.add(controller);
       const isInitialFetch = latestNewsRef.current.length === 0;
       if (isInitialFetch) setNewsStatus("loading");
 
       try {
-        const items = await fetchSidebarNews(port, controller.signal);
-        if (!controller.signal.aborted) {
-          latestNewsRef.current = items;
-          setNews(items);
-          setNewsStatus("ready");
-          void writeSidebarSnapshot("news", SIDEBAR_MARKET, "GLOBAL", items);
+        let items: BRVMNewsItem[] = [];
+        // A temporarily empty response during cold-start is not a terminal empty feed.
+        // Keep the skeleton until a usable response or bounded retry exhaustion.
+        for (let attempt = 0; attempt < 3 && !controller.signal.aborted && !disposed; attempt += 1) {
+          items = await fetchSidebarNews(port, newsMarket, controller.signal);
+          if (items.length > 0) break;
+          if (attempt < 2) {
+            await new Promise<void>((resolve) => {
+              const timer = window.setTimeout(() => { controller.signal.removeEventListener("abort", onAbort); resolve(); }, 1200);
+              const onAbort = () => { window.clearTimeout(timer); controller.signal.removeEventListener("abort", onAbort); resolve(); };
+              controller.signal.addEventListener("abort", onAbort, { once: true });
+            });
+          }
+        }
+        if (!controller.signal.aborted && !disposed) {
+          if (items.length > 0) {
+            latestNewsRef.current = items;
+            setNewsOwner(newsMarket);
+            setNews(items);
+            setNewsStatus("ready");
+            void writeSidebarSnapshot("news", newsMarket, "FEED", items);
+          } else {
+            setNewsStatus(latestNewsRef.current.length > 0 ? "ready" : "error");
+          }
         }
       } catch (error) {
+        if (disposed || controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (latestNewsRef.current.length === 0) setNews([]);
-        setNewsStatus("error");
+        setNewsStatus(latestNewsRef.current.length > 0 ? "ready" : "error");
       } finally {
         controllers.delete(controller);
       }
     };
 
-    void readSidebarSnapshot("news", SIDEBAR_MARKET, "GLOBAL").then((cached) => {
-      if (Array.isArray(cached) && cached.length > 0) {
+    void readSidebarSnapshot("news", newsMarket, "FEED").then((cached) => {
+      if (!disposed && latestNewsRef.current.length === 0 && Array.isArray(cached) && cached.length > 0) {
         latestNewsRef.current = cached;
+        setNewsOwner(newsMarket);
         setNews(cached);
         setNewsStatus("ready");
       }
+    }).catch((error: unknown) => {
+      if (!disposed) console.warn("[SidebarNews] Cached news unavailable:", newsMarket, error);
     });
     void fetchNews();
     const interval = window.setInterval(fetchNews, 30 * 60 * 1000);
 
     return () => {
+      disposed = true;
       window.clearInterval(interval);
       controllers.forEach((controller) => controller.abort());
       controllers.clear();
     };
-  }, [dataMode, isSecondaryWorkReady, port]);
+  }, [dataMode, isSecondaryWorkReady, newsMarket, port]);
 
   const safeNews = useMemo(
-    () => news.filter((item) => item.title && item.date && item.link),
-    [news],
+    () => newsOwner === newsMarket ? news.filter((item) => item.title && item.date && item.link) : [],
+    [news, newsMarket, newsOwner],
   );
 
   useEffect(() => {
@@ -275,7 +326,7 @@ export function useSidebarDataFeeds({
     isFundamentalsLoading: isFundamentalsPending,
     isIndicesLoading: isIndicesPanelLoading,
     isIndicesOpen,
-    isNewsLoading: isSecondaryWorkReady && safeNews.length === 0 && (newsStatus === "idle" || newsStatus === "loading"),
+    isNewsLoading: safeNews.length === 0 && (!isSecondaryWorkReady || newsOwner !== newsMarket || newsStatus === "idle" || newsStatus === "loading"),
     newsStatus,
     normalizedSecurityTicker,
     setIsIndicesOpen,

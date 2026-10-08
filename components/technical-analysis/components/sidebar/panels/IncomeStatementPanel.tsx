@@ -54,7 +54,7 @@ export const IncomeStatementPanel = React.memo(({
   if (!isLoading && !isAvailable) return null;
 
   return (
-  <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "8px", paddingTop: "12px" }}>
+  <div className="gp-sidebar-section gp-sidebar-subsection">
     <div className="gp-sidebar-header" style={{ marginBottom: "8px" }}>
       <div className="d-flex justify-content-between align-items-center w-100">
         <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Income statement</span>

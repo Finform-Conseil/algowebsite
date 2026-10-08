@@ -156,24 +156,29 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
       onClose={onClose}
       title="Plage de dates"
       icon={<i className="bi bi-calendar3" style={{ color: "var(--gp-accent-gold)" }} />}
-      maxWidth="760px"
+      maxWidth="560px"
       className="gp-date-range-modal"
       footer={
-        <div className="d-flex justify-content-end gap-2 w-100">
-          <button type="button" className="btn btn-secondary btn-sm px-3" onClick={onClose}>
+        <div className="gp-date-range-actions">
+          <button type="button" className="gp-date-range-action gp-date-range-action--secondary" onClick={onClose}>
             Annuler
           </button>
-          <button type="button" className="btn btn-warning btn-sm px-4" onClick={handleApply} disabled={!isComplete}>
+          <button
+            type="button"
+            className="gp-date-range-action gp-date-range-action--primary"
+            onClick={handleApply}
+            disabled={!isComplete}
+          >
             Appliquer
           </button>
         </div>
       }
     >
       <div className="gp-datepicker-container">
-        <div className="d-flex gap-3 mb-4" role="group" aria-label="Choisir la borne de la plage">
+        <div className="gp-date-range-endpoints" role="group" aria-label="Choisir la borne de la plage">
           <button
             type="button"
-            className={clsx("gp-date-range-endpoint flex-fill rounded border px-3 py-2 text-start", activeEndpoint === "start" && "is-active")}
+            className={clsx("gp-date-range-endpoint", activeEndpoint === "start" && "is-active")}
             aria-pressed={activeEndpoint === "start"}
             aria-label={`Modifier la date de début, actuellement ${formatDateKey(selection.start)}`}
             onClick={() => focusEndpoint("start")}
@@ -181,10 +186,10 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
             <span className="text-secondary small mb-1 d-block">Début</span>
             <strong>{formatDateKey(selection.start)}</strong>
           </button>
-          <div className="d-flex align-items-center text-secondary" aria-hidden="true">→</div>
+          <div className="gp-date-range-arrow" aria-hidden="true">→</div>
           <button
             type="button"
-            className={clsx("gp-date-range-endpoint flex-fill rounded border px-3 py-2 text-start", activeEndpoint === "end" && "is-active")}
+            className={clsx("gp-date-range-endpoint", activeEndpoint === "end" && "is-active")}
             aria-pressed={activeEndpoint === "end"}
             aria-label={`Modifier la date de fin, actuellement ${formatDateKey(selection.end)}`}
             onClick={() => focusEndpoint("end")}
@@ -200,10 +205,10 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
           </div>
         ) : (
           <>
-            <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="gp-date-range-navigation">
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary border-0"
+                className="gp-date-range-nav-btn"
                 aria-label="Mois précédent"
                 disabled={!canGoPrevious}
                 onClick={() => moveMonth(-1)}
@@ -211,7 +216,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 <i className="bi bi-chevron-left" aria-hidden="true" />
               </button>
 
-              <div className="d-flex gap-2">
+              <div className="gp-date-range-period-controls">
                 <select
                   className="gp-datepicker-select"
                   aria-label="Mois"
@@ -242,7 +247,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
 
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary border-0"
+                className="gp-date-range-nav-btn"
                 aria-label="Mois suivant"
                 disabled={!canGoNext}
                 onClick={() => moveMonth(1)}
@@ -281,7 +286,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 );
               })}
             </div>
-            <div className="small text-secondary mt-3" aria-live="polite">
+            <div className="gp-date-range-hint" aria-live="polite">
               {activeEndpoint === "start"
                 ? "Sélectionnez la date de début. Cliquez sur « Fin » pour modifier directement la borne de fin."
                 : "Sélectionnez la date de fin. Cliquez sur « Début » pour revenir directement à la borne de début."}

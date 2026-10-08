@@ -13,8 +13,7 @@ export const toolbarSecondaryButtonClassNames = [
 ] as const;
 
 export const publishButtonClassNames = [
-  "btn btn-sm rounded-pill flex-shrink-0 d-flex align-items-center justify-content-center",
+  "btn btn-sm flex-shrink-0 d-flex align-items-center justify-content-center",
   "btn-publish",
-  "hover-lift",
   "gp-hide-on-small",
 ] as const;

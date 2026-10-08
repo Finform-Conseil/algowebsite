@@ -1,8 +1,41 @@
 export type ChartGridLayoutOption = Record<string, unknown>;
 
-export const DEFAULT_CHART_TOP_MARGIN_PERCENT = 4;
-export const DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT = 5;
-export const DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT = 20;
+export const DEFAULT_CHART_TOP_MARGIN_PERCENT = 0;
+export const DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT = 0;
+export const VELA_PRICE_PANE_HEIGHT_WEIGHT = 3;
+export const VELA_STUDY_PANE_HEIGHT_WEIGHT = 1;
+
+export interface VelaPaneWeightLayout {
+  mainPaneHeightPercent: number;
+  studyPaneHeightPercent: number;
+}
+
+/**
+ * Mirrors Vela 0.7.2 pane allocation: price pane weight = 3, every study pane = 1.
+ * Volume is a native overlay and therefore does not contribute a pane weight.
+ */
+export const resolveVelaPaneWeightLayout = (
+  availableHeightPercent: number,
+  studyPaneCount: number,
+): VelaPaneWeightLayout => {
+  const safeAvailable = Number.isFinite(availableHeightPercent)
+    ? Math.max(0, availableHeightPercent)
+    : 0;
+  const safeStudyCount = Number.isFinite(studyPaneCount)
+    ? Math.max(0, Math.floor(studyPaneCount))
+    : 0;
+  if (safeStudyCount === 0) {
+    return { mainPaneHeightPercent: safeAvailable, studyPaneHeightPercent: 0 };
+  }
+
+  const totalWeight = VELA_PRICE_PANE_HEIGHT_WEIGHT
+    + safeStudyCount * VELA_STUDY_PANE_HEIGHT_WEIGHT;
+  const unit = totalWeight > 0 ? safeAvailable / totalWeight : 0;
+  return {
+    mainPaneHeightPercent: unit * VELA_PRICE_PANE_HEIGHT_WEIGHT,
+    studyPaneHeightPercent: unit * VELA_STUDY_PANE_HEIGHT_WEIGHT,
+  };
+};
 
 export interface PriceVolumePaneLayoutOptions {
   left: number;
@@ -58,32 +91,18 @@ export const buildPriceVolumePaneLayout = ({
   showVolume,
   timeAxisHeightPx,
 }: PriceVolumePaneLayoutOptions): PriceVolumePaneLayout => {
-  const lowerPaneCount = showVolume ? 1 : 0;
-  const mainHeightPercent = 100
-    - DEFAULT_CHART_TOP_MARGIN_PERCENT
-    - DEFAULT_PANE_SIZING_BOTTOM_BUDGET_PERCENT
-    - lowerPaneCount * DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT;
-
+  // Vela native Volume is a price-pane overlay, not a lower pane. `showVolume`
+  // intentionally does not alter grid geometry; it only controls the overlay.
+  void showVolume;
   const grids: ChartGridLayoutOption[] = [{
     left,
     right,
     top: `${DEFAULT_CHART_TOP_MARGIN_PERCENT}%`,
-    height: `${mainHeightPercent}%`,
     containLabel: false,
   }];
 
-  if (showVolume) {
-    grids.push({
-      left,
-      right,
-      top: `${DEFAULT_CHART_TOP_MARGIN_PERCENT + mainHeightPercent}%`,
-      height: `${DEFAULT_SINGLE_LOWER_PANE_HEIGHT_PERCENT}%`,
-      containLabel: false,
-    });
-  }
-
   return {
     grids: anchorLastPaneToFixedTimeAxis(grids, timeAxisHeightPx),
-    visibleTimeAxisIndex: showVolume ? 1 : 0,
+    visibleTimeAxisIndex: 0,
   };
 };

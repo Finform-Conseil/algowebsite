@@ -14,6 +14,17 @@ const stateTypesSource = read("components/technical-analysis/config/state/chartS
 const initialStateSource = read("components/technical-analysis/store/initialState.ts");
 const reducerSource = read("components/technical-analysis/store/reducers/chartConfigReducers.ts");
 const styleSource = read("styles/pages/_technical-analysis-final.scss");
+const cursorRendererSource = read("components/technical-analysis/hooks/useCursorRenderer.ts");
+const cursorPriceAxisBadgeSource = read("components/technical-analysis/hooks/overlays/cursorPriceAxisBadge.ts");
+
+test("price-axis labels never hard-clip countdown text and use one French decimal contract", () => {
+  assert.match(overlaySource, /width: "max-content"/);
+  assert.match(overlaySource, /minWidth: `\$\{LAST_PRICE_AXIS_BADGE_WIDTH_PX\}px`/);
+  assert.match(overlaySource, /maxWidth: "calc\(100% - 8px\)"/);
+  assert.doesNotMatch(overlaySource, /maxWidth: `\$\{LAST_PRICE_AXIS_BADGE_WIDTH_PX\}px`/);
+  assert.match(cursorPriceAxisBadgeSource, /toLocaleString\("fr-FR"/);
+  assert.match(cursorPriceAxisBadgeSource, /useGrouping: false/);
+});
 
 test("price scale right-click is a dedicated surface distinct from the chart-body menu", () => {
   assert.match(menuSource, /isPriceScaleContextPoint/);
@@ -76,6 +87,13 @@ test("left/right scale and plus-button visibility stay aligned with the overlay"
   assert.match(overlaySource, /display: showPlusButton \? "inline-flex" : "none"/);
   assert.match(technicalAnalysisSource, /priceScalePosition=\{chartAppearance\.priceScalePosition === "left" \? "left" : "right"\}/);
   assert.match(technicalAnalysisSource, /showPlusButton=\{chartAppearance\.showPriceScalePlusButton !== false\}/);
+});
+
+test("price-axis plus/menu remain click-safe against the global cursor capture listeners", () => {
+  assert.match(cursorRendererSource, /isPriceAxisInteractiveTarget\(event\.target\)/);
+  assert.match(overlaySource, /onClick=\{handleAxisPriceActionButtonClick\}/);
+  assert.match(overlaySource, /gp-price-axis-menu-portal/);
+  assert.match(overlaySource, /PRICE_AXIS_ACTIONS\.map/);
 });
 
 test("price scale menu geometry follows the measured narrow TradingView surface and is keyboard safe", () => {

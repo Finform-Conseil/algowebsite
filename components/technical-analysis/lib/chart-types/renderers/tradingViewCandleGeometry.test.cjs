@@ -7,8 +7,8 @@ const root = path.resolve(__dirname, "../../../../..");
 const source = fs.readFileSync(path.join(root, "components/technical-analysis/lib/chart-types/renderers/renderCandles.ts"), "utf8");
 const transform = fs.readFileSync(path.join(root, "lib/utils/marketDataTransform.ts"), "utf8");
 
-test("default candle body occupancy matches the measured TradingView-like geometry", () => {
-  assert.match(source, /const CANDLE_BODY_WIDTH = "48%";/);
+test("default candle body occupancy matches Vela's exact 70 percent pitch law", () => {
+  assert.match(source, /const CANDLE_BODY_WIDTH = "70%";/);
   assert.match(source, /const MIN_CANDLE_BODY_WIDTH = 1;/);
   assert.match(source, /const MAX_CANDLE_BODY_WIDTH = 14;/);
 });

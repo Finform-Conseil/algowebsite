@@ -1,10 +1,13 @@
 /* eslint-env node */
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 require("../../store/__tests__/testTypeScriptLoader.cjs");
 
 const presentation = require("../indicators/candlestickPatternPresentation.ts");
+const rendererSource = fs.readFileSync(path.join(process.cwd(), "components/technical-analysis/hooks/useEChartsRenderer.ts"), "utf8");
 
 const entries = Object.entries(presentation.CANDLESTICK_PATTERN_PRESENTATIONS);
 const weakIndecisionPatterns = new Set([
@@ -66,4 +69,10 @@ test("weak high-frequency candlestick patterns are aggressively density-capped",
       assert.ok(item.minBarGap >= 2, key + " must keep spacing between weak markers");
       assert.ok(item.symbolSize <= 6 || Array.isArray(item.symbolSize), key + " symbol must remain small");
     });
+});
+
+test("inactive higher-priority candlestick patterns cannot suppress an active pattern", () => {
+  assert.match(rendererSource, /const isCandlestickPatternPriorityPeerVisible = \(pattern: CandlestickPatternKey\)/);
+  assert.match(rendererSource, /isCandlestickPatternPriorityPeerVisible\("tristar"\)[\s\S]*?isIndexCoveredByTristar/);
+  assert.match(rendererSource, /\.some\(\(candidate\) => \([\s\S]*?isCandlestickPatternPriorityPeerVisible\(candidate\)[\s\S]*?isCandlestickSignalActive\(patternSeries\[candidate\], index\)/);
 });

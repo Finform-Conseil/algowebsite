@@ -89,18 +89,17 @@ export const PriceAxisOverlay = ({
   const compactTimeLabel = lastPriceTimeLabel;
   const isLeftScale = priceScalePosition === "left";
   const lastBadgeSide = isLeftScale ? { left: "0px" } : { right: "0px" };
-  const cursorBadgeSide = isLeftScale ? { left: "8px" } : { right: "8px" };
-  const cursorActionSide = isLeftScale ? { left: "88px" } : { right: "88px" };
+  const cursorBadgeSide = isLeftScale ? { left: "0px" } : { right: "0px" };
+  const cursorActionSide = isLeftScale ? { left: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX + 3}px` } : { right: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX + 3}px` };
 
   return (
   <div className="gp-price-axis-overlay" style={{ position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none" }}>
     <div ref={lastPriceLineRef} className="gp-price-axis-last-line" style={{ display: "none" }} />
-    <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" aria-label={lastPriceAccessibleLabel} style={{ position: "absolute", ...lastBadgeSide, top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", gap: "1px", width: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX}px`, maxWidth: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX}px`, minHeight: "42px", padding: "4px 5px", borderRadius: "3px", background: isLastPricePositive ? LAST_PRICE_AXIS_UP_COLOR : LAST_PRICE_AXIS_DOWN_COLOR, color: "#ffffff", boxShadow: "0 5px 12px rgba(0, 0, 0, 0.24)", border: "1px solid rgba(255,255,255,0.14)", lineHeight: 1.05, opacity: 0, visibility: "hidden", overflow: "hidden" }}>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "9.5px", fontWeight: 800, letterSpacing: 0 }}>{displaySymbolName}</span>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "15px", fontWeight: 850 }}>{compactPriceLabel}</span>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "9px", fontWeight: 700, opacity: 0.98 }}>{compactTimeLabel}</span>
+    <div ref={lastPriceBadgeRef} className="gp-price-axis-last-badge" aria-label={lastPriceAccessibleLabel} style={{ position: "absolute", ...lastBadgeSide, top: 0, transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", width: "max-content", minWidth: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX}px`, maxWidth: "calc(100% - 8px)", height: "32px", padding: "0 4px", boxSizing: "border-box", borderRadius: 0, background: isLastPricePositive ? LAST_PRICE_AXIS_UP_COLOR : LAST_PRICE_AXIS_DOWN_COLOR, color: "#ffffff", lineHeight: 1, opacity: 0, visibility: "hidden", overflow: "hidden" }}>
+      <span style={{ height: "16px", display: "flex", alignItems: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "11px", fontWeight: 500 }}>{compactPriceLabel}</span>
+      <span style={{ height: "16px", display: "flex", alignItems: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "11px", fontWeight: 500 }}>{compactTimeLabel}</span>
     </div>
-    <div ref={cursorPriceBadgeRef} className="gp-price-axis-cursor-badge" style={{ position: "absolute", ...cursorBadgeSide, top: 0, transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", minWidth: "72px", padding: "4px 8px", borderRadius: "4px", background: "#11151c", color: "#ffffff", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 10px 24px rgba(0, 0, 0, 0.3)", fontSize: "12px", fontWeight: 700, opacity: 0, visibility: "hidden" }}>
+    <div ref={cursorPriceBadgeRef} className="gp-price-axis-cursor-badge" style={{ position: "absolute", ...cursorBadgeSide, top: 0, transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", minWidth: `${LAST_PRICE_AXIS_BADGE_WIDTH_PX}px`, height: "16px", padding: "0 4px", borderRadius: 0, background: "#595959", color: "#ffffff", border: "none", boxShadow: "none", fontSize: "11px", fontWeight: 500, opacity: 0, visibility: "hidden" }}>
       <span ref={cursorPriceTextRef}>0.00</span>
     </div>
     <button ref={cursorPriceActionRef} type="button" className="gp-price-axis-cursor-action" aria-label={`Open price actions for ${displaySymbolName}`} title={`Open price actions for ${displaySymbolName}`} onClick={handleAxisPriceActionButtonClick} style={{ position: "absolute", ...cursorActionSide, top: 0, transform: "translateY(-50%)", width: "20px", height: "20px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.16)", background: "linear-gradient(180deg, #141922 0%, #0e131a 100%)", color: "#ffffff", display: showPlusButton ? "inline-flex" : "none", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 24px rgba(0, 0, 0, 0.34)", pointerEvents: showPlusButton ? "auto" : "none", opacity: 0, visibility: "hidden", padding: 0 }}>

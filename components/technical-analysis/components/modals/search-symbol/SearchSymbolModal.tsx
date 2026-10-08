@@ -35,7 +35,7 @@ import {
   createCompareInstrumentKey,
   parseCompareInstrumentKey,
 } from "../../../config/compare-series/compareSeries";
-import marketSelectorStyles from "../../market/MarketSelectorModal.module.scss";
+import { MarketDirectoryContent, MarketDirectoryGrid, MarketDirectoryIntro } from "../../market/MarketDirectory";
 
 // ============================================================================
 // [TENOR 2026 HDR] TV-PARITY COMPARE MODAL
@@ -505,19 +505,17 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
     return (
       <div
         key={`${isAddedSection ? "added" : "result"}-${security.exchange ?? activeMarketTicker}-${security.ticker}`}
-        className={clsx("tv-compare-row", (isAdded || isCurrent) && "is-selected")}
+        className={clsx("tv-compare-row", isAdded && "is-selected", isCurrent && "is-current")}
         onClick={() => !isCurrent && handleToggleSymbol(security)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "10px 14px",
-          cursor: isCurrent ? "default" : "pointer",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-          transition: "background 0.15s ease",
-          opacity: isCurrent ? 0.5 : 1
+        role="button"
+        aria-disabled={isCurrent}
+        tabIndex={isCurrent ? -1 : 0}
+        onKeyDown={(event) => {
+          if (!isCurrent && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            handleToggleSymbol(security);
+          }
         }}
-        onMouseEnter={(e) => { if (!isCurrent) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
-        onMouseLeave={(e) => { if (!isCurrent) e.currentTarget.style.backgroundColor = "transparent"; }}
       >
         <BrvmLogoMark
           ticker={security.ticker}
@@ -528,29 +526,27 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
           size={34}
           shape="rounded"
           imageSizes="34px"
-          style={{ marginRight: 14 }}
+          style={{ marginRight: "var(--gp-space-sm)" }}
         />
 
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-            <span style={{ color: "#d1d4dc", fontSize: "14px", fontWeight: 700 }}>{security.ticker}</span>
-            <span style={{ color: "#787b86", fontSize: "12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {security.name}
-            </span>
+        <div className="tv-compare-row__identity">
+          <div className="tv-compare-row__headline">
+            <span className="tv-compare-row__ticker">{security.ticker}</span>
+            <span className="tv-compare-row__name">{security.name}</span>
           </div>
-          <span style={{ color: "#5d6b7e", fontSize: "11px", marginTop: 2 }}>
+          <span className="tv-compare-row__context">
             {security.country} · {security.sector}
           </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <span style={{ color: "#d1d4dc", fontSize: "12px", fontWeight: 600 }}>{security.exchange ?? activeMarketTicker}</span>
-            <span style={{ color: "#787b86", fontSize: "11px" }}>{getSecurityKind(security)}</span>
+        <div className="tv-compare-row__meta">
+          <div className="tv-compare-row__market">
+            <span className="tv-compare-row__exchange">{security.exchange ?? activeMarketTicker}</span>
+            <span className="tv-compare-row__kind">{getSecurityKind(security)}</span>
           </div>
-          <div style={{ width: "20px", display: "flex", justifyContent: "flex-end" }}>
-            {isAdded && <i className="bi bi-check-lg" style={{ color: "#2962ff", fontSize: "16px", strokeWidth: 1 }}></i>}
-            {isCurrent && <i className="bi bi-bar-chart-fill" style={{ color: "#787b86", fontSize: "14px" }} title="Graphique principal"></i>}
+          <div className="tv-compare-row__state">
+            {isAdded && <i className="bi bi-check-lg" aria-hidden="true"></i>}
+            {isCurrent && <i className="bi bi-bar-chart-fill" title="Graphique principal" aria-hidden="true"></i>}
           </div>
         </div>
       </div>
@@ -569,128 +565,63 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
       hideFooter={true}
       className={clsx("tv-compare-modal-override", !activeMarketTicker && "tv-compare-modal--market-step")}
     >
-      {/* Inline styles to override BaseModal padding for flush edges */}
-      <style>{`
-        .tv-compare-modal-override .gp-modal-body {
-          padding: 0 !important;
-          display: flex;
-          flex-direction: column;
-          height: 60vh;
-          min-height: 400px;
-        }
-        .tv-compare-modal--market-step .gp-modal-body {
-          height: auto;
-          min-height: 0;
-        }
-        .tv-compare-modal-override .gp-modal-header {
-          border-bottom: none !important;
-          padding-bottom: 0 !important;
-        }
-      `}</style>
-
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div className="gp-compare-symbol-modal">
         {!activeMarketTicker ? (
-          <div className={marketSelectorStyles.content}>
-            <div className={marketSelectorStyles.headerCopy} style={{ marginBottom: 18 }}>
-              <span className={marketSelectorStyles.eyebrow}>Market directory</span>
-              <h2>Bourse / Exchange</h2>
-              <p>
-                Choisissez la bourse du titre à comparer. Le graphique principal et son marché restent inchangés.
-              </p>
-            </div>
-            <div className={marketSelectorStyles.marketGrid} role="list" aria-label="Bourses disponibles pour la comparaison">
-              {marketOptions.map((market, index) => {
-                const isCurrentMarket = market.ticker === currentMarketTicker;
-                return (
-                  <button
-                    key={market.ticker}
-                    type="button"
-                    role="listitem"
-                    className={`${marketSelectorStyles.marketCard} ${isCurrentMarket ? marketSelectorStyles.marketCardActive : ""}`}
-                    style={{ "--market-delay": `${index * 55}ms` } as React.CSSProperties}
-                    onClick={() => setSelectedMarketTicker(market.ticker)}
-                    aria-label={`Comparer avec un titre de ${market.ticker}`}
-                    aria-pressed={isCurrentMarket}
-                  >
-                    <span className={marketSelectorStyles.marketLogoFrame}>
-                      {market.logo ? (
-                        <img className={marketSelectorStyles.marketLogo} src={market.logo} alt="" loading="lazy" decoding="async" />
-                      ) : (
-                        <span className={marketSelectorStyles.marketLogoPlaceholder} aria-label="Logo indisponible">
-                          {market.ticker.slice(0, 2)}
-                        </span>
-                      )}
-                    </span>
-                    <span className={marketSelectorStyles.marketInfo}>
-                      <strong className={marketSelectorStyles.marketTicker}>{market.ticker}</strong>
-                      <span className={marketSelectorStyles.marketName}>{market.name}</span>
-                    </span>
-                    <span className={marketSelectorStyles.marketMeta}>
-                      <span className={marketSelectorStyles.currencyPill}>{market.currency}</span>
-                      {isCurrentMarket ? <span className={marketSelectorStyles.activeCheck} aria-label="Marché du graphique principal">✓</span> : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <MarketDirectoryContent className="gp-compare-market-directory">
+            <MarketDirectoryIntro
+              className="gp-compare-market-header"
+              description="Choisissez la bourse du titre à comparer. Le graphique principal et son marché restent inchangés."
+            />
+            <MarketDirectoryGrid
+              markets={marketOptions}
+              activeMarketTicker={currentMarketTicker}
+              onSelectMarket={(market) => setSelectedMarketTicker(market.ticker)}
+              ariaLabel="Bourses disponibles pour la comparaison"
+              activeCheckLabel="Marché du graphique principal"
+            />
+          </MarketDirectoryContent>
         ) : (
           <>
-            <div style={{ padding: "0 16px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="gp-compare-market-toolbar">
               <button
                 type="button"
                 onClick={() => { setSelectedMarketTicker(null); setSearchInput(""); }}
-                style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.035)", color: "#cbd5e1", borderRadius: 7, padding: "6px 9px", fontSize: 12, cursor: "pointer" }}
+                className="gp-compare-market-back"
               >
                 <i className="bi bi-arrow-left" aria-hidden="true" /> Changer de bourse
               </button>
-              <span style={{ color: "#94a3b8", fontSize: 12 }}>
-                Bourse sélectionnée : <strong style={{ color: "#e2e8f0" }}>{activeMarketTicker}</strong>
+              <span className="gp-compare-market-meta">
+                Bourse sélectionnée : <strong className="gp-compare-market-code">{activeMarketTicker}</strong>
               </span>
             </div>
         
         {/* Search Input Area */}
-        <div style={{ padding: "0 16px 12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <i className="bi bi-search" style={{ position: "absolute", left: "12px", color: "#787b86", fontSize: "16px" }}></i>
+        <div className="gp-compare-search-section">
+          <div className="gp-compare-search-field">
+            <i className="bi bi-search gp-compare-search-icon" aria-hidden="true"></i>
             <input
               ref={searchInputRef}
               type="text"
               placeholder="Symbol, ISIN, or company name"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              style={{
-                width: "100%",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "8px",
-                padding: "10px 12px 10px 38px",
-                color: "#d1d4dc",
-                fontSize: "15px",
-                outline: "none",
-                transition: "border-color 0.2s, background 0.2s"
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#2962ff";
-                e.target.style.background = "rgba(255,255,255,0.06)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(255,255,255,0.1)";
-                e.target.style.background = "rgba(255,255,255,0.04)";
-              }}
+              className="gp-compare-search-input"
               autoCapitalize="characters"
               autoCorrect="off"
               spellCheck={false}
             />
             {searchInput && (
-              <i 
-                className="bi bi-x-lg" 
-                style={{ position: "absolute", right: "12px", color: "#787b86", fontSize: "14px", cursor: "pointer" }}
+              <button
+                type="button"
+                className="gp-compare-search-clear"
+                aria-label="Effacer la recherche"
                 onClick={() => setSearchInput("")}
-              ></i>
+              >
+                <i className="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "10px", overflowX: "auto" }}>
+          <div className="gp-compare-filter-row" role="tablist" aria-label="Filtrer les symboles">
             {SYMBOL_KIND_FILTERS.map((filter) => (
               <button
                 key={filter.id}
@@ -698,46 +629,29 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
                 role="tab"
                 aria-selected={activeKindFilter === filter.id}
                 onClick={() => setActiveKindFilter(filter.id)}
-                style={{
-                  border: "1px solid " + (activeKindFilter === filter.id ? "#2962ff" : "rgba(255,255,255,0.1)"),
-                  background: activeKindFilter === filter.id ? "rgba(41,98,255,0.18)" : "rgba(255,255,255,0.035)",
-                  color: activeKindFilter === filter.id ? "#ffffff" : "#9ca3af",
-                  borderRadius: "999px",
-                  padding: "5px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  cursor: "pointer"
-                }}
+                className={clsx("gp-compare-kind-filter", activeKindFilter === filter.id && "is-active")}
               >
                 {filter.label}
               </button>
             ))}
-            <span style={{ marginLeft: "auto", color: "#787b86", fontSize: "11px", whiteSpace: "nowrap" }}>
+            <span className="gp-compare-filter-count">
               {activeMarketTicker} · {searchCatalog.length} symbols
             </span>
           </div>
         </div>
 
         {/* Scrollable Lists Area */}
-        <div className="gp-custom-scrollbar" style={{ flex: 1, overflowY: "auto" }}>
+        <div className="gp-custom-scrollbar gp-compare-results-scroll">
           {sourceStatusMessage && (
-            <div role="status" style={{ padding: "10px 16px", color: "#d1d4dc", background: "rgba(255, 152, 0, 0.12)", fontSize: "12px" }}>
+            <div role="status" className="gp-compare-source-status">
               {sourceStatusMessage}
             </div>
           )}
 
           {/* ADDED SYMBOLS SECTION */}
           {!normalizedInput && addedInstruments.length > 0 && (
-            <div style={{ marginBottom: "8px" }}>
-              <div style={{ 
-                padding: "16px 16px 8px 16px", 
-                fontSize: "11px", 
-                fontWeight: 600, 
-                color: "#787b86", 
-                letterSpacing: "0.04em",
-                textTransform: "uppercase" 
-              }}>
+            <div className="gp-compare-section">
+              <div className="gp-compare-section-title">
                 Added Symbols
               </div>
               <div>
@@ -748,39 +662,19 @@ export const SearchSymbolModal: React.FC<SearchSymbolModalProps> = ({
 
           {/* RECENT / SEARCH RESULTS SECTION */}
           <div>
-            <div style={{ 
-              padding: "16px 16px 8px 16px", 
-              fontSize: "11px", 
-              fontWeight: 600, 
-              color: "#787b86", 
-              letterSpacing: "0.04em",
-              textTransform: "uppercase" 
-              }}>
+            <div className="gp-compare-section-title">
               {normalizedInput ? "Search Results" : `All Symbols · ${activeMarketTicker}`}
             </div>
             <div>
               {isLoadingSymbols ? (
-                <div style={{ padding: "24px 16px", textAlign: "center", color: "#787b86", fontSize: "13px" }}>
-                  <style>{"@keyframes symbol-search-spin { to { transform: rotate(360deg); } }"}</style>
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      display: "block",
-                      width: "22px",
-                      height: "22px",
-                      margin: "0 auto 10px",
-                      border: "3px solid rgba(41, 98, 255, 0.24)",
-                      borderTopColor: "#2962ff",
-                      borderRadius: "50%",
-                      animation: "symbol-search-spin 0.8s linear infinite"
-                    }}
-                  />
+                <div className="gp-compare-empty">
+                  <span aria-hidden="true" className="gp-compare-spinner" />
                   Loading symbols...
                 </div>
               ) : visibleInstruments.length > 0 ? (
                 visibleInstruments.map((instrument) => renderInstrumentRow(instrument, false))
               ) : (
-                <div style={{ padding: "24px 16px", textAlign: "center", color: "#787b86", fontSize: "13px" }}>
+                <div className="gp-compare-empty">
                   No symbols match your criteria
                 </div>
               )}

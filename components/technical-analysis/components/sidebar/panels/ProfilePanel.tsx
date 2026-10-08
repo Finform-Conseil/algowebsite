@@ -44,22 +44,22 @@ const IdentifierRow = ({ disabled, label, onCopy, status, value, getClipboardLab
   status: SidebarClipboardStatus;
   value: string | null | undefined;
 }) => (
-  <div className="d-flex justify-content-between align-items-center">
-    <span style={{ fontSize: "11px", color: "#94a3b8" }}>{label}</span>
-    <div className="d-flex align-items-center gap-2">
-      <span style={{ fontSize: "12px", color: "#f1f5f9", fontWeight: 700 }}>{value || "N/A"}</span>
+  <div className="gp-profile-row">
+    <span className="gp-profile-label">{label}</span>
+    <div className="gp-profile-value-group">
+      <span className="gp-profile-value">{value || "N/A"}</span>
       <button
         type="button"
         aria-label={`Copier ${label}`}
         title={status === "idle" ? `Copier ${label}` : getClipboardLabel(status)}
         disabled={disabled}
         onClick={onCopy}
-        style={{ background: "transparent", border: 0, padding: 0, color: status === "copied" ? "#22ab94" : status === "error" ? "#f23645" : "#64748b", cursor: disabled ? "not-allowed" : "pointer" }}
+        className={clsx("gp-profile-copy-action", status === "copied" && "is-success", status === "error" && "is-error")}
       >
-        <i className="bi bi-copy" style={{ fontSize: "10px" }} aria-hidden="true" />
+        <i className="bi bi-copy" aria-hidden="true" />
       </button>
       {status !== "idle" && (
-        <span aria-live="polite" style={{ fontSize: "10px", color: status === "copied" ? "#22ab94" : "#f23645", fontWeight: 700 }}>
+        <span aria-live="polite" className={clsx("gp-profile-copy-status", status === "copied" ? "is-success" : "is-error")}>
           {getClipboardLabel(status)}
         </span>
       )}
@@ -81,40 +81,40 @@ export const ProfilePanel = React.memo(({
   onToggleDescription,
   website,
 }: ProfilePanelProps) => (
-  <div className="gp-sidebar-section" style={{ borderTop: "1px solid rgba(42, 46, 57, 0.5)", marginTop: "12px", paddingTop: "16px", borderBottom: "none" }}>
-    <div className="gp-sidebar-header" style={{ marginBottom: "12px" }}>
-      <span className="gp-sidebar-title" style={{ fontSize: "14px", fontWeight: 700, color: "#d1d4dc" }}>Profile</span>
+  <div className="gp-sidebar-section gp-profile-section">
+    <div className="gp-sidebar-header gp-profile-header">
+      <span className="gp-sidebar-title gp-profile-title">Profile</span>
     </div>
     {isLoading ? (
       <ProfileSkeleton />
     ) : (
       <>
         <div className="d-flex flex-column gap-2 mb-3">
-          <div className="d-flex justify-content-between align-items-center">
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>Website</span>
+          <div className="gp-profile-row">
+            <span className="gp-profile-label">Website</span>
             {website ? (
-              <a href={website} target="_blank" rel="noopener noreferrer" className="d-flex align-items-center gap-1" style={{ fontSize: "12px", color: "#f1f5f9", fontWeight: 600, textDecoration: "none" }}>
+              <a href={website} target="_blank" rel="noopener noreferrer" className="gp-profile-link">
                 {website.replace(/^https?:\/\/|www\./g, "").split("/")[0]}
-                <i className="bi bi-box-arrow-up-right" style={{ fontSize: "10px" }} aria-hidden="true" />
+                <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
               </a>
             ) : (
-              <span style={{ fontSize: "12px", color: "#f1f5f9", fontWeight: 700 }}>N/A</span>
+              <span className="gp-profile-value">N/A</span>
             )}
           </div>
-          <div className="d-flex justify-content-between align-items-center">
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>Employees (FY)</span>
-            <span style={{ fontSize: "12px", color: "#f1f5f9", fontWeight: 700 }}>{employees || "N/A"}</span>
+          <div className="gp-profile-row">
+            <span className="gp-profile-label">Employees (FY)</span>
+            <span className="gp-profile-value">{employees || "N/A"}</span>
           </div>
           <IdentifierRow disabled={!isin} getClipboardLabel={getClipboardLabel} label="ISIN" onCopy={() => onCopyIdentifier("isin", isin)} status={clipboardStatus.isin} value={isin} />
           <IdentifierRow disabled={!figi} getClipboardLabel={getClipboardLabel} label="FIGI" onCopy={() => onCopyIdentifier("figi", figi)} status={clipboardStatus.figi} value={figi} />
         </div>
         <div style={{ position: "relative" }}>
-          <p style={{ fontSize: "12px", lineHeight: "1.5", color: "#94a3b8", margin: 0, display: "-webkit-box", WebkitLineClamp: isDescriptionExpanded ? "none" : "4", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <p className={clsx("gp-profile-description", !isDescriptionExpanded && "is-clamped")}>
             {description || "Description de l'entreprise non disponible."}
           </p>
           <div className="d-flex justify-content-center mt-2">
-            <button type="button" aria-label={isDescriptionExpanded ? "Réduire la description du profil" : "Développer la description du profil"} title={isDescriptionExpanded ? "Réduire la description" : "Développer la description"} onClick={onToggleDescription} style={{ background: "rgba(255,255,255,0.05)", border: "none", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#f1f5f9" }}>
-              <i className={clsx("bi", isDescriptionExpanded ? "bi-chevron-up" : "bi-chevron-down")} style={{ fontSize: "12px" }} />
+            <button type="button" aria-label={isDescriptionExpanded ? "Réduire la description du profil" : "Développer la description du profil"} title={isDescriptionExpanded ? "Réduire la description" : "Développer la description"} onClick={onToggleDescription} className="gp-profile-toggle">
+              <i className={clsx("bi", isDescriptionExpanded ? "bi-chevron-up" : "bi-chevron-down")} aria-hidden="true" />
             </button>
           </div>
         </div>

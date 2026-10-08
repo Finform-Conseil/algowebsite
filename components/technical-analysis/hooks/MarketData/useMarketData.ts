@@ -373,6 +373,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
   const historyCurrentPageRef = useRef(1);
   const historyLoadInFlightRef = useRef(false);
   const historyExhaustedRef = useRef(false);
+  const historyBoundaryNoticeScopeRef = useRef("");
   const historyTotalPagesRef = useRef<number | null>(null);
   const resolvedActionRef = useRef<ActionEntity | null>(null);
   const chartDataSymbolRef = useRef("");
@@ -473,6 +474,28 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       console.warn(`[MarketData] Unable to resolve full history bounds for ${ticker}:`, error);
     });
   }, [forcedIsin, marketScope, requestedTimeframe, requestedTimeframeSeconds]);
+
+  const notifyHistoryBoundaryLimit = useCallback((ticker: string, boundaryDateOverride?: string) => {
+    const boundaryDate = boundaryDateOverride
+      ?? historyDateBounds?.minDate
+      ?? String(chartDataRef.current[0]?.time ?? "");
+    const boundaryTimestamp = Date.parse(boundaryDate);
+    const boundaryLabel = Number.isFinite(boundaryTimestamp)
+      ? new Date(boundaryTimestamp).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })
+      : boundaryDate;
+    const noticeKey = `${historyScopeKeyRef.current}:${boundaryDate}`;
+    if (historyBoundaryNoticeScopeRef.current === noticeKey) return;
+
+    historyBoundaryNoticeScopeRef.current = noticeKey;
+    addNotificationRef.current({
+      title: "Début des données disponibles",
+      message: boundaryLabel
+        ? `${ticker} : l’API ne fournit aucune bougie antérieure au ${boundaryLabel}.`
+        : `${ticker} : aucune bougie plus ancienne n’est disponible via l’API.`,
+      type: "info",
+      iconType: "faInfoCircle",
+    });
+  }, [historyDateBounds]);
 
   useEffect(() => {
     if (mode !== "real" || !symbol || !isMounted.current) return;
@@ -864,6 +887,8 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       const knownTotalPages = historyTotalPagesRef.current;
       if (incomingSeries.length === 0 || (knownTotalPages !== null && page >= knownTotalPages)) {
         historyExhaustedRef.current = true;
+        const terminalPageBounds = resolveChartDataDateBounds(incomingSeries);
+        notifyHistoryBoundaryLimit(upperTicker, terminalPageBounds?.minDate);
       }
 
       const baseSeries = chartDataSymbolRef.current === upperTicker ? chartDataRef.current : [];
@@ -879,13 +904,18 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
     } catch (error: unknown) {
       console.warn(`[MarketData] History page fetch failed for ${upperTicker}:`, error);
     }
-  }, [commitChartSeries, forcedIsin, marketScope, requestedTimeframe, requestedTimeframeSeconds]);
+  }, [commitChartSeries, forcedIsin, marketScope, notifyHistoryBoundaryLimit, requestedTimeframe, requestedTimeframeSeconds]);
 
   const requestMoreHistory = useCallback((direction: "left" | "right" = "left") => {
-    if (direction !== "left" || historyLoadInFlightRef.current || historyExhaustedRef.current || !isMounted.current) return;
+    if (direction !== "left" || historyLoadInFlightRef.current || !isMounted.current) return;
     const historyTicker = symbolRef.current;
     const historyMarketScope = marketScopeRef.current;
     if (!historyTicker) return;
+
+    if (historyExhaustedRef.current) {
+      notifyHistoryBoundaryLimit(historyTicker);
+      return;
+    }
 
     const isActiveHistoryRequest = () =>
       isMounted.current &&
@@ -925,7 +955,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
           historyLoadInFlightRef.current = false;
         }
       });
-  }, [loadMarketData, loadMarketDataPage]);
+  }, [loadMarketData, loadMarketDataPage, notifyHistoryBoundaryLimit]);
 
   requestMoreHistoryRef.current = requestMoreHistory;
 
@@ -1027,6 +1057,7 @@ export const useMarketData = (mode: DataMode = "real", forcedSymbol?: string, fo
       historyLimitRef.current = OHLCV_PAGE_SIZE;
       historyCurrentPageRef.current = 1;
       historyExhaustedRef.current = false;
+      historyBoundaryNoticeScopeRef.current = "";
       historyTotalPagesRef.current = null;
       historyLoadInFlightRef.current = false;
       pendingHistorySeriesRef.current = null;

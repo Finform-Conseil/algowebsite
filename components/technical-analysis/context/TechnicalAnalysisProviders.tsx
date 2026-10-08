@@ -142,6 +142,25 @@ const normalizeDisplaySymbol = (value: string | undefined, fallback: string): st
   return symbol || fallback;
 };
 
+const resolveActiveTickerSymbol = ({
+  isMultiChartMode,
+  layoutSymbol,
+  chartConfigSymbol,
+  selectedTickerSymbol,
+  preferredTicker,
+}: {
+  isMultiChartMode: boolean;
+  layoutSymbol?: string;
+  chartConfigSymbol?: string;
+  selectedTickerSymbol?: string;
+  preferredTicker?: string | null;
+}): string => {
+  const candidate = isMultiChartMode
+    ? layoutSymbol
+    : chartConfigSymbol || selectedTickerSymbol || preferredTicker || undefined;
+  return normalizeDisplaySymbol(candidate, "");
+};
+
 const buildAnonymousInitials = (pseudo: string): string => {
   const cleaned = pseudo.trim();
   if (!cleaned) return "AN";
@@ -244,6 +263,7 @@ const ChartRefsProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dataMode = useSelector(selectDataMode);
   const activeMarket = useSelector(selectActiveMarket);
+  const chartConfig = useSelector(selectChartConfig, shallowEqual);
   const uiState = useSelector(selectUiState);
   const { selectedTicker, preferredTicker } = useTickerSelector();
   const activeLayoutCell = uiState.multiChartLayout.charts.find(
@@ -261,7 +281,13 @@ const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const layoutMarket = isMultiChartMode && canDriveEquityProvider
     ? activeLayoutCell?.exchange.trim().toUpperCase() ?? ""
     : "";
-  const activeTicker = layoutSymbol || selectedTicker?.ticker || preferredTicker || undefined;
+  const activeTicker = resolveActiveTickerSymbol({
+    isMultiChartMode,
+    layoutSymbol,
+    chartConfigSymbol: chartConfig.symbol,
+    selectedTickerSymbol: selectedTicker?.ticker,
+    preferredTicker,
+  }) || undefined;
   const activeMarketScope = layoutMarket || activeMarket.ticker;
   const marketData = useMarketData(dataMode, activeTicker, undefined, activeMarketScope);
   return <MarketDataContext.Provider value={marketData}>{children}</MarketDataContext.Provider>;
@@ -284,13 +310,13 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     && uiState.multiChartLayout.charts.length > 1;
 
   const security = useMemo<BRVMSecurity>(() => {
-    const expectedTicker = String(
-      (isMultiChartMode ? activeLayoutCell?.symbol : "")
-        || selectedTicker?.ticker
-        || preferredTicker
-        || chartConfig.symbol
-        || "",
-    ).trim().toUpperCase();
+    const expectedTicker = resolveActiveTickerSymbol({
+      isMultiChartMode,
+      layoutSymbol: activeLayoutCell?.symbol,
+      chartConfigSymbol: chartConfig.symbol,
+      selectedTickerSymbol: selectedTicker?.ticker,
+      preferredTicker,
+    });
     const action = currentActionByTickerData;
     const actionTicker = String(action?.ticker ?? "").trim().toUpperCase();
 
@@ -401,8 +427,14 @@ const ChartStateProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const userInitials = useMemo(() => (isAnonyme ? buildAnonymousInitials(selectedPseudo) : "DA"), [isAnonyme, selectedPseudo]);
   const displaySymbolName = useMemo(
-    () => normalizeDisplaySymbol(chartConfig.symbol || selectedTicker?.ticker || preferredTicker || security.ticker, ""),
-    [chartConfig.symbol, preferredTicker, security.ticker, selectedTicker?.ticker]
+    () => resolveActiveTickerSymbol({
+      isMultiChartMode,
+      layoutSymbol: activeLayoutCell?.symbol,
+      chartConfigSymbol: chartConfig.symbol,
+      selectedTickerSymbol: selectedTicker?.ticker,
+      preferredTicker,
+    }) || normalizeDisplaySymbol(security.ticker, ""),
+    [activeLayoutCell?.symbol, chartConfig.symbol, isMultiChartMode, preferredTicker, security.ticker, selectedTicker?.ticker]
   );
   const [isMainChartVisible, setIsMainChartVisible] = React.useState(true);
 

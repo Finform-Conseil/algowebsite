@@ -1,8 +1,9 @@
 import React from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { BRVMNewsItem } from "../data/sidebarFetchers";
 
 interface SidebarNewsPanelProps {
+  exchange: string;
   activeNews: BRVMNewsItem | null;
   isLoading: boolean;
   newsKey: number;
@@ -23,8 +24,21 @@ const SidebarNewsSkeleton = () => (
   </div>
 );
 
-const formatNewsDate = (date: string) => {
+const formatNewsDate = (value: string) => {
+  const date = value.trim();
   if (date.toLowerCase() === "aujourd'hui") return "Aujourd'hui";
+
+  // Official feeds use ISO 8601, RSS feeds use RFC 2822. Both must display
+  // as one compact, legible date inside the fixed-height 70px news card.
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T|\s|$)/.exec(date);
+  const parsed = iso
+    ? new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])))
+    : new Date(date);
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+    }).format(parsed);
+  }
   return date.charAt(0).toUpperCase() + date.slice(1);
 };
 
@@ -41,77 +55,67 @@ const formatNewsTitle = (title: string) => {
     .replace(/bceao/g, "BCEAO");
 };
 
-const NEWS_CARD_TRANSITION = {
-  duration: 0.34,
-  ease: [0.22, 1, 0.36, 1],
-} as const;
-
-const NEWS_CARD_VIEWPORT_STYLE: React.CSSProperties = {
-  overflow: "hidden",
-  minHeight: "70px",
-  position: "relative",
-  marginTop: "12px",
-  marginBottom: "12px",
-  borderRadius: "8px",
-  perspective: "420px",
-};
-
-const NEWS_CARD_STYLE: React.CSSProperties = {
-  cursor: "pointer",
-  position: "absolute",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  padding: "8px 12px",
-  background: "rgba(139, 92, 246, 0.1)",
-  border: "1px solid rgba(139, 92, 246, 0.2)",
-  borderRadius: "8px",
-  textDecoration: "none",
-  transformStyle: "preserve-3d",
-  transformOrigin: "center right",
-  backfaceVisibility: "hidden",
-  willChange: "transform, opacity",
+const getNewsPublisherDomain = (link: string): string | null => {
+  try {
+    const url = new URL(link);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.hostname.replace(/^www\./i, "").toLowerCase() || null;
+  } catch {
+    return null;
+  }
 };
 
 export const SidebarNewsPanel = React.memo(({
+  exchange,
   activeNews,
   isLoading,
   newsKey,
   onHoverChange,
-}: SidebarNewsPanelProps) => (
+}: SidebarNewsPanelProps) => {
+  const reduceMotion = useReducedMotion();
+  const declaredPublisher = activeNews?.sourceDomain?.trim().toLowerCase();
+  const publisherDomain = declaredPublisher && /^[a-z0-9.-]+$/.test(declaredPublisher)
+    ? declaredPublisher
+    : activeNews ? getNewsPublisherDomain(activeNews.link) : null;
+  const hasLink = Boolean(publisherDomain);
+  return (
   <div
     className="gp-sidebar-news-container"
     onMouseEnter={() => onHoverChange(true)}
     onMouseLeave={() => onHoverChange(false)}
-    style={NEWS_CARD_VIEWPORT_STYLE}
   >
-    {isLoading || !activeNews ? (
+    {isLoading ? (
       <SidebarNewsSkeleton />
-    ) : activeNews ? (
+    ) : !activeNews ? (
+      <div className="gp-sidebar-news-empty" role="status"><i className="bi bi-newspaper" aria-hidden="true" /><span>Aucune actualité {exchange.toUpperCase()} disponible</span></div>
+    ) : (
       <AnimatePresence mode="wait" initial={false}>
         <motion.a
           key={`${newsKey}-${activeNews.link}`}
-          href={activeNews.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          initial={{ opacity: 0, x: 42, rotateY: -18, scale: 0.94 }}
+          href={hasLink ? activeNews.link : undefined}
+          target={hasLink ? "_blank" : undefined}
+          rel={hasLink ? "noopener noreferrer" : undefined}
+          aria-disabled={!hasLink}
+          tabIndex={hasLink ? 0 : -1}
+          title={exchange.toUpperCase() === "BRVM" ? formatNewsTitle(activeNews.title) : activeNews.title}
+          className="gp-sidebar-news-card"
+          initial={reduceMotion ? false : { opacity: 0, x: 42, rotateY: -18, scale: 0.94 }}
           animate={{ opacity: 1, x: 0, rotateY: 0, scale: 1 }}
-          exit={{ opacity: 0, x: -42, rotateY: 18, scale: 0.94 }}
-          transition={NEWS_CARD_TRANSITION}
-          style={NEWS_CARD_STYLE}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -42, rotateY: 18, scale: 0.94 }}
+          transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%" }}>
-            <i className="bi bi-lightning-fill" style={{ fontSize: "1.2rem", color: "#8b5cf6", flexShrink: 0 }} />
-            <div style={{ fontSize: "0.75rem", lineHeight: "1.25", color: "#f1f5f9", flex: 1, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-              <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "#a78bfa", textTransform: "uppercase", marginRight: "4px" }}>{formatNewsDate(activeNews.date)} •</span>
-              {formatNewsTitle(activeNews.title)}
-            </div>
-            <i className="bi bi-chevron-right" style={{ fontSize: "0.9rem", opacity: 0.7, color: "#94a3b8", flexShrink: 0 }} />
-          </div>
+          <span className="gp-sidebar-news-card__signal" aria-hidden="true"><i className="bi bi-lightning-charge-fill" /></span>
+          <span className="gp-sidebar-news-card__body">
+            <span className="gp-sidebar-news-card__meta"><span className="gp-sidebar-news-card__source">{exchange.toUpperCase()}</span><span aria-hidden="true">·</span><span>{formatNewsDate(activeNews.date)}</span></span>
+            <span className="gp-sidebar-news-card__title">{exchange.toUpperCase() === "BRVM" ? formatNewsTitle(activeNews.title) : activeNews.title}</span>
+            {publisherDomain && <span className="gp-sidebar-news-card__publisher" title={`Site source : ${publisherDomain}`}><span className="gp-sidebar-news-card__publisher-label">Source ·</span><span className="gp-sidebar-news-card__publisher-domain">{publisherDomain}</span></span>}
+          </span>
+          <span className="gp-sidebar-news-card__action" aria-hidden="true"><i className="bi bi-chevron-right" /></span>
         </motion.a>
       </AnimatePresence>
-    ) : null}
+    )}
   </div>
-));
+  );
+});
 
 SidebarNewsPanel.displayName = "SidebarNewsPanel";

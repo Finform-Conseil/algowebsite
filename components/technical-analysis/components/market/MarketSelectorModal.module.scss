@@ -14,17 +14,29 @@
   animation: marketOverlayEnter 180ms ease-out both;
 }
 
+.dialog,
+.content {
+  --market-accent: var(--accent-gold);
+  --market-positive: var(--positive-color);
+  --market-text-primary: var(--text-primary);
+  --market-text-secondary: var(--text-secondary);
+  --market-text-muted: var(--text-muted);
+  --market-border: var(--border-subtle);
+  --market-surface-card: color-mix(in srgb, var(--surface-card) 82%, var(--surface-inset) 18%);
+  --market-surface-card-hover: color-mix(in srgb, var(--surface-card) 90%, var(--surface-inset) 10%);
+}
+
 .dialog {
   width: min(100%, 720px);
   max-height: min(82vh, 760px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  color: var(--gp-text-primary, #f8f9fa);
-  background: linear-gradient(145deg, #102f50 0%, #0a203c 58%, #081a31 100%);
-  border: 1px solid rgba(125, 173, 218, 0.28);
-  border-radius: 20px;
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  color: var(--market-text-primary);
+  background: var(--surface-modal);
+  border: 1px solid var(--market-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
   animation: marketDialogEnter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -34,7 +46,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 24px 26px 20px;
-  border-bottom: 1px solid rgba(125, 173, 218, 0.18);
+  border-bottom: 1px solid color-mix(in srgb, var(--market-border) 58%, transparent);
 }
 
 .headerCopy {
@@ -42,7 +54,7 @@
 
   h2 {
     margin: 6px 0 0;
-    color: #f8fbff;
+    color: var(--market-text-primary);
     font-size: clamp(20px, 2.4vw, 26px);
     font-weight: 750;
     letter-spacing: -0.025em;
@@ -51,7 +63,7 @@
   p {
     max-width: 430px;
     margin: 8px 0 0;
-    color: #9db2cb;
+    color: var(--market-text-secondary);
     font-size: 12px;
     line-height: 1.55;
   }
@@ -59,7 +71,7 @@
 
 .eyebrow {
   display: inline-flex;
-  color: var(--gp-accent-gold, #ffb31a);
+  color: var(--market-accent);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.14em;
@@ -78,10 +90,10 @@
   align-items: center;
   gap: 7px;
   padding: 7px 10px;
-  color: #f8fbff;
-  background: rgba(12, 30, 54, 0.76);
-  border: 1px solid rgba(255, 179, 26, 0.48);
-  border-radius: 999px;
+  color: var(--market-text-primary);
+  background: color-mix(in srgb, var(--surface-inset) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--market-accent) 48%, transparent);
+  border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 750;
   letter-spacing: 0.05em;
@@ -92,9 +104,9 @@
   width: 7px;
   height: 7px;
   display: inline-block;
-  border-radius: 50%;
-  background: #35e57f;
-  box-shadow: 0 0 0 4px rgba(53, 229, 127, 0.12);
+  border-radius: var(--radius-full);
+  background: var(--market-positive);
+  box-shadow: none;
 }
 
 .closeButton {
@@ -102,12 +114,12 @@
   height: 36px;
   display: grid;
   place-items: center;
-  color: #b7c8dc;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(125, 173, 218, 0.26);
-  border-radius: 10px;
+  color: var(--market-text-secondary);
+  background: color-mix(in srgb, var(--surface-elevated) 68%, transparent);
+  border: 1px solid color-mix(in srgb, var(--market-border) 72%, transparent);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
 
   span {
     margin-top: -2px;
@@ -117,14 +129,13 @@
   }
 
   &:hover {
-    color: #fff;
-    background: rgba(255, 159, 4, 0.13);
-    border-color: rgba(255, 179, 26, 0.7);
-    transform: rotate(5deg);
+    color: var(--market-text-primary);
+    background: var(--surface-elevated);
+    border-color: var(--market-border);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--gp-accent-gold, #ffb31a);
+    outline: 2px solid var(--focus-ring-color);
     outline-offset: 3px;
   }
 }
@@ -134,9 +145,9 @@
   align-items: center;
   gap: 9px;
   padding: 10px 26px;
-  color: #9db2cb;
-  background: rgba(5, 19, 37, 0.38);
-  border-bottom: 1px solid rgba(125, 173, 218, 0.14);
+  color: var(--market-text-secondary);
+  background: color-mix(in srgb, var(--surface-inset) 38%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--market-border) 46%, transparent);
   font-size: 11px;
 
   .syncPulse {
@@ -151,7 +162,7 @@
   overflow-y: auto;
   padding: 22px 26px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(141, 174, 207, 0.48) transparent;
+  scrollbar-color: color-mix(in srgb, var(--market-text-muted) 48%, transparent) transparent;
 }
 
 .marketGrid {
@@ -167,32 +178,31 @@
   align-items: center;
   gap: 12px;
   padding: 13px;
-  color: #f5f9ff;
+  color: var(--market-text-primary);
   text-align: left;
-  background: rgba(19, 52, 84, 0.68);
-  border: 1px solid rgba(125, 173, 218, 0.2);
-  border-radius: 14px;
+  background: var(--market-surface-card);
+  border: 1px solid color-mix(in srgb, var(--market-border) 72%, transparent);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   animation: marketCardReveal 460ms cubic-bezier(0.22, 1, 0.36, 1) var(--market-delay) both;
-  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 
   &:hover {
-    background: rgba(28, 69, 106, 0.85);
-    border-color: rgba(255, 179, 26, 0.62);
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
-    transform: translateY(-2px);
+    background: var(--market-surface-card-hover);
+    border-color: var(--market-border);
+    box-shadow: none;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--gp-accent-gold, #ffb31a);
+    outline: 2px solid var(--focus-ring-color);
     outline-offset: 3px;
   }
 }
 
 .marketCardActive {
-  background: linear-gradient(135deg, rgba(255, 159, 4, 0.17), rgba(22, 64, 99, 0.78));
-  border-color: rgba(255, 179, 26, 0.92);
-  box-shadow: 0 0 0 1px rgba(255, 179, 26, 0.18), 0 12px 30px rgba(255, 159, 4, 0.1);
+  background: var(--surface-elevated);
+  border-color: color-mix(in srgb, var(--market-accent) 46%, var(--market-border) 54%);
+  box-shadow: none;
 }
 
 .marketLogoFrame {
@@ -204,8 +214,8 @@
   overflow: hidden;
   background: #f7f9fc;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 14px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
 }
 
 .marketLogo {
@@ -236,7 +246,7 @@
 
 .marketTicker {
   overflow: hidden;
-  color: #f8fbff;
+  color: var(--market-text-primary);
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -246,7 +256,7 @@
 
 .marketName {
   overflow: hidden;
-  color: #9db2cb;
+  color: var(--market-text-secondary);
   font-size: 11px;
   line-height: 1.3;
   text-overflow: ellipsis;
@@ -263,17 +273,17 @@
 
 .currencyPill {
   padding: 5px 8px;
-  color: #ffd166;
-  background: rgba(255, 179, 26, 0.12);
-  border: 1px solid rgba(255, 179, 26, 0.28);
-  border-radius: 999px;
+  color: color-mix(in srgb, var(--market-accent) 76%, var(--market-text-primary) 24%);
+  background: color-mix(in srgb, var(--market-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--market-accent) 28%, transparent);
+  border-radius: var(--radius-full);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
 
 .activeCheck {
-  color: #35e57f;
+  color: var(--market-positive);
   font-size: 13px;
   font-weight: 900;
 }
@@ -285,11 +295,11 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  color: #9db2cb;
+  color: var(--market-text-secondary);
   text-align: center;
 
   strong {
-    color: #f5f9ff;
+    color: var(--market-text-primary);
     font-size: 15px;
   }
 
@@ -306,10 +316,10 @@
   display: grid;
   place-items: center;
   margin-bottom: 6px;
-  color: #ffd166;
-  background: rgba(255, 179, 26, 0.12);
-  border: 1px solid rgba(255, 179, 26, 0.3);
-  border-radius: 50%;
+  color: color-mix(in srgb, var(--market-accent) 76%, var(--market-text-primary) 24%);
+  background: color-mix(in srgb, var(--market-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--market-accent) 30%, transparent);
+  border-radius: var(--radius-full);
   font-size: 19px;
   font-weight: 800;
 }
@@ -328,9 +338,9 @@
   align-items: center;
   gap: 12px;
   padding: 13px;
-  background: rgba(19, 52, 84, 0.52);
-  border: 1px solid rgba(125, 173, 218, 0.12);
-  border-radius: 14px;
+  background: color-mix(in srgb, var(--market-surface-card) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--market-border) 34%, transparent);
+  border-radius: calc(var(--radius-lg) + 2px);
 }
 
 .skeletonLogo,
@@ -338,7 +348,7 @@
 .skeletonLineShort,
 .skeletonPill {
   display: block;
-  background: linear-gradient(100deg, rgba(139, 174, 209, 0.12) 25%, rgba(184, 211, 238, 0.3) 45%, rgba(139, 174, 209, 0.12) 65%);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--market-text-muted) 12%, transparent) 25%, color-mix(in srgb, var(--market-text-secondary) 30%, transparent) 45%, color-mix(in srgb, var(--market-text-muted) 12%, transparent) 65%);
   background-size: 240% 100%;
   animation: skeletonShimmer 1.35s ease-in-out infinite;
 }
@@ -347,7 +357,7 @@
   width: 44px;
   height: 44px;
   flex: 0 0 44px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 .skeletonCopy {
@@ -358,20 +368,20 @@
 .skeletonLine {
   width: 72%;
   height: 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .skeletonLineShort {
   width: 94%;
   height: 8px;
   margin-top: 9px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .skeletonPill {
   width: 34px;
   height: 20px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 
 .footer {
@@ -379,14 +389,14 @@
   align-items: center;
   gap: 8px;
   padding: 14px 26px 16px;
-  color: #7f96b0;
-  border-top: 1px solid rgba(125, 173, 218, 0.18);
+  color: var(--market-text-muted);
+  border-top: 1px solid color-mix(in srgb, var(--market-border) 58%, transparent);
   font-size: 10px;
   line-height: 1.4;
 }
 
 .apiIndicator {
-  color: #35e57f;
+  color: var(--market-positive);
   font-size: 15px;
 }
 
@@ -417,7 +427,7 @@
 
 @media (max-width: 640px) {
   .overlay { padding: 20px 12px; }
-  .dialog { max-height: 92vh; border-radius: 16px; }
+  .dialog { max-height: 92vh; border-radius: var(--radius-lg); }
   .header { padding: 20px 18px 17px; }
   .headerActions { gap: 6px; }
   .activeBadge { padding-inline: 8px; }

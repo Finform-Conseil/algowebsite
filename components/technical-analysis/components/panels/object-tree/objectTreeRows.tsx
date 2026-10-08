@@ -101,6 +101,7 @@ export const DrawingRow: React.FC<DrawingRowProps> = ({
           event.stopPropagation();
           onVisibilityToggle(drawing.id, !drawing.hidden);
         }}
+        className="gp-object-tree-row-action"
         style={iconBtnStyle}
       >
         <i className={`bi ${drawing.hidden ? "bi-eye-slash" : "bi-eye"}`} />
@@ -114,6 +115,7 @@ export const DrawingRow: React.FC<DrawingRowProps> = ({
           event.stopPropagation();
           onLockToggle(drawing.id, !drawing.locked);
         }}
+        className="gp-object-tree-row-action"
         style={iconBtnStyle}
       >
         <i className={`bi ${drawing.locked ? "bi-lock-fill" : "bi-unlock"}`} />
@@ -127,6 +129,7 @@ export const DrawingRow: React.FC<DrawingRowProps> = ({
           event.stopPropagation();
           onDelete(drawing.id);
         }}
+        className="gp-object-tree-row-action"
         style={iconBtnStyle}
         onMouseEnter={(event) => {
           event.currentTarget.style.color = TV.trashHover;
@@ -185,6 +188,7 @@ export const ObjectTreeItemRow: React.FC<ObjectTreeItemRowProps> = ({
           }
           onVisibilityToggle?.(item);
         }}
+        className="gp-object-tree-row-action"
         style={{ ...iconBtnStyle, opacity: 1, cursor: "pointer" }}
       >
         <i className={`bi ${item.visible ? "bi-eye" : "bi-eye-slash"}`} />
@@ -199,6 +203,7 @@ export const ObjectTreeItemRow: React.FC<ObjectTreeItemRowProps> = ({
           event.stopPropagation();
           onRemove?.(item);
         }}
+        className="gp-object-tree-row-action"
         style={{ ...iconBtnStyle, opacity: 1, cursor: "pointer" }}
       >
         <i className="bi bi-trash" />
@@ -223,9 +228,10 @@ export const IconButton: React.FC<IconButtonProps> = ({ icon, title, style, onCl
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      className="gp-object-tree-toolbar-action"
       style={{
         ...toolbarIconBtnStyle,
-        background: (!disabled && (isHovered || active)) ? "rgba(255, 255, 255, 0.08)" : "transparent",
+        background: (!disabled && (isHovered || active)) ? "var(--gp-bg-hover)" : "transparent",
         color: (!disabled && (isHovered || active)) ? TV.tabText : TV.iconBtn,
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.35 : 1,

@@ -1,0 +1,35 @@
+// GENERATED FINFORM DESIGN-TOKEN BRIDGE.
+// Source: algowebsite/styles/abstracts/_tokens.scss
+// Source SHA-256: 3360c91363d341193e9116e95f62a9567ed02a28978a857fed58f6f9a0832194
+// Keep this file semantically aligned with the parent FINFORM token contract.
+
+$transition-fast: 0.2s ease-in-out;
+$transition-medium: 0.3s ease-in-out;
+$transition-slow: 0.5s ease-in-out;
+
+$breakpoint-xs: 480px;
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+$breakpoint-xxl: 1400px;
+
+$spacing-2xs: 0.25rem;
+$spacing-xs: 0.5rem;
+$spacing-sm: 1rem;
+$spacing-md: 1.5rem;
+$spacing-lg: 2rem;
+$spacing-xl: 3rem;
+$spacing-xxl: 4rem;
+
+$border-radius-xs: 0.25rem;
+$border-radius-sm: 0.375rem;
+$border-radius-md: 0.5rem;
+$border-radius-lg: 0.75rem;
+$border-radius-xl: 1rem;
+$border-radius-full: 9999px;
+
+$navbar-height: 64px;
+$tickerbar-height: 36px;
+$header-total-height: 100px;
+$content-height: calc(100vh - #{$header-total-height});

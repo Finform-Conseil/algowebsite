@@ -16,7 +16,44 @@ const compiled = ts.transpileModule(source, {
 const loadedModule = { exports: {} };
 new Function("module", "exports", "require", compiled)(loadedModule, loadedModule.exports, require);
 
-const { anchorLastPaneToFixedTimeAxis, buildPriceVolumePaneLayout } = loadedModule.exports;
+const {
+  anchorLastPaneToFixedTimeAxis,
+  buildPriceVolumePaneLayout,
+  resolveVelaPaneWeightLayout,
+  VELA_PRICE_PANE_HEIGHT_WEIGHT,
+  VELA_STUDY_PANE_HEIGHT_WEIGHT,
+} = loadedModule.exports;
+
+test("Vela pane weights allocate price 3 and every study 1", () => {
+  assert.equal(VELA_PRICE_PANE_HEIGHT_WEIGHT, 3);
+  assert.equal(VELA_STUDY_PANE_HEIGHT_WEIGHT, 1);
+  assert.deepEqual(resolveVelaPaneWeightLayout(100, 0), {
+    mainPaneHeightPercent: 100,
+    studyPaneHeightPercent: 0,
+  });
+  assert.deepEqual(resolveVelaPaneWeightLayout(100, 1), {
+    mainPaneHeightPercent: 75,
+    studyPaneHeightPercent: 25,
+  });
+  assert.deepEqual(resolveVelaPaneWeightLayout(100, 2), {
+    mainPaneHeightPercent: 60,
+    studyPaneHeightPercent: 20,
+  });
+  const three = resolveVelaPaneWeightLayout(100, 3);
+  assert.equal(three.mainPaneHeightPercent, 50);
+  assert.ok(Math.abs(three.studyPaneHeightPercent - (100 / 6)) < 1e-12);
+});
+
+test("Vela pane weights respect configured top/bottom budgets", () => {
+  assert.deepEqual(resolveVelaPaneWeightLayout(90, 1), {
+    mainPaneHeightPercent: 67.5,
+    studyPaneHeightPercent: 22.5,
+  });
+  assert.deepEqual(resolveVelaPaneWeightLayout(Number.NaN, 2), {
+    mainPaneHeightPercent: 0,
+    studyPaneHeightPercent: 0,
+  });
+});
 
 test("single pane uses a fixed time-axis bottom lane instead of percentage whitespace", () => {
   const grids = [{ top: "8%", height: "87%", left: 0, right: 84 }];
@@ -47,7 +84,7 @@ test("invalid or negative axis heights fail safe without creating negative layou
   ]);
 });
 
-test("price + volume peers use a compact 4/71/20 geometry and put time below volume", () => {
+test("Vela-parity volume overlays the price pane and does not create a second grid", () => {
   assert.deepEqual(buildPriceVolumePaneLayout({
     left: 12,
     right: 58,
@@ -55,10 +92,9 @@ test("price + volume peers use a compact 4/71/20 geometry and put time below vol
     timeAxisHeightPx: 28,
   }), {
     grids: [
-      { left: 12, right: 58, top: "4%", height: "71%", containLabel: false },
-      { left: 12, right: 58, top: "75%", height: "auto", containLabel: false, bottom: 28 },
+      { left: 12, right: 58, top: "0%", containLabel: false, bottom: 28, height: "auto" },
     ],
-    visibleTimeAxisIndex: 1,
+    visibleTimeAxisIndex: 0,
   });
 });
 
@@ -70,7 +106,7 @@ test("a price-only peer owns the same fixed time-axis lane", () => {
     timeAxisHeightPx: 28,
   }), {
     grids: [
-      { left: 12, right: 58, top: "4%", height: "auto", containLabel: false, bottom: 28 },
+      { left: 12, right: 58, top: "0%", height: "auto", containLabel: false, bottom: 28 },
     ],
     visibleTimeAxisIndex: 0,
   });

@@ -3,6 +3,7 @@ import { createDefaultMarketMultiChartLayout } from "../config/layout/brvmLayout
 import { createDefaultMovingAverageTrendSignals } from "../config/indicators/movingAverageSeries";
 import { createDefaultPriceVsSmaMetrics } from "../config/indicators/priceVsSmaMetrics";
 import { createDefaultPriceVsEmaMetrics } from "../config/indicators/priceVsEmaMetrics";
+import { FINFORM_SKIN_CONTRACT, VELA_VISUAL_CONTRACT } from "../config/velaVisualContract";
 
 // Default Redux state for the Technical Analysis module.
 // The primary security stays empty until the API-backed selector resolves it.
@@ -195,18 +196,18 @@ export const initialState: TechnicalAnalysisState = {
     verticalGridLines: true,
     horizontalGridLines: true,
     verticalGridLineStyle: "solid",
-    horizontalGridLineStyle: "dashed",
-    gridLineColor: "#334155",
-    verticalGridLineColor: "#334155",
-    horizontalGridLineColor: "#334155",
+    horizontalGridLineStyle: "solid",
+    gridLineColor: FINFORM_SKIN_CONTRACT.gridLine,
+    verticalGridLineColor: FINFORM_SKIN_CONTRACT.gridLine,
+    horizontalGridLineColor: FINFORM_SKIN_CONTRACT.gridLine,
     verticalGridLineOpacity: 1,
     horizontalGridLineOpacity: 1,
-    crosshairColor: "#94a3b8",
+    crosshairColor: VELA_VISUAL_CONTRACT.crosshair,
     watermarkMode: "none",
     watermarkColor: "#475569",
-    scaleTextColor: "#cbd5e1",
-    scaleTextSize: 12,
-    scaleLineColor: "#334155",
+    scaleTextColor: VELA_VISUAL_CONTRACT.text,
+    scaleTextSize: VELA_VISUAL_CONTRACT.fontSize,
+    scaleLineColor: VELA_VISUAL_CONTRACT.border,
     priceScaleMode: "regular",
     priceScalePosition: "right",
     priceScaleInverted: false,
@@ -216,15 +217,15 @@ export const initialState: TechnicalAnalysisState = {
     // Keep the default plot close to the OHLC/status lane. A 10% default created
     // a large dead band above candles on every fresh/reloaded chart and also
     // overrode the renderer's compact canonical fallback.
-    marginTopPercent: 4,
-    marginBottomPercent: 8,
-    rightOffsetBars: 10,
-    upColor: "#00da3c",
-    downColor: "#ec0000",
+    marginTopPercent: 0,
+    marginBottomPercent: 0,
+    rightOffsetBars: VELA_VISUAL_CONTRACT.defaultRightOffsetBars,
+    upColor: VELA_VISUAL_CONTRACT.bullish,
+    downColor: VELA_VISUAL_CONTRACT.bearish,
     backgroundMode: "solid",
-    backgroundColor: "transparent",
-    backgroundGradientTopColor: "#102a43",
-    backgroundGradientBottomColor: "#0b1f33",
+    backgroundColor: FINFORM_SKIN_CONTRACT.solidBackground,
+    backgroundGradientTopColor: FINFORM_SKIN_CONTRACT.gradientTop,
+    backgroundGradientBottomColor: FINFORM_SKIN_CONTRACT.gradientBottom,
     showVolume: true,
     volumeColorMode: "candle-body",
     statusLine: {

@@ -8,8 +8,9 @@ export type ZoomRangeSnapshot = {
   futureBarsFromRightEnd?: number;
 };
 
-export const TV_Y_AXIS_WIDTH = 78;
-export const TV_X_AXIS_HEIGHT = 28;
+// Vela 0.7.2 native axis chrome: AXIS_MASTER_W=64, TIME_AXIS_H=22.
+export const TV_Y_AXIS_WIDTH = 64;
+export const TV_X_AXIS_HEIGHT = 22;
 export const TV_ZOOM_VELOCITY = 0.004;
 export const TV_PRICE_WHEEL_VELOCITY = 0.001;
 export const TV_PRICE_DRAG_VELOCITY = 0.004;
@@ -21,13 +22,15 @@ export const TV_AUTOSCALE_EASE_TAU_MS = 80;
 export const TV_PAN_VELOCITY_BLEND = 0.4;
 export const TV_PAN_FLING_MIN_VELOCITY_PX_PER_MS = 0.04;
 export const TV_PAN_FLING_MAX_AGE_MS = 60;
-export const TV_PAN_STOP_VELOCITY_PX_PER_MS = 0.006;
+export const TV_PAN_STOP_VELOCITY_PX_PER_MS = 0.02;
 export const TV_AUTO_SCALE_PADDING = 0.08;
 export const TV_COMPARE_PRICE_AXIS_DEZOOM_PADDING = 0.22;
-export const TV_MIN_VISIBLE_BARS = 10;
+export const TV_MIN_VISIBLE_BARS = 2;
 export const TV_CURSOR_INFLUENCE = 1.0;
 export const TV_PAN_DRIFT_DAMPING = 1.0;
 export const TV_INITIAL_VISIBLE_BARS = 100;
+export const VELA_DEFAULT_BAR_SPACING_PX = 8;
+export const VELA_DEFAULT_RIGHT_OFFSET_BARS = 6;
 export const TV_RESET_VISIBLE_BARS = 120;
 export const TV_MAX_FUTURE_BARS = 80;
 export const TV_MAX_HISTORY_GAP_BARS = 80;
@@ -54,6 +57,50 @@ export const exponentialApproach = (
   const safeDelta = Math.max(0, Math.min(64, Number.isFinite(deltaMs) ? deltaMs : 0));
   const alpha = 1 - Math.exp(-safeDelta / safeTau);
   return current + ((target - current) * alpha);
+};
+
+export type AutoScaleRange = { min: number; max: number };
+
+export type EasedAutoScaleRange = AutoScaleRange & { moving: boolean };
+
+/**
+ * Vela 0.7.2 autoscale contract: min/max glide in the same animation tick as
+ * viewport motion, using an 80 ms exponential time constant and snapping only
+ * when both bounds are within 0.1% of the target span.
+ */
+export const easeAutoScaleRange = (
+  current: AutoScaleRange | null,
+  target: AutoScaleRange,
+  deltaMs: number,
+  tauMs = TV_AUTOSCALE_EASE_TAU_MS,
+): EasedAutoScaleRange => {
+  if (
+    current === null
+    || !Number.isFinite(current.min)
+    || !Number.isFinite(current.max)
+    || current.min >= current.max
+    || !Number.isFinite(target.min)
+    || !Number.isFinite(target.max)
+    || target.min >= target.max
+  ) {
+    return { min: target.min, max: target.max, moving: false };
+  }
+
+  const span = Math.max(1e-9, Math.abs(target.max - target.min));
+  let min = exponentialApproach(current.min, target.min, deltaMs, tauMs);
+  let max = exponentialApproach(current.max, target.max, deltaMs, tauMs);
+  const epsilon = span * 1e-3;
+
+  if (
+    Math.abs(min - target.min) <= epsilon
+    && Math.abs(max - target.max) <= epsilon
+  ) {
+    min = target.min;
+    max = target.max;
+    return { min, max, moving: false };
+  }
+
+  return { min, max, moving: true };
 };
 
 /** Low-pass pointer velocity: stable enough for a fling without making drag laggy. */
@@ -130,6 +177,38 @@ export const resolveInitialViewportWindow = (
   };
 };
 
+/**
+ * Vela 0.7.2 initial time-scale projection:
+ * rightEdgeLogical = barCount - 1 + rightOffset
+ * leftEdgeLogical  = rightEdgeLogical - plotWidth / barSpacing
+ */
+export const resolveVelaInitialViewportWindow = (
+  totalBars: number,
+  plotWidthPx: number,
+  barSpacingPx = VELA_DEFAULT_BAR_SPACING_PX,
+  rightOffsetBars = VELA_DEFAULT_RIGHT_OFFSET_BARS,
+  fitAllData = false,
+): ViewportWindow => {
+  if (totalBars <= 1) return { startIdx: 0, endIdx: 0 };
+  if (!(plotWidthPx > 0) || !(barSpacingPx > 0)) return resolveInitialViewportWindow(totalBars);
+
+  const rightEdgeLogical = totalBars - 1 + Math.max(0, rightOffsetBars);
+  const leftEdgeLogical = fitAllData
+    ? 0
+    : Math.max(0, rightEdgeLogical - (plotWidthPx / barSpacingPx));
+
+  // Synthetic history space is interaction-only. The initial viewport must never
+  // begin before the first real candle; otherwise ECharts renders a blank lane on
+  // the left and makes loaded historical candles look missing.
+  return clampViewportWindowWithFuture(
+    leftEdgeLogical,
+    rightEdgeLogical,
+    totalBars,
+    TV_MAX_FUTURE_BARS,
+    Math.max(0, Math.round(rightOffsetBars)),
+  );
+};
+
 export const getViewportSpanBounds = (totalBars: number) => {
   const maxSpan = Math.max(1, totalBars - 1);
   const minSpan = Math.min(TV_MIN_VISIBLE_BARS, maxSpan);
@@ -202,7 +281,10 @@ export const clampViewportWindowWithFuture = (
     start = Math.max(0, end - span);
   }
 
-  return { startIdx: Math.round(start), endIdx: Math.round(end) };
+  // Keep logical viewport coordinates continuous. Vela operates on fractional
+  // logical positions (barSpacing/rightOffset); rounding here quantizes every pan,
+  // wheel and pinch to whole candles and is perceived as visual jumping.
+  return { startIdx: start, endIdx: end };
 };
 
 export const reconcileViewportAfterHistoryPrepend = ({
@@ -280,9 +362,10 @@ export const computeDirectionalZoomViewport = ({
 export type PriceAxisViewport = { yScale: number; yPan: number };
 
 /**
- * Canonical TradingView-like price-axis wheel scaling shared by single and
- * multi-chart renderers. The price under the cursor remains anchored while the
- * scale changes, which prevents the axis from visually drifting during zoom.
+ * Vela 0.7.2 price-axis wheel contract.
+ * InputController forwards deltaY * 0.25 to priceScaleBy(); PriceScale then
+ * applies PRICE_SCALE_K=0.004 around the manual range center. No cursor drift,
+ * wheel normalization or synthetic offset is injected.
  */
 export const computePriceAxisWheelViewport = ({
   center,
@@ -301,20 +384,21 @@ export const computePriceAxisWheelViewport = ({
   gridHeight: number;
   wheelDeltaY: number;
 }): PriceAxisViewport => {
-  const safeBaseRange = Math.max(Number.EPSILON, Math.abs(baseRange));
-  const safeScale = clamp(Number.isFinite(yScale) ? yScale : 1, 0.1, 5);
+  void center;
+  void baseRange;
+  void cursorRatio;
+  void gridHeight;
+  const safeScale = clamp(Number.isFinite(yScale) ? yScale : 1, 0.05, 20);
   const safePan = Number.isFinite(yPan) ? yPan : 0;
-  const ratio = clamp(cursorRatio, 0, 1);
-  const currentRange = safeBaseRange * safeScale;
-  const oldPriceAtCursor = center + safePan + currentRange * (0.5 - ratio);
-  const wheelStep = Math.sign(wheelDeltaY) * Math.min(1, Math.abs(wheelDeltaY) / TV_WHEEL_DELTA_CAP_PX);
-  const nextScale = clamp(safeScale * Math.exp(wheelStep * TV_PRICE_WHEEL_VELOCITY * TV_WHEEL_DELTA_CAP_PX), 0.1, 5);
-  const nextRange = safeBaseRange * nextScale;
-  const shiftedCursorRatio = clamp(ratio + ((15 * wheelStep) / Math.max(1, gridHeight)), 0, 1);
+  const nextScale = clamp(
+    safeScale * Math.exp(wheelDeltaY * 0.25 * TV_PRICE_DRAG_VELOCITY),
+    0.05,
+    20,
+  );
 
   return {
     yScale: nextScale,
-    yPan: oldPriceAtCursor - center - nextRange * (0.5 - shiftedCursorRatio),
+    yPan: safePan,
   };
 };
 
@@ -376,6 +460,7 @@ export const computeTradingViewWheelZoomViewport = ({
   endIdx,
   totalBars,
   deltaY,
+  cursorRatio = 1,
   maxHistoryGapBars = TV_MAX_HISTORY_GAP_BARS,
   maxFutureBars = TV_MAX_FUTURE_BARS,
 }: {
@@ -383,6 +468,7 @@ export const computeTradingViewWheelZoomViewport = ({
   endIdx: number;
   totalBars: number;
   deltaY: number;
+  cursorRatio?: number;
   maxHistoryGapBars?: number;
   maxFutureBars?: number;
 }): ViewportWindow => {
@@ -396,17 +482,58 @@ export const computeTradingViewWheelZoomViewport = ({
   const currentSpan = Math.max(minSpan, Math.min(maxViewportSpan, endIdx - startIdx));
   // A time scale is perceptually linear in bar spacing, not in visible-bar count.
   // Exponential wheel scaling keeps mouse wheels and trackpads consistent.
-  const boundedDeltaY = clamp(deltaY, -TV_WHEEL_DELTA_CAP_PX, TV_WHEEL_DELTA_CAP_PX);
-  const spacingFactor = Math.exp(-boundedDeltaY * TV_ZOOM_VELOCITY);
+  // Vela 0.7.2 InputController consumes the native wheel delta directly.
+  // Trackpads deliberately emit small continuous deltas while mouse wheels emit
+  // larger discrete ones; both feed the same exponential law.
+  const spacingFactor = Math.exp(-deltaY * TV_ZOOM_VELOCITY);
   const targetSpan = clamp(currentSpan / spacingFactor, minSpan, maxViewportSpan);
-  const rightEdge = Number.isFinite(endIdx) ? endIdx : maxSpan;
+  const ratio = clamp(Number.isFinite(cursorRatio) ? cursorRatio : 1, 0, 1);
+  const focusIndex = startIdx + (currentSpan * ratio);
+  const targetStart = focusIndex - (targetSpan * ratio);
 
   return clampViewportWindowWithFuture(
-    rightEdge - targetSpan,
-    rightEdge,
+    targetStart,
+    targetStart + targetSpan,
     totalBars,
     maxFutureBars,
     historyGap,
+  );
+};
+
+/** Vela 0.7.2 pinch contract: distance ratio changes bar spacing while the
+ * logical bar captured at the initial midpoint remains pinned under the live midpoint. */
+export const computeVelaPinchViewport = ({
+  startIdx,
+  endIdx,
+  totalBars,
+  startDistance,
+  currentDistance,
+  anchorLogical,
+  currentMidpointRatio,
+  maxHistoryGapBars = TV_MAX_HISTORY_GAP_BARS,
+  maxFutureBars = TV_MAX_FUTURE_BARS,
+}: {
+  startIdx: number;
+  endIdx: number;
+  totalBars: number;
+  startDistance: number;
+  currentDistance: number;
+  anchorLogical: number;
+  currentMidpointRatio: number;
+  maxHistoryGapBars?: number;
+  maxFutureBars?: number;
+}): ViewportWindow => {
+  const currentSpan = Math.max(TV_MIN_VISIBLE_BARS, endIdx - startIdx);
+  const distanceRatio = Math.max(1e-6, currentDistance) / Math.max(1, startDistance);
+  const targetSpan = currentSpan / distanceRatio;
+  const ratio = clamp(currentMidpointRatio, 0, 1);
+  const targetStart = anchorLogical - (targetSpan * ratio);
+  return clampViewportWindowWithFuture(
+    targetStart,
+    targetStart + targetSpan,
+    totalBars,
+    maxFutureBars,
+    maxHistoryGapBars,
   );
 };
 
