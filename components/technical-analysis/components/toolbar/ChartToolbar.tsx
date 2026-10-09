@@ -23,6 +23,7 @@ import {
   selectActiveMarket,
 } from "../../store/selectors";
 import { LayoutSetupControl } from "./LayoutSetupControl";
+import { ToolbarScrollAffordances } from "./chart/ToolbarScrollAffordances";
 import { FloatingMenu } from "../common/primitives/FloatingMenu";
 import {
   CHART_TYPE_REGISTRY,
@@ -84,6 +85,8 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   onSnapshotCopy,
   onSnapshotOpen,
 }) => {
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const { openLayoutMarketDirectory } = useTickerSelector();
   const chartConfig = useSelector(selectChartConfig);
@@ -439,7 +442,8 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
       {/* ===================================================================== */}
       {/* 2. MIDDLE SECTION (Scrollable & Flexible) */}
       {/* ===================================================================== */}
-      <div
+      <div className="gp-toolbar-scroll-rail gp-toolbar-scroll-rail--middle">
+      <div ref={leftScrollRef}
         id="toolbar-scroll-left"
         className={clsx(
           "gp-toolbar-scroll-wrapper",
@@ -449,12 +453,6 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         // [TENOR 2026 SRE] flex: 1 1 auto allows it to shrink and grow naturally
         style={{ flex: "1 1 auto", minWidth: "0" }}
       >
-        <span className={clsx("scroll-indicator-h", "scroll-indicator-h--left")}>
-          <i className="bi bi-caret-left-fill"></i>
-        </span>
-        <span className={clsx("scroll-indicator-h", "scroll-indicator-h--right")}>
-          <i className="bi bi-caret-right-fill"></i>
-        </span>
 
         <div className={"gp-toolbar-scroll-content"}>
           <button
@@ -608,11 +606,13 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
       </div>
 
       {/* ===================================================================== */}
+      <ToolbarScrollAffordances viewportRef={leftScrollRef} label="Outils du graphique" />
+      </div>
       {/* 3. RIGHT SECTION (Flexible & Collapsible) */}
       {/* ===================================================================== */}
       <div 
-        className="d-flex align-items-center gap-2 flex-shrink-0 flex-nowrap h-100 justify-content-end" 
-        style={{ minWidth: "max-content" }}
+        className="d-flex align-items-center gap-2 flex-nowrap h-100 justify-content-end gp-toolbar-right-section"
+        style={{ minWidth: 0, flex: "0 1 auto" }}
       >
         <button
           type="button"
@@ -631,11 +631,14 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           <strong>{displayedMarketTicker}</strong>
         </button>
 
-        <div className={clsx("gp-toolbar-v-divider", "gp-hide-on-small", "flex-shrink-0")}></div>
+        <div className="gp-toolbar-scroll-rail gp-toolbar-scroll-rail--right">
+        <div ref={rightScrollRef} className="gp-toolbar-scroll-wrapper-right" role="region" aria-label="Actions du graphique, défilement horizontal" tabIndex={0}>
+          <div className="gp-toolbar-scroll-content-right">
+        <div className={clsx("gp-toolbar-v-divider", "flex-shrink-0")}></div>
 
-        {/* Anonyme Toggle (Hidden on small screens to save space) */}
+        {/* Anonyme accessible dans le rail horizontal sur petit écran */}
         <div
-          className={clsx("d-flex align-items-center gap-2 position-relative flex-shrink-0 h-100", "gp-hide-on-small")}
+          className="d-flex align-items-center gap-2 position-relative flex-shrink-0 h-100"
           style={{ cursor: "pointer" }}
         >
           <SettingsToggle
@@ -660,9 +663,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
 
         <div className={clsx("gp-toolbar-v-divider", "flex-shrink-0")}></div>
 
-        {/* Right Scrollable Actions (Save, Load, Settings, Zen) */}
-        <div className={clsx("gp-toolbar-scroll-wrapper-right", "flex-shrink-0")}>
-          <div className={"gp-toolbar-scroll-content-right"}>
+        {/* Actions du graphique, dans le rail partagé */}
             <button
               ref={saveButtonRef}
               type="button"
@@ -759,7 +760,7 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
             <button
               ref={snapshotButtonRef}
               type="button"
-              className={clsx(toolbarSecondaryButtonClassNames, "gp-hide-on-small", isSnapshotMenuOpen && "active")}
+              className={clsx(toolbarSecondaryButtonClassNames, isSnapshotMenuOpen && "active")}
               title="Prendre une capture du graphique"
               aria-label="Prendre une capture du graphique"
               aria-haspopup="menu"
@@ -793,10 +794,8 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
                 <span>Ouvrir dans un nouvel onglet</span>
               </button>
             </FloatingMenu>
-          </div>
-        </div>
 
-        {/* Share Button (Hidden on small screens) */}
+        {/* Partager accessible en fin du rail horizontal */}
         <button
           className={clsx(publishButtonClassNames)}
           title="Partager l’analyse actuelle"
@@ -809,8 +808,11 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
           </span>
           <span className="gp-share-button__label">Partager</span>
         </button>
+          </div>
+        </div>
+        <ToolbarScrollAffordances viewportRef={rightScrollRef} label="Actions du graphique" />
       </div>
-
+      </div>
       {/* PSEUDO DROPDOWN PORTAL/ABSOLUTE */}
       {isPseudoDropdownOpen && (
         <>

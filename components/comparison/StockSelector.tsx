@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ActionEntity } from '@/core/domain/entities/action.entity';
 import { ActionQueryParams } from '@/core/domain/types/action.type';
 import { useActionRepository } from '@/core/infra/repositories/action.repository.impl';
@@ -36,7 +36,7 @@ export default function StockSelector({
     capitalization: "All",
   });
 
-  const getStocksParams = (): ActionQueryParams => {
+  const getStocksParams = useCallback((): ActionQueryParams => {
     const params: ActionQueryParams = { view_type: "screener", page: 1, page_size: 100 };
     
     if (filters.search) params.search = filters.search;
@@ -56,13 +56,13 @@ export default function StockSelector({
     }
     
     return params;
-  };
+  }, [filters]);
   
   const { allActionsData, getAllActions } = useActionRepository();
   
   useEffect(() => {
     getAllActions(getStocksParams());
-  }, [filters]);
+  }, [getAllActions, getStocksParams]);
 
   // Extract unique sectors from API data
   const sectors = useMemo(() => 

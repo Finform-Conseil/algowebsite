@@ -63,7 +63,7 @@ export default function KeyIndicatorsPage() {
       console.log("Loading data for country:", activeCountryId);
       getAllSectorMonetary({ view_type: "country_tree", country_id: activeCountryId });
     }
-  }, [activeCountryId, comparisonMode]);
+  }, [activeCountryId, comparisonMode, getAllSectorMonetary]);
 
   // Load comparison data when countries are selected
   useEffect(() => {

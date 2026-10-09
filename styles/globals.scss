@@ -207,3 +207,5 @@
 // therefore retains component-level authority exactly like the standalone app.
 @include meta.load-css('pages/gsm-native');
 @include meta.load-css('pages/gsm');
+// Route-independent header and mobile drawer loaded after page-specific rules.
+@include meta.load-css('components/shared-navigation');

@@ -163,6 +163,7 @@ export const useMultiChartSync = ({
     layout.activeChartId,
     layout.isEnabled,
     layout.sync.time,
+    layout.sync,
   ]);
 
   // ── CROSSHAIR SYNC ──────────────────────────────────────────────────────

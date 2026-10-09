@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as echarts from 'echarts';
 import '@/styles/components/_technical-analysis-chart.scss';
 
@@ -258,11 +258,11 @@ export default function TechnicalAnalysisChart({
   };
 
   // Convertir data en seriesData si nécessaire (compatibilité)
-  const actualSeriesData: SeriesData[] = seriesData || (data ? [{ 
+  const actualSeriesData: SeriesData[] = useMemo(() => seriesData || (data ? [{
     name: 'OPCVM', 
     data: isOPCVMMetricData(data) ? transformOPCVMData(data) : data as DataPoint[], 
     color: '#3B82F6' 
-  }] : []);
+  }] : []), [seriesData, data]);
 
   useEffect(()=>{
     console.log("Technical Chart Data", { 
@@ -274,7 +274,7 @@ export default function TechnicalAnalysisChart({
   }, [data, seriesData, actualSeriesData]);
   
   // Filter data based on timeframe
-  const getFilteredSeriesData = (): SeriesData[] => {
+  const getFilteredSeriesData = useCallback((): SeriesData[] => {
     if (!actualSeriesData || actualSeriesData.length === 0) {
       console.log('[TechnicalAnalysisChart] getFilteredSeriesData: No actualSeriesData');
       return [];
@@ -334,7 +334,7 @@ export default function TechnicalAnalysisChart({
       
       return { ...series, data: filteredData };
     });
-  };
+  }, [actualSeriesData, timeFrame]);
 
   const addMetric = (metric: MetricType) => {
     if (!selectedMetrics.includes(metric)) {
@@ -748,7 +748,7 @@ export default function TechnicalAnalysisChart({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [actualSeriesData, selectedMetrics, timeFrame]);
+  }, [actualSeriesData, getFilteredSeriesData, selectedMetrics, showToolbox, timeFrame]);
 
   // Cleanup on unmount
   useEffect(() => {

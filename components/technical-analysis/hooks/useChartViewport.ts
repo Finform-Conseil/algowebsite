@@ -479,6 +479,7 @@ export const useChartViewport = ({
     lastPriceAxisValue,
     lastZoomRangeRef,
     priceLevelMarkers,
+    scheduleChartMutation,
   ]);
 
   const scheduleViewportApply = useCallback((mode: ViewportApplyMode = "queued") => {
@@ -641,7 +642,7 @@ export const useChartViewport = ({
     lastDataFirstTimeRef.current = firstTime;
     lastFitInitialDataRef.current = fitInitialData;
     state.lastDataLength = currentLen;
-  }, [chartData, fitInitialData]);
+  }, [chartData, chartInstanceRef, fitInitialData, getChartContainer]);
 
   const completeHistoryPrependCommit = useCallback((committedDataLength: number): boolean => {
     const pendingCommit = historyPrependCommitRef.current;

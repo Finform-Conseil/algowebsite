@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import MultiSelect from "@/components/corporate-events/MultiSelect";
 import { useQueryParams } from "@/core/presenter/hooks/useQueryParams";
@@ -44,7 +44,7 @@ export default function OPCVMScreenerPage() {
     riskRatings: [],
   });
 
-  const getOpcvmParams = (): OpcvmQueryParams => {
+  const getOpcvmParams = useCallback((): OpcvmQueryParams => {
     const params: OpcvmQueryParams = { view_type: "screener", page: currentPage, page_size: 20 };
     
     if (filters.search) params.search = filters.search;
@@ -55,13 +55,13 @@ export default function OPCVMScreenerPage() {
     if (sortBy) params.ordering = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
     
     return params;
-  };
+  }, [filters, sortBy, sortOrder, currentPage]);
   
   const { allOpcvmsData, getAllOpcvms } = useOpcvmRepository();
   
   useEffect(() => {
     getAllOpcvms(getOpcvmParams());
-  }, [filters, sortBy, sortOrder, currentPage]);
+  }, [getAllOpcvms, getOpcvmParams]);
 
   useEffect(() =>
   {

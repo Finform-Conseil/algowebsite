@@ -148,7 +148,7 @@ export default function EquityHomePage() {
 
   const { params: queryParams } = useQueryParams<BourseQueryParams>({ view_type: "treemap", page: 1, page_size: 10 });
   const { allBoursesData, getAllBourses, } = useBourseRepository();
-  useEffect(() => { getAllBourses(queryParams); }, [queryParams]);
+  useEffect(() => { getAllBourses(queryParams); }, [getAllBourses, queryParams]);
 
   useEffect(() => {
     console.log("All Bourses Data", allBoursesData);

@@ -63,7 +63,7 @@ export default function PublicFinancesPage() {
       console.log("Loading data for country:", activeCountryId);
       getAllSectorFinances({ view_type: "country_tree", country_id: activeCountryId });
     }
-  }, [activeCountryId, comparisonMode]);
+  }, [activeCountryId, comparisonMode, getAllSectorFinances]);
 
   // Load comparison data when countries are selected
   useEffect(() => {

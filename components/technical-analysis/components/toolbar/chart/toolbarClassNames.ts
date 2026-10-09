@@ -15,5 +15,4 @@ export const toolbarSecondaryButtonClassNames = [
 export const publishButtonClassNames = [
   "btn btn-sm flex-shrink-0 d-flex align-items-center justify-content-center",
   "btn-publish",
-  "gp-hide-on-small",
 ] as const;

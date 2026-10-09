@@ -175,7 +175,7 @@ export const DrawingSettingsModal: React.FC<DrawingSettingsModalProps> = ({
     if (!isOpen || !dr) return;
 
     setActiveTab((TOOLS_WITH_INPUTS_TAB as readonly string[]).includes(dr.type) ? "inputs" : "style");
-  }, [dr.id, dr.type, isOpen]);
+  }, [dr, isOpen]);
 
   if (!isOpen || !dr) return null;
 

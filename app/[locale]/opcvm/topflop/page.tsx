@@ -17,7 +17,7 @@ export default function OPCVMComparisonReportPage() {
   
   useEffect(() => {
     getTopFlopOpcvms({date_from: startDate, date_to: endDate, bourse_ticker: selectedExchange});
-  }, [startDate, endDate, selectedExchange]);
+  }, [startDate, endDate, selectedExchange, getTopFlopOpcvms]);
 
   useEffect(() =>
   {

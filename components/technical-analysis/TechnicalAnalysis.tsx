@@ -2821,25 +2821,42 @@ const ChartUI: React.FC = () => {
     }
   }, [refs.sidebarRef, setSidebarCollapsed]);
 
+  const mobileSidebarAutoCollapsedRef = useRef(false);
+  const mobileSidebarBreakpointRef = useRef<boolean | null>(null);
+
   useLayoutEffect(() => {
     const sidebarToggle = refs.sidebarToggleRef.current;
     const sidebar = refs.sidebarRef.current;
     if (!sidebarToggle || !sidebar) return;
 
-    const initialSetup = () => updateSidebarState();
+    const syncResponsiveSidebar = () => {
+      const isPhone = window.matchMedia("(max-width: 767px)").matches;
+      if (mobileSidebarBreakpointRef.current !== isPhone) {
+        if (isPhone && !isObjectTreeOpen) {
+          mobileSidebarAutoCollapsedRef.current = !sidebar.classList.contains("sidebar-closed");
+          setSidebarCollapsed(true);
+        } else if (!isPhone && mobileSidebarAutoCollapsedRef.current) {
+          setSidebarCollapsed(false);
+          mobileSidebarAutoCollapsedRef.current = false;
+        }
+        mobileSidebarBreakpointRef.current = isPhone;
+      }
+      updateSidebarState();
+    };
     const handleToggleClick = () => {
+      mobileSidebarAutoCollapsedRef.current = false;
       toggleSidebarCollapsed();
     };
 
-    initialSetup();
+    syncResponsiveSidebar();
     sidebarToggle.addEventListener("click", handleToggleClick);
-    window.addEventListener("resize", initialSetup);
+    window.addEventListener("resize", syncResponsiveSidebar);
 
     return () => {
       sidebarToggle.removeEventListener("click", handleToggleClick);
-      window.removeEventListener("resize", initialSetup);
+      window.removeEventListener("resize", syncResponsiveSidebar);
     };
-  }, [refs, toggleSidebarCollapsed, updateSidebarState]);
+  }, [refs, isObjectTreeOpen, setSidebarCollapsed, toggleSidebarCollapsed, updateSidebarState]);
 
   const drawingInteractionMode = activeTool ? "tool" : cursorMode === "eraser" ? "eraser" : cursorMode === "magic" ? "magic" : drawings.length > 0 ? "selection" : "inactive";
   const isCustomCursorMode = cursorMode === "dot" || cursorMode === "demonstration" || cursorMode === "magic" || cursorMode === "eraser";

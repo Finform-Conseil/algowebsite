@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import LocaleSwitcher from './LocaleSwitcher';
 import CurrencySwitcher from './CurrencySwitcher';
+import NavigationQuickActions from './NavigationQuickActions';
+import NavigationSearchResults from './NavigationSearchResults';
 import { 
   MagnifyingGlass, 
   ChartLine, 
@@ -42,20 +44,31 @@ type SubMenuItem = {
   subItems?: SubMenuItem[];
 };
 
-type NavItem = {
+export type NavItem = {
   label: string;
   icon?: React.ReactNode;
   href?: string;
   items?: SubMenuItem[];
 };
 
-export default function Navbar() {
+export type NavbarConfig = {
+  brandPrefix?: string;
+  brandAccent?: string;
+  brandMark?: string;
+  desktopSearchPlaceholder?: string;
+  drawerSearchTitle?: string;
+  drawerSearchPlaceholder?: string;
+  items?: NavItem[];
+};
+
+export default function Navbar({ config = {} }: { config?: NavbarConfig } = {}) {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [gsmMobileMenuOpen, setGsmMobileMenuOpen] = useState(false);
-  const onGsmRoute = pathname?.split('/').includes('gsm') ?? false;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [drawerSearchOpen, setDrawerSearchOpen] = useState(false);
+  const sharedNavigationEnabled = true; // Shared header and mobile drawer are available on all routes.
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
@@ -108,7 +121,7 @@ export default function Navbar() {
     setNestedSubmenuTimeout(timeout);
   };
 
-  const navItems: NavItem[] = [
+  const defaultNavItems: NavItem[] = [
     {
       href: '#',
       label: t('equity'),
@@ -239,27 +252,29 @@ export default function Navbar() {
     }
   ];
 
+  const navItems = config.items ?? defaultNavItems;
+
   return (
     <nav className="afrimarket-nav">
       <Link href="/" className="nav-logo">
-        <div className="logo-mark">AM</div>
-        <span>Afri<span className="accent">Market</span></span>
+        <div className="logo-mark">{config.brandMark ?? 'AM'}</div>
+        <span>{config.brandPrefix ?? 'Afri'}<span className="accent">{config.brandAccent ?? 'Market'}</span></span>
       </Link>
 
-      {onGsmRoute && (
-        <button type="button" className="gsm-header-search-trigger" aria-label="Ouvrir la recherche" aria-expanded={mobileSearchOpen} aria-controls="global-market-search" onClick={() => setMobileSearchOpen(open => !open)}>
+      {sharedNavigationEnabled && (
+        <button type="button" className="shared-nav-header-search-trigger" aria-label="Ouvrir la recherche" aria-expanded={mobileSearchOpen} aria-controls="global-market-search" onClick={() => setMobileSearchOpen(open => !open)}>
           <MagnifyingGlass size={20} />
         </button>
       )}
-      {onGsmRoute && (
-        <button type="button" className="gsm-mobile-menu-trigger" aria-label="Ouvrir la navigation" aria-expanded={gsmMobileMenuOpen} aria-controls="gsm-mobile-navigation" onClick={() => { setGsmMobileMenuOpen(open => !open); setActiveMenu(null); }}>
-          <span className="gsm-mobile-menu-trigger__label">Menu</span>
-          <span className="gsm-mobile-menu-trigger__glyph" aria-hidden="true"><span /><span /><span /></span>
+      {sharedNavigationEnabled && (
+        <button type="button" className="shared-nav-mobile-menu-trigger" aria-label="Ouvrir la navigation" aria-expanded={mobileMenuOpen} aria-controls="shared-nav-mobile-navigation" onClick={() => { setMobileMenuOpen(open => !open); setActiveMenu(null); }}>
+          <span className="shared-nav-mobile-menu-trigger__label">Menu</span>
+          <span className="shared-nav-mobile-menu-trigger__glyph" aria-hidden="true"><span /><span /><span /></span>
         </button>
       )}
-      {onGsmRoute && <Link href="#" className="gsm-header-mobile-cta">{t('getStarted')}</Link>}
+      {sharedNavigationEnabled && <Link href="#" className="shared-nav-header-mobile-cta">{t('getStarted')}</Link>}
       {/* Search Bar */}
-      <form className={`nav-search${onGsmRoute && mobileSearchOpen ? ' gsm-header-search-open' : ''}`} onSubmit={handleSearch}>
+      <form className={`nav-search${sharedNavigationEnabled && mobileSearchOpen ? ' shared-nav-header-search-open' : ''}`} onSubmit={handleSearch}>
         <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
@@ -286,7 +301,7 @@ export default function Navbar() {
           type="search"
           aria-label="Search stocks, bonds, and funds"
           autoComplete="off"
-          placeholder={onGsmRoute ? 'Recherche globale…' : t('search')}
+          placeholder={config.desktopSearchPlaceholder ?? 'Recherche globale…'}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
@@ -303,19 +318,22 @@ export default function Navbar() {
         )}
       </form>
 
-      {onGsmRoute && gsmMobileMenuOpen && <button type="button" className="gsm-mobile-menu-scrim" aria-label="Fermer le menu de navigation" onClick={() => { setGsmMobileMenuOpen(false); setActiveMenu(null); }} />}
-      <ul id={onGsmRoute ? "gsm-mobile-navigation" : undefined} className={`nav-links${onGsmRoute && gsmMobileMenuOpen ? " gsm-mobile-navigation--open" : ""}`}>
-        {onGsmRoute && <li className="gsm-mobile-menu-heading"><span className="gsm-mobile-menu-heading__mark">AM</span><span>AfriMarket</span><button type="button" aria-label="Fermer le menu" onClick={() => { setGsmMobileMenuOpen(false); setActiveMenu(null); }}>×</button></li>}
-        {navItems.map((item) => (
+      {sharedNavigationEnabled && mobileMenuOpen && <button type="button" className="shared-nav-mobile-menu-scrim" aria-label="Fermer le menu de navigation" onClick={() => { setMobileMenuOpen(false); setActiveMenu(null); }} />}
+      <ul id={sharedNavigationEnabled ? "shared-nav-mobile-navigation" : undefined} className={`nav-links${sharedNavigationEnabled && mobileMenuOpen ? " shared-nav-mobile-navigation--open" : ""}`}>
+        {sharedNavigationEnabled && <li className="shared-nav-mobile-menu-heading"><span className="shared-nav-mobile-menu-heading__mark">{config.brandMark ?? 'AM'}</span><span>{config.brandPrefix ?? 'Afri'}{config.brandAccent ?? 'Market'}</span><button type="button" aria-label="Fermer le menu" onClick={() => { setMobileMenuOpen(false); setDrawerSearchOpen(false); setActiveMenu(null); }}>×</button></li>}
+        {sharedNavigationEnabled && drawerSearchOpen && <li className="shared-nav-mobile-drawer-search"><div className="shared-nav-mobile-search-label">{config.drawerSearchTitle ?? 'RECHERCHE DANS LE MENU'}</div><form role="search" onSubmit={handleSearch}><MagnifyingGlass size={19} aria-hidden="true" /><input type="text" inputMode="search" aria-label="Rechercher une rubrique" placeholder={config.drawerSearchPlaceholder ?? 'Rechercher une rubrique…'} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus /><button type="button" aria-label="Fermer la recherche" onClick={() => { setDrawerSearchOpen(false); setSearchQuery(""); }}><span aria-hidden="true">×</span></button></form></li>}
+        {sharedNavigationEnabled && drawerSearchOpen && <NavigationSearchResults query={searchQuery} items={navItems} onClear={() => setSearchQuery("")} onNavigate={() => { setMobileMenuOpen(false); setDrawerSearchOpen(false); }} />}
+        {(!sharedNavigationEnabled || !drawerSearchOpen) && navItems.map((item, index) => (
           <li 
             key={item.label}
             className="nav-item"
-            onMouseEnter={() => { if (!(onGsmRoute && gsmMobileMenuOpen) && item.items?.length) handleMenuEnter(item.label); }}
-            onMouseLeave={() => { if (!(onGsmRoute && gsmMobileMenuOpen)) handleMenuLeave(); }}
+            onMouseEnter={() => { if (!(sharedNavigationEnabled && mobileMenuOpen) && item.items?.length) handleMenuEnter(item.label); }}
+            onMouseLeave={() => { if (!(sharedNavigationEnabled && mobileMenuOpen)) handleMenuLeave(); }}
           >
             {item.items && item.items.length > 0 ? (
               <button className="nav-link" type="button" aria-expanded={activeMenu === item.label} aria-haspopup="true" onClick={() => { if (menuTimeout) clearTimeout(menuTimeout); setActiveMenu(current => current === item.label ? null : item.label); setActiveSubmenu(null); setActiveNestedSubmenu(null); }}>
                 {item.icon}
+                {sharedNavigationEnabled && index < 4 && <span className="shared-nav-mobile-category-icon" aria-hidden="true">{[<ChartLine key="equity" size={24} />, <Bank key="bonds" size={24} />, <ChartPieSlice key="funds" size={24} />, <Globe key="macro" size={24} />][index]}</span>}
                 <span>{item.label}</span>
                 <CaretDown size={14} weight="bold" />
               </button>
@@ -376,19 +394,19 @@ export default function Navbar() {
             )}
           </li>
         ))}
-        {onGsmRoute ? (
-          <li className="gsm-nav-preferences">
-            <div className="gsm-nav-preference--currency"><CurrencySwitcher /></div>
-            <div className="gsm-nav-preference--locale"><LocaleSwitcher /></div>
+        {(!sharedNavigationEnabled || !drawerSearchOpen) && (sharedNavigationEnabled ? (
+          <li className="shared-nav-nav-preferences">
+            <div className="shared-nav-nav-preference--currency"><CurrencySwitcher /></div>
+            <div className="shared-nav-nav-preference--locale"><LocaleSwitcher /></div>
           </li>
         ) : (
           <>
             <li><CurrencySwitcher /></li>
             <li><LocaleSwitcher /></li>
           </>
-        )}
-        <li className="gsm-nav-primary-action"><Link href="#" className="nav-cta">{t('getStarted')}</Link></li>
-        {onGsmRoute && <li className="gsm-mobile-menu-bottom-nav" aria-label="Navigation rapide"><Link href="/" aria-label="Accueil"><Bank size={20} /></Link><button type="button" aria-label="Recherche" onClick={() => { setGsmMobileMenuOpen(false); setMobileSearchOpen(true); }}><MagnifyingGlass size={20} /></button><button type="button" aria-label="Fermer la navigation" onClick={() => setGsmMobileMenuOpen(false)}><span aria-hidden="true" className="gsm-mobile-close-glyph">×</span></button></li>}
+        ))}
+        {(!sharedNavigationEnabled || !drawerSearchOpen) && <li className="shared-nav-nav-primary-action"><Link href="#" className="nav-cta">{t('getStarted')}</Link></li>}
+        {sharedNavigationEnabled && <NavigationQuickActions searchActive={drawerSearchOpen} onHome={() => { setDrawerSearchOpen(false); setSearchQuery(""); setActiveMenu(null); setActiveSubmenu(null); setActiveNestedSubmenu(null); }} onSearch={() => { setDrawerSearchOpen(open => !open); setMobileSearchOpen(false); }} onProfile={() => setMobileMenuOpen(false)} />}
       </ul>
     </nav>
   );

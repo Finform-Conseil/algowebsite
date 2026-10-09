@@ -23,7 +23,7 @@ export default function FinancialStatements({
   
   useEffect(() => { 
     getAllStatements(queryParams); 
-  }, [queryParams]);
+  }, [getAllStatements, queryParams]);
 
   const [activeStatementName, setActiveStatementName] = useState<string>('');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());

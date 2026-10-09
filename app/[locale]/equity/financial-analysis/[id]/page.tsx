@@ -27,7 +27,7 @@ export default function FinancialAnalysisPage() {
     
   const { currentActionData, getActionById, allActionsData, getAllActions } = useActionRepository();
 
-  useEffect(() => { getActionById(id); }, [id]);
+  useEffect(() => { getActionById(id); }, [id, getActionById]);
 
   useEffect(() =>
   {

@@ -63,7 +63,7 @@ export default function ExternalSectorPage() {
       console.log("Loading data for country:", activeCountryId);
       getAllSectorForeign({ view_type: "country_tree", country_id: activeCountryId });
     }
-  }, [activeCountryId, comparisonMode]);
+  }, [activeCountryId, comparisonMode, getAllSectorForeign]);
 
   // Load comparison data when countries are selected
   useEffect(() => {

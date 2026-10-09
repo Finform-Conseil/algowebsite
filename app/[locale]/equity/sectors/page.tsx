@@ -31,7 +31,7 @@ export default function SectorsPage() {
   
   useEffect(() => {
     getAllSectors({view_type: 'screener'});
-  }, []);
+  }, [getAllSectors]);
 
   useEffect(() => {
     console.log("All Sectors Data", allSectorsData);

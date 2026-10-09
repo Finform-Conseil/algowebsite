@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import YieldCurveSection from '@/components/fixed-income/YieldCurveSection';
 import { useRateRepository } from '@/core/infra/repositories/rate.repository.impl';
@@ -93,7 +93,7 @@ export default function FixedIncomePage() {
   };
   
   // Base data for countries
-  const baseCountryData = {
+  const baseCountryData = useMemo(() => ({
     BJ: { count: 12, basePerformance: 5.4 }, // Bénin
     CI: { count: 45, basePerformance: 12.1 }, // Côte d'Ivoire
     NG: { count: 88, basePerformance: -2.3 }, // Nigeria
@@ -104,7 +104,7 @@ export default function FixedIncomePage() {
     BF: { count: 35, basePerformance: 2.1 }, // Burkina Faso
     CM: { count: 40, basePerformance: 3.5 }, // Cameroun
     GA: { count: 45, basePerformance: 2.2 }, // Gabon
-  };
+  }), []);
 
   // State for dynamic country data
   const [countryData, setCountryData] = useState(() => {
@@ -142,7 +142,7 @@ export default function FixedIncomePage() {
     }, 800);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [baseCountryData]);
 
   // Mock data for market opportunities
   const marketOpportunities: MarketOpportunity[] = [

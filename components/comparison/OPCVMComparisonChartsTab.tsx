@@ -291,6 +291,7 @@ function OPCVMTechnicalAnalysis({ opcvms, indicator }: OPCVMTechnicalAnalysisPro
   const { getAllOpcvmMetrics } = useOpcvmMetricRepository();
   const [metricsDataByOpcvm, setMetricsDataByOpcvm] = useState<Record<string, OPCVMMetricEntity[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const opcvmIds = opcvms.map((item) => item.id).join(',');
 
   // Charger les métriques pour tous les OPCVMs
   useEffect(() => {
@@ -301,13 +302,13 @@ function OPCVMTechnicalAnalysis({ opcvms, indicator }: OPCVMTechnicalAnalysisPro
       try {
         // Charger les métriques pour chaque OPCVM
         await Promise.all(
-          opcvms.map(async (opcvm) => {
+          opcvmIds.split(',').filter(Boolean).map(async (id) => {
             const result = await getAllOpcvmMetrics({ 
-              opcvm: opcvm.id, 
+              opcvm: id,
               page: 1, 
               page_size: 1000 
             });
-            metricsMap[opcvm.id] = result.data || [];
+            metricsMap[id] = result.data || [];
           })
         );
         
@@ -319,10 +320,10 @@ function OPCVMTechnicalAnalysis({ opcvms, indicator }: OPCVMTechnicalAnalysisPro
       }
     };
 
-    if (opcvms.length > 0) {
+    if (opcvmIds) {
       loadAllMetrics();
     }
-  }, [opcvms.map(o => o.id).join(',')]);
+  }, [getAllOpcvmMetrics, opcvmIds]);
 
   // Préparer les données pour le TechnicalAnalysisChart
   const seriesData = opcvms.map((opcvm, index) => {

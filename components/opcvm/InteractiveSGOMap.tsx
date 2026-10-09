@@ -98,7 +98,7 @@ const InteractiveSGOMap: React.FC<InteractiveSGOMapProps> = ({
       isLoadingAllSgos,
     } = useSgoRepository();
   
-    useEffect(() => { getAllSgos(queryParams); }, [queryParams]);
+    useEffect(() => { getAllSgos(queryParams); }, [getAllSgos, queryParams]);
   
     useEffect(() =>
     {

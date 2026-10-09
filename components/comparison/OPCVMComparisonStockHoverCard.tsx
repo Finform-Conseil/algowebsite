@@ -25,7 +25,7 @@ export default function OPCVMComparisonStockHoverCard({ opcvm, children }: OPCVM
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
   const { allOpcvmMetricsData, getAllOpcvmMetrics } = useOpcvmMetricRepository();
-  useEffect(() => { getAllOpcvmMetrics({opcvm:opcvm.id, page:1, page_size:10}); }, [opcvm.id]);
+  useEffect(() => { getAllOpcvmMetrics({opcvm:opcvm.id, page:1, page_size:10}); }, [getAllOpcvmMetrics, opcvm.id]);
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();

@@ -70,3 +70,10 @@ _Rollback/
 .fallow/
 .gemini/
 .pytest_cache/
+
+# WCER local runtime and scripts — never stage or deploy
+.wcer*
+**/.wcer/
+**/.wcer-*/
+wcer/
+**/wcer/

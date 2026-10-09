@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import TechnicalAnalysisChart from '@/components/charts/TechnicalAnalysisChart';
@@ -45,18 +45,18 @@ export default function OPCVMDetailPage() {
   const [searchResults, setSearchResults] = useState<OPCVMEntity[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   
-  const getOpcvmMetricParams = (): OpcvmMetricQueryParams => {
+  const getOpcvmMetricParams = useCallback((): OpcvmMetricQueryParams => {
     const params: OpcvmMetricQueryParams = { view_type: "screener", page: -1 };
     if (id) params.opcvm = id;
     return params;
-  };
+  }, [id]);
     
   const { currentOpcvmData, getOpcvmById, allOpcvmsData, getAllOpcvms } = useOpcvmRepository();
   const { allOpcvmMetricsData, getAllOpcvmMetrics } = useOpcvmMetricRepository();
 
-  useEffect(() => { getOpcvmById(id); }, [id]);
-  useEffect(() => { getAllOpcvmMetrics(getOpcvmMetricParams()); }, []);
-  useEffect(() => { getAllOpcvms({ page: 1, page_size: 10, search: searchQuery}); }, [searchQuery]); // Load all OPCVMs for search
+  useEffect(() => { getOpcvmById(id); }, [id, getOpcvmById]);
+  useEffect(() => { getAllOpcvmMetrics(getOpcvmMetricParams()); }, [getAllOpcvmMetrics, getOpcvmMetricParams]);
+  useEffect(() => { getAllOpcvms({ page: 1, page_size: 10, search: searchQuery}); }, [getAllOpcvms, searchQuery]); // Load all OPCVMs for search
 
   useEffect(() =>
   {

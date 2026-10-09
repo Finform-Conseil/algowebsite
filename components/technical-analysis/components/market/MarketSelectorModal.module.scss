@@ -425,6 +425,31 @@
   50% { opacity: 1; transform: scale(1.1); }
 }
 
+@media (min-width: 641px) and (max-width: 1024px) {
+  .overlay { padding: 18px 20px; }
+  .dialog { width: min(620px, 100%); max-height: calc(100dvh - 36px); }
+  .header { gap: 12px; padding: 14px 18px 12px; }
+  .headerCopy {
+    h2 { margin-top: 3px; font-size: 21px; }
+    p { margin-top: 4px; }
+  }
+  .content { padding: 14px 18px; }
+  .marketGrid, .skeletonGrid { gap: 9px; }
+  .marketCard { gap: 9px; padding: 9px; }
+  .marketLogoFrame {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    border-radius: var(--radius-md);
+  }
+  .marketTicker { font-size: 13px; }
+  .marketName { font-size: 10px; }
+  .marketMeta { gap: 4px; }
+  .currencyPill { padding: 4px 7px; }
+  .syncStatus { padding: 7px 18px; }
+  .footer { padding: 9px 18px 11px; }
+}
+
 @media (max-width: 640px) {
   .overlay { padding: 20px 12px; }
   .dialog { max-height: 92vh; border-radius: var(--radius-lg); }

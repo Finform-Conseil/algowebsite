@@ -157,7 +157,7 @@ export const useAlertsRailRuntime = (context: AlertsRailContext, contextsByTicke
       controller.abort();
       window.clearInterval(intervalId);
     };
-  }, [isHydrated, supplementalIndicatorTickerKey, supplementalTickerKey]);
+  }, [alertsLiveDataPort, isHydrated, supplementalIndicatorTickerKey, supplementalTickerKey]);
 
   useEffect(() => {
     if (!isHydrated) return;

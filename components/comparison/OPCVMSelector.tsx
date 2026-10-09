@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { OpcvmQueryParams } from '@/core/domain/types/opcvm.type';
 import { useOpcvmRepository } from '@/core/infra/repositories/opcvm.repository.impl';
 import { OPCVMEntity } from '@/core/domain/entities/opcvm.entity';
@@ -40,7 +40,7 @@ export default function OPCVMSelector({
     riskRatings: [],
   });
 
-  const getOpcvmParams = (): OpcvmQueryParams => {
+  const getOpcvmParams = useCallback((): OpcvmQueryParams => {
     const params: OpcvmQueryParams = { view_type: "screener", page: 1, page_size: 100 };
     
     if (filters.search) params.search = filters.search;
@@ -51,13 +51,13 @@ export default function OPCVMSelector({
     console.log('[OPCVMSelector] Query params:', { filters, params });
     
     return params;
-  };
+  }, [filters]);
   
   const { allOpcvmsData, getAllOpcvms } = useOpcvmRepository();
   
   useEffect(() => {
     getAllOpcvms(getOpcvmParams());
-  }, [filters]);
+  }, [getAllOpcvms, getOpcvmParams]);
 
   useEffect(() =>
   {

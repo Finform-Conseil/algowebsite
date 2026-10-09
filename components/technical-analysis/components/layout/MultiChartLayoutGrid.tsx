@@ -531,7 +531,7 @@ export const MultiChartLayoutGrid: React.FC<MultiChartLayoutGridProps> = ({
       <MultiChartCellControls
         cell={cell}
         canDuplicate={hasEmptySlot}
-        compact={isDenseLayout && !maximizedChartId}
+        compact
         showDuplicate={!isDenseLayout}
         isMaximized={maximizedChartId === cell.chartId}
         onTimeframeChange={(timeframe) => dispatch(updateLayoutChart({ chartId: cell.chartId, timeframe }))}

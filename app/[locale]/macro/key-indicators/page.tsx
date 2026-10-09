@@ -63,7 +63,7 @@ export default function KeyIndicatorsPage() {
       console.log("Loading data for country:", activeCountryId);
       getAllSectorReal({ view_type: "country_tree", country_id: activeCountryId });
     }
-  }, [activeCountryId, comparisonMode]);
+  }, [activeCountryId, comparisonMode, getAllSectorReal]);
 
   // Load comparison data when countries are selected
   useEffect(() => {

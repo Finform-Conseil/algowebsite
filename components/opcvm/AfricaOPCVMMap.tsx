@@ -82,7 +82,7 @@ const AfricaOPCVMMap: React.FC<AfricaOPCVMMapProps> = ({
   
   const { allBoursesData, getAllBourses, } = useBourseRepository();
 
-  useEffect(() => { getAllBourses(queryParams); }, [queryParams]);
+  useEffect(() => { getAllBourses(queryParams); }, [getAllBourses, queryParams]);
 
   const getExchangeBourseEntity = (exchangeId: string) => {
     return allBoursesData?.data?.find((bourse) => bourse.ticker === exchangeId);

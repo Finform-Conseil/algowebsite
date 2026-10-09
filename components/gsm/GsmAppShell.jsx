@@ -1,6 +1,6 @@
 'use client';
 
-import { Component, createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Component, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   PieChart,
   Pie,
@@ -393,6 +393,26 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
   const [ctx, setCtx] = useState({});
   const [reportOpen, setReportOpen] = useState({});
   const [siteDevise, setSiteDevise] = useState('XOF');
+  const [navigationRestored, setNavigationRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem('gsm-last-navigation-v1') || 'null');
+      const manager = ['accueil','portefeuilles','money-management','cession-retrait','carnet','avis','vue-boursiere','marches','watchlist','recos-actions','reco-alloc','alloc-criteres','alertes','reequilibrage','analyse','comite','documentation'];
+      const client = ['client-dashboard','client-portfolios','client-exchanges','client-markets','client-watchlist','client-orders','client-avis','client-cashflows','client-analysis','client-documentation'];
+      if (saved?.workspace === 'gestionnaire' || saved?.workspace === 'client') {
+        setWorkspace(saved.workspace);
+        if (manager.includes(saved.screen)) setScreen(saved.screen);
+        if (client.includes(saved.clientScreen)) setClientScreen(saved.clientScreen);
+      }
+    } catch { /* Invalid session falls back to the landing screen. */ }
+    setNavigationRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!navigationRestored) return;
+    try {
+      window.sessionStorage.setItem('gsm-last-navigation-v1', JSON.stringify({ workspace, screen, clientScreen }));
+    } catch { /* Storage is optional. */ }
+  }, [navigationRestored, workspace, screen, clientScreen]);
   const [dark, setDark] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [compactSidebarViewport, setCompactSidebarViewport] = useState(false);
@@ -524,28 +544,28 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
     );
   }, [sidebarCollapsed, sidebarReady]);
 
-  const clearSidebarPeekTimer = () => {
+  const clearSidebarPeekTimer = useCallback(() => {
     if (sidebarPeekTimerRef.current) {
       window.clearTimeout(sidebarPeekTimerRef.current);
       sidebarPeekTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const clearSidebarAutoCloseTimer = () => {
+  const clearSidebarAutoCloseTimer = useCallback(() => {
     if (sidebarAutoCloseTimerRef.current) {
       window.clearTimeout(sidebarAutoCloseTimerRef.current);
       sidebarAutoCloseTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const scheduleSidebarAutoClose = () => {
+  const scheduleSidebarAutoClose = useCallback(() => {
     clearSidebarAutoCloseTimer();
     if (!sidebarReady || sidebarIsCollapsed) return;
     sidebarAutoCloseTimerRef.current = window.setTimeout(() => {
       setSidebarCollapsed(true);
       sidebarAutoCloseTimerRef.current = null;
     }, 5000);
-  };
+  }, [clearSidebarAutoCloseTimer, sidebarReady, sidebarIsCollapsed]);
 
   useEffect(() => {
     if (sidebarReady && !sidebarIsCollapsed && !sidebarHoveredRef.current) {
@@ -554,12 +574,12 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
       clearSidebarAutoCloseTimer();
     }
     return clearSidebarAutoCloseTimer;
-  }, [sidebarReady, sidebarIsCollapsed]);
+  }, [sidebarReady, sidebarIsCollapsed, scheduleSidebarAutoClose, clearSidebarAutoCloseTimer]);
 
-  const closeSidebarPeek = () => {
+  const closeSidebarPeek = useCallback(() => {
     clearSidebarPeekTimer();
     setSidebarPeek(false);
-  };
+  }, [clearSidebarPeekTimer]);
 
   const scheduleSidebarPeekClose = () => {
     if (!sidebarIsCollapsed) return;
@@ -586,7 +606,7 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
     if (!sidebarIsCollapsed) {
       closeSidebarPeek();
     }
-  }, [sidebarIsCollapsed]);
+  }, [sidebarIsCollapsed, closeSidebarPeek]);
 
   useEffect(() => {
     const activeRouteKey = `${workspace}:${screen}:${clientScreen}`;
@@ -616,20 +636,7 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
     return () => window.cancelAnimationFrame(frame);
   }, [sidebarIsCollapsed, workspace, screen, clientScreen]);
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      const nav = sidebarNavRef.current;
-      if (!nav) return;
-
-      const maxScrollTop = Math.max(0, nav.scrollHeight - nav.clientHeight);
-      nav.scrollTop = Math.min(sidebarScrollTopRef.current, maxScrollTop);
-      syncSidebarScrollIndicator(nav);
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [sidebarIsCollapsed]);
-
-  const syncSidebarScrollIndicator = (nav) => {
+  const syncSidebarScrollIndicator = useCallback((nav) => {
     const aside = nav?.closest('.gsm-sidebar');
     if (!nav || !aside) return false;
 
@@ -668,7 +675,18 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
 
     setSidebarScrollIndicator({ top, height });
     return true;
-  };
+  }, [sidebarIsCollapsed, sidebarPeek]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const nav = sidebarNavRef.current;
+      if (!nav) return;
+      const maxScrollTop = Math.max(0, nav.scrollHeight - nav.clientHeight);
+      nav.scrollTop = Math.min(sidebarScrollTopRef.current, maxScrollTop);
+      syncSidebarScrollIndicator(nav);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [sidebarIsCollapsed, syncSidebarScrollIndicator]);
 
   useEffect(() => {
     const nav = sidebarNavRef.current;
@@ -733,11 +751,11 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
       document.removeEventListener('scroll', handleScroll, true);
       resizeObserver?.disconnect();
     };
-  }, [sidebarIsCollapsed, sidebarPeek, workspace, screen, clientScreen]);
+  }, [sidebarIsCollapsed, sidebarPeek, workspace, screen, clientScreen, syncSidebarScrollIndicator]);
 
   useEffect(() => {
     return () => clearSidebarPeekTimer();
-  }, []);
+  }, [clearSidebarPeekTimer]);
 
   const persistWatchlist = (next) => {
     if (typeof window !== 'undefined') {
@@ -1000,67 +1018,7 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
           >
             <div className="gsm-sidebar__top">
               <div className="gsm-sidebar__brand gsm-native-gsmappshell-125d819ae">
-                <div
-                  className="gsm-sidebar__brand-main"
-                  role={sidebarIsCollapsed ? 'button' : undefined}
-                  tabIndex={sidebarIsCollapsed ? 0 : -1}
-                  aria-label={
-                    sidebarIsCollapsed ? 'Ouvrir la barre latérale' : undefined
-                  }
-                  title={
-                    sidebarIsCollapsed ? 'Ouvrir la barre latérale' : undefined
-                  }
-                  onClick={() => {
-                    if (compactSidebarViewport) {
-                      openSidebarPeek();
-                      return;
-                    }
-                    if (sidebarCollapsed) {
-                      sidebarScrollTopRef.current =
-                        sidebarNavRef.current?.scrollTop ?? sidebarScrollTopRef.current;
-                      closeSidebarPeek();
-                      setSidebarCollapsed(false);
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (
-                      sidebarIsCollapsed &&
-                      (event.key === 'Enter' || event.key === ' ')
-                    ) {
-                      event.preventDefault();
-                      if (compactSidebarViewport) {
-                        openSidebarPeek();
-                        return;
-                      }
-                      sidebarScrollTopRef.current =
-                        sidebarNavRef.current?.scrollTop ?? sidebarScrollTopRef.current;
-                      setSidebarCollapsed(false);
-                    }
-                  }}
-                >
-                  <div
-                    className="gsm-native-gsmappshell-330647c33"
-                    style={{ background: C.gold }}
-                  >
-                    <Landmark size={18} color={C.sidebarBackground} />
-                  </div>
-                  <div className="gsm-sidebar__brand-copy">
-                    <div
-                      className="gsm-native-gsmappshell-afe48f676"
-                      style={F_DISPLAY}
-                    >
-                      AfriMarket
-                    </div>
-                    <div
-                      className="gsm-native-gsmappshell-a0f2f6aec"
-                      style={{ color: C.sidebarMuted }}
-                    >
-                      {workspace === 'gestionnaire'
-                        ? 'Management'
-                        : 'Gestion libre'}
-                    </div>
-                  </div>
-                </div>
+
 
                 <button
                   type="button"
@@ -1286,38 +1244,7 @@ export function GsmAppShell({ documentation, onOpenDocumentation, onDownloadDocu
               </button>
             </div>
 
-            <div
-              className="gsm-sidebar__meta"
-              style={{
-                borderTop: `1px solid ${C.sidebarCardBorder}`,
-                color: C.sidebarMeta,
-              }}
-            >
-              {workspace === 'gestionnaire' ? (
-                <>
-                  Marchés couverts : BRVM · NGX · GSE
-                  <br />
-                  Devise de référence : {siteDevise}
-                </>
-              ) : (
-                <>
-                  {
-                    new Set(
-                      CLIENT_GESTION_LIBRE.portefeuilles.map((pf) => pf.sgi)
-                    ).size
-                  }{' '}
-                  SGI connectées ·{' '}
-                  {
-                    new Set(
-                      CLIENT_GESTION_LIBRE.portefeuilles.map((pf) => pf.pays)
-                    ).size
-                  }{' '}
-                  pays
-                  <br />
-                  Patrimoine consolidé en {siteDevise}
-                </>
-              )}
-            </div>
+
           </aside>
 
           <main

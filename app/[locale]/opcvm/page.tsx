@@ -38,8 +38,8 @@ export default function OPCVMHomePage() {
   const { allBoursesData, getAllBourses, } = useBourseRepository();
   const { allOpcvmsData, getAllOpcvms, } = useOpcvmRepository();
 
-  useEffect(() => { getAllBourses(queryParams); }, [queryParams]);
-  useEffect(() => { getAllOpcvms(opcvmParams); }, [opcvmParams]);
+  useEffect(() => { getAllBourses(queryParams); }, [getAllBourses, queryParams]);
+  useEffect(() => { getAllOpcvms(opcvmParams); }, [getAllOpcvms, opcvmParams]);
 
   useEffect(() =>
   {

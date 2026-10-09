@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import MarketHeader from '@/components/market-movers/MarketHeader';
 import TopMovers from '@/components/market-movers/TopMovers';
@@ -28,7 +28,7 @@ export default function MarketMoversPage() {
     minVolume: undefined
   });
 
-  const getTopGainersParams = (): ActionQueryParams => {
+  const getTopGainersParams = useCallback((): ActionQueryParams => {
     const params: ActionQueryParams = { 
       view_type: "market_movers",
       page_size: 10,
@@ -48,9 +48,9 @@ export default function MarketMoversPage() {
     }
     
     return params;
-  };
+  }, [filters]);
 
-  const getTopLosersParams = (): ActionQueryParams => {
+  const getTopLosersParams = useCallback((): ActionQueryParams => {
     const params: ActionQueryParams = { 
       view_type: "market_movers",
       page_size: 10,
@@ -70,9 +70,9 @@ export default function MarketMoversPage() {
     }
     
     return params;
-  };
+  }, [filters]);
 
-  const getMostActiveParams = (): ActionQueryParams => {
+  const getMostActiveParams = useCallback((): ActionQueryParams => {
     const params: ActionQueryParams = { 
       view_type: "market_movers",
       page_size: 100,
@@ -92,22 +92,25 @@ export default function MarketMoversPage() {
     }
     
     return params;
-  };
+  }, [filters]);
   
   const topGainersRepo = useActionRepository();
   const topLosersRepo = useActionRepository();
   const mostActiveRepo = useActionRepository();
   const { allSectorsData, getAllSectors } = useSectorRepository();
+  const loadTopGainers = topGainersRepo.getAllActions;
+  const loadTopLosers = topLosersRepo.getAllActions;
+  const loadMostActive = mostActiveRepo.getAllActions;
   
   useEffect(() => {
     getAllSectors({ page_size: 100 });
-  }, []);
+  }, [getAllSectors]);
   
   useEffect(() => {
-    topGainersRepo.getAllActions(getTopGainersParams());
-    topLosersRepo.getAllActions(getTopLosersParams());
-    mostActiveRepo.getAllActions(getMostActiveParams());
-  }, [filters]);
+    loadTopGainers(getTopGainersParams());
+    loadTopLosers(getTopLosersParams());
+    loadMostActive(getMostActiveParams());
+  }, [loadTopGainers, loadTopLosers, loadMostActive, getTopGainersParams, getTopLosersParams, getMostActiveParams]);
 
 
 
@@ -140,14 +143,14 @@ export default function MarketMoversPage() {
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
-      topGainersRepo.getAllActions(getTopGainersParams());
-      topLosersRepo.getAllActions(getTopLosersParams());
-      mostActiveRepo.getAllActions(getMostActiveParams());
+      loadTopGainers(getTopGainersParams());
+      loadTopLosers(getTopLosersParams());
+      loadMostActive(getMostActiveParams());
       setLastRefresh(new Date());
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, filters]);
+  }, [autoRefresh, loadTopGainers, loadTopLosers, loadMostActive, getTopGainersParams, getTopLosersParams, getMostActiveParams]);
 
   const marketIndicators = useMemo(() => {
     const allStocks = [...topGainers, ...topLosers, ...mostActive];

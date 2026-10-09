@@ -27,7 +27,7 @@ export default function BoursesPage() {
   
   useEffect(() => {
     getAllBourses({view_type: 'comparison'});
-  }, []);
+  }, [getAllBourses]);
 
   const AFRICAN_EXCHANGES = useMemo(() => {
     if (!allBoursesData || !allBoursesData.data || allBoursesData.data.length === 0) {
@@ -43,7 +43,7 @@ export default function BoursesPage() {
         .map(e => e.id);
       setSelectedExchanges(defaultSelection);
     }
-  }, [AFRICAN_EXCHANGES]);
+  }, [AFRICAN_EXCHANGES, selectedExchanges.length]);
 
   const handleExchangeToggle = (exchangeId: string) => {
     setSelectedExchanges(prev => 

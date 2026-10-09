@@ -15,7 +15,7 @@ export default function OPCVMTitansPage() {
     
     useEffect(() => {
       getAllSgos({view_type:'titans'});
-    }, []);
+    }, [getAllSgos]);
   
     useEffect(() =>
     {

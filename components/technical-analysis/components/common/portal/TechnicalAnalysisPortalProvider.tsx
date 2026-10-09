@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useEffect, useMemo, useRef } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 export const TechnicalAnalysisPortalContext = createContext<HTMLElement | null>(null);
@@ -12,7 +12,7 @@ interface TechnicalAnalysisPortalProviderProps {
 }
 
 export const TechnicalAnalysisPortalProvider: React.FC<TechnicalAnalysisPortalProviderProps> = ({ children }) => {
-  const portalRootRef = useRef<HTMLElement | null>(null);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -24,17 +24,17 @@ export const TechnicalAnalysisPortalProvider: React.FC<TechnicalAnalysisPortalPr
       el.className = "technical-analysis-root technical-analysis-bootstrap-scope technical-analysis-portal-root";
       document.body.appendChild(el);
     }
-    portalRootRef.current = el;
+    setPortalRoot(el);
 
     return () => {
       if (el && el.parentNode) {
         el.parentNode.removeChild(el);
       }
-      portalRootRef.current = null;
+      setPortalRoot(null);
     };
   }, []);
 
-  const value = useMemo(() => portalRootRef.current, [portalRootRef.current]);
+  const value = portalRoot;
 
   return (
     <TechnicalAnalysisPortalContext.Provider value={value}>

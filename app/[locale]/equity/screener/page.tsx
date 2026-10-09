@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import ScreenerHeader from '@/components/screener/ScreenerHeader';
 import FilterBar from '@/components/screener/FilterBar';
 import FilterSidePanel from '@/components/screener/FilterSidePanel';
@@ -57,7 +57,7 @@ export default function StockScreenerPage() {
     isLoaded: customColumnsLoaded,
   } = useCustomColumns();
   
-  const getStocksParams = (): ActionQueryParams => {
+  const getStocksParams = useCallback((): ActionQueryParams => {
     const params: ActionQueryParams = { view_type: "screener", page: currentPage, page_size: 20 };
     
     if (filters.search) params.search = filters.search;
@@ -95,13 +95,13 @@ export default function StockScreenerPage() {
     });
     
     return params;
-  };
+  }, [filters, sortBy, sortOrder, currentPage, activeFilters]);
   
   const { allActionsData, getAllActions } = useActionRepository();
   
   useEffect(() => {
     getAllActions(getStocksParams());
-  }, [filters, sortBy, sortOrder, currentPage, activeFilters]);
+  }, [getAllActions, getStocksParams]);
 
   useEffect(() =>
   {

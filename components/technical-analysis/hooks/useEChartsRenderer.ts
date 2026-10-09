@@ -757,6 +757,7 @@ const buildChartTitlePresentation = (
   marketLabel: string,
   chartConfig: ChartState,
   chartData: ChartDataPoint[],
+  chartWidthPx: number,
 ): ChartTitlePresentation => {
   const prefix = [displaySymbol.trim(), chartConfig.timeframe.trim(), marketLabel.trim()].filter(Boolean).join(" · ");
   const latest = chartData[chartData.length - 1];
@@ -773,11 +774,12 @@ const buildChartTitlePresentation = (
     : "";
 
   return {
-    text: "{title|" + prefix + "} " +
+    text: "{title|" + prefix + "}" + (chartWidthPx < 600 ? "\n" : " ") +
       "{ohlcLabel|O}{ohlcValue|" + formatChartLegendValue(latest.open) + "} " +
       "{ohlcLabel|H}{ohlcValue|" + formatChartLegendValue(latest.high) + "} " +
       "{ohlcLabel|L}{ohlcValue|" + formatChartLegendValue(latest.low) + "} " +
-      "{ohlcLabel|C}{ohlcValue|" + formatChartLegendValue(latest.close) + "}{change|" + changeText + "}",
+      "{ohlcLabel|C}{ohlcValue|" + formatChartLegendValue(latest.close) + "}" +
+      (chartWidthPx < 460 && changeText ? "\n" : "") + "{change|" + changeText + "}",
   };
 };
 
@@ -5573,7 +5575,9 @@ const buildEChartsOption = ({
     });
   }
 
-  const chartTitle = buildChartTitlePresentation(displaySymbol, marketLabel, chartConfig, chartData);
+  const chartTitle = buildChartTitlePresentation(displaySymbol, marketLabel, chartConfig, chartData, chartContainerWidthPx);
+  const compactChartHeader = chartContainerWidthPx < 600;
+  const narrowChartHeader = chartContainerWidthPx < 460;
   if (chartAppearance.watermarkMode !== "none") {
     graphicOptions.push({
       type: "text",
@@ -5616,7 +5620,7 @@ const buildEChartsOption = ({
         type: "scroll" as const,
         // Trading-terminal hierarchy: the first row belongs exclusively to
         // symbol/OHLC information; indicators live in a compact second row.
-        top: 24,
+        top: narrowChartHeader ? 66 : compactChartHeader ? 44 : 24,
         left: 8,
         right: gridRight + 4,
         orient: "horizontal" as const,
@@ -5652,10 +5656,10 @@ const buildEChartsOption = ({
         fontSize: 14,
         fontWeight: "normal",
         rich: {
-          title: { color: textColor, fontSize: 14, fontWeight: "normal" },
-          ohlcLabel: { color: "#FF9F04", fontSize: 12, fontWeight: 700, padding: [0, 3, 0, 4] },
-          ohlcValue: { color: "#e2e8f0", fontSize: 12, fontWeight: 600 },
-          change: { color: "#e2e8f0", fontSize: 12, fontWeight: 600 },
+          title: { color: textColor, fontSize: compactChartHeader ? 12 : 14, fontWeight: "normal", lineHeight: compactChartHeader ? 17 : 20 },
+          ohlcLabel: { color: "#FF9F04", fontSize: narrowChartHeader ? 10 : 12, fontWeight: 700, padding: [0, 3, 0, 4] },
+          ohlcValue: { color: "#e2e8f0", fontSize: narrowChartHeader ? 10 : 12, fontWeight: 600 },
+          change: { color: "#e2e8f0", fontSize: narrowChartHeader ? 10 : 12, fontWeight: 600 },
         },
       },
     },

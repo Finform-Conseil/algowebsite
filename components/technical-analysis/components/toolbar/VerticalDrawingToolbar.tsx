@@ -28,6 +28,7 @@ import {
   TrendToolDropdown,
 } from "./drawing/DrawingToolDropdown";
 import { DrawingToolbarFooter, DrawingToolbarUtilityActions, type DrawingToolbarFooterMenu } from "./drawing/DrawingToolbarFooter";
+import { VerticalToolbarScrollAffordance } from "./drawing/VerticalToolbarScrollAffordance";
 import { getDrawingToolCounts } from "./drawing/drawingToolCounts";
 import {
   createEmptyToolCategoryMemory,
@@ -485,6 +486,8 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
     annotationsDropdownRef,
   ]);
 
+  const toolsScrollRef = useRef<HTMLDivElement>(null);
+
   return (
     <aside
       ref={verticalToolbarRef}
@@ -500,7 +503,9 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
       data-loading={isInitialLoading ? "true" : "false"}
     >
       {isInitialLoading && <VerticalDrawingToolbarLoadingOverlay />}
-      <div className={"gp-toolbar-scroll-container"}>
+      <div className="gp-vertical-scroll-shell">
+        <VerticalToolbarScrollAffordance viewportRef={toolsScrollRef} direction="up" />
+      <div ref={toolsScrollRef} className="gp-toolbar-scroll-container">
         <CursorModeSelector
           cursorMode={uiState.cursorMode}
           isActive={isCursorActive}
@@ -683,6 +688,8 @@ export const VerticalDrawingToolbar: React.FC<VerticalDrawingToolbarProps> = ({
           zoomOutVisible={zoomOutVisible}
           onZoomOut={onZoomOut}
         />
+      </div>
+        <VerticalToolbarScrollAffordance viewportRef={toolsScrollRef} direction="down" />
       </div>
 
       <DrawingToolbarFooter

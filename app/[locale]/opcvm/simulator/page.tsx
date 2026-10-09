@@ -58,7 +58,7 @@ export default function OPCVMSimulatorPage() {
     }
 
     getAllOpcvmMetrics({ view_type: "screener", page: -1, opcvm: selectedFund.id });
-  }, [selectedFund?.id]);
+  }, [selectedFund?.id, getAllOpcvmMetrics]);
 
   useEffect(() => {
     const sortedMetrics = allOpcvmMetricsData?.data ? [...allOpcvmMetricsData.data].sort((a, b) =>

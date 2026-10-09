@@ -115,7 +115,7 @@ export const useUserRepository = (): IUserRepository => {
   const getUserById = useCallback((id: string) => {
     setUserIdArg(id);
     return currentUserQueryResult || null;
-  }, []);
+  }, [currentUserQueryResult]);
   
   const handleRefetchAllUsers = useCallback(() => {
     refetchAllUsersQuery();
